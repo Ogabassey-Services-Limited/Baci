@@ -105,23 +105,18 @@ export default function OnboardingForm() {
     const isValid = await form.trigger(fieldsToValidate);
 
     if (isValid) {
-      if (step === 3) {
-        const logoChoice = form.getValues('logoChoice');
-        if (logoChoice === 'upload') {
-            // Skip the color preference step if uploading
-            setStep(step + 2); 
-        } else {
-            setStep(step + 1);
-        }
+      if (step === 3 && form.getValues('logoChoice') === 'upload') {
+          // If uploading, we skip the color preference step and go straight to upload
+          setStep(5); 
       } else {
-        setStep(step + 1);
+          setStep(step + 1);
       }
     }
   };
 
   const handlePrev = () => {
-     if (step === 5 && form.getValues('logoChoice') === 'upload') {
-        setStep(step - 2);
+     if (step === 5) { // If we are on the upload screen
+        setStep(3); // Go back to the logo choice
     } else {
         setStep(step - 1);
     }
@@ -143,14 +138,8 @@ export default function OnboardingForm() {
   const handleGenerateLogo = async () => {
     const { businessName, businessType, brandPreferences, otherBusinessType } = form.getValues();
     
-    const allFields = { businessName, businessType, brandPreferences };
-    for (const [key, value] of Object.entries(allFields)) {
-        if (!value) {
-            form.setError(key as keyof OnboardingFormValues, { message: 'This field is required.' });
-        }
-    }
-
     if (!brandPreferences) {
+        form.setError('brandPreferences', { message: 'This field is required.' });
         toast({ title: "Favorite color is required", description: "Please tell us your favorite color to generate a logo.", variant: 'destructive'});
         return;
     }
@@ -165,8 +154,8 @@ export default function OnboardingForm() {
       if (result.logoDataUri) {
         setLogoPreview(result.logoDataUri);
         form.setValue('logo', result.logoDataUri);
-        // Automatically move to the next step after successful generation
-        setStep(step + 1);
+        // Automatically move to the final review step after successful generation
+        setStep(5);
       }
     } catch (e) {
       logger.error({ error: e, message: 'Logo generation failed in onboarding form.' });
@@ -182,15 +171,26 @@ export default function OnboardingForm() {
   };
 
   const onSubmit = async (data: OnboardingFormValues) => {
+    // Final validation before submitting
+    if (!data.logo && !logoPreview) {
+        toast({
+            title: "Logo is required",
+            description: "Please upload or generate a logo before creating your store.",
+            variant: "destructive"
+        });
+        return;
+    }
+
     setIsLoading(true);
     try {
         const finalBusinessType = data.businessType === 'other' ? data.otherBusinessType : data.businessType;
+        const finalLogo = data.logo || logoPreview;
 
         await guideBusinessOnboarding({
             businessName: data.businessName,
             businessType: finalBusinessType!,
             brandPreferences: data.brandPreferences!,
-            logoDataUri: data.logo
+            logoDataUri: finalLogo
         });
 
         toast({
@@ -212,7 +212,7 @@ export default function OnboardingForm() {
   };
 
   const businessTypeValue = form.watch('businessType');
-  const finalStep = step === 5 || (step === 4 && form.getValues('logoChoice') === 'generate');
+  const finalStep = step === 5;
 
   return (
     <div className="space-y-8">
@@ -333,7 +333,7 @@ export default function OnboardingForm() {
                 />
           )}
 
-          {step === 4 && form.getValues('logoChoice') === 'generate' && (
+          {step === 4 && (
             <div className="space-y-4 text-center">
                  <FormField
                     control={form.control}
@@ -364,32 +364,43 @@ export default function OnboardingForm() {
           {step === 5 && (
             <div className='space-y-4'>
                 <FormLabel className="text-lg">
-                    {form.getValues('logoChoice') === 'upload' ? 'Upload your logo' : 'Your new logo!'}
+                    {form.getValues('logoChoice') === 'upload' ? 'Upload your logo' : 'Here is your new logo!'}
                 </FormLabel>
-                
-                <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center", { 'hidden': form.getValues('logoChoice') === 'generate' })}>
-                    <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p>
-                    <Input
-                        id="logo-upload"
-                        type="file"
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        accept="image/*"
-                        onChange={handleLogoChange}
-                    />
-                </div>
-                
-                 {logoPreview && (
-                    <div className="relative w-full h-48">
+
+                {logoPreview && (
+                    <div className="relative w-full h-48 border-2 border-dashed border-muted-foreground/50 rounded-lg flex items-center justify-center">
                         <Image
                             src={logoPreview}
                             alt="Logo Preview"
                             layout="fill"
                             objectFit="contain"
-                            className="rounded-md"
+                            className="rounded-md p-4"
                         />
                     </div>
                 )}
+                
+                {form.getValues('logoChoice') === 'upload' && !logoPreview && (
+                    <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center")}>
+                        <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p>
+                        <Input
+                            id="logo-upload"
+                            type="file"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            accept="image/*"
+                            onChange={handleLogoChange}
+                        />
+                    </div>
+                )}
+                 <FormField
+                    control={form.control}
+                    name="logo"
+                    render={() => (
+                      <FormItem>
+                         <FormMessage className='mt-2'/>
+                      </FormItem>
+                    )}
+                  />
             </div>
           )}
 
