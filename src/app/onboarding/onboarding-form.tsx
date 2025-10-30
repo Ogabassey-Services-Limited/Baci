@@ -51,8 +51,6 @@ const formSchema = z.object({
 
 type OnboardingFormValues = z.infer<typeof formSchema>;
 
-const totalSteps = 4;
-
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -72,6 +70,11 @@ export default function OnboardingForm() {
     mode: 'onChange',
   });
 
+  const logoChoice = form.watch('logoChoice');
+  const totalSteps = logoChoice === 'generate' ? 4 : 3;
+  const finalSubmitStep = logoChoice === 'generate' ? 5 : 4;
+
+
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
     if (step === 1) {
@@ -85,9 +88,12 @@ export default function OnboardingForm() {
     const isValid = await form.trigger(fieldsToValidate);
 
     if (isValid) {
-      if (step === 3 && form.getValues('logoChoice') === 'upload') {
-          // If uploading, we skip the color preference step and go straight to upload
-          setStep(5); 
+      if (step === 3) {
+        if(form.getValues('logoChoice') === 'upload') {
+            setStep(4);
+        } else {
+            setStep(4);
+        }
       } else {
           setStep(step + 1);
       }
@@ -95,8 +101,8 @@ export default function OnboardingForm() {
   };
 
   const handlePrev = () => {
-     if (step === 5) { // If we are on the upload screen
-        setStep(3); // Go back to the logo choice
+     if (step === 4) {
+        setStep(3);
     } else {
         setStep(step - 1);
     }
@@ -192,7 +198,8 @@ export default function OnboardingForm() {
   };
 
   const businessTypeValue = form.watch('businessType');
-  const finalStep = step === 5;
+  const currentStep = logoChoice === 'generate' && step > 3 ? step - 1 : step;
+  const isFinalStep = step === finalSubmitStep;
 
   return (
     <div className="space-y-8">
@@ -206,9 +213,9 @@ export default function OnboardingForm() {
       </div>
 
       <div className="flex items-center gap-4">
-        <Progress value={(step / totalSteps) * 100} className="w-full" />
+        <Progress value={(currentStep / totalSteps) * 100} className="w-full" />
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          Step {step} of {totalSteps}
+          Step {currentStep} of {totalSteps}
         </span>
       </div>
 
@@ -312,8 +319,8 @@ export default function OnboardingForm() {
                 )}
                 />
           )}
-
-          {step === 4 && (
+          
+          {step === 4 && logoChoice === 'generate' && (
             <div className="space-y-4 text-center">
                  <FormField
                     control={form.control}
@@ -341,10 +348,10 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {step === 5 && (
+          {(step === 4 && logoChoice === 'upload') || step === 5 && (
             <div className='space-y-4'>
                 <FormLabel className="text-lg">
-                    {form.getValues('logoChoice') === 'upload' ? 'Upload your logo' : 'Here is your new logo!'}
+                    {logoChoice === 'upload' ? 'Upload your logo' : 'Here is your new logo!'}
                 </FormLabel>
 
                 {logoPreview && (
@@ -359,7 +366,7 @@ export default function OnboardingForm() {
                     </div>
                 )}
                 
-                {form.getValues('logoChoice') === 'upload' && !logoPreview && (
+                {logoChoice === 'upload' && !logoPreview && (
                     <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center")}>
                         <Upload className="w-8 h-8 text-muted-foreground mb-2" />
                         <p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p>
@@ -393,7 +400,7 @@ export default function OnboardingForm() {
             ) : (
               <div></div>
             )}
-            {!finalStep ? (
+            {!isFinalStep ? (
               <Button type="button" onClick={handleNext}>
                 Next
               </Button>
