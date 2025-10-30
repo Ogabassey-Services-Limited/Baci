@@ -21,13 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, Sparkles, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
+import { logger } from '@/lib/logger';
 
 const step1Schema = z.object({
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
@@ -55,7 +55,6 @@ export default function OnboardingForm() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [generatedLogo, setGeneratedLogo] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -100,35 +99,45 @@ export default function OnboardingForm() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setLogoPreview(reader.result as string);
-        setGeneratedLogo(null);
-        form.setValue('logo', reader.result as string);
+        const dataUri = reader.result as string;
+        setLogoPreview(dataUri);
+        form.setValue('logo', dataUri);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleGenerateLogo = async () => {
-    const { businessName, brandPreferences } = form.getValues();
+    const { businessName, brandPreferences, businessType } = form.getValues();
      if (!brandPreferences) {
       form.setError('brandPreferences', { message: 'Please tell us your favorite color first.' });
       setStep(3); // Go back to the color step
       return;
     }
+    if (!businessName) {
+      form.setError('businessName', { message: 'Please enter your business name first.' });
+      setStep(1);
+      return;
+    }
+     if (!businessType) {
+      form.setError('businessType', { message: 'Please select your business type first.' });
+      setStep(2);
+      return;
+    }
 
     setIsLoading(true);
-    setLogoPreview(null);
     try {
       const result = await guideBusinessOnboarding({
-        businessName: businessName,
-        businessType: form.getValues('businessType'),
-        brandPreferences: brandPreferences,
+        businessName,
+        businessType,
+        brandPreferences,
       });
       if (result.logoDataUri) {
-        setGeneratedLogo(result.logoDataUri);
+        setLogoPreview(result.logoDataUri);
         form.setValue('logo', result.logoDataUri);
       }
     } catch (e) {
+      logger.error({ error: e, message: 'Logo generation failed in onboarding form.' });
       toast({
         title: 'Logo Generation Failed',
         description:
@@ -143,21 +152,11 @@ export default function OnboardingForm() {
   const onSubmit = async (data: OnboardingFormValues) => {
     setIsLoading(true);
     try {
-        let logoDataUri = data.logo;
-        if (!logoDataUri && !logoPreview) { // If no logo is uploaded or generated
-             const result = await guideBusinessOnboarding({
-                businessName: data.businessName,
-                businessType: data.businessType,
-                brandPreferences: data.brandPreferences,
-            });
-             logoDataUri = result.logoDataUri;
-        }
-
         await guideBusinessOnboarding({
             businessName: data.businessName,
             businessType: data.businessType,
             brandPreferences: data.brandPreferences,
-            logoDataUri: logoDataUri
+            logoDataUri: data.logo
         });
 
         toast({
@@ -167,12 +166,14 @@ export default function OnboardingForm() {
 
         router.push('/dashboard');
     } catch (e) {
+        logger.error({ error: e, message: 'Onboarding submission failed.' });
         toast({
             title: 'Onboarding Failed',
             description: 'Could not create your store. Please try again.',
             variant: 'destructive',
         });
-        setIsLoading(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -272,22 +273,22 @@ export default function OnboardingForm() {
                         accept="image/*"
                         onChange={handleLogoChange}
                     />
+                     {logoPreview && (
+                        <div className="absolute inset-0 p-2">
+                            <Image
+                                src={logoPreview}
+                                alt="Logo Preview"
+                                layout="fill"
+                                objectFit="contain"
+                                className="rounded-md"
+                            />
+                        </div>
+                    )}
                 </div>
                 <div className="flex flex-col items-center justify-center space-y-4 h-48">
-                  {(logoPreview || generatedLogo) && (
-                    <div className="w-24 h-24 relative">
-                      <Image
-                        src={logoPreview || generatedLogo || ''}
-                        alt="Logo Preview"
-                        layout="fill"
-                        objectFit="contain"
-                        className="rounded-md"
-                      />
-                    </div>
-                  )}
                   <p className="text-sm text-muted-foreground">or</p>
                   <Button type="button" variant="outline" onClick={handleGenerateLogo} disabled={isLoading}>
-                    {isLoading && !generatedLogo ? (
+                    {isLoading ? (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                       <Sparkles className="mr-2 h-4 w-4" />

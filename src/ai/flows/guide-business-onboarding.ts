@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { logger } from '@/lib/logger';
 
 const GuideBusinessOnboardingInputSchema = z.object({
   businessName: z.string().describe("The user's business name."),
@@ -79,9 +80,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
   async input => {
      if (input.logoDataUri) {
        const {output} = await extractColorsPrompt(input);
-       // If a logo is provided, we don't generate a new one, just extract colors.
-       // The prompt is instructed to only return colors in this case.
-       return { brandColors: output!.brandColors };
+       return { brandColors: output!.brandColors, logoDataUri: input.logoDataUri };
     }
 
     const {media, output} = await ai.generate({
@@ -101,20 +100,23 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
     });
 
     if (!media || !output) {
-      throw new Error('AI failed to generate a logo or brand colors.');
+      const error = new Error('AI failed to generate a logo or brand colors.');
+      logger.error({ error, message: 'Logo and brand color generation failed.', flow: 'guideBusinessOnboardingFlow', input });
+      throw error;
     }
     
-    // Sometimes the model returns the JSON in the text part of the output, let's parse it
     let parsedOutput: GuideBusinessOnboardingOutput;
     try {
         const jsonString = (output as string).replace(/```json|```/g, '').trim();
         const parsedJson = JSON.parse(jsonString);
         parsedOutput = GuideBusinessOnboardingOutputSchema.parse(parsedJson);
     } catch (error) {
-        // If parsing fails, we'll try to get it from the prompt's structured output.
+        logger.error({ error, message: "Could not parse brand colors from model's text response.", flow: 'guideBusinessOnboardingFlow', output });
         const { output: structuredOutput } = await extractColorsPrompt(input);
         if(!structuredOutput || !structuredOutput.brandColors) {
-            throw new Error("Could not extract brand colors from the model's response.");
+            const extractionError = new Error("Could not extract brand colors from the model's response via structured output.");
+            logger.error({ error: extractionError, message: "Secondary extraction attempt failed.", flow: 'guideBusinessOnboardingFlow', structuredOutput });
+            throw extractionError;
         }
         parsedOutput = {
             logoDataUri: media.url,
