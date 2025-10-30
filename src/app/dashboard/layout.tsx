@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import {
   Bell,
-  CircleUser,
-  LayoutDashboard,
+  User,
+  Menu,
   Package,
   Settings,
   ShoppingCart,
   Users,
+  LayoutDashboard,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -128,7 +129,7 @@ export default function DashboardLayout({
                 size="icon"
                 className="shrink-0 md:hidden"
               >
-                <LayoutDashboard className="h-5 w-5" />
+                <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle navigation menu</span>
               </Button>
             </SheetTrigger>
@@ -183,7 +184,7 @@ export default function DashboardLayout({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">
-                <CircleUser className="h-5 w-5" />
+                <User className="h-5 w-5" />
                 <span className="sr-only">Toggle user menu</span>
               </Button>
             </DropdownMenuTrigger>

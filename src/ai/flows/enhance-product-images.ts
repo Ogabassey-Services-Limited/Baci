@@ -15,7 +15,7 @@ const EnhanceProductImageInputSchema = z.object({
   photoDataUri: z
     .string()
     .describe(
-      'A photo of a product, as a data URI that must include a MIME type and use Base64 encoding. Expected format: \'data:<mimetype>;base64,<encoded_data>\'.' // Corrected the expected format description
+      "A photo of a product, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'." // Corrected the expected format description
     ),
 });
 export type EnhanceProductImageInput = z.infer<typeof EnhanceProductImageInputSchema>;
@@ -45,7 +45,7 @@ const enhanceProductImageFlow = ai.defineFlow(
       prompt: [
         {media: {url: input.photoDataUri}},
         {
-          text: 'remove the background and adjust lighting to make the product stand out',
+          text: 'The user has uploaded an image of a product for their e-commerce store. Your task is to professionally enhance this image. Isolate the main product by removing the background and making it transparent. Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out. Return only the enhanced image.',
         },
       ],
       config: {
@@ -58,4 +58,3 @@ const enhanceProductImageFlow = ai.defineFlow(
     return {enhancedPhotoDataUri: media.url!};
   }
 );
-

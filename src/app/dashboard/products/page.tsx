@@ -119,7 +119,7 @@ export default function ProductsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden md:table-cell">Price</TableHead>
                   <TableHead className="hidden md:table-cell">
-                    Total Sales
+                    In Stock
                   </TableHead>
                   <TableHead>
                     <span className="sr-only">Actions</span>
@@ -172,7 +172,7 @@ export default function ProductsPage() {
           </CardContent>
           <CardFooter>
             <div className="text-xs text-muted-foreground">
-              Showing <strong>1-10</strong> of <strong>32</strong> products
+              Showing <strong>1-5</strong> of <strong>{products.length}</strong> products
             </div>
           </CardFooter>
         </Card>
