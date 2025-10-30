@@ -41,13 +41,9 @@ const step3Schema = z.object({
   brandPreferences: z.string().min(3, 'Please tell us your favorite color.'),
 });
 
-const step4Schema = z.object({
-  logo: z.any().optional(),
-});
+const formSchema = step1Schema.merge(step2Schema).merge(step3Schema);
 
-const formSchema = step1Schema.merge(step2Schema).merge(step3Schema).merge(step4Schema);
-
-type OnboardingFormValues = z.infer<typeof formSchema>;
+type OnboardingFormValues = z.infer<typeof formSchema> & { logo?: any };
 
 const totalSteps = 4;
 
@@ -66,7 +62,7 @@ export default function OnboardingForm() {
         ? step2Schema
         : step === 3
         ? step3Schema
-        : step4Schema
+        : formSchema
     ),
     defaultValues: {
       businessName: '',
@@ -76,12 +72,14 @@ export default function OnboardingForm() {
   });
 
   const handleNext = async () => {
-    const fieldsToValidate: (keyof OnboardingFormValues)[] =
+    const fieldsToValidate =
       step === 1
-        ? ['businessName']
+        ? (['businessName'] as const)
         : step === 2
-        ? ['businessType']
-        : ['brandPreferences'];
+        ? (['businessType'] as const)
+        : step === 3
+        ? (['brandPreferences'] as const)
+        : [];
     
     const isValid = await form.trigger(fieldsToValidate);
 
@@ -219,7 +217,7 @@ export default function OnboardingForm() {
               name="businessType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-lg">What kind of business are you starting?</FormLabel>
+                  <FormLabel className="text-lg">What's the nature of your business?</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>

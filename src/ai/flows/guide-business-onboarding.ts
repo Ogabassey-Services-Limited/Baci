@@ -80,7 +80,10 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
   async input => {
      if (input.logoDataUri) {
        const {output} = await extractColorsPrompt(input);
-       return { brandColors: output!.brandColors, logoDataUri: input.logoDataUri };
+       if (!output) {
+         throw new Error("Failed to get a structured response from the model when extracting colors.");
+       }
+       return { brandColors: output.brandColors, logoDataUri: input.logoDataUri };
     }
 
     const {media, output} = await ai.generate({
@@ -130,3 +133,5 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
     };
   }
 );
+
+    
