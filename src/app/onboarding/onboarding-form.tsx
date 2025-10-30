@@ -31,13 +31,15 @@ import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
 
-const formSchema = z.object({
+const baseFormSchema = z.object({
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
   brandPreferences: z.string().min(3, 'Favorite color is required.'),
   logo: z.any().optional(),
-}).refine(data => {
+});
+
+const formSchema = baseFormSchema.refine(data => {
     if (data.businessType === 'other' && !data.otherBusinessType) {
         return false;
     }
@@ -61,9 +63,9 @@ export default function OnboardingForm() {
 
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(
-        step === 1 ? formSchema.pick({ businessName: true }) :
-        step === 2 ? formSchema.pick({ businessType: true, otherBusinessType: true }) :
-        step === 3 ? formSchema.pick({ brandPreferences: true }) :
+        step === 1 ? baseFormSchema.pick({ businessName: true }) :
+        step === 2 ? formSchema.pick({ businessType: true, otherBusinessType: true }) : // refine is needed here
+        step === 3 ? baseFormSchema.pick({ brandPreferences: true }) :
         formSchema
     ),
     defaultValues: {
@@ -372,3 +374,5 @@ export default function OnboardingForm() {
     </div>
   );
 }
+
+    
