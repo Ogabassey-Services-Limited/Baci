@@ -47,6 +47,14 @@ const formSchema = z.object({
 }, {
     message: "Please specify your business type.",
     path: ["otherBusinessType"],
+}).refine(data => {
+    if (data.logoChoice === 'generate' && !data.brandPreferences) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Favorite color is required to generate a logo.",
+    path: ["brandPreferences"],
 });
 
 type OnboardingFormValues = z.infer<typeof formSchema>;
@@ -72,8 +80,6 @@ export default function OnboardingForm() {
 
   const logoChoice = form.watch('logoChoice');
   const totalSteps = logoChoice === 'generate' ? 4 : 3;
-  const finalSubmitStep = logoChoice === 'generate' ? 5 : 4;
-
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
@@ -83,17 +89,15 @@ export default function OnboardingForm() {
         fieldsToValidate = ['businessType', 'otherBusinessType'];
     } else if (step === 3) {
         fieldsToValidate = ['logoChoice'];
+    } else if (step === 4 && logoChoice === 'generate') {
+        fieldsToValidate = ['brandPreferences'];
     }
     
     const isValid = await form.trigger(fieldsToValidate);
 
     if (isValid) {
       if (step === 3) {
-        if(form.getValues('logoChoice') === 'upload') {
-            setStep(4);
-        } else {
-            setStep(4);
-        }
+         setStep(4);
       } else {
           setStep(step + 1);
       }
@@ -124,7 +128,10 @@ export default function OnboardingForm() {
   const handleGenerateLogo = async () => {
     const { businessName, businessType, brandPreferences, otherBusinessType } = form.getValues();
     
-    if (!brandPreferences) {
+    await form.trigger(['brandPreferences']);
+    const hasBrandPreferenceError = !!form.formState.errors.brandPreferences;
+
+    if (!brandPreferences || hasBrandPreferenceError) {
         form.setError('brandPreferences', { message: 'This field is required.' });
         toast({ title: "Favorite color is required", description: "Please tell us your favorite color to generate a logo.", variant: 'destructive'});
         return;
@@ -140,7 +147,6 @@ export default function OnboardingForm() {
       if (result.logoDataUri) {
         setLogoPreview(result.logoDataUri);
         form.setValue('logo', result.logoDataUri);
-        // Automatically move to the final review step after successful generation
         setStep(5);
       }
     } catch (e) {
@@ -157,13 +163,17 @@ export default function OnboardingForm() {
   };
 
   const onSubmit = async (data: OnboardingFormValues) => {
-    // Final validation before submitting
-    if (!data.logo && !logoPreview) {
+    if (logoChoice === 'upload' && !logoPreview) {
+        form.setError('logo', { message: "Please upload a logo."});
+        return;
+    }
+     if (logoChoice === 'generate' && !logoPreview) {
         toast({
-            title: "Logo is required",
-            description: "Please upload or generate a logo before creating your store.",
+            title: "Logo required",
+            description: "Please generate a logo before submitting.",
             variant: "destructive"
         });
+        setStep(4);
         return;
     }
 
@@ -198,8 +208,12 @@ export default function OnboardingForm() {
   };
 
   const businessTypeValue = form.watch('businessType');
-  const currentStep = logoChoice === 'generate' && step > 3 ? step - 1 : step;
-  const isFinalStep = step === finalSubmitStep;
+  const currentDisplayStep = logoChoice === 'generate' && step > 3 ? step -1 : step;
+  
+  const isFinalUploadStep = logoChoice === 'upload' && step === 4;
+  const isFinalGenerateStep = logoChoice === 'generate' && step === 5;
+  const isFinalStep = isFinalUploadStep || isFinalGenerateStep;
+
 
   return (
     <div className="space-y-8">
@@ -213,9 +227,9 @@ export default function OnboardingForm() {
       </div>
 
       <div className="flex items-center gap-4">
-        <Progress value={(currentStep / totalSteps) * 100} className="w-full" />
+        <Progress value={(currentDisplayStep / totalSteps) * 100} className="w-full" />
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          Step {currentStep} of {totalSteps}
+          Step {currentDisplayStep} of {totalSteps}
         </span>
       </div>
 
@@ -348,7 +362,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {(step === 4 && logoChoice === 'upload') || step === 5 && (
+          {(step === 4 && logoChoice === 'upload') || (step === 5 && logoChoice === 'generate') && (
             <div className='space-y-4'>
                 <FormLabel className="text-lg">
                     {logoChoice === 'upload' ? 'Upload your logo' : 'Here is your new logo!'}
@@ -382,9 +396,9 @@ export default function OnboardingForm() {
                  <FormField
                     control={form.control}
                     name="logo"
-                    render={() => (
+                    render={({ fieldState }) => (
                       <FormItem>
-                         <FormMessage className='mt-2'/>
+                         <FormMessage className='mt-2'>{fieldState.error?.message}</FormMessage>
                       </FormItem>
                     )}
                   />
@@ -394,14 +408,14 @@ export default function OnboardingForm() {
 
           <div className="flex justify-between pt-4">
             {step > 1 ? (
-              <Button type="button" variant="outline" onClick={handlePrev}>
+              <Button type="button" variant="outline" onClick={handlePrev} disabled={isLoading}>
                 Previous
               </Button>
             ) : (
               <div></div>
             )}
             {!isFinalStep ? (
-              <Button type="button" onClick={handleNext}>
+               <Button type="button" onClick={handleNext} disabled={isLoading || (step === 3 && !logoChoice)}>
                 Next
               </Button>
             ) : (
