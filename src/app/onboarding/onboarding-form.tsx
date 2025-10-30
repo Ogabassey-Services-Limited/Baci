@@ -32,13 +32,13 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
 
 
-const step1Schema = z.object({
+const formSchema = z.object({
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
-});
-
-const step2Schema = z.object({
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
+  logoChoice: z.enum(['upload', 'generate'], { required_error: "Please choose an option."}),
+  brandPreferences: z.string().optional(),
+  logo: z.any().optional(),
 }).refine(data => {
     if (data.businessType === 'other' && !data.otherBusinessType) {
         return false;
@@ -48,18 +48,6 @@ const step2Schema = z.object({
     message: "Please specify your business type.",
     path: ["otherBusinessType"],
 });
-
-const step3Schema = z.object({
-    logoChoice: z.enum(['upload', 'generate'], { required_error: "Please choose an option."}),
-});
-
-const step4Schema = z.object({
-  brandPreferences: z.string().optional(),
-  logo: z.any().optional(),
-});
-
-
-const formSchema = step1Schema.merge(step2Schema).merge(step3Schema).merge(step4Schema);
 
 type OnboardingFormValues = z.infer<typeof formSchema>;
 
@@ -73,15 +61,7 @@ export default function OnboardingForm() {
   const { toast } = useToast();
 
   const form = useForm<OnboardingFormValues>({
-    resolver: zodResolver(
-      step === 1
-        ? step1Schema
-        : step === 2
-        ? step2Schema
-        : step === 3
-        ? step3Schema
-        : formSchema
-    ),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       businessName: '',
       businessType: '',
@@ -93,14 +73,14 @@ export default function OnboardingForm() {
   });
 
   const handleNext = async () => {
-    const fieldsToValidate: (keyof OnboardingFormValues)[] =
-      step === 1
-        ? ['businessName']
-        : step === 2
-        ? ['businessType', 'otherBusinessType']
-        : step === 3
-        ? ['logoChoice']
-        : [];
+    let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
+    if (step === 1) {
+        fieldsToValidate = ['businessName'];
+    } else if (step === 2) {
+        fieldsToValidate = ['businessType', 'otherBusinessType'];
+    } else if (step === 3) {
+        fieldsToValidate = ['logoChoice'];
+    }
     
     const isValid = await form.trigger(fieldsToValidate);
 
