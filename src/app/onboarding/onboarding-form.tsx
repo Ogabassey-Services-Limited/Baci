@@ -89,6 +89,10 @@ export default function OnboardingForm() {
         fieldsToValidate = ['businessType', 'otherBusinessType'];
     } else if (step === 3) {
         fieldsToValidate = ['logoChoice'];
+        if (form.getValues('logoChoice') === 'upload') {
+            setStep(step + 2); // Skip to final step for upload
+            return;
+        }
     } else if (step === 4 && logoChoice === 'generate') {
         fieldsToValidate = ['brandPreferences'];
     }
@@ -96,20 +100,16 @@ export default function OnboardingForm() {
     const isValid = await form.trigger(fieldsToValidate);
 
     if (isValid) {
-      if (step === 3) {
-         setStep(4);
-      } else {
-          setStep(step + 1);
-      }
+      setStep(step + 1);
     }
   };
 
   const handlePrev = () => {
-     if (step === 4) {
-        setStep(3);
-    } else {
+     if (step === 5 && logoChoice === 'upload') {
+        setStep(3); // Go back to logo choice from upload screen
+     } else {
         setStep(step - 1);
-    }
+     }
   };
   
   const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,7 +147,7 @@ export default function OnboardingForm() {
       if (result.logoDataUri) {
         setLogoPreview(result.logoDataUri);
         form.setValue('logo', result.logoDataUri);
-        setStep(5);
+        setStep(5); // Move to the final confirmation step
       }
     } catch (e) {
       logger.error({ error: e, message: 'Logo generation failed in onboarding form.' });
@@ -208,11 +208,9 @@ export default function OnboardingForm() {
   };
 
   const businessTypeValue = form.watch('businessType');
-  const currentDisplayStep = logoChoice === 'generate' && step > 3 ? step -1 : step;
+  const currentDisplayStep = step > totalSteps ? totalSteps : step;
   
-  const isFinalUploadStep = logoChoice === 'upload' && step === 4;
-  const isFinalGenerateStep = logoChoice === 'generate' && step === 5;
-  const isFinalStep = isFinalUploadStep || isFinalGenerateStep;
+  const isFinalStep = step === 5;
 
 
   return (
@@ -362,7 +360,7 @@ export default function OnboardingForm() {
             </div>
           )}
 
-          {(step === 4 && logoChoice === 'upload') || (step === 5 && logoChoice === 'generate') && (
+          {step === 5 && (
             <div className='space-y-4'>
                 <FormLabel className="text-lg">
                     {logoChoice === 'upload' ? 'Upload your logo' : 'Here is your new logo!'}
@@ -402,6 +400,18 @@ export default function OnboardingForm() {
                       </FormItem>
                     )}
                   />
+                  {logoChoice === 'generate' && (
+                     <div className='text-center'>
+                         <Button type="button" variant="outline" onClick={handleGenerateLogo} disabled={isLoading}>
+                            {isLoading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            )}
+                            Regenerate
+                        </Button>
+                    </div>
+                  )}
             </div>
           )}
 
