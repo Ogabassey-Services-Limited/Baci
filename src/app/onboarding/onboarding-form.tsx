@@ -30,22 +30,26 @@ import { useToast } from '@/hooks/use-toast';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 
 const step1Schema = z.object({
-  businessType: z.string().min(1, 'Please select a business type.'),
+  businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
 });
 
 const step2Schema = z.object({
-  brandPreferences: z.string().min(10, 'Please describe your brand.'),
+  businessType: z.string().min(1, 'Please select a business type.'),
 });
 
 const step3Schema = z.object({
+  brandPreferences: z.string().min(3, 'Please tell us your favorite color.'),
+});
+
+const step4Schema = z.object({
   logo: z.any().optional(),
 });
 
-const formSchema = step1Schema.merge(step2Schema).merge(step3Schema);
+const formSchema = step1Schema.merge(step2Schema).merge(step3Schema).merge(step4Schema);
 
 type OnboardingFormValues = z.infer<typeof formSchema>;
 
-const totalSteps = 3;
+const totalSteps = 4;
 
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
@@ -57,18 +61,31 @@ export default function OnboardingForm() {
 
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(
-      step === 1 ? step1Schema : step === 2 ? step2Schema : step3Schema
+      step === 1
+        ? step1Schema
+        : step === 2
+        ? step2Schema
+        : step === 3
+        ? step3Schema
+        : step4Schema
     ),
     defaultValues: {
+      businessName: '',
       businessType: '',
       brandPreferences: '',
     },
   });
 
   const handleNext = async () => {
-    const isValid = await form.trigger(
-      step === 1 ? ['businessType'] : ['brandPreferences']
-    );
+    const fieldsToValidate: (keyof OnboardingFormValues)[] =
+      step === 1
+        ? ['businessName']
+        : step === 2
+        ? ['businessType']
+        : ['brandPreferences'];
+    
+    const isValid = await form.trigger(fieldsToValidate);
+
     if (isValid) {
       setStep(step + 1);
     }
@@ -85,20 +102,27 @@ export default function OnboardingForm() {
       reader.onloadend = () => {
         setLogoPreview(reader.result as string);
         setGeneratedLogo(null);
-        form.setValue('logo', file);
+        form.setValue('logo', reader.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleGenerateLogo = async () => {
+    const { businessName, brandPreferences } = form.getValues();
+     if (!brandPreferences) {
+      form.setError('brandPreferences', { message: 'Please tell us your favorite color first.' });
+      setStep(3); // Go back to the color step
+      return;
+    }
+
     setIsLoading(true);
     setLogoPreview(null);
     try {
-      const { businessType, brandPreferences } = form.getValues();
       const result = await guideBusinessOnboarding({
-        businessType,
-        brandPreferences,
+        businessName: businessName,
+        businessType: form.getValues('businessType'),
+        brandPreferences: brandPreferences,
       });
       if (result.logoDataUri) {
         setGeneratedLogo(result.logoDataUri);
@@ -119,10 +143,21 @@ export default function OnboardingForm() {
   const onSubmit = async (data: OnboardingFormValues) => {
     setIsLoading(true);
     try {
+        let logoDataUri = data.logo;
+        if (!logoDataUri && !logoPreview) { // If no logo is uploaded or generated
+             const result = await guideBusinessOnboarding({
+                businessName: data.businessName,
+                businessType: data.businessType,
+                brandPreferences: data.brandPreferences,
+            });
+             logoDataUri = result.logoDataUri;
+        }
+
         await guideBusinessOnboarding({
+            businessName: data.businessName,
             businessType: data.businessType,
             brandPreferences: data.brandPreferences,
-            logoDataUri: data.logo
+            logoDataUri: logoDataUri
         });
 
         toast({
@@ -162,6 +197,22 @@ export default function OnboardingForm() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {step === 1 && (
+             <FormField
+              control={form.control}
+              name="businessName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-lg">What is your business name?</FormLabel>
+                   <FormControl>
+                    <Input placeholder="e.g., Amara's Fashion" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {step === 2 && (
             <FormField
               control={form.control}
               name="businessType"
@@ -189,25 +240,25 @@ export default function OnboardingForm() {
             />
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <FormField
               control={form.control}
               name="brandPreferences"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-lg">Describe your brand's style and vibe.</FormLabel>
-                  <Textarea
+                  <FormLabel className="text-lg">What's your favorite color?</FormLabel>
+                  <Input
                     {...field}
-                    placeholder="e.g., 'Modern and minimalist with a touch of luxury', 'Earthy, natural, and eco-friendly'"
-                    rows={4}
+                    placeholder="e.g., 'deep ocean blue', 'forest green', 'sunny yellow'"
                   />
+                   <p className="text-sm text-muted-foreground">This will help us generate a logo and brand palette for you.</p>
                   <FormMessage />
                 </FormItem>
               )}
             />
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="space-y-4">
               <FormLabel className="text-lg">Do you have a logo?</FormLabel>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
