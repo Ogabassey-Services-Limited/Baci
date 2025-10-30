@@ -28,6 +28,9 @@ import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { logger } from '@/lib/logger';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { cn } from '@/lib/utils';
+
 
 const step1Schema = z.object({
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
@@ -35,15 +38,30 @@ const step1Schema = z.object({
 
 const step2Schema = z.object({
   businessType: z.string().min(1, 'Please select a business type.'),
+  otherBusinessType: z.string().optional(),
+}).refine(data => {
+    if (data.businessType === 'other' && !data.otherBusinessType) {
+        return false;
+    }
+    return true;
+}, {
+    message: "Please specify your business type.",
+    path: ["otherBusinessType"],
 });
 
 const step3Schema = z.object({
-  brandPreferences: z.string().min(3, 'Please tell us your favorite color.'),
+    logoChoice: z.enum(['upload', 'generate'], { required_error: "Please choose an option."}),
 });
 
-const formSchema = step1Schema.merge(step2Schema).merge(step3Schema);
+const step4Schema = z.object({
+  brandPreferences: z.string().optional(),
+  logo: z.any().optional(),
+});
 
-type OnboardingFormValues = z.infer<typeof formSchema> & { logo?: any };
+
+const formSchema = step1Schema.merge(step2Schema).merge(step3Schema).merge(step4Schema);
+
+type OnboardingFormValues = z.infer<typeof formSchema>;
 
 const totalSteps = 4;
 
@@ -67,29 +85,46 @@ export default function OnboardingForm() {
     defaultValues: {
       businessName: '',
       businessType: '',
+      otherBusinessType: '',
+      logoChoice: undefined,
       brandPreferences: '',
     },
+    mode: 'onChange',
   });
 
   const handleNext = async () => {
-    const fieldsToValidate =
+    const fieldsToValidate: (keyof OnboardingFormValues)[] =
       step === 1
-        ? (['businessName'] as const)
+        ? ['businessName']
         : step === 2
-        ? (['businessType'] as const)
+        ? ['businessType', 'otherBusinessType']
         : step === 3
-        ? (['brandPreferences'] as const)
+        ? ['logoChoice']
         : [];
     
     const isValid = await form.trigger(fieldsToValidate);
 
     if (isValid) {
-      setStep(step + 1);
+      if (step === 3) {
+        const logoChoice = form.getValues('logoChoice');
+        if (logoChoice === 'upload') {
+            // Skip the color preference step if uploading
+            setStep(step + 2); 
+        } else {
+            setStep(step + 1);
+        }
+      } else {
+        setStep(step + 1);
+      }
     }
   };
 
   const handlePrev = () => {
-    setStep(step - 1);
+     if (step === 5 && form.getValues('logoChoice') === 'upload') {
+        setStep(step - 2);
+    } else {
+        setStep(step - 1);
+    }
   };
   
   const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -106,33 +141,32 @@ export default function OnboardingForm() {
   };
 
   const handleGenerateLogo = async () => {
-    const { businessName, brandPreferences, businessType } = form.getValues();
-     if (!brandPreferences) {
-      form.setError('brandPreferences', { message: 'Please tell us your favorite color first.' });
-      setStep(3); // Go back to the color step
-      return;
-    }
-    if (!businessName) {
-      form.setError('businessName', { message: 'Please enter your business name first.' });
-      setStep(1);
-      return;
-    }
-     if (!businessType) {
-      form.setError('businessType', { message: 'Please select your business type first.' });
-      setStep(2);
-      return;
+    const { businessName, businessType, brandPreferences, otherBusinessType } = form.getValues();
+    
+    const allFields = { businessName, businessType, brandPreferences };
+    for (const [key, value] of Object.entries(allFields)) {
+        if (!value) {
+            form.setError(key as keyof OnboardingFormValues, { message: 'This field is required.' });
+        }
     }
 
+    if (!brandPreferences) {
+        toast({ title: "Favorite color is required", description: "Please tell us your favorite color to generate a logo.", variant: 'destructive'});
+        return;
+    }
+    
     setIsLoading(true);
     try {
       const result = await guideBusinessOnboarding({
         businessName,
-        businessType,
+        businessType: businessType === 'other' ? otherBusinessType! : businessType,
         brandPreferences,
       });
       if (result.logoDataUri) {
         setLogoPreview(result.logoDataUri);
         form.setValue('logo', result.logoDataUri);
+        // Automatically move to the next step after successful generation
+        setStep(step + 1);
       }
     } catch (e) {
       logger.error({ error: e, message: 'Logo generation failed in onboarding form.' });
@@ -150,10 +184,12 @@ export default function OnboardingForm() {
   const onSubmit = async (data: OnboardingFormValues) => {
     setIsLoading(true);
     try {
+        const finalBusinessType = data.businessType === 'other' ? data.otherBusinessType : data.businessType;
+
         await guideBusinessOnboarding({
             businessName: data.businessName,
-            businessType: data.businessType,
-            brandPreferences: data.brandPreferences,
+            businessType: finalBusinessType!,
+            brandPreferences: data.brandPreferences!,
             logoDataUri: data.logo
         });
 
@@ -174,6 +210,9 @@ export default function OnboardingForm() {
       setIsLoading(false);
     }
   };
+
+  const businessTypeValue = form.watch('businessType');
+  const finalStep = step === 5 || (step === 4 && form.getValues('logoChoice') === 'generate');
 
   return (
     <div className="space-y-8">
@@ -212,56 +251,123 @@ export default function OnboardingForm() {
           )}
 
           {step === 2 && (
-            <FormField
-              control={form.control}
-              name="businessType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-lg">What's the nature of your business?</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="e.g., Fashion, Electronics, Art..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="fashion">Fashion & Apparel</SelectItem>
-                      <SelectItem value="electronics">Electronics & Gadgets</SelectItem>
-                      <SelectItem value="home-goods">Home Goods & Decor</SelectItem>
-                      <SelectItem value="health-beauty">Health & Beauty</SelectItem>
-                      <SelectItem value="handmade">Handmade & Crafts</SelectItem>
-                      <SelectItem value="food-beverage">Food & Beverage</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <>
+                <FormField
+                control={form.control}
+                name="businessType"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel className="text-lg">What's the nature of your business?</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                        <SelectTrigger>
+                            <SelectValue placeholder="e.g., Fashion, Electronics, Art..." />
+                        </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        <SelectItem value="fashion">Fashion & Apparel</SelectItem>
+                        <SelectItem value="electronics">Electronics & Gadgets</SelectItem>
+                        <SelectItem value="home-goods">Home Goods & Decor</SelectItem>
+                        <SelectItem value="health-beauty">Health & Beauty</SelectItem>
+                        <SelectItem value="handmade">Handmade & Crafts</SelectItem>
+                        <SelectItem value="food-beverage">Food & Beverage</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                {businessTypeValue === 'other' && (
+                     <FormField
+                        control={form.control}
+                        name="otherBusinessType"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Please specify</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="e.g., Pet Services" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
+            </>
           )}
 
-          {step === 3 && (
-            <FormField
-              control={form.control}
-              name="brandPreferences"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-lg">What's your favorite color?</FormLabel>
-                  <Input
-                    {...field}
-                    placeholder="e.g., 'deep ocean blue', 'forest green', 'sunny yellow'"
-                  />
-                   <p className="text-sm text-muted-foreground">This will help us generate a logo and brand palette for you.</p>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+           {step === 3 && (
+                <FormField
+                control={form.control}
+                name="logoChoice"
+                render={({ field }) => (
+                    <FormItem className="space-y-3">
+                        <FormLabel className='text-lg'>Do you have a logo?</FormLabel>
+                         <FormControl>
+                            <RadioGroup
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                            className="flex flex-col space-y-1"
+                            >
+                                <FormItem className="flex items-center space-x-3 space-y-0">
+                                    <FormControl>
+                                        <RadioGroupItem value="upload" />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                        Yes, I'll upload it
+                                    </FormLabel>
+                                </FormItem>
+                                <FormItem className="flex items-center space-x-3 space-y-0">
+                                    <FormControl>
+                                        <RadioGroupItem value="generate" />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                        No, generate one for me with AI
+                                    </FormLabel>
+                                </FormItem>
+                            </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+                />
           )}
 
-          {step === 4 && (
-            <div className="space-y-4">
-              <FormLabel className="text-lg">Do you have a logo?</FormLabel>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                <div className="relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center">
+          {step === 4 && form.getValues('logoChoice') === 'generate' && (
+            <div className="space-y-4 text-center">
+                 <FormField
+                    control={form.control}
+                    name="brandPreferences"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel className="text-lg">What's your favorite color?</FormLabel>
+                        <Input
+                            {...field}
+                            placeholder="e.g., 'deep ocean blue', 'forest green', 'sunny yellow'"
+                        />
+                        <p className="text-sm text-muted-foreground">This will help our AI generate a logo and brand palette for you.</p>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                 <Button type="button" variant="outline" onClick={handleGenerateLogo} disabled={isLoading}>
+                    {isLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-2 h-4 w-4" />
+                    )}
+                    Generate with AI
+                  </Button>
+            </div>
+          )}
+
+          {step === 5 && (
+            <div className='space-y-4'>
+                <FormLabel className="text-lg">
+                    {form.getValues('logoChoice') === 'upload' ? 'Upload your logo' : 'Your new logo!'}
+                </FormLabel>
+                
+                <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center", { 'hidden': form.getValues('logoChoice') === 'generate' })}>
                     <Upload className="w-8 h-8 text-muted-foreground mb-2" />
                     <p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p>
                     <Input
@@ -271,32 +377,22 @@ export default function OnboardingForm() {
                         accept="image/*"
                         onChange={handleLogoChange}
                     />
-                     {logoPreview && (
-                        <div className="absolute inset-0 p-2">
-                            <Image
-                                src={logoPreview}
-                                alt="Logo Preview"
-                                layout="fill"
-                                objectFit="contain"
-                                className="rounded-md"
-                            />
-                        </div>
-                    )}
                 </div>
-                <div className="flex flex-col items-center justify-center space-y-4 h-48">
-                  <p className="text-sm text-muted-foreground">or</p>
-                  <Button type="button" variant="outline" onClick={handleGenerateLogo} disabled={isLoading}>
-                    {isLoading ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="mr-2 h-4 w-4" />
-                    )}
-                    Generate with AI
-                  </Button>
-                </div>
-              </div>
+                
+                 {logoPreview && (
+                    <div className="relative w-full h-48">
+                        <Image
+                            src={logoPreview}
+                            alt="Logo Preview"
+                            layout="fill"
+                            objectFit="contain"
+                            className="rounded-md"
+                        />
+                    </div>
+                )}
             </div>
           )}
+
 
           <div className="flex justify-between pt-4">
             {step > 1 ? (
@@ -306,7 +402,7 @@ export default function OnboardingForm() {
             ) : (
               <div></div>
             )}
-            {step < totalSteps ? (
+            {!finalStep ? (
               <Button type="button" onClick={handleNext}>
                 Next
               </Button>
