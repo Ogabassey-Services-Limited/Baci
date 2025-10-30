@@ -27,6 +27,7 @@ import { Progress } from '@/components/ui/progress';
 import { Loader2, Sparkles, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
+import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 
 const step1Schema = z.object({
   businessType: z.string().min(1, 'Please select a business type.'),
@@ -93,26 +94,51 @@ export default function OnboardingForm() {
   const handleGenerateLogo = async () => {
     setIsLoading(true);
     setLogoPreview(null);
-    // Simulate AI logo generation
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    const generated = 'https://picsum.photos/seed/logo-gen/200/200';
-    setGeneratedLogo(generated);
-    form.setValue('logo', generated);
-    setIsLoading(false);
+    try {
+      const { businessType, brandPreferences } = form.getValues();
+      const result = await guideBusinessOnboarding({
+        businessType,
+        brandPreferences,
+      });
+      if (result.logoDataUri) {
+        setGeneratedLogo(result.logoDataUri);
+        form.setValue('logo', result.logoDataUri);
+      }
+    } catch (e) {
+      toast({
+        title: 'Logo Generation Failed',
+        description:
+          'There was an error generating the logo. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const onSubmit = async (data: OnboardingFormValues) => {
     setIsLoading(true);
-    // Simulate API call to guideBusinessOnboarding
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    
-    console.log('Onboarding data:', data);
-    toast({
-      title: 'Store Created!',
-      description: "We're redirecting you to your new dashboard.",
-    });
+    try {
+        await guideBusinessOnboarding({
+            businessType: data.businessType,
+            brandPreferences: data.brandPreferences,
+            logoDataUri: data.logo
+        });
 
-    router.push('/dashboard');
+        toast({
+        title: 'Store Created!',
+        description: "We're redirecting you to your new dashboard.",
+        });
+
+        router.push('/dashboard');
+    } catch (e) {
+        toast({
+            title: 'Onboarding Failed',
+            description: 'Could not create your store. Please try again.',
+            variant: 'destructive',
+        });
+        setIsLoading(false);
+    }
   };
 
   return (
