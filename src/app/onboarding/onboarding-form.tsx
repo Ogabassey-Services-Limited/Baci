@@ -56,6 +56,21 @@ const refinedFormSchema = baseFormSchema.refine(data => {
 
 type OnboardingFormValues = z.infer<typeof baseFormSchema>;
 
+const stepSchemas = [
+  baseFormSchema.pick({ businessName: true }),
+  baseFormSchema.pick({ businessType: true, otherBusinessType: true }).refine(data => {
+    if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
+      return false;
+    }
+    return true;
+  }, {
+      message: "Please specify your business type with at least 2 characters.",
+      path: ["otherBusinessType"],
+  }),
+  refinedFormSchema
+];
+
+
 // --- Step Components ---
 
 function StepIndicator({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) {
@@ -303,11 +318,7 @@ export default function OnboardingForm() {
   const totalSteps = 3;
 
   const form = useForm<OnboardingFormValues>({
-    resolver: zodResolver(
-      step === 1 ? baseFormSchema.pick({ businessName: true }) :
-      step === 2 ? refinedFormSchema.pick({ businessType: true, otherBusinessType: true }) :
-      refinedFormSchema
-    ),
+    resolver: zodResolver(stepSchemas[step - 1]),
     defaultValues: {
       businessName: '',
       businessType: '',
@@ -420,3 +431,5 @@ export default function OnboardingForm() {
     </div>
   );
 }
+
+    
