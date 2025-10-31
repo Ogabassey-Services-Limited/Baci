@@ -1,15 +1,15 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { getMerchantData, type MerchantData } from '@/services/localMerchantService';
+import { useState, useEffect, useCallback } from 'react';
+import { getMerchantData, saveMerchantData, type MerchantData } from '@/services/localMerchantService';
 import { logger } from '@/lib/logger';
 
 export const useMerchant = () => {
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const reloadMerchant = useCallback(() => {
     try {
       const merchantData = getMerchantData();
       if (merchantData) {
@@ -24,6 +24,17 @@ export const useMerchant = () => {
         setLoading(false);
     }
   }, []);
+  
+  useEffect(() => {
+    reloadMerchant();
+  }, [reloadMerchant]);
 
-  return { merchant, loading };
+  const updateMerchant = useCallback((data: Partial<MerchantData>) => {
+    const currentData = getMerchantData() || {};
+    const newData = { ...currentData, ...data } as MerchantData;
+    saveMerchantData(newData);
+    setMerchant(newData);
+  }, []);
+
+  return { merchant, loading, updateMerchant, reloadMerchant };
 };

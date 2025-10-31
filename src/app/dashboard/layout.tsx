@@ -1,8 +1,8 @@
+
 'use client';
 
 import Link from 'next/link';
 import {
-  Bell,
   User,
   Menu,
   Package,
@@ -29,11 +29,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { useMerchant } from '@/hooks/use-merchant';
+import { getCountryByCode } from '@/lib/countries';
 
 export default function DashboardLayout({
   children,
@@ -41,6 +42,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { merchant } = useMerchant();
+
+  const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
 
   const navItems = [
     {
@@ -181,6 +185,9 @@ export default function DashboardLayout({
           <div className="w-full flex-1">
             {/* Can add search here if needed */}
           </div>
+           {selectedCountry && (
+             <div className="text-2xl">{selectedCountry.flag}</div>
+           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="icon" className="rounded-full">

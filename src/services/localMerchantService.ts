@@ -9,6 +9,7 @@ export interface MerchantData {
     primary: string;
     secondary: string;
   };
+  country?: string;
 }
 
 // Generate a simple user ID for the session
@@ -24,7 +25,9 @@ export function generateUserId(): string {
 export function saveMerchantData(data: MerchantData): void {
   try {
     const userId = generateUserId();
-    localStorage.setItem(`merchant_${userId}`, JSON.stringify(data));
+    const existingData = getMerchantData() || {};
+    const newData = { ...existingData, ...data };
+    localStorage.setItem(`merchant_${userId}`, JSON.stringify(newData));
     logger.info({ message: 'Merchant data saved to localStorage', userId });
   } catch (error) {
     logger.error({
