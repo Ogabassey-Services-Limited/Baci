@@ -199,7 +199,7 @@ function Step3_Logo() {
         setShowColorPrompt(false);
       }
     } catch (e) {
-      logger.error({ error: e, message: 'Logo generation failed in onboarding form.' });
+      logger.error({ error: e as Error, message: 'Logo generation failed in onboarding form.' });
     } finally {
       setIsGenerating(false);
     }
@@ -331,7 +331,10 @@ export default function OnboardingForm() {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
     if (step === 1) fieldsToValidate = ['businessName'];
     if (step === 2) {
-      fieldsToValidate = ['businessType', 'otherBusinessType'];
+      fieldsToValidate = ['businessType'];
+       if (form.getValues('businessType') === 'other') {
+        fieldsToValidate.push('otherBusinessType');
+      }
     }
 
     const isValid = await form.trigger(fieldsToValidate);
@@ -368,11 +371,16 @@ export default function OnboardingForm() {
       if (!brandColors || brandColors.length < 5) {
         throw new Error("AI did not return a valid brand color palette.");
       }
+      
+      // If the user uploaded a logo, logoDataUri from the flow will be for the uploaded logo.
+      // If the AI generated a logo, it will be in the response.
+      // If they did neither, we save nothing.
+      const finalLogoUri = logoDataUri || data.logo;
 
       await saveMerchantData(user.uid, {
         businessName: data.businessName,
         businessType: finalBusinessType!,
-        logo: logoDataUri,
+        logo: finalLogoUri,
         colors: {
             primary: brandColors[0],
             secondary: brandColors[1],
@@ -389,7 +397,7 @@ export default function OnboardingForm() {
 
       router.push('/dashboard');
     } catch (e) {
-      logger.error({ error: e, message: 'Onboarding submission failed.' });
+      logger.error(e as Error);
       toast({
         title: 'Onboarding Failed',
         description: 'Could not create your store. Please try again.',
@@ -431,5 +439,3 @@ export default function OnboardingForm() {
     </div>
   );
 }
-
-    

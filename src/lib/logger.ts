@@ -11,7 +11,7 @@ interface LogPayload {
 const log = (level: LogLevel, payload: LogPayload | Error) => {
   const timestamp = new Date().toISOString();
   if (payload instanceof Error) {
-    console[level](`[${timestamp}] [${level.toUpperCase()}]`, payload);
+    console[level](`[${timestamp}] [${level.toUpperCase()}] ${payload.message}`, payload);
   } else {
     console[level](`[${timestamp}] [${level.toUpperCase()}] ${payload.message}`, {
       ...payload,
