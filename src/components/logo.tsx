@@ -1,36 +1,16 @@
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export function Logo({ className }: { className?: string }) {
   return (
     <div className={cn('flex items-center gap-2', className)}>
-      <svg
-        width="110"
-        height="36"
-        viewBox="0 0 110 36"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {/* Shopping Cart */}
-        <path
-          d="M8.625 29.25C7.5875 29.25 6.75 30.0875 6.75 31.125C6.75 32.1625 7.5875 33 8.625 33C9.6625 33 10.5 32.1625 10.5 31.125C10.5 30.0875 9.6625 29.25 8.625 29.25ZM0 3V6H3L6.525 13.9875L5.1375 16.5125C4.9875 16.7875 4.875 17.1 4.875 17.4375C4.875 18.475 5.7125 19.3125 6.75 19.3125H27V16.3125H7.1625C6.9625 16.3125 6.8125 16.1625 6.8125 15.975L6.8625 15.7875L7.875 13.9875H22.95L28.125 6H5.475L4.575 4.125C4.425 3.7875 4.0875 3.5625 3.7125 3.5625H0.75C0.3375 3.5625 0 3.225 0 2.8125V3Z"
-          fill="#3F51B5"
-        />
-        <path
-          d="M23.625 29.25C22.5875 29.25 21.75 30.0875 21.75 31.125C21.75 32.1625 22.5875 33 23.625 33C24.6625 33 25.5 32.1625 25.5 31.125C25.5 30.0875 24.6625 29.25 23.625 29.25Z"
-          fill="#FFC107"
-        />
-        <path d="M8.625 29.25C7.5875 29.25 6.75 30.0875 6.75 31.125C6.75 32.1625 7.5875 33 8.625 33C9.6625 33 10.5 32.1625 10.5 31.125C10.5 30.0875 9.6625 29.25 8.625 29.25Z" fill="#FFC107" />
-        
-        {/* Baci Text */}
-        <text x="35" y="27" fontFamily="var(--font-sans), sans-serif" fontSize="28" fontWeight="bold" fill="#3F51B5">
-          Bac
-        </text>
-        <text x="90" y="27" fontFamily="var(--font-sans), sans-serif" fontSize="28" fontWeight="bold" fill="#3F51B5">
-          i
-        </text>
-        <circle cx="94" cy="9.5" r="4.5" fill="#FFC107" />
-      </svg>
-      
+      <Image
+        src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABAAAAAQACAIAAADwf7zUAAADMmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4gPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS41LjAiPiA8cmRmOlJERiB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiPiA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIiB4bWxuczpleGlmPSJodHRwOi8vbnMuYWRvYmUuY29tL2V4aWYvMS4wLyIgeG1sbnM6SXB0YzR4bXBFeHQ9Imh0dHA6Ly9pcHRjLm9yZy9zdGQvSXB0YzR4bXBFeHQvMjAwOC0wMi0yOS8iIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIgZXhpZjpEYXRlVGltZU9yaWdpbmFsPSIyMDI1LTEwLTMwVDIwOjIyOjExKzAwOjAwIiBJcHRjNHhtcEV4dDpEaWdpdGFsU291cmNlRmlsZVR5cGU9Imh0dHA6Ly9jdi5pcHRjLm9yZy9uZXdzY29kZXMvZGlnaXRhbHNvdXJjZXR5cGUvY29tcG9zaXRlV2l0aFRyYWluZWRBbGdvcml0aG1pY01lZGlhIiBJcHRjNHhtcEV4dDpEaWdpdGFsU291cmNlVHlwZT0iaHR0cDovL2N2LmlwdGMub3JnL25ld3Njb2Rlcy9kaWdpdGFsc291cmNldHlwZS9jb21wb3NpdGVXaXRoVHJhaW5lZEFsZ29yaXRobWljTWVkaWEiIHBob3Rvc2hvcDpDcmVkaXQ9IkVkaXRlZCB3aXRoIEdvb2dsZSBBSSIgcGhvdG9zaG9wOkRhdGVDcmVhdGVkPSIyMDI1LTEwLTMwVDIwOjIyOjExKzAwOjAwIi8+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+ICAgPD94cGFja2V0IGVuZD0idyI/Pts7HPQAACAASURBVHictF1ZouQorpVi/1t+ofcBko4mIG5W09V5HRg0T7Yx5v/7P/l8SIiIhImJiEiIWIiI9u+2yRpHxHpARELCxAI9vHtFiAGgMBERC4kQs0FkPyuAXIh40TgStfA6CN5cyDQeQFUaWu7DlJkMIuEvf5mYiBmmSZ42ybgBXroKJJaoCjLUZ4L1DzMFCCrzPItxWsOFRBHVswkMd0KfqKVlRxLOZsbr9CiKQLTIl/kTjK9IlonckOJpgJz43T9dM2uMqHY2F62USDW6sQOiPHJSk5MXKShiqEY+9VxMSN0IxSV1KDv9yyE+BdQZXT6FaMqcL9En96q5sUa5RTqB3WeCPCKuzuQsvZsUqk4map2N1I6ySBjb6R08ipT39s/0VV9jJI9BYpKJS2washzAJHe9E+xk9zEUInqZSMuztAs52EFaiBngwylsrM7c67TwN5oKMGjUrvZV71hiZKYvEXeKc/mwps4h10ik3Cx7u8OoESPh3pQkYWJloc9pIvQh+qqgpjSR6ThGBlPrGrcsRG11jfGw6o1hskFThl1KFCy5mjrXaIw0kBcqiLly17Ip8cfCRYyxKQweMovZfWRd3ZqjiGpes4NWXx5Xc9xTcfbxuG/biQTVFzhKMQ/UpVNZWJi0IHS32UIk59XOfrus2oVWoAr1qwybkkopqKD7wKsxloBel2GJuEJs8E3+YkwwBETZoIWZSYRFvhACXIggZjEGjLiRcCPITAzYnTWttDp+0JOFwaBsiaXDHsDx0sVAdqiT0XdcZdaXYTDB1YaHUiFis9ch/CoGhl6wqkJ/9tXGBTGEH1rOgcGanVoOQpMPGAMSXyL09jkzGWaWUGPNPA5hPmkQphMqqfJYGbe5OzWKfJirbBfZhn3ZnalcIsEtat5pTT7MX1qXK2pFFmg28y7wLwk34faSkqdTOcqEcd63jVQpmaISXYQcRqJ1faOmyqxwSnuDbbSObMGOtmr6lvIDoWDVT2Pgxlilh5YZ7slgD+AyNLKTs+NBv4boK8ScS1o9KxIlnKJ0pQQIwrQxYo8GSTQ4QsJLMIAymyFueaLtZGGocWA8VVuTkJBAbkJutfE97RNsb5PMHWtJ+EW5qim7dBLhdC8D75J58RkuTj8BY/IXq/4"
+        alt="Baci Logo"
+        width={104}
+        height={34}
+        className="h-auto"
+      />
     </div>
   );
 }
