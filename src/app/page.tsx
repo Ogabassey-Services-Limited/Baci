@@ -64,15 +64,16 @@ export default function Home() {
                   </Link>
                 </div>
               </div>
-              <div className="relative w-full max-w-md mx-auto aspect-video">
+              <div className="relative w-full max-w-md mx-auto">
                  {heroImage && (
                   <Image
                     src={heroImage.imageUrl}
                     alt={heroImage.description}
                     data-ai-hint={heroImage.imageHint}
-                    fill
+                    width={600}
+                    height={400}
                     priority
-                    className="object-cover rounded-xl shadow-lg"
+                    className="object-cover rounded-xl shadow-lg w-full h-auto"
                   />
                  )}
               </div>
