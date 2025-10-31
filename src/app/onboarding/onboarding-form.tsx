@@ -32,13 +32,15 @@ import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
 // --- Zod Schema Definition ---
-const formSchema = z.object({
+const baseFormSchema = z.object({
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
   brandPreferences: z.string().optional(),
   logo: z.any().optional(),
-}).refine(data => {
+});
+
+const refinedFormSchema = baseFormSchema.refine(data => {
     if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
         return false;
     }
@@ -48,13 +50,22 @@ const formSchema = z.object({
     path: ["otherBusinessType"],
 });
 
-type OnboardingFormValues = z.infer<typeof formSchema>;
-
-const totalSteps = 3;
+type OnboardingFormValues = z.infer<typeof baseFormSchema>;
 
 // --- Step Components ---
 
-const Step1 = () => {
+function StepIndicator({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) {
+  return (
+    <div className="flex items-center gap-4">
+      <Progress value={(currentStep / totalSteps) * 100} className="w-full" />
+      <span className="text-sm text-muted-foreground whitespace-nowrap">
+        Step {currentStep} of {totalSteps}
+      </span>
+    </div>
+  );
+}
+
+function Step1_BusinessName() {
   const { control } = useFormContext<OnboardingFormValues>();
   return (
     <FormField
@@ -71,14 +82,14 @@ const Step1 = () => {
       )}
     />
   );
-};
+}
 
-const Step2 = () => {
+function Step2_BusinessType() {
   const { control, watch } = useFormContext<OnboardingFormValues>();
   const businessTypeValue = watch('businessType');
 
   return (
-    <>
+    <div className='space-y-4'>
       <FormField
         control={control}
         name="businessType"
@@ -120,11 +131,11 @@ const Step2 = () => {
           )}
         />
       )}
-    </>
+    </div>
   );
-};
+}
 
-const Step3 = () => {
+function Step3_Logo() {
   const form = useFormContext<OnboardingFormValues>();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [generatedLogo, setGeneratedLogo] = useState<string | null>(null);
@@ -246,7 +257,37 @@ const Step3 = () => {
       />
     </div>
   );
-};
+}
+
+function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoading }: {
+  currentStep: number;
+  totalSteps: number;
+  onNext: () => void;
+  onPrev: () => void;
+  isLoading: boolean;
+}) {
+  return (
+    <div className="flex justify-between pt-4">
+      {currentStep > 1 ? (
+        <Button type="button" variant="outline" onClick={onPrev} disabled={isLoading}>
+          Previous
+        </Button>
+      ) : (
+        <div /> // Placeholder to keep "Next" button on the right
+      )}
+      {currentStep < totalSteps ? (
+        <Button type="button" onClick={onNext}>
+          Next
+        </Button>
+      ) : (
+        <Button type="submit" disabled={isLoading}>
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Create My Store
+        </Button>
+      )}
+    </div>
+  );
+}
 
 
 // --- Main Form Component ---
@@ -257,14 +298,13 @@ export default function OnboardingForm() {
   const router = useRouter();
   const { toast } = useToast();
 
+  const totalSteps = 3;
+
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(
-      step === 1 ? formSchema.pick({ businessName: true }) :
-      step === 2 ? formSchema.pick({ businessType: true, otherBusinessType: true }).refine(data => data.businessType !== 'other' || (data.otherBusinessType && data.otherBusinessType.length >= 2), {
-        message: "Please specify your business type with at least 2 characters.",
-        path: ["otherBusinessType"],
-      }) :
-      formSchema
+      step === 1 ? baseFormSchema.pick({ businessName: true }) :
+      step === 2 ? refinedFormSchema.pick({ businessType: true, otherBusinessType: true }) :
+      refinedFormSchema
     ),
     defaultValues: {
       businessName: '',
@@ -276,9 +316,9 @@ export default function OnboardingForm() {
   });
 
   const handleNext = async () => {
-    const fieldsToValidate: (keyof OnboardingFormValues)[] = 
-      step === 1 ? ['businessName'] :
-      step === 2 ? ['businessType', 'otherBusinessType'] : [];
+    let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
+    if (step === 1) fieldsToValidate = ['businessName'];
+    if (step === 2) fieldsToValidate = ['businessType', 'otherBusinessType'];
     
     const isValid = await form.trigger(fieldsToValidate);
 
@@ -321,7 +361,7 @@ export default function OnboardingForm() {
       setIsLoading(false);
     }
   };
-
+  
   return (
     <div className="space-y-8">
       <div>
@@ -333,38 +373,21 @@ export default function OnboardingForm() {
         </p>
       </div>
 
-      <div className="flex items-center gap-4">
-        <Progress value={(step / totalSteps) * 100} className="w-full" />
-        <span className="text-sm text-muted-foreground whitespace-nowrap">
-          Step {step} of {totalSteps}
-        </span>
-      </div>
+      <StepIndicator currentStep={step} totalSteps={totalSteps} />
 
       <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {step === 1 && <Step1 />}
-          {step === 2 && <Step2 />}
-          {step === 3 && <Step3 />}
+          {step === 1 && <Step1_BusinessName />}
+          {step === 2 && <Step2_BusinessType />}
+          {step === 3 && <Step3_Logo />}
           
-          <div className="flex justify-between pt-4">
-            {step > 1 ? (
-              <Button type="button" variant="outline" onClick={handlePrev} disabled={isLoading}>
-                Previous
-              </Button>
-            ) : (
-              <div />
-            )}
-            {step < totalSteps ? (
-              <Button type="button" onClick={handleNext}>
-                Next
-              </Button>
-            ) : (
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create My Store
-              </Button>
-            )}
-          </div>
+          <OnboardingNavigation 
+            currentStep={step}
+            totalSteps={totalSteps}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            isLoading={isLoading}
+          />
         </form>
       </FormProvider>
     </div>
