@@ -122,29 +122,22 @@ export async function guideBusinessOnboarding(
 const extractColorsPrompt = ai.definePrompt({
   name: 'extractColorsPrompt',
   input: {schema: GuideBusinessOnboardingInputSchema},
-  output: {schema: GuideBusinessOnboardingOutputSchema},
-  prompt: `You are an expert branding assistant. Your task is to generate a simple, modern logo and a 5-color brand palette based on the user's input.
-
-Business Name: {{{businessName}}}
-Business Type: {{{businessType}}}
-Favorite Color: {{{brandPreferences}}}
-
-{{#if logoDataUri}}
-An existing logo has been provided. Analyze the logo and extract a 5-color palette from it.
+  output: {schema: z.object({ brandColors: z.array(z.string()) })},
+  prompt: `You are an expert branding assistant.
+Your task is to analyze the provided logo and extract a 5-color palette from it.
 The palette should consist of:
 1. A primary color.
 2. A secondary color.
 3. An accent color.
 4. A neutral background color.
 5. A dark text color.
-Logo: {{media url=logoDataUri}}
-{{else}}
-The user does not have a logo. Generate a simple, modern, and professional logo for their business.
-The logo design should be inspired by the business name, type, and the user's favorite color.
-After generating the logo, create a 5-color palette based on the generated logo. The palette should be harmonious and suitable for a professional brand.
-{{/if}}
 
-Your final output must be a JSON object containing the generated logo's data URI (if one was created) and an array of exactly 5 hex color codes.
+Business Name: {{{businessName}}}
+Business Type: {{{businessType}}}
+
+Logo: {{media url=logoDataUri}}
+
+Your final output must be ONLY a JSON object with a "brandColors" key containing an array of exactly 5 hex color codes.
 `,
 });
 
@@ -172,7 +165,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
        if (!output) {
          throw new Error("Failed to get a structured response from the model when extracting colors.");
        }
-       return { brandColors: output.brandColors, logoDataUri: input.logoDataUri };
+       return { brandColors: output.brandColors };
     }
 
     const {media, output} = await ai.generate({
@@ -226,5 +219,3 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
     };
   }
 );
-
-    

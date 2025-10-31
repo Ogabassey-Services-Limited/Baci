@@ -57,18 +57,18 @@ const refinedFormSchema = baseFormSchema.refine(data => {
 type OnboardingFormValues = z.infer<typeof baseFormSchema>;
 
 const stepSchemas = [
-  baseFormSchema.pick({ businessName: true }),
-  baseFormSchema.pick({ businessType: true, otherBusinessType: true }).refine(data => {
-    if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
-      return false;
-    }
-    return true;
-  }, {
-      message: "Please specify your business type with at least 2 characters.",
-      path: ["otherBusinessType"],
-  }),
-  refinedFormSchema
-];
+    baseFormSchema.pick({ businessName: true }),
+    baseFormSchema.pick({ businessType: true, otherBusinessType: true }).refine(data => {
+      if (data.businessType === 'other') {
+        return !!data.otherBusinessType && data.otherBusinessType.length >= 2;
+      }
+      return true;
+    }, {
+        message: "Please specify your business type with at least 2 characters.",
+        path: ["otherBusinessType"],
+    }),
+    refinedFormSchema
+  ];
 
 
 // --- Step Components ---
@@ -325,6 +325,7 @@ export default function OnboardingForm() {
       otherBusinessType: '',
       brandPreferences: '',
     },
+    mode: 'onChange'
   });
 
   const handleNext = async () => {
@@ -372,10 +373,10 @@ export default function OnboardingForm() {
         throw new Error("AI did not return a valid brand color palette.");
       }
       
-      // If the user uploaded a logo, logoDataUri from the flow will be for the uploaded logo.
-      // If the AI generated a logo, it will be in the response.
+      // If the user uploaded a logo, the flow doesn't return it. Use the one from the form data.
+      // If the AI generated a logo, it will be in logoDataUri from the flow response.
       // If they did neither, we save nothing.
-      const finalLogoUri = logoDataUri || data.logo;
+      const finalLogoUri = data.logo ? data.logo : logoDataUri;
 
       await saveMerchantData(user.uid, {
         businessName: data.businessName,
@@ -397,7 +398,7 @@ export default function OnboardingForm() {
 
       router.push('/dashboard');
     } catch (e) {
-      logger.error(e as Error);
+      logger.error({message: "Onboarding submission failed.", error: e as Error});
       toast({
         title: 'Onboarding Failed',
         description: 'Could not create your store. Please try again.',
