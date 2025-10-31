@@ -81,4 +81,7 @@
   body {
     @apply bg-background text-foreground;
   }
+  input, textarea {
+    @apply caret-accent;
+  }
 }
