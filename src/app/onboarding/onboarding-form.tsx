@@ -325,7 +325,6 @@ export default function OnboardingForm() {
       otherBusinessType: '',
       brandPreferences: '',
     },
-    mode: 'onChange'
   });
 
   const handleNext = async () => {
@@ -373,10 +372,7 @@ export default function OnboardingForm() {
         throw new Error("AI did not return a valid brand color palette.");
       }
       
-      // If the user uploaded a logo, the flow doesn't return it. Use the one from the form data.
-      // If the AI generated a logo, it will be in logoDataUri from the flow response.
-      // If they did neither, we save nothing.
-      const finalLogoUri = data.logo ? data.logo : logoDataUri;
+      const finalLogoUri = data.logo || logoDataUri;
 
       await saveMerchantData(user.uid, {
         businessName: data.businessName,
