@@ -44,16 +44,6 @@ const baseFormSchema = z.object({
   logo: z.any().optional(),
 });
 
-const step2Schema = baseFormSchema.pick({ businessType: true, otherBusinessType: true }).refine(data => {
-    if (data.businessType === 'other') {
-      return !!data.otherBusinessType && data.otherBusinessType.length >= 2;
-    }
-    return true;
-}, {
-    message: "Please specify your business type with at least 2 characters.",
-    path: ["otherBusinessType"],
-});
-
 const refinedFormSchema = baseFormSchema.refine(data => {
     if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
         return false;
@@ -65,14 +55,7 @@ const refinedFormSchema = baseFormSchema.refine(data => {
 });
 
 
-type OnboardingFormValues = z.infer<typeof baseFormSchema>;
-
-const stepSchemas = [
-    baseFormSchema.pick({ businessName: true }),
-    step2Schema,
-    refinedFormSchema
-  ];
-
+type OnboardingFormValues = z.infer<typeof refinedFormSchema>;
 
 // --- Step Components ---
 
@@ -321,7 +304,7 @@ export default function OnboardingForm() {
   const totalSteps = 3;
 
   const form = useForm<OnboardingFormValues>({
-    resolver: zodResolver(stepSchemas[step - 1]),
+    resolver: zodResolver(refinedFormSchema),
     defaultValues: {
       businessName: '',
       businessType: '',
@@ -332,7 +315,15 @@ export default function OnboardingForm() {
   });
 
   const handleNext = async () => {
-    const isValid = await form.trigger();
+    let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
+    if (step === 1) {
+        fieldsToValidate = ['businessName'];
+    } else if (step === 2) {
+        fieldsToValidate = ['businessType', 'otherBusinessType'];
+    }
+
+    const isValid = await form.trigger(fieldsToValidate);
+    
     if (isValid && step < totalSteps) {
       setStep(step + 1);
     }
@@ -348,7 +339,6 @@ export default function OnboardingForm() {
     try {
       const finalBusinessType = data.businessType === 'other' ? data.otherBusinessType : data.businessType;
       
-      // This is a simplified demo. In a real app, you would have a proper user registration flow.
       const randomEmail = `user_${Date.now()}@example.com`;
       const randomPassword = Math.random().toString(36).slice(-8);
 
