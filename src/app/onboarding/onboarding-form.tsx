@@ -342,8 +342,11 @@ export default function OnboardingForm() {
   });
   
   useEffect(() => {
-    form.trigger();
-  }, [step, form]);
+    // Only trigger validation when moving to a new step, not on initial load
+    if (step > 1) {
+      form.trigger();
+    }
+  }, [step]);
 
 
   const handleNext = async () => {
