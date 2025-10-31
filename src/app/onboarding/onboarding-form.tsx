@@ -32,7 +32,7 @@ import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { saveMerchantData } from '@/services/merchantService';
 
 // --- Zod Schema Definitions ---
@@ -56,11 +56,14 @@ const step2Schema = z.object({
   path: ["otherBusinessType"],
 });
 
-// Combined schema for the whole form
-const onboardingSchema = step1Schema.merge(step2Schema).extend({
+// Schema for Step 3
+const step3Schema = z.object({
   brandPreferences: z.string().optional(),
   logo: z.any().optional(),
 });
+
+// Combined schema for the whole form
+const onboardingSchema = step1Schema.merge(step2Schema).merge(step3Schema);
 
 
 type OnboardingFormValues = z.infer<typeof onboardingSchema>;
@@ -327,7 +330,6 @@ export default function OnboardingForm() {
   const totalSteps = 3;
 
   const form = useForm<OnboardingFormValues>({
-    // Use a resolver that changes with the step
     resolver: getResolverForStep(step),
     defaultValues: {
       businessName: '',
@@ -336,11 +338,9 @@ export default function OnboardingForm() {
       brandPreferences: '',
       logo: null,
     },
-    // Validate on blur to prevent errors while typing
     mode: 'onBlur',
   });
   
-  // Effect to update the resolver when the step changes
   useEffect(() => {
     form.trigger();
   }, [step, form]);
@@ -366,6 +366,15 @@ export default function OnboardingForm() {
   const onSubmit = async (data: OnboardingFormValues) => {
     const isValid = await form.trigger();
     if (!isValid) return;
+
+    if (!auth || !db) {
+        toast({
+            title: 'Firebase not initialized',
+            description: 'The Firebase service is not available. Please try again later.',
+            variant: 'destructive',
+        });
+        return;
+    }
 
     setIsLoading(true);
     try {
@@ -400,7 +409,6 @@ export default function OnboardingForm() {
         }
       });
 
-      // For the demo, we'll sign the user in automatically to maintain session
       await signInWithEmailAndPassword(auth, randomEmail, randomPassword);
       
       toast({
