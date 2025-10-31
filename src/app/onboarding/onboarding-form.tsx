@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
@@ -35,27 +35,50 @@ import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'fire
 import { auth } from '@/lib/firebase';
 import { saveMerchantData } from '@/services/merchantService';
 
-// --- Zod Schema Definition ---
-const baseFormSchema = z.object({
+// --- Zod Schema Definitions ---
+
+// Schema for Step 1
+const step1Schema = z.object({
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
+});
+
+// Schema for Step 2
+const step2Schema = z.object({
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
+}).refine(data => {
+  if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Please specify your business type with at least 2 characters.",
+  path: ["otherBusinessType"],
+});
+
+// Combined schema for the whole form
+const onboardingSchema = step1Schema.merge(step2Schema).extend({
   brandPreferences: z.string().optional(),
   logo: z.any().optional(),
 });
 
-const refinedFormSchema = baseFormSchema.refine(data => {
-    if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
-        return false;
-    }
-    return true;
-}, {
-    message: "Please specify your business type with at least 2 characters.",
-    path: ["otherBusinessType"],
-});
 
+type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 
-type OnboardingFormValues = z.infer<typeof refinedFormSchema>;
+// Function to get the appropriate schema for the current step
+const getResolverForStep = (step: number) => {
+  switch (step) {
+    case 1:
+      return zodResolver(step1Schema);
+    case 2:
+      return zodResolver(step2Schema);
+    case 3:
+      return zodResolver(onboardingSchema);
+    default:
+      return zodResolver(onboardingSchema);
+  }
+};
+
 
 // --- Step Components ---
 
@@ -304,7 +327,8 @@ export default function OnboardingForm() {
   const totalSteps = 3;
 
   const form = useForm<OnboardingFormValues>({
-    resolver: zodResolver(refinedFormSchema),
+    // Use a resolver that changes with the step
+    resolver: getResolverForStep(step),
     defaultValues: {
       businessName: '',
       businessType: '',
@@ -312,7 +336,15 @@ export default function OnboardingForm() {
       brandPreferences: '',
       logo: null,
     },
+    // Validate on blur to prevent errors while typing
+    mode: 'onBlur',
   });
+  
+  // Effect to update the resolver when the step changes
+  useEffect(() => {
+    form.trigger();
+  }, [step, form]);
+
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
