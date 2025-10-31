@@ -30,12 +30,11 @@ import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
-
 const baseFormSchema = z.object({
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
-  brandPreferences: z.string().min(3, 'Favorite color is required.'),
+  brandPreferences: z.string().optional(),
   logo: z.any().optional(),
 });
 
@@ -51,21 +50,23 @@ const formSchema = baseFormSchema.refine(data => {
 
 type OnboardingFormValues = z.infer<typeof formSchema>;
 
-const totalSteps = 4;
+const totalSteps = 3;
 
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [generatedLogo, setGeneratedLogo] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showColorPrompt, setShowColorPrompt] = useState(false);
+
   const router = useRouter();
   const { toast } = useToast();
 
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(
         step === 1 ? baseFormSchema.pick({ businessName: true }) :
-        step === 2 ? formSchema :
-        step === 3 ? baseFormSchema.pick({ brandPreferences: true }) :
+        step === 2 ? formSchema.pick({ businessType: true, otherBusinessType: true }) :
         formSchema
     ),
     defaultValues: {
@@ -83,8 +84,6 @@ export default function OnboardingForm() {
         fieldsToValidate = ['businessName'];
     } else if (step === 2) {
         fieldsToValidate = ['businessType', 'otherBusinessType'];
-    } else if (step === 3) {
-        fieldsToValidate = ['brandPreferences'];
     }
     
     const isValid = await form.trigger(fieldsToValidate);
@@ -114,17 +113,20 @@ export default function OnboardingForm() {
     }
   };
 
+  const handleGenerateClick = () => {
+    setShowColorPrompt(true);
+  }
+
   const handleGenerateLogo = async () => {
-    const { businessName, businessType, brandPreferences, otherBusinessType } = form.getValues();
-    
     await form.trigger(['brandPreferences']);
-    if (!brandPreferences || form.formState.errors.brandPreferences) {
-        toast({ title: "Favorite color is required", description: "Please go back and tell us your favorite color to generate a logo.", variant: 'destructive'});
-        setStep(3);
-        return;
+    const { businessName, businessType, brandPreferences, otherBusinessType } = form.getValues();
+
+    if (!brandPreferences) {
+      form.setError('brandPreferences', { message: 'Favorite color is required to generate a logo.' });
+      return;
     }
     
-    setIsLoading(true);
+    setIsGenerating(true);
     try {
       const result = await guideBusinessOnboarding({
         businessName,
@@ -135,12 +137,17 @@ export default function OnboardingForm() {
         setGeneratedLogo(result.logoDataUri);
         form.setValue('logo', result.logoDataUri);
         setLogoPreview(null);
+        setShowColorPrompt(false);
       }
     } catch (e) {
       logger.error({ error: e, message: 'Logo generation failed in onboarding form.' });
-      // No toast here to avoid bothering the user for a non-critical error.
+      toast({
+            title: 'Logo Generation Failed',
+            description: 'Could not generate a logo. Please try again.',
+            variant: 'destructive',
+      });
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
@@ -149,23 +156,13 @@ export default function OnboardingForm() {
     try {
         const finalBusinessType = data.businessType === 'other' ? data.otherBusinessType : data.businessType;
         
-        let finalLogo = data.logo;
-        if (!finalLogo) {
-             // If no logo has been provided, we still proceed to generate brand colors without a logo.
-            await guideBusinessOnboarding({
-              businessName: data.businessName,
-              businessType: finalBusinessType!,
-              brandPreferences: data.brandPreferences,
-            });
-        } else {
-             await guideBusinessOnboarding({
-                businessName: data.businessName,
-                businessType: finalBusinessType!,
-                brandPreferences: data.brandPreferences,
-                logoDataUri: finalLogo
-            });
-        }
-
+        await guideBusinessOnboarding({
+            businessName: data.businessName,
+            businessType: finalBusinessType!,
+            brandPreferences: data.brandPreferences,
+            logoDataUri: data.logo,
+        });
+        
         toast({
         title: 'Store Created!',
         description: "We're redirecting you to your new dashboard.",
@@ -206,14 +203,7 @@ export default function OnboardingForm() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={(e) => {
-          // Prevent default form submission from triggering on logo generation
-          if (step === totalSteps) {
-            form.handleSubmit(onSubmit)(e);
-          } else {
-            e.preventDefault();
-          }
-        }} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {step === 1 && (
              <FormField
               control={form.control}
@@ -277,27 +267,9 @@ export default function OnboardingForm() {
           )}
           
           {step === 3 && (
-            <FormField
-                control={form.control}
-                name="brandPreferences"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel className="text-lg">What's your favorite color?</FormLabel>
-                    <Input
-                        {...field}
-                        placeholder="e.g., 'deep ocean blue', 'forest green', 'sunny yellow'"
-                    />
-                    <p className="text-sm text-muted-foreground">This will help our AI generate a logo and brand palette for you.</p>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-          )}
-
-          {step === 4 && (
             <div className='space-y-4'>
                 <FormLabel className="text-lg">Do you have a logo?</FormLabel>
-                <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-center'>
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
                     <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center", {'items-center justify-center': !imageToDisplay})}>
                          {imageToDisplay ? (
                             <Image src={imageToDisplay} alt="Logo Preview" layout="fill" objectFit="contain" className="rounded-md p-2" />
@@ -315,23 +287,41 @@ export default function OnboardingForm() {
                             onChange={handleLogoChange}
                         />
                     </div>
-                     <div className="relative flex items-center justify-center">
+                     <div className="relative flex items-center justify-center md:hidden">
                         <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                            <div className="w-full border-t border-muted-foreground/30 md:hidden"></div>
-                            <div className="w-full border-l border-muted-foreground/30 h-full hidden md:block"></div>
+                            <div className="w-full border-t border-muted-foreground/30"></div>
                         </div>
-                        <span className="relative bg-background px-2 text-sm text-muted-foreground md:-ml-3 md:bg-transparent md:py-2 md:px-0 md:bg-background">or</span>
+                        <span className="relative bg-background px-2 text-sm text-muted-foreground">or</span>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center h-48">
-                         <Button type="button" variant="outline" onClick={handleGenerateLogo} disabled={isLoading}>
-                            {isLoading ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            )}
-                            Generate with AI
-                        </Button>
+                    <div className="flex flex-col items-center justify-start h-48 space-y-4">
+                        {!showColorPrompt ? (
+                             <Button type="button" variant="outline" onClick={handleGenerateClick} className="w-full">
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                Generate with AI
+                            </Button>
+                        ) : (
+                             <div className="w-full space-y-2">
+                                <FormField
+                                    control={form.control}
+                                    name="brandPreferences"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel>What's your favorite color?</FormLabel>
+                                        <Input
+                                            {...field}
+                                            placeholder="e.g., 'deep ocean blue'"
+                                        />
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <Button type="button" onClick={handleGenerateLogo} disabled={isGenerating} className='w-full'>
+                                    {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                    Generate Logo
+                                </Button>
+                             </div>
+                        )}
                     </div>
                 </div>
                  <FormField
@@ -349,7 +339,7 @@ export default function OnboardingForm() {
 
           <div className="flex justify-between pt-4">
             {step > 1 ? (
-              <Button type="button" variant="outline" onClick={handlePrev} disabled={isLoading}>
+              <Button type="button" variant="outline" onClick={handlePrev} disabled={isLoading || isGenerating}>
                 Previous
               </Button>
             ) : (
@@ -360,8 +350,8 @@ export default function OnboardingForm() {
                 Next
               </Button>
             ) : (
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="submit" disabled={isLoading || isGenerating}>
+                {(isLoading || isGenerating) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create My Store
               </Button>
             )}
@@ -371,4 +361,3 @@ export default function OnboardingForm() {
     </div>
   );
 }
-
