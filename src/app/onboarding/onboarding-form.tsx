@@ -64,7 +64,7 @@ export default function OnboardingForm() {
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(
         step === 1 ? baseFormSchema.pick({ businessName: true }) :
-        step === 2 ? formSchema.pick({ businessType: true, otherBusinessType: true }) : // refine is needed here
+        step === 2 ? baseFormSchema.pick({ businessType: true, otherBusinessType: true }) :
         step === 3 ? baseFormSchema.pick({ brandPreferences: true }) :
         formSchema
     ),
@@ -375,4 +375,5 @@ export default function OnboardingForm() {
   );
 }
 
+    
     
