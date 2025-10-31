@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -38,7 +39,7 @@ const baseFormSchema = z.object({
   logo: z.any().optional(),
 });
 
-const formSchema = baseFormSchema.refine(data => {
+const refinedFormSchema = baseFormSchema.refine(data => {
     if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
         return false;
     }
@@ -48,7 +49,7 @@ const formSchema = baseFormSchema.refine(data => {
     path: ["otherBusinessType"],
 });
 
-type OnboardingFormValues = z.infer<typeof formSchema>;
+type OnboardingFormValues = z.infer<typeof baseFormSchema>;
 
 const totalSteps = 3;
 
@@ -66,8 +67,11 @@ export default function OnboardingForm() {
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(
         step === 1 ? baseFormSchema.pick({ businessName: true }) :
-        step === 2 ? formSchema.pick({ businessType: true, otherBusinessType: true }) :
-        formSchema
+        step === 2 ? baseFormSchema.pick({ businessType: true, otherBusinessType: true }).refine(data => data.businessType !== 'other' || (data.otherBusinessType && data.otherBusinessType.length >= 2), {
+            message: "Please specify your business type with at least 2 characters.",
+            path: ["otherBusinessType"],
+        }) :
+        refinedFormSchema
     ),
     defaultValues: {
       businessName: '',
@@ -118,13 +122,12 @@ export default function OnboardingForm() {
   }
 
   const handleGenerateLogo = async () => {
-    await form.trigger(['brandPreferences']);
-    const { businessName, businessType, brandPreferences, otherBusinessType } = form.getValues();
-
-    if (!brandPreferences) {
-      form.setError('brandPreferences', { message: 'Favorite color is required to generate a logo.' });
-      return;
+    const isBrandPrefsValid = await form.trigger(['brandPreferences']);
+    if (!isBrandPrefsValid) {
+        return;
     }
+
+    const { businessName, businessType, brandPreferences, otherBusinessType } = form.getValues();
     
     setIsGenerating(true);
     try {
@@ -141,11 +144,6 @@ export default function OnboardingForm() {
       }
     } catch (e) {
       logger.error({ error: e, message: 'Logo generation failed in onboarding form.' });
-      toast({
-            title: 'Logo Generation Failed',
-            description: 'Could not generate a logo. Please try again.',
-            variant: 'destructive',
-      });
     } finally {
       setIsGenerating(false);
     }
@@ -361,3 +359,5 @@ export default function OnboardingForm() {
     </div>
   );
 }
+
+    
