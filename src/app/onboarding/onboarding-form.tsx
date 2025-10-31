@@ -314,7 +314,6 @@ export default function OnboardingForm() {
       otherBusinessType: '',
       brandPreferences: '',
     },
-    mode: 'onChange',
   });
 
   const handleNext = async () => {
