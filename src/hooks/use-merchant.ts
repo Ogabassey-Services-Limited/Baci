@@ -1,33 +1,29 @@
 
-import { useState, useEffect } from 'react';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { getMerchantData, Merchant } from '@/services/merchantService';
-import { app } from '@/lib/firebase';
+'use client';
 
-const auth = getAuth(app);
+import { useState, useEffect } from 'react';
+import { getMerchantData, type MerchantData } from '@/services/localMerchantService';
+import { logger } from '@/lib/logger';
 
 export const useMerchant = () => {
-  const [merchant, setMerchant] = useState<Merchant | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setUser(user);
-        const merchantData = await getMerchantData(user.uid);
-        if (merchantData) {
-          setMerchant(merchantData);
-        }
-      } else {
-        setUser(null);
-        setMerchant(null);
+    try {
+      const merchantData = getMerchantData();
+      if (merchantData) {
+        setMerchant(merchantData);
       }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    } catch (error) {
+        logger.error({
+            message: 'Failed to load merchant data in useMerchant hook',
+            error: error as Error
+        });
+    } finally {
+        setLoading(false);
+    }
   }, []);
 
-  return { user, merchant, loading };
+  return { merchant, loading };
 };

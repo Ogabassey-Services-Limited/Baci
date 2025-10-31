@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -5,10 +6,13 @@ import {
   CreditCard,
   DollarSign,
   Users,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -17,14 +21,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
@@ -32,6 +28,9 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import type { ChartConfig } from '@/components/ui/chart';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 
 const chartData = [
   { month: 'January', desktop: 186, mobile: 80 },
@@ -54,14 +53,56 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function DashboardPage() {
+  const { merchant } = useMerchant();
+  const { toast } = useToast();
   const avatar1 = PlaceHolderImages.find(img => img.id === 'avatar-1');
   const avatar2 = PlaceHolderImages.find(img => img.id === 'avatar-2');
   const avatar3 = PlaceHolderImages.find(img => img.id === 'avatar-3');
   const avatar4 = PlaceHolderImages.find(img => img.id === 'avatar-4');
   const avatar5 = PlaceHolderImages.find(img => img.id === 'avatar-5');
   
+  const storeUrl = merchant?.businessName ? `${merchant.businessName.toLowerCase().replace(/\s+/g, '-')}.baci.store` : '';
+  const fullStoreUrl = storeUrl ? `https://${storeUrl}` : '';
+
+  const copyToClipboard = () => {
+    if (fullStoreUrl) {
+        navigator.clipboard.writeText(fullStoreUrl);
+        toast({
+        title: "Copied to clipboard!",
+        description: "Your store URL is ready to be shared.",
+        });
+    }
+  };
+
   return (
     <>
+      {merchant && storeUrl && (
+         <Card>
+          <CardHeader>
+            <CardTitle>Your Store is Live!</CardTitle>
+            <CardDescription>Share your store link with your customers.</CardDescription>
+          </CardHeader>
+          <CardContent>
+             <div className="flex items-center justify-between p-3 border rounded-lg bg-muted">
+                <Link href={fullStoreUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline">
+                    {storeUrl}
+                </Link>
+                <div className="flex items-center gap-2">
+                     <Button variant="ghost" size="icon" onClick={copyToClipboard}>
+                        <Copy className="w-4 h-4" />
+                        <span className="sr-only">Copy URL</span>
+                    </Button>
+                    <Link href={fullStoreUrl} target="_blank" rel="noopener noreferrer">
+                        <Button variant="ghost" size="icon">
+                            <ExternalLink className="w-4 h-4" />
+                            <span className="sr-only">Open in new tab</span>
+                        </Button>
+                    </Link>
+                </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
