@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import AddProductForm from './add-product-form';
 
+// Mark as dynamic to prevent SSG with Firebase
+export const dynamic = 'force-dynamic';
+
 export default function AddProductPage() {
   return (
     <>

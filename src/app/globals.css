@@ -84,4 +84,42 @@
   input, textarea {
     @apply caret-primary;
   }
+
+  /* Force pointer cursor on ALL clickable elements */
+  a,
+  button,
+  [role="button"],
+  [type="button"],
+  [type="submit"],
+  [type="reset"],
+  select,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  .cursor-pointer {
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
+
+  /* Force pointer on all children of clickable elements */
+  a *,
+  button *,
+  [role="button"] *,
+  [type="button"] *,
+  [type="submit"] *,
+  [type="reset"] *,
+  label[for] * {
+    cursor: inherit !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+  }
+
+  /* Disabled state */
+  a[aria-disabled="true"],
+  button:disabled,
+  [type="button"]:disabled,
+  [type="submit"]:disabled {
+    cursor: not-allowed !important;
+  }
 }

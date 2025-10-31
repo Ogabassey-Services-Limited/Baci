@@ -1,14 +1,13 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import {
-  Form,
   FormControl,
   FormField,
   FormItem,
@@ -24,59 +23,59 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, Upload } from 'lucide-react';
+import { Loader2, Sparkles, Upload, CheckCircle, Copy } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
-import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
-import { saveMerchantData } from '@/services/merchantService';
+import { saveMerchantData, generateUserId } from '@/services/localMerchantService';
 
 // --- Zod Schema Definitions ---
 
-const onboardingSchema = z.object({
+const baseOnboardingSchema = z.object({
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
   brandPreferences: z.string().optional(),
   logo: z.any().optional(),
-}).refine(data => {
-  if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Please specify your business type with at least 2 characters.",
-  path: ["otherBusinessType"],
 });
 
-type OnboardingFormValues = z.infer<typeof onboardingSchema>;
+const refinedFormSchema = baseOnboardingSchema.refine(data => {
+    if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
+      return false;
+    }
+    return true;
+  }, {
+    message: "Please specify your business type with at least 2 characters.",
+    path: ["otherBusinessType"],
+});
 
-// Function to get the appropriate schema for the current step
+type OnboardingFormValues = z.infer<typeof refinedFormSchema>;
+
 const getResolverForStep = (step: number) => {
-  switch (step) {
-    case 1:
-      return zodResolver(onboardingSchema.pick({ businessName: true }));
-    case 2:
-      return zodResolver(onboardingSchema.pick({ businessType: true, otherBusinessType: true }));
-    case 3:
-      return zodResolver(onboardingSchema);
-    default:
-      return zodResolver(onboardingSchema);
-  }
+  if (step === 1) return zodResolver(baseOnboardingSchema.pick({ businessName: true }));
+  if (step === 2) return zodResolver(baseOnboardingSchema.pick({ businessType: true, otherBusinessType: true }).refine(data => {
+    if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
+      return false;
+    }
+    return true;
+  }, {
+    message: "Please specify your business type with at least 2 characters.",
+    path: ["otherBusinessType"],
+  }));
+  return zodResolver(refinedFormSchema);
 };
-
 
 // --- Step Components ---
 
 function StepIndicator({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) {
+  const progress = Math.min(((currentStep -1) / (totalSteps -1)) * 100, 100);
+
   return (
-    <div className="flex items-center gap-4">
-      <Progress value={(currentStep / totalSteps) * 100} className="w-full" />
-      <span className="text-sm text-muted-foreground whitespace-nowrap">
+    <div className="flex items-center gap-4" role="progressbar" aria-valuenow={currentStep} aria-valuemin={1} aria-valuemax={totalSteps} aria-label="Onboarding progress">
+      <Progress value={progress} className="w-full" />
+      <span className="text-sm text-muted-foreground whitespace-nowrap" aria-live="polite">
         Step {currentStep} of {totalSteps}
       </span>
     </div>
@@ -105,6 +104,7 @@ function Step1_BusinessName() {
 function Step2_BusinessType() {
   const { control, watch } = useFormContext<OnboardingFormValues>();
   const businessTypeValue = watch('businessType');
+  const businessTypes = useMemo(() => getAllBusinessTypes(), []);
 
   return (
     <div className='space-y-4'>
@@ -121,7 +121,7 @@ function Step2_BusinessType() {
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {getAllBusinessTypes().map((type) => (
+                {businessTypes.map((type) => (
                   <SelectItem key={type.id} value={type.id}>
                     {type.label}
                   </SelectItem>
@@ -154,6 +154,7 @@ function Step2_BusinessType() {
 
 function Step3_Logo() {
   const form = useFormContext<OnboardingFormValues>();
+  const { toast } = useToast();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [generatedLogo, setGeneratedLogo] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -168,7 +169,7 @@ function Step3_Logo() {
         setLogoPreview(dataUri);
         form.setValue('logo', dataUri);
         setGeneratedLogo(null);
-        setShowColorPrompt(false); 
+        setShowColorPrompt(false);
       };
       reader.readAsDataURL(file);
     }
@@ -177,28 +178,51 @@ function Step3_Logo() {
   const handleGenerateClick = () => {
     setShowColorPrompt(true);
   };
-  
+
   const handleGenerateLogo = async () => {
     const isBrandPrefsValid = await form.trigger(['brandPreferences']);
     if (!isBrandPrefsValid) return;
 
     const { businessName, businessType, brandPreferences, otherBusinessType } = form.getValues();
-    
+
     setIsGenerating(true);
     try {
-      const result = await guideBusinessOnboarding({
-        businessName,
-        businessType: businessType === 'other' ? otherBusinessType! : businessType,
-        brandPreferences: brandPreferences || '',
+      const finalBusinessType = businessType === 'other'
+        ? (otherBusinessType || businessType)
+        : businessType;
+
+      const response = await fetch('/api/ai/guide-onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName,
+          businessType: finalBusinessType,
+          brandPreferences: brandPreferences || '',
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate logo');
+      }
+
+      const result = await response.json();
       if (result.logoDataUri) {
         setGeneratedLogo(result.logoDataUri);
         form.setValue('logo', result.logoDataUri);
         setLogoPreview(null);
         setShowColorPrompt(false);
+        toast({
+          title: 'Logo generated!',
+          description: 'Your AI-generated logo is ready.',
+        });
       }
     } catch (e) {
       logger.error({ error: e as Error, message: 'Logo generation failed in onboarding form.' });
+      toast({
+        title: 'Logo generation failed',
+        description: 'Could not generate logo. Please try uploading one instead.',
+        variant: 'destructive',
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -212,7 +236,13 @@ function Step3_Logo() {
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
         <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center", {'items-center justify-center': !imageToDisplay})}>
           {imageToDisplay ? (
-            <Image src={imageToDisplay} alt="Logo Preview" layout="fill" objectFit="contain" className="rounded-md p-2" />
+            <Image
+              src={imageToDisplay}
+              alt="Logo Preview"
+              fill
+              style={{ objectFit: 'contain' }}
+              className="rounded-md p-2"
+            />
           ) : (
             <>
               <Upload className="w-8 h-8 text-muted-foreground mb-2" />
@@ -225,6 +255,7 @@ function Step3_Logo() {
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             accept="image/*"
             onChange={handleLogoChange}
+            aria-label="Upload logo file"
           />
         </div>
         <div className="relative flex items-center justify-center md:hidden">
@@ -276,6 +307,41 @@ function Step3_Logo() {
   );
 }
 
+
+function Step4_Success({ businessName }: { businessName: string }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const storeUrl = `${businessName.toLowerCase().replace(/\s+/g, '-')}.baci.store`;
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(storeUrl);
+    toast({
+      title: "Copied to clipboard!",
+      description: "Your store URL is ready to be shared.",
+    });
+  };
+
+  return (
+    <div className="text-center space-y-4 flex flex-col items-center">
+      <CheckCircle className="w-16 h-16 text-green-500" />
+      <h3 className="text-2xl font-semibold">Your Store is Ready!</h3>
+      <p className="text-muted-foreground">Congratulations! Your new e-commerce store has been created.</p>
+      
+      <div className="w-full max-w-sm p-4 border rounded-lg bg-muted flex items-center justify-between">
+        <span className="font-mono text-sm truncate">https://{storeUrl}</span>
+        <Button variant="ghost" size="icon" onClick={copyToClipboard}>
+          <Copy className="w-4 h-4" />
+        </Button>
+      </div>
+
+      <Button onClick={() => router.push('/dashboard')} className="mt-4">
+        Go to Dashboard
+      </Button>
+    </div>
+  );
+}
+
+
 function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoading }: {
   currentStep: number;
   totalSteps: number;
@@ -283,22 +349,38 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
   onPrev: () => void;
   isLoading: boolean;
 }) {
+
   return (
-    <div className="flex justify-between pt-4">
+    <div className="flex justify-between pt-4" role="navigation" aria-label="Onboarding navigation">
       {currentStep > 1 ? (
-        <Button type="button" variant="outline" onClick={onPrev} disabled={isLoading}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onPrev}
+          disabled={isLoading}
+          aria-label={`Go to previous step (${currentStep - 1} of ${totalSteps})`}
+        >
           Previous
         </Button>
       ) : (
         <div /> // Placeholder to keep "Next" button on the right
       )}
       {currentStep < totalSteps ? (
-        <Button type="button" onClick={onNext}>
+        <Button
+          type="button"
+          onClick={onNext}
+          disabled={isLoading}
+          aria-label={`Go to next step (${currentStep + 1} of ${totalSteps})`}
+        >
           Next
         </Button>
       ) : (
-        <Button type="submit" disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <Button
+          type="submit"
+          disabled={isLoading}
+          aria-label="Submit onboarding form and create store"
+        >
+          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
           Create My Store
         </Button>
       )}
@@ -306,13 +388,11 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
   );
 }
 
-
 // --- Main Form Component ---
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
 
   const totalSteps = 3;
 
@@ -327,61 +407,66 @@ export default function OnboardingForm() {
     },
     mode: 'onBlur',
   });
-  
-  const handleNext = async () => {
-    let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
-    if (step === 1) {
-        fieldsToValidate = ['businessName'];
-    } else if (step === 2) {
-        fieldsToValidate = ['businessType', 'otherBusinessType'];
-    }
 
-    const isValid = await form.trigger(fieldsToValidate);
-    
+  const handleNext = async () => {
+    const isValid = await form.trigger();
     if (isValid && step < totalSteps) {
-      setStep(step + 1);
+      startTransition(() => {
+        setStep(step + 1);
+      });
     }
   };
 
-  const handlePrev = () => setStep(step - 1);
+  const handlePrev = () => {
+    if (step > 1) {
+      startTransition(() => {
+        setStep(step - 1);
+      });
+    }
+  };
 
   const onSubmit = async (data: OnboardingFormValues) => {
-    const isValid = await form.trigger();
-    if (!isValid) return;
-
-    if (!auth || !db) {
-        toast({
-            title: 'Firebase not initialized',
-            description: 'The Firebase service is not available. Please try again later.',
-            variant: 'destructive',
-        });
-        return;
-    }
-
     setIsLoading(true);
+
     try {
-      const finalBusinessType = data.businessType === 'other' ? data.otherBusinessType : data.businessType;
-      
-      const randomEmail = `user_${Date.now()}@example.com`;
-      const randomPassword = Math.random().toString(36).slice(-8);
+      const finalBusinessType = data.businessType === 'other'
+        ? (data.otherBusinessType || data.businessType)
+        : data.businessType;
 
-      const userCredential = await createUserWithEmailAndPassword(auth, randomEmail, randomPassword);
-      const user = userCredential.user;
+      generateUserId();
 
-      const { logoDataUri, brandColors } = await guideBusinessOnboarding({
-        businessName: data.businessName,
-        businessType: finalBusinessType!,
-        brandPreferences: data.brandPreferences || '',
-        logoDataUri: data.logo,
+      const response = await fetch('/api/ai/guide-onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName: data.businessName,
+          businessType: finalBusinessType!,
+          brandPreferences: data.brandPreferences || '',
+          logoDataUri: data.logo,
+        }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        logger.error({
+          message: 'API request failed',
+          status: response.status,
+          error: errorData
+        });
+        throw new Error(errorData.error || `API request failed with status ${response.status}`);
+      }
+
+      const result = await response.json();
+      const { logoDataUri, brandColors } = result;
+
       if (!brandColors || brandColors.length < 5) {
+        logger.error({ message: 'Invalid brand colors', brandColors });
         throw new Error("AI did not return a valid brand color palette.");
       }
-      
+
       const finalLogoUri = data.logo || logoDataUri;
 
-      await saveMerchantData(user.uid, {
+      saveMerchantData({
         businessName: data.businessName,
         businessType: finalBusinessType!,
         logo: finalLogoUri,
@@ -390,20 +475,18 @@ export default function OnboardingForm() {
             secondary: brandColors[1],
         }
       });
-
-      await signInWithEmailAndPassword(auth, randomEmail, randomPassword);
       
-      toast({
-        title: 'Store Created!',
-        description: "We're redirecting you to your new dashboard.",
+      startTransition(() => {
+        setStep(totalSteps + 1); // Move to success step
       });
 
-      router.push('/dashboard');
     } catch (e) {
       logger.error({message: "Onboarding submission failed.", error: e as Error});
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error occurred';
+
       toast({
         title: 'Onboarding Failed',
-        description: 'Could not create your store. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -411,31 +494,41 @@ export default function OnboardingForm() {
     }
   };
   
+  if (step > totalSteps) {
+    return <Step4_Success businessName={form.getValues('businessName')} />;
+  }
+
   return (
     <div className="space-y-8">
-      <div>
+      <header>
         <h2 className="text-2xl font-bold text-center font-headline">
           Welcome to Baci
         </h2>
         <p className="text-muted-foreground text-center">
           Let's set up your store in a few simple steps.
         </p>
-      </div>
+      </header>
 
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
 
       <FormProvider {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {step === 1 && <Step1_BusinessName />}
-          {step === 2 && <Step2_BusinessType />}
-          {step === 3 && <Step3_Logo />}
-          
-          <OnboardingNavigation 
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="space-y-6"
+          aria-label="Store onboarding form"
+        >
+          <div role="region" aria-live="polite" aria-atomic="true">
+            {step === 1 && <Step1_BusinessName />}
+            {step === 2 && <Step2_BusinessType />}
+            {step === 3 && <Step3_Logo />}
+          </div>
+
+          <OnboardingNavigation
             currentStep={step}
             totalSteps={totalSteps}
             onNext={handleNext}
             onPrev={handlePrev}
-            isLoading={isLoading}
+            isLoading={isLoading || isPending}
           />
         </form>
       </FormProvider>

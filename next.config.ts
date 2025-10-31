@@ -29,6 +29,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Optimize bundle size
+  experimental: {
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
+  // Reduce bundle size
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+  // Add server-side only packages to exclude from client bundle
+  serverExternalPackages: ['genkit', '@genkit-ai/google-genai'],
 };
 
 export default nextConfig;

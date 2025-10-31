@@ -13,22 +13,43 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
 
-if (typeof window !== 'undefined' && !getApps().length) {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
-} else if (getApps().length) {
-  app = getApp();
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
+// Initialize Firebase lazily only in browser
+if (typeof window !== 'undefined') {
+  // Validate config before initializing
+  const isConfigValid = Object.values(firebaseConfig).every(
+    value => value && value !== 'undefined' && !value.includes('your-')
+  );
+
+  if (!isConfigValid) {
+    console.error('❌ Firebase configuration is invalid or missing. Please check your .env file.');
+    console.error('Missing/Invalid values:',
+      Object.entries(firebaseConfig)
+        .filter(([_, v]) => !v || v === 'undefined' || v.includes('your-'))
+        .map(([k]) => k)
+    );
+  } else {
+    try {
+      if (!getApps().length) {
+        app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        storage = getStorage(app);
+        console.log('✅ Firebase initialized successfully');
+      } else {
+        app = getApp();
+        auth = getAuth(app);
+        db = getFirestore(app);
+        storage = getStorage(app);
+      }
+    } catch (error) {
+      console.error('❌ Firebase initialization error:', error);
+    }
+  }
 }
 
-// @ts-ignore
 export { app, auth, db, storage };
