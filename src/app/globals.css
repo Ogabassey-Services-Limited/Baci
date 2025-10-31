@@ -82,6 +82,6 @@
     @apply bg-background text-foreground;
   }
   input, textarea {
-    @apply caret-accent;
+    @apply caret-primary;
   }
 }
