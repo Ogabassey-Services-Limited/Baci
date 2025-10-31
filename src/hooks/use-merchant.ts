@@ -16,7 +16,9 @@ export const useMerchant = () => {
       if (user) {
         setUser(user);
         const merchantData = await getMerchantData(user.uid);
-        setMerchant(merchantData);
+        if (merchantData) {
+          setMerchant(merchantData);
+        }
       } else {
         setUser(null);
         setMerchant(null);
