@@ -1,33 +1,28 @@
-
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { merchantSchema, Merchant } from '@/schemas/merchant';
+import { logger } from '@/lib/logger';
 
-/**
- * Saves merchant data to Firestore.
- *
- * @param uid - The user's ID from Firebase Auth.
- * @param data - The merchant data to save.
- */
-export const saveMerchantData = async (uid: string, data: Merchant) => {
-  const validatedData = merchantSchema.parse(data);
-  const merchantRef = doc(db, 'merchants', uid);
-  await setDoc(merchantRef, validatedData, { merge: true });
-};
+export interface MerchantData {
+  businessName: string;
+  businessType: string;
+  logo?: string;
+  colors?: {
+    primary: string;
+    secondary: string;
+  };
+}
 
-/**
- * Retrieves merchant data from Firestore.
- *
- * @param uid - The user's ID.
- * @returns The merchant data, or null if not found.
- */
-export const getMerchantData = async (uid: string): Promise<Merchant | null> => {
-  const merchantRef = doc(db, 'merchants', uid);
-  const docSnap = await getDoc(merchantRef);
-
-  if (docSnap.exists()) {
-    return merchantSchema.parse(docSnap.data());
+export async function saveMerchantData(userId: string, data: MerchantData): Promise<void> {
+  try {
+    const merchantRef = doc(db, 'merchants', userId);
+    await setDoc(merchantRef, data, { merge: true });
+    logger.info({ message: 'Merchant data saved successfully', userId });
+  } catch (error) {
+    logger.error({
+      message: 'Error saving merchant data to Firestore',
+      userId,
+      error: error as Error,
+    });
+    throw new Error('Could not save merchant data.');
   }
-
-  return null;
-};
+}

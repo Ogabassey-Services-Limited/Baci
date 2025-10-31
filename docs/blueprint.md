@@ -223,36 +223,25 @@ This section provides quick navigation and critical information for AI assistant
 
 ---
 
+### ✅ Phase 4 Complete - Firestore Integration
+
+**Feature:** All onboarding data is now saved to a `merchants` collection in Firestore, and the product form dynamically uses this data.
+
+| Step | File | Action |
+|------|------|--------|
+| 1 | `/src/lib/firebase.ts` | Initializes Firebase services (Auth, Firestore) |
+| 2 | `/src/services/merchantService.ts` | Provides `saveMerchantData` to write to Firestore |
+| 3 | `/src/app/onboarding/onboarding-form.tsx` | Creates user via `createUserWithEmailAndPassword` and saves data on submit |
+| 4 | `/src/hooks/use-merchant.tsx` | New hook to fetch logged-in merchant's data |
+| 5 | `/src/app/dashboard/products/add/add-product-form.tsx` | Uses `useMerchant` hook to get business type for AI description generation |
+
+**New Data Flow:**
+- Onboarding form → `createUserWithEmailAndPassword` → `saveMerchantData` → Firestore
+- Product form → `useMerchant` hook → Reads from Firestore
+
+---
+
 ### 🐛 Known Issues & Workarounds
-
-#### Issue 1: Business Type Hardcoded in Product Form
-
-**Location:** `/src/app/dashboard/products/add/add-product-form.tsx:122`
-
-**Problem:** Product descriptions always use "Handmade & Crafts" business type
-
-**Current Code:**
-```typescript
-businessType: 'Handmade & Crafts', // ❌ Hardcoded!
-```
-
-**Workaround:** None currently
-
-**Fix:** Implement user profile storage, read business type from profile
-
-**Tracking:** ADR 001, Phase 4
-
-#### Issue 2: Onboarding Data Not Persisted
-
-**Location:** `/src/app/onboarding/onboarding-form.tsx:390-421`
-
-**Problem:** Form submits successfully but doesn't save to database
-
-**Impact:** All onboarding data lost on page refresh
-
-**Workaround:** None - this is a critical missing feature
-
-**Fix:** Implement Firestore integration for merchant profiles
 
 #### Issue 3: Duplicate Color Extraction
 
