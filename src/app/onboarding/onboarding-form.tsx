@@ -303,7 +303,11 @@ export default function OnboardingForm() {
   const totalSteps = 3;
 
   const form = useForm<OnboardingFormValues>({
-    resolver: zodResolver(refinedFormSchema),
+    resolver: zodResolver(
+        step === 1 ? baseFormSchema.pick({ businessName: true }) :
+        step === 2 ? refinedFormSchema.pick({ businessType: true, otherBusinessType: true }) :
+        refinedFormSchema
+      ),
     defaultValues: {
       businessName: '',
       businessType: '',
@@ -344,20 +348,24 @@ export default function OnboardingForm() {
       const userCredential = await createUserWithEmailAndPassword(auth, randomEmail, randomPassword);
       const user = userCredential.user;
 
-      const { logoDataUri, primaryColor, secondaryColor } = await guideBusinessOnboarding({
+      const { logoDataUri, brandColors } = await guideBusinessOnboarding({
         businessName: data.businessName,
         businessType: finalBusinessType!,
         brandPreferences: data.brandPreferences || '',
         logoDataUri: data.logo,
       });
 
+      if (brandColors.length < 2) {
+          throw new Error("AI did not return enough brand colors.");
+      }
+
       await saveMerchantData(user.uid, {
         businessName: data.businessName,
         businessType: finalBusinessType!,
         logo: logoDataUri,
         colors: {
-            primary: primaryColor,
-            secondary: secondaryColor,
+            primary: brandColors[0],
+            secondary: brandColors[1],
         }
       });
 
