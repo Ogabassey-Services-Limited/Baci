@@ -304,10 +304,10 @@ export default function OnboardingForm() {
 
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(
-        step === 1 ? baseFormSchema.pick({ businessName: true }) :
-        step === 2 ? refinedFormSchema.pick({ businessType: true, otherBusinessType: true }) :
-        refinedFormSchema
-      ),
+      step === 1 ? baseFormSchema.pick({ businessName: true }) :
+      step === 2 ? refinedFormSchema.pick({ businessType: true, otherBusinessType: true }) :
+      refinedFormSchema
+    ),
     defaultValues: {
       businessName: '',
       businessType: '',
@@ -354,8 +354,8 @@ export default function OnboardingForm() {
         logoDataUri: data.logo,
       });
 
-      if (brandColors.length < 2) {
-          throw new Error("AI did not return enough brand colors.");
+      if (!brandColors || brandColors.length < 5) {
+        throw new Error("AI did not return a valid brand color palette.");
       }
 
       await saveMerchantData(user.uid, {
