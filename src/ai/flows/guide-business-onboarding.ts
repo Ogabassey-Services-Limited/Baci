@@ -194,11 +194,11 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
       throw error;
     }
     
-    let parsedOutput: GuideBusinessOnboardingOutput;
+    let parsedOutput: { brandColors: string[] };
     try {
         const jsonString = (output as string).replace(/```json|```/g, '').trim();
         const parsedJson = JSON.parse(jsonString);
-        parsedOutput = GuideBusinessOnboardingOutputSchema.parse(parsedJson);
+        parsedOutput = z.object({ brandColors: z.array(z.string()) }).parse(parsedJson);
     } catch (error) {
         logger.error({ error, message: "Could not parse brand colors from model's text response.", flow: 'guideBusinessOnboardingFlow', output });
         const { output: structuredOutput } = await extractColorsPrompt(input);
@@ -208,7 +208,6 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
             throw extractionError;
         }
         parsedOutput = {
-            logoDataUri: media.url,
             brandColors: structuredOutput.brandColors,
         };
     }

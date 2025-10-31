@@ -27,5 +27,5 @@ const log = (level: LogLevel, payload: LogPayload | Error) => {
 export const logger = {
   info: (payload: LogPayload) => log('info', payload),
   warn: (payload: LogPayload) => log('warn', payload),
-  error: (payload: LogPayload) => log('error', payload),
+  error: (payload: LogPayload | Error) => log('error', payload),
 };
