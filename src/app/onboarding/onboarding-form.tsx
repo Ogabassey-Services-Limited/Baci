@@ -44,6 +44,16 @@ const baseFormSchema = z.object({
   logo: z.any().optional(),
 });
 
+const step2Schema = baseFormSchema.pick({ businessType: true, otherBusinessType: true }).refine(data => {
+    if (data.businessType === 'other') {
+      return !!data.otherBusinessType && data.otherBusinessType.length >= 2;
+    }
+    return true;
+}, {
+    message: "Please specify your business type with at least 2 characters.",
+    path: ["otherBusinessType"],
+});
+
 const refinedFormSchema = baseFormSchema.refine(data => {
     if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
         return false;
@@ -54,19 +64,12 @@ const refinedFormSchema = baseFormSchema.refine(data => {
     path: ["otherBusinessType"],
 });
 
+
 type OnboardingFormValues = z.infer<typeof baseFormSchema>;
 
 const stepSchemas = [
     baseFormSchema.pick({ businessName: true }),
-    baseFormSchema.pick({ businessType: true, otherBusinessType: true }).refine(data => {
-      if (data.businessType === 'other') {
-        return !!data.otherBusinessType && data.otherBusinessType.length >= 2;
-      }
-      return true;
-    }, {
-        message: "Please specify your business type with at least 2 characters.",
-        path: ["otherBusinessType"],
-    }),
+    step2Schema,
     refinedFormSchema
   ];
 
@@ -324,21 +327,12 @@ export default function OnboardingForm() {
       businessType: '',
       otherBusinessType: '',
       brandPreferences: '',
+      logo: null,
     },
   });
 
   const handleNext = async () => {
-    let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
-    if (step === 1) fieldsToValidate = ['businessName'];
-    if (step === 2) {
-      fieldsToValidate = ['businessType'];
-       if (form.getValues('businessType') === 'other') {
-        fieldsToValidate.push('otherBusinessType');
-      }
-    }
-
-    const isValid = await form.trigger(fieldsToValidate);
-
+    const isValid = await form.trigger();
     if (isValid && step < totalSteps) {
       setStep(step + 1);
     }

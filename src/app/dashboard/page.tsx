@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import type { ChartConfig } from '@/components/ui/chart';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const chartData = [
   { month: 'January', desktop: 186, mobile: 80 },
@@ -53,6 +54,12 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function DashboardPage() {
+  const avatar1 = PlaceHolderImages.find(img => img.id === 'avatar-1');
+  const avatar2 = PlaceHolderImages.find(img => img.id === 'avatar-2');
+  const avatar3 = PlaceHolderImages.find(img => img.id === 'avatar-3');
+  const avatar4 = PlaceHolderImages.find(img => img.id === 'avatar-4');
+  const avatar5 = PlaceHolderImages.find(img => img.id === 'avatar-5');
+  
   return (
     <>
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
@@ -156,11 +163,13 @@ export default function DashboardPage() {
             <div className="space-y-8">
               <div className="flex items-center">
                 <Avatar className="h-9 w-9">
-                  <AvatarImage
-                    src="https://picsum.photos/seed/a1/40/40"
-                    alt="Avatar"
-                    data-ai-hint="person portrait"
-                  />
+                  {avatar1 && (
+                    <AvatarImage
+                      src={avatar1.imageUrl}
+                      alt={avatar1.description}
+                      data-ai-hint={avatar1.imageHint}
+                    />
+                  )}
                   <AvatarFallback>OM</AvatarFallback>
                 </Avatar>
                 <div className="ml-4 space-y-1">
@@ -175,11 +184,13 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center">
                 <Avatar className="flex h-9 w-9 items-center justify-center space-y-0 border">
-                  <AvatarImage
-                    src="https://picsum.photos/seed/a2/40/40"
-                    alt="Avatar"
-                    data-ai-hint="woman portrait"
-                  />
+                  {avatar2 && (
+                    <AvatarImage
+                      src={avatar2.imageUrl}
+                      alt={avatar2.description}
+                      data-ai-hint={avatar2.imageHint}
+                    />
+                  )}
                   <AvatarFallback>JL</AvatarFallback>
                 </Avatar>
                 <div className="ml-4 space-y-1">
@@ -194,11 +205,13 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center">
                 <Avatar className="h-9 w-9">
-                  <AvatarImage
-                    src="https://picsum.photos/seed/a3/40/40"
-                    alt="Avatar"
-                    data-ai-hint="man portrait"
-                  />
+                  {avatar3 && (
+                    <AvatarImage
+                      src={avatar3.imageUrl}
+                      alt={avatar3.description}
+                      data-ai-hint={avatar3.imageHint}
+                    />
+                  )}
                   <AvatarFallback>IN</AvatarFallback>
                 </Avatar>
                 <div className="ml-4 space-y-1">
@@ -213,11 +226,13 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center">
                 <Avatar className="h-9 w-9">
-                  <AvatarImage
-                    src="https://picsum.photos/seed/a4/40/40"
-                    alt="Avatar"
-                    data-ai-hint="person smiling"
-                  />
+                   {avatar4 && (
+                    <AvatarImage
+                      src={avatar4.imageUrl}
+                      alt={avatar4.description}
+                      data-ai-hint={avatar4.imageHint}
+                    />
+                  )}
                   <AvatarFallback>WK</AvatarFallback>
                 </Avatar>
                 <div className="ml-4 space-y-1">
@@ -232,11 +247,13 @@ export default function DashboardPage() {
               </div>
               <div className="flex items-center">
                 <Avatar className="h-9 w-9">
-                  <AvatarImage
-                    src="https://picsum.photos/seed/a5/40/40"
-                    alt="Avatar"
-                    data-ai-hint="woman smiling"
-                  />
+                  {avatar5 && (
+                    <AvatarImage
+                      src={avatar5.imageUrl}
+                      alt={avatar5.description}
+                      data-ai-hint={avatar5.imageHint}
+                    />
+                  )}
                   <AvatarFallback>SD</AvatarFallback>
                 </Avatar>
                 <div className="ml-4 space-y-1">
