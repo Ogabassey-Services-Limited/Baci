@@ -37,15 +37,12 @@ import { saveMerchantData } from '@/services/merchantService';
 
 // --- Zod Schema Definitions ---
 
-// Schema for Step 1
-const step1Schema = z.object({
+const onboardingSchema = z.object({
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
-});
-
-// Schema for Step 2
-const step2Schema = z.object({
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
+  brandPreferences: z.string().optional(),
+  logo: z.any().optional(),
 }).refine(data => {
   if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
     return false;
@@ -56,25 +53,15 @@ const step2Schema = z.object({
   path: ["otherBusinessType"],
 });
 
-// Schema for Step 3
-const step3Schema = z.object({
-  brandPreferences: z.string().optional(),
-  logo: z.any().optional(),
-});
-
-// Combined schema for the whole form
-const onboardingSchema = step1Schema.merge(step2Schema).merge(step3Schema);
-
-
 type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 
 // Function to get the appropriate schema for the current step
 const getResolverForStep = (step: number) => {
   switch (step) {
     case 1:
-      return zodResolver(step1Schema);
+      return zodResolver(onboardingSchema.pick({ businessName: true }));
     case 2:
-      return zodResolver(step2Schema);
+      return zodResolver(onboardingSchema.pick({ businessType: true, otherBusinessType: true }));
     case 3:
       return zodResolver(onboardingSchema);
     default:
