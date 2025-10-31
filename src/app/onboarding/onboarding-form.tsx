@@ -64,7 +64,7 @@ export default function OnboardingForm() {
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(
         step === 1 ? baseFormSchema.pick({ businessName: true }) :
-        step === 2 ? baseFormSchema.pick({ businessType: true, otherBusinessType: true }) :
+        step === 2 ? formSchema.pick({ businessType: true, otherBusinessType: true }) :
         step === 3 ? baseFormSchema.pick({ brandPreferences: true }) :
         formSchema
     ),
@@ -90,7 +90,9 @@ export default function OnboardingForm() {
     const isValid = await form.trigger(fieldsToValidate);
 
     if (isValid) {
-      setStep(step + 1);
+      if (step < totalSteps) {
+        setStep(step + 1);
+      }
     }
   };
 
@@ -153,28 +155,26 @@ export default function OnboardingForm() {
         const finalBusinessType = data.businessType === 'other' ? data.otherBusinessType : data.businessType;
         
         let finalLogo = data.logo;
-
-        // If no logo has been uploaded or generated, generate one before submission
         if (!finalLogo && !logoPreview && !generatedLogo) {
-             const result = await guideBusinessOnboarding({
+          // If no logo has been provided, we still proceed to generate brand colors without a logo.
+          await guideBusinessOnboarding({
+              businessName: data.businessName,
+              businessType: finalBusinessType!,
+              brandPreferences: data.brandPreferences,
+          });
+        } else {
+            // Use the already generated/uploaded logo if available
+            if (generatedLogo) finalLogo = generatedLogo;
+            if (logoPreview) finalLogo = logoPreview;
+
+            await guideBusinessOnboarding({
                 businessName: data.businessName,
                 businessType: finalBusinessType!,
                 brandPreferences: data.brandPreferences,
+                logoDataUri: finalLogo
             });
-            finalLogo = result.logoDataUri;
         }
 
-        // Use the already generated/uploaded logo if available
-        if (generatedLogo) finalLogo = generatedLogo;
-        if (logoPreview) finalLogo = logoPreview;
-
-
-        await guideBusinessOnboarding({
-            businessName: data.businessName,
-            businessType: finalBusinessType!,
-            brandPreferences: data.brandPreferences,
-            logoDataUri: finalLogo
-        });
 
         toast({
         title: 'Store Created!',
@@ -359,7 +359,7 @@ export default function OnboardingForm() {
               <div></div>
             )}
             {step < totalSteps ? (
-               <Button type="button" onClick={handleNext} disabled={isLoading}>
+               <Button type="button" onClick={handleNext}>
                 Next
               </Button>
             ) : (
@@ -375,5 +375,4 @@ export default function OnboardingForm() {
   );
 }
 
-    
     
