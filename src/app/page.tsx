@@ -1,7 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Bot, Palette, Camera, Zap } from 'lucide-react';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function Home() {
   const features = [
@@ -26,6 +28,8 @@ export default function Home() {
       description: 'Generate a fully functional, mobile-responsive e-commerce website in seconds from your inputs.',
     },
   ];
+
+  const heroImage = PlaceHolderImages.find(img => img.id === 'hero-image');
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -60,10 +64,17 @@ export default function Home() {
                   </Link>
                 </div>
               </div>
-              <div className="w-full max-w-md mx-auto">
-                 <div className="w-full h-64 lg:h-full bg-muted rounded-xl shadow-lg flex items-center justify-center">
-                    <Zap className="w-24 h-24 text-primary opacity-20" />
-                 </div>
+              <div className="relative w-full max-w-md mx-auto aspect-video">
+                 {heroImage && (
+                  <Image
+                    src={heroImage.imageUrl}
+                    alt={heroImage.description}
+                    data-ai-hint={heroImage.imageHint}
+                    fill
+                    priority
+                    className="object-cover rounded-xl shadow-lg"
+                  />
+                 )}
               </div>
             </div>
           </div>
