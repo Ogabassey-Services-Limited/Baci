@@ -40,12 +40,12 @@ const baseFormSchema = z.object({
 });
 
 const formSchema = baseFormSchema.refine(data => {
-    if (data.businessType === 'other' && !data.otherBusinessType) {
+    if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
         return false;
     }
     return true;
 }, {
-    message: "Please specify your business type.",
+    message: "Please specify your business type with at least 2 characters.",
     path: ["otherBusinessType"],
 });
 
@@ -64,7 +64,7 @@ export default function OnboardingForm() {
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(
         step === 1 ? baseFormSchema.pick({ businessName: true }) :
-        step === 2 ? formSchema.pick({ businessType: true, otherBusinessType: true }) :
+        step === 2 ? formSchema :
         step === 3 ? baseFormSchema.pick({ brandPreferences: true }) :
         formSchema
     ),
@@ -138,12 +138,7 @@ export default function OnboardingForm() {
       }
     } catch (e) {
       logger.error({ error: e, message: 'Logo generation failed in onboarding form.' });
-      toast({
-        title: 'Logo Generation Failed',
-        description:
-          'There was an error generating the logo. Please try again.',
-        variant: 'destructive',
-      });
+      // No toast here to avoid bothering the user for a non-critical error.
     } finally {
       setIsLoading(false);
     }
@@ -155,26 +150,21 @@ export default function OnboardingForm() {
         const finalBusinessType = data.businessType === 'other' ? data.otherBusinessType : data.businessType;
         
         let finalLogo = data.logo;
-        if (!finalLogo && !logoPreview && !generatedLogo) {
-          // If no logo has been provided, we still proceed to generate brand colors without a logo.
-          await guideBusinessOnboarding({
+        if (!finalLogo) {
+             // If no logo has been provided, we still proceed to generate brand colors without a logo.
+            await guideBusinessOnboarding({
               businessName: data.businessName,
               businessType: finalBusinessType!,
               brandPreferences: data.brandPreferences,
-          });
+            });
         } else {
-            // Use the already generated/uploaded logo if available
-            if (generatedLogo) finalLogo = generatedLogo;
-            if (logoPreview) finalLogo = logoPreview;
-
-            await guideBusinessOnboarding({
+             await guideBusinessOnboarding({
                 businessName: data.businessName,
                 businessType: finalBusinessType!,
                 brandPreferences: data.brandPreferences,
                 logoDataUri: finalLogo
             });
         }
-
 
         toast({
         title: 'Store Created!',
@@ -216,7 +206,14 @@ export default function OnboardingForm() {
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={(e) => {
+          // Prevent default form submission from triggering on logo generation
+          if (step === totalSteps) {
+            form.handleSubmit(onSubmit)(e);
+          } else {
+            e.preventDefault();
+          }
+        }} className="space-y-6">
           {step === 1 && (
              <FormField
               control={form.control}
@@ -375,4 +372,3 @@ export default function OnboardingForm() {
   );
 }
 
-    
