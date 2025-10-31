@@ -30,6 +30,10 @@ import { useToast } from '@/hooks/use-toast';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
+import { getAllBusinessTypes } from '@/config/business-types';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { saveMerchantData } from '@/services/merchantService';
 
 // --- Zod Schema Definition ---
 const baseFormSchema = z.object({
@@ -103,12 +107,11 @@ function Step2_BusinessType() {
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                <SelectItem value="fashion">Fashion & Apparel</SelectItem>
-                <SelectItem value="electronics">Electronics & Gadgets</SelectItem>
-                <SelectItem value="home-goods">Home Goods & Decor</SelectItem>
-                <SelectItem value="health-beauty">Health & Beauty</SelectItem>
-                <SelectItem value="handmade">Handmade & Crafts</SelectItem>
-                <SelectItem value="food-beverage">Food & Beverage</SelectItem>
+                {getAllBusinessTypes().map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {type.label}
+                  </SelectItem>
+                ))}
                 <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
@@ -172,7 +175,7 @@ function Step3_Logo() {
       const result = await guideBusinessOnboarding({
         businessName,
         businessType: businessType === 'other' ? otherBusinessType! : businessType,
-        brandPreferences,
+        brandPreferences: brandPreferences || '',
       });
       if (result.logoDataUri) {
         setGeneratedLogo(result.logoDataUri);
@@ -291,7 +294,6 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
 
 
 // --- Main Form Component ---
-
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
@@ -301,11 +303,7 @@ export default function OnboardingForm() {
   const totalSteps = 3;
 
   const form = useForm<OnboardingFormValues>({
-    resolver: zodResolver(
-      step === 1 ? baseFormSchema.pick({ businessName: true }) :
-      step === 2 ? refinedFormSchema.pick({ businessType: true, otherBusinessType: true }) :
-      refinedFormSchema
-    ),
+    resolver: zodResolver(refinedFormSchema),
     defaultValues: {
       businessName: '',
       businessType: '',
@@ -318,8 +316,10 @@ export default function OnboardingForm() {
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
     if (step === 1) fieldsToValidate = ['businessName'];
-    if (step === 2) fieldsToValidate = ['businessType', 'otherBusinessType'];
-    
+    if (step === 2) {
+      fieldsToValidate = ['businessType', 'otherBusinessType'];
+    }
+
     const isValid = await form.trigger(fieldsToValidate);
 
     if (isValid && step < totalSteps) {
@@ -337,12 +337,32 @@ export default function OnboardingForm() {
     try {
       const finalBusinessType = data.businessType === 'other' ? data.otherBusinessType : data.businessType;
       
-      await guideBusinessOnboarding({
+      // This is a simplified demo. In a real app, you would have a proper user registration flow.
+      const randomEmail = `user_${Date.now()}@example.com`;
+      const randomPassword = Math.random().toString(36).slice(-8);
+
+      const userCredential = await createUserWithEmailAndPassword(auth, randomEmail, randomPassword);
+      const user = userCredential.user;
+
+      const { logoDataUri, primaryColor, secondaryColor } = await guideBusinessOnboarding({
         businessName: data.businessName,
         businessType: finalBusinessType!,
-        brandPreferences: data.brandPreferences,
+        brandPreferences: data.brandPreferences || '',
         logoDataUri: data.logo,
       });
+
+      await saveMerchantData(user.uid, {
+        businessName: data.businessName,
+        businessType: finalBusinessType!,
+        logo: logoDataUri,
+        colors: {
+            primary: primaryColor,
+            secondary: secondaryColor,
+        }
+      });
+
+      // For the demo, we'll sign the user in automatically to maintain session
+      await signInWithEmailAndPassword(auth, randomEmail, randomPassword);
       
       toast({
         title: 'Store Created!',

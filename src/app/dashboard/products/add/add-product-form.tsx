@@ -38,6 +38,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { generateProductDescription } from '@/ai/flows/generate-product-descriptions';
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
+import { useMerchant } from '@/hooks/use-merchant';
 
 const addProductSchema = z.object({
   name: z.string().min(3, 'Product name must be at least 3 characters.'),
@@ -46,6 +47,9 @@ const addProductSchema = z.object({
   stock: z.coerce.number().int('Stock must be a whole number.'),
   status: z.enum(['draft', 'active']),
   image: z.any().refine((file) => file, 'Product image is required.'),
+  brand: z.string().optional(),
+  gtin: z.string().optional(),
+  mpn: z.string().optional(),
 });
 
 type AddProductFormValues = z.infer<typeof addProductSchema>;
@@ -53,6 +57,7 @@ type AddProductFormValues = z.infer<typeof addProductSchema>;
 export default function AddProductForm() {
   const router = useRouter();
   const { toast } = useToast();
+  const { merchant, loading: merchantLoading } = useMerchant();
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
@@ -70,6 +75,9 @@ export default function AddProductForm() {
       stock: 0,
       status: 'active',
       image: null,
+      brand: '',
+      gtin: '',
+      mpn: '',
     },
   });
 
@@ -86,10 +94,9 @@ export default function AddProductForm() {
         
         setIsEnhancing(true);
         try {
-          // In a real app, you would handle potential errors
           const { enhancedPhotoDataUri } = await enhanceProductImage({ photoDataUri: dataUri });
           setEnhancedImage(enhancedPhotoDataUri);
-          setShowEnhanced(true); // Switch to enhanced view automatically
+          setShowEnhanced(true); 
         } catch (error) {
           console.error("Failed to enhance image:", error);
           toast({
@@ -97,7 +104,7 @@ export default function AddProductForm() {
             description: "Could not enhance the product image. Please try again.",
             variant: "destructive"
           });
-          setEnhancedImage(null); // Clear enhanced image on failure
+          setEnhancedImage(null); 
         } finally {
           setIsEnhancing(false);
         }
@@ -115,11 +122,20 @@ export default function AddProductForm() {
       return;
     }
 
+    if (!merchant) {
+        toast({
+            title: "Could not generate description",
+            description: "Merchant data not loaded yet. Please try again in a moment.",
+            variant: "destructive"
+        });
+        setIsGenerating(false);
+        return;
+    }
+
     try {
       const result = await generateProductDescription({
         productName: productName,
-        // In a real app, you'd get this from the user's store settings
-        businessType: 'Handmade & Crafts', 
+        businessType: merchant.businessType, 
         productDetails: `A new product named ${productName}.`,
       });
       form.setValue('description', result.description);
@@ -148,6 +164,10 @@ export default function AddProductForm() {
   }
 
   const imageToDisplay = showEnhanced ? enhancedImage : originalImage;
+  
+  if (merchantLoading) {
+      return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
+  }
 
   return (
     <Form {...form}>
@@ -232,6 +252,57 @@ export default function AddProductForm() {
                           <FormLabel>Stock</FormLabel>
                           <FormControl>
                             <Input type="number" placeholder="0" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Google Merchant Center</CardTitle>
+                  <CardDescription>
+                    These fields help sync your product with Google Shopping.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-6 sm:grid-cols-3">
+                    <FormField
+                      control={form.control}
+                      name="brand"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Brand</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. Baci" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormField
+                      control={form.control}
+                      name="gtin"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>GTIN</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. 12-digit UPC" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormField
+                      control={form.control}
+                      name="mpn"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>MPN</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Manufacturer Part #" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
