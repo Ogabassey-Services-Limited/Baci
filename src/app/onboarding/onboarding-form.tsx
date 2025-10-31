@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
@@ -341,14 +341,6 @@ export default function OnboardingForm() {
     mode: 'onBlur',
   });
   
-  useEffect(() => {
-    // Only trigger validation when moving to a new step, not on initial load
-    if (step > 1) {
-      form.trigger();
-    }
-  }, [step]);
-
-
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
     if (step === 1) {
