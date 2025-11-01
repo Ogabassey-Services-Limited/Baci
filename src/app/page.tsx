@@ -162,7 +162,7 @@ function Storefront() {
                     <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10">Our Products</h2>
                     {searchResults.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                          {searchResults.map(product => (
+                          {searchResults.map((product, index) => (
                               <Card key={product.id} className="overflow-hidden">
                                   <Link href={`/product/${product.id}`} className="block">
                                       <Image
@@ -172,6 +172,7 @@ function Storefront() {
                                           width={600}
                                           height={400}
                                           className="object-cover w-full h-auto aspect-video"
+                                          priority={index === 0}
                                       />
                                   </Link>
                                   <CardContent className="p-4">

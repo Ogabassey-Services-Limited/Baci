@@ -5,23 +5,28 @@ import { logger } from '@/lib/logger';
 
 // Fallback colors when AI fails
 function generateFallbackColors(brandPreferences?: string): string[] {
-  // Simple color palettes based on preferences
-  const colorPalettes: Record<string, string[]> = {
-    blue: ['#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#DBEAFE'],
-    green: ['#10B981', '#34D399', '#6EE7B7', '#A7F3D0', '#D1FAE5'],
-    purple: ['#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE', '#EDE9FE'],
+  const pref = (brandPreferences || '').toLowerCase();
+  
+  // More robust color matching
+  const colorMap: Record<string, string[]> = {
     red: ['#EF4444', '#F87171', '#FCA5A5', '#FECACA', '#FEE2E2'],
     orange: ['#F97316', '#FB923C', '#FDBA74', '#FED7AA', '#FFEDD5'],
-    default: ['#3F51B5', '#9C27B0', '#FFC107', '#F5F5F5', '#212121'], // Original Baci colors
+    yellow: ['#FBBF24', '#FCD34D', '#FDE08A', '#FEF0C7', '#FEF9E7'],
+    green: ['#10B981', '#34D399', '#6EE7B7', '#A7F3D0', '#D1FAE5'],
+    blue: ['#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#DBEAFE'],
+    purple: ['#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE', '#EDE9FE'],
+    pink: ['#EC4899', '#F472B6', '#F9A8D4', '#FBCFE8', '#FCE7F3'],
+    black: ['#1F2937', '#4B5563', '#6B7280', '#D1D5DB', '#F3F4F6'],
+    default: ['#3F51B5', '#9C27B0', '#FFC107', '#F5F5F5', '#212121'],
   };
 
-  const pref = (brandPreferences || '').toLowerCase();
-  for (const [key, colors] of Object.entries(colorPalettes)) {
+  for (const [key, colors] of Object.entries(colorMap)) {
     if (pref.includes(key)) {
       return colors;
     }
   }
-  return colorPalettes.default;
+  
+  return colorMap.default; // Original Baci colors
 }
 
 export async function POST(request: NextRequest) {

@@ -84,6 +84,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
               data-ai-hint={product.imageHint}
               width={600}
               height={600}
+              priority
               className="w-full h-full object-cover"
             />
           </div>
