@@ -1,7 +1,11 @@
 
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { File, MoreHorizontal, PlusCircle } from 'lucide-react';
+import { useMerchant } from '@/hooks/use-merchant';
+import { getCountryByCode } from '@/lib/countries';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -79,6 +83,19 @@ const products = [
 ]
 
 export default function ProductsPage() {
+  const { merchant } = useMerchant();
+
+  const formatCurrency = (amount: number) => {
+    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+    const locale = country ? `en-${country.code}` : 'en-US';
+    const currency = country ? country.currency : 'USD';
+
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+    }).format(amount);
+  };
+
   return (
     <Tabs defaultValue="all">
       <div className="flex items-center">
@@ -152,7 +169,7 @@ export default function ProductsPage() {
                   <TableCell>
                     <Badge variant={product.status === 'active' ? 'default' : 'outline'}>{product.status}</Badge>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">${product.price.toFixed(2)}</TableCell>
+                  <TableCell className="hidden md:table-cell">{formatCurrency(product.price)}</TableCell>
                   <TableCell className="hidden md:table-cell">{product.stock}</TableCell>
                   <TableCell>
                     <DropdownMenu>
