@@ -264,7 +264,7 @@ function Step3_Logo() {
           </div>
           <span className="relative bg-background px-2 text-sm text-muted-foreground">or</span>
         </div>
-        <div className="flex flex-col items-center justify-start h-48 space-y-4">
+        <div className="flex flex-col items-center justify-center h-48 space-y-4">
           {!showColorPrompt ? (
             <Button type="button" variant="outline" onClick={handleGenerateClick} className="w-full">
               <Sparkles className="mr-2 h-4 w-4" />
