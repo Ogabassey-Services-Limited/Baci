@@ -30,6 +30,7 @@ import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
 import { saveMerchantData, generateUserId } from '@/services/localMerchantService';
+import type { BrandColors } from '@/ai/flows/guide-business-onboarding';
 
 // --- Zod Schema Definitions ---
 
@@ -156,7 +157,60 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdat
   const [showColorPrompt, setShowColorPrompt] = useState(false);
 
   const isLoading = isGenerating || isExtracting;
-  
+
+  // Extract colors from image using Web Worker + colorthief (non-blocking, accurate)
+  const extractColorsFromImage = (imageDataUri: string): Promise<BrandColors> => {
+    return new Promise((resolve, reject) => {
+      // Check if Web Workers are supported
+      if (typeof Worker === 'undefined') {
+        reject(new Error('Web Workers not supported in this browser'));
+        return;
+      }
+
+      try {
+        // Create a new worker instance
+        const worker = new Worker('/color-worker.js');
+
+        // Set up timeout to prevent hanging
+        const timeout = setTimeout(() => {
+          worker.terminate();
+          reject(new Error('Color extraction timed out'));
+        }, 10000); // 10 second timeout
+
+        // Listen for messages from the worker
+        worker.onmessage = (event) => {
+          clearTimeout(timeout);
+          worker.terminate();
+
+          const { success, colors, error } = event.data;
+
+          if (success && colors) {
+            console.log('✅ Colors extracted via Web Worker:', colors);
+            resolve(colors);
+          } else {
+            console.error('❌ Worker failed:', error);
+            reject(new Error(error || 'Color extraction failed'));
+          }
+        };
+
+        // Handle worker errors
+        worker.onerror = (error) => {
+          clearTimeout(timeout);
+          worker.terminate();
+          console.error('❌ Worker error:', error);
+          reject(new Error('Worker error: ' + error.message));
+        };
+
+        // Send the image data to the worker
+        worker.postMessage({ imageDataUri });
+
+      } catch (error) {
+        console.error('❌ Failed to create worker:', error);
+        reject(error);
+      }
+    });
+  };
+
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -167,28 +221,18 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdat
         onLogoUpdate(dataUri);
         setGeneratedLogos([]);
         setSelectedGeneratedLogoIndex(null);
-        
+
         setIsExtracting(true);
         try {
-          const { businessName, businessType, otherBusinessType } = form.getValues();
-          const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
+          console.log('🎨 Extracting colors from uploaded logo using client-side analysis...');
+          const colors = await extractColorsFromImage(dataUri);
+          console.log('✅ Colors extracted:', colors);
 
-          const response = await fetch('/api/ai/guide-onboarding', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ businessName, businessType: finalBusinessType, logoDataUri: dataUri, task: 'extract_colors' }),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to extract colors.');
-          }
-
-          const result = await response.json();
-          onColorsUpdate(result.brandColors);
-          toast({ title: 'Brand colors extracted!' });
+          onColorsUpdate(colors);
+          toast({ title: 'Brand colors extracted!', description: 'Colors extracted from your logo.' });
 
         } catch (e) {
+          console.error('❌ Color extraction error:', e);
           logger.error({ error: e as Error, message: 'Color extraction failed.' });
           toast({ title: 'Color extraction failed', description: (e as Error).message, variant: 'destructive' });
           onColorsUpdate(null);

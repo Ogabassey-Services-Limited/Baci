@@ -89,10 +89,26 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
 
       try {
         const response = await ai.generate({
-          model: 'googleai/gemini-2.5-flash',
+          model: 'googleai/gemini-2.0-flash',
           prompt: [
             {
-              text: `Analyze this logo and extract the 3 most representative brand colors. Provide them in a JSON object with keys: "primary", "secondary", and "accent". The primary color should be the most dominant. The accent should be a vibrant color for CTAs. Provide colors in hex format. Return ONLY the JSON object, without any markdown formatting.`,
+              text: `You are a professional brand designer analyzing a logo image.
+
+TASK: Extract exactly 3 brand colors from this logo in hex format.
+
+INSTRUCTIONS:
+1. Primary color = The MOST DOMINANT color in the logo (usually the main brand color)
+2. Secondary color = The SECOND most prominent color (often text or accent color)
+3. Accent color = A complementary or highlight color (can be lighter/darker variant of primary)
+
+IMPORTANT:
+- Look at the actual colors IN THE LOGO IMAGE
+- If logo has red, extract the red hex code
+- If logo has black text, extract black hex code
+- Return colors as they appear in the logo, not imagined colors
+
+Return format (JSON only, no markdown):
+{"primary": "#XXXXXX", "secondary": "#XXXXXX", "accent": "#XXXXXX"}`,
             },
             {
               media: {
@@ -102,16 +118,20 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
           ],
         });
 
-        const jsonText = response.text?.trim().replace(/```json|```/g, '');
+        logger.info({ message: 'Raw AI response', response: response.text });
+
+        const jsonText = response.text?.trim().replace(/```json|```/g, '').trim();
         if (!jsonText) {
           throw new Error('AI did not return any text for color extraction.');
         }
+
+        logger.info({ message: 'Cleaned JSON text', jsonText });
 
         const colors = JSON.parse(jsonText);
 
         // Validate with Zod schema
         const validatedColors = BrandColorsSchema.parse(colors);
-        
+
         logger.info({ message: 'Colors extracted successfully', colors: validatedColors });
         return { brandColors: validatedColors };
 

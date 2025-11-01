@@ -2,6 +2,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import { ThemedButton, ThemedCard } from '@/components/themed';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -9,7 +10,7 @@ import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { getBusinessTypeById } from '@/config/business-types';
 import { products } from '@/lib/products';
 import { Loader2, ShoppingCart, Search } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
 import { useState, useMemo } from 'react';
@@ -17,6 +18,9 @@ import Fuse from 'fuse.js';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { getContrastingTextColor } from '@/lib/color-utils';
+import { Sheet, SheetTrigger } from '@/components/ui/sheet';
+import { Cart } from '@/components/cart';
 
 function Storefront() {
   const { merchant, loading } = useMerchant();
@@ -103,6 +107,7 @@ function Storefront() {
 
   return (
      <div className="flex flex-col min-h-screen">
+      <Sheet>
        <header className="px-4 lg:px-6 h-16 flex items-center gap-4 shadow-sm bg-card">
          <div className="flex items-center gap-2 font-semibold">
            {merchant.logo ? (
@@ -127,23 +132,35 @@ function Storefront() {
         </div>
 
         <nav className="flex items-center gap-4 sm:gap-6">
-            <Button variant="ghost" size="icon" className="relative">
-                <ShoppingCart className="w-6 h-6"/>
-                {cartCount > 0 && <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 justify-center rounded-full p-0">{cartCount}</Badge>}
-                <span className="sr-only">Cart</span>
-            </Button>
+            <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="relative">
+                    <ShoppingCart className="w-6 h-6"/>
+                    {cartCount > 0 && <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 justify-center rounded-full p-0">{cartCount}</Badge>}
+                    <span className="sr-only">Cart</span>
+                </Button>
+            </SheetTrigger>
             <Link href="/dashboard">
                 <Button>My Dashboard</Button>
             </Link>
         </nav>
       </header>
 
-      <main className="flex-1">
+      <main
+        className="flex-1"
+        style={{
+          // @ts-ignore - Define CSS variables at the main level for all children
+          '--store-primary': merchant.colors?.primary || '#3F51B5',
+          '--store-secondary': merchant.colors?.secondary || '#9C27B0',
+          '--store-accent': merchant.colors?.accent || '#FFC107',
+          // Smart contrasting text colors for accessibility
+          '--store-primary-text': merchant.colors?.primary ? getContrastingTextColor(merchant.colors.primary) : '#FFFFFF',
+          '--store-secondary-text': merchant.colors?.secondary ? getContrastingTextColor(merchant.colors.secondary) : '#FFFFFF',
+          '--store-accent-text': merchant.colors?.accent ? getContrastingTextColor(merchant.colors.accent) : '#000000'
+        }}
+      >
         {/* Render the appropriate template */}
         <StoreTemplate>
-            <section className="w-full py-12 md:py-24 lg:py-32" style={{ 
-                // @ts-ignore
-                '--store-primary': merchant.colors?.primary, '--store-secondary': merchant.colors?.secondary }}>
+            <section className="w-full py-12 md:py-24 lg:py-32">
                 <div className="container px-4 md:px-6">
                     <div className="flex flex-col items-center space-y-4 text-center">
                         <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl" style={{ color: 'var(--store-primary)' }}>
@@ -162,7 +179,7 @@ function Storefront() {
                     {searchResults.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                           {searchResults.map((product, index) => (
-                              <Card key={product.id} className="overflow-hidden">
+                              <ThemedCard key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow" accentPosition="top">
                                   <Link href={`/product/${product.id}`} className="block">
                                       <Image
                                           src={product.imageLarge}
@@ -179,10 +196,12 @@ function Storefront() {
                                       <p className="text-muted-foreground text-sm mt-1 truncate">{product.description}</p>
                                       <div className="flex items-center justify-between mt-4">
                                           <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
-                                          <Button size="sm" onClick={() => handleAddToCart(product)}>Add to Cart</Button>
+                                          <ThemedButton colorRole="accent" size="sm" onClick={() => handleAddToCart(product)}>
+                                            Add to Cart
+                                          </ThemedButton>
                                       </div>
                                   </CardContent>
-                              </Card>
+                              </ThemedCard>
                           ))}
                       </div>
                     ) : (
@@ -228,6 +247,8 @@ function Storefront() {
             </div>
         </div>
       </footer>
+        <Cart />
+      </Sheet>
     </div>
   );
 }
