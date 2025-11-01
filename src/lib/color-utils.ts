@@ -89,7 +89,23 @@ export function isLightColor(hexColor: string): boolean {
  * @returns "#000000" or "#FFFFFF" depending on which has better contrast
  */
 export function getContrastingTextColor(bgColor: string): string {
-  return isLightColor(bgColor) ? '#000000' : '#FFFFFF';
+  if (!bgColor) return '#000000';
+  const rgb = hexToRgb(bgColor);
+  if (!rgb) return '#000000'; // Default to black for invalid colors
+
+  // HSP (Highly Sensitive Poo) equation from http://alienryderflex.com/hsp.html
+  const hsp = Math.sqrt(
+    0.299 * (rgb.r * rgb.r) +
+    0.587 * (rgb.g * rgb.g) +
+    0.114 * (rgb.b * rgb.b)
+  );
+
+  // Using the HSP value, determine whether the color is light or dark
+  if (hsp > 127.5) {
+    return '#000000'; // Light color, use black text
+  } else {
+    return '#FFFFFF'; // Dark color, use white text
+  }
 }
 
 /**

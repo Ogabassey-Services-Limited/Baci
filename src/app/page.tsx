@@ -106,7 +106,18 @@ function Storefront() {
   const availableFooterLinks = footerLinks.filter(link => merchant.pages?.[link.key as keyof typeof merchant.pages]);
 
   return (
-     <div className="flex flex-col min-h-screen">
+     <div
+      className="flex flex-col min-h-screen"
+      style={{
+        // @ts-ignore - Define CSS variables at root for all children including Sheet
+        '--store-primary': merchant.colors?.primary || '#3F51B5',
+        '--store-secondary': merchant.colors?.secondary || '#9C27B0',
+        '--store-accent': merchant.colors?.accent || '#FFC107',
+        '--store-primary-text': getContrastingTextColor(merchant.colors?.primary || '#3F51B5'),
+        '--store-secondary-text': getContrastingTextColor(merchant.colors?.secondary || '#9C27B0'),
+        '--store-accent-text': getContrastingTextColor(merchant.colors?.accent || '#FFC107'),
+      }}
+     >
       <Sheet>
        <header className="px-4 lg:px-6 h-16 flex items-center gap-4 shadow-sm bg-card">
          <div className="flex items-center gap-2 font-semibold">
@@ -140,24 +151,12 @@ function Storefront() {
                 </Button>
             </SheetTrigger>
             <Link href="/dashboard">
-                <Button>My Dashboard</Button>
+                <ThemedButton colorRole="primary">My Dashboard</ThemedButton>
             </Link>
         </nav>
       </header>
 
-      <main
-        className="flex-1"
-        style={{
-          // @ts-ignore - Define CSS variables at the main level for all children
-          '--store-primary': merchant.colors?.primary || '#3F51B5',
-          '--store-secondary': merchant.colors?.secondary || '#9C27B0',
-          '--store-accent': merchant.colors?.accent || '#FFC107',
-          // Smart contrasting text colors for accessibility
-          '--store-primary-text': merchant.colors?.primary ? getContrastingTextColor(merchant.colors.primary) : '#FFFFFF',
-          '--store-secondary-text': merchant.colors?.secondary ? getContrastingTextColor(merchant.colors.secondary) : '#FFFFFF',
-          '--store-accent-text': merchant.colors?.accent ? getContrastingTextColor(merchant.colors.accent) : '#000000'
-        }}
-      >
+      <main className="flex-1">
         {/* Render the appropriate template */}
         <StoreTemplate>
             <section className="w-full py-12 md:py-24 lg:py-32">

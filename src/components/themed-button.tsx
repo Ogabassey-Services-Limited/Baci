@@ -2,7 +2,6 @@
 
 import { Button, ButtonProps } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { getContrastingTextColor } from '@/lib/color-utils';
 
 interface ThemedButtonProps extends ButtonProps {
   colorRole?: 'primary' | 'secondary' | 'accent';

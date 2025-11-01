@@ -15,6 +15,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
 import { Button } from './ui/button';
+import { getContrastingTextColor } from '@/lib/color-utils';
 
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
@@ -94,7 +95,11 @@ export function Cart() {
                     <span>Subtotal</span>
                     <span>{formatCurrency(cartTotal)}</span>
                 </div>
-                <ThemedButton size="lg" className="w-full" colorRole="accent">
+                <ThemedButton
+                  size="lg"
+                  className="w-full"
+                  colorRole="primary"
+                >
                     Proceed to Checkout
                 </ThemedButton>
             </div>
