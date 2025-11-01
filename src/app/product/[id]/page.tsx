@@ -1,6 +1,4 @@
 
-'use client';
-
 import { getProductById } from '@/lib/products';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
@@ -11,8 +9,11 @@ import { getCountryByCode } from '@/lib/countries';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { ShoppingCart, ArrowLeft } from 'lucide-react';
+import React from 'react';
 
-function ProductDetail({ productId }: { productId: string }) {
+// 'use client' is moved to the component that actually needs it.
+function ProductDetailClient({ productId }: { productId: string }) {
+  'use client';
   const product = getProductById(productId);
   const { merchant } = useMerchant();
 
@@ -149,10 +150,15 @@ function ProductDetail({ productId }: { productId: string }) {
   );
 }
 
-export default function ProductPage({ params }: { params: { id: string } }) {
+
+// This is now a Server Component that handles the params promise.
+export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  // Correctly unwrap the params promise using React.use()
+  const { id } = React.use(params);
+  
   return (
     <MerchantProvider>
-      <ProductDetail productId={params.id} />
+      <ProductDetailClient productId={id} />
     </MerchantProvider>
   )
 }
