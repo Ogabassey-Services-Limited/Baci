@@ -98,8 +98,6 @@
   input[type="radio"],
   .cursor-pointer {
     cursor: pointer !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
   }
 
   /* Force pointer on all children of clickable elements */
@@ -111,8 +109,6 @@
   [type="reset"] *,
   label[for] * {
     cursor: inherit !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
   }
 
   /* Disabled state */
