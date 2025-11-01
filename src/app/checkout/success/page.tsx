@@ -13,7 +13,8 @@ import { Separator } from '@/components/ui/separator';
 
 interface OrderData {
   shipping: {
-    fullName: string;
+    firstName: string;
+    lastName: string;
     email: string;
     address: string;
     city: string;
@@ -60,7 +61,7 @@ function SuccessPageContent() {
                     </div>
                     <CardTitle className="text-3xl mt-4">Order Confirmed!</CardTitle>
                     <p className="text-muted-foreground">
-                        Thank you for your purchase, {order?.shipping.fullName}! A confirmation has been sent to {order?.shipping.email}.
+                        Thank you for your purchase, {order?.shipping.firstName}! A confirmation has been sent to {order?.shipping.email}.
                     </p>
                 </CardHeader>
                 <CardContent>
@@ -69,7 +70,7 @@ function SuccessPageContent() {
                             <div>
                                 <h3 className="font-semibold mb-2">Shipping To</h3>
                                 <p className="text-sm text-muted-foreground">
-                                    {order.shipping.fullName}<br />
+                                    {order.shipping.firstName} {order.shipping.lastName}<br />
                                     {order.shipping.address}<br />
                                     {order.shipping.city}, {order.shipping.state}
                                 </p>

@@ -20,7 +20,8 @@ import { AddressAutocomplete } from '@/components/address-autocomplete';
 
 
 const shippingSchema = z.object({
-  fullName: z.string().min(3, 'Full name must be at least 3 characters.'),
+  firstName: z.string().min(2, 'First name must be at least 2 characters.'),
+  lastName: z.string().min(2, 'Last name must be at least 2 characters.'),
   email: z.string().email('Please enter a valid email address.'),
   phone: z.string().min(10, 'Please enter a valid phone number.'),
   address: z.string().min(5, 'Please enter a valid address.'),
@@ -34,22 +35,40 @@ function Step1_Shipping() {
   const { control } = useForm<ShippingFormValues>();
   return (
     <div className="space-y-4">
-      <FormField
-        control={control}
-        name="fullName"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Full Name</FormLabel>
-            <FormControl>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="John Doe" {...field} className="pl-10" />
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+        <div className="grid grid-cols-2 gap-4">
+            <FormField
+                control={control}
+                name="firstName"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                    <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="John" {...field} className="pl-10" />
+                    </div>
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+            <FormField
+                control={control}
+                name="lastName"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Last Name (Surname)</FormLabel>
+                    <FormControl>
+                    <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Doe" {...field} className="pl-10" />
+                    </div>
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+        </div>
        <FormField
         control={control}
         name="email"
@@ -149,7 +168,8 @@ function CheckoutPageContent() {
   const form = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingSchema),
     defaultValues: {
-      fullName: '',
+      firstName: '',
+      lastName: '',
       email: '',
       phone: '',
       address: '',
