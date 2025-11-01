@@ -8,8 +8,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { getBusinessTypeById } from '@/config/business-types';
-import { products } from '@/lib/products';
-import { Loader2, ShoppingCart, Search } from 'lucide-react';
+import { products, type Product } from '@/lib/products';
+import { Loader2, ShoppingCart, Search, Plus, Minus } from 'lucide-react';
 import { CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
@@ -25,10 +25,10 @@ import { Cart } from '@/components/cart';
 function Storefront() {
   const { merchant, loading } = useMerchant();
   const [searchQuery, setSearchQuery] = useState('');
-  const { cartCount, addToCart } = useCart();
+  const { cart, cartCount, addToCart, updateQuantity } = useCart();
   const { toast } = useToast();
 
-  const handleAddToCart = (product: typeof products[0]) => {
+  const handleAddToCart = (product: Product) => {
     addToCart(product);
     toast({
         title: "Added to cart!",
@@ -178,31 +178,47 @@ function Storefront() {
                     <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10">Our Products</h2>
                     {searchResults.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                          {searchResults.map((product, index) => (
-                              <ThemedCard key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow" accentPosition="top">
-                                  <Link href={`/product/${product.id}`} className="block">
-                                      <Image
-                                          src={product.imageLarge}
-                                          alt={product.name}
-                                          data-ai-hint={product.imageHint}
-                                          width={600}
-                                          height={400}
-                                          className="object-cover w-full h-auto aspect-video"
-                                          priority={index === 0}
-                                      />
-                                  </Link>
-                                  <CardContent className="p-4">
-                                      <h3 className="font-semibold text-lg">{product.name}</h3>
-                                      <p className="text-muted-foreground text-sm mt-1 truncate">{product.description}</p>
-                                      <div className="flex items-center justify-between mt-4">
-                                          <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
-                                          <ThemedButton colorRole="accent" size="sm" onClick={() => handleAddToCart(product)}>
-                                            Add to Cart
-                                          </ThemedButton>
-                                      </div>
-                                  </CardContent>
-                              </ThemedCard>
-                          ))}
+                          {searchResults.map((product, index) => {
+                              const cartItem = cart.find(item => item.id === product.id);
+
+                              return (
+                                <ThemedCard key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col" accentPosition="top">
+                                    <Link href={`/product/${product.id}`} className="block">
+                                        <Image
+                                            src={product.imageLarge}
+                                            alt={product.name}
+                                            data-ai-hint={product.imageHint}
+                                            width={600}
+                                            height={400}
+                                            className="object-cover w-full h-auto aspect-video"
+                                            priority={index === 0}
+                                        />
+                                    </Link>
+                                    <CardContent className="p-4 flex flex-col flex-1">
+                                        <h3 className="font-semibold text-lg">{product.name}</h3>
+                                        <p className="text-muted-foreground text-sm mt-1 truncate flex-1">{product.description}</p>
+                                        <div className="flex items-center justify-between mt-4">
+                                            <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
+                                            {cartItem ? (
+                                                <div className="flex items-center gap-2">
+                                                    <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}>
+                                                        <Minus className="h-4 w-4" />
+                                                    </ThemedButton>
+                                                    <span className="font-bold w-4 text-center">{cartItem.quantity}</span>
+                                                    <ThemedButton colorRole="accent" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
+                                                        <Plus className="h-4 w-4" />
+                                                    </ThemedButton>
+                                                </div>
+                                            ) : (
+                                                <ThemedButton colorRole="accent" size="sm" onClick={() => handleAddToCart(product)}>
+                                                    Add to Cart
+                                                </ThemedButton>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </ThemedCard>
+                              )
+                          })}
                       </div>
                     ) : (
                       <div className="text-center text-muted-foreground py-16">
@@ -344,3 +360,5 @@ export default function HomePage() {
         </MerchantProvider>
     )
 }
+
+    
