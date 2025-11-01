@@ -18,7 +18,8 @@ export const MerchantProvider = ({ children }: { children: ReactNode }) => {
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
+    setLoading(true);
     try {
       const merchantData = getMerchantData();
       if (merchantData) {
@@ -34,20 +35,13 @@ export const MerchantProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   const reloadMerchant = useCallback(() => {
-    setLoading(true);
-    try {
-      const merchantData = getMerchantData();
-      setMerchant(merchantData);
-    } catch (error) {
-      logger.error({
-        message: 'Failed to reload merchant data',
-        error: error as Error,
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    loadData();
+  }, [loadData]);
 
   const updateMerchant = useCallback((data: Partial<MerchantData>) => {
     const currentData = getMerchantData() || {};

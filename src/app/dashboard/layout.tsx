@@ -34,7 +34,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
+import { useMerchant, MerchantProvider } from '@/hooks/use-merchant.tsx';
 import { getCountryByCode } from '@/lib/countries';
 
 function DashboardLayoutContent({
