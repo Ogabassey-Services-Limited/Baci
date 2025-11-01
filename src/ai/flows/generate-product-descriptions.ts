@@ -41,7 +41,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { getBusinessTypeById, getProductDescriptionStyle } from '@/config/business-types';
+import { getBusinessTypeById } from '@/config/business-types';
 
 const GenerateProductDescriptionInputSchema = z.object({
   productName: z.string().describe('The name of the product.'),
