@@ -352,7 +352,7 @@ export default function AddProductForm() {
                         <Image
                           alt="Product image"
                           className="aspect-square w-full rounded-md object-cover"
-                          layout="fill"
+                          fill
                           src={imageToDisplay}
                         />
                       ) : (
