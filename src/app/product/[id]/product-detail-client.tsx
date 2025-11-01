@@ -129,7 +129,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
                 <p className="text-sm text-muted-foreground mt-2">{product.stock} units available</p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex flex-col gap-2">
                 {cartItem ? (
                   <>
                     <div className="flex items-center gap-2">
@@ -148,16 +148,20 @@ export default function ProductDetailClient({ productId }: { productId: string }
                         </ThemedButton>
                     </div>
                     <Link href="/checkout">
-                      <ThemedButton size="lg" colorRole="primary" className="w-full sm:w-auto">
+                      <Button 
+                        size="lg" 
+                        className="w-full"
+                        style={{ backgroundColor: darkestColor, color: getContrastingTextColor(darkestColor) }}
+                      >
                         View Cart and Checkout
-                      </ThemedButton>
+                      </Button>
                     </Link>
                   </>
                 ) : (
                   <ThemedButton 
                     size="lg" 
                     colorRole="primary"
-                    className="w-full sm:w-auto" 
+                    className="w-full" 
                     disabled={product.stock === 0}
                     onClick={() => handleAddToCart(product)}
                   >
