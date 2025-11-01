@@ -87,6 +87,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const clearCart = useCallback(() => {
     setCart([]);
+    logger.info({ message: 'Cart cleared' });
   }, []);
   
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);

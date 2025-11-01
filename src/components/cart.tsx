@@ -6,6 +6,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetFooter,
+  SheetClose,
 } from '@/components/ui/sheet';
 import { ThemedButton } from '@/components/themed';
 import { useCart } from '@/hooks/use-cart';
@@ -16,6 +17,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
 import { Button } from './ui/button';
 import { getContrastingTextColor } from '@/lib/color-utils';
+import Link from 'next/link';
 
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
@@ -59,7 +61,7 @@ export function Cart() {
                         min="1"
                         value={item.quantity}
                         onChange={(e) => updateQuantity(item.id, parseInt(e.target.value, 10))}
-                        className="w-12 ml-2 p-1 border rounded-md"
+                        className="w-16 ml-2 p-1 border rounded-md remove-arrow"
                         aria-label={`Quantity for ${item.name}`}
                       />
                     </p>
@@ -95,13 +97,17 @@ export function Cart() {
                     <span>Subtotal</span>
                     <span>{formatCurrency(cartTotal)}</span>
                 </div>
-                <ThemedButton
-                  size="lg"
-                  className="w-full"
-                  colorRole="primary"
-                >
-                    Proceed to Checkout
-                </ThemedButton>
+                <SheetClose asChild>
+                  <Link href="/checkout" className="w-full">
+                      <ThemedButton
+                        size="lg"
+                        className="w-full"
+                        colorRole="primary"
+                      >
+                          Proceed to Checkout
+                      </ThemedButton>
+                  </Link>
+                </SheetClose>
             </div>
         </SheetFooter>
       )}
