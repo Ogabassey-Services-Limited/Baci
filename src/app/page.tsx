@@ -1,36 +1,174 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Bot, Palette, Camera, Zap } from 'lucide-react';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
+import { getBusinessTypeById } from '@/config/business-types';
+import { products } from '@/lib/products';
+import { Loader2, ShoppingCart } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { getCountryByCode } from '@/lib/countries';
 
-export default function Home() {
-  const features = [
+function Storefront() {
+  const { merchant, loading } = useMerchant();
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!merchant) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center text-center">
+        <h2 className="text-2xl font-bold">No Store Found</h2>
+        <p className="text-muted-foreground mt-2">
+          It looks like you haven't created a store yet.
+        </p>
+        <Link href="/onboarding" className="mt-4">
+          <Button>Create Your Store</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const businessTypeConfig = getBusinessTypeById(merchant.businessType);
+  const StoreTemplate = businessTypeConfig?.template;
+  
+  if (!StoreTemplate) {
+      return <div>Error: Store template not found for business type '{merchant.businessType}'.</div>
+  }
+
+  const formatCurrency = (amount: number) => {
+    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+    const locale = country ? `en-${country.code}` : 'en-US';
+    const currency = country ? country.currency : 'USD';
+
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+    }).format(amount);
+  };
+  
+  const activeProducts = products.filter(p => p.status === 'active');
+
+  return (
+     <div className="flex flex-col min-h-screen">
+       <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm bg-card">
+         <div className="flex items-center gap-2 font-semibold">
+           {merchant.logo ? (
+              <Image src={merchant.logo} alt={`${merchant.businessName} logo`} width={32} height={32} className="rounded-sm" />
+           ) : (
+              <Logo/>
+           )}
+           <span className="hidden sm:inline-block">{merchant.businessName}</span>
+        </div>
+        <nav className="ml-auto flex gap-4 sm:gap-6">
+            <Button variant="ghost" size="icon">
+                <ShoppingCart className="w-6 h-6"/>
+                <span className="sr-only">Cart</span>
+            </Button>
+            <Link href="/dashboard">
+                <Button>My Dashboard</Button>
+            </Link>
+        </nav>
+      </header>
+
+      <main className="flex-1">
+        {/* Render the appropriate template */}
+        <StoreTemplate>
+            <section className="w-full py-12 md:py-24 lg:py-32" style={{ 
+                // @ts-ignore
+                '--store-primary': merchant.colors?.primary, '--store-secondary': merchant.colors?.secondary }}>
+                <div className="container px-4 md:px-6">
+                    <div className="flex flex-col items-center space-y-4 text-center">
+                        <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl" style={{ color: 'var(--store-primary)' }}>
+                            Welcome to {merchant.businessName}
+                        </h1>
+                        <p className="max-w-[700px] text-muted-foreground md:text-xl">
+                            Your one-stop shop for the best {merchant.businessType} products.
+                        </p>
+                    </div>
+                </div>
+            </section>
+            
+            <section className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
+                <div className="container px-4 md:px-6">
+                    <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10">Our Products</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        {activeProducts.map(product => (
+                             <Card key={product.id} className="overflow-hidden">
+                                <Link href={`/product/${product.id}`} className="block">
+                                    <Image
+                                        src={product.imageLarge}
+                                        alt={product.name}
+                                        data-ai-hint={product.imageHint}
+                                        width={600}
+                                        height={400}
+                                        className="object-cover w-full h-auto aspect-video"
+                                    />
+                                </Link>
+                                <CardContent className="p-4">
+                                    <h3 className="font-semibold text-lg">{product.name}</h3>
+                                    <p className="text-muted-foreground text-sm mt-1 truncate">{product.description}</p>
+                                    <div className="flex items-center justify-between mt-4">
+                                        <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
+                                        <Button size="sm">Add to Cart</Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+        </StoreTemplate>
+      </main>
+
+       <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
+        <p className="text-xs text-muted-foreground">&copy; 2024 {merchant.businessName}. All rights reserved.</p>
+        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
+          <Link className="text-xs hover:underline underline-offset-4" href="#">
+            Terms of Service
+          </Link>
+          <Link className="text-xs hover:underline underline-offset-4" href="#">
+            Privacy
+          </Link>
+        </nav>
+      </footer>
+    </div>
+  );
+}
+
+// The original landing page is now a fallback if no merchant data exists.
+function BaciLandingPage() {
+   const features = [
     {
-      icon: <Bot className="w-8 h-8 text-primary" />,
+      icon: '🤖',
       title: 'Intelligent Onboarding',
       description: 'Define your business and brand preferences with a simple 3-question setup, featuring AI-powered color extraction and logo creation.',
     },
     {
-      icon: <Palette className="w-8 h-8 text-primary" />,
+      icon: '🎨',
       title: 'AI Content Generation',
       description: 'Effortlessly generate compelling product descriptions with AI, tailored to your specific business category.',
     },
     {
-      icon: <Camera className="w-8 h-8 text-primary" />,
+      icon: '📸',
       title: 'Photo Enhancement',
       description: 'Automatically enhance product photos with background removal, lighting adjustments, and optimal cropping.',
     },
     {
-      icon: <Zap className="w-8 h-8 text-primary" />,
+      icon: '⚡️',
       title: 'One-Click Store Creation',
       description: 'Generate a fully functional, mobile-responsive e-commerce website in seconds from your inputs.',
     },
   ];
-
-  const heroImage = PlaceHolderImages.find(img => img.id === 'hero-image');
-
+  
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm">
@@ -44,8 +182,7 @@ export default function Home() {
           </Link>
         </nav>
       </header>
-
-      <main className="flex-1">
+       <main className="flex-1">
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-card">
           <div className="container px-4 md:px-6">
             <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
@@ -64,81 +201,29 @@ export default function Home() {
                   </Link>
                 </div>
               </div>
-              <div className="relative w-full max-w-md mx-auto">
-                 {heroImage && (
-                  <Image
-                    src={heroImage.imageUrl}
-                    alt={heroImage.description}
-                    data-ai-hint={heroImage.imageHint}
-                    width={600}
-                    height={400}
-                    priority
-                    className="object-cover rounded-xl shadow-lg w-full h-auto"
-                  />
-                 )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="features" className="w-full py-12 md:py-24 lg:py-32">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
-              <div className="space-y-2">
-                <div className="inline-block rounded-lg bg-muted px-3 py-1 text-sm">Key Features</div>
-                <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl font-headline">Everything You Need to Succeed</h2>
-                <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                  Our AI-driven tools streamline every aspect of setting up and running your online store, from branding to product listings.
-                </p>
-              </div>
-            </div>
-            <div className="mx-auto grid max-w-5xl items-start gap-12 py-12 lg:grid-cols-2 lg:gap-16">
-              {features.map((feature) => (
-                <div key={feature.title} className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-full">
-                    {feature.icon}
-                  </div>
-                  <div className="grid gap-1">
-                    <h3 className="text-lg font-bold">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground">{feature.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-card">
-          <div className="container grid items-center justify-center gap-4 px-4 text-center md:px-6">
-            <div className="space-y-3">
-              <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight font-headline">Ready to Launch Your Dream Store?</h2>
-              <p className="mx-auto max-w-[600px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-                Start building your e-commerce business today. Let our AI be your co-pilot.
-              </p>
-            </div>
-            <div className="mx-auto w-full max-w-sm space-y-2">
-              <Link href="/onboarding">
-                <Button size="lg" className="w-full">
-                  Get Started Now
-                </Button>
-              </Link>
-              <p className="text-xs text-muted-foreground">Free to start. No credit card required.</p>
             </div>
           </div>
         </section>
       </main>
-
-      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-muted-foreground">&copy; 2024 Baci. All rights reserved.</p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-          <Link className="text-xs hover:underline underline-offset-4" href="#">
-            Terms of Service
-          </Link>
-          <Link className="text-xs hover:underline underline-offset-4" href="#">
-            Privacy
-          </Link>
-        </nav>
-      </footer>
     </div>
-  );
+  )
+}
+
+function PageContent() {
+  const { merchant, loading } = useMerchant();
+
+  if (loading) {
+     return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>
+  }
+  
+  // If merchant data exists, show their storefront. Otherwise, show the Baci landing page.
+  return merchant ? <Storefront /> : <BaciLandingPage />;
+}
+
+export default function HomePage() {
+    return (
+        <MerchantProvider>
+            <PageContent />
+        </MerchantProvider>
+    )
 }

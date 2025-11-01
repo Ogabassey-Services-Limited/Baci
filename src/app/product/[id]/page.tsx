@@ -6,14 +6,14 @@ import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { ShoppingCart } from 'lucide-react';
 
-export default function ProductPage({ params }: { params: { id: string } }) {
-  const product = getProductById(params.id);
+function ProductDetail({ productId }: { productId: string }) {
+  const product = getProductById(productId);
   const { merchant } = useMerchant();
 
   if (!product || product.status !== 'active') {
@@ -107,4 +107,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
       </footer>
     </div>
   );
+}
+
+export default function ProductPage({ params }: { params: { id: string } }) {
+  return (
+    <MerchantProvider>
+      <ProductDetail productId={params.id} />
+    </MerchantProvider>
+  )
 }
