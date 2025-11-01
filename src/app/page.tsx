@@ -13,9 +13,30 @@ import { Loader2, ShoppingCart, Search } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
+import { useState, useMemo } from 'react';
+import Fuse from 'fuse.js';
 
 function Storefront() {
   const { merchant, loading } = useMerchant();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const fuse = useMemo(() => {
+    if (products) {
+      return new Fuse(products, {
+        keys: ['name', 'description', 'brand'],
+        includeScore: true,
+        threshold: 0.4,
+      });
+    }
+    return null;
+  }, [products]);
+
+  const searchResults = useMemo(() => {
+    if (!searchQuery || !fuse) {
+      return products.filter(p => p.status === 'active');
+    }
+    return fuse.search(searchQuery).map(result => result.item).filter(p => p.status === 'active');
+  }, [searchQuery, fuse, products]);
 
   if (loading) {
     return (
@@ -57,7 +78,6 @@ function Storefront() {
     }).format(amount);
   };
   
-  const activeProducts = products.filter(p => p.status === 'active');
   const footerLinks = [
     { key: 'about', label: 'About Us' },
     { key: 'contact', label: 'Contact' },
@@ -88,6 +108,8 @@ function Storefront() {
               type="search"
               placeholder="Search products..."
               className="w-full appearance-none bg-background pl-8 shadow-none"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
         </div>
@@ -124,30 +146,37 @@ function Storefront() {
             <section className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
                 <div className="container px-4 md:px-6">
                     <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10">Our Products</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {activeProducts.map(product => (
-                             <Card key={product.id} className="overflow-hidden">
-                                <Link href={`/product/${product.id}`} className="block">
-                                    <Image
-                                        src={product.imageLarge}
-                                        alt={product.name}
-                                        data-ai-hint={product.imageHint}
-                                        width={600}
-                                        height={400}
-                                        className="object-cover w-full h-auto aspect-video"
-                                    />
-                                </Link>
-                                <CardContent className="p-4">
-                                    <h3 className="font-semibold text-lg">{product.name}</h3>
-                                    <p className="text-muted-foreground text-sm mt-1 truncate">{product.description}</p>
-                                    <div className="flex items-center justify-between mt-4">
-                                        <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
-                                        <Button size="sm">Add to Cart</Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
+                    {searchResults.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                          {searchResults.map(product => (
+                              <Card key={product.id} className="overflow-hidden">
+                                  <Link href={`/product/${product.id}`} className="block">
+                                      <Image
+                                          src={product.imageLarge}
+                                          alt={product.name}
+                                          data-ai-hint={product.imageHint}
+                                          width={600}
+                                          height={400}
+                                          className="object-cover w-full h-auto aspect-video"
+                                      />
+                                  </Link>
+                                  <CardContent className="p-4">
+                                      <h3 className="font-semibold text-lg">{product.name}</h3>
+                                      <p className="text-muted-foreground text-sm mt-1 truncate">{product.description}</p>
+                                      <div className="flex items-center justify-between mt-4">
+                                          <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
+                                          <Button size="sm">Add to Cart</Button>
+                                      </div>
+                                  </CardContent>
+                              </Card>
+                          ))}
+                      </div>
+                    ) : (
+                      <div className="text-center text-muted-foreground py-16">
+                        <h3 className="text-xl font-semibold">No products found</h3>
+                        <p>Your search for "{searchQuery}" did not match any products.</p>
+                      </div>
+                    )}
                 </div>
             </section>
 
