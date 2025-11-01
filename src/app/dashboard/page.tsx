@@ -31,6 +31,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { getCountryByCode } from '@/lib/countries';
 
 const chartData = [
   { month: 'January', desktop: 186, mobile: 80 },
@@ -74,6 +75,29 @@ export default function DashboardPage() {
     }
   };
 
+  const formatCurrency = (amount: number) => {
+    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+    const locale = country ? `en-${country.code}` : 'en-US';
+    const currency = country ? country.currency : 'USD';
+
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+    }).format(amount);
+  };
+  
+  const yAxisFormatter = (value: number) => {
+      const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+      const currency = country ? country.currency : 'USD';
+      const formatter = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currency,
+        notation: 'compact'
+      });
+      return formatter.format(value).replace(/\D00$/, '');
+  };
+
+
   return (
     <>
       {merchant && storeUrl && (
@@ -110,7 +134,7 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$45,231.89</div>
+            <div className="text-2xl font-bold">{formatCurrency(45231.89)}</div>
             <p className="text-xs text-muted-foreground">
               +20.1% from last month
             </p>
@@ -173,7 +197,7 @@ export default function DashboardPage() {
                   tickLine={false}
                   axisLine={false}
                   tickMargin={10}
-                  tickFormatter={(value) => `$${value}`}
+                  tickFormatter={yAxisFormatter}
                 />
                 <ChartTooltip
                   cursor={false}
@@ -221,7 +245,7 @@ export default function DashboardPage() {
                     olivia.martin@email.com
                   </p>
                 </div>
-                <div className="ml-auto font-medium">+$1,999.00</div>
+                <div className="ml-auto font-medium">{formatCurrency(1999.00)}</div>
               </div>
               <div className="flex items-center">
                 <Avatar className="flex h-9 w-9 items-center justify-center space-y-0 border">
@@ -242,7 +266,7 @@ export default function DashboardPage() {
                     jackson.lee@email.com
                   </p>
                 </div>
-                <div className="ml-auto font-medium">+$39.00</div>
+                <div className="ml-auto font-medium">{formatCurrency(39.00)}</div>
               </div>
               <div className="flex items-center">
                 <Avatar className="h-9 w-9">
@@ -263,7 +287,7 @@ export default function DashboardPage() {
                     isabella.nguyen@email.com
                   </p>
                 </div>
-                <div className="ml-auto font-medium">+$299.00</div>
+                <div className="ml-auto font-medium">{formatCurrency(299.00)}</div>
               </div>
               <div className="flex items-center">
                 <Avatar className="h-9 w-9">
@@ -284,7 +308,7 @@ export default function DashboardPage() {
                     will@email.com
                   </p>
                 </div>
-                <div className="ml-auto font-medium">+$99.00</div>
+                <div className="ml-auto font-medium">{formatCurrency(99.00)}</div>
               </div>
               <div className="flex items-center">
                 <Avatar className="h-9 w-9">
@@ -305,7 +329,7 @@ export default function DashboardPage() {
                     sofia.davis@email.com
                   </p>
                 </div>
-                <div className="ml-auto font-medium">+$39.00</div>
+                <div className="ml-auto font-medium">{formatCurrency(39.00)}</div>
               </div>
             </div>
           </CardContent>

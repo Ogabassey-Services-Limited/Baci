@@ -1,4 +1,6 @@
 
+'use client';
+
 import {
   File,
   PlusCircle,
@@ -25,6 +27,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useMerchant } from '@/hooks/use-merchant';
+import { getCountryByCode } from '@/lib/countries';
 
 // Mock data for recent orders
 const recentOrders = [
@@ -106,12 +110,19 @@ import { cn } from '@/lib/utils';
 
 
 export default function OrdersPage() {
+  const { merchant } = useMerchant();
+
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
+    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+    const locale = country ? `en-${country.code}` : 'en-US';
+    const currency = country ? country.currency : 'USD';
+
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency: 'NGN',
+      currency: currency,
     }).format(amount);
   };
+
   return (
     <div className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
       <div className="flex items-center justify-between">
