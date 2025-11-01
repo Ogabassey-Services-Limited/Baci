@@ -52,20 +52,6 @@ const refinedFormSchema = baseOnboardingSchema.refine(data => {
 
 type OnboardingFormValues = z.infer<typeof refinedFormSchema>;
 
-const getResolverForStep = (step: number) => {
-  if (step === 1) return zodResolver(baseOnboardingSchema.pick({ businessName: true }));
-  if (step === 2) return zodResolver(baseOnboardingSchema.pick({ businessType: true, otherBusinessType: true }).refine(data => {
-    if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
-      return false;
-    }
-    return true;
-  }, {
-    message: "Please specify your business type with at least 2 characters.",
-    path: ["otherBusinessType"],
-  }));
-  return zodResolver(refinedFormSchema);
-};
-
 // --- Step Components ---
 
 function StepIndicator({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) {
@@ -151,10 +137,10 @@ function Step2_BusinessType() {
   );
 }
 
-function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: string[] | null) => void; }) {
+function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: string[] | null) => void; brandColors: string[] | null; }) {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
-  
+
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [generatedLogos, setGeneratedLogos] = useState<string[]>([]);
   const [selectedGeneratedLogoIndex, setSelectedGeneratedLogoIndex] = useState<number | null>(null);
@@ -299,39 +285,51 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: str
       setIsExtracting(false);
     }
   };
-  
-  const imageToDisplay = logoPreview || (selectedGeneratedLogoIndex !== null ? generatedLogos[selectedGeneratedLogoIndex] : null);
 
   return (
     <div className='space-y-4'>
       <FormLabel className="text-lg">Do you have a logo?</FormLabel>
       
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
-        <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center", {'items-center justify-center': !logoPreview})}>
-          {logoPreview ? (
-            <Image
-              src={logoPreview}
-              alt="Uploaded Logo Preview"
-              fill
-              style={{ objectFit: 'contain' }}
-              className="rounded-md p-2"
+        <div className="space-y-2">
+            <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center", {'items-center justify-center': !logoPreview})}>
+            {logoPreview ? (
+                <Image
+                src={logoPreview}
+                alt="Uploaded Logo Preview"
+                fill
+                style={{ objectFit: 'contain' }}
+                className="rounded-md p-2"
+                />
+            ) : (
+                <>
+                <Upload className="w-8 h-8 text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p>
+                {isExtracting && <Loader2 className="absolute w-6 h-6 animate-spin text-primary" />}
+                </>
+            )}
+            <Input
+                id="logo-upload"
+                type="file"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                aria-label="Upload logo file"
+                disabled={isLoading}
             />
-          ) : (
-            <>
-              <Upload className="w-8 h-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p>
-              {isExtracting && <Loader2 className="absolute w-6 h-6 animate-spin text-primary" />}
-            </>
-          )}
-          <Input
-            id="logo-upload"
-            type="file"
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            accept="image/*"
-            onChange={handleLogoUpload}
-            aria-label="Upload logo file"
-            disabled={isLoading}
-          />
+            </div>
+             {brandColors && brandColors.length > 0 && (
+                <div className="flex justify-center gap-2 animate-fade-in pt-2">
+                    {brandColors.map((color, index) => (
+                    <div
+                        key={index}
+                        className="h-8 w-full rounded-md border shadow-sm"
+                        style={{ backgroundColor: color }}
+                        title={color}
+                    />
+                    ))}
+                </div>
+            )}
         </div>
 
         <div className="relative flex items-center justify-center md:hidden">
@@ -504,7 +502,7 @@ export default function OnboardingForm() {
   const totalSteps = 3;
 
   const form = useForm<OnboardingFormValues>({
-    resolver: getResolverForStep(step),
+    resolver: zodResolver(refinedFormSchema),
     defaultValues: {
       businessName: '',
       businessType: '',
@@ -515,7 +513,17 @@ export default function OnboardingForm() {
   });
 
   const handleNext = async () => {
-    const isValid = await form.trigger();
+    let isValid = false;
+
+    // Validate only the fields for the current step
+    if (step === 1) {
+      isValid = await form.trigger(['businessName']);
+    } else if (step === 2) {
+      isValid = await form.trigger(['businessType', 'otherBusinessType']);
+    } else {
+      isValid = await form.trigger();
+    }
+
     if (isValid && step < totalSteps) {
       startTransition(() => {
         setStep(step + 1);
@@ -605,7 +613,7 @@ export default function OnboardingForm() {
           <div role="region" aria-live="polite" aria-atomic="true">
             {step === 1 && <Step1_BusinessName />}
             {step === 2 && <Step2_BusinessType />}
-            {step === 3 && <Step3_Logo onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} />}
+            {step === 3 && <Step3_Logo onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} />}
           </div>
 
           <OnboardingNavigation
