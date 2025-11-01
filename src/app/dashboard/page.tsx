@@ -53,14 +53,17 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
+const recentSales = [
+    { id: 'p1', name: 'Olivia Martin', email: 'olivia.martin@email.com', amount: 1999.00, avatar: 'avatar-1' },
+    { id: 'p2', name: 'Jackson Lee', email: 'jackson.lee@email.com', amount: 39.00, avatar: 'avatar-2' },
+    { id: 'p3', name: 'Isabella Nguyen', email: 'isabella.nguyen@email.com', amount: 299.00, avatar: 'avatar-3' },
+    { id: 'p4', name: 'William Kim', email: 'will@email.com', amount: 99.00, avatar: 'avatar-4' },
+    { id: 'p5', name: 'Sofia Davis', email: 'sofia.davis@email.com', amount: 39.00, avatar: 'avatar-5' },
+];
+
 export default function DashboardPage() {
   const { merchant } = useMerchant();
   const { toast } = useToast();
-  const avatar1 = PlaceHolderImages.find(img => img.id === 'avatar-1');
-  const avatar2 = PlaceHolderImages.find(img => img.id === 'avatar-2');
-  const avatar3 = PlaceHolderImages.find(img => img.id === 'avatar-3');
-  const avatar4 = PlaceHolderImages.find(img => img.id === 'avatar-4');
-  const avatar5 = PlaceHolderImages.find(img => img.id === 'avatar-5');
   
   const storeUrl = merchant?.businessName ? `${merchant.businessName.toLowerCase().replace(/\s+/g, '-')}.baci.store` : '';
   const fullStoreUrl = storeUrl ? `https://${storeUrl}` : '';
@@ -225,112 +228,33 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-8">
-              <div className="flex items-center">
-                <Avatar className="h-9 w-9">
-                  {avatar1 && (
-                    <AvatarImage
-                      src={avatar1.imageUrl}
-                      alt={avatar1.description}
-                      data-ai-hint={avatar1.imageHint}
-                    />
-                  )}
-                  <AvatarFallback>OM</AvatarFallback>
-                </Avatar>
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    Olivia Martin
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    olivia.martin@email.com
-                  </p>
-                </div>
-                <div className="ml-auto font-medium">{formatCurrency(1999.00)}</div>
-              </div>
-              <div className="flex items-center">
-                <Avatar className="flex h-9 w-9 items-center justify-center space-y-0 border">
-                  {avatar2 && (
-                    <AvatarImage
-                      src={avatar2.imageUrl}
-                      alt={avatar2.description}
-                      data-ai-hint={avatar2.imageHint}
-                    />
-                  )}
-                  <AvatarFallback>JL</AvatarFallback>
-                </Avatar>
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    Jackson Lee
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    jackson.lee@email.com
-                  </p>
-                </div>
-                <div className="ml-auto font-medium">{formatCurrency(39.00)}</div>
-              </div>
-              <div className="flex items-center">
-                <Avatar className="h-9 w-9">
-                  {avatar3 && (
-                    <AvatarImage
-                      src={avatar3.imageUrl}
-                      alt={avatar3.description}
-                      data-ai-hint={avatar3.imageHint}
-                    />
-                  )}
-                  <AvatarFallback>IN</AvatarFallback>
-                </Avatar>
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    Isabella Nguyen
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    isabella.nguyen@email.com
-                  </p>
-                </div>
-                <div className="ml-auto font-medium">{formatCurrency(299.00)}</div>
-              </div>
-              <div className="flex items-center">
-                <Avatar className="h-9 w-9">
-                   {avatar4 && (
-                    <AvatarImage
-                      src={avatar4.imageUrl}
-                      alt={avatar4.description}
-                      data-ai-hint={avatar4.imageHint}
-                    />
-                  )}
-                  <AvatarFallback>WK</AvatarFallback>
-                </Avatar>
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    William Kim
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    will@email.com
-                  </p>
-                </div>
-                <div className="ml-auto font-medium">{formatCurrency(99.00)}</div>
-              </div>
-              <div className="flex items-center">
-                <Avatar className="h-9 w-9">
-                  {avatar5 && (
-                    <AvatarImage
-                      src={avatar5.imageUrl}
-                      alt={avatar5.description}
-                      data-ai-hint={avatar5.imageHint}
-                    />
-                  )}
-                  <AvatarFallback>SD</AvatarFallback>
-                </Avatar>
-                <div className="ml-4 space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    Sofia Davis
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    sofia.davis@email.com
-                  </p>
-                </div>
-                <div className="ml-auto font-medium">{formatCurrency(39.00)}</div>
-              </div>
+            <div className="space-y-4">
+              {recentSales.map((sale) => {
+                 const avatar = PlaceHolderImages.find(img => img.id === sale.avatar);
+                 return (
+                    <Link href={`/product/${sale.id}`} key={sale.id} className="flex items-center hover:bg-muted/50 p-2 rounded-lg -m-2">
+                        <Avatar className="h-9 w-9">
+                        {avatar && (
+                            <AvatarImage
+                            src={avatar.imageUrl}
+                            alt={avatar.description}
+                            data-ai-hint={avatar.imageHint}
+                            />
+                        )}
+                        <AvatarFallback>{sale.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="ml-4 space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                            {sale.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                            {sale.email}
+                        </p>
+                        </div>
+                        <div className="ml-auto font-medium">{formatCurrency(sale.amount)}</div>
+                    </Link>
+                )
+              })}
             </div>
           </CardContent>
         </Card>
