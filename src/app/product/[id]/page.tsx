@@ -10,7 +10,7 @@ import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
-import { ShoppingCart } from 'lucide-react';
+import { ShoppingCart, ArrowLeft } from 'lucide-react';
 
 function ProductDetail({ productId }: { productId: string }) {
   const product = getProductById(productId);
@@ -46,38 +46,45 @@ function ProductDetail({ productId }: { productId: string }) {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-           <Logo/>
-           <span className="hidden sm:inline-block">{storeName}</span>
+      <header className="px-4 lg:px-6 h-16 flex items-center justify-between shadow-sm sticky top-0 bg-background/80 backdrop-blur-sm z-10">
+        <Link href="/" className="flex items-center gap-2 text-sm font-medium">
+            <ArrowLeft className="w-5 h-5" />
+           Back to Store
         </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
+        <nav className="flex items-center gap-4 sm:gap-6">
             <Button variant="ghost" size="icon">
                 <ShoppingCart className="w-6 h-6"/>
                 <span className="sr-only">Cart</span>
             </Button>
-            <Link href="/dashboard">
-                <Button>My Dashboard</Button>
-            </Link>
         </nav>
       </header>
 
       <main className="flex-1 container mx-auto py-12 px-4 md:px-6">
-        <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-          <div className="flex items-center justify-center bg-card rounded-lg overflow-hidden">
+        <div className="grid md:grid-cols-2 gap-8 lg:gap-12 max-w-4xl mx-auto">
+          <div className="bg-muted/50 rounded-lg overflow-hidden aspect-square">
             <Image
               src={product.imageLarge}
               alt={product.name}
               data-ai-hint={product.imageHint}
               width={600}
-              height={400}
-              className="object-cover w-full h-auto aspect-video"
+              height={600}
+              className="w-full h-full object-cover"
             />
           </div>
-          <div className="flex flex-col justify-center space-y-6">
+          <div className="flex flex-col justify-center space-y-6 py-4">
             <div>
-              <h1 className="text-3xl lg:text-4xl font-bold font-headline">{product.name}</h1>
-              <p className="text-2xl font-semibold text-primary mt-2">{formatCurrency(product.price)}</p>
+              <h1 
+                className="text-3xl lg:text-4xl font-bold font-headline"
+                style={{ color: merchant?.colors?.primary || 'hsl(var(--primary))' }}
+              >
+                  {product.name}
+              </h1>
+              <p 
+                className="text-3xl font-bold mt-2"
+                style={{ color: merchant?.colors?.secondary || 'hsl(var(--accent))' }}
+              >
+                  {formatCurrency(product.price)}
+              </p>
             </div>
             
             <p className="text-muted-foreground text-lg leading-relaxed">
@@ -94,11 +101,13 @@ function ProductDetail({ productId }: { productId: string }) {
             </div>
 
             <div className="flex flex-col gap-2 min-[400px]:flex-row">
-              <Button size="lg" className="w-full min-[400px]:w-auto" disabled={product.stock === 0}>
+              <Button 
+                size="lg" 
+                className="w-full min-[400px]:w-auto" 
+                disabled={product.stock === 0}
+                style={{ backgroundColor: merchant?.colors?.primary || 'hsl(var(--primary))' }}
+              >
                 Add to Cart
-              </Button>
-               <Button size="lg" variant="outline" className="w-full min-[400px]:w-auto">
-                Buy Now
               </Button>
             </div>
           </div>
