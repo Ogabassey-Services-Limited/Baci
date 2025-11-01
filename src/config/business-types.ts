@@ -17,6 +17,7 @@
 import { LucideIcon, Shirt, Laptop, Home, Sparkles, Palette, Coffee } from 'lucide-react';
 import { ModernTemplate } from '@/templates/modern';
 import { ArtisanTemplate } from '@/templates/artisan';
+import { TechTemplate } from '@/templates/tech';
 
 /**
  * Business type journey configuration
@@ -108,7 +109,7 @@ export const BUSINESS_TYPES = {
     description: 'Tech products and electronic devices',
     aiPromptContext: 'technology and innovation-focused with technical specifications',
     recommendedFeatures: ['spec-sheets', 'warranty-info', 'comparison-tables', 'compatibility-guides'],
-    template: ModernTemplate,
+    template: TechTemplate,
     icon: Laptop,
     journey: {
       onboarding: {
