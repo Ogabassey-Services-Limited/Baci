@@ -7,13 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import Link from 'next/link';
-import { Logo } from '@/components/logo';
 import { ShoppingCart, ArrowLeft } from 'lucide-react';
 import React from 'react';
 
-// 'use client' is moved to the component that actually needs it.
+// This is the Client Component that uses hooks.
 function ProductDetailClient({ productId }: { productId: string }) {
   'use client';
+  
   const product = getProductById(productId);
   const { merchant } = useMerchant();
 
@@ -151,7 +151,7 @@ function ProductDetailClient({ productId }: { productId: string }) {
 }
 
 
-// This is now a Server Component that handles the params promise.
+// This is the Server Component that handles the params promise.
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   // Correctly unwrap the params promise using React.use()
   const { id } = React.use(params);
@@ -160,5 +160,5 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     <MerchantProvider>
       <ProductDetailClient productId={id} />
     </MerchantProvider>
-  )
+  );
 }
