@@ -13,7 +13,6 @@ import { useMerchant } from '@/hooks/use-merchant';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCountryByCode } from '@/lib/countries';
-import Link from 'next/link';
 import { ThemedButton } from './themed';
 
 export function Cart() {
