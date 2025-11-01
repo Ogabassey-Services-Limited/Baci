@@ -13,7 +13,6 @@ import { useMerchant } from '@/hooks/use-merchant';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCountryByCode } from '@/lib/countries';
-import { ThemedButton } from './themed-button';
 import { Input } from '@/components/ui/input';
 
 export function Cart() {
@@ -94,9 +93,9 @@ export function Cart() {
                     <span>Subtotal</span>
                     <span>{formatCurrency(cartTotal)}</span>
                 </div>
-                <ThemedButton size="lg" colorRole="accent" className="w-full">
+                <Button size="lg" className="w-full">
                     Proceed to Checkout
-                </ThemedButton>
+                </Button>
             </div>
         </SheetFooter>
       )}
