@@ -318,7 +318,7 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdat
                 disabled={isLoading}
             />
             </div>
-             {brandColors && brandColors.length > 0 && (
+            {brandColors && brandColors.length > 0 && (
                 <div className="flex justify-center gap-2 animate-fade-in pt-2">
                     {brandColors.map((color, index) => (
                     <div
