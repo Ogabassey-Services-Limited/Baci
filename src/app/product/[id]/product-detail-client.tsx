@@ -18,6 +18,7 @@ import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
 import { ThemedButton } from '@/components/themed';
 import { Input } from '@/components/ui/input';
+import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 
 // This is now a dedicated Client Component.
 export default function ProductDetailClient({ productId }: { productId: string }) {
@@ -63,6 +64,9 @@ export default function ProductDetailClient({ productId }: { productId: string }
   const availableFooterLinks = footerLinks.filter(link => merchant?.pages?.[link.key as keyof typeof merchant.pages]);
 
   const cartItem = cart.find(item => item.id === product.id);
+  
+  const brandColors = merchant?.colors ? [merchant.colors.primary, merchant.colors.secondary, merchant.colors.accent] : ['#3F51B5'];
+  const darkestColor = findDarkestColor(brandColors);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -160,7 +164,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
 
         <footer 
           className="text-white"
-          style={{ backgroundColor: merchant?.colors?.primary || 'hsl(var(--primary))' }}
+          style={{ backgroundColor: darkestColor, color: getContrastingTextColor(darkestColor) }}
         >
           <div className="container mx-auto py-8 px-4 md:px-6">
               <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
