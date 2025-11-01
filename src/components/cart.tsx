@@ -34,7 +34,18 @@ export function Cart() {
   };
 
   return (
-    <SheetContent className="flex w-full flex-col pr-0 sm:max-w-lg">
+    <SheetContent 
+      className="flex w-full flex-col pr-0 sm:max-w-lg"
+      style={{
+        // @ts-ignore - Apply theme variables directly to the sheet content
+        '--store-primary': merchant?.colors?.primary,
+        '--store-secondary': merchant?.colors?.secondary,
+        '--store-accent': merchant?.colors?.accent,
+        '--store-primary-text': merchant?.colors?.primary ? `var(--store-primary-text)` : '#FFFFFF',
+        '--store-secondary-text': merchant?.colors?.secondary ? `var(--store-secondary-text)` : '#FFFFFF',
+        '--store-accent-text': merchant?.colors?.accent ? `var(--store-accent-text)` : '#000000',
+      }}
+    >
       <SheetHeader className="px-6">
         <SheetTitle>Cart {cartCount > 0 && `(${cartCount})`}</SheetTitle>
       </SheetHeader>
