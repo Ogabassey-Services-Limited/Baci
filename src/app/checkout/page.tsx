@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, FormProvider } from 'react-hook-form';
 import { z } from 'zod';
@@ -172,10 +172,16 @@ function CheckoutPageContent() {
     },
     mode: 'onBlur',
   });
+
+  useEffect(() => {
+    // Redirect if cart is empty after initial load
+    if (cartCount === 0 && !isLoading) {
+      router.replace('/');
+    }
+  }, [cartCount, isLoading, router]);
   
-  // Redirect if cart is empty
+  // Render nothing or a loader while redirecting
   if (cartCount === 0 && !isLoading) {
-    router.replace('/');
     return null;
   }
 
@@ -188,7 +194,7 @@ function CheckoutPageContent() {
 
   const handlePrev = () => {
     if (step > 1) {
-      setStep(step - 1);
+      setStep(step + 1);
     }
   };
 
