@@ -146,17 +146,17 @@ function Storefront() {
           </div>
         </div>
 
-        <nav className="flex items-center gap-4 sm:gap-6">
+        <nav className="flex items-center gap-2 sm:gap-4">
+            <Link href="/dashboard">
+                <ThemedButton colorRole="primary">My Dashboard</ThemedButton>
+            </Link>
             <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                    <ShoppingCart className="w-6 h-6"/>
+                <Button variant="outline" size="icon" className="relative h-10 w-10">
+                    <ShoppingCart className="w-5 h-5"/>
                     {cartCount > 0 && <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 justify-center rounded-full p-0">{cartCount}</Badge>}
                     <span className="sr-only">Cart</span>
                 </Button>
             </SheetTrigger>
-            <Link href="/dashboard">
-                <ThemedButton colorRole="primary">My Dashboard</ThemedButton>
-            </Link>
         </nav>
       </header>
 
@@ -219,7 +219,7 @@ function Storefront() {
                                                     </ThemedButton>
                                                 </div>
                                             ) : (
-                                                <ThemedButton colorRole="accent" size="sm" onClick={() => handleAddToCart(product)}>
+                                                <ThemedButton colorRole="primary" size="sm" onClick={() => handleAddToCart(product)}>
                                                     Add to Cart
                                                 </ThemedButton>
                                             )}
