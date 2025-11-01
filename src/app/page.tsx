@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { getBusinessTypeById } from '@/config/business-types';
 import { products, type Product } from '@/lib/products';
-import { Loader2, ShoppingCart, Search, Plus, Minus } from 'lucide-react';
+import { Loader2, ShoppingBag, Search, Plus, Minus } from 'lucide-react';
 import { CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
@@ -152,7 +152,7 @@ function Storefront() {
             </Link>
             <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="relative h-10 w-10">
-                    <ShoppingCart className="w-5 h-5"/>
+                    <ShoppingBag className="w-5 h-5"/>
                     {cartCount > 0 && <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 justify-center rounded-full p-0">{cartCount}</Badge>}
                     <span className="sr-only">Cart</span>
                 </Button>
