@@ -47,6 +47,29 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
 }
 
 /**
+ * Find the darkest color from a list of hex colors.
+ * @param colors - An array of hex color strings.
+ * @returns The darkest hex color string from the array.
+ */
+export function findDarkestColor(colors: string[]): string {
+    let darkestColor = colors[0];
+    let minLuminance = 1;
+
+    for (const color of colors) {
+        const rgb = hexToRgb(color);
+        if (rgb) {
+            const luminance = getLuminance(rgb.r, rgb.g, rgb.b);
+            if (luminance < minLuminance) {
+                minLuminance = luminance;
+                darkestColor = color;
+            }
+        }
+    }
+    return darkestColor;
+}
+
+
+/**
  * Calculate contrast ratio between two colors (WCAG formula)
  * @param color1 - First color in hex format
  * @param color2 - Second color in hex format

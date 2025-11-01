@@ -18,7 +18,7 @@ import Fuse from 'fuse.js';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
-import { getContrastingTextColor } from '@/lib/color-utils';
+import { getContrastingTextColor, findDarkestColor } from '@/lib/color-utils';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
 
@@ -104,6 +104,10 @@ function Storefront() {
   ];
 
   const availableFooterLinks = footerLinks.filter(link => merchant.pages?.[link.key as keyof typeof merchant.pages]);
+
+  const brandColors = merchant.colors ? [merchant.colors.primary, merchant.colors.secondary, merchant.colors.accent] : ['#3F51B5'];
+  const footerColor = findDarkestColor(brandColors);
+
 
   return (
      <div
@@ -239,7 +243,7 @@ function Storefront() {
 
        <footer 
         className="text-white"
-        style={{ backgroundColor: merchant.colors?.primary || 'hsl(var(--primary))' }}
+        style={{ backgroundColor: footerColor, color: getContrastingTextColor(footerColor) }}
        >
         <div className="container mx-auto py-8 px-4 md:px-6">
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
