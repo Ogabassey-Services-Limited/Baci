@@ -88,7 +88,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
 
       try {
         const response = await ai.generate({
-          model: 'googleai/gemini-pro',
+          model: 'googleai/gemini-pro-vision', // <-- CORRECTED: Use vision model for image analysis
           prompt: [
             {
               text: `Analyze this logo and extract the 3 most representative brand colors. Provide them in a JSON object with keys: "primary", "secondary", and "accent". The primary color should be the most dominant. The accent should be a vibrant color for CTAs. Provide colors in hex format. Return ONLY the JSON object.`,
@@ -127,7 +127,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
       const logoStyle = businessTypeConfig?.journey.onboarding.logoStyle || 'simple, modern, and professional';
 
       const response = await ai.generate({
-          model: 'googleai/gemini-2.5-pro-image-preview',
+          model: 'googleai/gemini-pro-image-preview',
           prompt: [
               {
               text: `Generate 4 unique logo options for a business named "${input.businessName}".
