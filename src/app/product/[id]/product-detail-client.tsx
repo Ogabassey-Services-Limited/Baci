@@ -9,19 +9,21 @@ import { Badge } from '@/components/ui/badge';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import Link from 'next/link';
-import { ShoppingCart, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, ArrowLeft, Plus, Minus } from 'lucide-react';
 import React from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { Product } from '@/lib/products';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
+import { ThemedButton } from '@/components/themed';
+import { Input } from '@/components/ui/input';
 
 // This is now a dedicated Client Component.
 export default function ProductDetailClient({ productId }: { productId: string }) {
   const product = getProductById(productId);
   const { merchant } = useMerchant();
-  const { cartCount, addToCart } = useCart();
+  const { cart, cartCount, addToCart, updateQuantity } = useCart();
   const { toast } = useToast();
 
   if (!product || product.status !== 'active') {
@@ -59,6 +61,8 @@ export default function ProductDetailClient({ productId }: { productId: string }
   ];
 
   const availableFooterLinks = footerLinks.filter(link => merchant?.pages?.[link.key as keyof typeof merchant.pages]);
+
+  const cartItem = cart.find(item => item.id === product.id);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -122,15 +126,33 @@ export default function ProductDetailClient({ productId }: { productId: string }
               </div>
 
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                <Button 
-                  size="lg" 
-                  className="w-full min-[400px]:w-auto" 
-                  disabled={product.stock === 0}
-                  style={{ backgroundColor: merchant?.colors?.primary || 'hsl(var(--primary))' }}
-                  onClick={() => handleAddToCart(product)}
-                >
-                  Add to Cart
-                </Button>
+                {cartItem ? (
+                  <div className="flex items-center gap-2">
+                      <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-10 w-10" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}>
+                          <Minus className="h-4 w-4" />
+                      </ThemedButton>
+                      <Input
+                          type="number"
+                          value={cartItem.quantity}
+                          onChange={(e) => updateQuantity(product.id, parseInt(e.target.value, 10) || 0)}
+                          className="h-10 w-16 text-center text-base remove-arrow"
+                          min="0"
+                      />
+                      <ThemedButton colorRole="accent" size="icon" className="h-10 w-10" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
+                          <Plus className="h-4 w-4" />
+                      </ThemedButton>
+                  </div>
+                ) : (
+                  <ThemedButton 
+                    size="lg" 
+                    colorRole="accent"
+                    className="w-full min-[400px]:w-auto" 
+                    disabled={product.stock === 0}
+                    onClick={() => handleAddToCart(product)}
+                  >
+                    Add to Cart
+                  </ThemedButton>
+                )}
               </div>
             </div>
           </div>
