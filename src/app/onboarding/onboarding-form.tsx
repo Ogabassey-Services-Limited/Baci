@@ -38,7 +38,6 @@ const baseOnboardingSchema = z.object({
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
   brandPreferences: z.string().optional(),
-  logo: z.any().optional(),
 });
 
 const refinedFormSchema = baseOnboardingSchema.refine(data => {
@@ -152,7 +151,7 @@ function Step2_BusinessType() {
   );
 }
 
-function Step3_Logo() {
+function Step3_Logo({ onLogoUpdate }: { onLogoUpdate: (logo: string) => void }) {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -167,7 +166,7 @@ function Step3_Logo() {
       reader.onloadend = () => {
         const dataUri = reader.result as string;
         setLogoPreview(dataUri);
-        form.setValue('logo', dataUri);
+        onLogoUpdate(dataUri);
         setGeneratedLogo(null);
         setShowColorPrompt(false);
       };
@@ -208,7 +207,7 @@ function Step3_Logo() {
       const result = await response.json();
       if (result.logoDataUri) {
         setGeneratedLogo(result.logoDataUri);
-        form.setValue('logo', result.logoDataUri);
+        onLogoUpdate(result.logoDataUri);
         setLogoPreview(null);
         setShowColorPrompt(false);
         toast({
@@ -294,15 +293,6 @@ function Step3_Logo() {
           )}
         </div>
       </div>
-      <FormField
-        control={form.control}
-        name="logo"
-        render={({ fieldState }) => (
-          <FormItem>
-            <FormMessage className='mt-2'>{fieldState.error?.message}</FormMessage>
-          </FormItem>
-        )}
-      />
     </div>
   );
 }
@@ -314,7 +304,7 @@ function Step4_Success({ businessName }: { businessName: string }) {
   const storeUrl = `${businessName.toLowerCase().replace(/\s+/g, '-')}.baci.store`;
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(storeUrl);
+    navigator.clipboard.writeText(`https://${storeUrl}`);
     toast({
       title: "Copied to clipboard!",
       description: "Your store URL is ready to be shared.",
@@ -393,6 +383,7 @@ export default function OnboardingForm() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
 
   const totalSteps = 3;
 
@@ -403,7 +394,6 @@ export default function OnboardingForm() {
       businessType: '',
       otherBusinessType: '',
       brandPreferences: '',
-      logo: null,
     },
     mode: 'onBlur',
   });
@@ -442,7 +432,7 @@ export default function OnboardingForm() {
           businessName: data.businessName,
           businessType: finalBusinessType!,
           brandPreferences: data.brandPreferences || '',
-          logoDataUri: data.logo,
+          logoDataUri: logoDataUri,
         }),
       });
 
@@ -457,19 +447,19 @@ export default function OnboardingForm() {
       }
 
       const result = await response.json();
-      const { logoDataUri, brandColors } = result;
+      const { logoDataUri: finalLogoUri, brandColors } = result;
 
       if (!brandColors || brandColors.length < 5) {
         logger.error({ message: 'Invalid brand colors', brandColors });
         throw new Error("AI did not return a valid brand color palette.");
       }
-
-      const finalLogoUri = data.logo || logoDataUri;
+      
+      const logoToSave = logoDataUri || finalLogoUri;
 
       saveMerchantData({
         businessName: data.businessName,
         businessType: finalBusinessType!,
-        logo: finalLogoUri,
+        logo: logoToSave,
         colors: {
             primary: brandColors[0],
             secondary: brandColors[1],
@@ -520,7 +510,7 @@ export default function OnboardingForm() {
           <div role="region" aria-live="polite" aria-atomic="true">
             {step === 1 && <Step1_BusinessName />}
             {step === 2 && <Step2_BusinessType />}
-            {step === 3 && <Step3_Logo />}
+            {step === 3 && <Step3_Logo onLogoUpdate={setLogoDataUri} />}
           </div>
 
           <OnboardingNavigation
