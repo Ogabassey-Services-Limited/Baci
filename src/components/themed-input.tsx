@@ -23,10 +23,8 @@ export function ThemedInput({
     <Input
       {...props}
       className={cn(
-        // Remove default focus ring
-        'focus-visible:ring-0',
         // Add branded focus border
-        focusColor === 'primary' && 'focus-visible:border-[var(--store-primary)] focus-visible:ring-1 focus-visible:ring-[var(--store-primary)]',
+        'focus-visible:border-[var(--store-primary)] focus-visible:ring-1 focus-visible:ring-[var(--store-primary)]',
         focusColor === 'secondary' && 'focus-visible:border-[var(--store-secondary)] focus-visible:ring-1 focus-visible:ring-[var(--store-secondary)]',
         focusColor === 'accent' && 'focus-visible:border-[var(--store-accent)] focus-visible:ring-1 focus-visible:ring-[var(--store-accent)]',
         className

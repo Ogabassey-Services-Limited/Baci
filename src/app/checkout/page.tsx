@@ -11,7 +11,7 @@ import { ArrowLeft, CheckCircle, CreditCard, Loader2, Mail, Phone, User, Home } 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { ThemedInput } from '@/components/themed';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { OrderSummary } from '@/components/order-summary';
@@ -44,8 +44,8 @@ function Step1_Shipping() {
                     <FormLabel>First Name</FormLabel>
                     <FormControl>
                     <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="John" {...field} className="pl-10" />
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                        <ThemedInput placeholder="John" {...field} className="pl-10" />
                     </div>
                     </FormControl>
                     <FormMessage />
@@ -60,8 +60,8 @@ function Step1_Shipping() {
                     <FormLabel>Last Name (Surname)</FormLabel>
                     <FormControl>
                     <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Doe" {...field} className="pl-10" />
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                        <ThemedInput placeholder="Doe" {...field} className="pl-10" />
                     </div>
                     </FormControl>
                     <FormMessage />
@@ -77,8 +77,8 @@ function Step1_Shipping() {
             <FormLabel>Email</FormLabel>
             <FormControl>
                <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="email" placeholder="you@example.com" {...field} className="pl-10" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                <ThemedInput type="email" placeholder="you@example.com" {...field} className="pl-10" />
               </div>
             </FormControl>
             <FormMessage />
@@ -93,8 +93,8 @@ function Step1_Shipping() {
             <FormLabel>Phone Number</FormLabel>
             <FormControl>
                <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="tel" placeholder="+1 (555) 123-4567" {...field} className="pl-10" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                <ThemedInput type="tel" placeholder="+1 (555) 123-4567" {...field} className="pl-10" />
               </div>
             </FormControl>
             <FormMessage />
@@ -110,7 +110,7 @@ function Step1_Shipping() {
             <FormItem>
               <FormLabel>City</FormLabel>
               <FormControl>
-                <Input placeholder="San Francisco" {...field} />
+                <ThemedInput placeholder="San Francisco" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -123,7 +123,7 @@ function Step1_Shipping() {
             <FormItem>
               <FormLabel>State / Province</FormLabel>
               <FormControl>
-                <Input placeholder="California" {...field} />
+                <ThemedInput placeholder="California" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -200,7 +200,7 @@ function CheckoutPageContent() {
 
   const handlePrev = () => {
     if (step > 1) {
-      setStep(step + 1);
+      setStep(step - 1);
     }
   };
 

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
-import { Input } from '@/components/ui/input';
+import { ThemedInput } from '@/components/themed';
 import { Home } from 'lucide-react';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from './ui/form';
 
@@ -75,8 +75,8 @@ export function AddressAutocomplete() {
             <FormLabel>Street Address</FormLabel>
             <FormControl>
                <div className="relative">
-                <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
+                <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                <ThemedInput 
                   placeholder="123 Main St" 
                   {...field} 
                   ref={inputRef} 
