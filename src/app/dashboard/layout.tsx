@@ -12,6 +12,7 @@ import {
   Users,
   LayoutDashboard,
   Loader2,
+  ExternalLink,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +48,7 @@ function DashboardLayoutContent({
   const { merchant, loading } = useMerchant();
 
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
+  const storeUrl = merchant?.businessName ? `https://${merchant.businessName.toLowerCase().replace(/\s+/g, '-')}.baci.store` : '/';
 
   const navItems = [
     {
@@ -75,6 +77,12 @@ function DashboardLayoutContent({
       icon: Settings,
       label: 'Settings',
     },
+    {
+      href: storeUrl,
+      icon: ExternalLink,
+      label: 'Visit Store',
+      target: '_blank',
+    },
   ];
 
   return (
@@ -92,9 +100,10 @@ function DashboardLayoutContent({
                 <Link
                   key={item.label}
                   href={item.href}
+                  target={item.target}
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                    { 'bg-muted text-primary': pathname === item.href }
+                    { 'bg-muted text-primary': pathname === item.href && !item.target }
                   )}
                 >
                   <item.icon className="h-4 w-4" />
@@ -151,9 +160,10 @@ function DashboardLayoutContent({
                   <Link
                     key={item.label}
                     href={item.href}
+                    target={item.target}
                     className={cn(
                       'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground',
-                      { 'bg-muted text-foreground': pathname === item.href }
+                      { 'bg-muted text-foreground': pathname === item.href && !item.target }
                     )}
                   >
                     <item.icon className="h-5 w-5" />
