@@ -244,8 +244,17 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: str
       }
       
       const result = await response.json();
-      setGeneratedLogos(result.logos || []);
-      toast({ title: 'Logos generated!', description: 'Please select your favorite.' });
+      
+      if (!result.logos || result.logos.length === 0) {
+        toast({
+            title: 'AI Logo Generation Unavailable',
+            description: 'To generate logos, please add your Google AI API key to a .env.local file. See GOOGLE_AI_SETUP.md for instructions.',
+            duration: 9000,
+        });
+      } else {
+        setGeneratedLogos(result.logos || []);
+        toast({ title: 'Logos generated!', description: 'Please select your favorite.' });
+      }
 
     } catch (e) {
       logger.error({ error: e as Error, message: 'Logo generation failed.' });

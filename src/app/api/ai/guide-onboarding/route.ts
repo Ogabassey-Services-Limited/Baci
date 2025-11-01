@@ -49,7 +49,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ brandColors: generateFallbackColors(brandPreferences) });
       }
       if (task === 'generate_logos') {
-        return NextResponse.json({ error: 'Logo generation is unavailable without an AI API key.' }, { status: 503 });
+        // Return an empty array for logos instead of an error
+        return NextResponse.json({ logos: [] });
       }
     }
 
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ brandColors: fallbackColors });
       }
       
-      // For logo generation, we re-throw to let the client know it failed.
+      // For logo generation, re-throw to let the client know it failed.
       return NextResponse.json({ error: 'AI service failed to complete the task.' }, { status: 500 });
     }
   } catch (error) {
