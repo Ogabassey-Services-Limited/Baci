@@ -10,6 +10,14 @@ export interface MerchantData {
     secondary: string;
   };
   country?: string;
+  pages?: {
+    about?: string;
+    contact?: string;
+    privacy?: string;
+    terms?: string;
+    faq?: string;
+    legal?: string;
+  };
 }
 
 // Generate a simple user ID for the session

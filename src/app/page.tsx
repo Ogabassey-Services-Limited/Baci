@@ -56,6 +56,16 @@ function Storefront() {
   };
   
   const activeProducts = products.filter(p => p.status === 'active');
+  const footerLinks = [
+    { key: 'about', label: 'About Us' },
+    { key: 'contact', label: 'Contact' },
+    { key: 'privacy', label: 'Privacy Policy' },
+    { key: 'terms', label: 'Terms and Conditions' },
+    { key: 'faq', label: 'FAQs' },
+    { key: 'legal', label: 'Legal and Dispute' },
+  ];
+
+  const availableFooterLinks = footerLinks.filter(link => merchant.pages?.[link.key as keyof typeof merchant.pages]);
 
   return (
      <div className="flex flex-col min-h-screen">
@@ -130,16 +140,36 @@ function Storefront() {
         </StoreTemplate>
       </main>
 
-       <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t">
-        <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} {merchant.businessName}. All rights reserved.</p>
-        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
-          <Link className="text-xs hover:underline underline-offset-4" href="#">
-            Terms of Service
-          </Link>
-          <Link className="text-xs hover:underline underline-offset-4" href="#">
-            Privacy
-          </Link>
-        </nav>
+       <footer 
+        className="text-white"
+        style={{ backgroundColor: merchant.colors?.primary || 'hsl(var(--primary))' }}
+       >
+        <div className="container mx-auto py-8 px-4 md:px-6">
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+                <div>
+                     <h3 className="text-lg font-semibold mb-4">{merchant.businessName}</h3>
+                     <p className="text-sm opacity-80">&copy; {new Date().getFullYear()} {merchant.businessName}. All rights reserved.</p>
+                </div>
+                 {availableFooterLinks.length > 0 && (
+                    <div className="lg:col-span-2">
+                        <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+                        <nav className="grid grid-cols-2 gap-2">
+                          {availableFooterLinks.map((link) => (
+                            <Link key={link.key} className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100" href={`/pages/${link.key}`}>
+                                {link.label}
+                            </Link>
+                          ))}
+                        </nav>
+                    </div>
+                 )}
+                 <div>
+                    <h3 className="text-lg font-semibold mb-4">Follow Us</h3>
+                    <div className="flex space-x-4">
+                        {/* Social links can be added here */}
+                    </div>
+                 </div>
+            </div>
+        </div>
       </footer>
     </div>
   );

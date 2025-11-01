@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Loader2,
   ExternalLink,
+  FileText,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -73,6 +74,11 @@ function DashboardLayoutContent({
       label: 'Customers',
     },
     {
+        href: '/dashboard/pages',
+        icon: FileText,
+        label: 'Pages',
+    },
+    {
       href: '/dashboard/settings',
       icon: Settings,
       label: 'Settings',
@@ -99,10 +105,9 @@ function DashboardLayoutContent({
                 <Link
                   key={item.label}
                   href={item.href}
-                  target={item.target}
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                    { 'bg-muted text-primary': pathname === item.href && !item.target }
+                    { 'bg-muted text-primary': pathname === item.href }
                   )}
                 >
                   <item.icon className="h-4 w-4" />
@@ -159,10 +164,9 @@ function DashboardLayoutContent({
                   <Link
                     key={item.label}
                     href={item.href}
-                    target={item.target}
                     className={cn(
                       'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground',
-                      { 'bg-muted text-foreground': pathname === item.href && !item.target }
+                      { 'bg-muted text-foreground': pathname === item.href }
                     )}
                   >
                     <item.icon className="h-5 w-5" />
