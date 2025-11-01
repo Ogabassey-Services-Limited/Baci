@@ -16,6 +16,7 @@ import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { OrderSummary } from '@/components/order-summary';
 import { MerchantProvider } from '@/hooks/use-merchant';
+import { AddressAutocomplete } from '@/components/address-autocomplete';
 
 
 const shippingSchema = z.object({
@@ -81,22 +82,7 @@ function Step1_Shipping() {
           </FormItem>
         )}
       />
-      <FormField
-        control={control}
-        name="address"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Street Address</FormLabel>
-            <FormControl>
-               <div className="relative">
-                <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="123 Main St" {...field} className="pl-10" />
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+      <AddressAutocomplete />
       <div className="grid grid-cols-2 gap-4">
         <FormField
           control={control}
