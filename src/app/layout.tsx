@@ -1,9 +1,12 @@
+
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { cn } from '@/lib/utils';
 import { CartProvider } from '@/hooks/use-cart';
+import { MerchantProvider } from '@/hooks/use-merchant';
+import AppBody from '@/components/app-body';
+
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -23,11 +26,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head />
-      <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}>
-        <CartProvider>
-            {children}
-        </CartProvider>
+      <body className={inter.variable}>
+        <MerchantProvider>
+          <CartProvider>
+            <AppBody>{children}</AppBody>
+          </CartProvider>
+        </MerchantProvider>
         <Toaster />
       </body>
     </html>
