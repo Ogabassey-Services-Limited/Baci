@@ -89,7 +89,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
 
       try {
         const response = await ai.generate({
-          model: 'googleai/gemini-pro-vision',
+          model: 'googleai/gemini-2.5-flash',
           prompt: [
             {
               text: `Analyze this logo and extract the 3 most representative brand colors. Provide them in a JSON object with keys: "primary", "secondary", and "accent". The primary color should be the most dominant. The accent should be a vibrant color for CTAs. Provide colors in hex format. Return ONLY the JSON object, without any markdown formatting.`,
