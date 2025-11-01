@@ -14,6 +14,7 @@ import {
   ShoppingCart,
   Wrench,
   FlaskConical,
+  RefreshCw,
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -37,6 +38,8 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { getCountryByCode } from '@/lib/countries';
+import { clearMerchantData } from '@/services/localMerchantService';
+import { useRouter } from 'next/navigation';
 
 const chartData = [
   { month: 'January', desktop: 186, mobile: 80 },
@@ -69,6 +72,7 @@ const recentSales = [
 export default function DashboardPage() {
   const { merchant } = useMerchant();
   const { toast } = useToast();
+  const router = useRouter();
   
   const storeUrl = merchant?.businessName ? `${merchant.businessName.toLowerCase().replace(/\s+/g, '-')}.baci.store` : '';
   const fullStoreUrl = storeUrl ? `https://${storeUrl}` : '';
@@ -81,6 +85,15 @@ export default function DashboardPage() {
         description: "Your store URL is ready to be shared.",
         });
     }
+  };
+
+  const handleReset = () => {
+    clearMerchantData();
+    toast({
+        title: "App Reset",
+        description: "Your store data has been cleared. Starting over.",
+    });
+    router.push('/onboarding');
   };
 
   const formatCurrency = (amount: number) => {
@@ -311,6 +324,18 @@ export default function DashboardPage() {
               })}
             </div>
           </CardContent>
+        </Card>
+        <Card className="xl:col-span-3">
+            <CardHeader>
+                <CardTitle>Danger Zone</CardTitle>
+                <CardDescription>These actions are irreversible. Please be certain.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button variant="destructive" onClick={handleReset}>
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reset and Start Over
+                </Button>
+            </CardContent>
         </Card>
       </div>
     </>
