@@ -16,7 +16,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
 import { Button } from './ui/button';
-import { getContrastingTextColor } from '@/lib/color-utils';
 import Link from 'next/link';
 
 export function Cart() {
