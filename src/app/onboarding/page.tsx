@@ -1,6 +1,6 @@
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
-import OnboardingForm from './onboarding-form';
+import OnboardingForm from '@/components/onboarding-form';
 import { Card, CardContent } from '@/components/ui/card';
 
 // Mark as dynamic to prevent SSG with Firebase
