@@ -15,6 +15,8 @@
  */
 
 import { LucideIcon, Shirt, Laptop, Home, Sparkles, Palette, Coffee } from 'lucide-react';
+import { ModernTemplate } from '@/templates/modern';
+import { ArtisanTemplate } from '@/templates/artisan';
 
 /**
  * Business type journey configuration
@@ -55,8 +57,8 @@ export interface BusinessTypeConfig {
   aiPromptContext: string;
   /** Recommended features for this business type (future) */
   recommendedFeatures?: string[];
-  /** Template ID to use for storefronts (future) */
-  templateId?: string;
+  /** Template component to use for storefronts */
+  template: React.ComponentType<any>;
   /** Lucide icon component for UI */
   icon: LucideIcon;
   /** Journey configuration for onboarding and product creation */
@@ -84,7 +86,7 @@ export const BUSINESS_TYPES = {
     description: 'Clothing, accessories, and fashion items',
     aiPromptContext: 'fashion and style-focused',
     recommendedFeatures: ['size-charts', 'color-variants', 'lookbooks', 'style-guides'],
-    templateId: 'minimal-fashion',
+    template: ModernTemplate,
     icon: Shirt,
     journey: {
       onboarding: {
@@ -106,7 +108,7 @@ export const BUSINESS_TYPES = {
     description: 'Tech products and electronic devices',
     aiPromptContext: 'technology and innovation-focused with technical specifications',
     recommendedFeatures: ['spec-sheets', 'warranty-info', 'comparison-tables', 'compatibility-guides'],
-    templateId: 'tech-modern',
+    template: ModernTemplate,
     icon: Laptop,
     journey: {
       onboarding: {
@@ -128,7 +130,7 @@ export const BUSINESS_TYPES = {
     description: 'Furniture, home accessories, and decor items',
     aiPromptContext: 'home and lifestyle-focused with interior design emphasis',
     recommendedFeatures: ['room-visualizer', 'dimension-guides', 'material-samples', 'style-collections'],
-    templateId: 'cozy-home',
+    template: ArtisanTemplate,
     icon: Home,
     journey: {
       onboarding: {
@@ -150,7 +152,7 @@ export const BUSINESS_TYPES = {
     description: 'Cosmetics, skincare, wellness, and personal care products',
     aiPromptContext: 'health, beauty, and wellness-focused',
     recommendedFeatures: ['ingredient-lists', 'skin-type-filters', 'before-after', 'routine-builders'],
-    templateId: 'beauty-clean',
+    template: ModernTemplate,
     icon: Sparkles,
     journey: {
       onboarding: {
@@ -172,7 +174,7 @@ export const BUSINESS_TYPES = {
     description: 'Artisan products, handcrafted items, and unique creations',
     aiPromptContext: 'artisan and handcrafted with emphasis on uniqueness and craftsmanship',
     recommendedFeatures: ['maker-story', 'custom-orders', 'crafting-process', 'limited-editions'],
-    templateId: 'artisan-warm',
+    template: ArtisanTemplate,
     icon: Palette,
     journey: {
       onboarding: {
@@ -194,7 +196,7 @@ export const BUSINESS_TYPES = {
     description: 'Consumable goods, beverages, and culinary products',
     aiPromptContext: 'food and beverage with focus on taste, quality, and ingredients',
     recommendedFeatures: ['nutrition-facts', 'allergen-info', 'recipes', 'pairing-guides'],
-    templateId: 'fresh-market',
+    template: ArtisanTemplate,
     icon: Coffee,
     journey: {
       onboarding: {
