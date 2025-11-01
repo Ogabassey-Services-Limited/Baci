@@ -14,9 +14,10 @@ import { useMerchant } from '@/hooks/use-merchant';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCountryByCode } from '@/lib/countries';
-import { Input } from '@/components/ui/input';
+import { Input } from './ui/input';
 import { Button } from './ui/button';
 import Link from 'next/link';
+import { Minus, Plus } from 'lucide-react';
 
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
@@ -54,7 +55,7 @@ export function Cart() {
           {cart.length > 0 ? (
             <div className="px-6">
               {cart.map((item) => (
-                <div key={item.id} className="flex items-center gap-4 py-4 border-b">
+                <div key={item.id} className="flex items-start gap-4 py-4 border-b">
                   <Image
                     src={item.image}
                     alt={item.name}
@@ -62,26 +63,41 @@ export function Cart() {
                     height={64}
                     className="rounded-md object-cover"
                   />
-                  <div className="flex-1">
+                  <div className="flex-1 space-y-2">
                     <p className="font-semibold">{item.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Quantity: 
-                       <Input
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <Input
                         type="number"
                         min="1"
                         value={item.quantity}
                         onChange={(e) => updateQuantity(item.id, parseInt(e.target.value, 10))}
-                        className="w-16 ml-2 p-1 border rounded-md remove-arrow"
+                        className="w-12 h-8 text-center remove-arrow"
                         aria-label={`Quantity for ${item.name}`}
                       />
-                    </p>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold">{formatCurrency(item.price * item.quantity)}</p>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-xs text-red-500 hover:text-red-600"
+                      className="text-xs h-auto p-0 text-red-500 hover:text-red-600"
                       onClick={() => removeFromCart(item.id)}
                     >
                       Remove
