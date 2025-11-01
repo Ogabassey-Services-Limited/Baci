@@ -34,10 +34,10 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 
-export default function DashboardLayout({
+function DashboardLayoutContent({
   children,
 }: {
   children: React.ReactNode;
@@ -213,5 +213,17 @@ export default function DashboardLayout({
         </main>
       </div>
     </div>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <MerchantProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </MerchantProvider>
   );
 }

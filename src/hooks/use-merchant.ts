@@ -1,17 +1,24 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
 import { getMerchantData, saveMerchantData, type MerchantData } from '@/services/localMerchantService';
 import { logger } from '@/lib/logger';
 
-export const useMerchant = () => {
+interface MerchantContextType {
+  merchant: MerchantData | null;
+  loading: boolean;
+  updateMerchant: (data: Partial<MerchantData>) => void;
+  reloadMerchant: () => void;
+}
+
+const MerchantContext = createContext<MerchantContextType | undefined>(undefined);
+
+export const MerchantProvider = ({ children }: { children: ReactNode }) => {
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // This code now runs only on the client, after the component has mounted.
-    // This prevents a hydration mismatch.
     try {
       const merchantData = getMerchantData();
       if (merchantData) {
@@ -19,7 +26,7 @@ export const useMerchant = () => {
       }
     } catch (error) {
       logger.error({
-        message: 'Failed to load merchant data in useMerchant hook',
+        message: 'Failed to load merchant data in MerchantProvider',
         error: error as Error,
       });
     } finally {
@@ -31,16 +38,14 @@ export const useMerchant = () => {
     setLoading(true);
     try {
       const merchantData = getMerchantData();
-      if (merchantData) {
-        setMerchant(merchantData);
-      }
+      setMerchant(merchantData);
     } catch (error) {
-        logger.error({
-            message: 'Failed to load merchant data in useMerchant hook',
-            error: error as Error
-        });
+      logger.error({
+        message: 'Failed to reload merchant data',
+        error: error as Error,
+      });
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   }, []);
 
@@ -51,5 +56,19 @@ export const useMerchant = () => {
     setMerchant(newData);
   }, []);
 
-  return { merchant, loading, updateMerchant, reloadMerchant };
+  const value = { merchant, loading, updateMerchant, reloadMerchant };
+
+  return (
+    <MerchantContext.Provider value={value}>
+      {children}
+    </MerchantContext.Provider>
+  );
+};
+
+export const useMerchant = (): MerchantContextType => {
+  const context = useContext(MerchantContext);
+  if (context === undefined) {
+    throw new Error('useMerchant must be used within a MerchantProvider');
+  }
+  return context;
 };
