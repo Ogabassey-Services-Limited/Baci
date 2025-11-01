@@ -14,6 +14,7 @@ import {
   Loader2,
   ExternalLink,
   FileText,
+  Search,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +40,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useMerchant, MerchantProvider } from '@/hooks/use-merchant.tsx';
 import { getCountryByCode } from '@/lib/countries';
+import { Input } from '@/components/ui/input';
 
 function DashboardLayoutContent({
   children,
@@ -198,7 +200,16 @@ function DashboardLayoutContent({
             </SheetContent>
           </Sheet>
           <div className="w-full flex-1">
-            {/* Can add search here if needed */}
+             <form>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search..."
+                  className="w-full appearance-none bg-background pl-8 shadow-none md:w-2/3 lg:w-1/3"
+                />
+              </div>
+            </form>
           </div>
            {loading ? (
              <Loader2 className="h-5 w-5 animate-spin" />
