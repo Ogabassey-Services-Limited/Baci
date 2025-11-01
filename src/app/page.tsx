@@ -153,7 +153,7 @@ function Storefront() {
             <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="relative h-10 w-10">
                     <ShoppingBag className="w-5 h-5"/>
-                    {cartCount > 0 && <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 justify-center rounded-full p-0">{cartCount}</Badge>}
+                    {cartCount > 0 && <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 text-xs justify-center rounded-full p-0">{cartCount}</Badge>}
                     <span className="sr-only">Cart</span>
                 </Button>
             </SheetTrigger>
