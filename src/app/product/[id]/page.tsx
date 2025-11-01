@@ -45,7 +45,7 @@ function ProductDetail({ productId }: { productId: string }) {
                 <ShoppingCart className="w-6 h-6"/>
                 <span className="sr-only">Cart</span>
             </Button>
-            <Link href="/onboarding">
+            <Link href="/dashboard">
                 <Button>My Dashboard</Button>
             </Link>
         </nav>
