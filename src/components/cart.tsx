@@ -7,13 +7,14 @@ import {
   SheetTitle,
   SheetFooter,
 } from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
+import { ThemedButton } from '@/components/themed';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchant } from '@/hooks/use-merchant';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
+import { Button } from './ui/button';
 
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
@@ -93,9 +94,9 @@ export function Cart() {
                     <span>Subtotal</span>
                     <span>{formatCurrency(cartTotal)}</span>
                 </div>
-                <Button size="lg" className="w-full">
+                <ThemedButton size="lg" className="w-full" colorRole="accent">
                     Proceed to Checkout
-                </Button>
+                </ThemedButton>
             </div>
         </SheetFooter>
       )}
