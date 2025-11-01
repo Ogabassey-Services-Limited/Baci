@@ -11,15 +11,29 @@ import { getCountryByCode } from '@/lib/countries';
 import Link from 'next/link';
 import { ShoppingCart, ArrowLeft } from 'lucide-react';
 import React from 'react';
+import { useCart } from '@/hooks/use-cart';
+import { useToast } from '@/hooks/use-toast';
+import { Product } from '@/lib/products';
+
 
 // This is now a dedicated Client Component.
 export default function ProductDetailClient({ productId }: { productId: string }) {
   const product = getProductById(productId);
   const { merchant } = useMerchant();
+  const { cartCount, addToCart } = useCart();
+  const { toast } = useToast();
 
   if (!product || product.status !== 'active') {
     notFound();
   }
+  
+  const handleAddToCart = (product: Product) => {
+    addToCart(product);
+    toast({
+        title: "Added to cart!",
+        description: `${product.name} has been added to your cart.`,
+    });
+  };
 
   const formatCurrency = (amount: number) => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
@@ -53,8 +67,9 @@ export default function ProductDetailClient({ productId }: { productId: string }
            Back to Store
         </Link>
         <nav className="flex items-center gap-4 sm:gap-6">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="relative">
                 <ShoppingCart className="w-6 h-6"/>
+                {cartCount > 0 && <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 justify-center rounded-full p-0">{cartCount}</Badge>}
                 <span className="sr-only">Cart</span>
             </Button>
         </nav>
@@ -107,6 +122,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
                 className="w-full min-[400px]:w-auto" 
                 disabled={product.stock === 0}
                 style={{ backgroundColor: merchant?.colors?.primary || 'hsl(var(--primary))' }}
+                onClick={() => handleAddToCart(product)}
               >
                 Add to Cart
               </Button>

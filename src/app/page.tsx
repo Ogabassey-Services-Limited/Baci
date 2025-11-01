@@ -15,10 +15,23 @@ import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
 import { useState, useMemo } from 'react';
 import Fuse from 'fuse.js';
+import { useCart } from '@/hooks/use-cart';
+import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 function Storefront() {
   const { merchant, loading } = useMerchant();
   const [searchQuery, setSearchQuery] = useState('');
+  const { cartCount, addToCart } = useCart();
+  const { toast } = useToast();
+
+  const handleAddToCart = (product: typeof products[0]) => {
+    addToCart(product);
+    toast({
+        title: "Added to cart!",
+        description: `${product.name} has been added to your cart.`,
+    });
+  };
 
   const fuse = useMemo(() => {
     if (products) {
@@ -115,8 +128,9 @@ function Storefront() {
         </div>
 
         <nav className="flex items-center gap-4 sm:gap-6">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="relative">
                 <ShoppingCart className="w-6 h-6"/>
+                {cartCount > 0 && <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 justify-center rounded-full p-0">{cartCount}</Badge>}
                 <span className="sr-only">Cart</span>
             </Button>
             <Link href="/dashboard">
@@ -165,7 +179,7 @@ function Storefront() {
                                       <p className="text-muted-foreground text-sm mt-1 truncate">{product.description}</p>
                                       <div className="flex items-center justify-between mt-4">
                                           <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
-                                          <Button size="sm">Add to Cart</Button>
+                                          <Button size="sm" onClick={() => handleAddToCart(product)}>Add to Cart</Button>
                                       </div>
                                   </CardContent>
                               </Card>
