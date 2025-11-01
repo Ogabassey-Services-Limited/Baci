@@ -10,6 +10,7 @@ import {
   ShoppingCart,
   Users,
   LayoutDashboard,
+  Loader2,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -42,7 +43,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { merchant } = useMerchant();
+  const { merchant, loading } = useMerchant();
 
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
 
@@ -185,7 +186,9 @@ export default function DashboardLayout({
           <div className="w-full flex-1">
             {/* Can add search here if needed */}
           </div>
-           {selectedCountry && (
+           {loading ? (
+             <Loader2 className="h-5 w-5 animate-spin" />
+           ) : selectedCountry && (
              <div className="text-2xl">{selectedCountry.flag}</div>
            )}
           <DropdownMenu>
