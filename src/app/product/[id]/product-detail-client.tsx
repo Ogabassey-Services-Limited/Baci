@@ -4,7 +4,6 @@
 import { getProductById } from '@/lib/products';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
@@ -19,6 +18,7 @@ import { Cart } from '@/components/cart';
 import { ThemedButton } from '@/components/themed';
 import { Input } from '@/components/ui/input';
 import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
+import { Button } from '@/components/ui/button';
 
 // This is now a dedicated Client Component.
 export default function ProductDetailClient({ productId }: { productId: string }) {
@@ -80,7 +80,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative">
                     <ShoppingBag className="w-6 h-6"/>
-                    {cartCount > 0 && <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 text-xs justify-center rounded-full p-0">{cartCount}</Badge>}
+                    {cartCount > 0 && <Badge variant="destructive" className="absolute top-1.5 right-1.5 h-3 w-3 text-[9px] justify-center rounded-full p-0">{cartCount}</Badge>}
                     <span className="sr-only">Cart</span>
                 </Button>
               </SheetTrigger>
@@ -129,7 +129,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
                 <p className="text-sm text-muted-foreground mt-2">{product.stock} units available</p>
               </div>
 
-              <div className="flex flex-col gap-2 min-[400px]:flex-row">
+              <div className="flex flex-row gap-2">
                 {cartItem ? (
                   <div className="flex items-center gap-2">
                       <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-10 w-10" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}>
@@ -142,14 +142,14 @@ export default function ProductDetailClient({ productId }: { productId: string }
                           className="h-10 w-16 text-center text-base remove-arrow"
                           min="0"
                       />
-                      <ThemedButton colorRole="accent" size="icon" className="h-10 w-10" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
+                      <ThemedButton colorRole="accent" size="icon" variant="default" className="h-10 w-10" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
                           <Plus className="h-4 w-4" />
                       </ThemedButton>
                   </div>
                 ) : (
                   <ThemedButton 
                     size="lg" 
-                    colorRole="accent"
+                    colorRole="primary"
                     className="w-full min-[400px]:w-auto" 
                     disabled={product.stock === 0}
                     onClick={() => handleAddToCart(product)}
