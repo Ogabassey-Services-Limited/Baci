@@ -152,7 +152,7 @@ Return 4 images. Do not return any text or JSON, only the raw image outputs.`,
 
       if (!media || media.length < 4) {
         const error = new Error('AI failed to generate 4 logo options.');
-        logger.error({ error, message: 'Logo generation failed to produce enough candidates.', flow: 'guideBusinessOnboardingFlow', input });
+        logger.error({ error, message: 'Logo generation failed to produce enough candidates.', flow: 'guideBusinessOnboardingFlow', mediaCount: media?.length || 0, input });
         throw error;
       }
       

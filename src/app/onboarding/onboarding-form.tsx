@@ -187,7 +187,10 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: str
             body: JSON.stringify({ businessName, businessType: finalBusinessType, logoDataUri: dataUri, task: 'extract_colors' }),
           });
 
-          if (!response.ok) throw new Error('Failed to extract colors.');
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to extract colors.');
+          }
 
           const result = await response.json();
           onColorsUpdate(result.brandColors);
@@ -195,7 +198,7 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: str
 
         } catch (e) {
           logger.error({ error: e as Error, message: 'Color extraction failed.' });
-          toast({ title: 'Color extraction failed', variant: 'destructive' });
+          toast({ title: 'Color extraction failed', description: (e as Error).message, variant: 'destructive' });
           onColorsUpdate(null);
         } finally {
           setIsExtracting(false);
@@ -235,7 +238,10 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: str
         }),
       });
 
-      if (!response.ok) throw new Error('Failed to generate logos');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate logos.');
+      }
       
       const result = await response.json();
       setGeneratedLogos(result.logos || []);
@@ -243,7 +249,7 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: str
 
     } catch (e) {
       logger.error({ error: e as Error, message: 'Logo generation failed.' });
-      toast({ title: 'Logo generation failed', variant: 'destructive' });
+      toast({ title: 'Logo generation failed', description: (e as Error).message, variant: 'destructive' });
     } finally {
       setIsGenerating(false);
     }
@@ -266,7 +272,10 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: str
         body: JSON.stringify({ businessName, businessType: finalBusinessType, logoDataUri: selectedLogo, task: 'extract_colors' }),
       });
 
-      if (!response.ok) throw new Error('Failed to extract colors.');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to extract colors.');
+      }
 
       const result = await response.json();
       onColorsUpdate(result.brandColors);
@@ -274,7 +283,7 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: str
 
     } catch (e) {
       logger.error({ error: e as Error, message: 'Color extraction from generated logo failed.' });
-      toast({ title: 'Failed to process selected logo', variant: 'destructive' });
+      toast({ title: 'Failed to process selected logo', description: (e as Error).message, variant: 'destructive' });
       onColorsUpdate(null);
     } finally {
       setIsExtracting(false);
