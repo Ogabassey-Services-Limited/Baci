@@ -48,7 +48,7 @@ function DashboardLayoutContent({
   const { merchant, loading } = useMerchant();
 
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
-  const storeUrl = merchant?.businessName ? `https://${merchant.businessName.toLowerCase().replace(/\s+/g, '-')}.baci.store` : '/';
+  const storeUrl = '/'; // Point to the root for internal preview
 
   const navItems = [
     {
@@ -81,7 +81,6 @@ function DashboardLayoutContent({
       href: storeUrl,
       icon: ExternalLink,
       label: 'Visit Store',
-      target: '_blank',
     },
   ];
 
