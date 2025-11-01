@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -233,7 +232,6 @@ function Storefront() {
   );
 }
 
-// The original landing page is now a fallback if no merchant data exists.
 function BaciLandingPage() {
    const features = [
     {
@@ -261,14 +259,21 @@ function BaciLandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm">
-        <Logo />
+        <Link href="/" className="flex items-center justify-center">
+            <Logo />
+            <span className="sr-only">Baci</span>
+        </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
-           <Button asChild variant="outline">
-              <Link href="/onboarding">Sign In</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/onboarding">Get Started</Link>
-            </Button>
+           <Link href="/onboarding" legacyBehavior passHref>
+              <Button asChild variant="outline">
+                <a>Sign In</a>
+              </Button>
+            </Link>
+            <Link href="/onboarding" legacyBehavior passHref>
+              <Button asChild>
+                <a>Get Started</a>
+              </Button>
+            </Link>
         </nav>
       </header>
        <main className="flex-1">
@@ -285,9 +290,11 @@ function BaciLandingPage() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                   <Button asChild size="lg">
-                    <Link href="/onboarding">Create Your Store for Free</Link>
-                  </Button>
+                    <Link href="/onboarding" legacyBehavior passHref>
+                      <Button asChild size="lg">
+                        <a>Create Your Store for Free</a>
+                      </Button>
+                    </Link>
                 </div>
               </div>
             </div>
@@ -298,7 +305,7 @@ function BaciLandingPage() {
   )
 }
 
-function PageContent() {
+function Page() {
   const { merchant, loading } = useMerchant();
 
   if (loading) {
@@ -312,7 +319,7 @@ function PageContent() {
 export default function HomePage() {
     return (
         <MerchantProvider>
-            <PageContent />
+            <Page />
         </MerchantProvider>
     )
 }

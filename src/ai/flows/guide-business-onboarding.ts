@@ -130,8 +130,8 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
       const businessTypeConfig = getBusinessTypeById(input.businessType);
       const logoStyle = businessTypeConfig?.journey.onboarding.logoStyle || 'simple, modern, and professional';
 
-      const { media } = await ai.generate({
-          model: 'googleai/gemini-2.5-pro-image-preview',
+      const response = await ai.generate({
+          model: 'googleai/gemini-2.5-flash-image', // Cheapest image generation: $0.039 per image
           prompt: [
               {
               text: `Generate 4 unique logo options for a business named "${input.businessName}".
@@ -150,14 +150,19 @@ Return 4 images. Do not return any text or JSON, only the raw image outputs.`,
           },
       });
 
-      if (!media || media.length < 4) {
+      const media = response.media;
+
+      // Handle both single media object and array
+      const mediaArray = Array.isArray(media) ? media : (media ? [media] : []);
+
+      if (mediaArray.length < 4) {
         const error = new Error('AI failed to generate 4 logo options.');
-        logger.error({ error, message: 'Logo generation failed to produce enough candidates.', flow: 'guideBusinessOnboardingFlow', mediaCount: media?.length || 0, input });
+        logger.error({ error, message: 'Logo generation failed to produce enough candidates.', flow: 'guideBusinessOnboardingFlow', mediaCount: mediaArray.length, input });
         throw error;
       }
-      
+
       return {
-        logos: media.map(m => m.url!),
+        logos: mediaArray.map(m => m.url!),
       };
     }
     
