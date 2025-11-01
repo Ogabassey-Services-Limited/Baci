@@ -200,11 +200,17 @@ function Storefront() {
                                         <div className="flex items-center justify-between mt-4">
                                             <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
                                             {cartItem ? (
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1">
                                                     <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}>
                                                         <Minus className="h-4 w-4" />
                                                     </ThemedButton>
-                                                    <span className="font-bold w-4 text-center">{cartItem.quantity}</span>
+                                                    <Input
+                                                        type="number"
+                                                        value={cartItem.quantity}
+                                                        onChange={(e) => updateQuantity(product.id, parseInt(e.target.value, 10) || 0)}
+                                                        className="h-8 w-12 text-center"
+                                                        min="0"
+                                                    />
                                                     <ThemedButton colorRole="accent" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
                                                         <Plus className="h-4 w-4" />
                                                     </ThemedButton>
@@ -360,5 +366,3 @@ export default function HomePage() {
         </MerchantProvider>
     )
 }
-
-    
