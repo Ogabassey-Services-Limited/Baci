@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
@@ -497,6 +498,7 @@ export default function OnboardingForm() {
   const [isPending, startTransition] = useTransition();
   const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
   const [brandColors, setBrandColors] = useState<string[] | null>(null);
+  const { toast } = useToast();
 
   const totalSteps = 3;
 
