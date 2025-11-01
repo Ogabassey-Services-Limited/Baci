@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       const fallbackColors = generateFallbackColors(brandPreferences);
 
       return NextResponse.json({
-        logoDataUri: logoDataUri || null,
+        logoDataUri: logoDataUri || null, // Return original logo if it exists
         brandColors: fallbackColors,
       });
     }

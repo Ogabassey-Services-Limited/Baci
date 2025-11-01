@@ -180,7 +180,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
             COLOR SCHEME GUIDANCE: ${colorScheme}
 
             Create a logo that follows the style guidance above. After generating the logo, create a 5-color palette (primary, secondary, accent, background, text) based on the generated logo, following the color scheme guidance.
-            Return ONLY the generated image and a JSON object with a "brandColors" key containing an array of 5 hex color strings.`,
+            Your final output must contain two parts: the generated image and a JSON object with a "brandColors" key containing an array of 5 hex color strings.`,
             },
         ],
         config: {
