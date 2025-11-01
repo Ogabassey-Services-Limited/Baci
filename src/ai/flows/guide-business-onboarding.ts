@@ -8,7 +8,7 @@
  * 1. **Logo Generation:** Creates a professional logo and a matching 5-color palette based on business context and user color preferences.
  * 2. **Color Extraction:** Analyzes an existing uploaded logo and extracts a 5-color brand palette from it.
  *
- * The flow uses Gemini 2.5 Flash Image Preview model for both image generation and analysis.
+ * Uses Gemini 2.5 Pro Image Preview model for both image generation and analysis.
  *
  * @exports
  * - guideBusinessOnboarding - Main flow function
@@ -131,7 +131,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
       const logoStyle = businessTypeConfig?.journey.onboarding.logoStyle || 'simple, modern, and professional';
 
       const { media } = await ai.generate({
-          model: 'googleai/gemini-2.5-flash-image-preview',
+          model: 'googleai/gemini-2.5-pro-image-preview',
           prompt: [
               {
               text: `Generate 4 unique logo options for a business named "${input.businessName}".

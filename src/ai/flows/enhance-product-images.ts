@@ -8,7 +8,7 @@
  * 2. Adjusting lighting to studio quality
  * 3. Making the product stand out professionally
  *
- * Uses Gemini 2.5 Flash Image Preview model for image-to-image transformation.
+ * Uses Gemini 2.5 Pro Image Preview model for image-to-image transformation.
  * Automatically called when users upload product images in the product form.
  *
  * @exports
@@ -91,7 +91,7 @@ export type EnhanceProductImageOutput = z.infer<typeof EnhanceProductImageOutput
  * - Enhancement includes: background removal (transparent), studio lighting adjustment
  * - Processing takes 5-15 seconds depending on image size
  * - Data URIs can be very large (several MB for high-res images)
- * - Model: gemini-2.5-flash-image-preview (image generation capabilities)
+ * - Model: gemini-2.5-pro-image-preview (image generation capabilities)
  * - Must use responseModalities: ['TEXT', 'IMAGE'] - IMAGE-only won't work
  * - Product form shows toggle switch to compare original vs enhanced
  */
@@ -109,7 +109,7 @@ const enhanceProductImageFlow = ai.defineFlow(
   },
   async input => {
     const {media} = await ai.generate({
-      model: 'googleai/gemini-2.5-flash-image-preview',
+      model: 'googleai/gemini-2.5-pro-image-preview',
       prompt: [
         {media: {url: input.photoDataUri}},
         {
