@@ -106,7 +106,7 @@ function Storefront() {
   const availableFooterLinks = footerLinks.filter(link => merchant.pages?.[link.key as keyof typeof merchant.pages]);
 
   const brandColors = merchant.colors ? [merchant.colors.primary, merchant.colors.secondary, merchant.colors.accent] : ['#3F51B5'];
-  const footerColor = findDarkestColor(brandColors);
+  const darkestColor = findDarkestColor(brandColors);
 
 
   return (
@@ -178,7 +178,7 @@ function Storefront() {
             
             <section className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
                 <div className="container px-4 md:px-6">
-                    <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10">Our Products</h2>
+                    <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10" style={{ color: darkestColor }}>Our Products</h2>
                     {searchResults.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                           {searchResults.map((product, index) => {
@@ -243,7 +243,7 @@ function Storefront() {
 
        <footer 
         className="text-white"
-        style={{ backgroundColor: footerColor, color: getContrastingTextColor(footerColor) }}
+        style={{ backgroundColor: darkestColor, color: getContrastingTextColor(darkestColor) }}
        >
         <div className="container mx-auto py-8 px-4 md:px-6">
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
