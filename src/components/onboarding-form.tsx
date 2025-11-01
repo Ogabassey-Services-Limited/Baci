@@ -316,17 +316,17 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdat
                 <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md">
                     <CheckCircle className="w-4 h-4 text-white" />
                 </div>
-                {isExtracting && (
-                    <div className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow-md">
-                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                    </div>
-                )}
                 </>
             ) : (
                 <>
                 <Upload className="w-8 h-8 text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p>
                 </>
+            )}
+             {isExtracting && (
+                <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
             )}
             <Input
                 id="logo-upload"
@@ -338,7 +338,7 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdat
                 disabled={isLoading}
             />
             </div>
-             {brandColors && (
+            {brandColors && (
                 <div className="pt-2 animate-fade-in space-y-2">
                     <div className="flex items-center gap-2 justify-center">
                         <CheckCircle className="w-4 h-4 text-green-500" />
@@ -657,3 +657,5 @@ export default function OnboardingForm() {
     </div>
   );
 }
+
+    
