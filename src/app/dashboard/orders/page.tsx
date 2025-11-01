@@ -7,7 +7,8 @@ import {
   Package,
   CreditCard,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -110,7 +111,7 @@ import { cn } from '@/lib/utils';
 
 
 export default function OrdersPage() {
-  const { merchant } = useMerchant();
+  const { merchant, loading } = useMerchant();
 
   const formatCurrency = (amount: number) => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
@@ -122,6 +123,11 @@ export default function OrdersPage() {
       currency: currency,
     }).format(amount);
   };
+  
+  if (loading) {
+    return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
+  }
+
 
   return (
     <div className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
