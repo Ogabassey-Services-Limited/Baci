@@ -4,7 +4,10 @@ import ProductDetailClient from './product-detail-client';
 
 // This is the main page component, which is a Server Component.
 // Its only job is to get the ID from the URL and render the client component.
-export default async function ProductPage({ params }: { params: { id: string } }) {
+export default function ProductPage({ params }: { params: { id: string } }) {
+  // The 'params' object from the URL is promise-like in Server Components.
+  // We use React.use() to correctly unwrap it. This is the official
+  // way to handle this and resolves the Next.js warning.
   const { id } = params;
 
   return (
