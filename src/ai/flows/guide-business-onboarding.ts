@@ -51,6 +51,7 @@ const BrandColorsSchema = z.object({
     secondary: z.string().describe('The secondary, complementary color.'),
     accent: z.string().describe('An accent color for highlights and calls-to-action.'),
 });
+export type BrandColors = z.infer<typeof BrandColorsSchema>;
 
 const GuideBusinessOnboardingOutputSchema = z.object({
   logos: z
@@ -88,10 +89,10 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
 
       try {
         const response = await ai.generate({
-          model: 'googleai/gemini-pro-vision', // <-- CORRECTED: Use vision model for image analysis
+          model: 'googleai/gemini-pro-vision',
           prompt: [
             {
-              text: `Analyze this logo and extract the 3 most representative brand colors. Provide them in a JSON object with keys: "primary", "secondary", and "accent". The primary color should be the most dominant. The accent should be a vibrant color for CTAs. Provide colors in hex format. Return ONLY the JSON object.`,
+              text: `Analyze this logo and extract the 3 most representative brand colors. Provide them in a JSON object with keys: "primary", "secondary", and "accent". The primary color should be the most dominant. The accent should be a vibrant color for CTAs. Provide colors in hex format. Return ONLY the JSON object, without any markdown formatting.`,
             },
             {
               media: {
@@ -99,21 +100,21 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
               },
             },
           ],
-          output: {
-            format: 'json',
-            schema: BrandColorsSchema,
-          },
         });
 
-        const colors = response.output;
-
-        if (!colors) {
-            logger.error({ message: 'Invalid color response from AI', response: response.output });
-            throw new Error('AI did not return valid colors.');
+        const jsonText = response.text?.trim().replace(/```json|```/g, '');
+        if (!jsonText) {
+          throw new Error('AI did not return any text for color extraction.');
         }
+
+        const colors = JSON.parse(jsonText);
+
+        // Validate with Zod schema
+        const validatedColors = BrandColorsSchema.parse(colors);
         
-        logger.info({ message: 'Colors extracted successfully', colors });
-        return { brandColors: colors };
+        logger.info({ message: 'Colors extracted successfully', colors: validatedColors });
+        return { brandColors: validatedColors };
+
       } catch (error) {
         logger.error({ message: 'Color extraction failed', error });
         throw error;
@@ -127,7 +128,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
       const logoStyle = businessTypeConfig?.journey.onboarding.logoStyle || 'simple, modern, and professional';
 
       const response = await ai.generate({
-          model: 'googleai/gemini-pro-image-preview',
+          model: 'googleai/gemini-2.5-pro-image-preview',
           prompt: [
               {
               text: `Generate 4 unique logo options for a business named "${input.businessName}".
