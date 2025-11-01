@@ -80,7 +80,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative">
                     <ShoppingBag className="w-6 h-6"/>
-                    {cartCount > 0 && <Badge variant="destructive" className="absolute top-1.5 right-1.5 h-3 w-3 text-[9px] justify-center rounded-full p-0">{cartCount}</Badge>}
+                    {cartCount > 0 && <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 text-[9px] justify-center rounded-full p-0">{cartCount}</Badge>}
                     <span className="sr-only">Cart</span>
                 </Button>
               </SheetTrigger>
@@ -150,7 +150,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
                   <ThemedButton 
                     size="lg" 
                     colorRole="primary"
-                    className="w-full min-[400px]:w-auto" 
+                    className="w-full sm:w-auto" 
                     disabled={product.stock === 0}
                     onClick={() => handleAddToCart(product)}
                   >
