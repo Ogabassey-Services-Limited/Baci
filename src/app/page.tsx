@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -8,9 +9,10 @@ import Image from 'next/image';
 import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { getBusinessTypeById } from '@/config/business-types';
 import { products } from '@/lib/products';
-import { Loader2, ShoppingCart } from 'lucide-react';
+import { Loader2, ShoppingCart, Search } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
+import { Input } from '@/components/ui/input';
 
 function Storefront() {
   const { merchant, loading } = useMerchant();
@@ -69,7 +71,7 @@ function Storefront() {
 
   return (
      <div className="flex flex-col min-h-screen">
-       <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm bg-card">
+       <header className="px-4 lg:px-6 h-16 flex items-center gap-4 shadow-sm bg-card">
          <div className="flex items-center gap-2 font-semibold">
            {merchant.logo ? (
               <Image src={merchant.logo} alt={`${merchant.businessName} logo`} width={32} height={32} className="rounded-sm" />
@@ -78,7 +80,19 @@ function Storefront() {
            )}
            <span className="hidden sm:inline-block">{merchant.businessName}</span>
         </div>
-        <nav className="ml-auto flex gap-4 sm:gap-6">
+
+        <div className="flex-1 flex justify-center px-4">
+          <div className="w-full max-w-md relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search products..."
+              className="w-full appearance-none bg-background pl-8 shadow-none"
+            />
+          </div>
+        </div>
+
+        <nav className="flex items-center gap-4 sm:gap-6">
             <Button variant="ghost" size="icon">
                 <ShoppingCart className="w-6 h-6"/>
                 <span className="sr-only">Cart</span>
