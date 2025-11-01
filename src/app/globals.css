@@ -135,3 +135,14 @@
     animation: fade-in 0.5s ease-out;
   }
 }
+
+@layer utilities {
+  .remove-arrow::-webkit-inner-spin-button,
+  .remove-arrow::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .remove-arrow {
+    -moz-appearance: textfield;
+  }
+}

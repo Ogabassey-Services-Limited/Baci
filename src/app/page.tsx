@@ -208,7 +208,7 @@ function Storefront() {
                                                         type="number"
                                                         value={cartItem.quantity}
                                                         onChange={(e) => updateQuantity(product.id, parseInt(e.target.value, 10) || 0)}
-                                                        className="h-8 w-12 text-center"
+                                                        className="h-8 w-12 text-center remove-arrow"
                                                         min="0"
                                                     />
                                                     <ThemedButton colorRole="accent" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
