@@ -8,10 +8,12 @@ import {
   Users,
   Copy,
   ExternalLink,
+  PlusCircle,
+  Settings,
+  Eye,
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -103,33 +105,58 @@ export default function DashboardPage() {
 
   return (
     <>
-      {merchant && storeUrl && (
-         <Card>
-          <CardHeader>
-            <CardTitle>Your Store is Live!</CardTitle>
-            <CardDescription>Share your store link with your customers.</CardDescription>
-          </CardHeader>
-          <CardContent>
-             <div className="flex items-center justify-between p-3 border rounded-lg bg-muted">
-                <Link href={fullStoreUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Welcome, {merchant?.businessName || 'Merchant'}!</h1>
+         {merchant && storeUrl && (
+            <div className="flex items-center justify-between p-2 border rounded-lg bg-muted text-sm">
+                <Link href={fullStoreUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline px-2">
                     {storeUrl}
                 </Link>
-                <div className="flex items-center gap-2">
-                     <Button variant="ghost" size="icon" onClick={copyToClipboard}>
+                <div className="flex items-center gap-1">
+                     <Button variant="ghost" size="icon" onClick={copyToClipboard} className="h-8 w-8">
                         <Copy className="w-4 h-4" />
                         <span className="sr-only">Copy URL</span>
                     </Button>
                     <Link href={fullStoreUrl} target="_blank" rel="noopener noreferrer">
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                             <ExternalLink className="w-4 h-4" />
                             <span className="sr-only">Open in new tab</span>
                         </Button>
                     </Link>
                 </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+        )}
+      </div>
+
+       <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Get started by adding products or customizing your store.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <Link href="/dashboard/products/add">
+                <Button variant="outline" className="w-full justify-start h-12 text-base">
+                    <PlusCircle className="mr-2 h-5 w-5" />
+                    Add Product
+                </Button>
+            </Link>
+             <Link href="/dashboard/settings">
+                <Button variant="outline" className="w-full justify-start h-12 text-base">
+                    <Settings className="mr-2 h-5 w-5" />
+                    Customize Store
+                </Button>
+            </Link>
+             <Link href="/" target="_blank">
+                 <Button variant="outline" className="w-full justify-start h-12 text-base">
+                    <Eye className="mr-2 h-5 w-5" />
+                    View Your Store
+                </Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
