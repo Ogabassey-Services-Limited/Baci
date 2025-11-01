@@ -263,12 +263,12 @@ function BaciLandingPage() {
       <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm">
         <Logo />
         <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Link href="/onboarding">
-            <Button variant="outline">Sign In</Button>
-          </Link>
-          <Link href="/onboarding">
-            <Button>Get Started</Button>
-          </Link>
+           <Button asChild variant="outline">
+              <Link href="/onboarding">Sign In</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/onboarding">Get Started</Link>
+            </Button>
         </nav>
       </header>
        <main className="flex-1">
@@ -285,9 +285,9 @@ function BaciLandingPage() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                  <Link href="/onboarding">
-                    <Button size="lg">Create Your Store for Free</Button>
-                  </Link>
+                   <Button asChild size="lg">
+                    <Link href="/onboarding">Create Your Store for Free</Link>
+                  </Button>
                 </div>
               </div>
             </div>
