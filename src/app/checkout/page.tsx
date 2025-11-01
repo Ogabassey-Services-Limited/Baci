@@ -11,7 +11,7 @@ import { ArrowLeft, CheckCircle, CreditCard, Loader2, Mail, Phone, User, Home } 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { ThemedInput } from '@/components/themed';
+import { ThemedInput, ThemedButton } from '@/components/themed';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { OrderSummary } from '@/components/order-summary';
@@ -32,7 +32,7 @@ const shippingSchema = z.object({
 type ShippingFormValues = z.infer<typeof shippingSchema>;
 
 function Step1_Shipping() {
-  const { control } = useForm<ShippingFormValues>();
+  const { control } = useFormContext<ShippingFormValues>();
   return (
     <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
@@ -260,14 +260,14 @@ function CheckoutPageContent() {
                   {step === 1 && <div />}
 
                   {step < totalSteps ? (
-                    <Button type="button" onClick={handleNext}>
+                    <ThemedButton type="button" colorRole="primary" onClick={handleNext}>
                       Continue to Payment
-                    </Button>
+                    </ThemedButton>
                   ) : (
-                    <Button type="submit" disabled={isLoading}>
+                    <ThemedButton type="submit" colorRole="accent" disabled={isLoading}>
                       {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       {isLoading ? 'Processing...' : 'Place Order'}
-                    </Button>
+                    </ThemedButton>
                   )}
                 </div>
               </form>

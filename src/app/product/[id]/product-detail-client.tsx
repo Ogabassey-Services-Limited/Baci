@@ -80,7 +80,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative">
                     <ShoppingBag className="w-6 h-6"/>
-                    {cartCount > 0 && <Badge variant="destructive" className="absolute top-0 right-0 h-4 w-4 text-[9px] justify-center rounded-full p-0">{cartCount}</Badge>}
+                    {cartCount > 0 && <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 text-xs justify-center rounded-full p-0">{cartCount}</Badge>}
                     <span className="sr-only">Cart</span>
                 </Button>
               </SheetTrigger>
@@ -131,7 +131,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
 
               <div className="flex flex-col gap-2">
                 {cartItem ? (
-                  <>
+                  <div className="flex flex-col gap-2">
                     <div className="flex items-center gap-2">
                         <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-10 w-10" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}>
                             <Minus className="h-4 w-4" />
@@ -148,15 +148,16 @@ export default function ProductDetailClient({ productId }: { productId: string }
                         </ThemedButton>
                     </div>
                     <Link href="/checkout">
-                      <Button 
+                       <ThemedButton 
                         size="lg" 
+                        colorRole="primary" 
                         className="w-full"
                         style={{ backgroundColor: darkestColor, color: getContrastingTextColor(darkestColor) }}
-                      >
+                       >
                         View Cart and Checkout
-                      </Button>
+                      </ThemedButton>
                     </Link>
-                  </>
+                  </div>
                 ) : (
                   <ThemedButton 
                     size="lg" 

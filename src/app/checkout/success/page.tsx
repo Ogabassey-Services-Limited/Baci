@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CheckCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ThemedButton } from '@/components/themed';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
@@ -110,7 +110,7 @@ function SuccessPageContent() {
                     )}
                     <div className="mt-8 text-center">
                         <Link href="/">
-                            <Button>Continue Shopping</Button>
+                            <ThemedButton colorRole="primary">Continue Shopping</ThemedButton>
                         </Link>
                     </div>
                 </CardContent>
