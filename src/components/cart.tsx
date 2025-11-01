@@ -13,7 +13,8 @@ import { useMerchant } from '@/hooks/use-merchant';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getCountryByCode } from '@/lib/countries';
-import { ThemedButton } from './themed';
+import { ThemedButton } from './themed-button';
+import { Input } from '@/components/ui/input';
 
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
@@ -52,7 +53,7 @@ export function Cart() {
                     <p className="font-semibold">{item.name}</p>
                     <p className="text-sm text-muted-foreground">
                       Quantity: 
-                       <input
+                       <Input
                         type="number"
                         min="1"
                         value={item.quantity}
@@ -93,7 +94,7 @@ export function Cart() {
                     <span>Subtotal</span>
                     <span>{formatCurrency(cartTotal)}</span>
                 </div>
-                <ThemedButton size="lg" className="w-full" colorRole="accent">
+                <ThemedButton size="lg" colorRole="accent" className="w-full">
                     Proceed to Checkout
                 </ThemedButton>
             </div>

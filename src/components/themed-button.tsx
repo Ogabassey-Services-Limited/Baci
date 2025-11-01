@@ -2,6 +2,7 @@
 
 import { Button, ButtonProps } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { getContrastingTextColor } from '@/lib/color-utils';
 
 interface ThemedButtonProps extends ButtonProps {
   colorRole?: 'primary' | 'secondary' | 'accent';
@@ -19,6 +20,7 @@ export function ThemedButton({
   colorRole = 'primary',
   className,
   variant = 'default',
+  style,
   ...props
 }: ThemedButtonProps) {
 
@@ -30,15 +32,16 @@ export function ThemedButton({
         variant={variant}
         className={cn(
           // Use CSS custom properties with smart text color
-          colorRole === 'primary' && 'bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90',
-          colorRole === 'secondary' && 'bg-[var(--store-secondary)] hover:bg-[var(--store-secondary)]/90',
-          colorRole === 'accent' && 'bg-[var(--store-accent)] hover:bg-[var(--store-accent)]/90',
+          colorRole === 'primary' && 'bg-[var(--store-primary)] text-[var(--store-primary-text)] hover:bg-[var(--store-primary)]/90',
+          colorRole === 'secondary' && 'bg-[var(--store-secondary)] text-[var(--store-secondary-text)] hover:bg-[var(--store-secondary)]/90',
+          colorRole === 'accent' && 'bg-[var(--store-accent)] text-[var(--store-accent-text)] hover:bg-[var(--store-accent)]/90',
           className
         )}
+        style={style}
       />
     );
   }
 
   // For other variants, use default Button behavior
-  return <Button {...props} variant={variant} className={className} />;
+  return <Button {...props} variant={variant} className={className} style={style} />;
 }
