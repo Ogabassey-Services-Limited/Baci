@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -41,55 +42,23 @@ const GuideBusinessOnboardingInputSchema = z.object({
     .describe(
       "A photo of a company logo, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
     ),
+  task: z.enum(['generate_logos', 'extract_colors']).describe("The specific task for the flow to perform."),
 });
 export type GuideBusinessOnboardingInput = z.infer<typeof GuideBusinessOnboardingInputSchema>;
 
 const GuideBusinessOnboardingOutputSchema = z.object({
-  logoDataUri: z
-    .string()
+  logos: z
+    .array(z.string())
     .optional()
     .describe(
-      'The data URI of the generated logo, including MIME type and Base64 encoding, if a logo was generated.'
+      'An array of data URIs for the generated logos.'
     ),
-  brandColors: z.array(z.string()).describe('A list of 5 brand colors in hex format (e.g., #RRGGBB) extracted from the logo or generated.'),
+  brandColors: z.array(z.string()).optional().describe('A list of 5 brand colors in hex format (e.g., #RRGGBB).'),
 });
 export type GuideBusinessOnboardingOutput = z.infer<typeof GuideBusinessOnboardingOutputSchema>;
 
 /**
- * Main onboarding flow function - generates logo or extracts colors.
- *
- * @param input - Business onboarding input data
- * @param input.businessName - Merchant's business name (e.g., "Amara Fashion")
- * @param input.businessType - Business category (e.g., "fashion", "electronics")
- * @param input.brandPreferences - User's favorite color for logo generation (e.g., "deep ocean blue")
- * @param input.logoDataUri - Optional: If provided, extracts colors from the uploaded logo. If omitted, generates a new logo and colors.
- *
- * @returns Promise<GuideBusinessOnboardingOutput>
- * @returns output.logoDataUri - Generated logo as data URI (undefined if extracting from uploaded logo)
- * @returns output.brandColors - Array of exactly 5 hex color codes: [primary, secondary, accent, background, text]
- *
- * @throws {Error} When AI fails to generate or extract.
- *
- * @example
- * // To Generate a new logo and palette
- * const result = await guideBusinessOnboarding({
- *   businessName: 'Amara Fashion',
- *   businessType: 'fashion',
- *   brandPreferences: 'deep ocean blue',
- * });
- * console.log(result.logoDataUri); // 'data:image/png;base64,...'
- * console.log(result.brandColors); // ['#3F51B5', '#9C27B0', '#FFC107', '#F5F5F5', '#212121']
- *
- * @example
- * // To Extract colors from an uploaded logo
- * const result = await guideBusinessOnboarding({
- *   businessName: 'Amara Fashion',
- *   businessType: 'fashion',
- *   brandPreferences: '',
- *   logoDataUri: 'data:image/png;base64,...', // from file upload
- * });
- * console.log(result.logoDataUri); // undefined
- * console.log(result.brandColors); // ['#...', '#...', '#...', '#...', '#...']
+ * Main onboarding flow function - generates logo options or extracts colors.
  */
 export async function guideBusinessOnboarding(
   input: GuideBusinessOnboardingInput
@@ -97,11 +66,11 @@ export async function guideBusinessOnboarding(
   return guideBusinessOnboardingFlow(input);
 }
 
-// This prompt is ONLY for extracting colors from a user-uploaded logo.
+// Prompt for extracting colors from a user-uploaded or selected logo.
 const extractColorsPrompt = ai.definePrompt({
   name: 'extractColorsPrompt',
-  input: {schema: GuideBusinessOnboardingInputSchema},
-  output: {schema: z.object({ brandColors: z.array(z.string()) })},
+  input: {schema: z.object({ logoDataUri: z.string() })},
+  output: {schema: z.object({ brandColors: z.array(z.string()).length(5) })},
   prompt: `You are an expert branding assistant.
 Your task is to analyze the provided logo and extract a 5-color palette from it.
 The palette must consist of:
@@ -111,13 +80,24 @@ The palette must consist of:
 4. A neutral background color (light and clean).
 5. A dark text color (for readability).
 
-Business Name: {{{businessName}}}
-Business Type: {{{businessType}}}
-
 Logo: {{media url=logoDataUri}}
 
 Your final output must be ONLY a valid JSON object with a "brandColors" key containing an array of exactly 5 hex color strings. Do not include any other text or markdown.
 `,
+});
+
+// Prompt for generating multiple logo options.
+const generateLogosPrompt = ai.definePrompt({
+  name: 'generateLogosPrompt',
+  input: { schema: GuideBusinessOnboardingInputSchema },
+  output: { schema: z.object({ logos: z.array(z.string()).length(4) }) },
+  prompt: `Generate 4 unique, simple, modern, and professional logo options for a business named "{{businessName}}".
+The business is in the "{{businessType}}" sector.
+The user's favorite color is "{{brandPreferences}}", so the logos should be inspired by this.
+The logos should be visually distinct from each other.
+Return ONLY a valid JSON object with a "logos" key containing an array of 4 base64-encoded image strings.
+`,
+  
 });
 
 const guideBusinessOnboardingFlow = ai.defineFlow(
@@ -127,67 +107,55 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
     outputSchema: GuideBusinessOnboardingOutputSchema,
   },
   async input => {
-    // PATH 1: User uploaded a logo. Extract colors from it.
-    if (input.logoDataUri) {
-      logger.info({ message: 'Logo provided. Extracting colors.', flow: 'guideBusinessOnboardingFlow' });
-      const {output} = await extractColorsPrompt(input);
-      if (!output || !output.brandColors || output.brandColors.length !== 5) {
+    if (input.task === 'extract_colors') {
+      if (!input.logoDataUri) {
+        throw new Error('logoDataUri is required for color extraction.');
+      }
+      logger.info({ message: 'Extracting colors from logo.', flow: 'guideBusinessOnboardingFlow' });
+      const { output } = await extractColorsPrompt({ logoDataUri: input.logoDataUri });
+      if (!output || !output.brandColors) {
         throw new Error("Failed to get a structured response from the model when extracting colors.");
       }
-      // No logo is generated, so logoDataUri is undefined.
       return { brandColors: output.brandColors };
     }
 
-    // PATH 2: No logo uploaded. Generate a new logo and a color palette.
-    logger.info({ message: 'No logo provided. Generating logo and colors.', flow: 'guideBusinessOnboardingFlow' });
-    
-    const businessTypeConfig = getBusinessTypeById(input.businessType);
-    const logoStyle = businessTypeConfig?.journey.onboarding.logoStyle || 'simple, modern, and professional';
-    const colorScheme = businessTypeConfig?.journey.onboarding.colorScheme || 'harmonious and professional';
+    if (input.task === 'generate_logos') {
+      logger.info({ message: 'Generating logo options.', flow: 'guideBusinessOnboardingFlow' });
+      
+      const businessTypeConfig = getBusinessTypeById(input.businessType);
+      const logoStyle = businessTypeConfig?.journey.onboarding.logoStyle || 'simple, modern, and professional';
 
-    const {media, output} = await ai.generate({
-        model: 'googleai/gemini-2.5-flash-image-preview',
-        prompt: [
-            {
-            text: `Generate a logo for a business named "${input.businessName}".
+      const { media } = await ai.generate({
+          model: 'googleai/gemini-2.5-flash-image-preview',
+          prompt: [
+              {
+              text: `Generate 4 unique logo options for a business named "${input.businessName}".
 The business is in the "${input.businessType}" sector.
-The user's favorite color is "${input.brandPreferences}", so the logo and brand colors should be inspired by this.
+The user's favorite color is "${input.brandPreferences}".
 
 LOGO STYLE GUIDANCE: ${logoStyle}
-COLOR SCHEME GUIDANCE: ${colorScheme}
 
-First, create a logo that follows the style guidance.
-Second, simultaneously create a 5-color palette (primary, secondary, accent, background, text) that is based on and harmonious with the generated logo and color scheme guidance.
+The logos must be visually distinct but adhere to the same style guidance. They should be suitable for a modern e-commerce brand.
+Return 4 images. Do not return any text or JSON, only the raw image outputs.`,
+              },
+          ],
+          config: {
+              responseModalities: ['IMAGE'],
+              candidates: 4,
+          },
+      });
 
-Your final output must contain two parts: the generated image, and a valid JSON object with a "brandColors" key containing an array of exactly 5 hex color strings. Do not include any other text or markdown formatting.`,
-            },
-        ],
-        config: {
-            responseModalities: ['TEXT', 'IMAGE'],
-        },
-    });
-
-    if (!media || !output) {
-      const error = new Error('AI failed to generate a logo or brand colors.');
-      logger.error({ error, message: 'Logo and brand color generation failed.', flow: 'guideBusinessOnboardingFlow', input });
-      throw error;
+      if (!media || media.length < 4) {
+        const error = new Error('AI failed to generate 4 logo options.');
+        logger.error({ error, message: 'Logo generation failed to produce enough candidates.', flow: 'guideBusinessOnboardingFlow', input });
+        throw error;
+      }
+      
+      return {
+        logos: media.map(m => m.url!),
+      };
     }
     
-    let parsedOutput: { brandColors: string[] };
-    try {
-        const jsonString = (output as string).replace(/```json|```/g, '').trim();
-        const parsedJson = JSON.parse(jsonString);
-        // Ensure the parsed object has the correct shape.
-        parsedOutput = z.object({ brandColors: z.array(z.string()).length(5, "The brandColors array must contain exactly 5 colors.") }).parse(parsedJson);
-    } catch (error) {
-        const extractionError = new Error("Could not parse a valid 5-color palette from the model's response.");
-        logger.error({ error, message: "Parsing of generated brand colors failed.", flow: 'guideBusinessOnboardingFlow', badOutput: output });
-        throw extractionError;
-    }
-    
-    return {
-      logoDataUri: media.url,
-      brandColors: parsedOutput.brandColors,
-    };
+    throw new Error('Invalid task provided to guideBusinessOnboardingFlow.');
   }
 );

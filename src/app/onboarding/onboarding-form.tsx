@@ -151,24 +151,55 @@ function Step2_BusinessType() {
   );
 }
 
-function Step3_Logo({ onLogoUpdate }: { onLogoUpdate: (logo: string) => void }) {
+function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: string[] | null) => void; }) {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
+  
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [generatedLogo, setGeneratedLogo] = useState<string | null>(null);
+  const [generatedLogos, setGeneratedLogos] = useState<string[]>([]);
+  const [selectedGeneratedLogoIndex, setSelectedGeneratedLogoIndex] = useState<number | null>(null);
+
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isExtracting, setIsExtracting] = useState(false);
   const [showColorPrompt, setShowColorPrompt] = useState(false);
 
-  const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const isLoading = isGenerating || isExtracting;
+  
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const dataUri = reader.result as string;
         setLogoPreview(dataUri);
         onLogoUpdate(dataUri);
-        setGeneratedLogo(null);
-        setShowColorPrompt(false);
+        setGeneratedLogos([]);
+        setSelectedGeneratedLogoIndex(null);
+        
+        setIsExtracting(true);
+        try {
+          const { businessName, businessType, otherBusinessType } = form.getValues();
+          const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
+
+          const response = await fetch('/api/ai/guide-onboarding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ businessName, businessType: finalBusinessType, logoDataUri: dataUri, task: 'extract_colors' }),
+          });
+
+          if (!response.ok) throw new Error('Failed to extract colors.');
+
+          const result = await response.json();
+          onColorsUpdate(result.brandColors);
+          toast({ title: 'Brand colors extracted!' });
+
+        } catch (e) {
+          logger.error({ error: e as Error, message: 'Color extraction failed.' });
+          toast({ title: 'Color extraction failed', variant: 'destructive' });
+          onColorsUpdate(null);
+        } finally {
+          setIsExtracting(false);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -178,17 +209,20 @@ function Step3_Logo({ onLogoUpdate }: { onLogoUpdate: (logo: string) => void }) 
     setShowColorPrompt(true);
   };
 
-  const handleGenerateLogo = async () => {
+  const handleGenerateLogos = async () => {
     const isBrandPrefsValid = await form.trigger(['brandPreferences']);
     if (!isBrandPrefsValid) return;
 
     const { businessName, businessType, brandPreferences, otherBusinessType } = form.getValues();
-
+    
     setIsGenerating(true);
+    setGeneratedLogos([]);
+    setSelectedGeneratedLogoIndex(null);
+    onLogoUpdate(null);
+    onColorsUpdate(null);
+
     try {
-      const finalBusinessType = businessType === 'other'
-        ? (otherBusinessType || businessType)
-        : businessType;
+      const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
 
       const response = await fetch('/api/ai/guide-onboarding', {
         method: 'POST',
@@ -197,47 +231,68 @@ function Step3_Logo({ onLogoUpdate }: { onLogoUpdate: (logo: string) => void }) 
           businessName,
           businessType: finalBusinessType,
           brandPreferences: brandPreferences || '',
+          task: 'generate_logos'
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate logo');
-      }
-
+      if (!response.ok) throw new Error('Failed to generate logos');
+      
       const result = await response.json();
-      if (result.logoDataUri) {
-        setGeneratedLogo(result.logoDataUri);
-        onLogoUpdate(result.logoDataUri);
-        setLogoPreview(null);
-        setShowColorPrompt(false);
-        toast({
-          title: 'Logo generated!',
-          description: 'Your AI-generated logo is ready.',
-        });
-      }
+      setGeneratedLogos(result.logos || []);
+      toast({ title: 'Logos generated!', description: 'Please select your favorite.' });
+
     } catch (e) {
-      logger.error({ error: e as Error, message: 'Logo generation failed in onboarding form.' });
-      toast({
-        title: 'Logo generation failed',
-        description: 'Could not generate logo. Please try uploading one instead.',
-        variant: 'destructive',
-      });
+      logger.error({ error: e as Error, message: 'Logo generation failed.' });
+      toast({ title: 'Logo generation failed', variant: 'destructive' });
     } finally {
       setIsGenerating(false);
     }
   };
+
+  const handleSelectAndContinue = async () => {
+    if (selectedGeneratedLogoIndex === null) return;
+    
+    const selectedLogo = generatedLogos[selectedGeneratedLogoIndex];
+    onLogoUpdate(selectedLogo);
+    
+    setIsExtracting(true);
+    try {
+      const { businessName, businessType, otherBusinessType } = form.getValues();
+      const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
+      
+      const response = await fetch('/api/ai/guide-onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessName, businessType: finalBusinessType, logoDataUri: selectedLogo, task: 'extract_colors' }),
+      });
+
+      if (!response.ok) throw new Error('Failed to extract colors.');
+
+      const result = await response.json();
+      onColorsUpdate(result.brandColors);
+      toast({ title: 'Logo selected and colors extracted!' });
+
+    } catch (e) {
+      logger.error({ error: e as Error, message: 'Color extraction from generated logo failed.' });
+      toast({ title: 'Failed to process selected logo', variant: 'destructive' });
+      onColorsUpdate(null);
+    } finally {
+      setIsExtracting(false);
+    }
+  };
   
-  const imageToDisplay = logoPreview || generatedLogo;
+  const imageToDisplay = logoPreview || (selectedGeneratedLogoIndex !== null ? generatedLogos[selectedGeneratedLogoIndex] : null);
 
   return (
     <div className='space-y-4'>
       <FormLabel className="text-lg">Do you have a logo?</FormLabel>
+      
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
-        <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center", {'items-center justify-center': !imageToDisplay})}>
-          {imageToDisplay ? (
+        <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center", {'items-center justify-center': !logoPreview})}>
+          {logoPreview ? (
             <Image
-              src={imageToDisplay}
-              alt="Logo Preview"
+              src={logoPreview}
+              alt="Uploaded Logo Preview"
               fill
               style={{ objectFit: 'contain' }}
               className="rounded-md p-2"
@@ -246,6 +301,7 @@ function Step3_Logo({ onLogoUpdate }: { onLogoUpdate: (logo: string) => void }) 
             <>
               <Upload className="w-8 h-8 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p>
+              {isExtracting && <Loader2 className="absolute w-6 h-6 animate-spin text-primary" />}
             </>
           )}
           <Input
@@ -253,16 +309,19 @@ function Step3_Logo({ onLogoUpdate }: { onLogoUpdate: (logo: string) => void }) 
             type="file"
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             accept="image/*"
-            onChange={handleLogoChange}
+            onChange={handleLogoUpload}
             aria-label="Upload logo file"
+            disabled={isLoading}
           />
         </div>
+
         <div className="relative flex items-center justify-center md:hidden">
           <div className="absolute inset-0 flex items-center" aria-hidden="true">
             <div className="w-full border-t border-muted-foreground/30"></div>
           </div>
           <span className="relative bg-background px-2 text-sm text-muted-foreground">or</span>
         </div>
+
         <div className="flex flex-col items-center justify-center h-48 space-y-4">
           {!showColorPrompt ? (
             <Button type="button" variant="outline" onClick={handleGenerateClick} className="w-full">
@@ -285,14 +344,50 @@ function Step3_Logo({ onLogoUpdate }: { onLogoUpdate: (logo: string) => void }) 
                   </FormItem>
                 )}
               />
-              <Button type="button" onClick={handleGenerateLogo} disabled={isGenerating} className='w-full'>
+              <Button type="button" onClick={handleGenerateLogos} disabled={isGenerating} className='w-full'>
                 {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                Generate Logo
+                Generate Logos
               </Button>
             </div>
           )}
         </div>
       </div>
+      
+      {isGenerating && (
+        <div className="text-center text-muted-foreground">
+          <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+          <p>Generating logo options... this can take a moment.</p>
+        </div>
+      )}
+
+      {generatedLogos.length > 0 && (
+        <div className="mt-8 space-y-4 animate-fade-in">
+          <h3 className="text-lg font-semibold text-center">Choose your favorite logo:</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {generatedLogos.map((logo, index) => (
+              <div
+                key={index}
+                onClick={() => !isLoading && setSelectedGeneratedLogoIndex(index)}
+                className={cn(
+                  "p-2 border-2 rounded-lg cursor-pointer transition-all bg-muted/50 hover:border-primary",
+                  selectedGeneratedLogoIndex === index ? 'border-primary' : 'border-transparent'
+                )}
+              >
+                <Image src={logo} alt={`Logo option ${index + 1}`} width={150} height={150} className="w-full h-auto object-contain rounded-md aspect-square" />
+              </div>
+            ))}
+          </div>
+          <Button
+            type="button"
+            onClick={handleSelectAndContinue}
+            disabled={selectedGeneratedLogoIndex === null || isLoading}
+            className="w-full"
+          >
+            {isExtracting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Continue with Selected Logo
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -384,6 +479,7 @@ export default function OnboardingForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
+  const [brandColors, setBrandColors] = useState<string[] | null>(null);
 
   const totalSteps = 3;
 
@@ -419,47 +515,26 @@ export default function OnboardingForm() {
     setIsLoading(true);
 
     try {
+      if (!logoDataUri || !brandColors) {
+         toast({
+          title: 'Missing Information',
+          description: 'Please upload or generate a logo and ensure brand colors are selected before creating your store.',
+          variant: 'destructive',
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const finalBusinessType = data.businessType === 'other'
         ? (data.otherBusinessType || data.businessType)
         : data.businessType;
 
       generateUserId();
-
-      const response = await fetch('/api/ai/guide-onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessName: data.businessName,
-          businessType: finalBusinessType!,
-          brandPreferences: data.brandPreferences || '',
-          logoDataUri: logoDataUri,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        logger.error({
-          message: 'API request failed',
-          status: response.status,
-          error: errorData
-        });
-        throw new Error(errorData.error || `API request failed with status ${response.status}`);
-      }
-
-      const result = await response.json();
-      const { logoDataUri: finalLogoUri, brandColors } = result;
-
-      if (!brandColors || brandColors.length < 5) {
-        logger.error({ message: 'Invalid brand colors', brandColors });
-        throw new Error("AI did not return a valid brand color palette.");
-      }
       
-      const logoToSave = logoDataUri || finalLogoUri;
-
       saveMerchantData({
         businessName: data.businessName,
         businessType: finalBusinessType!,
-        logo: logoToSave,
+        logo: logoDataUri,
         colors: {
             primary: brandColors[0],
             secondary: brandColors[1],
@@ -510,7 +585,7 @@ export default function OnboardingForm() {
           <div role="region" aria-live="polite" aria-atomic="true">
             {step === 1 && <Step1_BusinessName />}
             {step === 2 && <Step2_BusinessType />}
-            {step === 3 && <Step3_Logo onLogoUpdate={setLogoDataUri} />}
+            {step === 3 && <Step3_Logo onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} />}
           </div>
 
           <OnboardingNavigation
