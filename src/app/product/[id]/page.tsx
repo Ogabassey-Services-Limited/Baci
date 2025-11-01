@@ -4,11 +4,11 @@ import ProductDetailClient from './product-detail-client';
 
 // This is the main page component, which is a Server Component.
 // Its only job is to get the ID from the URL and render the client component.
-export default function ProductPage({ params: { id } }: { params: { id: string } }) {
+export default async function ProductPage({ params }: { params: { id: string } }) {
   
   return (
     <MerchantProvider>
-      <ProductDetailClient productId={id} />
+      <ProductDetailClient productId={params.id} />
     </MerchantProvider>
   );
 }
