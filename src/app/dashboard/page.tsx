@@ -232,7 +232,7 @@ export default function DashboardPage() {
               {recentSales.map((sale) => {
                  const avatar = PlaceHolderImages.find(img => img.id === sale.avatar);
                  return (
-                    <Link href={`/product/${sale.id}`} key={sale.id} className="flex items-center hover:bg-muted/50 p-2 rounded-lg -m-2">
+                    <Link href={`/product/${sale.id}`} key={sale.id} className="flex items-center hover:bg-muted/50 p-2 rounded-lg -m-2" target="_blank">
                         <Avatar className="h-9 w-9">
                         {avatar && (
                             <AvatarImage
