@@ -238,17 +238,18 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate }: { onLogoUpdate: (logo: str
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate logos.');
-      }
-      
+      // No need to check response.ok, as the API now returns 200 even on AI failure.
+      // We will check the content of the result instead.
       const result = await response.json();
+      
+      if (result.error) {
+          throw new Error(result.error);
+      }
       
       if (!result.logos || result.logos.length === 0) {
         toast({
             title: 'AI Logo Generation Unavailable',
-            description: 'To generate logos, please add your Google AI API key to a .env.local file. See GOOGLE_AI_SETUP.md for instructions.',
+            description: 'To generate logos, please add your Google AI API key to a .env file. See GOOGLE_AI_SETUP.md for instructions.',
             duration: 9000,
         });
       } else {

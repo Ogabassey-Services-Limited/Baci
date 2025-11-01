@@ -69,7 +69,13 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ brandColors: fallbackColors });
       }
       
-      // For logo generation, re-throw to let the client know it failed.
+      if (task === 'generate_logos') {
+        // Instead of throwing an error, return an empty array of logos.
+        // The frontend will handle this gracefully.
+        return NextResponse.json({ logos: [] });
+      }
+
+      // For other tasks, it's still okay to throw an error.
       return NextResponse.json({ error: 'AI service failed to complete the task.' }, { status: 500 });
     }
   } catch (error) {
