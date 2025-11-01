@@ -86,10 +86,16 @@ Your final output must be ONLY a valid JSON object with a "brandColors" key cont
 `,
 });
 
+// Define a schema for generating logos input, making logoDataUri optional
+const GenerateLogosInputSchema = GuideBusinessOnboardingInputSchema.extend({
+    logoDataUri: z.string().optional(),
+});
+
+
 // Prompt for generating multiple logo options.
 const generateLogosPrompt = ai.definePrompt({
   name: 'generateLogosPrompt',
-  input: { schema: GuideBusinessOnboardingInputSchema },
+  input: { schema: GenerateLogosInputSchema },
   output: { schema: z.object({ logos: z.array(z.string()).length(4) }) },
   prompt: `Generate 4 unique, simple, modern, and professional logo options for a business named "{{businessName}}".
 The business is in the "{{businessType}}" sector.
@@ -97,7 +103,6 @@ The user's favorite color is "{{brandPreferences}}", so the logos should be insp
 The logos should be visually distinct from each other.
 Return ONLY a valid JSON object with a "logos" key containing an array of 4 base64-encoded image strings.
 `,
-  
 });
 
 const guideBusinessOnboardingFlow = ai.defineFlow(

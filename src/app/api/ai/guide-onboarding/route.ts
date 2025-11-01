@@ -49,21 +49,14 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ brandColors: generateFallbackColors(brandPreferences) });
       }
       if (task === 'generate_logos') {
-        // In a real scenario without an API key, you might return placeholder images.
-        // For this prototype, we'll return an error to indicate the feature is unavailable.
         return NextResponse.json({ error: 'Logo generation is unavailable without an AI API key.' }, { status: 503 });
       }
     }
 
     try {
       logger.info({ message: `Attempting AI task: ${task}`});
-      const result = await guideBusinessOnboarding({
-        businessName,
-        businessType,
-        brandPreferences: brandPreferences || '',
-        logoDataUri: logoDataUri || undefined,
-        task,
-      });
+      // Pass the entire body to the AI flow
+      const result = await guideBusinessOnboarding(body);
 
       return NextResponse.json(result);
     } catch (aiError) {
