@@ -3,12 +3,13 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { File, MoreHorizontal, PlusCircle, Save } from 'lucide-react';
+import { File, MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import { products as initialProducts, type Product } from '@/lib/products';
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useDebounce } from '@/hooks/use-debounce';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,7 +48,10 @@ export default function ProductsPage() {
   const { merchant } = useMerchant();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [isSaving, setIsSaving] = useState(false);
+  const [dirtyProducts, setDirtyProducts] = useState<Set<string>>(new Set());
+
+  // Debounce the set of products that have changed
+  const debouncedDirtyProducts = useDebounce(dirtyProducts, 1000);
 
   const formatCurrency = (amount: number) => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
@@ -66,19 +70,32 @@ export default function ProductsPage() {
         p.id === productId ? { ...p, stock: isNaN(newStock) ? 0 : newStock } : p
       )
     );
+    setDirtyProducts(prev => new Set(prev).add(productId));
   };
   
-  const handleSave = async () => {
-    setIsSaving(true);
+  const autoSaveStock = useCallback(async (productIds: Set<string>) => {
+    if (productIds.size === 0) return;
+
+    const productsToSave = products.filter(p => productIds.has(p.id));
+    console.log('Auto-saving stock for:', productsToSave.map(p => ({id: p.id, stock: p.stock})));
+
     // In a real app, you'd send this to your backend
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Saved product stock:', products.map(p => ({id: p.id, stock: p.stock})));
-    setIsSaving(false);
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    setDirtyProducts(new Set()); // Clear the dirty set after saving
+
     toast({
-      title: 'Stock quantities saved!',
-      description: 'Your inventory has been updated.',
+      title: 'Stock quantities auto-saved!',
+      description: `Updated stock for ${productIds.size} product(s).`,
     });
-  };
+  }, [products, toast]);
+  
+  useEffect(() => {
+    if (debouncedDirtyProducts.size > 0) {
+      autoSaveStock(debouncedDirtyProducts);
+    }
+  }, [debouncedDirtyProducts, autoSaveStock]);
+
 
   return (
     <Tabs defaultValue="all">
@@ -92,12 +109,6 @@ export default function ProductsPage() {
           </TabsTrigger>
         </TabsList>
         <div className="ml-auto flex items-center gap-2">
-           <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleSave} disabled={isSaving}>
-              <Save className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                {isSaving ? 'Saving...' : 'Save Stock'}
-              </span>
-            </Button>
            <a href="/api/products/feed" target="_blank" rel="noopener noreferrer">
             <Button size="sm" variant="outline" className="h-8 gap-1">
               <File className="h-3.5 w-3.5" />
@@ -121,7 +132,7 @@ export default function ProductsPage() {
           <CardHeader>
             <CardTitle>Products</CardTitle>
             <CardDescription>
-              Manage your products and view their sales performance. You can edit stock directly here.
+              Manage your products and view their sales performance. Stock quantities are saved automatically.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -166,6 +177,7 @@ export default function ProductsPage() {
                         className="h-8 w-20"
                         value={product.stock}
                         onChange={(e) => handleStockChange(product.id, parseInt(e.target.value))}
+                        aria-label={`Stock for ${product.name}`}
                     />
                   </TableCell>
                   <TableCell>
