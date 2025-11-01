@@ -2,6 +2,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Suspense } from 'react';
 import {
   User,
   Menu,
@@ -209,7 +210,9 @@ function DashboardLayoutContent({
           </DropdownMenu>
         </header>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-          {children}
+          <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+            {children}
+          </Suspense>
         </main>
       </div>
     </div>
