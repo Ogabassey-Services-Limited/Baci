@@ -46,6 +46,14 @@ const GuideBusinessOnboardingInputSchema = z.object({
 });
 export type GuideBusinessOnboardingInput = z.infer<typeof GuideBusinessOnboardingInputSchema>;
 
+const BrandColorsSchema = z.object({
+    primary: z.string().describe('The primary color, most dominant in the logo.'),
+    secondary: z.string().describe('The secondary, complementary color.'),
+    accent: z.string().describe('An accent color for highlights and calls-to-action.'),
+    background: z.string().describe('A light, neutral background color for the website.'),
+    text: z.string().describe('A dark text color with good contrast against the background.'),
+});
+
 const GuideBusinessOnboardingOutputSchema = z.object({
   logos: z
     .array(z.string())
@@ -53,7 +61,7 @@ const GuideBusinessOnboardingOutputSchema = z.object({
     .describe(
       'An array of data URIs for the generated logos.'
     ),
-  brandColors: z.array(z.string()).optional().describe('A list of 5 brand colors in hex format (e.g., #RRGGBB).'),
+  brandColors: BrandColorsSchema.optional().describe('A list of 5 brand colors in hex format (e.g., #RRGGBB).'),
 });
 export type GuideBusinessOnboardingOutput = z.infer<typeof GuideBusinessOnboardingOutputSchema>;
 
@@ -66,44 +74,6 @@ export async function guideBusinessOnboarding(
   return guideBusinessOnboardingFlow(input);
 }
 
-// Prompt for extracting colors from a user-uploaded or selected logo.
-const extractColorsPrompt = ai.definePrompt({
-  name: 'extractColorsPrompt',
-  input: {schema: z.object({ logoDataUri: z.string() })},
-  output: {schema: z.object({ brandColors: z.array(z.string()).length(5) })},
-  prompt: `You are an expert branding assistant.
-Your task is to analyze the provided logo and extract a 5-color palette from it.
-The palette must consist of:
-1. A primary color (the most dominant).
-2. A secondary color (a complementary color).
-3. An accent color (a vibrant color for buttons).
-4. A neutral background color (light and clean).
-5. A dark text color (for readability).
-
-Logo: {{media url=logoDataUri}}
-
-Your final output must be ONLY a valid JSON object with a "brandColors" key containing an array of exactly 5 hex color strings. Do not include any other text or markdown.
-`,
-});
-
-// Define a schema for generating logos input, making logoDataUri optional
-const GenerateLogosInputSchema = GuideBusinessOnboardingInputSchema.extend({
-    logoDataUri: z.string().optional(),
-});
-
-
-// Prompt for generating multiple logo options.
-const generateLogosPrompt = ai.definePrompt({
-  name: 'generateLogosPrompt',
-  input: { schema: GenerateLogosInputSchema },
-  output: { schema: z.object({ logos: z.array(z.string()).length(4) }) },
-  prompt: `Generate 4 unique, simple, modern, and professional logo options for a business named "{{businessName}}".
-The business is in the "{{businessType}}" sector.
-The user's favorite color is "{{brandPreferences}}", so the logos should be inspired by this.
-The logos should be visually distinct from each other.
-Return ONLY a valid JSON object with a "logos" key containing an array of 4 base64-encoded image strings.
-`,
-});
 
 const guideBusinessOnboardingFlow = ai.defineFlow(
   {
@@ -117,11 +87,39 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
         throw new Error('logoDataUri is required for color extraction.');
       }
       logger.info({ message: 'Extracting colors from logo.', flow: 'guideBusinessOnboardingFlow' });
-      const { output } = await extractColorsPrompt({ logoDataUri: input.logoDataUri });
-      if (!output || !output.brandColors) {
-        throw new Error("Failed to get a structured response from the model when extracting colors.");
+
+      try {
+        const response = await ai.generate({
+          model: 'googleai/gemini-pro',
+          prompt: [
+            {
+              text: `Analyze this logo and extract the 5 most representative brand colors. Provide them in a JSON object with keys: "primary", "secondary", "accent", "background", and "text". The primary color should be the most dominant. The background should be a suitable light color for a website, and the text color should have good contrast with the background. Provide colors in hex format. Return ONLY the JSON object.`,
+            },
+            {
+              media: {
+                url: input.logoDataUri,
+              },
+            },
+          ],
+          output: {
+            format: 'json',
+            schema: BrandColorsSchema,
+          },
+        });
+
+        const colors = response.output;
+
+        if (!colors) {
+            logger.error({ message: 'Invalid color response from AI', response: response.output });
+            throw new Error('AI did not return valid colors.');
+        }
+        
+        logger.info({ message: 'Colors extracted successfully', colors });
+        return { brandColors: colors };
+      } catch (error) {
+        logger.error({ message: 'Color extraction failed', error });
+        throw error;
       }
-      return { brandColors: output.brandColors };
     }
 
     if (input.task === 'generate_logos') {
@@ -131,7 +129,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
       const logoStyle = businessTypeConfig?.journey.onboarding.logoStyle || 'simple, modern, and professional';
 
       const response = await ai.generate({
-          model: 'googleai/gemini-2.5-flash-image', // Cheapest image generation: $0.039 per image
+          model: 'googleai/gemini-2.5-pro-image-preview',
           prompt: [
               {
               text: `Generate 4 unique logo options for a business named "${input.businessName}".

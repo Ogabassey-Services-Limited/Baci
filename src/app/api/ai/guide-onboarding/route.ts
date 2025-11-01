@@ -3,21 +3,20 @@ import { NextRequest, NextResponse } from 'next/server';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { logger } from '@/lib/logger';
 
-// Fallback colors when AI fails
-function generateFallbackColors(brandPreferences?: string): string[] {
+// Fallback colors when AI fails - returns 5 colors
+function generateFallbackColors(brandPreferences?: string): Record<string, string> {
   const pref = (brandPreferences || '').toLowerCase();
-  
-  // More robust color matching
-  const colorMap: Record<string, string[]> = {
-    red: ['#EF4444', '#F87171', '#FCA5A5', '#FECACA', '#FEE2E2'],
-    orange: ['#F97316', '#FB923C', '#FDBA74', '#FED7AA', '#FFEDD5'],
-    yellow: ['#FBBF24', '#FCD34D', '#FDE08A', '#FEF0C7', '#FEF9E7'],
-    green: ['#10B981', '#34D399', '#6EE7B7', '#A7F3D0', '#D1FAE5'],
-    blue: ['#2563EB', '#3B82F6', '#60A5FA', '#93C5FD', '#DBEAFE'],
-    purple: ['#8B5CF6', '#A78BFA', '#C4B5FD', '#DDD6FE', '#EDE9FE'],
-    pink: ['#EC4899', '#F472B6', '#F9A8D4', '#FBCFE8', '#FCE7F3'],
-    black: ['#1F2937', '#4B5563', '#6B7280', '#D1D5DB', '#F3F4F6'],
-    default: ['#3F51B5', '#9C27B0', '#FFC107', '#F5F5F5', '#212121'],
+
+  const colorMap: Record<string, Record<string, string>> = {
+    red: { primary: '#EF4444', secondary: '#F87171', accent: '#FCD34D', background: '#FEF2F2', text: '#1F2937' },
+    orange: { primary: '#F97316', secondary: '#FB923C', accent: '#FBBF24', background: '#FFF7ED', text: '#1F2937' },
+    yellow: { primary: '#FBBF24', secondary: '#FCD34D', accent: '#60A5FA', background: '#FEFCE8', text: '#1F2937' },
+    green: { primary: '#10B981', secondary: '#34D399', accent: '#F472B6', background: '#F0FDF4', text: '#1F2937' },
+    blue: { primary: '#2563EB', secondary: '#60A5FA', accent: '#FBBF24', background: '#EFF6FF', text: '#1F2937' },
+    purple: { primary: '#8B5CF6', secondary: '#A78BFA', accent: '#FCD34D', background: '#FAF5FF', text: '#1F2937' },
+    pink: { primary: '#EC4899', secondary: '#F472B6', accent: '#60A5FA', background: '#FDF2F8', text: '#1F2937' },
+    black: { primary: '#1F2937', secondary: '#6B7280', accent: '#FBBF24', background: '#F9FAFB', text: '#FFFFFF' },
+    default: { primary: '#3F51B5', secondary: '#9C27B0', accent: '#FFC107', background: '#F5F5F5', text: '#212121' },
   };
 
   for (const [key, colors] of Object.entries(colorMap)) {
@@ -25,8 +24,8 @@ function generateFallbackColors(brandPreferences?: string): string[] {
       return colors;
     }
   }
-  
-  return colorMap.default; // Original Baci colors
+
+  return colorMap.default;
 }
 
 export async function POST(request: NextRequest) {

@@ -52,6 +52,14 @@ const refinedFormSchema = baseOnboardingSchema.refine(data => {
 
 type OnboardingFormValues = z.infer<typeof refinedFormSchema>;
 
+interface BrandColors {
+    primary: string;
+    secondary: string;
+    accent: string;
+    background: string;
+    text: string;
+}
+
 // --- Step Components ---
 
 function StepIndicator({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) {
@@ -137,7 +145,7 @@ function Step2_BusinessType() {
   );
 }
 
-function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: string[] | null) => void; brandColors: string[] | null; }) {
+function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: BrandColors | null) => void; brandColors: BrandColors | null; }) {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
 
@@ -285,6 +293,9 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdat
       setIsExtracting(false);
     }
   };
+  
+    const colorEntries = brandColors ? Object.entries(brandColors) : [];
+
 
   return (
     <div className='space-y-4'>
@@ -292,20 +303,32 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdat
       
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
         <div className="space-y-2">
-            <div className={cn("relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center", {'items-center justify-center': !logoPreview})}>
+            <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors",
+                logoPreview ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50',
+                {'items-start': logoPreview}
+            )}>
             {logoPreview ? (
+                <>
                 <Image
-                src={logoPreview}
-                alt="Uploaded Logo Preview"
-                fill
-                style={{ objectFit: 'contain' }}
-                className="rounded-md p-2"
+                    src={logoPreview}
+                    alt="Uploaded Logo Preview"
+                    fill
+                    style={{ objectFit: 'contain' }}
+                    className="rounded-md p-2"
                 />
+                <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md">
+                    <CheckCircle className="w-4 h-4 text-white" />
+                </div>
+                {isExtracting && (
+                    <div className="absolute bottom-2 right-2 bg-white rounded-full p-2 shadow-md">
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                    </div>
+                )}
+                </>
             ) : (
                 <>
                 <Upload className="w-8 h-8 text-muted-foreground mb-2" />
                 <p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p>
-                {isExtracting && <Loader2 className="absolute w-6 h-6 animate-spin text-primary" />}
                 </>
             )}
             <Input
@@ -318,17 +341,25 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdat
                 disabled={isLoading}
             />
             </div>
-            {brandColors && brandColors.length > 0 && (
-                <div className="flex justify-center gap-2 animate-fade-in pt-2">
-                    {brandColors.map((color, index) => (
-                    <div
-                        key={index}
-                        className="h-8 w-full rounded-md border shadow-sm"
-                        style={{ backgroundColor: color }}
-                        title={color}
-                    />
+             {brandColors && (
+              <div className="pt-2 animate-fade-in space-y-2">
+                 <div className="flex items-center gap-2 justify-center">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <p className="text-sm font-medium">Brand Colors Extracted</p>
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                    {colorEntries.map(([key, color]) => (
+                        <div key={key} className="space-y-1 text-center">
+                        <div
+                            className="h-10 w-full rounded-md border-2 border-border shadow-sm"
+                            style={{ backgroundColor: color }}
+                            title={color}
+                        />
+                         <p className="text-[10px] font-medium text-muted-foreground capitalize">{key}</p>
+                        </div>
                     ))}
                 </div>
+              </div>
             )}
         </div>
 
@@ -496,7 +527,7 @@ export default function OnboardingForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
-  const [brandColors, setBrandColors] = useState<string[] | null>(null);
+  const [brandColors, setBrandColors] = useState<BrandColors | null>(null);
   const { toast } = useToast();
 
   const totalSteps = 3;
@@ -564,8 +595,8 @@ export default function OnboardingForm() {
         businessType: finalBusinessType!,
         logo: logoDataUri,
         colors: {
-            primary: brandColors[0],
-            secondary: brandColors[1],
+            primary: brandColors.primary,
+            secondary: brandColors.secondary,
         }
       });
       
