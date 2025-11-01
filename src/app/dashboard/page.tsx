@@ -11,6 +11,9 @@ import {
   PlusCircle,
   Settings,
   Eye,
+  ShoppingCart,
+  Wrench,
+  FlaskConical,
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -102,6 +105,36 @@ export default function DashboardPage() {
       return formatter.format(value).replace(/\D00$/, '');
   };
 
+  const setupTasks = [
+    {
+      icon: PlusCircle,
+      title: 'Add your first product',
+      description: 'List items to start selling.',
+      href: '/dashboard/products/add',
+      buttonText: 'Add Product',
+    },
+    {
+      icon: Wrench,
+      title: 'Customize your store',
+      description: 'Choose colors and a layout that matches your brand.',
+      href: '/dashboard/settings',
+      buttonText: 'Customize',
+    },
+    {
+      icon: CreditCard,
+      title: 'Set up payments',
+      description: 'Connect a payment provider to start accepting money.',
+      href: '/dashboard/settings',
+      buttonText: 'Set Up',
+    },
+    {
+      icon: FlaskConical,
+      title: 'Run a test order',
+      description: 'Make sure your checkout process is smooth for customers.',
+      href: '/',
+      buttonText: 'Visit Store',
+    },
+  ];
 
   return (
     <>
@@ -130,29 +163,23 @@ export default function DashboardPage() {
 
        <Card className="mb-8">
         <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Get started by adding products or customizing your store.</CardDescription>
+          <CardTitle>Setup Checklist</CardTitle>
+          <CardDescription>Follow these steps to get your store ready for customers.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <Link href="/dashboard/products/add">
-                <Button variant="outline" className="w-full justify-start h-12 text-base">
-                    <PlusCircle className="mr-2 h-5 w-5" />
-                    Add Product
-                </Button>
-            </Link>
-             <Link href="/dashboard/settings">
-                <Button variant="outline" className="w-full justify-start h-12 text-base">
-                    <Settings className="mr-2 h-5 w-5" />
-                    Customize Store
-                </Button>
-            </Link>
-             <Link href="/" target="_blank">
-                 <Button variant="outline" className="w-full justify-start h-12 text-base">
-                    <Eye className="mr-2 h-5 w-5" />
-                    View Your Store
-                </Button>
-            </Link>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {setupTasks.map((task) => (
+              <div key={task.title} className="flex items-center gap-4 p-4 rounded-lg border bg-background">
+                <task.icon className="w-8 h-8 text-muted-foreground" />
+                <div className="flex-1">
+                  <p className="font-semibold">{task.title}</p>
+                  <p className="text-sm text-muted-foreground">{task.description}</p>
+                </div>
+                <Link href={task.href}>
+                  <Button variant="outline">{task.buttonText}</Button>
+                </Link>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
