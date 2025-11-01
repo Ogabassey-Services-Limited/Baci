@@ -5,8 +5,8 @@
  * @fileOverview Guides new users through the onboarding process to define their business type and brand preferences.
  *
  * This flow provides two key capabilities:
- * 1. **Logo Generation:** Creates a professional logo and a matching 5-color palette based on business context and user color preferences.
- * 2. **Color Extraction:** Analyzes an existing uploaded logo and extracts a 5-color brand palette from it.
+ * 1. **Logo Generation:** Creates a professional logo and a matching 3-color palette based on business context and user color preferences.
+ * 2. **Color Extraction:** Analyzes an existing uploaded logo and extracts a 3-color brand palette from it.
  *
  * Uses Gemini 2.5 Pro Image Preview model for both image generation and analysis.
  *
@@ -19,7 +19,7 @@
  * 1. DO NOT change input/output schemas without updating callers in onboarding-form.tsx
  * 2. Logo generation prompt is now part of the main flow logic (lines 149-166).
  * 3. Color extraction prompt is separate (`extractColorsPrompt`, lines 109-131).
- * 4. Brand colors MUST always return exactly 5 hex codes in order: primary, secondary, accent, background, text.
+ * 4. Brand colors MUST always return exactly 3 hex codes in order: primary, secondary, accent.
  * 5. The logic is now split: if a logo is provided, we extract. If not, we generate. This is a critical distinction.
  *
  * @see /src/app/onboarding/onboarding-form.tsx - Caller component
@@ -50,8 +50,6 @@ const BrandColorsSchema = z.object({
     primary: z.string().describe('The primary color, most dominant in the logo.'),
     secondary: z.string().describe('The secondary, complementary color.'),
     accent: z.string().describe('An accent color for highlights and calls-to-action.'),
-    background: z.string().describe('A light, neutral background color for the website.'),
-    text: z.string().describe('A dark text color with good contrast against the background.'),
 });
 
 const GuideBusinessOnboardingOutputSchema = z.object({
@@ -61,7 +59,7 @@ const GuideBusinessOnboardingOutputSchema = z.object({
     .describe(
       'An array of data URIs for the generated logos.'
     ),
-  brandColors: BrandColorsSchema.optional().describe('A list of 5 brand colors in hex format (e.g., #RRGGBB).'),
+  brandColors: BrandColorsSchema.optional().describe('A list of 3 brand colors in hex format (e.g., #RRGGBB).'),
 });
 export type GuideBusinessOnboardingOutput = z.infer<typeof GuideBusinessOnboardingOutputSchema>;
 
@@ -93,7 +91,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
           model: 'googleai/gemini-pro',
           prompt: [
             {
-              text: `Analyze this logo and extract the 5 most representative brand colors. Provide them in a JSON object with keys: "primary", "secondary", "accent", "background", and "text". The primary color should be the most dominant. The background should be a suitable light color for a website, and the text color should have good contrast with the background. Provide colors in hex format. Return ONLY the JSON object.`,
+              text: `Analyze this logo and extract the 3 most representative brand colors. Provide them in a JSON object with keys: "primary", "secondary", and "accent". The primary color should be the most dominant. The accent should be a vibrant color for CTAs. Provide colors in hex format. Return ONLY the JSON object.`,
             },
             {
               media: {

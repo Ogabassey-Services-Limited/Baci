@@ -56,8 +56,6 @@ interface BrandColors {
     primary: string;
     secondary: string;
     accent: string;
-    background: string;
-    text: string;
 }
 
 // --- Step Components ---
@@ -304,8 +302,7 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdat
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
         <div className="space-y-2">
             <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors",
-                logoPreview ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50',
-                {'items-start': logoPreview}
+                logoPreview ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50'
             )}>
             {logoPreview ? (
                 <>
@@ -342,24 +339,24 @@ function Step3_Logo({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdat
             />
             </div>
              {brandColors && (
-              <div className="pt-2 animate-fade-in space-y-2">
-                 <div className="flex items-center gap-2 justify-center">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
-                    <p className="text-sm font-medium">Brand Colors Extracted</p>
+                <div className="pt-2 animate-fade-in space-y-2">
+                    <div className="flex items-center gap-2 justify-center">
+                        <CheckCircle className="w-4 h-4 text-green-500" />
+                        <p className="text-sm font-medium">Brand Colors Extracted</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                        {colorEntries.map(([key, color]) => (
+                            <div key={key} className="space-y-1 text-center">
+                                <div
+                                    className="h-10 w-full rounded-md border-2 border-border shadow-sm"
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                                <p className="text-[10px] font-medium text-muted-foreground capitalize">{key}</p>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <div className="grid grid-cols-5 gap-2">
-                    {colorEntries.map(([key, color]) => (
-                        <div key={key} className="space-y-1 text-center">
-                        <div
-                            className="h-10 w-full rounded-md border-2 border-border shadow-sm"
-                            style={{ backgroundColor: color }}
-                            title={color}
-                        />
-                         <p className="text-[10px] font-medium text-muted-foreground capitalize">{key}</p>
-                        </div>
-                    ))}
-                </div>
-              </div>
             )}
         </div>
 
@@ -597,6 +594,7 @@ export default function OnboardingForm() {
         colors: {
             primary: brandColors.primary,
             secondary: brandColors.secondary,
+            accent: brandColors.accent,
         }
       });
       

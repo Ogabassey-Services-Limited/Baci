@@ -8,6 +8,7 @@ export interface MerchantData {
   colors?: {
     primary: string;
     secondary: string;
+    accent: string;
   };
   country?: string;
   pages?: {
@@ -34,7 +35,7 @@ export function saveMerchantData(data: MerchantData): void {
   try {
     const userId = generateUserId();
     const existingData = getMerchantData() || {};
-    const newData = { ...existingData, ...data };
+    const newData = { ...existingData, ...data } as MerchantData;
     localStorage.setItem(`merchant_${userId}`, JSON.stringify(newData));
     logger.info({ message: 'Merchant data saved to localStorage', userId });
   } catch (error) {
