@@ -7,7 +7,7 @@ export function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase URL and anonymous key must be defined in your environment variables.');
+    throw new Error('Supabase URL and anonymous key must be defined in your environment variables. Please check your .env.local file.');
   }
 
   return createBrowserClient(supabaseUrl, supabaseAnonKey);

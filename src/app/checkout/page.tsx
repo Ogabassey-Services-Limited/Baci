@@ -260,20 +260,20 @@ function CheckoutPageContent() {
   const { toast } = useToast();
   const { clearCart, cart, cartCount } = useCart();
   const [step, setStep] = useState(0); // 0: Auth, 1: Shipping, 2: Payment
-  const [isLoading, setIsLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [formIsLoading, setFormIsLoading] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const totalSteps = 2;
   const supabase = createClient();
 
   useEffect(() => {
     const checkUser = async () => {
-        setIsLoading(true);
         const { data } = await supabase.auth.getUser();
         if (data.user) {
             setUser(data.user);
             setStep(1); // User is logged in, skip to shipping
         }
-        setIsLoading(false);
+        setPageLoading(false);
     };
     checkUser();
   }, [supabase.auth]);
@@ -301,12 +301,20 @@ function CheckoutPageContent() {
 
   useEffect(() => {
     // Redirect if cart is empty after initial load
-    if (cartCount === 0 && !isLoading) {
+    if (cartCount === 0 && !pageLoading) {
       router.replace('/');
     }
-  }, [cartCount, isLoading, router]);
+  }, [cartCount, pageLoading, router]);
   
-  if (cartCount === 0 && !isLoading) {
+  if (pageLoading) {
+      return (
+          <div className="flex flex-1 items-center justify-center h-screen">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+      )
+  }
+
+  if (cartCount === 0) {
     return null;
   }
 
@@ -329,7 +337,7 @@ function CheckoutPageContent() {
   };
 
   const onSubmit = async (data: ShippingFormValues) => {
-    setIsLoading(true);
+    setFormIsLoading(true);
     
     await new Promise(resolve => setTimeout(resolve, 2000));
     
@@ -348,7 +356,7 @@ function CheckoutPageContent() {
     sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
 
     clearCart();
-    setIsLoading(false);
+    setFormIsLoading(false);
     
     router.push('/checkout/success');
   };
@@ -375,10 +383,10 @@ function CheckoutPageContent() {
             <FormProvider {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 
-                {isLoading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
-                {!isLoading && step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
-                {!isLoading && step === 1 && <Step1_Shipping />}
-                {!isLoading && step === 2 && <Step2_Payment />}
+                {formIsLoading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
+                {!formIsLoading && step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
+                {!formIsLoading && step === 1 && <Step1_Shipping />}
+                {!formIsLoading && step === 2 && <Step2_Payment />}
 
                 {step > 0 && (
                     <div className="flex justify-between pt-4">
@@ -394,9 +402,9 @@ function CheckoutPageContent() {
                             Continue to Payment
                             </ThemedButton>
                         ) : (
-                            <ThemedButton type="submit" colorRole="accent" disabled={isLoading}>
-                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isLoading ? 'Processing...' : 'Place Order'}
+                            <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading}>
+                            {formIsLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {formIsLoading ? 'Processing...' : 'Place Order'}
                             </ThemedButton>
                         )}
                     </div>
