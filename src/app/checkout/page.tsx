@@ -405,4 +405,26 @@ function CheckoutPageContent() {
                       <Button type="button" variant="outline" onClick={handlePrev}>
                         Previous
                       </Button>
-                      <ThemedButton type="submit" colorRole="accent" disabled={formIsL
+                      <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading}>
+                          {formIsLoading ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : 'Place Order' }
+                      </ThemedButton>
+                  </div>
+                </form>
+            )}
+          </CardContent>
+        </Card>
+        <OrderSummary />
+      </div>
+    </div>
+  );
+}
+
+export default function CheckoutPage() {
+    return (
+        <MerchantProvider>
+            <CheckoutPageContent />
+        </MerchantProvider>
+    )
+}
