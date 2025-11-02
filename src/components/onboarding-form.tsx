@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, Upload, CheckCircle, Copy } from 'lucide-react';
+import { Loader2, Sparkles, Upload, CheckCircle, Copy, Mail, KeyRound } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -31,7 +31,6 @@ import { cn } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
 import type { BrandColors } from '@/ai/flows/guide-business-onboarding';
 import { createClient } from '@/lib/supabase/client';
-import { useDebounce } from '@/hooks/use-debounce';
 import type { User } from '@supabase/supabase-js';
 
 // --- Zod Schema Definitions ---
@@ -39,7 +38,6 @@ import type { User } from '@supabase/supabase-js';
 const onboardingSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
   password: z.string().min(8, 'Password must be at least 8 characters.'),
-  confirmPassword: z.string().optional(),
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
@@ -52,15 +50,6 @@ const onboardingSchema = z.object({
   }, {
     message: "Please specify your business type with at least 2 characters.",
     path: ["otherBusinessType"],
-}).refine(data => {
-    // Only require password confirmation if it's being shown (sign-up mode)
-    if (data.confirmPassword !== undefined && data.password !== data.confirmPassword) {
-        return false;
-    }
-    return true;
-}, {
-    message: "Passwords do not match.",
-    path: ["confirmPassword"],
 });
 
 type OnboardingFormValues = z.infer<typeof onboardingSchema>;
@@ -79,144 +68,7 @@ function StepIndicator({ currentStep, totalSteps }: { currentStep: number, total
   );
 }
 
-function Step1_Email({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
-  const { control } = useFormContext<OnboardingFormValues>();
-  return (
-    <FormField
-      control={control}
-      name="email"
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel className="text-lg">What's your email address?</FormLabel>
-          <FormControl>
-            <Input type="email" placeholder="you@example.com" {...field} onKeyDown={onKeyDown} />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}
-
-function Step2_Password({ onAuthComplete, authMode, isCheckingEmail, setAuthMode }: { 
-    onAuthComplete: (user: User) => void;
-    authMode: 'unknown' | 'login' | 'signup';
-    isCheckingEmail: boolean;
-    setAuthMode: (mode: 'login' | 'signup') => void;
-}) {
-  const { control, getValues, trigger, formState } = useFormContext<OnboardingFormValues>();
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const { toast } = useToast();
-  const supabase = createClient();
-
-  const handleAuth = async () => {
-    const fieldsToValidate: (keyof OnboardingFormValues)[] = authMode === 'signup' ? ['password', 'confirmPassword'] : ['password'];
-    const isValid = await trigger(fieldsToValidate);
-    if (!isValid) return;
-
-    setIsAuthenticating(true);
-    const { email, password } = getValues();
-    try {
-        let authResponse;
-        if (authMode === 'login') {
-            authResponse = await supabase.auth.signInWithPassword({ email, password });
-        } else {
-            authResponse = await supabase.auth.signUp({ email, password });
-        }
-
-        if (authResponse.error) throw authResponse.error;
-        if (!authResponse.data.user) throw new Error("Authentication failed.");
-        
-        onAuthComplete(authResponse.data.user);
-
-    } catch (error) {
-        toast({ title: 'Authentication Failed', description: (error as Error).message, variant: 'destructive' });
-    } finally {
-        setIsAuthenticating(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAuth();
-    }
-  };
-
-  const email = getValues('email');
-  const debouncedEmail = useDebounce(email, 500);
-
-  useEffect(() => {
-    const checkEmail = async () => {
-        if (!debouncedEmail || !formState.isValid) return; // Only check valid emails
-        
-        const { data, error } = await supabase.rpc('user_exists', { p_email: debouncedEmail });
-
-        if (error) {
-            console.error('Error checking email:', error);
-            return;
-        }
-        setAuthMode(data ? 'login' : 'signup');
-    };
-    checkEmail();
-  }, [debouncedEmail, setAuthMode, supabase, formState.isValid]);
-  
-  return (
-    <div className="space-y-4">
-      <div>
-        <div className="flex items-center justify-between">
-          <FormLabel>Email</FormLabel>
-          {isCheckingEmail && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-        </div>
-        <Input value={email} disabled className="bg-muted" />
-        {authMode !== 'unknown' && !isCheckingEmail && (
-            <p className="text-sm text-muted-foreground mt-2 animate-fade-in">
-                {authMode === 'login' ? "Welcome back! Enter your password to continue." : "Looks like you're new here. Create a password to sign up."}
-            </p>
-        )}
-      </div>
-
-      <FormField
-        control={control}
-        name="password"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="text-lg">Password</FormLabel>
-            <FormControl>
-              <Input type="password" placeholder="Min. 8 characters" {...field} onKeyDown={handleKeyDown} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      {authMode === 'signup' && (
-         <div className="animate-fade-in">
-            <FormField
-                control={control}
-                name="confirmPassword"
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel className="text-lg">Confirm Password</FormLabel>
-                    <FormControl>
-                    <Input type="password" placeholder="Re-enter your password" {...field} onKeyDown={handleKeyDown} />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-                )}
-            />
-         </div>
-      )}
-
-      {/* This button is part of Step 2, but it triggers the actual auth and moves to step 3 */}
-      <Button type="button" onClick={handleAuth} disabled={isAuthenticating || authMode === 'unknown'}>
-          {isAuthenticating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Continue
-      </Button>
-    </div>
-  );
-}
-
-function Step3_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => void; }) {
+function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => void; }) {
   const { control, watch } = useFormContext<OnboardingFormValues>();
   const businessTypeValue = watch('businessType');
   const businessTypes = useMemo(() => getAllBusinessTypes(), []);
@@ -281,7 +133,7 @@ function Step3_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
 }
 
 
-function Step4_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }: { onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: BrandColors | null) => void; brandColors: BrandColors | null; onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
+function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }: { onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: BrandColors | null) => void; brandColors: BrandColors | null; onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
 
@@ -481,7 +333,48 @@ function Step4_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
   );
 }
 
-function Step5_Success({ businessName }: { businessName: string }) {
+function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
+  const { control } = useFormContext<OnboardingFormValues>();
+  return (
+    <div className='space-y-4'>
+       <h3 className="text-xl font-semibold text-center">Create your account</h3>
+        <FormField
+            control={control}
+            name="email"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Email Address</FormLabel>
+                <FormControl>
+                    <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input type="email" placeholder="you@example.com" {...field} onKeyDown={onKeyDown} className="pl-10" />
+                    </div>
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+        />
+        <FormField
+            control={control}
+            name="password"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                    <div className="relative">
+                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input type="password" placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10" />
+                    </div>
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+        />
+    </div>
+  );
+}
+
+function Step4_Success({ businessName }: { businessName: string }) {
   const router = useRouter();
   const { toast } = useToast();
   const storeUrl = `${businessName.toLowerCase().replace(/\s+/g, '-')}.baci.store`;
@@ -511,8 +404,7 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
   isLoading: boolean;
 }) {
   const isLastStep = currentStep === totalSteps;
-  if (currentStep === 2) return null; // Step 2 has its own 'Continue' button
-
+  
   return (
     <div className="flex justify-between pt-4">
       {currentStep > 1 ? (<Button type="button" variant="outline" onClick={onPrev} disabled={isLoading}>Previous</Button>) : <div />}
@@ -528,50 +420,67 @@ export default function OnboardingForm() {
   const [isPending, startTransition] = useTransition();
   const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
   const [brandColors, setBrandColors] = useState<BrandColors | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [authMode, setAuthMode] = useState<'unknown' | 'login' | 'signup'>('unknown');
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const { toast } = useToast();
-  const totalSteps = 4;
-  const form = useForm<OnboardingFormValues>({ resolver: zodResolver(onboardingSchema), defaultValues: { email: '', password: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' }, mode: 'onBlur' });
+  const router = useRouter();
+  const totalSteps = 3;
+
+  const form = useForm<OnboardingFormValues>({ 
+      resolver: zodResolver(onboardingSchema), 
+      defaultValues: { email: '', password: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
+      mode: 'onBlur' 
+  });
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
-    if (step === 1) fieldsToValidate = ['email'];
-    else if (step === 3) fieldsToValidate = ['businessName', 'businessType', 'otherBusinessType'];
+    if (step === 1) fieldsToValidate = ['businessName', 'businessType', 'otherBusinessType'];
     
     const isValid = await form.trigger(fieldsToValidate);
-    if (isValid) startTransition(() => setStep(s => s + 1));
+    if (isValid) {
+      if (step === 2 && !logoDataUri) {
+          toast({ title: 'Logo Required', description: 'Please upload or generate a logo to continue.', variant: 'destructive'});
+          return;
+      }
+      startTransition(() => setStep(s => s + 1));
+    }
   };
   const handlePrev = () => { if (step > 1) startTransition(() => setStep(s => s - 1)); };
-
-  const handleAuthComplete = (authedUser: User) => {
-    setUser(authedUser);
-    handleNext(); // Move to the next step
-  };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Step 2 has its own 'Continue' button logic inside the component.
-      // For other steps, we can call handleNext.
-      if (step !== 2) {
-        handleNext();
-      }
+      handleNext();
     }
   };
 
   const onSubmit = async (data: OnboardingFormValues) => {
     setIsLoading(true);
     try {
-      if (!user) throw new Error("User not authenticated.");
+      const { email, password } = data;
+
+      // 1. Create Supabase user
+      const supabase = createClient();
+      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+      if (authError) {
+          // Handle case where user might already exist
+          if (authError.message.includes('User already registered')) {
+              toast({ title: 'Sign-in Required', description: 'This email is already registered. Please sign in.', variant: 'default' });
+              const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+              if (signInError) throw signInError;
+              if (!signInData.user) throw new Error("Sign-in failed.");
+          } else {
+            throw authError;
+          }
+      }
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) throw new Error("Authentication failed.");
+
+      // 2. Save merchant data
       if (!logoDataUri || !brandColors) {
         toast({ title: 'Missing Information', description: 'Please upload or generate a logo and ensure brand colors are selected.', variant: 'destructive' });
         setIsLoading(false);
         return;
       }
       const finalBusinessType = data.businessType === 'other' ? (data.otherBusinessType || data.businessType) : data.businessType;
-      const supabase = createClient();
       const { error: merchantError } = await supabase.from('merchants').insert({
           user_id: user.id,
           email: data.email,
@@ -581,6 +490,7 @@ export default function OnboardingForm() {
           colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
         });
       if (merchantError) throw new Error(`Failed to save merchant data: ${merchantError.message}`);
+      
       toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
       startTransition(() => setStep(totalSteps + 1));
     } catch (e) {
@@ -591,7 +501,7 @@ export default function OnboardingForm() {
     }
   };
   
-  if (step > totalSteps) return <Step5_Success businessName={form.getValues('businessName')} />;
+  if (step > totalSteps) return <Step4_Success businessName={form.getValues('businessName')} />;
 
   return (
     <div className="space-y-8">
@@ -603,10 +513,9 @@ export default function OnboardingForm() {
       <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" aria-label="Store onboarding form">
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[150px]">
-            {step === 1 && <Step1_Email onKeyDown={handleKeyDown} />}
-            {step === 2 && <Step2_Password onAuthComplete={handleAuthComplete} authMode={authMode} setAuthMode={setAuthMode} isCheckingEmail={isCheckingEmail} />}
-            {step === 3 && <Step3_BusinessDetails onKeyDown={handleKeyDown} />}
-            {step === 4 && <Step4_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
+            {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
+            {step === 2 && <Step2_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
+            {step === 3 && <Step3_Account onKeyDown={handleKeyDown} />}
           </div>
           <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isLoading || isPending} />
         </form>
