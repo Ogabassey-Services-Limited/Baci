@@ -1,17 +1,8 @@
+
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import dynamic from 'next/dynamic';
-import { Loader2 } from 'lucide-react';
-
-const OnboardingForm = dynamic(() => import('@/components/onboarding-form'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex justify-center items-center h-[400px]">
-      <Loader2 className="h-8 w-8 animate-spin" />
-    </div>
-  ),
-});
+import OnboardingClient from '@/components/onboarding-client';
 
 
 export default function OnboardingPage() {
@@ -25,7 +16,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-2xl pt-16">
         <Card className="shadow-2xl">
           <CardContent className="p-8">
-            <OnboardingForm />
+            <OnboardingClient />
           </CardContent>
         </Card>
       </div>
