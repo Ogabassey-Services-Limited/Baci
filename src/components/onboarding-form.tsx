@@ -9,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import {
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -30,12 +31,12 @@ import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
 import type { BrandColors, GuideBusinessOnboardingInput } from '@/ai/flows/guide-business-onboarding';
-import { createClient } from '@/lib/supabase/client';
-import type { User } from '@supabase/supabase-js';
 import { PasswordStrengthIndicator, checkPasswordStrength } from '@/components/password-strength-indicator';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import Form from "next/form";
 import { useActionState } from 'react';
+import { submitOnboarding, type ServerActionState } from '@/app/onboarding/actions';
+
 
 // --- Zod Schema Definitions ---
 
@@ -63,76 +64,6 @@ const onboardingSchema = z.object({
 });
 
 type OnboardingFormValues = z.infer<typeof onboardingSchema>;
-
-type ServerActionState = {
-  message: string;
-  success: boolean;
-  businessName?: string;
-};
-
-// --- Server Action ---
-async function submitOnboarding(
-  prevState: ServerActionState,
-  formData: FormData
-): Promise<ServerActionState> {
-  'use server';
-
-  const supabase = createClient();
-  let user: User | null = null;
-  
-  const email = formData.get('email') as string;
-  const password = formData.get('password') as string;
-  const businessName = formData.get('businessName') as string;
-  const businessType = formData.get('businessType') as string;
-  const otherBusinessType = formData.get('otherBusinessType') as string | undefined;
-  const logoDataUri = formData.get('logoDataUri') as string | null;
-  const brandColorsString = formData.get('brandColors') as string | null;
-  
-  const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
-
-  try {
-    // 1. Create or sign in user
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
-    if (signUpError) {
-      if (signUpError.message.includes('User already registered')) {
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) throw signInError;
-        user = signInData.user;
-      } else {
-        throw signUpError;
-      }
-    } else {
-      user = signUpData.user;
-    }
-
-    if (!user) throw new Error("Authentication failed.");
-
-    // 2. Save merchant data
-    if (!logoDataUri || !brandColors) {
-      throw new Error('Missing branding information. Please ensure a logo is processed.');
-    }
-
-    const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
-
-    const { error: merchantError } = await supabase.from('merchants').upsert({
-      user_id: user.id,
-      email: email,
-      business_name: businessName,
-      business_type: finalBusinessType,
-      logo_url: logoDataUri,
-      colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
-    }, { onConflict: 'user_id' });
-
-    if (merchantError) {
-      throw new Error(`Failed to save merchant data: ${merchantError.message}`);
-    }
-
-    return { success: true, message: 'Store Created!', businessName };
-  } catch (e) {
-    logger.error({ message: "Onboarding submission failed.", error: e as Error });
-    return { success: false, message: (e as Error).message };
-  }
-}
 
 
 // --- Step Components ---
@@ -379,7 +310,7 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
             <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", logoPreview ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
             {logoPreview ? (
                 <>
-                <Image src={logoPreview} alt="Uploaded Logo Preview" layout="fill" style={{ objectFit: 'contain' }} className="rounded-md p-2" />
+                <Image src={logoPreview} alt="Uploaded Logo Preview" layout="fill" className="rounded-md p-2 object-contain" />
                 <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
                 </>
             ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p></>)}
@@ -563,7 +494,6 @@ export default function OnboardingForm() {
   const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
   const [brandColors, setBrandColors] = useState<BrandColors | null>(null);
   const { toast } = useToast();
-  const router = useRouter();
   const totalSteps = 3;
 
   const [state, formAction] = useActionState(submitOnboarding, { message: '', success: false });
