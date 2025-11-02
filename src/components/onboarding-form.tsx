@@ -299,17 +299,17 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
     { role: 'primary', color: brandColors.primary },
     { role: 'secondary', color: brandColors.secondary },
     { role: 'accent', color: brandColors.accent },
-  ] : [];
+] : [];
 
   return (
-    <div className='space-y-4'>
+    <div className='space-y-4' onKeyDown={onKeyDown} tabIndex={-1}>
       <FormLabel className="text-lg">Do you have a logo?</FormLabel>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
         <div className="space-y-2">
             <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", logoPreview ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
             {logoPreview ? (
                 <>
-                <Image src={logoPreview} alt="Uploaded Logo Preview" layout="fill" className="rounded-md p-2 object-contain" />
+                <Image src={logoPreview} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
                 <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
                 </>
             ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p></>)}
@@ -380,15 +380,15 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
 
   useEffect(() => {
     const checkEmail = async () => {
-        if (emailValue) {
-            const result = await z.string().email().safeParseAsync(emailValue);
-            setShowPasswordFields(result.success);
-        } else {
-            setShowPasswordFields(false);
-        }
+        const result = await trigger("email");
+        setShowPasswordFields(result);
     };
-    checkEmail();
-  }, [emailValue]);
+    if (emailValue) {
+        checkEmail();
+    } else {
+        setShowPasswordFields(false);
+    }
+  }, [emailValue, trigger]);
 
   return (
     <div className='space-y-4'>
@@ -564,12 +564,11 @@ export default function OnboardingForm() {
   };
 
   const handleFormAction = async () => {
-    const isValid = await trigger(['email', 'password', 'confirmPassword']);
+    const isValid = await trigger();
     if (!isValid) {
-        // Zod resolver will show the errors, but we can add a general toast.
         toast({
             title: 'Form is incomplete',
-            description: 'Please correct the errors before submitting.',
+            description: 'Please review all steps and correct any errors before submitting.',
             variant: 'destructive',
         });
         return;
