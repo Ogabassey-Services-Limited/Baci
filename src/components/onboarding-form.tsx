@@ -34,6 +34,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { PasswordStrengthIndicator, checkPasswordStrength } from '@/components/password-strength-indicator';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
+import Form from "next/form";
 
 // --- Zod Schema Definitions ---
 
@@ -63,17 +64,21 @@ const onboardingSchema = z.object({
 type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 
 // --- Server Action ---
-async function submitOnboarding(
-  formData: OnboardingFormValues,
-  logoDataUri: string | null,
-  brandColors: BrandColors | null
-) {
+async function submitOnboarding(formData: FormData) {
   'use server';
-  
+
   const supabase = createClient();
   let user: User | null = null;
   
-  const { email, password, businessName, businessType, otherBusinessType } = formData;
+  const email = formData.get('email') as string;
+  const password = formData.get('password') as string;
+  const businessName = formData.get('businessName') as string;
+  const businessType = formData.get('businessType') as string;
+  const otherBusinessType = formData.get('otherBusinessType') as string | undefined;
+  const logoDataUri = formData.get('logoDataUri') as string | null;
+  const brandColorsString = formData.get('brandColors') as string | null;
+  
+  const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
 
   // 1. Create or sign in user
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
@@ -576,10 +581,10 @@ export default function OnboardingForm() {
     }
   };
 
-  const handleFormSubmit = async (data: OnboardingFormValues) => {
+  const handleFormAction = async (formData: FormData) => {
     setIsLoading(true);
     try {
-        const result = await submitOnboarding(data, logoDataUri, brandColors);
+        const result = await submitOnboarding(formData);
         if (result.success) {
             toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
             startTransition(() => setStep(totalSteps + 1));
@@ -602,14 +607,16 @@ export default function OnboardingForm() {
       </header>
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
-        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6" aria-label="Store onboarding form">
+        <Form action={handleFormAction} aria-label="Store onboarding form">
+          {logoDataUri && <input type="hidden" name="logoDataUri" value={logoDataUri} />}
+          {brandColors && <input type="hidden" name="brandColors" value={JSON.stringify(brandColors)} />}
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
             {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
             {step === 2 && <Step2_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
             {step === 3 && <Step3_Account onKeyDown={handleKeyDown} />}
           </div>
           <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isLoading || isPending} />
-        </form>
+        </Form>
       </FormProvider>
     </div>
   );
