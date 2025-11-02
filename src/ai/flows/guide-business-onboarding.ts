@@ -25,8 +25,8 @@
  * @see /docs/adr/001-business-type-journey-architecture.md for business type architecture
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
+import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { getBusinessTypeById } from '@/config/business-types';
 
@@ -62,23 +62,34 @@ const GuideBusinessOnboardingOutputSchema = z.object({
 });
 export type GuideBusinessOnboardingOutput = z.infer<typeof GuideBusinessOnboardingOutputSchema>;
 
+const safetySettings = [
+  {
+    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+    threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
+  },
+  {
+    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+  },
+];
+
 /**
  * Main onboarding flow function - generates logo options or extracts colors.
  */
 export async function guideBusinessOnboarding(
   input: GuideBusinessOnboardingInput
 ): Promise<GuideBusinessOnboardingOutput> {
-  return guideBusinessOnboardingFlow(input);
-}
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings });
 
-
-const guideBusinessOnboardingFlow = ai.defineFlow(
-  {
-    name: 'guideBusinessOnboardingFlow',
-    inputSchema: GuideBusinessOnboardingInputSchema,
-    outputSchema: GuideBusinessOnboardingOutputSchema,
-  },
-  async input => {
     if (input.task === 'extract_colors') {
       if (!input.logoDataUri) {
         throw new Error('logoDataUri is required for color extraction.');
@@ -86,11 +97,14 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
       logger.info({ message: 'Extracting colors from logo.', flow: 'guideBusinessOnboardingFlow' });
 
       try {
-        const response = await ai.generate({
-          model: 'googleai/gemini-2.5-pro-image-preview',
-          prompt: [
-            {
-              text: `You are a professional brand designer analyzing a logo image.
+        const imagePart = {
+            inlineData: {
+                data: input.logoDataUri.split(',')[1],
+                mimeType: input.logoDataUri.split(';')[0].split(':')[1],
+            }
+        };
+        
+        const prompt = `You are a professional brand designer analyzing a logo image.
 
 TASK: Extract exactly 3 brand colors from this logo in hex format.
 
@@ -106,28 +120,22 @@ IMPORTANT:
 - Return colors as they appear in the logo, not imagined colors
 
 Return format (JSON only, no markdown):
-{"primary": "#XXXXXX", "secondary": "#XXXXXX", "accent": "#XXXXXX"}`,
-            },
-            {
-              media: {
-                url: input.logoDataUri,
-              },
-            },
-          ],
-        });
+{"primary": "#XXXXXX", "secondary": "#XXXXXX", "accent": "#XXXXXX"}`;
 
-        logger.info({ message: 'Raw AI response', response: response.text });
+        const result = await model.generateContent([prompt, imagePart]);
+        const response = result.response;
+        const text = response.text();
 
-        const jsonText = response.text?.trim().replace(/```json|```/g, '').trim();
+        logger.info({ message: 'Raw AI response for color extraction', response: text });
+
+        const jsonText = text.trim().replace(/```json|```/g, '').trim();
         if (!jsonText) {
           throw new Error('AI did not return any text for color extraction.');
         }
 
-        logger.info({ message: 'Cleaned JSON text', jsonText });
+        logger.info({ message: 'Cleaned JSON text for color extraction', jsonText });
 
         const colors = JSON.parse(jsonText);
-
-        // Validate with Zod schema
         const validatedColors = BrandColorsSchema.parse(colors);
 
         logger.info({ message: 'Colors extracted successfully', colors: validatedColors });
@@ -145,42 +153,31 @@ Return format (JSON only, no markdown):
       const businessTypeConfig = getBusinessTypeById(input.businessType);
       const logoStyle = businessTypeConfig?.journey.onboarding.logoStyle || 'simple, modern, and professional';
 
-      const response = await ai.generate({
-          model: 'googleai/gemini-2.5-pro-image-preview',
-          prompt: [
-              {
-              text: `Generate 4 unique logo options for a business named "${input.businessName}".
+      const prompt = `Generate 4 unique logo options for a business named "${input.businessName}".
 The business is in the "${input.businessType}" sector.
 The user's favorite color is "${input.brandPreferences}".
 
 LOGO STYLE GUIDANCE: ${logoStyle}
 
 The logos must be visually distinct but adhere to the same style guidance. They should be suitable for a modern e-commerce brand.
-Return 4 images. Do not return any text or JSON, only the raw image outputs.`,
-              },
-          ],
-          config: {
-              responseModalities: ['IMAGE'],
-              candidates: 4,
-          },
-      });
+Return 4 images. Do not return any text or JSON, only the raw image outputs.`;
 
-      const media = response.media;
+      const result = await model.generateContent([prompt]);
+      const response = result.response;
+      
+      const logos: string[] = response.candidates
+        ?.flatMap(candidate => candidate.content.parts)
+        .filter(part => part.inlineData)
+        .map(part => `data:${part.inlineData!.mimeType};base64,${part.inlineData!.data}`) || [];
 
-      // Handle both single media object and array
-      const mediaArray = Array.isArray(media) ? media : (media ? [media] : []);
-
-      if (mediaArray.length < 4) {
+      if (logos.length < 4) {
         const error = new Error('AI failed to generate 4 logo options.');
-        logger.error({ error, message: 'Logo generation failed to produce enough candidates.', flow: 'guideBusinessOnboardingFlow', mediaCount: mediaArray.length, input });
+        logger.error({ error, message: 'Logo generation failed to produce enough candidates.', flow: 'guideBusinessOnboardingFlow', mediaCount: logos.length, input });
         throw error;
       }
 
-      return {
-        logos: mediaArray.map(m => m.url!),
-      };
+      return { logos };
     }
     
     throw new Error('Invalid task provided to guideBusinessOnboardingFlow.');
-  }
-);
+}

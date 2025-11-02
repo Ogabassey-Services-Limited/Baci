@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -15,38 +16,17 @@
  * - enhanceProductImage - Main flow function
  * - EnhanceProductImageInput - Input type definition
  * - EnhanceProductImageOutput - Output type definition
- *
- * @aiContext When modifying this flow:
- * 1. DO NOT change input/output schemas without updating callers in product form
- * 2. Prompt is at lines 48-49 - edit here to change enhancement style
- * 3. MUST use responseModalities: ['IMAGE'] - The new models work best this way.
- * 4. Test with various image sizes and formats (JPEG, PNG, WebP)
- * 5. Consider optimization: large data URIs are memory-intensive
- *
- * @knownIssues
- * - Large images cause memory issues due to data URI size
- * - No preview/loading indicator during enhancement (takes 5-15 seconds)
- * - No manual adjustment controls (brightness, contrast, etc.)
- *
- * @futureWork
- * - Upload to Firebase Storage first, pass URLs instead of data URIs
- * - Add user controls for enhancement settings
- * - Show preview before applying enhancement
- * - Support batch enhancement for multiple images
- * - Compress images before sending to AI
- *
- * @see /src/app/dashboard/products/add/add-product-form.tsx:90 - Auto-called on image upload
- * @see /src/ai/flows/_AI_README.md for detailed flow documentation
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { GoogleGenAI } from '@google/genai';
+import { z } from 'zod';
+import { logger } from '@/lib/logger';
 
 const EnhanceProductImageInputSchema = z.object({
   photoDataUri: z
     .string()
     .describe(
-      "A photo of a product, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'" // Corrected the expected format description
+      "A photo of a product, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'"
     ),
 });
 export type EnhanceProductImageInput = z.infer<typeof EnhanceProductImageInputSchema>;
@@ -58,74 +38,38 @@ const EnhanceProductImageOutputSchema = z.object({
 });
 export type EnhanceProductImageOutput = z.infer<typeof EnhanceProductImageOutputSchema>;
 
-/**
- * Enhances product images with AI - removes background and improves lighting
- *
- * @param input - Image enhancement input data
- * @param input.photoDataUri - Product photo as data URI (e.g., data:image/jpeg;base64,...)
- *
- * @returns Promise<EnhanceProductImageOutput>
- * @returns output.enhancedPhotoDataUri - Enhanced product photo with transparent background and studio lighting
- *
- * @throws {Error} When no media is returned from AI model
- * @throws {Error} When AI generation fails
- *
- * @example
- * // In product form, automatically called on image upload
- * const file = event.target.files[0];
- * const reader = new FileReader();
- * reader.onload = async () => {
- *   const dataUri = reader.result as string;
- *
- *   const result = await enhanceProductImage({
- *     photoDataUri: dataUri
- *   });
- *
- *   // Display enhanced version
- *   setEnhancedImage(result.enhancedPhotoDataUri);
- * };
- * reader.readAsDataURL(file);
- *
- * @aiContext
- * - Enhancement includes: background removal (transparent), studio lighting adjustment
- * - Processing takes 5-15 seconds depending on image size
- * - Data URIs can be very large (several MB for high-res images)
- * - Model: gemini-2.5-pro-image-preview (image generation capabilities)
- * - Product form shows toggle switch to compare original vs enhanced
- */
 export async function enhanceProductImage(
   input: EnhanceProductImageInput
 ): Promise<EnhanceProductImageOutput> {
-  return enhanceProductImageFlow(input);
-}
+  try {
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-const enhanceProductImageFlow = ai.defineFlow(
-  {
-    name: 'enhanceProductImageFlow',
-    inputSchema: EnhanceProductImageInputSchema,
-    outputSchema: EnhanceProductImageOutputSchema,
-  },
-  async input => {
-    const {media} = await ai.generate({
-      model: 'googleai/gemini-2.5-pro-image-preview',
-      prompt: [
-        {media: {url: input.photoDataUri}},
-        {
-          text: 'The user has uploaded an image of a product for their e-commerce store. Your task is to professionally enhance this image. Isolate the main product by removing the background and making it transparent. Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out. Return only the enhanced image.',
-        },
-      ],
-      config: {
-        responseModalities: ['IMAGE'],
-      },
-    });
-    if (!media) {
-      throw new Error('no media returned');
+    const imagePart = {
+        inlineData: {
+            data: input.photoDataUri.split(',')[1],
+            mimeType: input.photoDataUri.split(';')[0].split(':')[1],
+        }
     }
-    // Handle both single and array of media objects
-    const mediaUrl = Array.isArray(media) ? media[0]?.url : media.url;
-    if (!mediaUrl) {
-      throw new Error('no media URL found in the response');
+
+    const prompt = 'The user has uploaded an image of a product for their e-commerce store. Your task is to professionally enhance this image. Isolate the main product by removing the background and making it transparent. Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out. Return only the enhanced image.';
+    
+    const result = await model.generateContent([prompt, imagePart]);
+    const response = result.response;
+    
+    // Assuming the model returns the image in the first part of the response
+    const image = response.candidates?.[0]?.content.parts.find(part => part.inlineData);
+    
+    if (!image || !image.inlineData) {
+        throw new Error('AI did not return an enhanced image.');
     }
-    return {enhancedPhotoDataUri: mediaUrl};
+
+    const enhancedPhotoDataUri = `data:${image.inlineData.mimeType};base64,${image.inlineData.data}`;
+    
+    return { enhancedPhotoDataUri };
+
+  } catch (error) {
+    logger.error({ message: 'Image enhancement flow failed', error });
+    throw new Error('Failed to enhance product image.');
   }
-);
+}
