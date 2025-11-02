@@ -26,9 +26,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Optimize bundle size
+  // Optimize bundle size and enable React Compiler
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    reactCompiler: true, // Enable the React Compiler
   },
   // Reduce bundle size
   compiler: {

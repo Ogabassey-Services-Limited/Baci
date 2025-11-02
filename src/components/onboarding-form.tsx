@@ -33,7 +33,6 @@ import { getAllBusinessTypes } from '@/config/business-types';
 import type { BrandColors, GuideBusinessOnboardingInput } from '@/ai/flows/guide-business-onboarding';
 import { PasswordStrengthIndicator, checkPasswordStrength } from '@/components/password-strength-indicator';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
-import Form from "next/form";
 import { useActionState } from 'react';
 import { submitOnboarding, type ServerActionState } from '@/app/onboarding/actions';
 
@@ -490,7 +489,6 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
 // --- Main Form Component ---
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
-  const [isPending, startTransition] = useTransition();
   const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
   const [brandColors, setBrandColors] = useState<BrandColors | null>(null);
   const { toast } = useToast();
@@ -507,7 +505,7 @@ export default function OnboardingForm() {
   useEffect(() => {
     if (state.success && state.businessName) {
       toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
-      startTransition(() => setStep(totalSteps + 1));
+      setStep(totalSteps + 1);
     } else if (!state.success && state.message) {
       toast({ title: 'Onboarding Failed', description: state.message, variant: 'destructive' });
     }
@@ -524,10 +522,10 @@ export default function OnboardingForm() {
           toast({ title: 'Logo Required', description: 'Please upload or generate a logo to continue.', variant: 'destructive'});
           return;
       }
-      startTransition(() => setStep(s => s + 1));
+      setStep(s => s + 1);
     }
   };
-  const handlePrev = () => { if (step > 1) startTransition(() => setStep(s => s - 1)); };
+  const handlePrev = () => { if (step > 1) setStep(s => s - 1); };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => {
     if (e.key === 'Enter') {
@@ -546,7 +544,7 @@ export default function OnboardingForm() {
       </header>
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
-        <Form action={formAction} aria-label="Store onboarding form">
+        <form action={formAction} aria-label="Store onboarding form">
           {logoDataUri && <input type="hidden" name="logoDataUri" value={logoDataUri} />}
           {brandColors && <input type="hidden" name="brandColors" value={JSON.stringify(brandColors)} />}
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
@@ -554,8 +552,8 @@ export default function OnboardingForm() {
             {step === 2 && <Step2_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
             {step === 3 && <Step3_Account onKeyDown={handleKeyDown} />}
           </div>
-          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending} />
-        </Form>
+          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={state.success === false && state.message !== ''} />
+        </form>
       </FormProvider>
     </div>
   );
