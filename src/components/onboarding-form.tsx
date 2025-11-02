@@ -56,7 +56,13 @@ const onboardingSchema = z.object({
     message: "Please specify your business type with at least 2 characters.",
     path: ["otherBusinessType"],
 })
-.refine(data => data.password === data.confirmPassword, {
+.refine(data => {
+    // Only require passwords to match if the password is long enough to need confirmation
+    if (data.password && data.password.length >= 8) {
+        return data.password === data.confirmPassword;
+    }
+    return true;
+}, {
     message: "Passwords do not match.",
     path: ["confirmPassword"],
 });
@@ -372,7 +378,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
   const passwordStrength = useMemo(() => checkPasswordStrength(passwordValue || ''), [passwordValue]);
   
   const isEmailValid = emailValue && !errors.email;
-  const isPasswordStrong = passwordStrength >= 3;
+  const isPasswordMinLength = (passwordValue?.length ?? 0) >= 8;
 
   return (
     <div className='space-y-4'>
@@ -417,7 +423,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
                     )}
                 />
 
-                {isPasswordStrong && (
+                {isPasswordMinLength && (
                     <FormField
                         control={control}
                         name="confirmPassword"
