@@ -31,18 +31,27 @@ export async function submitOnboarding(
 
   try {
     // 1. Create or sign in user
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
-    if (signUpError) {
-      if (signUpError.message.includes('User already registered')) {
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) throw signInError;
-        user = signInData.user;
-      } else {
-        throw signUpError;
-      }
+    // First, try to sign in the user. If they don't exist, Supabase will error,
+    // and we can then proceed to sign them up.
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (signInError) {
+        if (signInError.message.includes('Invalid login credentials')) {
+            // User does not exist, so sign them up.
+            const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+            if (signUpError) {
+                // If sign-up also fails (e.g., weak password), throw the error.
+                throw signUpError;
+            }
+            user = signUpData.user;
+        } else {
+            // Another sign-in error occurred.
+            throw signInError;
+        }
     } else {
-      user = signUpData.user;
+        user = signInData.user;
     }
+
 
     if (!user) throw new Error("Authentication failed.");
 

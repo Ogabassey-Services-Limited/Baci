@@ -532,8 +532,23 @@ export default function OnboardingForm() {
     }
   };
 
-  const handleFormAction = async (formData: FormData) => {
+  const handleFormAction = async () => {
+    const isValid = await form.trigger();
+    if (!isValid) {
+        toast({ title: 'Form is incomplete', description: 'Please fill out all required fields.', variant: 'destructive' });
+        return;
+    }
     setIsLoading(true);
+    const formData = new FormData();
+    const formValues = form.getValues();
+    Object.entries(formValues).forEach(([key, value]) => {
+        if (value) {
+            formData.append(key, value);
+        }
+    });
+    if (logoDataUri) formData.append('logoDataUri', logoDataUri);
+    if (brandColors) formData.append('brandColors', JSON.stringify(brandColors));
+
     const result = await submitOnboarding(submissionState, formData);
     setSubmissionState(result);
   };
@@ -548,9 +563,7 @@ export default function OnboardingForm() {
       </header>
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
-        <form action={handleFormAction} aria-label="Store onboarding form">
-          {logoDataUri && <input type="hidden" name="logoDataUri" value={logoDataUri} />}
-          {brandColors && <input type="hidden" name="brandColors" value={JSON.stringify(brandColors)} />}
+        <form action={handleFormAction} aria-label="Store onboarding form" noValidate>
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
             {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
             {step === 2 && <Step2_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
@@ -562,7 +575,3 @@ export default function OnboardingForm() {
     </div>
   );
 }
-
-    
-
-    
