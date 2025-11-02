@@ -90,7 +90,7 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
                                 <FormControl>
                                     <div className="relative">
                                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                        <ThemedInput type="email" placeholder="you@example.com" {...field} className="pl-10" />
+                                        <ThemedInput type="email" placeholder="you@example.com" {...field} className="pl-10" id="email" name="email" autoComplete="email" />
                                     </div>
                                 </FormControl>
                                 <FormMessage />
@@ -106,7 +106,7 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
                                 <FormControl>
                                     <div className="relative">
                                         <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                        <ThemedInput type="password" {...field} className="pl-10" />
+                                        <ThemedInput type="password" {...field} className="pl-10" id="password" name="password" autoComplete={isLogin ? "current-password" : "new-password"} />
                                     </div>
                                 </FormControl>
                                 <FormMessage />
@@ -143,7 +143,7 @@ function Step1_Shipping() {
                     <FormControl>
                     <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <ThemedInput placeholder="John" {...field} className="pl-10" />
+                        <ThemedInput placeholder="John" {...field} className="pl-10" id="firstName" name="firstName" autoComplete="given-name" />
                     </div>
                     </FormControl>
                     <FormMessage />
@@ -159,7 +159,7 @@ function Step1_Shipping() {
                     <FormControl>
                     <div className="relative">
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <ThemedInput placeholder="Doe" {...field} className="pl-10" />
+                        <ThemedInput placeholder="Doe" {...field} className="pl-10" id="lastName" name="lastName" autoComplete="family-name" />
                     </div>
                     </FormControl>
                     <FormMessage />
@@ -176,7 +176,7 @@ function Step1_Shipping() {
             <FormControl>
                <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <ThemedInput type="email" placeholder="you@example.com" {...field} className="pl-10" />
+                <ThemedInput type="email" placeholder="you@example.com" {...field} className="pl-10" id="shipping-email" name="shipping-email" autoComplete="email" />
               </div>
             </FormControl>
             <FormMessage />
@@ -192,7 +192,7 @@ function Step1_Shipping() {
             <FormControl>
                <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <ThemedInput type="tel" placeholder="+1 (555) 123-4567" {...field} className="pl-10" />
+                <ThemedInput type="tel" placeholder="+1 (555) 123-4567" {...field} className="pl-10" id="phone" name="phone" autoComplete="tel" />
               </div>
             </FormControl>
             <FormMessage />
@@ -208,7 +208,7 @@ function Step1_Shipping() {
             <FormItem>
               <FormLabel>City</FormLabel>
               <FormControl>
-                <ThemedInput placeholder="San Francisco" {...field} />
+                <ThemedInput placeholder="San Francisco" {...field} id="city" name="city" autoComplete="address-level2" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -221,7 +221,7 @@ function Step1_Shipping() {
             <FormItem>
               <FormLabel>State / Province</FormLabel>
               <FormControl>
-                <ThemedInput placeholder="California" {...field} />
+                <ThemedInput placeholder="California" {...field} id="state" name="state" autoComplete="address-level1" />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -95,7 +96,7 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
           <FormItem>
             <FormLabel className="text-lg">What is your business name?</FormLabel>
             <FormControl>
-              <Input placeholder="e.g., Amara's Fashion" {...field} onKeyDown={onKeyDown} />
+              <Input placeholder="e.g., Amara's Fashion" {...field} onKeyDown={onKeyDown} id="businessName" name="businessName" autoComplete="organization" />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -107,9 +108,9 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
         render={({ field }) => (
           <FormItem>
             <FormLabel className="text-lg">What's the nature of your business?</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <Select onValueChange={field.onChange} defaultValue={field.value} name="businessType" >
               <FormControl>
-                <SelectTrigger onKeyDown={onKeyDown}>
+                <SelectTrigger onKeyDown={onKeyDown} id="businessType" >
                   <SelectValue placeholder="e.g., Fashion, Electronics, Art..." />
                 </SelectTrigger>
               </FormControl>
@@ -134,7 +135,7 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
             <FormItem>
               <FormLabel>Please specify</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Pet Services" {...field} value={field.value || ''} onKeyDown={onKeyDown} />
+                <Input placeholder="e.g., Pet Services" {...field} value={field.value || ''} onKeyDown={onKeyDown} id="otherBusinessType" name="otherBusinessType" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -269,7 +270,7 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
     { role: 'accent', color: brandColors.accent },
 ] : [];
 
-  return (
+return (
     <div className='space-y-4'>
       <FormLabel className="text-lg">Do you have a logo?</FormLabel>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
@@ -309,7 +310,7 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
               <FormField control={form.control} name="brandPreferences" render={({ field }) => (
                   <FormItem>
                     <FormLabel>What's your favorite color?</FormLabel>
-                    <Input {...field} placeholder="e.g., 'deep ocean blue'" onKeyDown={handlePreferenceKeyDown} />
+                    <Input {...field} placeholder="e.g., 'deep ocean blue'" onKeyDown={handlePreferenceKeyDown} id="brandPreferences" name="brandPreferences" />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -343,7 +344,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
   const passwordStrength = useMemo(() => checkPasswordStrength(passwordValue || ''), [passwordValue]);
   
   const showPasswordFields = useMemo(() => {
-      return !!emailValue && !errors.email;
+    return !!emailValue && !errors.email;
   }, [emailValue, errors.email]);
 
   const isPasswordStrong = passwordStrength >= 3;
@@ -360,7 +361,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
                 <FormControl>
                     <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input type="email" placeholder="you@example.com" {...field} onKeyDown={onKeyDown} className="pl-10" />
+                        <Input type="email" placeholder="you@example.com" {...field} onKeyDown={onKeyDown} className="pl-10" id="email" name="email" autoComplete="email" />
                     </div>
                 </FormControl>
                 <FormMessage />
@@ -379,7 +380,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
                     <FormControl>
                         <div className="relative">
                             <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" />
+                            <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" id="password" name="password" autoComplete="new-password" />
                             <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
                                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </Button>
@@ -401,7 +402,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
                         <FormControl>
                             <div className="relative">
                                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} value={field.value || ''} onKeyDown={onKeyDown} className="pl-10 pr-10" />
+                                <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} value={field.value || ''} onKeyDown={onKeyDown} className="pl-10 pr-10" id="confirmPassword" name="confirmPassword" autoComplete="new-password" />
                                 <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </Button>
@@ -470,7 +471,7 @@ export default function OnboardingForm() {
   const form = useForm<OnboardingFormValues>({ 
       resolver: zodResolver(onboardingSchema),
       mode: 'onBlur',
-      shouldUnregister: false, // Keep data from previous steps
+      shouldUnregister: false,
       defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
   });
   
@@ -491,19 +492,13 @@ export default function OnboardingForm() {
   const handleNext = async () => {
     let isValid = false;
     if (step === 1) {
-        const fieldsToValidate: (keyof OnboardingFormValues)[] = ['businessName', 'businessType'];
-        if (getValues('businessType') === 'other') {
-            fieldsToValidate.push('otherBusinessType');
-        }
-        isValid = await trigger(fieldsToValidate);
+        isValid = await trigger(['businessName', 'businessType', 'otherBusinessType']);
     } else if (step === 2) {
         if (logoDataUri && brandColors) {
             isValid = true;
         } else {
             toast({ title: 'Branding Incomplete', description: 'Please upload or generate a logo to proceed.', variant: 'destructive' });
         }
-    } else if (step === 3) {
-       isValid = await trigger(['email', 'password', 'confirmPassword']);
     }
     
     if (isValid) {
@@ -525,6 +520,12 @@ export default function OnboardingForm() {
   };
 
   const handleFormAction = async (formData: FormData) => {
+    const isValid = await trigger();
+    if (!isValid) {
+        toast({ title: 'Form is incomplete', description: 'Please fill out all required fields.', variant: 'destructive'});
+        return;
+    }
+
     setIsLoading(true);
 
     if (logoDataUri) formData.append('logoDataUri', logoDataUri);

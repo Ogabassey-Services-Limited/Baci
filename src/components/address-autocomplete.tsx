@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -78,7 +79,10 @@ export function AddressAutocomplete() {
                 <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
                 <ThemedInput 
                   placeholder="123 Main St" 
-                  {...field} 
+                  {...field}
+                  id="address"
+                  name="address"
+                  autoComplete="street-address"
                   ref={inputRef} 
                   className="pl-10"
                   onChange={(e) => {
