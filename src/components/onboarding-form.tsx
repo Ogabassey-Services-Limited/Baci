@@ -128,7 +128,7 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
             <FormItem>
               <FormLabel>Please specify</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Pet Services" {...field} onKeyDown={onKeyDown} />
+                <Input placeholder="e.g., Pet Services" {...field} value={field.value || ''} onKeyDown={onKeyDown} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -405,7 +405,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
                             <FormControl>
                                 <div className="relative">
                                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" />
+                                    <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} value={field.value || ''} onKeyDown={onKeyDown} className="pl-10 pr-10" />
                                     <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                                         {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                     </Button>
@@ -474,7 +474,7 @@ export default function OnboardingForm() {
 
   const form = useForm<OnboardingFormValues>({ 
       resolver: zodResolver(onboardingSchema), 
-      defaultValues: { email: '', password: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
+      defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
       mode: 'onBlur' 
   });
 
