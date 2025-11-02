@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
@@ -369,9 +369,10 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
 }
 
 function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
-  const { control, watch, formState: { errors }, trigger } = useFormContext<OnboardingFormValues>();
+  const { control, watch, trigger } = useFormContext<OnboardingFormValues>();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   const emailValue = watch('email');
   const passwordValue = watch('password');
@@ -386,7 +387,9 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
     };
 
     if (emailValue) {
-      checkEmail();
+       startTransition(() => {
+        checkEmail();
+      });
     } else {
       setIsEmailValid(false);
     }
@@ -535,8 +538,6 @@ export default function OnboardingForm() {
       fieldsToValidate = ['businessName', 'businessType', 'otherBusinessType'];
     } else if (step === 2) {
       // Step 2 validation is handled separately due to logo requirement
-    } else if (step === 3) {
-      fieldsToValidate = ['email', 'password', 'confirmPassword'];
     }
     
     if (fieldsToValidate.length > 0) {
@@ -565,9 +566,9 @@ export default function OnboardingForm() {
   };
 
   const handleFormAction = async () => {
-    const isValid = await form.trigger();
+    const isValid = await form.trigger(['email', 'password', 'confirmPassword']);
     if (!isValid) {
-        toast({ title: 'Form is incomplete', description: 'Please fill out all required fields.', variant: 'destructive' });
+        toast({ title: 'Form is incomplete', description: 'Please fill out all required account fields.', variant: 'destructive' });
         return;
     }
     setIsLoading(true);
@@ -607,3 +608,5 @@ export default function OnboardingForm() {
     </div>
   );
 }
+
+    
