@@ -1,3 +1,4 @@
+
 /**
  * Themed Components Library
  *
@@ -6,7 +7,7 @@
  *
  * @example
  * ```tsx
- * import { ThemedButton, ThemedCard, ThemedBadge, ThemedInput } from '@/components/themed';
+ * import { ThemedButton, ThemedCard, ThemedBadge, ThemedInput, ThemedLink } from '@/components/themed';
  *
  * <ThemedCard accentPosition="top">
  *   <h2>Featured Product</h2>
@@ -17,8 +18,8 @@
  * ```
  */
 
-export { ThemedButton } from '../themed-button';
-export { ThemedCard } from '../themed-card';
-export { ThemedBadge } from '../themed-badge';
-export { ThemedLink } from '../themed-link';
-export { ThemedInput } from '../themed-input';
+export { ThemedButton } from './themed-button';
+export { ThemedCard } from './themed-card';
+export { ThemedBadge } from './themed-badge';
+export { ThemedLink } from './themed-link';
+export { ThemedInput } from './themed-input';

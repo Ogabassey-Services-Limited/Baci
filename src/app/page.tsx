@@ -2,7 +2,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { ThemedButton, ThemedCard } from '@/components/themed';
+import { ThemedButton, ThemedCard, ThemedBadge, ThemedLink } from '@/components/themed';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -17,8 +17,7 @@ import { useState, useMemo } from 'react';
 import Fuse from 'fuse.js';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
-import { getContrastingTextColor, findDarkestColor } from '@/lib/color-utils';
+import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
 
@@ -101,18 +100,7 @@ function Storefront() {
 
 
   return (
-     <div
-      className="flex flex-col min-h-screen"
-      style={{
-        // @ts-ignore - Define CSS variables at root for all children including Sheet
-        '--store-primary': merchant.colors?.primary || '#3F51B5',
-        '--store-secondary': merchant.colors?.secondary || '#9C27B0',
-        '--store-accent': merchant.colors?.accent || '#FFC107',
-        '--store-primary-text': getContrastingTextColor(merchant.colors?.primary || '#3F51B5'),
-        '--store-secondary-text': getContrastingTextColor(merchant.colors?.secondary || '#9C27B0'),
-        '--store-accent-text': getContrastingTextColor(merchant.colors?.accent || '#FFC107'),
-      }}
-     >
+     <div className="flex flex-col min-h-screen">
       <Sheet>
        <header className="px-4 lg:px-6 h-16 flex items-center gap-4 shadow-sm bg-card">
          <div className="flex items-center gap-2 font-semibold">
@@ -144,7 +132,7 @@ function Storefront() {
             <SheetTrigger asChild>
                 <Button variant="outline" size="icon" className="relative h-10 w-10">
                     <ShoppingBag className="w-5 h-5"/>
-                    {cartCount > 0 && <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 text-xs justify-center rounded-full p-0">{cartCount}</Badge>}
+                    {cartCount > 0 && <ThemedBadge colorRole="accent" variant="default" className="absolute -top-1 -right-1 h-5 w-5 text-xs justify-center rounded-full p-0">{cartCount}</ThemedBadge>}
                     <span className="sr-only">Cart</span>
                 </Button>
             </SheetTrigger>
@@ -247,9 +235,9 @@ function Storefront() {
                         <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
                         <nav className="grid grid-cols-2 gap-2">
                           {availableFooterLinks.map((link) => (
-                            <Link key={link.key} className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100" href={`/pages/${link.key}`}>
+                            <ThemedLink key={link.key} className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100" href={`/pages/${link.key}`}>
                                 {link.label}
-                            </Link>
+                            </ThemedLink>
                           ))}
                         </nav>
                     </div>

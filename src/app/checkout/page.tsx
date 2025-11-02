@@ -89,7 +89,7 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
                                 <FormLabel>Email</FormLabel>
                                 <FormControl>
                                     <div className="relative">
-                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                         <ThemedInput type="email" placeholder="you@example.com" {...field} className="pl-10" />
                                     </div>
                                 </FormControl>
@@ -105,7 +105,7 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
                                 <FormLabel>Password</FormLabel>
                                 <FormControl>
                                     <div className="relative">
-                                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                         <ThemedInput type="password" {...field} className="pl-10" />
                                     </div>
                                 </FormControl>
@@ -142,7 +142,7 @@ function Step1_Shipping() {
                     <FormLabel>First Name</FormLabel>
                     <FormControl>
                     <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <ThemedInput placeholder="John" {...field} className="pl-10" />
                     </div>
                     </FormControl>
@@ -158,7 +158,7 @@ function Step1_Shipping() {
                     <FormLabel>Last Name (Surname)</FormLabel>
                     <FormControl>
                     <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <ThemedInput placeholder="Doe" {...field} className="pl-10" />
                     </div>
                     </FormControl>
@@ -175,7 +175,7 @@ function Step1_Shipping() {
             <FormLabel>Email</FormLabel>
             <FormControl>
                <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <ThemedInput type="email" placeholder="you@example.com" {...field} className="pl-10" />
               </div>
             </FormControl>
@@ -191,7 +191,7 @@ function Step1_Shipping() {
             <FormLabel>Phone Number</FormLabel>
             <FormControl>
                <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <ThemedInput type="tel" placeholder="+1 (555) 123-4567" {...field} className="pl-10" />
               </div>
             </FormControl>

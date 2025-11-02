@@ -1,3 +1,4 @@
+
 # Template Creation Guide
 
 This guide shows developers how to create new custom templates for the Baci e-commerce platform.
@@ -16,16 +17,16 @@ This guide shows developers how to create new custom templates for the Baci e-co
 
 Creating a new template takes **5 minutes**:
 
-1. Create template component in `/src/templates/`
-2. Register in `/src/config/business-types.ts`
-3. Add custom styles in `/src/app/globals.css` (optional)
-4. Test with different business types
+1. Create a new template component in `/src/templates/`.
+2. Register it in `/src/config/business-types.ts`.
+3. Add any optional, template-specific styles to `/src/app/globals.css`.
+4. Test with different business types and brand colors.
 
 ---
 
 ## Template Anatomy
 
-A template is a React component that wraps storefront content with custom layouts and styling.
+A template is a React component that wraps the main storefront content (`children`) with custom layouts, styles, and decorative elements.
 
 ### Minimal Template
 
@@ -34,28 +35,29 @@ A template is a React component that wraps storefront content with custom layout
 export function MyTemplate({ children }: { children: React.ReactNode }) {
   return (
     <div className="template-my-custom">
+      {/* The main content of the storefront will be rendered here */}
       {children}
     </div>
   );
 }
 ```
 
-### Template with Layout
+### Template with Custom Layout
 
 ```tsx
 // /src/templates/my-template.tsx
 export function MyTemplate({ children }: { children: React.ReactNode }) {
   return (
     <div className="template-my-custom">
-      {/* Custom header decoration */}
+      {/* Custom header decoration using the merchant's primary color */}
       <div className="bg-gradient-to-b from-[var(--store-primary)] to-transparent h-32 -mb-32" />
 
-      {/* Main content */}
+      {/* Main content with relative positioning to appear above decoration */}
       <div className="relative z-10">
         {children}
       </div>
 
-      {/* Custom footer decoration */}
+      {/* Custom footer decoration using the merchant's accent color */}
       <div className="mt-8 border-t-2 border-[var(--store-accent)]" />
     </div>
   );
@@ -68,22 +70,22 @@ export function MyTemplate({ children }: { children: React.ReactNode }) {
 
 ### Step 1: Create Template File
 
-Create a new file in `/src/templates/`:
+Create a new file in `/src/templates/`, for example `luxury.tsx`.
 
 ```tsx
 // /src/templates/luxury.tsx
 export function LuxuryTemplate({ children }: { children: React.ReactNode }) {
   return (
     <div className="template-luxury">
-      {/* Gold accent bar at top */}
+      {/* A gold-like accent bar at the top */}
       <div className="h-1 bg-gradient-to-r from-transparent via-[var(--store-accent)] to-transparent" />
 
-      {/* Content with elegant spacing */}
+      {/* Content with elegant horizontal spacing */}
       <div className="px-8 max-w-7xl mx-auto">
         {children}
       </div>
 
-      {/* Elegant footer spacing */}
+      {/* Add some elegant spacing at the bottom */}
       <div className="h-16" />
     </div>
   );
@@ -92,50 +94,54 @@ export function LuxuryTemplate({ children }: { children: React.ReactNode }) {
 
 ### Step 2: Add Custom Styles (Optional)
 
-In `/src/app/globals.css`, add template-specific styles:
+In `/src/app/globals.css`, you can add styles that are specific to your new template.
 
 ```css
+/* In: src/app/globals.css */
+
 /* Luxury template styles */
 .template-luxury {
-  font-family: 'Playfair Display', serif; /* Elegant serif font */
+  font-family: 'Playfair Display', serif; /* Use an elegant serif font */
 }
 
 .template-luxury h1,
 .template-luxury h2 {
-  letter-spacing: 0.05em; /* Wider letter spacing */
-  font-weight: 300; /* Lighter weight */
+  letter-spacing: 0.05em; /* Add wider letter spacing for headings */
+  font-weight: 300; /* Use a lighter font weight */
 }
 
 .template-luxury .card {
-  backdrop-filter: blur(10px); /* Frosted glass effect */
+  backdrop-filter: blur(10px); /* Add a frosted glass effect to cards */
 }
 ```
 
-### Step 3: Register Template
+### Step 3: Register Your Template
 
-In `/src/config/business-types.ts`, import and assign to a business type:
+In `/src/config/business-types.ts`, import your new template and assign it to a business type.
 
 ```tsx
+// In: /src/config/business-types.ts
 import { LuxuryTemplate } from '@/templates/luxury';
+import { Sparkles } from 'lucide-react'; // Assuming you add a Jewelry icon
 
 export const BUSINESS_TYPES = {
-  // ... existing types ...
+  // ... other existing types ...
 
   JEWELRY: {
     id: 'jewelry',
     label: 'Jewelry & Accessories',
     description: 'Fine jewelry and luxury accessories',
     aiPromptContext: 'luxury jewelry and high-end accessories',
-    template: LuxuryTemplate, // 👈 Assign your template here
+    template: LuxuryTemplate, // 👈 Assign your new template here
     icon: Sparkles,
     journey: {
       onboarding: {
-        logoStyle: 'elegant, luxurious, sophisticated',
-        colorScheme: 'gold, silver, rich jewel tones',
+        logoStyle: 'elegant, luxurious, sophisticated, minimalist',
+        colorScheme: 'gold, silver, rich jewel tones, deep blues',
       },
       productCreation: {
-        aiDescriptionStyle: 'luxury-focused, emphasizes craftsmanship and exclusivity',
-        imageRequirements: 'High-quality shots with elegant backgrounds',
+        aiDescriptionStyle: 'luxury-focused, emphasizing craftsmanship, exclusivity, and materials',
+        imageRequirements: 'High-quality, professional shots with elegant, minimalist backgrounds',
       },
     },
   },
@@ -144,26 +150,29 @@ export const BUSINESS_TYPES = {
 
 ### Step 4: Test Your Template
 
-1. Start dev server: `npm run dev`
-2. Go to onboarding: `http://localhost:3000/onboarding`
-3. Select your business type (e.g., "Jewelry & Accessories")
-4. Complete onboarding
-5. View your storefront with the new template!
+1.  Start the development server: `npm run dev`.
+2.  Navigate to the onboarding page: `http://localhost:3000/onboarding`.
+3.  Select the business type you assigned the template to (e.g., "Jewelry & Accessories").
+4.  Complete the onboarding process.
+5.  You will be redirected to your storefront, which will now be rendered using your new `LuxuryTemplate`!
 
 ---
 
 ## Using Themed Components
 
-Your template automatically has access to merchant brand colors via CSS variables. Use themed components for consistent branding:
+Your template automatically has access to the merchant's brand colors via CSS variables. You should use our pre-built themed components to ensure brand consistency.
 
 ### Available Themed Components
+
+Import any themed component from `@/components/themed`.
 
 ```tsx
 import {
   ThemedButton,
   ThemedCard,
   ThemedBadge,
-  ThemedLink
+  ThemedLink,
+  ThemedInput
 } from '@/components/themed';
 
 export function MyTemplate({ children }: { children: React.ReactNode }) {
@@ -179,10 +188,10 @@ export function MyTemplate({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       {children}
 
-      {/* Footer with CTA */}
+      {/* Footer with a strong call-to-action */}
       <footer className="p-8 text-center">
         <ThemedButton colorRole="accent" size="lg">
-          Shop Now
+          Shop The Collection
         </ThemedButton>
       </footer>
     </div>
@@ -190,34 +199,33 @@ export function MyTemplate({ children }: { children: React.ReactNode }) {
 }
 ```
 
-### CSS Custom Properties
+### Available CSS Color Variables
 
-Access brand colors directly in styles:
+You can access the brand colors directly in your styles or Tailwind classes.
+
+-   `--store-primary`: The main brand color (for headers, branding).
+-   `--store-secondary`: A supporting brand color.
+-   `--store-accent`: The call-to-action or highlight color.
+-   `--store-primary-text`: A contrast-safe text color for use on primary backgrounds.
+-   `--store-secondary-text`: A contrast-safe text color for use on secondary backgrounds.
+-   `--store-accent-text`: A contrast-safe text color for use on accent backgrounds.
 
 ```tsx
 <div
   style={{
     backgroundColor: 'var(--store-primary)',
+    color: 'var(--store-primary-text)',
     borderColor: 'var(--store-accent)',
   }}
 >
-  {/* Branded content */}
+  Branded Content
+</div>
+
+{/* Or in Tailwind CSS */}
+<div className="bg-[var(--store-primary)] text-[var(--store-primary-text)] border-[var(--store-accent)]">
+  Branded Content
 </div>
 ```
-
-Or in Tailwind classes:
-
-```tsx
-<div className="bg-[var(--store-primary)] border-[var(--store-accent)]">
-  {/* Branded content */}
-</div>
-```
-
-### Available Color Variables
-
-- `--store-primary` - Main brand color (for headers, branding)
-- `--store-secondary` - Supporting color (for text, backgrounds)
-- `--store-accent` - Attention color (for CTAs, highlights)
 
 ---
 
@@ -225,17 +233,17 @@ Or in Tailwind classes:
 
 ### 1. Conditional Layouts
 
-Different layouts based on content or state:
+Change the layout based on content or other factors.
 
 ```tsx
 export function AdaptiveTemplate({ children }: { children: React.ReactNode }) {
-  const isFeatured = useFeaturedCheck(); // Custom hook
+  const hasFeaturedProduct = useHasFeaturedProduct(); // Example custom hook
 
   return (
-    <div className={isFeatured ? 'template-featured' : 'template-standard'}>
-      {isFeatured && (
-        <div className="banner bg-[var(--store-accent)]">
-          Featured Collection
+    <div className={hasFeaturedProduct ? 'template-featured' : 'template-standard'}>
+      {hasFeaturedProduct && (
+        <div className="banner bg-[var(--store-accent)] text-[var(--store-accent-text)] p-4 text-center">
+          Check out our Featured Collection!
         </div>
       )}
       {children}
@@ -248,17 +256,13 @@ export function AdaptiveTemplate({ children }: { children: React.ReactNode }) {
 
 ```css
 /* In globals.css */
-.template-dynamic {
-  --animation-speed: 0.3s;
-}
-
 .template-dynamic .card {
-  transition: transform var(--animation-speed) ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .template-dynamic .card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 16px rgba(var(--store-primary-rgb), 0.2);
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px var(--store-primary);
 }
 ```
 
@@ -268,44 +272,20 @@ export function AdaptiveTemplate({ children }: { children: React.ReactNode }) {
 export function ResponsiveTemplate({ children }: { children: React.ReactNode }) {
   return (
     <div className="template-responsive">
-      {/* Mobile: Stack layout */}
+      {/* Mobile: Simple stacked layout */}
       <div className="md:hidden">
         {children}
       </div>
 
-      {/* Desktop: Grid layout with sidebar */}
+      {/* Desktop: Grid layout with a branded sidebar */}
       <div className="hidden md:grid md:grid-cols-[250px_1fr] gap-8">
-        <aside className="border-r-2 border-[var(--store-primary)]">
-          {/* Sidebar content */}
+        <aside className="border-r-2 border-[var(--store-primary)] p-4">
+          {/* Sidebar content, e.g., category list */}
         </aside>
         <main>{children}</main>
       </div>
     </div>
   );
-}
-```
-
-### 4. Template Context
-
-Share data between template and children:
-
-```tsx
-import { createContext, useContext } from 'react';
-
-const TemplateContext = createContext({ theme: 'default' });
-
-export function ContextTemplate({ children }: { children: React.ReactNode }) {
-  return (
-    <TemplateContext.Provider value={{ theme: 'modern' }}>
-      <div className="template-context">
-        {children}
-      </div>
-    </TemplateContext.Provider>
-  );
-}
-
-export function useTemplateTheme() {
-  return useContext(TemplateContext);
 }
 ```
 
@@ -315,172 +295,46 @@ export function useTemplateTheme() {
 
 ### ✅ DO
 
-1. **Keep templates simple** - Focus on layout and spacing
-2. **Use CSS variables** - Let merchant colors drive the design
-3. **Make it responsive** - Test on mobile, tablet, desktop
-4. **Use themed components** - Leverage existing component library
-5. **Add subtle branding** - Accents, borders, gradients using brand colors
-6. **Document your template** - Add comments explaining special features
-7. **Test with different colors** - Try with various brand color combinations
+1.  **Keep templates simple:** Focus on layout, spacing, and overall feel.
+2.  **Use CSS variables:** Let the merchant's colors drive the design.
+3.  **Make it responsive:** Test on mobile, tablet, and desktop.
+4.  **Use themed components:** Leverage the existing, brand-aware component library.
+5.  **Add subtle branding:** Use accents, borders, and gradients with brand colors.
+6.  **Test with different colors:** Ensure your design works with various brand color combinations (light, dark, vibrant, muted).
 
 ### ❌ DON'T
 
-1. **Don't hardcode colors** - Always use CSS variables or themed components
-2. **Don't override content structure** - Template wraps, doesn't replace
-3. **Don't add heavy JavaScript** - Keep templates lightweight
-4. **Don't break accessibility** - Maintain proper contrast and semantics
-5. **Don't forget mobile** - Always test responsive behavior
-6. **Don't use fixed dimensions** - Use flexible layouts
-7. **Don't add business logic** - Templates are for presentation only
+1.  **Don't hardcode colors:** Always use CSS variables (`var(--store-primary)`) or themed components.
+2.  **Don't override content structure:** Your template should wrap, not replace, the `children`.
+3.  **Don't add heavy JavaScript:** Keep templates lightweight and focused on presentation.
+4.  **Don't break accessibility:** Maintain proper contrast and use semantic HTML.
+5.  **Don't forget mobile:** Always design for mobile-first.
+6.  **Don't add business logic:** Templates are for presentation only.
 
 ---
 
 ## Testing Checklist
 
-Before publishing your template:
+Before you finalize your template, run through this checklist:
 
-- [ ] Test with all 6 default business types
-- [ ] Test with different logo colors (light, dark, vibrant, muted)
-- [ ] Test on mobile (320px, 375px, 768px)
-- [ ] Test on tablet (768px, 1024px)
-- [ ] Test on desktop (1280px, 1920px)
-- [ ] Verify color contrast meets WCAG AA standards
-- [ ] Check loading performance (LCP < 2.5s)
-- [ ] Verify no console errors or warnings
-- [ ] Test with long product names
-- [ ] Test with many products (20+)
-- [ ] Test with few products (1-3)
-
----
-
-## Example Templates
-
-### Minimalist Template
-
-```tsx
-// /src/templates/minimalist.tsx
-export function MinimalistTemplate({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="template-minimalist max-w-6xl mx-auto">
-      {/* Subtle top border */}
-      <div className="h-px bg-[var(--store-primary)]" />
-
-      {/* Clean spacing */}
-      <div className="py-8">
-        {children}
-      </div>
-
-      {/* Bottom accent */}
-      <div className="mt-16 h-px bg-gradient-to-r from-transparent via-[var(--store-secondary)] to-transparent" />
-    </div>
-  );
-}
-```
-
-### Bold Template
-
-```tsx
-// /src/templates/bold.tsx
-export function BoldTemplate({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="template-bold">
-      {/* Bold header bar */}
-      <div className="h-8 bg-[var(--store-primary)] shadow-lg" />
-
-      {/* High contrast content */}
-      <div className="bg-black text-white">
-        {children}
-      </div>
-
-      {/* Bold footer */}
-      <div className="h-16 bg-[var(--store-accent)]" />
-    </div>
-  );
-}
-```
-
-### Organic Template
-
-```tsx
-// /src/templates/organic.tsx
-export function OrganicTemplate({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="template-organic">
-      {/* Wavy top decoration */}
-      <svg className="w-full h-24" viewBox="0 0 1200 120" preserveAspectRatio="none">
-        <path
-          d="M0,60 Q300,0 600,60 T1200,60 L1200,120 L0,120 Z"
-          fill="var(--store-primary)"
-          opacity="0.1"
-        />
-      </svg>
-
-      {/* Content with organic shapes */}
-      <div className="px-4">
-        {children}
-      </div>
-
-      {/* Wavy bottom decoration */}
-      <svg className="w-full h-24" viewBox="0 0 1200 120" preserveAspectRatio="none">
-        <path
-          d="M0,60 Q300,120 600,60 T1200,60 L1200,0 L0,0 Z"
-          fill="var(--store-secondary)"
-          opacity="0.1"
-        />
-      </svg>
-    </div>
-  );
-}
-```
-
----
-
-## Troubleshooting
-
-### Template not showing
-
-1. Check template is imported in `/src/config/business-types.ts`
-2. Verify business type assignment is correct
-3. Clear browser cache and restart dev server
-
-### Colors not applying
-
-1. Ensure CSS variables are set at parent level (`<main>` in `page.tsx`)
-2. Check merchant has completed onboarding with logo/colors
-3. Verify using `var(--store-primary)` syntax, not just `--store-primary`
-
-### Layout breaking on mobile
-
-1. Add responsive classes: `sm:`, `md:`, `lg:` prefixes
-2. Test with Chrome DevTools mobile emulation
-3. Use `max-w-` classes to prevent overflow
-
-### Performance issues
-
-1. Remove heavy animations or complex SVGs
-2. Use `loading="lazy"` on images
-3. Minimize JavaScript in template
-
----
-
-## Resources
-
-- [Theming Architecture](./THEMING_ARCHITECTURE.md) - Deep dive into color system
-- [Business Types Config](../src/config/business-types.ts) - All business type definitions
-- [Themed Components](../src/components/themed/) - Component library
-- [Tailwind CSS Docs](https://tailwindcss.com/docs) - Utility classes
-- [shadcn/ui](https://ui.shadcn.com/) - Base component library
+-   [ ] Test with at least 3 different business types.
+-   [ ] Test with different logo colors (light, dark, vibrant).
+-   [ ] Test on mobile (iPhone SE), tablet (iPad), and desktop viewports.
+-   [ ] Verify that all text is readable and meets contrast standards with various color schemes.
+-   [ ] Check for performance issues (e.g., slow animations).
+-   [ ] Verify there are no console errors or warnings.
+-   [ ] Test with both many products (20+) and few products (1-3).
 
 ---
 
 ## Get Help
 
-Questions? Issues? Improvements?
+Questions or issues?
 
-1. Check existing templates in `/src/templates/` for examples
-2. Read the [Theming Architecture](./THEMING_ARCHITECTURE.md) guide
-3. Review [business-types.ts](../src/config/business-types.ts) for configuration
-4. Open an issue with the `template` label
+1.  Check existing templates in `/src/templates/` for examples.
+2.  Read the `THEMING_ARCHITECTURE.md` guide for a deep dive into the color system.
+3.  Review `business-types.ts` for configuration examples.
+4.  Ask for help if you're stuck!
 
 ---
 

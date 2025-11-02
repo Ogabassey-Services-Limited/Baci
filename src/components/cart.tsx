@@ -17,7 +17,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import Link from 'next/link';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, ShoppingBag } from 'lucide-react';
 
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
@@ -37,15 +37,6 @@ export function Cart() {
   return (
     <SheetContent 
       className="flex w-full flex-col pr-0 sm:max-w-lg"
-      style={{
-        // @ts-ignore - Apply theme variables directly to the sheet content
-        '--store-primary': merchant?.colors?.primary,
-        '--store-secondary': merchant?.colors?.secondary,
-        '--store-accent': merchant?.colors?.accent,
-        '--store-primary-text': merchant?.colors?.primary ? `var(--store-primary-text)` : '#FFFFFF',
-        '--store-secondary-text': merchant?.colors?.secondary ? `var(--store-secondary-text)` : '#FFFFFF',
-        '--store-accent-text': merchant?.colors?.accent ? `var(--store-accent-text)` : '#000000',
-      }}
     >
       <SheetHeader className="px-6">
         <SheetTitle>Cart {cartCount > 0 && `(${cartCount})`}</SheetTitle>
@@ -108,6 +99,7 @@ export function Cart() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
+              <ShoppingBag className="w-20 h-20 text-muted-foreground/50 mb-4"/>
               <p className="text-lg font-semibold">Your cart is empty</p>
               <p className="text-muted-foreground mt-2">
                 Add some products to get started!

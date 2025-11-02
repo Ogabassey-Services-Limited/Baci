@@ -3,7 +3,6 @@
 
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
-import { Badge } from '@/components/ui/badge';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import Link from 'next/link';
@@ -14,7 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Product } from '@/lib/products';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
-import { ThemedButton } from '@/components/themed';
+import { ThemedButton, ThemedBadge } from '@/components/themed';
 import { Input } from '@/components/ui/input';
 import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { Button } from '@/components/ui/button';
@@ -109,7 +108,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative">
                     <ShoppingBag className="w-6 h-6"/>
-                    {cartCount > 0 && <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 text-xs justify-center rounded-full p-0">{cartCount}</Badge>}
+                    {cartCount > 0 && <ThemedBadge colorRole="accent" className="absolute -top-1 -right-1 h-5 w-5 text-xs justify-center rounded-full p-0">{cartCount}</ThemedBadge>}
                     <span className="sr-only">Cart</span>
                 </Button>
               </SheetTrigger>
@@ -133,13 +132,13 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               <div>
                 <h1 
                   className="text-3xl lg:text-4xl font-bold font-headline"
-                  style={{ color: merchant?.colors?.primary || 'hsl(var(--primary))' }}
+                  style={{ color: 'var(--store-primary)' }}
                 >
                     {product.name}
                 </h1>
                 <p 
                   className="text-3xl font-bold mt-2"
-                  style={{ color: merchant?.colors?.secondary || 'hsl(var(--accent))' }}
+                  style={{ color: 'var(--store-secondary)' }}
                 >
                     {formatCurrency(product.price)}
                 </p>
@@ -151,9 +150,9 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               
               <div>
                 {product.stock > 0 ? (
-                  <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">In Stock</Badge>
+                  <ThemedBadge colorRole="primary" variant="outline">In Stock</ThemedBadge>
                 ) : (
-                  <Badge variant="destructive">Out of Stock</Badge>
+                  <ThemedBadge colorRole="primary" variant="destructive">Out of Stock</ThemedBadge>
                 )}
                 <p className="text-sm text-muted-foreground mt-2">{product.stock} units available</p>
               </div>
@@ -181,7 +180,6 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                         size="lg" 
                         colorRole="primary" 
                         className="w-full"
-                        style={{ backgroundColor: darkestColor, color: getContrastingTextColor(darkestColor) }}
                        >
                         View Cart and Checkout
                       </ThemedButton>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Badge, BadgeProps } from '@/components/ui/badge';
@@ -12,7 +13,7 @@ interface ThemedBadgeProps extends BadgeProps {
  *
  * @example
  * <ThemedBadge colorRole="accent">New</ThemedBadge>
- * <ThemedBadge colorRole="primary">Featured</ThemedBadge>
+ * <ThemedBadge colorRole="primary" variant="outline">Featured</ThemedBadge>
  */
 export function ThemedBadge({
   colorRole = 'primary',
@@ -28,9 +29,9 @@ export function ThemedBadge({
         variant={variant}
         className={cn(
           // Use CSS custom properties with smart text color
-          colorRole === 'primary' && 'bg-[var(--store-primary)] text-[var(--store-primary-text)] hover:bg-[var(--store-primary)]/80 border-[var(--store-primary)]',
-          colorRole === 'secondary' && 'bg-[var(--store-secondary)] text-[var(--store-secondary-text)] hover:bg-[var(--store-secondary)]/80 border-[var(--store-secondary)]',
-          colorRole === 'accent' && 'bg-[var(--store-accent)] text-[var(--store-accent-text)] hover:bg-[var(--store-accent)]/80 border-[var(--store-accent)]',
+          colorRole === 'primary' && 'bg-[var(--store-primary)] text-[var(--store-primary-text)] hover:bg-[var(--store-primary)]/80 border-transparent',
+          colorRole === 'secondary' && 'bg-[var(--store-secondary)] text-[var(--store-secondary-text)] hover:bg-[var(--store-secondary)]/80 border-transparent',
+          colorRole === 'accent' && 'bg-[var(--store-accent)] text-[var(--store-accent-text)] hover:bg-[var(--store-accent)]/80 border-transparent',
           className
         )}
       />
@@ -44,6 +45,7 @@ export function ThemedBadge({
         {...props}
         variant={variant}
         className={cn(
+          'bg-transparent',
           colorRole === 'primary' && 'border-[var(--store-primary)] text-[var(--store-primary)]',
           colorRole === 'secondary' && 'border-[var(--store-secondary)] text-[var(--store-secondary)]',
           colorRole === 'accent' && 'border-[var(--store-accent)] text-[var(--store-accent)]',
@@ -51,6 +53,13 @@ export function ThemedBadge({
         )}
       />
     );
+  }
+
+  // For destructive variant
+  if (variant === 'destructive') {
+      return (
+          <Badge {...props} variant="destructive" className={className} />
+      );
   }
 
   // For other variants, use default Badge behavior

@@ -1,3 +1,4 @@
+
 # Theming Architecture (2025 Best Practices)
 
 ## Overview
@@ -7,198 +8,107 @@ This document describes our scalable theming system that allows each merchant to
 ## Architecture
 
 ### 1. Color Extraction Layer
-- **Location**: `/public/color-worker.js`
-- **Technology**: Web Worker + Median Cut Algorithm
-- **Purpose**: Extract 3 brand colors (primary, secondary, accent) from uploaded logos
-- **Algorithm**: HSL-based scoring system that intelligently assigns colors to roles based on:
-  - Primary: High saturation, medium lightness (brand-defining color)
-  - Secondary: Neutral or very dark/light (text, backgrounds)
-  - Accent: Bright, vibrant (CTAs, highlights)
+- **Location**: `/public/color-worker.js` (Web Worker)
+- **Technology**: `color-thief-web-worker` for efficient, non-blocking color extraction in the browser.
+- **Purpose**: Extract 3 brand colors (primary, secondary, accent) from uploaded logos.
+- **Algorithm**: Intelligently assigns colors to roles based on saturation and lightness:
+  - **Primary**: The most dominant color, defining the brand.
+  - **Secondary**: A complementary or supporting color.
+  - **Accent**: A vibrant color for calls-to-action (CTAs) and highlights.
 
 ### 2. CSS Custom Properties (CSS Variables)
-- **Location**: Set at `<main>` level in `/src/app/page.tsx`
+- **Location**: Injected at the root of the app by `src/components/app-body.tsx`.
 - **Variables**:
   ```css
-  --store-primary: #hexcolor
-  --store-secondary: #hexcolor
-  --store-accent: #hexcolor
+  --store-primary: #hexcolor;
+  --store-secondary: #hexcolor;
+  --store-accent: #hexcolor;
+  --store-primary-text: #000000; /* Contrast-aware text color */
+  --store-secondary-text: #FFFFFF;
+  --store-accent-text: #000000;
   ```
-- **Scope**: Available to all child components
-- **Fallbacks**: Default colors if merchant hasn't set up branding
+- **Scope**: Available to all child components, including those in portals (like Sheets and Dialogs).
+- **Fallbacks**: Default Baci brand colors are used if a merchant has not completed onboarding.
 
 ### 3. Themed Component System
-- **Location**: `/src/components/themed-button.tsx` (example)
-- **Pattern**: Wrap shadcn/ui components with themed versions
+- **Location**: `/src/components/themed/`
+- **Pattern**: Wraps standard `shadcn/ui` components with themed versions that automatically use the CSS variables.
 - **Usage**:
   ```tsx
-  <ThemedButton colorRole="primary">Shop Now</ThemedButton>
-  <ThemedButton colorRole="accent">Add to Cart</ThemedButton>
+  import { ThemedButton, ThemedCard, ThemedBadge } from '@/components/themed';
+
+  <ThemedCard accentPosition="top">
+    <ThemedBadge colorRole="accent">New</ThemedBadge>
+    <ThemedButton colorRole="primary">Shop Now</ThemedButton>
+  </ThemedCard>
   ```
 
 ### 4. Template System
 - **Location**: `/src/templates/`
-- **Purpose**: Business-type-specific layouts and styling
+- **Purpose**: Defines business-type-specific layouts and styling. Each template is a React component that wraps the main page content.
 - **Current Templates**:
-  - `ModernTemplate` - Fashion, Health & Beauty
-  - `TechTemplate` - Electronics
-  - `ArtisanTemplate` - Handmade, Food & Beverage, Home Goods
-- **Future Enhancement**: Add template-specific color usage patterns
+  - `ModernTemplate` (for Fashion, Health & Beauty)
+  - `TechTemplate` (for Electronics)
+  - `ArtisanTemplate` (for Handmade, Food & Beverage, Home Goods)
+- **Developer Guide**: See `/docs/CREATE_TEMPLATE_GUIDE.md` for instructions on creating new templates.
 
 ## Scalability Plan
 
 ### Phase 1: Core Theming ✅ (Current)
-- [x] Color extraction from logos
-- [x] Intelligent color role assignment
-- [x] CSS custom properties
-- [x] ThemedButton component
-- [x] Product cards with brand colors
+- [x] Color extraction from logos via Web Worker.
+- [x] Intelligent color role assignment.
+- [x] CSS custom properties for brand colors and contrasting text.
+- [x] `ThemedButton` component.
 
-### Phase 2: Expanded Component Library
-- [ ] ThemedCard - Cards with branded borders/accents
-- [ ] ThemedBadge - Status badges in brand colors
-- [ ] ThemedInput - Form inputs with branded focus states
-- [ ] ThemedLink - Links in brand colors
-- [ ] ThemedHeading - Typography with brand colors
+### Phase 2: Expanded Component Library ✅ (Current)
+- [x] `ThemedCard` - Cards with branded borders/accents.
+- [x] `ThemedBadge` - Status badges in brand colors.
+- [x] `ThemedLink` - Links in brand colors.
+- [x] `ThemedInput` - Form inputs with branded focus states.
+- [x] Centralized barrel file for easy imports (`@/components/themed`).
+- [x/ `CREATE_TEMPLATE_GUIDE.md` for developers.
 
-### Phase 3: Template Enhancement
-- [ ] Template-specific color usage (e.g., Tech uses more secondary, Artisan uses more primary)
-- [ ] Template-specific typography scales
-- [ ] Template-specific spacing/layout rules
-- [ ] Animation preferences per template
+### Phase 3: Template Enhancement (Next)
+- [ ] Template-specific color usage patterns (e.g., Tech template uses more secondary, Artisan uses more primary).
+- [ ] Template-specific typography scales and spacing rules.
+- [ ] Animation preferences per template.
 
-### Phase 4: Advanced Theming
-- [ ] Dark mode support (auto-generate dark variants)
-- [ ] Accessibility checker (ensure WCAG contrast ratios)
-- [ ] Color harmony suggestions (suggest complementary accent colors)
-- [ ] Brand consistency checker
+### Phase 4: Advanced Theming (Future)
+- [ ] Dark mode support for merchant storefronts (auto-generate dark variants).
+- [ ] Accessibility checker to ensure color contrast ratios meet WCAG standards.
+- [ ] Color harmony suggestions (e.g., suggest complementary accent colors).
+- [ ] Visual theme editor for merchants.
 
 ## Component Development Guidelines
 
 ### Creating New Themed Components
 
-1. **Extend existing shadcn/ui components**
-   ```tsx
-   import { Button, ButtonProps } from '@/components/ui/button';
-
-   interface ThemedButtonProps extends ButtonProps {
-     colorRole?: 'primary' | 'secondary' | 'accent';
-   }
-   ```
-
-2. **Use CSS custom properties with fallbacks**
-   ```tsx
-   className="bg-[var(--store-primary,#3F51B5)]"
-   ```
-
-3. **Support all shadcn variants**
-   ```tsx
-   if (variant === 'default') {
-     // Apply theming
-   } else {
-     // Use default behavior
-   }
-   ```
-
-4. **Export from themed namespace**
-   ```tsx
-   // Future: /src/components/themed/index.ts
-   export { ThemedButton } from './button';
-   export { ThemedCard } from './card';
-   ```
-
-## Template Development Guidelines
-
-### Creating New Templates
-
-1. **Extend React.ComponentType**
-   ```tsx
-   export function MyTemplate({ children }: { children: React.ReactNode }) {
-     return (
-       <div className="template-my-style">
-         {children}
-       </div>
-     );
-   }
-   ```
-
-2. **Register in business-types.ts**
-   ```tsx
-   import { MyTemplate } from '@/templates/my-template';
-
-   BUSINESS_TYPES.MY_TYPE = {
-     // ...
-     template: MyTemplate,
-   };
-   ```
-
-3. **Add template-specific styles**
-   ```css
-   /* /src/app/globals.css */
-   .template-my-style {
-     /* Custom layout, spacing, etc */
-   }
-   ```
+1.  **Create Wrapper**: In `/src/components/`, create a new file (e.g., `themed-alert.tsx`).
+2.  **Extend `shadcn/ui`**: Import the base `shadcn/ui` component and its props.
+    ```tsx
+    import { Alert, AlertProps } from '@/components/ui/alert';
+    ```
+3.  **Define `colorRole` prop**: Add an optional `colorRole` prop.
+    ```tsx
+    interface ThemedAlertProps extends AlertProps {
+      colorRole?: 'primary' | 'secondary' | 'accent';
+    }
+    ```
+4.  **Apply CSS Variables**: Use Tailwind's arbitrary property syntax to apply the theme colors.
+    ```tsx
+    className={cn(
+      'border-[var(--store-primary)] text-[var(--store-primary)]',
+      className
+    )}
+    ```
+5.  **Handle Variants**: Apply colors conditionally based on the component's `variant` prop.
+6.  **Export from Barrel File**: Add the new component to `/src/components/themed/index.ts`.
 
 ## Why This Architecture?
 
-### ✅ Scalable
-- Add new themed components without touching existing ones
-- Templates are modular and independent
-- Color system works for any number of business types
-
-### ✅ Performant
-- CSS custom properties are native and fast
-- Web Worker keeps UI responsive during color extraction
-- No runtime CSS-in-JS overhead
-
-### ✅ Maintainable
-- Single source of truth for colors (extracted from logo)
-- Standard pattern for all themed components
-- Clear separation: extraction → storage → application
-
-### ✅ Flexible
-- Easy to add new color roles (e.g., error, success)
-- Templates can override theming behavior
-- Works with any design system (currently shadcn/ui)
-
-### ✅ Modern (2025 Best Practices)
-- Uses latest CSS features (custom properties)
-- Web Workers for background processing
-- TypeScript for type safety
-- Component composition over inheritance
-
-## Alternative Architectures Considered
-
-### ❌ Styled Components / Emotion
-- **Pros**: Dynamic theming, TypeScript support
-- **Cons**: Runtime overhead, larger bundle size, need provider wrapper
-- **Verdict**: Overkill for our use case
-
-### ❌ Tailwind Plugins
-- **Pros**: Native Tailwind integration
-- **Cons**: Requires rebuild for color changes, complex config
-- **Verdict**: Not dynamic enough for per-merchant theming
-
-### ❌ CSS Modules
-- **Pros**: Scoped styles, good performance
-- **Cons**: Can't access merchant colors dynamically
-- **Verdict**: Not flexible enough
-
-### ✅ CSS Custom Properties (Chosen)
-- **Pros**: Native, fast, dynamic, no build step, scoped via cascade
-- **Cons**: Limited IE11 support (not a concern in 2025)
-- **Verdict**: Perfect balance of performance and flexibility
-
-## Migration Path for Existing Components
-
-1. Identify components using colors (buttons, links, badges, etc.)
-2. Create themed wrapper component
-3. Replace imports gradually
-4. Add to themed component library
-
-## Testing Strategy
-
-- **Visual Regression**: Screenshot tests with different color schemes
-- **Accessibility**: Automated contrast ratio checks
-- **Color Extraction**: Unit tests for RGB → Role assignment
-- **Template Rendering**: Ensure all templates work with all business types
+-   ✅ **Performant**: Uses native CSS Custom Properties with zero runtime JavaScript overhead for styling.
+-   ✅ **Developer Friendly**: Simple, declarative API (`colorRole="primary"`). Works with TypeScript and autocompletion.
+-   ✅ **Scalable**: Easy to add new themed components or entire templates without affecting existing ones.
+-   ✅ **Maintainable**: Single source of truth for theming logic. Clear separation of concerns.
+-   ✅ **Flexible**: Templates can override theming behavior, and components have sensible fallbacks.
+-   ✅ **Modern (2025 Best Practices)**: Aligns with modern web standards and component-based architecture.
