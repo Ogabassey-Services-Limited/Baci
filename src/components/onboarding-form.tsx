@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, Upload, CheckCircle, Copy, Mail, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Sparkles, Upload, CheckCircle, Copy, Mail, KeyRound, Eye, EyeOff, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -151,6 +151,9 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [showColorPrompt, setShowColorPrompt] = useState(false);
+  
+  const [colorRoles, setColorRoles] = useState<('primary' | 'secondary' | 'accent')[]>(['primary', 'secondary', 'accent']);
+
 
   const isLoading = isGenerating || isExtracting;
 
@@ -194,7 +197,7 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
         try {
           const colors = await extractColorsFromImage(dataUri);
           onColorsUpdate(colors);
-          toast({ title: 'Brand colors extracted!', description: 'Colors extracted from your logo.' });
+          toast({ title: 'Brand colors extracted!', description: 'You can shuffle them if you like.' });
         } catch (e) {
           logger.error({ error: e as Error, message: 'Color extraction failed.' });
           toast({ title: 'Color extraction failed', description: (e as Error).message, variant: 'destructive' });
@@ -277,8 +280,34 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
       handleGenerateLogos();
     }
   };
+
+  const handleShuffleColors = () => {
+    if (!brandColors) return;
+
+    // Cycle roles: p -> s, s -> a, a -> p
+    const newRoles = [colorRoles[2], colorRoles[0], colorRoles[1]]; 
+    
+    const shuffledColors: BrandColors = {
+      primary: brandColors[newRoles.indexOf('primary') as keyof BrandColors],
+      secondary: brandColors[newRoles.indexOf('secondary') as keyof BrandColors],
+      accent: brandColors[newRoles.indexOf('accent') as keyof BrandColors],
+    };
+    
+    // To correctly cycle values, we map the old roles to the new values.
+    const remappedColors: BrandColors = {
+        primary: brandColors[colorRoles[1] as keyof BrandColors],
+        secondary: brandColors[colorRoles[2] as keyof BrandColors],
+        accent: brandColors[colorRoles[0] as keyof BrandColors],
+    };
+
+    onColorsUpdate(remappedColors);
+  };
   
-  const colorEntries = brandColors ? Object.entries(brandColors) : [];
+  const displayedColors = brandColors ? [
+    { role: 'primary', color: brandColors.primary },
+    { role: 'secondary', color: brandColors.secondary },
+    { role: 'accent', color: brandColors.accent },
+  ] : [];
 
   return (
     <div className='space-y-4'>
@@ -299,13 +328,17 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
                 <div className="pt-2 animate-fade-in space-y-2">
                     <div className="flex items-center gap-2 justify-center"><CheckCircle className="w-4 h-4 text-green-500" /><p className="text-sm font-medium">Brand Colors Extracted</p></div>
                     <div className="grid grid-cols-3 gap-2">
-                        {colorEntries.map(([key, color]) => (
-                            <div key={key} className="space-y-1 text-center">
+                        {displayedColors.map(({ role, color }) => (
+                            <div key={role} className="space-y-1 text-center">
                                 <div className="h-10 w-full rounded-md border-2 border-border shadow-sm" style={{ backgroundColor: color }} title={color} />
-                                <p className="text-[10px] font-medium text-muted-foreground capitalize">{key}</p>
+                                <p className="text-[10px] font-medium text-muted-foreground capitalize">{role}</p>
                             </div>
                         ))}
                     </div>
+                    <Button type="button" variant="outline" size="sm" className="w-full" onClick={handleShuffleColors} disabled={isLoading}>
+                        <RefreshCw className="mr-2 h-3 w-3" />
+                        Shuffle Colors
+                    </Button>
                 </div>
             )}
         </div>
@@ -510,27 +543,18 @@ export default function OnboardingForm() {
         const { email, password } = data;
 
         // 1. Create or sign in user
-        const { data: { user: existingUser, session: existingSession }, error: getUserError } = await supabase.auth.getUser();
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({ email, password });
 
-        if (getUserError) {
-          logger.warn({ message: 'Get user failed, maybe not logged in', error: getUserError});
-        }
-        
-        if (existingUser && existingUser.email === email) {
-            user = existingUser;
-        } else {
-             const { data: authData, error: signUpError } = await supabase.auth.signUp({ email, password });
-            if (signUpError) {
-                if (signUpError.message.includes('User already registered')) {
-                    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-                    if (signInError) throw signInError;
-                    user = signInData.user;
-                } else {
-                    throw signUpError;
-                }
+        if (signUpError) {
+            if (signUpError.message.includes('User already registered')) {
+                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+                if (signInError) throw signInError;
+                user = signInData.user;
             } else {
-                 user = authData.user;
+                throw signUpError;
             }
+        } else {
+             user = authData.user;
         }
        
         if (!user) throw new Error("Authentication failed. Could not get a valid user session.");
