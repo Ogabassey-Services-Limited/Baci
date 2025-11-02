@@ -433,6 +433,7 @@ export default function OnboardingForm() {
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
     if (step === 1) fieldsToValidate = ['businessName', 'businessType', 'otherBusinessType'];
+    if (step === 3) fieldsToValidate = ['email', 'password'];
     
     const isValid = await form.trigger(fieldsToValidate);
     if (isValid) {
@@ -454,50 +455,60 @@ export default function OnboardingForm() {
 
   const onSubmit = async (data: OnboardingFormValues) => {
     setIsLoading(true);
+    let user: User | null = null;
+    const supabase = createClient();
+
     try {
-      const { email, password } = data;
+        const { email, password } = data;
 
-      // 1. Create Supabase user
-      const supabase = createClient();
-      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
-      if (authError) {
-          // Handle case where user might already exist
-          if (authError.message.includes('User already registered')) {
-              toast({ title: 'Sign-in Required', description: 'This email is already registered. Please sign in.', variant: 'default' });
-              const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-              if (signInError) throw signInError;
-              if (!signInData.user) throw new Error("Sign-in failed.");
-          } else {
-            throw authError;
-          }
-      }
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) throw new Error("Authentication failed.");
+        // 1. Create or sign in user
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
 
-      // 2. Save merchant data
-      if (!logoDataUri || !brandColors) {
-        toast({ title: 'Missing Information', description: 'Please upload or generate a logo and ensure brand colors are selected.', variant: 'destructive' });
-        setIsLoading(false);
-        return;
-      }
-      const finalBusinessType = data.businessType === 'other' ? (data.otherBusinessType || data.businessType) : data.businessType;
-      const { error: merchantError } = await supabase.from('merchants').insert({
-          user_id: user.id,
-          email: data.email,
-          business_name: data.businessName,
-          business_type: finalBusinessType,
-          logo_url: logoDataUri,
-          colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
-        });
-      if (merchantError) throw new Error(`Failed to save merchant data: ${merchantError.message}`);
-      
-      toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
-      startTransition(() => setStep(totalSteps + 1));
+        if (signUpError) {
+            if (signUpError.message.includes('User already registered')) {
+                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+                if (signInError) throw signInError;
+                user = signInData.user;
+            } else {
+                throw signUpError;
+            }
+        } else {
+            user = signUpData.user;
+        }
+
+        if (!user) {
+            throw new Error("Authentication failed. Could not get a valid user session.");
+        }
+
+        // 2. Save merchant data
+        if (!logoDataUri || !brandColors) {
+            toast({ title: 'Missing Information', description: 'Please ensure a logo is uploaded/generated and colors are extracted.', variant: 'destructive' });
+            setIsLoading(false);
+            return;
+        }
+
+        const finalBusinessType = data.businessType === 'other' ? (data.otherBusinessType || data.businessType) : data.businessType;
+
+        const { error: merchantError } = await supabase.from('merchants').upsert({
+            user_id: user.id, // Use upsert to handle both create and update
+            email: data.email,
+            business_name: data.businessName,
+            business_type: finalBusinessType,
+            logo_url: logoDataUri,
+            colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
+        }, { onConflict: 'user_id' });
+
+        if (merchantError) {
+            throw new Error(`Failed to save merchant data: ${merchantError.message}`);
+        }
+        
+        toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
+        startTransition(() => setStep(totalSteps + 1));
     } catch (e) {
-      logger.error({ message: "Onboarding submission failed.", error: e as Error });
-      toast({ title: 'Onboarding Failed', description: (e as Error).message, variant: 'destructive' });
+        logger.error({ message: "Onboarding submission failed.", error: e as Error });
+        toast({ title: 'Onboarding Failed', description: (e as Error).message, variant: 'destructive' });
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
   };
   
@@ -512,7 +523,7 @@ export default function OnboardingForm() {
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" aria-label="Store onboarding form">
-          <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[150px]">
+          <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
             {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
             {step === 2 && <Step2_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
             {step === 3 && <Step3_Account onKeyDown={handleKeyDown} />}
