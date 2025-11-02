@@ -58,7 +58,7 @@ const onboardingSchema = z.object({
 })
 .refine(data => {
     // Only require passwords to match if the password is long enough to need confirmation
-    if ((checkPasswordStrength(data.password || '') >= 3)) {
+    if (checkPasswordStrength(data.password || '') >= 3) {
         return data.password === data.confirmPassword;
     }
     return true;
@@ -534,14 +534,16 @@ export default function OnboardingForm() {
   }, [submissionState, toast]);
 
   const handleNext = async () => {
-    let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
-    if (step === 1) {
-      fieldsToValidate = ['businessName', 'businessType', 'otherBusinessType'];
-    }
-    
-    if (fieldsToValidate.length > 0) {
-      const isValid = await form.trigger(fieldsToValidate);
-      if (!isValid) return;
+    const fieldsToValidate: (keyof OnboardingFormValues)[] = ['businessName', 'businessType', 'otherBusinessType'];
+    const isValid = await form.trigger(fieldsToValidate);
+      
+    if (!isValid) {
+      // Find the first field with an error and focus it
+      const fieldWithError = fieldsToValidate.find(field => form.formState.errors[field]);
+      if (fieldWithError) {
+          form.setFocus(fieldWithError);
+      }
+      return;
     }
     
     if (step === 2 && !logoDataUri) {
@@ -550,6 +552,7 @@ export default function OnboardingForm() {
     }
     setStep(s => s + 1);
   };
+
   const handlePrev = () => { if (step > 1) setStep(s => s - 1); };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => {
@@ -565,11 +568,18 @@ export default function OnboardingForm() {
   };
 
   const handleFormAction = async () => {
-    const isValid = await form.trigger(['email', 'password', 'confirmPassword']);
+    const accountFields: (keyof OnboardingFormValues)[] = ['email', 'password', 'confirmPassword'];
+    const isValid = await form.trigger(accountFields);
+
     if (!isValid) {
         toast({ title: 'Form is incomplete', description: 'Please fill out all required account fields.', variant: 'destructive' });
+        const fieldWithError = accountFields.find(field => form.formState.errors[field]);
+        if (fieldWithError) {
+          form.setFocus(fieldWithError);
+        }
         return;
     }
+
     setIsLoading(true);
     const formData = new FormData();
     const formValues = form.getValues();
