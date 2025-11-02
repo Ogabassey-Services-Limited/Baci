@@ -1,10 +1,18 @@
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
-import OnboardingForm from '@/components/onboarding-form';
 import { Card, CardContent } from '@/components/ui/card';
+import dynamic from 'next/dynamic';
+import { Loader2 } from 'lucide-react';
 
-// Mark as dynamic to prevent SSG with Firebase
-export const dynamic = 'force-dynamic';
+const OnboardingForm = dynamic(() => import('@/components/onboarding-form'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex justify-center items-center h-[400px]">
+      <Loader2 className="h-8 w-8 animate-spin" />
+    </div>
+  ),
+});
+
 
 export default function OnboardingPage() {
   return (
