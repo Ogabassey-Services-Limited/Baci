@@ -21,15 +21,15 @@ function PageContent({ slug }: { slug: string }) {
     const pageContent = merchant.pages[slug as keyof typeof merchant.pages];
     const pageTitle = slug.charAt(0).toUpperCase() + slug.slice(1);
     
-    const brandColors = merchant.colors ? [merchant.colors.primary, merchant.colors.secondary, merchant.colors.accent] : ['#3F51B5'];
+    const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.secondary, merchant.brand_colors.accent] : ['#3F51B5'];
     const darkestColor = findDarkestColor(brandColors);
 
     return (
          <div
             style={{
-                '--store-primary': merchant.colors?.primary,
-                '--store-secondary': merchant.colors?.secondary,
-                '--store-accent': merchant.colors?.accent,
+                '--store-primary': merchant.brand_colors?.primary,
+                '--store-secondary': merchant.brand_colors?.secondary,
+                '--store-accent': merchant.brand_colors?.accent,
             }}
          >
             <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm">

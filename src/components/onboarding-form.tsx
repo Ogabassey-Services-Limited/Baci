@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
@@ -26,11 +25,11 @@ import { Loader2, Sparkles, Upload, CheckCircle, Copy, Mail, KeyRound, Eye, EyeO
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
-import { cn } from '@/lib/utils';
+import { cn, checkPasswordStrength } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
 import type { BrandColors } from '@/ai/flows/guide-business-onboarding';
-import { PasswordStrengthIndicator, checkPasswordStrength } from '@/components/password-strength-indicator';
-import { submitOnboarding, type ServerActionState } from '@/app/onboarding/actions';
+import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
+import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/onboarding/actions';
 import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { z } from 'zod';
@@ -38,7 +37,7 @@ import { z } from 'zod';
 
 const onboardingSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
-  password: z.string().min(8, 'Password must be at least 8 characters.'),
+  password: z.string().min(8, 'Password must be at least 8 characters.').optional(),
   confirmPassword: z.string().optional(),
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
   businessType: z.string().min(1, 'Please select a business type.'),
@@ -55,7 +54,7 @@ const onboardingSchema = z.object({
     path: ["otherBusinessType"],
 })
 .refine(data => {
-    if (checkPasswordStrength(data.password || '') >= 3) {
+    if (data.password && checkPasswordStrength(data.password) >= 3) {
         return data.password === data.confirmPassword;
     }
     return true;
@@ -147,11 +146,11 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
 }
 
 
-function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }: { onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: BrandColors | null) => void; brandColors: BrandColors | null; onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
+function Step2_Branding({ logo, onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }: { logo: string | null; onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: BrandColors | null) => void; brandColors: BrandColors | null; onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
 
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(logo);
   const [generatedLogos, setGeneratedLogos] = useState<string[]>([]);
   const [selectedGeneratedLogoIndex, setSelectedGeneratedLogoIndex] = useState<number | null>(null);
 
@@ -334,20 +333,40 @@ return (
   );
 }
 
-function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
-  const { control, watch, formState: { errors } } = useFormContext<OnboardingFormValues>();
+function Step3_Account({ onKeyDown, onMagicLinkSent }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; onMagicLinkSent: () => void; }) {
+  const { control, watch, trigger, getValues } = useFormContext<OnboardingFormValues>();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isMagicLinkLoading, setIsMagicLinkLoading] = useState(false);
+  const { toast } = useToast();
 
   const emailValue = watch('email');
   const passwordValue = watch('password');
   const passwordStrength = useMemo(() => checkPasswordStrength(passwordValue || ''), [passwordValue]);
   
   const showPasswordFields = useMemo(() => {
-    return !!emailValue && !errors.email;
-  }, [emailValue, errors.email]);
+    return emailValue?.includes('@');
+  }, [emailValue]);
 
   const isPasswordStrong = passwordStrength >= 3;
+
+  const handleMagicLinkClick = async () => {
+    setIsMagicLinkLoading(true);
+    const isEmailValid = await trigger('email');
+    if (!isEmailValid) {
+      setIsMagicLinkLoading(false);
+      return;
+    }
+    const email = getValues('email');
+    const result = await sendMagicLink(email);
+    if (result.success) {
+      toast({ title: 'Magic link sent!', description: 'Check your email to sign in.' });
+      onMagicLinkSent();
+    } else {
+      toast({ title: 'Error', description: result.message, variant: 'destructive' });
+    }
+    setIsMagicLinkLoading(false);
+  };
 
   return (
     <div className='space-y-4'>
@@ -361,7 +380,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
                 <FormControl>
                     <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input type="email" placeholder="you@example.com" {...field} onKeyDown={onKeyDown} className="pl-10" id="email" name="email" autoComplete="email" />
+                        <Input type="email" placeholder="you@example.com" {...field} className="pl-10" id="email" name="email" autoComplete="email" />
                     </div>
                 </FormControl>
                 <FormMessage />
@@ -370,50 +389,66 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
         />
         
         {showPasswordFields && (
-            <>
-            <FormField
-                control={control}
-                name="password"
-                render={({ field }) => (
-                    <FormItem className="animate-fade-in">
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                        <div className="relative">
-                            <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" id="password" name="password" autoComplete="new-password" />
-                            <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
-                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                            </Button>
-                        </div>
-                    </FormControl>
-                    <PasswordStrengthIndicator strength={passwordStrength} />
-                    <FormMessage />
-                    </FormItem>
-                )}
-            />
+          <div className='space-y-4'>
+            <div className="relative flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div className="w-full border-t border-muted-foreground/30"></div>
+                </div>
+                <span className="relative bg-background px-2 text-sm text-muted-foreground">or</span>
+            </div>
 
-            {isPasswordStrong && (
-                <FormField
-                    control={control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                        <FormItem className="animate-fade-in">
-                        <FormLabel>Confirm Password</FormLabel>
-                        <FormControl>
-                            <div className="relative">
-                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} value={field.value || ''} onKeyDown={onKeyDown} className="pl-10 pr-10" id="confirmPassword" name="confirmPassword" autoComplete="new-password" />
-                                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                </Button>
-                            </div>
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-            )}
-            </>
+            <Button type="button" variant="outline" onClick={handleMagicLinkClick} className="w-full" disabled={isMagicLinkLoading}>
+                {isMagicLinkLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+                Continue with Magic Link
+            </Button>
+          </div>
+        )}
+        
+        {showPasswordFields && (
+            <div className="space-y-4 mt-4">
+              <FormField
+                  control={control}
+                  name="password"
+                  render={({ field }) => (
+                      <FormItem className="animate-fade-in">
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                          <div className="relative">
+                              <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" id="password" name="password" autoComplete="new-password" />
+                              <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
+                                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                              </Button>
+                          </div>
+                      </FormControl>
+                      <PasswordStrengthIndicator strength={passwordStrength} />
+                      <FormMessage />
+                      </FormItem>
+                  )}
+              />
+
+              {isPasswordStrong && (
+                  <FormField
+                      control={control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                          <FormItem className="animate-fade-in">
+                          <FormLabel>Confirm Password</FormLabel>
+                          <FormControl>
+                              <div className="relative">
+                                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                  <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} value={field.value || ''} onKeyDown={onKeyDown} className="pl-10 pr-10" id="confirmPassword" name="confirmPassword" autoComplete="new-password" />
+                                  <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  </Button>
+                              </div>
+                          </FormControl>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                  />
+              )}
+            </div>
         )}
     </div>
   );
@@ -465,44 +500,59 @@ export default function OnboardingForm() {
   const [brandColors, setBrandColors] = useState<BrandColors | null>(null);
   const [submissionState, setSubmissionState] = useState<ServerActionState>({ message: '', success: false });
   const [isLoading, setIsLoading] = useState(false);
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
   const { toast } = useToast();
   const totalSteps = 3;
+  const searchParams = useSearchParams();
 
   const form = useForm<OnboardingFormValues>({ 
       resolver: zodResolver(onboardingSchema),
-      mode: 'onBlur',
+      mode: 'onSubmit',
+      reValidateMode: 'onBlur',
       shouldUnregister: false,
       defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
   });
-  
-  const { getValues, trigger } = form;
 
   useEffect(() => {
-    if (submissionState.message) {
-        if (submissionState.success && submissionState.businessName) {
-            toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
-            setStep(totalSteps + 1); // Go to success step
-        } else if (!submissionState.success) {
-            toast({ title: 'Onboarding Failed', description: submissionState.message, variant: 'destructive' });
+    const fromMagicLink = searchParams.get('fromMagicLink');
+    if (fromMagicLink) {
+        const savedData = localStorage.getItem('onboardingForm');
+        if (savedData) {
+            const parsedData = JSON.parse(savedData);
+            form.reset(parsedData.values);
+            setLogoDataUri(parsedData.logoDataUri);
+            setBrandColors(parsedData.brandColors);
+            setStep(3);
+            toast({ title: "Welcome back!", description: "You are now logged in. Please click 'Create My Store' to finish.", duration: 5000 });
         }
-        setIsLoading(false);
     }
-  }, [submissionState, toast]);
+  }, [searchParams, form, toast]);
+
+  useEffect(() => {
+    setIsLoading(false);
+  }, [step]);
+  
+  const resetSubmissionState = () => setSubmissionState({ message: '', success: false });
 
   const handleNext = async () => {
+    setIsLoading(true);
     let isValid = false;
     if (step === 1) {
-        isValid = await trigger(['businessName', 'businessType', 'otherBusinessType']);
+        isValid = await form.trigger(['businessName', 'businessType', 'otherBusinessType']);
     } else if (step === 2) {
         if (logoDataUri && brandColors) {
             isValid = true;
         } else {
             toast({ title: 'Branding Incomplete', description: 'Please upload or generate a logo to proceed.', variant: 'destructive' });
+            isValid = false;
         }
     }
     
     if (isValid) {
+      resetSubmissionState();
       setStep(s => s + 1);
+    } else {
+      setIsLoading(false);
     }
   };
 
@@ -519,20 +569,90 @@ export default function OnboardingForm() {
     }
   };
 
-  const handleFormAction = async (formData: FormData) => {
-    const isValid = await trigger();
-    if (!isValid) {
-        toast({ title: 'Form is incomplete', description: 'Please fill out all required fields.', variant: 'destructive'});
+  const handleMagicLinkSent = () => {
+    const values = form.getValues();
+    const dataToSave = { values, logoDataUri, brandColors };
+    localStorage.setItem('onboardingForm', JSON.stringify(dataToSave));
+    setMagicLinkSent(true);
+  };
+
+  const handleSubmitForm = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const isStep3Valid = await form.trigger(['email', 'password', 'confirmPassword'], {
+        shouldFocus: true,
+    });
+
+    if (!isStep3Valid) {
+        toast({ title: 'Form is incomplete', description: 'Please fill out all required fields correctly.', variant: 'destructive' });
+        return;
+    }
+
+    if (!logoDataUri) {
+        toast({ title: 'Logo Missing', description: 'Please upload or generate a logo in Step 2.', variant: 'destructive' });
+        setStep(2);
+        return;
+    }
+
+    if (!brandColors) {
+        toast({ title: 'Brand Colors Missing', description: 'Please ensure brand colors were extracted from your logo in Step 2.', variant: 'destructive' });
+        setStep(2);
         return;
     }
 
     setIsLoading(true);
 
-    if (logoDataUri) formData.append('logoDataUri', logoDataUri);
-    if (brandColors) formData.append('brandColors', JSON.stringify(brandColors));
+    const values = form.getValues();
+    const formData = new FormData();
 
-    const result = await submitOnboarding(submissionState, formData);
-    setSubmissionState(result);
+    Object.entries(values).forEach(([key, value]) => {
+        if (value === undefined || value === null) {
+            formData.set(key, '');
+        } else if (typeof value === 'string') {
+            formData.set(key, value);
+        }
+    });
+
+    formData.set('logoDataUri', logoDataUri);
+    formData.set('brandColors', JSON.stringify(brandColors));
+
+    try {
+        const result = await submitOnboarding(submissionState, formData);
+        setSubmissionState(result);
+
+        if (result.success) {
+            localStorage.removeItem('onboardingForm');
+            toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
+            setStep(totalSteps + 1);
+        } else {
+            const fieldErrors = result.errors?.fieldErrors;
+            if (fieldErrors) {
+                Object.entries(fieldErrors).forEach(([fieldName, messages]) => {
+                    if (messages?.length && fieldName in values) {
+                        form.setError(fieldName as keyof OnboardingFormValues, {
+                            type: 'server',
+                            message: messages.join(', '),
+                        });
+                    }
+                });
+
+                if (fieldErrors.logoDataUri) {
+                    toast({ title: 'Logo Error', description: fieldErrors.logoDataUri.join(', '), variant: 'destructive' });
+                }
+
+                if (fieldErrors.brandColors) {
+                    toast({ title: 'Branding Error', description: fieldErrors.brandColors.join(', '), variant: 'destructive' });
+                }
+            } else if (result.message) {
+                toast({ title: 'Form is incomplete', description: result.message, variant: 'destructive' });
+            }
+        }
+    } catch (error) {
+        logger.error({ message: 'Onboarding submission encountered an unexpected error.', error });
+        toast({ title: 'Something went wrong', description: 'Please try again in a moment.', variant: 'destructive' });
+    } finally {
+        setIsLoading(false);
+    }
   };
   
   if (step > totalSteps && submissionState.businessName) return <Step4_Success businessName={submissionState.businessName} />;
@@ -552,11 +672,23 @@ export default function OnboardingForm() {
       )}
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
-        <form action={handleFormAction} aria-label="Store onboarding form" noValidate>
+        <form onSubmit={handleSubmitForm} aria-label="Store onboarding form" noValidate>
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
             {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
-            {step === 2 && <Step2_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
-            {step === 3 && <Step3_Account onKeyDown={handleKeyDown} />}
+            {step === 2 && <Step2_Branding logo={logoDataUri} onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
+            {step === 3 && (
+                magicLinkSent ? (
+                    <Alert className="mt-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Magic Link Sent!</AlertTitle>
+                        <AlertDescription>
+                            Please check your email for a link to sign in. You can close this window.
+                        </AlertDescription>
+                    </Alert>
+                ) : (
+                    <Step3_Account onKeyDown={handleKeyDown} onMagicLinkSent={handleMagicLinkSent} />
+                )
+            )}
           </div>
           <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isLoading} />
         </form>

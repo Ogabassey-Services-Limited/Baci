@@ -95,7 +95,7 @@ function Storefront() {
 
   const availableFooterLinks = footerLinks.filter(link => merchant.pages?.[link.key as keyof typeof merchant.pages]);
 
-  const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.secondary, merchant.brand_colors.accent] : ['#3F51B5'];
+  const brandColors = merchant.colors ? [merchant.colors.primary, merchant.colors.secondary, merchant.colors.accent] : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors);
 
 
@@ -289,15 +289,19 @@ function BaciLandingPage() {
             <span className="sr-only">Baci</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
-          <Button asChild variant="outline">
-            <Link href="/dashboard">Sign In</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/onboarding">Get Started</Link>
-          </Button>
+           <Link href="/dashboard" legacyBehavior passHref>
+              <Button asChild variant="outline">
+                <a>Sign In</a>
+              </Button>
+            </Link>
+            <Link href="/onboarding" legacyBehavior passHref>
+              <Button asChild>
+                <a>Get Started</a>
+              </Button>
+            </Link>
         </nav>
       </header>
-      <main className="flex-1">
+       <main className="flex-1">
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-card">
           <div className="container px-4 md:px-6">
             <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
@@ -311,9 +315,11 @@ function BaciLandingPage() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                  <Button asChild size="lg">
-                    <Link href="/onboarding">Create Your Store for Free</Link>
-                  </Button>
+                    <Link href="/onboarding" legacyBehavior passHref>
+                      <Button asChild size="lg">
+                        <a>Create Your Store for Free</a>
+                      </Button>
+                    </Link>
                 </div>
               </div>
             </div>

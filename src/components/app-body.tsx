@@ -19,13 +19,13 @@ export default function AppBody({ children }: { children: React.ReactNode }) {
   const showContent = hasMounted && !loading;
 
   // Define CSS variables for the merchant's theme
-  const themeStyle = merchant?.colors ? {
-    '--store-primary': merchant.colors.primary,
-    '--store-secondary': merchant.colors.secondary,
-    '--store-accent': merchant.colors.accent,
-    '--store-primary-text': getContrastingTextColor(merchant.colors.primary),
-    '--store-secondary-text': getContrastingTextColor(merchant.colors.secondary),
-    '--store-accent-text': getContrastingTextColor(merchant.colors.accent),
+  const themeStyle = merchant?.brand_colors ? {
+    '--store-primary': merchant.brand_colors.primary,
+    '--store-secondary': merchant.brand_colors.secondary,
+    '--store-accent': merchant.brand_colors.accent,
+    '--store-primary-text': getContrastingTextColor(merchant.brand_colors.primary),
+    '--store-secondary-text': getContrastingTextColor(merchant.brand_colors.secondary),
+    '--store-accent-text': getContrastingTextColor(merchant.brand_colors.accent),
   } : {};
 
   return (

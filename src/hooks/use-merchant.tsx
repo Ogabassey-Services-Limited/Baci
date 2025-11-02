@@ -10,8 +10,8 @@ export interface MerchantData {
   user_id: string;
   business_name: string;
   business_type: string;
-  logo_url?: string;
-  colors?: {
+  logo_url?: string; // Corrected from logo
+  brand_colors?: { // Corrected from colors
     primary: string;
     secondary: string;
     accent: string;
@@ -73,8 +73,8 @@ export const MerchantProvider = ({ children }: { children: ReactNode }) => {
           user_id: data.user_id,
           business_name: data.business_name,
           business_type: data.business_type,
-          logo_url: data.logo_url,
-          colors: data.colors,
+          logo_url: data.logo_url, // Corrected mapping
+          brand_colors: data.brand_colors, // Corrected mapping
           country: data.country,
           pages: data.pages,
         };
