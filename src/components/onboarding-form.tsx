@@ -29,10 +29,11 @@ import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
-import type { BrandColors } from '@/ai/flows/guide-business-onboarding';
+import type { BrandColors, GuideBusinessOnboardingInput } from '@/ai/flows/guide-business-onboarding';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import { PasswordStrengthIndicator, checkPasswordStrength } from '@/components/password-strength-indicator';
+import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 
 // --- Zod Schema Definitions ---
 
@@ -60,6 +61,59 @@ const onboardingSchema = z.object({
 });
 
 type OnboardingFormValues = z.infer<typeof onboardingSchema>;
+
+// --- Server Action ---
+async function submitOnboarding(
+  formData: OnboardingFormValues,
+  logoDataUri: string | null,
+  brandColors: BrandColors | null
+) {
+  'use server';
+  
+  const supabase = createClient();
+  let user: User | null = null;
+  
+  const { email, password, businessName, businessType, otherBusinessType } = formData;
+
+  // 1. Create or sign in user
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+  if (signUpError) {
+    if (signUpError.message.includes('User already registered')) {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) throw signInError;
+      user = signInData.user;
+    } else {
+      throw signUpError;
+    }
+  } else {
+    user = signUpData.user;
+  }
+
+  if (!user) throw new Error("Authentication failed.");
+
+  // 2. Save merchant data
+  if (!logoDataUri || !brandColors) {
+    throw new Error('Missing branding information. Please ensure a logo is processed.');
+  }
+
+  const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
+
+  const { error: merchantError } = await supabase.from('merchants').upsert({
+    user_id: user.id,
+    email: email,
+    business_name: businessName,
+    business_type: finalBusinessType,
+    logo_url: logoDataUri,
+    colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
+  }, { onConflict: 'user_id' });
+
+  if (merchantError) {
+    throw new Error(`Failed to save merchant data: ${merchantError.message}`);
+  }
+
+  return { success: true, businessName };
+}
+
 
 // --- Step Components ---
 
@@ -225,18 +279,15 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
 
     try {
       const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
-      const response = await fetch('/api/ai/guide-onboarding', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      
+      const flowInput: GuideBusinessOnboardingInput = {
           businessName,
           businessType: finalBusinessType,
           brandPreferences: brandPreferences || '',
           task: 'generate_logos'
-        }),
-      });
-      const result = await response.json();
-      if (result.error) throw new Error(result.error);
+      };
+
+      const result = await guideBusinessOnboarding(flowInput);
       
       if (!result.logos || result.logos.length === 0) {
         toast({
@@ -283,21 +334,12 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
 
   const handleShuffleColors = () => {
     if (!brandColors) return;
-
-    // Cycle roles: p -> s, s -> a, a -> p
-    const newRoles = [colorRoles[2], colorRoles[0], colorRoles[1]]; 
-    
-    const shuffledColors: BrandColors = {
-      primary: brandColors[newRoles.indexOf('primary') as keyof BrandColors],
-      secondary: brandColors[newRoles.indexOf('secondary') as keyof BrandColors],
-      accent: brandColors[newRoles.indexOf('accent') as keyof BrandColors],
-    };
     
     // To correctly cycle values, we map the old roles to the new values.
     const remappedColors: BrandColors = {
-        primary: brandColors[colorRoles[1] as keyof BrandColors],
-        secondary: brandColors[colorRoles[2] as keyof BrandColors],
-        accent: brandColors[colorRoles[0] as keyof BrandColors],
+        primary: brandColors.secondary,
+        secondary: brandColors.accent,
+        accent: brandColors.primary,
     };
 
     onColorsUpdate(remappedColors);
@@ -534,55 +576,14 @@ export default function OnboardingForm() {
     }
   };
 
-  const onSubmit = async (data: OnboardingFormValues) => {
+  const handleFormSubmit = async (data: OnboardingFormValues) => {
     setIsLoading(true);
-    let user: User | null = null;
-    const supabase = createClient();
-
     try {
-        const { email, password } = data;
-
-        // 1. Create or sign in user
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({ email, password });
-
-        if (signUpError) {
-            if (signUpError.message.includes('User already registered')) {
-                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-                if (signInError) throw signInError;
-                user = signInData.user;
-            } else {
-                throw signUpError;
-            }
-        } else {
-             user = authData.user;
+        const result = await submitOnboarding(data, logoDataUri, brandColors);
+        if (result.success) {
+            toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
+            startTransition(() => setStep(totalSteps + 1));
         }
-       
-        if (!user) throw new Error("Authentication failed. Could not get a valid user session.");
-
-        // 2. Save merchant data
-        if (!logoDataUri || !brandColors) {
-            toast({ title: 'Missing Information', description: 'Please ensure a logo is uploaded/generated and colors are extracted.', variant: 'destructive' });
-            setIsLoading(false);
-            return;
-        }
-
-        const finalBusinessType = data.businessType === 'other' ? (data.otherBusinessType || data.businessType) : data.businessType;
-
-        const { error: merchantError } = await supabase.from('merchants').upsert({
-            user_id: user.id, // Use upsert to handle both create and update
-            email: data.email,
-            business_name: data.businessName,
-            business_type: finalBusinessType,
-            logo_url: logoDataUri,
-            colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
-        }, { onConflict: 'user_id' });
-
-        if (merchantError) {
-            throw new Error(`Failed to save merchant data: ${merchantError.message}`);
-        }
-        
-        toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
-        startTransition(() => setStep(totalSteps + 1));
     } catch (e) {
         logger.error({ message: "Onboarding submission failed.", error: e as Error });
         toast({ title: 'Onboarding Failed', description: (e as Error).message, variant: 'destructive' });
@@ -601,7 +602,7 @@ export default function OnboardingForm() {
       </header>
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" aria-label="Store onboarding form">
+        <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6" aria-label="Store onboarding form">
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
             {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
             {step === 2 && <Step2_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
