@@ -4,7 +4,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import {
   FormControl,
@@ -36,7 +35,7 @@ import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { z } from 'zod';
 
-// --- Zod Schema Definitions ---
+// Zod schema is now ONLY used for server-side validation and type inference.
 const onboardingSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
   password: z.string().min(8, 'Password must be at least 8 characters.'),
@@ -375,13 +374,18 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
   const passwordStrength = useMemo(() => checkPasswordStrength(passwordValue || ''), [passwordValue]);
 
   const isPasswordStrong = passwordStrength >= 3;
-  const showPasswordFields = useMemo(() => z.string().email().safeParse(emailValue).success, [emailValue]);
   
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+
   useEffect(() => {
     if (emailValue) {
-        trigger("email");
+        z.string().email().safeParseAsync(emailValue).then(result => {
+            setShowPasswordFields(result.success);
+        })
+    } else {
+        setShowPasswordFields(false);
     }
-  }, [emailValue, trigger])
+  }, [emailValue]);
 
   return (
     <div className='space-y-4'>
@@ -487,7 +491,7 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
   return (
     <div className="flex justify-between pt-4">
       {currentStep > 1 ? (<Button type="button" variant="outline" onClick={onPrev} disabled={isLoading}>Previous</Button>) : <div />}
-      {isLastStep ? (<Button type="submit" disabled={isLoading}>{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create My Store</Button>) : (<Button type="button" onClick={onNext} disabled={isLoading}>Next</Button>)}
+      {isLastStep ? (<Button type="submit" disabled={isLoading} id="submit-button">{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create My Store</Button>) : (<Button type="button" onClick={onNext} disabled={isLoading}>Next</Button>)}
     </div>
   );
 }
@@ -503,10 +507,11 @@ export default function OnboardingForm() {
   const totalSteps = 3;
 
   const form = useForm<OnboardingFormValues>({ 
-      resolver: zodResolver(onboardingSchema),
       mode: 'onBlur',
       defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
   });
+  
+  const { getValues, clearErrors } = form;
 
   useEffect(() => {
     if (submissionState.message) {
@@ -520,19 +525,39 @@ export default function OnboardingForm() {
     }
   }, [submissionState, toast]);
 
-  const handleNext = async () => {
-    let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
+  const handleNext = () => {
+    // Simple manual validation for current step
+    const values = getValues();
+    let isValid = true;
+    let errorField: keyof OnboardingFormValues | null = null;
+    let errorMessage = '';
+
     if (step === 1) {
-        fieldsToValidate = ['businessName', 'businessType'];
-        if (form.getValues('businessType') === 'other') {
-            fieldsToValidate.push('otherBusinessType');
+        if (values.businessName.length < 2) {
+            isValid = false;
+            errorField = 'businessName';
+            errorMessage = 'Business name must be at least 2 characters.';
+        } else if (!values.businessType) {
+            isValid = false;
+            errorField = 'businessType';
+            errorMessage = 'Please select a business type.';
+        } else if (values.businessType === 'other' && (values.otherBusinessType || '').length < 2) {
+            isValid = false;
+            errorField = 'otherBusinessType';
+            errorMessage = 'Please specify your business type.';
+        }
+    } else if (step === 2) {
+        if (!logoDataUri || !brandColors) {
+            isValid = false;
+            toast({ title: 'Branding Incomplete', description: 'Please upload or generate a logo to proceed.', variant: 'destructive' });
         }
     }
-    
-    const isValid = fieldsToValidate.length > 0 ? await form.trigger(fieldsToValidate) : true;
 
     if (isValid) {
+      clearErrors();
       setStep(s => s + 1);
+    } else if (errorField) {
+      form.setError(errorField, { type: 'manual', message: errorMessage });
     }
   };
 
@@ -544,20 +569,12 @@ export default function OnboardingForm() {
       if (step < totalSteps) {
         handleNext();
       } else {
-        // Allow submission on last step
         document.getElementById('submit-button')?.click();
       }
     }
   };
 
   const handleFormAction = async () => {
-    // Final client-side validation before submitting to server action
-    const isValid = await form.trigger(['email', 'password', 'confirmPassword']);
-    if (!isValid) {
-        toast({ title: 'Form Incomplete', description: 'Please check your email and password.', variant: 'destructive'});
-        return;
-    }
-
     setIsLoading(true);
     const formData = new FormData();
     const formValues = form.getValues();
