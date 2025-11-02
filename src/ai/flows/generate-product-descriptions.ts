@@ -101,29 +101,6 @@ export async function generateProductDescription(
   return generateProductDescriptionFlow(input);
 }
 
-const EnhancedInputSchema = GenerateProductDescriptionInputSchema.extend({
-  styleGuidance: z.string().describe('AI description style guidance from business type config'),
-  businessContext: z.string().describe('Business context from config'),
-});
-
-const prompt = ai.definePrompt({
-  name: 'generateProductDescriptionPrompt',
-  input: {schema: EnhancedInputSchema},
-  output: {schema: GenerateProductDescriptionOutputSchema},
-  prompt: `You are an expert copywriter specializing in e-commerce product descriptions.
-
-You will generate a compelling product description based on the provided information, taking into account the business type and style guidance.
-
-Product Name: {{{productName}}}
-Business Type: {{{businessType}}}
-Product Details: {{{productDetails}}}
-
-STYLE GUIDANCE: {{{styleGuidance}}}
-BUSINESS CONTEXT: {{{businessContext}}}
-
-Write a product description that is engaging, informative, and persuasive. Follow the style guidance to ensure the description matches the business type and target audience.`,
-});
-
 const generateProductDescriptionFlow = ai.defineFlow(
   {
     name: 'generateProductDescriptionFlow',
@@ -143,13 +120,26 @@ const generateProductDescriptionFlow = ai.defineFlow(
       ? businessTypeConfig.aiPromptContext
       : 'general e-commerce';
 
-    // Call prompt with enhanced input
-    const {output} = await prompt({
-      ...input,
-      styleGuidance,
-      businessContext,
-    });
+    const {output} = await ai.generate({
+      model: 'googleai/gemini-2.5-flash',
+      prompt: `You are an expert copywriter specializing in e-commerce product descriptions.
 
-    return output!;
+You will generate a compelling product description based on the provided information, taking into account the business type and style guidance.
+
+Product Name: ${input.productName}
+Business Type: ${input.businessType}
+Product Details: ${input.productDetails}
+
+STYLE GUIDANCE: ${styleGuidance}
+BUSINESS CONTEXT: ${businessContext}
+
+Write a product description that is engaging, informative, and persuasive. Follow the style guidance to ensure the description matches the business type and target audience. Return only the description text, with no extra formatting or labels.`,
+    });
+    
+    if (!output || !output.text) {
+        throw new Error('AI failed to generate a description.');
+    }
+
+    return { description: output.text };
   }
 );

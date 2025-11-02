@@ -3,5 +3,5 @@ import {googleAI} from '@genkit-ai/google-genai';
 
 export const ai = genkit({
   plugins: [googleAI()],
-  model: 'googleai/gemini-2.0-flash-lite', // Cheapest model: $0.075/$0.30 per 1M tokens
+  model: 'googleai/gemini-2.5-pro-image-preview', // Upgraded for more power and versatility
 });

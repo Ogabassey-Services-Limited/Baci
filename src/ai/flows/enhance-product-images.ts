@@ -19,7 +19,7 @@
  * @aiContext When modifying this flow:
  * 1. DO NOT change input/output schemas without updating callers in product form
  * 2. Prompt is at lines 48-49 - edit here to change enhancement style
- * 3. MUST use responseModalities: ['TEXT', 'IMAGE'] - IMAGE-only won't work
+ * 3. MUST use responseModalities: ['IMAGE'] - The new models work best this way.
  * 4. Test with various image sizes and formats (JPEG, PNG, WebP)
  * 5. Consider optimization: large data URIs are memory-intensive
  *
@@ -27,7 +27,6 @@
  * - Large images cause memory issues due to data URI size
  * - No preview/loading indicator during enhancement (takes 5-15 seconds)
  * - No manual adjustment controls (brightness, contrast, etc.)
- * - Automatic enhancement on upload might not be desired by all users
  *
  * @futureWork
  * - Upload to Firebase Storage first, pass URLs instead of data URIs
@@ -47,7 +46,7 @@ const EnhanceProductImageInputSchema = z.object({
   photoDataUri: z
     .string()
     .describe(
-      "A photo of a product, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'." // Corrected the expected format description
+      "A photo of a product, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'" // Corrected the expected format description
     ),
 });
 export type EnhanceProductImageInput = z.infer<typeof EnhanceProductImageInputSchema>;
@@ -92,7 +91,6 @@ export type EnhanceProductImageOutput = z.infer<typeof EnhanceProductImageOutput
  * - Processing takes 5-15 seconds depending on image size
  * - Data URIs can be very large (several MB for high-res images)
  * - Model: gemini-2.5-pro-image-preview (image generation capabilities)
- * - Must use responseModalities: ['TEXT', 'IMAGE'] - IMAGE-only won't work
  * - Product form shows toggle switch to compare original vs enhanced
  */
 export async function enhanceProductImage(
@@ -117,12 +115,17 @@ const enhanceProductImageFlow = ai.defineFlow(
         },
       ],
       config: {
-        responseModalities: ['TEXT', 'IMAGE'], // MUST provide both TEXT and IMAGE, IMAGE only won't work
+        responseModalities: ['IMAGE'],
       },
     });
     if (!media) {
       throw new Error('no media returned');
     }
-    return {enhancedPhotoDataUri: media.url!};
+    // Handle both single and array of media objects
+    const mediaUrl = Array.isArray(media) ? media[0]?.url : media.url;
+    if (!mediaUrl) {
+      throw new Error('no media URL found in the response');
+    }
+    return {enhancedPhotoDataUri: mediaUrl};
   }
 );

@@ -5,7 +5,7 @@
  * @fileOverview Guides new users through the onboarding process to define their business type and brand preferences.
  *
  * This flow provides two key capabilities:
- * 1. **Logo Generation:** Creates a professional logo and a matching 3-color palette based on business context and user color preferences.
+ * 1. **Logo Generation:** Creates professional logo options and a matching 3-color palette based on business context and user color preferences.
  * 2. **Color Extraction:** Analyzes an existing uploaded logo and extracts a 3-color brand palette from it.
  *
  * Uses Gemini 2.5 Pro Image Preview model for both image generation and analysis.
@@ -17,10 +17,8 @@
  *
  * @aiContext When modifying this flow:
  * 1. DO NOT change input/output schemas without updating callers in onboarding-form.tsx
- * 2. Logo generation prompt is now part of the main flow logic (lines 149-166).
- * 3. Color extraction prompt is separate (`extractColorsPrompt`, lines 109-131).
- * 4. Brand colors MUST always return exactly 3 hex codes in order: primary, secondary, accent.
- * 5. The logic is now split: if a logo is provided, we extract. If not, we generate. This is a critical distinction.
+ * 2. Logic is now split by a `task` field: 'generate_logos' or 'extract_colors'. This is a critical distinction.
+ * 3. Brand colors MUST always return exactly 3 hex codes in order: primary, secondary, accent.
  *
  * @see /src/app/onboarding/onboarding-form.tsx - Caller component
  * @see /src/ai/flows/_AI_README.md for detailed flow documentation
@@ -89,7 +87,7 @@ const guideBusinessOnboardingFlow = ai.defineFlow(
 
       try {
         const response = await ai.generate({
-          model: 'googleai/gemini-2.0-flash',
+          model: 'googleai/gemini-2.5-pro-image-preview',
           prompt: [
             {
               text: `You are a professional brand designer analyzing a logo image.
