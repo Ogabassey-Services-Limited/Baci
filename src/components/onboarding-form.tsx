@@ -58,7 +58,7 @@ const onboardingSchema = z.object({
 })
 .refine(data => {
     // Only require passwords to match if the password is long enough to need confirmation
-    if ((data.password?.length ?? 0) >= 8) {
+    if ((checkPasswordStrength(data.password || '') >= 3)) {
         return data.password === data.confirmPassword;
     }
     return true;
@@ -396,6 +396,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
   }, [emailValue, trigger]);
 
   const isPasswordMinLength = (passwordValue?.length ?? 0) >= 8;
+  const isPasswordStrong = passwordStrength >= 3;
 
   return (
     <div className='space-y-4'>
@@ -440,7 +441,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
                     )}
                 />
 
-                {isPasswordMinLength && (
+                {isPasswordStrong && (
                     <FormField
                         control={control}
                         name="confirmPassword"
@@ -536,8 +537,6 @@ export default function OnboardingForm() {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
     if (step === 1) {
       fieldsToValidate = ['businessName', 'businessType', 'otherBusinessType'];
-    } else if (step === 2) {
-      // Step 2 validation is handled separately due to logo requirement
     }
     
     if (fieldsToValidate.length > 0) {
@@ -608,5 +607,3 @@ export default function OnboardingForm() {
     </div>
   );
 }
-
-    
