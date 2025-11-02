@@ -4,6 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import {
   FormControl,
@@ -35,7 +36,7 @@ import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { z } from 'zod';
 
-// Zod schema is now ONLY used for server-side validation and type inference.
+
 const onboardingSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
   password: z.string().min(8, 'Password must be at least 8 characters.'),
@@ -378,13 +379,15 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
   const [showPasswordFields, setShowPasswordFields] = useState(false);
 
   useEffect(() => {
-    if (emailValue) {
-        z.string().email().safeParseAsync(emailValue).then(result => {
+    const checkEmail = async () => {
+        if (emailValue) {
+            const result = await z.string().email().safeParseAsync(emailValue);
             setShowPasswordFields(result.success);
-        })
-    } else {
-        setShowPasswordFields(false);
-    }
+        } else {
+            setShowPasswordFields(false);
+        }
+    };
+    checkEmail();
   }, [emailValue]);
 
   return (
@@ -507,11 +510,12 @@ export default function OnboardingForm() {
   const totalSteps = 3;
 
   const form = useForm<OnboardingFormValues>({ 
+      resolver: zodResolver(onboardingSchema),
       mode: 'onBlur',
       defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
   });
   
-  const { getValues, clearErrors } = form;
+  const { getValues, trigger } = form;
 
   useEffect(() => {
     if (submissionState.message) {
@@ -525,49 +529,34 @@ export default function OnboardingForm() {
     }
   }, [submissionState, toast]);
 
-  const handleNext = () => {
-    // Simple manual validation for current step
-    const values = getValues();
-    let isValid = true;
-    let errorField: keyof OnboardingFormValues | null = null;
-    let errorMessage = '';
-
+  const handleNext = async () => {
+    let isValid = false;
     if (step === 1) {
-        if (values.businessName.length < 2) {
-            isValid = false;
-            errorField = 'businessName';
-            errorMessage = 'Business name must be at least 2 characters.';
-        } else if (!values.businessType) {
-            isValid = false;
-            errorField = 'businessType';
-            errorMessage = 'Please select a business type.';
-        } else if (values.businessType === 'other' && (values.otherBusinessType || '').length < 2) {
-            isValid = false;
-            errorField = 'otherBusinessType';
-            errorMessage = 'Please specify your business type.';
+        const fieldsToValidate: (keyof OnboardingFormValues)[] = ['businessName', 'businessType'];
+        if (getValues('businessType') === 'other') {
+            fieldsToValidate.push('otherBusinessType');
         }
+        isValid = await trigger(fieldsToValidate);
     } else if (step === 2) {
-        if (!logoDataUri || !brandColors) {
-            isValid = false;
+        if (logoDataUri && brandColors) {
+            isValid = true;
+        } else {
             toast({ title: 'Branding Incomplete', description: 'Please upload or generate a logo to proceed.', variant: 'destructive' });
         }
     }
-
+    
     if (isValid) {
-      clearErrors();
       setStep(s => s + 1);
-    } else if (errorField) {
-      form.setError(errorField, { type: 'manual', message: errorMessage });
     }
   };
 
   const handlePrev = () => { if (step > 1) setStep(s => s - 1); };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => {
+  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (step < totalSteps) {
-        handleNext();
+        await handleNext();
       } else {
         document.getElementById('submit-button')?.click();
       }
@@ -575,6 +564,17 @@ export default function OnboardingForm() {
   };
 
   const handleFormAction = async () => {
+    const isValid = await trigger(['email', 'password', 'confirmPassword']);
+    if (!isValid) {
+        // Zod resolver will show the errors, but we can add a general toast.
+        toast({
+            title: 'Form is incomplete',
+            description: 'Please correct the errors before submitting.',
+            variant: 'destructive',
+        });
+        return;
+    }
+
     setIsLoading(true);
     const formData = new FormData();
     const formValues = form.getValues();
