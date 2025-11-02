@@ -28,9 +28,8 @@ import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
-import type { BrandColors, GuideBusinessOnboardingInput } from '@/ai/flows/guide-business-onboarding';
+import type { BrandColors } from '@/ai/flows/guide-business-onboarding';
 import { PasswordStrengthIndicator, checkPasswordStrength } from '@/components/password-strength-indicator';
-import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { submitOnboarding, type ServerActionState } from '@/app/onboarding/actions';
 import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -219,42 +218,13 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
   const handleGenerateClick = () => setShowColorPrompt(true);
 
   const handleGenerateLogos = async () => {
-    const { businessName, businessType, brandPreferences, otherBusinessType } = form.getValues();
-    setIsGenerating(true);
-    // Reset state
-    setGeneratedLogos([]);
-    setSelectedGeneratedLogoIndex(null);
-    onLogoUpdate(null);
-    onColorsUpdate(null);
-
-    try {
-      const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
-      
-      const flowInput: GuideBusinessOnboardingInput = {
-          businessName,
-          businessType: finalBusinessType,
-          brandPreferences: brandPreferences || '',
-          task: 'generate_logos'
-      };
-
-      const result = await guideBusinessOnboarding(flowInput);
-      
-      if (!result.logos || result.logos.length === 0) {
-        toast({
-            title: 'AI Logo Generation Unavailable',
-            description: 'To generate logos, please add your Google AI API key to a .env file.',
-            duration: 9000,
-        });
-      } else {
-        setGeneratedLogos(result.logos || []);
-        toast({ title: 'Logos generated!', description: 'Please select your favorite.' });
-      }
-    } catch (e) {
-      logger.error({ error: e as Error, message: 'Logo generation failed.' });
-      toast({ title: 'Logo generation failed', description: (e as Error).message, variant: 'destructive' });
-    } finally {
-      setIsGenerating(false);
-    }
+    // This function remains commented out as per previous logic, as it requires an unimplemented AI flow.
+    // When ready, it should be connected to a working Genkit flow.
+    toast({
+        title: 'AI Logo Generation Unavailable',
+        description: 'This feature is not yet configured. Please upload a logo.',
+        variant: 'destructive'
+    });
   };
 
   const handleSelectAndContinue = async () => {
@@ -285,7 +255,6 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
   const handleShuffleColors = () => {
     if (!brandColors) return;
     
-    // To correctly cycle values, we map the old roles to the new values.
     const remappedColors: BrandColors = {
         primary: brandColors.secondary,
         secondary: brandColors.accent,
@@ -302,7 +271,7 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
 ] : [];
 
   return (
-    <div className='space-y-4' onKeyDown={onKeyDown} tabIndex={-1}>
+    <div className='space-y-4'>
       <FormLabel className="text-lg">Do you have a logo?</FormLabel>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
         <div className="space-y-2">
@@ -366,7 +335,7 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
 }
 
 function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
-  const { control, watch, trigger } = useFormContext<OnboardingFormValues>();
+  const { control, watch, formState: { errors, touchedFields } } = useFormContext<OnboardingFormValues>();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -376,19 +345,10 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
 
   const isPasswordStrong = passwordStrength >= 3;
   
-  const [showPasswordFields, setShowPasswordFields] = useState(false);
-
-  useEffect(() => {
-    const checkEmail = async () => {
-        const result = await trigger("email");
-        setShowPasswordFields(result);
-    };
-    if (emailValue) {
-        checkEmail();
-    } else {
-        setShowPasswordFields(false);
-    }
-  }, [emailValue, trigger]);
+  const showPasswordFields = useMemo(() => {
+    // Show password fields if email has been touched, has a value, and has no errors.
+    return !!emailValue && touchedFields.email && !errors.email;
+  }, [emailValue, touchedFields.email, errors.email]);
 
   return (
     <div className='space-y-4'>
@@ -564,11 +524,11 @@ export default function OnboardingForm() {
   };
 
   const handleFormAction = async () => {
-    const isValid = await trigger();
+    const isValid = await trigger(['email', 'password', 'confirmPassword']);
     if (!isValid) {
         toast({
             title: 'Form is incomplete',
-            description: 'Please review all steps and correct any errors before submitting.',
+            description: 'Please review the account details and correct any errors before submitting.',
             variant: 'destructive',
         });
         return;
