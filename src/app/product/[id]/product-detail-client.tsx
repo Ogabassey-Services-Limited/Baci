@@ -1,7 +1,6 @@
 
 'use client';
 
-import { getProductById } from '@/lib/products';
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
@@ -20,9 +19,8 @@ import { Input } from '@/components/ui/input';
 import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { Button } from '@/components/ui/button';
 
-// This is now a dedicated Client Component.
-export default function ProductDetailClient({ productId }: { productId: string }) {
-  const product = getProductById(productId);
+// This is now a dedicated Client Component that receives the product as a prop.
+export default function ProductDetailClient({ product }: { product: Product }) {
   const { merchant } = useMerchant();
   const { cart, cartCount, addToCart, updateQuantity } = useCart();
   const { toast } = useToast();
@@ -50,7 +48,7 @@ export default function ProductDetailClient({ productId }: { productId: string }
     }).format(amount);
   };
 
-  const storeName = merchant?.businessName || 'Baci Store';
+  const storeName = merchant?.business_name || 'Baci Store';
 
   const footerLinks = [
     { key: 'about', label: 'About Us' },
@@ -68,8 +66,39 @@ export default function ProductDetailClient({ productId }: { productId: string }
   const brandColors = merchant?.colors ? [merchant.colors.primary, merchant.colors.secondary, merchant.colors.accent] : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors);
 
+  const productSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    image: product.imageLarge,
+    description: product.description,
+    brand: {
+      '@type': 'Brand',
+      name: product.brand,
+    },
+    sku: product.mpn,
+    mpn: product.mpn,
+    gtin: product.gtin,
+    offers: {
+      '@type': 'Offer',
+      url: typeof window !== 'undefined' ? window.location.href : '',
+      priceCurrency: merchant?.country ? getCountryByCode(merchant.country)?.currency || 'USD' : 'USD',
+      price: product.price,
+      availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      seller: {
+        '@type': 'Organization',
+        name: storeName,
+      },
+    },
+  };
+
+
   return (
     <div className="flex flex-col min-h-screen">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
       <Sheet>
         <header className="px-4 lg:px-6 h-16 flex items-center justify-between shadow-sm sticky top-0 bg-background/80 backdrop-blur-sm z-10">
           <Link href="/" className="flex items-center gap-2 text-sm font-medium">

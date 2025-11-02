@@ -62,18 +62,9 @@ function Storefront() {
     );
   }
 
+  // This case should ideally not be hit if this component is only rendered when a merchant exists
   if (!merchant) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <h2 className="text-2xl font-bold">No Store Found</h2>
-        <p className="text-muted-foreground mt-2">
-          It looks like you haven't created a store yet.
-        </p>
-        <Link href="/onboarding" className="mt-4">
-          <Button>Create Your Store</Button>
-        </Link>
-      </div>
-    );
+    return null;
   }
 
   const businessTypeConfig = getBusinessTypeById(merchant.business_type);
@@ -310,7 +301,7 @@ function BaciLandingPage() {
             <span className="sr-only">Baci</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
-           <Link href="/onboarding" legacyBehavior passHref>
+           <Link href="/dashboard" legacyBehavior passHref>
               <Button asChild variant="outline">
                 <a>Sign In</a>
               </Button>
@@ -351,7 +342,8 @@ function BaciLandingPage() {
   )
 }
 
-function Page() {
+// This component now decides which page to show on the client-side
+function ClientHomePage() {
   const { merchant, loading } = useMerchant();
 
   if (loading) {
@@ -362,10 +354,11 @@ function Page() {
   return merchant ? <Storefront /> : <BaciLandingPage />;
 }
 
+
 export default function HomePage() {
     return (
         <MerchantProvider>
-            <Page />
+            <ClientHomePage />
         </MerchantProvider>
     )
 }
