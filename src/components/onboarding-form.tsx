@@ -79,7 +79,7 @@ function StepIndicator({ currentStep, totalSteps }: { currentStep: number, total
   );
 }
 
-function Step1_Email() {
+function Step1_Email({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
   const { control } = useFormContext<OnboardingFormValues>();
   return (
     <FormField
@@ -89,7 +89,7 @@ function Step1_Email() {
         <FormItem>
           <FormLabel className="text-lg">What's your email address?</FormLabel>
           <FormControl>
-            <Input type="email" placeholder="you@example.com" {...field} />
+            <Input type="email" placeholder="you@example.com" {...field} onKeyDown={onKeyDown} />
           </FormControl>
           <FormMessage />
         </FormItem>
@@ -136,6 +136,13 @@ function Step2_Password({ onAuthComplete, authMode, isCheckingEmail, setAuthMode
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAuth();
+    }
+  };
+
   const email = getValues('email');
   const debouncedEmail = useDebounce(email, 500);
 
@@ -176,7 +183,7 @@ function Step2_Password({ onAuthComplete, authMode, isCheckingEmail, setAuthMode
           <FormItem>
             <FormLabel className="text-lg">Password</FormLabel>
             <FormControl>
-              <Input type="password" placeholder="Min. 8 characters" {...field} />
+              <Input type="password" placeholder="Min. 8 characters" {...field} onKeyDown={handleKeyDown} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -191,7 +198,7 @@ function Step2_Password({ onAuthComplete, authMode, isCheckingEmail, setAuthMode
                 <FormItem>
                     <FormLabel className="text-lg">Confirm Password</FormLabel>
                     <FormControl>
-                    <Input type="password" placeholder="Re-enter your password" {...field} />
+                    <Input type="password" placeholder="Re-enter your password" {...field} onKeyDown={handleKeyDown} />
                     </FormControl>
                     <FormMessage />
                 </FormItem>
@@ -209,7 +216,7 @@ function Step2_Password({ onAuthComplete, authMode, isCheckingEmail, setAuthMode
   );
 }
 
-function Step3_BusinessDetails() {
+function Step3_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => void; }) {
   const { control, watch } = useFormContext<OnboardingFormValues>();
   const businessTypeValue = watch('businessType');
   const businessTypes = useMemo(() => getAllBusinessTypes(), []);
@@ -223,7 +230,7 @@ function Step3_BusinessDetails() {
           <FormItem>
             <FormLabel className="text-lg">What is your business name?</FormLabel>
             <FormControl>
-              <Input placeholder="e.g., Amara's Fashion" {...field} />
+              <Input placeholder="e.g., Amara's Fashion" {...field} onKeyDown={onKeyDown} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -237,7 +244,7 @@ function Step3_BusinessDetails() {
             <FormLabel className="text-lg">What's the nature of your business?</FormLabel>
             <Select onValueChange={field.onChange} defaultValue={field.value}>
               <FormControl>
-                <SelectTrigger>
+                <SelectTrigger onKeyDown={onKeyDown}>
                   <SelectValue placeholder="e.g., Fashion, Electronics, Art..." />
                 </SelectTrigger>
               </FormControl>
@@ -262,7 +269,7 @@ function Step3_BusinessDetails() {
             <FormItem>
               <FormLabel>Please specify</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Pet Services" {...field} />
+                <Input placeholder="e.g., Pet Services" {...field} onKeyDown={onKeyDown} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -274,7 +281,7 @@ function Step3_BusinessDetails() {
 }
 
 
-function Step4_Branding({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: BrandColors | null) => void; brandColors: BrandColors | null; }) {
+function Step4_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }: { onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: BrandColors | null) => void; brandColors: BrandColors | null; onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
 
@@ -404,6 +411,13 @@ function Step4_Branding({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoU
       setIsExtracting(false);
     }
   };
+
+  const handlePreferenceKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleGenerateLogos();
+    }
+  };
   
   const colorEntries = brandColors ? Object.entries(brandColors) : [];
 
@@ -443,7 +457,7 @@ function Step4_Branding({ onLogoUpdate, onColorsUpdate, brandColors }: { onLogoU
               <FormField control={form.control} name="brandPreferences" render={({ field }) => (
                   <FormItem>
                     <FormLabel>What's your favorite color?</FormLabel>
-                    <Input {...field} placeholder="e.g., 'deep ocean blue'" />
+                    <Input {...field} placeholder="e.g., 'deep ocean blue'" onKeyDown={handlePreferenceKeyDown} />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -536,6 +550,17 @@ export default function OnboardingForm() {
     handleNext(); // Move to the next step
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      // Step 2 has its own 'Continue' button logic inside the component.
+      // For other steps, we can call handleNext.
+      if (step !== 2) {
+        handleNext();
+      }
+    }
+  };
+
   const onSubmit = async (data: OnboardingFormValues) => {
     setIsLoading(true);
     try {
@@ -578,10 +603,10 @@ export default function OnboardingForm() {
       <FormProvider {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" aria-label="Store onboarding form">
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[150px]">
-            {step === 1 && <Step1_Email />}
+            {step === 1 && <Step1_Email onKeyDown={handleKeyDown} />}
             {step === 2 && <Step2_Password onAuthComplete={handleAuthComplete} authMode={authMode} setAuthMode={setAuthMode} isCheckingEmail={isCheckingEmail} />}
-            {step === 3 && <Step3_BusinessDetails />}
-            {step === 4 && <Step4_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} />}
+            {step === 3 && <Step3_BusinessDetails onKeyDown={handleKeyDown} />}
+            {step === 4 && <Step4_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
           </div>
           <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isLoading || isPending} />
         </form>
