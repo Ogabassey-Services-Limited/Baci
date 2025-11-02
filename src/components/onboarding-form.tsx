@@ -33,6 +33,7 @@ import type { BrandColors, GuideBusinessOnboardingInput } from '@/ai/flows/guide
 import { PasswordStrengthIndicator, checkPasswordStrength } from '@/components/password-strength-indicator';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { submitOnboarding, type ServerActionState } from '@/app/onboarding/actions';
+import ColorThief from 'colorthief';
 
 
 // --- Zod Schema Definitions ---
@@ -161,27 +162,25 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
 
   const extractColorsFromImage = (imageDataUri: string): Promise<BrandColors> => {
     return new Promise((resolve, reject) => {
-      if (typeof Worker === 'undefined') {
-        return reject(new Error('Web Workers not supported'));
-      }
-      const worker = new Worker('/color-worker.js');
-      const timeout = setTimeout(() => {
-        worker.terminate();
-        reject(new Error('Color extraction timed out'));
-      }, 10000);
-      worker.onmessage = (event) => {
-        clearTimeout(timeout);
-        worker.terminate();
-        const { success, colors, error } = event.data;
-        if (success && colors) resolve(colors);
-        else reject(new Error(error || 'Color extraction failed'));
+      const colorThief = new ColorThief();
+      const img = document.createElement('img');
+      img.src = imageDataUri;
+
+      img.onload = async () => {
+        try {
+          const palette = colorThief.getPalette(img, 3);
+          const [primary, secondary, accent] = palette.map(
+            (rgb: number[]) => `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`
+          );
+          resolve({ primary, secondary, accent });
+        } catch (e) {
+          reject(e);
+        }
       };
-      worker.onerror = (error) => {
-        clearTimeout(timeout);
-        worker.terminate();
-        reject(new Error('Worker error: ' + error.message));
+      
+      img.onerror = (e) => {
+        reject(new Error('Image could not be loaded for color extraction.'));
       };
-      worker.postMessage({ imageDataUri });
     });
   };
 
@@ -563,5 +562,7 @@ export default function OnboardingForm() {
     </div>
   );
 }
+
+    
 
     
