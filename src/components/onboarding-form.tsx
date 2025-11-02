@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useActionState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,39 +32,7 @@ import { PasswordStrengthIndicator } from '@/components/password-strength-indica
 import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/onboarding/actions';
 import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { z } from 'zod';
-
-
-const onboardingSchema = z.object({
-  email: z.string().email('Please enter a valid email address.'),
-  password: z.string().min(8, 'Password must be at least 8 characters.').optional(),
-  confirmPassword: z.string().optional(),
-  businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
-  businessType: z.string().min(1, 'Please select a business type.'),
-  otherBusinessType: z.string().optional(),
-  brandPreferences: z.string().optional(),
-})
-.refine(data => {
-    if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
-      return false;
-    }
-    return true;
-  }, {
-    message: "If you select 'Other', please specify your business type.",
-    path: ["otherBusinessType"],
-})
-.refine(data => {
-    if (data.password && checkPasswordStrength(data.password) >= 3) {
-        return data.password === data.confirmPassword;
-    }
-    return true;
-}, {
-    message: "Passwords do not match.",
-    path: ["confirmPassword"],
-});
-
-
-type OnboardingFormValues = z.infer<typeof onboardingSchema>;
+import { OnboardingFormValues, onboardingSchema, step1Schema, step2Schema, step3Schema } from '@/schemas/onboarding';
 
 
 // --- Step Components ---
@@ -146,20 +114,21 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
 }
 
 
-function Step2_Branding({ logo, onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }: { logo: string | null; onLogoUpdate: (logo: string | null) => void; onColorsUpdate: (colors: BrandColors | null) => void; brandColors: BrandColors | null; onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
+function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
+  const { watch, setValue } = form;
 
-  const [logoPreview, setLogoPreview] = useState<string | null>(logo);
+  const logoDataUri = watch('logoDataUri');
+  const brandColorsString = watch('brandColors');
+  const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
+
   const [generatedLogos, setGeneratedLogos] = useState<string[]>([]);
   const [selectedGeneratedLogoIndex, setSelectedGeneratedLogoIndex] = useState<number | null>(null);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
   const [showColorPrompt, setShowColorPrompt] = useState(false);
-  
-  const [colorRoles, setColorRoles] = useState<('primary' | 'secondary' | 'accent')[]>(['primary', 'secondary', 'accent']);
-
 
   const isLoading = isGenerating || isExtracting;
 
@@ -193,19 +162,18 @@ function Step2_Branding({ logo, onLogoUpdate, onColorsUpdate, brandColors, onKey
       const reader = new FileReader();
       reader.onloadend = async () => {
         const dataUri = reader.result as string;
-        setLogoPreview(dataUri);
-        onLogoUpdate(dataUri);
+        setValue('logoDataUri', dataUri, { shouldValidate: true });
         setGeneratedLogos([]);
         setSelectedGeneratedLogoIndex(null);
         setIsExtracting(true);
         try {
           const colors = await extractColorsFromImage(dataUri);
-          onColorsUpdate(colors);
+          setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
           toast({ title: 'Brand colors extracted!', description: 'You can shuffle them if you like.' });
         } catch (e) {
           logger.error({ error: e as Error, message: 'Color extraction failed.' });
           toast({ title: 'Color extraction failed', description: (e as Error).message, variant: 'destructive' });
-          onColorsUpdate(null);
+          setValue('brandColors', '', { shouldValidate: true });
         } finally {
           setIsExtracting(false);
         }
@@ -217,8 +185,6 @@ function Step2_Branding({ logo, onLogoUpdate, onColorsUpdate, brandColors, onKey
   const handleGenerateClick = () => setShowColorPrompt(true);
 
   const handleGenerateLogos = async () => {
-    // This function remains commented out as per previous logic, as it requires an unimplemented AI flow.
-    // When ready, it should be connected to a working Genkit flow.
     toast({
         title: 'AI Logo Generation Unavailable',
         description: 'This feature is not yet configured. Please upload a logo.',
@@ -229,16 +195,16 @@ function Step2_Branding({ logo, onLogoUpdate, onColorsUpdate, brandColors, onKey
   const handleSelectAndContinue = async () => {
     if (selectedGeneratedLogoIndex === null) return;
     const selectedLogo = generatedLogos[selectedGeneratedLogoIndex];
-    onLogoUpdate(selectedLogo);
+    setValue('logoDataUri', selectedLogo, { shouldValidate: true });
     setIsExtracting(true);
     try {
       const colors = await extractColorsFromImage(selectedLogo);
-      onColorsUpdate(colors);
+      setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
       toast({ title: 'Logo selected and colors extracted!' });
     } catch (e) {
       logger.error({ error: e as Error, message: 'Color extraction from generated logo failed.' });
       toast({ title: 'Failed to process selected logo', description: (e as Error).message, variant: 'destructive' });
-      onColorsUpdate(null);
+      setValue('brandColors', '', { shouldValidate: true });
     } finally {
       setIsExtracting(false);
     }
@@ -260,7 +226,7 @@ function Step2_Branding({ logo, onLogoUpdate, onColorsUpdate, brandColors, onKey
         accent: brandColors.primary,
     };
 
-    onColorsUpdate(remappedColors);
+    setValue('brandColors', JSON.stringify(remappedColors), { shouldValidate: true });
   };
   
   const displayedColors = brandColors ? [
@@ -274,10 +240,10 @@ return (
       <FormLabel className="text-lg">Do you have a logo?</FormLabel>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
         <div className="space-y-2">
-            <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", logoPreview ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
-            {logoPreview ? (
+            <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", logoDataUri ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
+            {logoDataUri ? (
                 <>
-                <Image src={logoPreview} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
+                <Image src={logoDataUri} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
                 <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
                 </>
             ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p></>)}
@@ -319,6 +285,8 @@ return (
           )}
         </div>
       </div>
+      <FormField control={form.control} name="logoDataUri" render={() => <FormItem><FormMessage /></FormItem>} />
+       <FormField control={form.control} name="brandColors" render={() => <FormItem><FormMessage /></FormItem>} />
       {isGenerating && <div className="text-center text-muted-foreground"><Loader2 className="mx-auto h-6 w-6 animate-spin" /><p>Generating logo options... this can take a moment.</p></div>}
       {generatedLogos.length > 0 && (
         <div className="mt-8 space-y-4 animate-fade-in">
@@ -496,10 +464,7 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
 // --- Main Form Component ---
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
-  const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
-  const [brandColors, setBrandColors] = useState<BrandColors | null>(null);
-  const [submissionState, setSubmissionState] = useState<ServerActionState>({ message: '', success: false });
-  const [isLoading, setIsLoading] = useState(false);
+  const [submissionState, formAction, isPending] = useActionState<ServerActionState, FormData>(submitOnboarding, { message: '', success: false });
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const { toast } = useToast();
   const totalSteps = 3;
@@ -507,10 +472,10 @@ export default function OnboardingForm() {
 
   const form = useForm<OnboardingFormValues>({ 
       resolver: zodResolver(onboardingSchema),
-      mode: 'onSubmit',
+      mode: 'onBlur',
       reValidateMode: 'onBlur',
       shouldUnregister: false,
-      defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
+      defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '', logoDataUri: '', brandColors: '' },
   });
 
   useEffect(() => {
@@ -520,8 +485,8 @@ export default function OnboardingForm() {
         if (savedData) {
             const parsedData = JSON.parse(savedData);
             form.reset(parsedData.values);
-            setLogoDataUri(parsedData.logoDataUri);
-            setBrandColors(parsedData.brandColors);
+            form.setValue('logoDataUri', parsedData.logoDataUri);
+            form.setValue('brandColors', parsedData.brandColors);
             setStep(3);
             toast({ title: "Welcome back!", description: "You are now logged in. Please click 'Create My Store' to finish.", duration: 5000 });
         }
@@ -529,30 +494,42 @@ export default function OnboardingForm() {
   }, [searchParams, form, toast]);
 
   useEffect(() => {
-    setIsLoading(false);
-  }, [step]);
+    if (submissionState.success) {
+        localStorage.removeItem('onboardingForm');
+        toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
+        setStep(totalSteps + 1);
+    } else if (submissionState.message) {
+        const fieldErrors = submissionState.errors?.fieldErrors;
+        if (fieldErrors) {
+            Object.entries(fieldErrors).forEach(([fieldName, messages]) => {
+                if (messages?.length) {
+                    form.setError(fieldName as keyof OnboardingFormValues, {
+                        type: 'server',
+                        message: messages.join(', '),
+                    });
+                }
+            });
+        }
+        // General error toast, but avoid if it's a specific field error.
+        if (!fieldErrors || Object.keys(fieldErrors).length === 0) {
+           toast({ title: 'An error occurred', description: submissionState.message, variant: 'destructive' });
+        }
+    }
+  }, [submissionState, form, toast]);
   
-  const resetSubmissionState = () => setSubmissionState({ message: '', success: false });
-
   const handleNext = async () => {
-    setIsLoading(true);
     let isValid = false;
     if (step === 1) {
         isValid = await form.trigger(['businessName', 'businessType', 'otherBusinessType']);
     } else if (step === 2) {
-        if (logoDataUri && brandColors) {
-            isValid = true;
-        } else {
-            toast({ title: 'Branding Incomplete', description: 'Please upload or generate a logo to proceed.', variant: 'destructive' });
-            isValid = false;
+        isValid = await form.trigger(['logoDataUri', 'brandColors']);
+        if (!isValid) {
+             toast({ title: 'Branding Incomplete', description: 'Please upload or generate a logo to proceed.', variant: 'destructive' });
         }
     }
     
     if (isValid) {
-      resetSubmissionState();
       setStep(s => s + 1);
-    } else {
-      setIsLoading(false);
     }
   };
 
@@ -571,88 +548,19 @@ export default function OnboardingForm() {
 
   const handleMagicLinkSent = () => {
     const values = form.getValues();
-    const dataToSave = { values, logoDataUri, brandColors };
+    const dataToSave = { 
+        values: {
+            businessName: values.businessName,
+            businessType: values.businessType,
+            otherBusinessType: values.otherBusinessType,
+            brandPreferences: values.brandPreferences,
+            email: values.email
+        },
+        logoDataUri: values.logoDataUri,
+        brandColors: values.brandColors,
+    };
     localStorage.setItem('onboardingForm', JSON.stringify(dataToSave));
     setMagicLinkSent(true);
-  };
-
-  const handleSubmitForm = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const isStep3Valid = await form.trigger(['email', 'password', 'confirmPassword'], {
-        shouldFocus: true,
-    });
-
-    if (!isStep3Valid) {
-        toast({ title: 'Form is incomplete', description: 'Please fill out all required fields correctly.', variant: 'destructive' });
-        return;
-    }
-
-    if (!logoDataUri) {
-        toast({ title: 'Logo Missing', description: 'Please upload or generate a logo in Step 2.', variant: 'destructive' });
-        setStep(2);
-        return;
-    }
-
-    if (!brandColors) {
-        toast({ title: 'Brand Colors Missing', description: 'Please ensure brand colors were extracted from your logo in Step 2.', variant: 'destructive' });
-        setStep(2);
-        return;
-    }
-
-    setIsLoading(true);
-
-    const values = form.getValues();
-    const formData = new FormData();
-
-    Object.entries(values).forEach(([key, value]) => {
-        if (value === undefined || value === null) {
-            formData.set(key, '');
-        } else if (typeof value === 'string') {
-            formData.set(key, value);
-        }
-    });
-
-    formData.set('logoDataUri', logoDataUri);
-    formData.set('brandColors', JSON.stringify(brandColors));
-
-    try {
-        const result = await submitOnboarding(submissionState, formData);
-        setSubmissionState(result);
-
-        if (result.success) {
-            localStorage.removeItem('onboardingForm');
-            toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
-            setStep(totalSteps + 1);
-        } else {
-            const fieldErrors = result.errors?.fieldErrors;
-            if (fieldErrors) {
-                Object.entries(fieldErrors).forEach(([fieldName, messages]) => {
-                    if (messages?.length && fieldName in values) {
-                        form.setError(fieldName as keyof OnboardingFormValues, {
-                            type: 'server',
-                            message: messages.join(', '),
-                        });
-                    }
-                });
-
-                if (fieldErrors.logoDataUri) {
-                    toast({ title: 'Logo Error', description: fieldErrors.logoDataUri.join(', '), variant: 'destructive' });
-                }
-
-                if (fieldErrors.brandColors) {
-                    toast({ title: 'Branding Error', description: fieldErrors.brandColors.join(', '), variant: 'destructive' });
-                }
-            } else if (result.message) {
-                toast({ title: 'Form is incomplete', description: result.message, variant: 'destructive' });
-            }
-        }
-    } catch (error) {
-        logger.error({ message: 'Onboarding submission encountered an unexpected error.', error });
-        toast({ title: 'Something went wrong', description: 'Please try again in a moment.', variant: 'destructive' });
-    } finally {
-        setIsLoading(false);
-    }
   };
   
   if (step > totalSteps && submissionState.businessName) return <Step4_Success businessName={submissionState.businessName} />;
@@ -663,19 +571,14 @@ export default function OnboardingForm() {
         <h2 className="text-2xl font-bold text-center font-headline">Welcome to Baci</h2>
         <p className="text-muted-foreground text-center">Let's set up your store in a few simple steps.</p>
       </header>
-       {!submissionState.success && submissionState.message && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>{submissionState.message}</AlertDescription>
-        </Alert>
-      )}
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
-        <form onSubmit={handleSubmitForm} aria-label="Store onboarding form" noValidate>
+        <form action={formAction} aria-label="Store onboarding form" noValidate>
+            <input type="hidden" {...form.register('logoDataUri')} />
+            <input type="hidden" {...form.register('brandColors')} />
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
             {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
-            {step === 2 && <Step2_Branding logo={logoDataUri} onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
+            {step === 2 && <Step2_Branding onKeyDown={handleKeyDown} />}
             {step === 3 && (
                 magicLinkSent ? (
                     <Alert className="mt-4">
@@ -690,7 +593,7 @@ export default function OnboardingForm() {
                 )
             )}
           </div>
-          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isLoading} />
+          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending} />
         </form>
       </FormProvider>
     </div>
