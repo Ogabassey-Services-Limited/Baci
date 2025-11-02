@@ -135,7 +135,7 @@ export default function AddProductForm() {
     try {
       const result = await generateProductDescription({
         productName: productName,
-        businessType: merchant.businessType, 
+        businessType: merchant.business_type, 
         productDetails: `A new product named ${productName}.`,
       });
       form.setValue('description', result.description);
@@ -323,7 +323,7 @@ export default function AddProductForm() {
                     name="status"
                     render={({ field }) => (
                       <FormItem>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Select status" />

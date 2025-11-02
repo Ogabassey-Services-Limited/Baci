@@ -38,7 +38,6 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { getCountryByCode } from '@/lib/countries';
-import { clearMerchantData } from '@/services/localMerchantService';
 import { useRouter } from 'next/navigation';
 
 const chartData = [
@@ -74,7 +73,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
   
-  const storeUrl = merchant?.businessName ? `${merchant.businessName.toLowerCase().replace(/\s+/g, '-')}.baci.store` : '';
+  const storeUrl = merchant?.business_name ? `${merchant.business_name.toLowerCase().replace(/\s+/g, '-')}.baci.store` : '';
   const fullStoreUrl = storeUrl ? `https://${storeUrl}` : '';
 
   const copyToClipboard = () => {
@@ -88,12 +87,13 @@ export default function DashboardPage() {
   };
 
   const handleReset = () => {
-    clearMerchantData();
+    // This function will need to be updated to clear Supabase data if needed
+    // For now, it will clear local session and redirect
     toast({
-        title: "App Reset",
-        description: "Your store data has been cleared. Starting over.",
+        title: "Reset Not Implemented",
+        description: "This functionality will be updated for Supabase.",
     });
-    router.push('/onboarding');
+    // router.push('/onboarding');
   };
 
   const formatCurrency = (amount: number) => {
@@ -152,7 +152,7 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Welcome, {merchant?.businessName || 'Merchant'}!</h1>
+        <h1 className="text-2xl font-bold">Welcome, {merchant?.business_name || 'Merchant'}!</h1>
          {merchant && storeUrl && (
             <div className="flex items-center justify-between p-2 border rounded-lg bg-muted text-sm">
                 <Link href={fullStoreUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline px-2">

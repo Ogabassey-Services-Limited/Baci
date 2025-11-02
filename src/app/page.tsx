@@ -45,14 +45,14 @@ function Storefront() {
       });
     }
     return null;
-  }, [products]);
+  }, []);
 
   const searchResults = useMemo(() => {
     if (!searchQuery || !fuse) {
       return products.filter(p => p.status === 'active');
     }
     return fuse.search(searchQuery).map(result => result.item).filter(p => p.status === 'active');
-  }, [searchQuery, fuse, products]);
+  }, [searchQuery, fuse]);
 
   if (loading) {
     return (
@@ -76,11 +76,11 @@ function Storefront() {
     );
   }
 
-  const businessTypeConfig = getBusinessTypeById(merchant.businessType);
+  const businessTypeConfig = getBusinessTypeById(merchant.business_type);
   const StoreTemplate = businessTypeConfig?.template;
   
   if (!StoreTemplate) {
-      return <div>Error: Store template not found for business type '{merchant.businessType}'.</div>
+      return <div>Error: Store template not found for business type '{merchant.business_type}'.</div>
   }
 
   const formatCurrency = (amount: number) => {
@@ -125,12 +125,12 @@ function Storefront() {
       <Sheet>
        <header className="px-4 lg:px-6 h-16 flex items-center gap-4 shadow-sm bg-card">
          <div className="flex items-center gap-2 font-semibold">
-           {merchant.logo ? (
-              <Image src={merchant.logo} alt={`${merchant.businessName} logo`} width={32} height={32} className="rounded-sm" />
+           {merchant.logo_url ? (
+              <Image src={merchant.logo_url} alt={`${merchant.business_name} logo`} width={32} height={32} className="rounded-sm object-contain" />
            ) : (
               <Logo/>
            )}
-           <span className="hidden sm:inline-block">{merchant.businessName}</span>
+           <span className="hidden sm:inline-block">{merchant.business_name}</span>
         </div>
 
         <div className="flex-1 flex justify-center px-4">
@@ -167,10 +167,10 @@ function Storefront() {
                 <div className="container px-4 md:px-6">
                     <div className="flex flex-col items-center space-y-4 text-center">
                         <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl" style={{ color: 'var(--store-primary)' }}>
-                            Welcome to {merchant.businessName}
+                            Welcome to {merchant.business_name}
                         </h1>
                         <p className="max-w-[700px] text-muted-foreground md:text-xl">
-                            Your one-stop shop for the best {merchant.businessType} products.
+                            Your one-stop shop for the best {merchant.business_type} products.
                         </p>
                     </div>
                 </div>
@@ -248,8 +248,8 @@ function Storefront() {
         <div className="container mx-auto py-8 px-4 md:px-6">
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
                 <div>
-                     <h3 className="text-lg font-semibold mb-4">{merchant.businessName}</h3>
-                     <p className="text-sm opacity-80">&copy; {new Date().getFullYear()} {merchant.businessName}. All rights reserved.</p>
+                     <h3 className="text-lg font-semibold mb-4">{merchant.business_name}</h3>
+                     <p className="text-sm opacity-80">&copy; {new Date().getFullYear()} {merchant.business_name}. All rights reserved.</p>
                 </div>
                  {availableFooterLinks.length > 0 && (
                     <div className="lg:col-span-2">

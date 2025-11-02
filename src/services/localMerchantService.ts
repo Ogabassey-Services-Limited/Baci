@@ -1,4 +1,5 @@
-// Simple localStorage-based merchant service (no Firebase needed for demo)
+// This service is now deprecated in favor of Supabase.
+// It is kept for reference but should not be used for new functionality.
 import { logger } from '@/lib/logger';
 
 export interface MerchantData {
@@ -21,7 +22,7 @@ export interface MerchantData {
   };
 }
 
-// Generate a simple user ID for the session
+// Note: generateUserId is also deprecated. User IDs should come from Supabase Auth.
 export function generateUserId(): string {
   const existingId = localStorage.getItem('userId');
   if (existingId) return existingId;

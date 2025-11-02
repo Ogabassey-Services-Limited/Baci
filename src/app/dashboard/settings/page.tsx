@@ -36,7 +36,7 @@ import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 const settingsSchema = z.object({
-  businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
+  business_name: z.string().min(2, 'Business name must be at least 2 characters.'),
   country: z.string().min(2, 'Please select a country.'),
 });
 
@@ -50,7 +50,7 @@ export default function SettingsPage() {
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
-      businessName: '',
+      business_name: '',
       country: '',
     },
   });
@@ -58,7 +58,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (merchant) {
       form.reset({
-        businessName: merchant.businessName || '',
+        business_name: merchant.business_name || '',
         country: merchant.country || '',
       });
     }
@@ -66,13 +66,21 @@ export default function SettingsPage() {
 
   async function onSubmit(data: SettingsFormValues) {
     setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-    updateMerchant(data);
-    setIsSaving(false);
-    toast({
-      title: 'Settings Saved!',
-      description: 'Your store settings have been updated.',
-    });
+    try {
+      await updateMerchant(data);
+      toast({
+        title: 'Settings Saved!',
+        description: 'Your store settings have been updated.',
+      });
+    } catch(e) {
+       toast({
+        title: 'Error Saving Settings',
+        description: (e as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   if (loading) {
@@ -93,7 +101,7 @@ export default function SettingsPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               <FormField
                 control={form.control}
-                name="businessName"
+                name="business_name"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Business Name</FormLabel>
@@ -113,7 +121,7 @@ export default function SettingsPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Country</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a country" />

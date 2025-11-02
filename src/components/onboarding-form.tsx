@@ -29,12 +29,14 @@ import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
-import { saveMerchantData, generateUserId } from '@/services/localMerchantService';
 import type { BrandColors } from '@/ai/flows/guide-business-onboarding';
+import { createClient } from '@/lib/supabase/client';
 
 // --- Zod Schema Definitions ---
 
 const baseOnboardingSchema = z.object({
+  email: z.string().email('Please enter a valid email address.'),
+  password: z.string().min(8, 'Password must be at least 8 characters.'),
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
@@ -77,19 +79,47 @@ function StepIndicator({ currentStep, totalSteps }: { currentStep: number, total
 function Step1_BusinessName() {
   const { control } = useFormContext<OnboardingFormValues>();
   return (
-    <FormField
-      control={control}
-      name="businessName"
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel className="text-lg">What is your business name?</FormLabel>
-          <FormControl>
-            <Input placeholder="e.g., Amara's Fashion" {...field} />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
+    <div className="space-y-4">
+      <FormField
+        control={control}
+        name="email"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-lg">Your Email</FormLabel>
+            <FormControl>
+              <Input type="email" placeholder="your@email.com" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={control}
+        name="password"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-lg">Create a Password</FormLabel>
+            <FormControl>
+              <Input type="password" placeholder="Min. 8 characters" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={control}
+        name="businessName"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-lg">What is your business name?</FormLabel>
+            <FormControl>
+              <Input placeholder="e.g., Amara's Fashion" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </div>
   );
 }
 
@@ -576,6 +606,8 @@ export default function OnboardingForm() {
   const form = useForm<OnboardingFormValues>({
     resolver: zodResolver(refinedFormSchema),
     defaultValues: {
+      email: '',
+      password: '',
       businessName: '',
       businessType: '',
       otherBusinessType: '',
@@ -589,7 +621,7 @@ export default function OnboardingForm() {
 
     // Validate only the fields for the current step
     if (step === 1) {
-      isValid = await form.trigger(['businessName']);
+      isValid = await form.trigger(['email', 'password', 'businessName']);
     } else if (step === 2) {
       isValid = await form.trigger(['businessType', 'otherBusinessType']);
     } else {
@@ -629,19 +661,47 @@ export default function OnboardingForm() {
         ? (data.otherBusinessType || data.businessType)
         : data.businessType;
 
-      generateUserId();
-      
-      saveMerchantData({
-        businessName: data.businessName,
-        businessType: finalBusinessType!,
-        logo: logoDataUri,
-        colors: {
+      // Create Supabase account
+      const supabase = createClient();
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (authError) {
+        throw new Error(authError.message);
+      }
+
+      if (!authData.user) {
+        throw new Error('Failed to create user account.');
+      }
+
+      // Save merchant data to Supabase 'merchants' table
+      const { error: merchantError } = await supabase
+        .from('merchants')
+        .insert({
+          user_id: authData.user.id,
+          email: data.email,
+          business_name: data.businessName,
+          business_type: finalBusinessType,
+          logo_url: logoDataUri, // Changed from logo
+          colors: {
             primary: brandColors.primary,
             secondary: brandColors.secondary,
             accent: brandColors.accent,
-        }
+          },
+        });
+
+      if (merchantError) {
+        // Potentially roll back user creation or notify user to try again
+        throw new Error(`Failed to save merchant data: ${merchantError.message}`);
+      }
+
+      toast({
+        title: 'Account created!',
+        description: 'Please check your email to verify your account.',
       });
-      
+
       startTransition(() => {
         setStep(totalSteps + 1); // Move to success step
       });
@@ -701,5 +761,3 @@ export default function OnboardingForm() {
     </div>
   );
 }
-
-    

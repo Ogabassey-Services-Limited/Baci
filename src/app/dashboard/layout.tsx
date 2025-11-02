@@ -15,6 +15,7 @@ import {
   ExternalLink,
   FileText,
   Search,
+  LogOut,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -36,11 +37,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/contexts/auth-context';
 
 function DashboardLayoutContent({
   children,
@@ -48,10 +50,17 @@ function DashboardLayoutContent({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { merchant, loading } = useMerchant();
+  const { user, signOut } = useAuth();
 
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
   const storeUrl = '/'; // Point to the root for internal preview
+  
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/');
+  };
 
   const navItems = [
     {
@@ -224,12 +233,15 @@ function DashboardLayoutContent({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>{user?.email || 'My Account'}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>Settings</DropdownMenuItem>
               <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Logout</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSignOut} className="text-red-500 focus:bg-red-100 focus:text-red-700">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Logout</span>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </header>

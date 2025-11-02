@@ -5,6 +5,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { CartProvider } from '@/hooks/use-cart';
 import { MerchantProvider } from '@/hooks/use-merchant';
+import { AuthProvider } from '@/contexts/auth-context';
 import AppBody from '@/components/app-body';
 
 
@@ -27,11 +28,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.variable}>
-        <MerchantProvider>
-          <CartProvider>
-            <AppBody>{children}</AppBody>
-          </CartProvider>
-        </MerchantProvider>
+        <AuthProvider>
+          <MerchantProvider>
+            <CartProvider>
+              <AppBody>{children}</AppBody>
+            </CartProvider>
+          </MerchantProvider>
+        </AuthProvider>
         <Toaster />
       </body>
     </html>
