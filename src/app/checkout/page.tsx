@@ -79,7 +79,7 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
     return (
         <div className="space-y-4">
             <h3 className="text-lg font-medium">{isLogin ? 'Sign in to continue' : 'Create an account'}</h3>
-            <Form {...form}>
+            <FormProvider {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                     <FormField
                         control={form.control}
@@ -118,7 +118,7 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
                         {isLogin ? 'Sign In' : 'Sign Up'}
                     </ThemedButton>
                 </form>
-            </Form>
+            </FormProvider>
             <p className="text-sm text-center text-muted-foreground">
                 {isLogin ? "Don't have an account?" : 'Already have an account?'}
                 <Button variant="link" onClick={() => setIsLogin(!isLogin)} className="px-1">
@@ -278,7 +278,7 @@ function CheckoutPageContent() {
     checkUser();
   }, [supabase.auth]);
 
-  const form = useForm<ShippingFormValues>({
+  const shippingForm = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingSchema),
     defaultValues: {
       firstName: '',
@@ -295,9 +295,9 @@ function CheckoutPageContent() {
   useEffect(() => {
     // If user changes, reset email field
     if (user) {
-        form.setValue('email', user.email || '');
+        shippingForm.setValue('email', user.email || '');
     }
-  }, [user, form]);
+  }, [user, shippingForm]);
 
   useEffect(() => {
     // Redirect if cart is empty after initial load
@@ -324,7 +324,7 @@ function CheckoutPageContent() {
   }
 
   const handleNext = async () => {
-    const isValid = await form.trigger();
+    const isValid = await shippingForm.trigger();
     if (isValid && step < totalSteps) {
       setStep(step + 1);
     }
@@ -336,7 +336,7 @@ function CheckoutPageContent() {
     }
   };
 
-  const onSubmit = async (data: ShippingFormValues) => {
+  const onShippingSubmit = async (data: ShippingFormValues) => {
     setFormIsLoading(true);
     
     await new Promise(resolve => setTimeout(resolve, 2000));
@@ -380,53 +380,29 @@ function CheckoutPageContent() {
             <h2 className="text-2xl font-bold mb-6">
                 {getStepTitle()}
             </h2>
-            <FormProvider {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 
-                {formIsLoading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
-                {!formIsLoading && step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
-                {!formIsLoading && step === 1 && <Step1_Shipping />}
-                {!formIsLoading && step === 2 && <Step2_Payment />}
+            {formIsLoading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
 
-                {step > 0 && (
-                    <div className="flex justify-between pt-4">
-                        {step > 1 && (
-                            <Button type="button" variant="outline" onClick={handlePrev}>
-                            Previous
-                            </Button>
-                        )}
-                        {step === 1 && <div />}
+            {!formIsLoading && step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
+            
+            {!formIsLoading && step === 1 && (
+              <FormProvider {...shippingForm}>
+                <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
+                  <Step1_Shipping />
+                  <div className="flex justify-end pt-4">
+                    <ThemedButton type="button" colorRole="primary" onClick={handleNext}>
+                      Continue to Payment
+                    </ThemedButton>
+                  </div>
+                </form>
+              </FormProvider>
+            )}
 
-                        {step < totalSteps ? (
-                            <ThemedButton type="button" colorRole="primary" onClick={handleNext}>
-                            Continue to Payment
-                            </ThemedButton>
-                        ) : (
-                            <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading}>
-                            {formIsLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {formIsLoading ? 'Processing...' : 'Place Order'}
-                            </ThemedButton>
-                        )}
-                    </div>
-                )}
-              </form>
-            </FormProvider>
-          </CardContent>
-        </Card>
-        
-        <div className="sticky top-24">
-            <OrderSummary />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-export default function CheckoutPage() {
-    return (
-        <MerchantProvider>
-            <CheckoutPageContent />
-        </MerchantProvider>
-    )
-}
+            {!formIsLoading && step === 2 && (
+               <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
+                  <Step2_Payment />
+                  <div className="flex justify-between pt-4">
+                      <Button type="button" variant="outline" onClick={handlePrev}>
+                        Previous
+                      </Button>
+                      <ThemedButton type="submit" colorRole="accent" disabled={formIsL
