@@ -4,6 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import {
   FormControl,
@@ -33,18 +34,39 @@ import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { submitOnboarding, type ServerActionState } from '@/app/onboarding/actions';
 import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { z } from 'zod';
 
-// --- Type Definitions ---
-// No more Zod schema here, it's moved to the server action.
-type OnboardingFormValues = {
-  email: string;
-  password: string;
-  confirmPassword?: string;
-  businessName: string;
-  businessType: string;
-  otherBusinessType?: string;
-  brandPreferences?: string;
-};
+// --- Zod Schema Definitions ---
+const onboardingSchema = z.object({
+  email: z.string().email('Please enter a valid email address.'),
+  password: z.string().min(8, 'Password must be at least 8 characters.'),
+  confirmPassword: z.string().optional(),
+  businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
+  businessType: z.string().min(1, 'Please select a business type.'),
+  otherBusinessType: z.string().optional(),
+  brandPreferences: z.string().optional(),
+})
+.refine(data => {
+    if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
+      return false;
+    }
+    return true;
+  }, {
+    message: "If you select 'Other', please specify your business type.",
+    path: ["otherBusinessType"],
+})
+.refine(data => {
+    if (checkPasswordStrength(data.password || '') >= 3) {
+        return data.password === data.confirmPassword;
+    }
+    return true;
+}, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
+});
+
+
+type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 
 
 // --- Step Components ---
@@ -344,14 +366,22 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
 }
 
 function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
-  const { control, watch, formState: { errors } } = useFormContext<OnboardingFormValues>();
+  const { control, watch, trigger } = useFormContext<OnboardingFormValues>();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const passwordValue = watch('password');
+  const emailValue = watch('email');
   const passwordStrength = useMemo(() => checkPasswordStrength(passwordValue || ''), [passwordValue]);
 
   const isPasswordStrong = passwordStrength >= 3;
+  const showPasswordFields = useMemo(() => z.string().email().safeParse(emailValue).success, [emailValue]);
+  
+  useEffect(() => {
+    if (emailValue) {
+        trigger("email");
+    }
+  }, [emailValue, trigger])
 
   return (
     <div className='space-y-4'>
@@ -365,7 +395,7 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
                 <FormControl>
                     <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input type="email" placeholder="you@example.com" {...field} onKeyDown={onKeyDown} className={cn("pl-10", errors.email && "border-destructive")} />
+                        <Input type="email" placeholder="you@example.com" {...field} onKeyDown={onKeyDown} className="pl-10" />
                     </div>
                 </FormControl>
                 <FormMessage />
@@ -373,47 +403,51 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
             )}
         />
         
-        <FormField
-            control={control}
-            name="password"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                    <div className="relative">
-                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className={cn("pl-10 pr-10", errors.password && "border-destructive")} />
-                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
-                    </div>
-                </FormControl>
-                  <PasswordStrengthIndicator strength={passwordStrength} />
-                <FormMessage />
-                </FormItem>
-            )}
-        />
-
-        {isPasswordStrong && (
+        {showPasswordFields && (
+            <>
             <FormField
                 control={control}
-                name="confirmPassword"
+                name="password"
                 render={({ field }) => (
                     <FormItem className="animate-fade-in">
-                    <FormLabel>Confirm Password</FormLabel>
+                    <FormLabel>Password</FormLabel>
                     <FormControl>
                         <div className="relative">
                             <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} value={field.value || ''} onKeyDown={onKeyDown} className={cn("pl-10 pr-10", errors.confirmPassword && "border-destructive")} />
-                            <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" />
+                            <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </Button>
                         </div>
                     </FormControl>
+                    <PasswordStrengthIndicator strength={passwordStrength} />
                     <FormMessage />
                     </FormItem>
                 )}
             />
+
+            {isPasswordStrong && (
+                <FormField
+                    control={control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                        <FormItem className="animate-fade-in">
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                            <div className="relative">
+                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} value={field.value || ''} onKeyDown={onKeyDown} className="pl-10 pr-10" />
+                                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            )}
+            </>
         )}
     </div>
   );
@@ -469,24 +503,37 @@ export default function OnboardingForm() {
   const totalSteps = 3;
 
   const form = useForm<OnboardingFormValues>({ 
+      resolver: zodResolver(onboardingSchema),
+      mode: 'onBlur',
       defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
   });
 
   useEffect(() => {
-    if (submissionState.success && submissionState.businessName) {
-      toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
-      setStep(totalSteps + 1); // Go to success step
+    if (submissionState.message) {
+        if (submissionState.success && submissionState.businessName) {
+            toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
+            setStep(totalSteps + 1); // Go to success step
+        } else if (!submissionState.success) {
+            toast({ title: 'Onboarding Failed', description: submissionState.message, variant: 'destructive' });
+        }
+        setIsLoading(false);
     }
-    // Only show error toast if there's a message and it's not a success
-    if (!submissionState.success && submissionState.message) {
-      toast({ title: 'Onboarding Failed', description: submissionState.message, variant: 'destructive' });
-    }
-    setIsLoading(false);
   }, [submissionState, toast]);
 
-  const handleNext = () => {
-    // Just move to the next step, validation will happen on the server
-    setStep(s => s + 1);
+  const handleNext = async () => {
+    let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
+    if (step === 1) {
+        fieldsToValidate = ['businessName', 'businessType'];
+        if (form.getValues('businessType') === 'other') {
+            fieldsToValidate.push('otherBusinessType');
+        }
+    }
+    
+    const isValid = fieldsToValidate.length > 0 ? await form.trigger(fieldsToValidate) : true;
+
+    if (isValid) {
+      setStep(s => s + 1);
+    }
   };
 
   const handlePrev = () => { if (step > 1) setStep(s => s - 1); };
@@ -504,6 +551,13 @@ export default function OnboardingForm() {
   };
 
   const handleFormAction = async () => {
+    // Final client-side validation before submitting to server action
+    const isValid = await form.trigger(['email', 'password', 'confirmPassword']);
+    if (!isValid) {
+        toast({ title: 'Form Incomplete', description: 'Please check your email and password.', variant: 'destructive'});
+        return;
+    }
+
     setIsLoading(true);
     const formData = new FormData();
     const formValues = form.getValues();
