@@ -7,7 +7,7 @@ import { useForm, FormProvider, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle, CreditCard, Loader2, Mail, Phone, User, Home } from 'lucide-react';
+import { ArrowLeft, CreditCard, Loader2, Mail, Phone, User, Home, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -17,7 +17,8 @@ import { useToast } from '@/hooks/use-toast';
 import { OrderSummary } from '@/components/order-summary';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
-
+import { createClient } from '@/lib/supabase/client';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 const shippingSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters.'),
@@ -30,6 +31,103 @@ const shippingSchema = z.object({
 });
 
 type ShippingFormValues = z.infer<typeof shippingSchema>;
+
+const authSchema = z.object({
+  email: z.string().email('Please enter a valid email address.'),
+  password: z.string().min(6, 'Password must be at least 6 characters.'),
+});
+
+type AuthFormValues = z.infer<typeof authSchema>;
+
+function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => void }) {
+    const [isLogin, setIsLogin] = useState(true);
+    const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
+    const supabase = createClient();
+    
+    const form = useForm<AuthFormValues>({
+        resolver: zodResolver(authSchema),
+        defaultValues: { email: '', password: '' },
+    });
+
+    const onSubmit = async (data: AuthFormValues) => {
+        setIsLoading(true);
+        try {
+            if (isLogin) {
+                const { data: authData, error } = await supabase.auth.signInWithPassword(data);
+                if (error) throw error;
+                if (authData.user) onAuthSuccess(authData.user);
+            } else {
+                const { data: authData, error } = await supabase.auth.signUp(data);
+                if (error) throw error;
+                if (authData.user) {
+                    toast({ title: "Account created!", description: "Please check your email to verify your account." });
+                    onAuthSuccess(authData.user);
+                }
+            }
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: isLogin ? 'Sign-in Failed' : 'Sign-up Failed',
+                description: (error as Error).message,
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <h3 className="text-lg font-medium">{isLogin ? 'Sign in to continue' : 'Create an account'}</h3>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Email</FormLabel>
+                                <FormControl>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                                        <ThemedInput type="email" placeholder="you@example.com" {...field} className="pl-10" />
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Password</FormLabel>
+                                <FormControl>
+                                    <div className="relative">
+                                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--store-primary)]" />
+                                        <ThemedInput type="password" {...field} className="pl-10" />
+                                    </div>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <ThemedButton type="submit" colorRole="primary" className="w-full" disabled={isLoading}>
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isLogin ? 'Sign In' : 'Sign Up'}
+                    </ThemedButton>
+                </form>
+            </Form>
+            <p className="text-sm text-center text-muted-foreground">
+                {isLogin ? "Don't have an account?" : 'Already have an account?'}
+                <Button variant="link" onClick={() => setIsLogin(!isLogin)} className="px-1">
+                    {isLogin ? 'Sign Up' : 'Sign In'}
+                </Button>
+            </p>
+        </div>
+    );
+}
 
 function Step1_Shipping() {
   const { control } = useFormContext<ShippingFormValues>();
@@ -161,16 +259,31 @@ function CheckoutPageContent() {
   const router = useRouter();
   const { toast } = useToast();
   const { clearCart, cart, cartCount } = useCart();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0); // 0: Auth, 1: Shipping, 2: Payment
   const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const totalSteps = 2;
+  const supabase = createClient();
+
+  useEffect(() => {
+    const checkUser = async () => {
+        setIsLoading(true);
+        const { data } = await supabase.auth.getUser();
+        if (data.user) {
+            setUser(data.user);
+            setStep(1); // User is logged in, skip to shipping
+        }
+        setIsLoading(false);
+    };
+    checkUser();
+  }, [supabase.auth]);
 
   const form = useForm<ShippingFormValues>({
     resolver: zodResolver(shippingSchema),
     defaultValues: {
       firstName: '',
       lastName: '',
-      email: '',
+      email: user?.email || '',
       phone: '',
       address: '',
       city: '',
@@ -180,15 +293,26 @@ function CheckoutPageContent() {
   });
 
   useEffect(() => {
+    // If user changes, reset email field
+    if (user) {
+        form.setValue('email', user.email || '');
+    }
+  }, [user, form]);
+
+  useEffect(() => {
     // Redirect if cart is empty after initial load
     if (cartCount === 0 && !isLoading) {
       router.replace('/');
     }
   }, [cartCount, isLoading, router]);
   
-  // Render nothing or a loader while redirecting
   if (cartCount === 0 && !isLoading) {
     return null;
+  }
+
+  const handleAuthSuccess = (authedUser: SupabaseUser) => {
+    setUser(authedUser);
+    setStep(1);
   }
 
   const handleNext = async () => {
@@ -207,15 +331,13 @@ function CheckoutPageContent() {
   const onSubmit = async (data: ShippingFormValues) => {
     setIsLoading(true);
     
-    // Simulate payment processing
     await new Promise(resolve => setTimeout(resolve, 2000));
     
     console.log("Order submitted:", {
         shipping: data,
         items: cart,
+        userId: user?.id,
     });
-    
-    // In a real app, you would save the order to a database here
     
     toast({
       title: 'Payment Successful!',
@@ -223,7 +345,6 @@ function CheckoutPageContent() {
     });
 
     const orderData = { shipping: data, items: cart };
-    // We'll store the order in sessionStorage to display on the success page
     sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
 
     clearCart();
@@ -231,6 +352,12 @@ function CheckoutPageContent() {
     
     router.push('/checkout/success');
   };
+
+  const getStepTitle = () => {
+      if (step === 0) return 'Authentication';
+      if (step === 1) return 'Shipping Information';
+      return 'Payment';
+  }
 
   return (
     <div className="container mx-auto max-w-4xl py-12 px-4">
@@ -243,33 +370,37 @@ function CheckoutPageContent() {
         <Card>
           <CardContent className="p-8">
             <h2 className="text-2xl font-bold mb-6">
-                {step === 1 ? 'Shipping Information' : 'Payment'}
+                {getStepTitle()}
             </h2>
             <FormProvider {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 
-                {step === 1 && <Step1_Shipping />}
-                {step === 2 && <Step2_Payment />}
+                {isLoading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin"/></div>}
+                {!isLoading && step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
+                {!isLoading && step === 1 && <Step1_Shipping />}
+                {!isLoading && step === 2 && <Step2_Payment />}
 
-                <div className="flex justify-between pt-4">
-                  {step > 1 && (
-                    <Button type="button" variant="outline" onClick={handlePrev}>
-                      Previous
-                    </Button>
-                  )}
-                  {step === 1 && <div />}
+                {step > 0 && (
+                    <div className="flex justify-between pt-4">
+                        {step > 1 && (
+                            <Button type="button" variant="outline" onClick={handlePrev}>
+                            Previous
+                            </Button>
+                        )}
+                        {step === 1 && <div />}
 
-                  {step < totalSteps ? (
-                    <ThemedButton type="button" colorRole="primary" onClick={handleNext}>
-                      Continue to Payment
-                    </ThemedButton>
-                  ) : (
-                    <ThemedButton type="submit" colorRole="accent" disabled={isLoading}>
-                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      {isLoading ? 'Processing...' : 'Place Order'}
-                    </ThemedButton>
-                  )}
-                </div>
+                        {step < totalSteps ? (
+                            <ThemedButton type="button" colorRole="primary" onClick={handleNext}>
+                            Continue to Payment
+                            </ThemedButton>
+                        ) : (
+                            <ThemedButton type="submit" colorRole="accent" disabled={isLoading}>
+                            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isLoading ? 'Processing...' : 'Place Order'}
+                            </ThemedButton>
+                        )}
+                    </div>
+                )}
               </form>
             </FormProvider>
           </CardContent>
