@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -335,20 +334,19 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
 }
 
 function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
-  const { control, watch, formState: { errors, touchedFields } } = useFormContext<OnboardingFormValues>();
+  const { control, watch, formState: { errors } } = useFormContext<OnboardingFormValues>();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const passwordValue = watch('password');
   const emailValue = watch('email');
+  const passwordValue = watch('password');
   const passwordStrength = useMemo(() => checkPasswordStrength(passwordValue || ''), [passwordValue]);
-
-  const isPasswordStrong = passwordStrength >= 3;
   
   const showPasswordFields = useMemo(() => {
-    // Show password fields if email has been touched, has a value, and has no errors.
-    return !!emailValue && touchedFields.email && !errors.email;
-  }, [emailValue, touchedFields.email, errors.email]);
+      return !!emailValue && !errors.email;
+  }, [emailValue, errors.email]);
+
+  const isPasswordStrong = passwordStrength >= 3;
 
   return (
     <div className='space-y-4'>
@@ -472,6 +470,7 @@ export default function OnboardingForm() {
   const form = useForm<OnboardingFormValues>({ 
       resolver: zodResolver(onboardingSchema),
       mode: 'onBlur',
+      shouldUnregister: false, // Keep data from previous steps
       defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
   });
   
@@ -503,6 +502,8 @@ export default function OnboardingForm() {
         } else {
             toast({ title: 'Branding Incomplete', description: 'Please upload or generate a logo to proceed.', variant: 'destructive' });
         }
+    } else if (step === 3) {
+       isValid = await trigger(['email', 'password', 'confirmPassword']);
     }
     
     if (isValid) {
@@ -523,26 +524,8 @@ export default function OnboardingForm() {
     }
   };
 
-  const handleFormAction = async () => {
-    const isValid = await trigger(['email', 'password', 'confirmPassword']);
-    if (!isValid) {
-        toast({
-            title: 'Form is incomplete',
-            description: 'Please review the account details and correct any errors before submitting.',
-            variant: 'destructive',
-        });
-        return;
-    }
-
+  const handleFormAction = async (formData: FormData) => {
     setIsLoading(true);
-    const formData = new FormData();
-    const formValues = form.getValues();
-
-    Object.entries(formValues).forEach(([key, value]) => {
-        if (value) {
-            formData.append(key, value);
-        }
-    });
 
     if (logoDataUri) formData.append('logoDataUri', logoDataUri);
     if (brandColors) formData.append('brandColors', JSON.stringify(brandColors));
