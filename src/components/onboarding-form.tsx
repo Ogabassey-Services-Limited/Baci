@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useTransition, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
@@ -9,7 +9,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import {
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -33,7 +32,6 @@ import { getAllBusinessTypes } from '@/config/business-types';
 import type { BrandColors, GuideBusinessOnboardingInput } from '@/ai/flows/guide-business-onboarding';
 import { PasswordStrengthIndicator, checkPasswordStrength } from '@/components/password-strength-indicator';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
-import { useActionState } from 'react';
 import { submitOnboarding, type ServerActionState } from '@/app/onboarding/actions';
 
 
@@ -491,10 +489,10 @@ export default function OnboardingForm() {
   const [step, setStep] = useState(1);
   const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
   const [brandColors, setBrandColors] = useState<BrandColors | null>(null);
+  const [submissionState, setSubmissionState] = useState<ServerActionState>({ message: '', success: false });
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const totalSteps = 3;
-
-  const [state, formAction] = useActionState(submitOnboarding, { message: '', success: false });
 
   const form = useForm<OnboardingFormValues>({ 
       resolver: zodResolver(onboardingSchema), 
@@ -503,13 +501,14 @@ export default function OnboardingForm() {
   });
 
   useEffect(() => {
-    if (state.success && state.businessName) {
+    if (submissionState.success && submissionState.businessName) {
       toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
       setStep(totalSteps + 1);
-    } else if (!state.success && state.message) {
-      toast({ title: 'Onboarding Failed', description: state.message, variant: 'destructive' });
+    } else if (!submissionState.success && submissionState.message) {
+      toast({ title: 'Onboarding Failed', description: submissionState.message, variant: 'destructive' });
     }
-  }, [state, toast]);
+    setIsLoading(false);
+  }, [submissionState, toast]);
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
@@ -533,8 +532,14 @@ export default function OnboardingForm() {
       handleNext();
     }
   };
+
+  const handleFormAction = async (formData: FormData) => {
+    setIsLoading(true);
+    const result = await submitOnboarding(submissionState, formData);
+    setSubmissionState(result);
+  };
   
-  if (step > totalSteps && state.businessName) return <Step4_Success businessName={state.businessName} />;
+  if (step > totalSteps && submissionState.businessName) return <Step4_Success businessName={submissionState.businessName} />;
 
   return (
     <div className="space-y-8">
@@ -544,7 +549,7 @@ export default function OnboardingForm() {
       </header>
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
-        <form action={formAction} aria-label="Store onboarding form">
+        <form action={handleFormAction} aria-label="Store onboarding form">
           {logoDataUri && <input type="hidden" name="logoDataUri" value={logoDataUri} />}
           {brandColors && <input type="hidden" name="brandColors" value={JSON.stringify(brandColors)} />}
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
@@ -552,9 +557,11 @@ export default function OnboardingForm() {
             {step === 2 && <Step2_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
             {step === 3 && <Step3_Account onKeyDown={handleKeyDown} />}
           </div>
-          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={state.success === false && state.message !== ''} />
+          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isLoading} />
         </form>
       </FormProvider>
     </div>
   );
 }
+
+    
