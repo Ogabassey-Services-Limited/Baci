@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, Upload, CheckCircle, Copy, Mail, KeyRound } from 'lucide-react';
+import { Loader2, Sparkles, Upload, CheckCircle, Copy, Mail, KeyRound, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -32,17 +32,20 @@ import { getAllBusinessTypes } from '@/config/business-types';
 import type { BrandColors } from '@/ai/flows/guide-business-onboarding';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
+import { PasswordStrengthIndicator, checkPasswordStrength } from '@/components/password-strength-indicator';
 
 // --- Zod Schema Definitions ---
 
 const onboardingSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
   password: z.string().min(8, 'Password must be at least 8 characters.'),
+  confirmPassword: z.string().optional(),
   businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
   businessType: z.string().min(1, 'Please select a business type.'),
   otherBusinessType: z.string().optional(),
   brandPreferences: z.string().optional(),
-}).refine(data => {
+})
+.refine(data => {
     if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
       return false;
     }
@@ -50,6 +53,10 @@ const onboardingSchema = z.object({
   }, {
     message: "Please specify your business type with at least 2 characters.",
     path: ["otherBusinessType"],
+})
+.refine(data => data.password === data.confirmPassword, {
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
 });
 
 type OnboardingFormValues = z.infer<typeof onboardingSchema>;
@@ -334,7 +341,17 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
 }
 
 function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
-  const { control } = useFormContext<OnboardingFormValues>();
+  const { control, watch, formState: { errors } } = useFormContext<OnboardingFormValues>();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const emailValue = watch('email');
+  const passwordValue = watch('password');
+  const passwordStrength = useMemo(() => checkPasswordStrength(passwordValue || ''), [passwordValue]);
+  
+  const isEmailValid = emailValue && !errors.email;
+  const isPasswordStrong = passwordStrength >= 3;
+
   return (
     <div className='space-y-4'>
        <h3 className="text-xl font-semibold text-center">Create your account</h3>
@@ -354,22 +371,53 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
                 </FormItem>
             )}
         />
-        <FormField
-            control={control}
-            name="password"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                    <div className="relative">
-                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input type="password" placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10" />
-                    </div>
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-        />
+        
+        {isEmailValid && (
+             <div className="space-y-4 animate-fade-in">
+                <FormField
+                    control={control}
+                    name="password"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                            <div className="relative">
+                                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" />
+                                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                </Button>
+                            </div>
+                        </FormControl>
+                         <PasswordStrengthIndicator strength={passwordStrength} />
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                {isPasswordStrong && (
+                    <FormField
+                        control={control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                            <FormItem className="animate-fade-in">
+                            <FormLabel>Confirm Password</FormLabel>
+                            <FormControl>
+                                <div className="relative">
+                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                    <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" />
+                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </Button>
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                )}
+            </div>
+        )}
     </div>
   );
 }
@@ -433,7 +481,7 @@ export default function OnboardingForm() {
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
     if (step === 1) fieldsToValidate = ['businessName', 'businessType', 'otherBusinessType'];
-    if (step === 3) fieldsToValidate = ['email', 'password'];
+    if (step === 3) fieldsToValidate = ['email', 'password', 'confirmPassword'];
     
     const isValid = await form.trigger(fieldsToValidate);
     if (isValid) {
@@ -462,23 +510,30 @@ export default function OnboardingForm() {
         const { email, password } = data;
 
         // 1. Create or sign in user
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+        const { data: { user: existingUser, session: existingSession }, error: getUserError } = await supabase.auth.getUser();
 
-        if (signUpError) {
-            if (signUpError.message.includes('User already registered')) {
-                const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-                if (signInError) throw signInError;
-                user = signInData.user;
-            } else {
-                throw signUpError;
-            }
+        if (getUserError) {
+          logger.warn({ message: 'Get user failed, maybe not logged in', error: getUserError});
+        }
+        
+        if (existingUser && existingUser.email === email) {
+            user = existingUser;
         } else {
-            user = signUpData.user;
+             const { data: authData, error: signUpError } = await supabase.auth.signUp({ email, password });
+            if (signUpError) {
+                if (signUpError.message.includes('User already registered')) {
+                    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+                    if (signInError) throw signInError;
+                    user = signInData.user;
+                } else {
+                    throw signUpError;
+                }
+            } else {
+                 user = authData.user;
+            }
         }
-
-        if (!user) {
-            throw new Error("Authentication failed. Could not get a valid user session.");
-        }
+       
+        if (!user) throw new Error("Authentication failed. Could not get a valid user session.");
 
         // 2. Save merchant data
         if (!logoDataUri || !brandColors) {
