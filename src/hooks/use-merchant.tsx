@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
@@ -43,18 +44,24 @@ export const MerchantProvider = ({ children }: { children: ReactNode }) => {
 
   const loadData = useCallback(async () => {
     if (authLoading) return;
-    if (!user) {
-      setMerchant(null);
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
+
     try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      
+      const currentUser = sessionData.session?.user;
+
+      if (!currentUser) {
+        setMerchant(null);
+        setLoading(false);
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('merchants')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .single();
       
       if (error && error.code !== 'PGRST116') { // PGRST116: 'exact-one' returns 0 rows
@@ -62,7 +69,6 @@ export const MerchantProvider = ({ children }: { children: ReactNode }) => {
       }
       
       if (data) {
-        // Map database columns to MerchantData interface
         const merchantData: MerchantData = {
           user_id: data.user_id,
           business_name: data.business_name,
@@ -85,11 +91,22 @@ export const MerchantProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false);
     }
-  }, [user, authLoading, supabase]);
+  }, [authLoading, supabase]);
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        // Reload merchant data on sign in/out
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+            loadData();
+        }
+    });
+
+    return () => {
+        subscription.unsubscribe();
+    };
+  }, [loadData, supabase.auth]);
 
   const reloadMerchant = useCallback(() => {
     loadData();

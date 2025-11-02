@@ -35,6 +35,7 @@ import type { User } from '@supabase/supabase-js';
 import { PasswordStrengthIndicator, checkPasswordStrength } from '@/components/password-strength-indicator';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import Form from "next/form";
+import { useActionState } from 'react';
 
 // --- Zod Schema Definitions ---
 
@@ -63,8 +64,17 @@ const onboardingSchema = z.object({
 
 type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 
+type ServerActionState = {
+  message: string;
+  success: boolean;
+  businessName?: string;
+};
+
 // --- Server Action ---
-async function submitOnboarding(formData: FormData) {
+async function submitOnboarding(
+  prevState: ServerActionState,
+  formData: FormData
+): Promise<ServerActionState> {
   'use server';
 
   const supabase = createClient();
@@ -80,43 +90,48 @@ async function submitOnboarding(formData: FormData) {
   
   const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
 
-  // 1. Create or sign in user
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
-  if (signUpError) {
-    if (signUpError.message.includes('User already registered')) {
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) throw signInError;
-      user = signInData.user;
+  try {
+    // 1. Create or sign in user
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+    if (signUpError) {
+      if (signUpError.message.includes('User already registered')) {
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) throw signInError;
+        user = signInData.user;
+      } else {
+        throw signUpError;
+      }
     } else {
-      throw signUpError;
+      user = signUpData.user;
     }
-  } else {
-    user = signUpData.user;
+
+    if (!user) throw new Error("Authentication failed.");
+
+    // 2. Save merchant data
+    if (!logoDataUri || !brandColors) {
+      throw new Error('Missing branding information. Please ensure a logo is processed.');
+    }
+
+    const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
+
+    const { error: merchantError } = await supabase.from('merchants').upsert({
+      user_id: user.id,
+      email: email,
+      business_name: businessName,
+      business_type: finalBusinessType,
+      logo_url: logoDataUri,
+      colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
+    }, { onConflict: 'user_id' });
+
+    if (merchantError) {
+      throw new Error(`Failed to save merchant data: ${merchantError.message}`);
+    }
+
+    return { success: true, message: 'Store Created!', businessName };
+  } catch (e) {
+    logger.error({ message: "Onboarding submission failed.", error: e as Error });
+    return { success: false, message: (e as Error).message };
   }
-
-  if (!user) throw new Error("Authentication failed.");
-
-  // 2. Save merchant data
-  if (!logoDataUri || !brandColors) {
-    throw new Error('Missing branding information. Please ensure a logo is processed.');
-  }
-
-  const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
-
-  const { error: merchantError } = await supabase.from('merchants').upsert({
-    user_id: user.id,
-    email: email,
-    business_name: businessName,
-    business_type: finalBusinessType,
-    logo_url: logoDataUri,
-    colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
-  }, { onConflict: 'user_id' });
-
-  if (merchantError) {
-    throw new Error(`Failed to save merchant data: ${merchantError.message}`);
-  }
-
-  return { success: true, businessName };
 }
 
 
@@ -364,7 +379,7 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
             <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", logoPreview ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
             {logoPreview ? (
                 <>
-                <Image src={logoPreview} alt="Uploaded Logo Preview" fill style={{ objectFit: 'contain' }} className="rounded-md p-2" />
+                <Image src={logoPreview} alt="Uploaded Logo Preview" layout="fill" style={{ objectFit: 'contain' }} className="rounded-md p-2" />
                 <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
                 </>
             ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p></>)}
@@ -544,7 +559,6 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
 // --- Main Form Component ---
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
   const [brandColors, setBrandColors] = useState<BrandColors | null>(null);
@@ -552,11 +566,22 @@ export default function OnboardingForm() {
   const router = useRouter();
   const totalSteps = 3;
 
+  const [state, formAction] = useActionState(submitOnboarding, { message: '', success: false });
+
   const form = useForm<OnboardingFormValues>({ 
       resolver: zodResolver(onboardingSchema), 
       defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '' },
       mode: 'onBlur' 
   });
+
+  useEffect(() => {
+    if (state.success && state.businessName) {
+      toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
+      startTransition(() => setStep(totalSteps + 1));
+    } else if (!state.success && state.message) {
+      toast({ title: 'Onboarding Failed', description: state.message, variant: 'destructive' });
+    }
+  }, [state, toast]);
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
@@ -580,24 +605,8 @@ export default function OnboardingForm() {
       handleNext();
     }
   };
-
-  const handleFormAction = async (formData: FormData) => {
-    setIsLoading(true);
-    try {
-        const result = await submitOnboarding(formData);
-        if (result.success) {
-            toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
-            startTransition(() => setStep(totalSteps + 1));
-        }
-    } catch (e) {
-        logger.error({ message: "Onboarding submission failed.", error: e as Error });
-        toast({ title: 'Onboarding Failed', description: (e as Error).message, variant: 'destructive' });
-    } finally {
-        setIsLoading(false);
-    }
-  };
   
-  if (step > totalSteps) return <Step4_Success businessName={form.getValues('businessName')} />;
+  if (step > totalSteps && state.businessName) return <Step4_Success businessName={state.businessName} />;
 
   return (
     <div className="space-y-8">
@@ -607,7 +616,7 @@ export default function OnboardingForm() {
       </header>
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
-        <Form action={handleFormAction} aria-label="Store onboarding form">
+        <Form action={formAction} aria-label="Store onboarding form">
           {logoDataUri && <input type="hidden" name="logoDataUri" value={logoDataUri} />}
           {brandColors && <input type="hidden" name="brandColors" value={JSON.stringify(brandColors)} />}
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
@@ -615,7 +624,7 @@ export default function OnboardingForm() {
             {step === 2 && <Step2_Branding onLogoUpdate={setLogoDataUri} onColorsUpdate={setBrandColors} brandColors={brandColors} onKeyDown={handleKeyDown} />}
             {step === 3 && <Step3_Account onKeyDown={handleKeyDown} />}
           </div>
-          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isLoading || isPending} />
+          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending} />
         </Form>
       </FormProvider>
     </div>

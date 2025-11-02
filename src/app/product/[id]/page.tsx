@@ -2,7 +2,7 @@
 import { MerchantProvider } from '@/hooks/use-merchant';
 import React from 'react';
 import ProductDetailClient from './product-detail-client';
-import { getProductById } from '@/lib/products';
+import { getProductById, products } from '@/lib/products';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
@@ -38,6 +38,12 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
       type: 'website',
     },
   };
+}
+
+export async function generateStaticParams() {
+  return products.map((product) => ({
+    id: product.id,
+  }));
 }
 
 
