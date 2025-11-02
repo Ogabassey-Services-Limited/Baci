@@ -58,7 +58,7 @@ const onboardingSchema = z.object({
 })
 .refine(data => {
     // Only require passwords to match if the password is long enough to need confirmation
-    if (data.password && data.password.length >= 8) {
+    if ((data.password?.length ?? 0) >= 8) {
         return data.password === data.confirmPassword;
     }
     return true;
@@ -369,7 +369,7 @@ function Step2_Branding({ onLogoUpdate, onColorsUpdate, brandColors, onKeyDown }
 }
 
 function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
-  const { control, watch, formState: { errors } } = useFormContext<OnboardingFormValues>();
+  const { control, watch, formState: { errors }, trigger } = useFormContext<OnboardingFormValues>();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -377,7 +377,21 @@ function Step3_Account({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLI
   const passwordValue = watch('password');
   const passwordStrength = useMemo(() => checkPasswordStrength(passwordValue || ''), [passwordValue]);
   
-  const isEmailValid = emailValue && !errors.email;
+  const [isEmailValid, setIsEmailValid] = useState(false);
+
+  useEffect(() => {
+    const checkEmail = async () => {
+      const isValid = await trigger('email');
+      setIsEmailValid(isValid);
+    };
+
+    if (emailValue) {
+      checkEmail();
+    } else {
+      setIsEmailValid(false);
+    }
+  }, [emailValue, trigger]);
+
   const isPasswordMinLength = (passwordValue?.length ?? 0) >= 8;
 
   return (
@@ -517,24 +531,36 @@ export default function OnboardingForm() {
 
   const handleNext = async () => {
     let fieldsToValidate: (keyof OnboardingFormValues)[] = [];
-    if (step === 1) fieldsToValidate = ['businessName', 'businessType', 'otherBusinessType'];
-    if (step === 3) fieldsToValidate = ['email', 'password', 'confirmPassword'];
-    
-    const isValid = await form.trigger(fieldsToValidate);
-    if (isValid) {
-      if (step === 2 && !logoDataUri) {
-          toast({ title: 'Logo Required', description: 'Please upload or generate a logo to continue.', variant: 'destructive'});
-          return;
-      }
-      setStep(s => s + 1);
+    if (step === 1) {
+      fieldsToValidate = ['businessName', 'businessType', 'otherBusinessType'];
+    } else if (step === 2) {
+      // Step 2 validation is handled separately due to logo requirement
+    } else if (step === 3) {
+      fieldsToValidate = ['email', 'password', 'confirmPassword'];
     }
+    
+    if (fieldsToValidate.length > 0) {
+      const isValid = await form.trigger(fieldsToValidate);
+      if (!isValid) return;
+    }
+    
+    if (step === 2 && !logoDataUri) {
+        toast({ title: 'Logo Required', description: 'Please upload or generate a logo to continue.', variant: 'destructive'});
+        return;
+    }
+    setStep(s => s + 1);
   };
   const handlePrev = () => { if (step > 1) setStep(s => s - 1); };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleNext();
+      if (step < totalSteps) {
+        handleNext();
+      } else {
+        // Allow submission on last step
+        document.getElementById('submit-button')?.click();
+      }
     }
   };
 
