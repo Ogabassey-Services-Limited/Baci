@@ -423,19 +423,20 @@ function Step3_Account({ onKeyDown, onMagicLinkSent }: { onKeyDown: (e: React.Ke
   );
 }
 
-function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoading }: {
+function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoading, isStepValid }: {
   currentStep: number;
   totalSteps: number;
   onNext: () => void;
   onPrev: () => void;
   isLoading: boolean;
+  isStepValid: boolean;
 }) {
   const isLastStep = currentStep === totalSteps;
   
   return (
     <div className="flex justify-between pt-4">
       {currentStep > 1 ? (<Button type="button" variant="outline" onClick={onPrev} disabled={isLoading}>Previous</Button>) : <div />}
-      {isLastStep ? (<Button type="submit" disabled={isLoading} id="submit-button">{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create My Store</Button>) : (<Button type="button" onClick={onNext} disabled={isLoading}>Next</Button>)}
+      {isLastStep ? (<Button type="submit" disabled={isLoading || !isStepValid} id="submit-button">{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create My Store</Button>) : (<Button type="button" onClick={onNext} disabled={isLoading}>Next</Button>)}
     </div>
   );
 }
@@ -457,6 +458,8 @@ export default function OnboardingForm() {
       shouldUnregister: false,
       defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '', logoDataUri: '', brandColors: '' },
   });
+
+  const { formState: { isValid } } = form;
 
   useEffect(() => {
     const fromMagicLink = searchParams.get('fromMagicLink');
@@ -497,17 +500,17 @@ export default function OnboardingForm() {
   }, [submissionState, form, toast, router]);
   
   const handleNext = async () => {
-    let isValid = false;
+    let isValidStep = false;
     if (step === 1) {
-        isValid = await form.trigger(['businessName', 'businessType', 'otherBusinessType']);
+        isValidStep = await form.trigger(['businessName', 'businessType', 'otherBusinessType']);
     } else if (step === 2) {
-        isValid = await form.trigger(['logoDataUri', 'brandColors']);
-        if (!isValid) {
+        isValidStep = await form.trigger(['logoDataUri', 'brandColors']);
+        if (!isValidStep) {
              toast({ title: 'Branding Incomplete', description: 'Please upload or generate a logo to proceed.', variant: 'destructive' });
         }
     }
     
-    if (isValid) {
+    if (isValidStep) {
       setStep(s => s + 1);
     }
   };
@@ -542,6 +545,14 @@ export default function OnboardingForm() {
     setMagicLinkSent(true);
   };
 
+  // Determine if the current step is valid
+  const isStep3Valid = useMemo(() => {
+    if (step !== 3) return true;
+    const { email, password, confirmPassword } = form.getValues();
+    const result = step3Schema.safeParse({ email, password, confirmPassword });
+    return result.success;
+  }, [form.watch('email'), form.watch('password'), form.watch('confirmPassword'), step]);
+
   return (
     <div className="space-y-8">
       <header>
@@ -570,7 +581,7 @@ export default function OnboardingForm() {
                 )
             )}
           </div>
-          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending} />
+          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending} isStepValid={step === 3 ? isStep3Valid : isValid} />
         </form>
       </FormProvider>
     </div>
