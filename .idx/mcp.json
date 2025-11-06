@@ -1,0 +1,58 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "/home/user/.global_modules/bin/context7-mcp",
+      "args": [],
+      "env": {
+        "CONTEXT7_API_KEY": "ctx7sk-5ce39907-bdfa-48b8-9291-2fd5d995b002",
+        "CONTEXT7_API_URL": "https://context7.com/api/v1"
+      }
+    },
+    "supabase": {
+      "command": "/home/user/.global_modules/bin/mcp-server-supabase",
+      "args": [],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "sbp_568f6e823c62586f9927f5ac1175bf6a3b835fa7",
+        "SUPABASE_URL": "https://aivqthbxdshhltbwipbr.supabase.co",
+        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpdnF0aGJ4ZHNoaGx0YndpcGJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwNTE0ODMsImV4cCI6MjA3NzYyNzQ4M30.hOyPsBP4mR3Bpga75L3rlgtJtub7r4jzTjkuMe_bwrg"
+      }
+    }
+  },
+  "enabledTools": {
+    "context7": [
+      "get-library-docs",
+      "resolve-library-id"
+    ],
+    "supabase": [
+      "search_docs",
+      "list_organizations",
+      "get_organization",
+      "list_projects",
+      "get_project",
+      "get_cost",
+      "confirm_cost",
+      "create_project",
+      "pause_project",
+      "restore_project",
+      "list_tables",
+      "list_extensions",
+      "list_migrations",
+      "apply_migration",
+      "execute_sql",
+      "get_logs",
+      "get_advisors",
+      "get_project_url",
+      "get_publishable_keys",
+      "generate_typescript_types",
+      "list_edge_functions",
+      "get_edge_function",
+      "deploy_edge_function",
+      "create_branch",
+      "list_branches",
+      "delete_branch",
+      "merge_branch",
+      "reset_branch",
+      "rebase_branch"
+    ]
+  }
+}

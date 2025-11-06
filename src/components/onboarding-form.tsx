@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect, useActionState } from 'react';
@@ -422,28 +423,6 @@ function Step3_Account({ onKeyDown, onMagicLinkSent }: { onKeyDown: (e: React.Ke
   );
 }
 
-function Step4_Success({ businessName }: { businessName: string }) {
-  const router = useRouter();
-  const { toast } = useToast();
-  const storeUrl = `${businessName.toLowerCase().replace(/\s+/g, '-')}.baci.store`;
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(`https://${storeUrl}`);
-    toast({ title: "Copied to clipboard!", description: "Your store URL is ready to be shared." });
-  };
-  return (
-    <div className="text-center space-y-4 flex flex-col items-center">
-      <CheckCircle className="w-16 h-16 text-green-500" />
-      <h3 className="text-2xl font-semibold">Your Store is Ready!</h3>
-      <p className="text-muted-foreground">Congratulations! Your new e-commerce store has been created.</p>
-      <div className="w-full max-w-sm p-4 border rounded-lg bg-muted flex items-center justify-between">
-        <span className="font-mono text-sm truncate">https://{storeUrl}</span>
-        <Button variant="ghost" size="icon" onClick={copyToClipboard}><Copy className="w-4 h-4" /></Button>
-      </div>
-      <Button onClick={() => router.push('/dashboard')} className="mt-4">Go to Dashboard</Button>
-    </div>
-  );
-}
-
 function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoading }: {
   currentStep: number;
   totalSteps: number;
@@ -467,6 +446,7 @@ export default function OnboardingForm() {
   const [submissionState, formAction, isPending] = useActionState<ServerActionState, FormData>(submitOnboarding, { message: '', success: false });
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
   const totalSteps = 3;
   const searchParams = useSearchParams();
 
@@ -496,8 +476,8 @@ export default function OnboardingForm() {
   useEffect(() => {
     if (submissionState.success) {
         localStorage.removeItem('onboardingForm');
-        toast({ title: 'Store Created!', description: 'Your e-commerce store is ready.' });
-        setStep(totalSteps + 1);
+        toast({ title: 'Store Created!', description: 'Your e-commerce store is ready. Redirecting you to the dashboard...' });
+        router.push('/dashboard');
     } else if (submissionState.message) {
         const fieldErrors = submissionState.errors?.fieldErrors;
         if (fieldErrors) {
@@ -510,12 +490,11 @@ export default function OnboardingForm() {
                 }
             });
         }
-        // General error toast, but avoid if it's a specific field error.
         if (!fieldErrors || Object.keys(fieldErrors).length === 0) {
            toast({ title: 'An error occurred', description: submissionState.message, variant: 'destructive' });
         }
     }
-  }, [submissionState, form, toast]);
+  }, [submissionState, form, toast, router]);
   
   const handleNext = async () => {
     let isValid = false;
@@ -562,8 +541,6 @@ export default function OnboardingForm() {
     localStorage.setItem('onboardingForm', JSON.stringify(dataToSave));
     setMagicLinkSent(true);
   };
-  
-  if (step > totalSteps && submissionState.businessName) return <Step4_Success businessName={submissionState.businessName} />;
 
   return (
     <div className="space-y-8">
@@ -599,3 +576,5 @@ export default function OnboardingForm() {
     </div>
   );
 }
+
+    
