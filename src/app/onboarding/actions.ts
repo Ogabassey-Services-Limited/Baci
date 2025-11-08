@@ -4,7 +4,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { logger } from '@/lib/logger';
 import type { User } from '@supabase/supabase-js';
-import type { BrandColors } from '@/ai/flows/guide-business-onboarding';
+import type { BrandColors } from '@/types';
 import { onboardingSchema } from '@/schemas/onboarding';
 import { z } from 'zod';
 
@@ -93,8 +93,8 @@ export async function submitOnboarding(
       email: email,
       business_name: businessName,
       business_type: finalBusinessType,
-      logo_url: logoDataUri, // Corrected column name
-      brand_colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent }, // Corrected column name
+      logo_url: logoDataUri,
+      brand_colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
     }, { onConflict: 'user_id' });
 
     if (merchantError) {

@@ -9,7 +9,7 @@
  * 2. Adjusting lighting to studio quality
  * 3. Making the product stand out professionally
  *
- * Uses Gemini 2.5 Pro Image Preview model for image-to-image transformation.
+ * Uses Gemini 1.5 Pro Preview model for image-to-image transformation.
  * Automatically called when users upload product images in the product form.
  *
  * @exports
@@ -43,7 +43,7 @@ export async function enhanceProductImage(
 ): Promise<EnhanceProductImageOutput> {
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = ai.getGenerativeModel({ model: "gemini-1.5-pro-preview" });
 
     const imagePart = {
         inlineData: {

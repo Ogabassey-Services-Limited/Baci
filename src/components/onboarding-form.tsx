@@ -22,13 +22,13 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, Upload, CheckCircle, Copy, Mail, KeyRound, Eye, EyeOff, RefreshCw, AlertCircle } from 'lucide-react';
+import { Loader2, Sparkles, Upload, CheckCircle, Mail, KeyRound, Eye, EyeOff, RefreshCw, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { cn, checkPasswordStrength } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
-import type { BrandColors } from '@/ai/flows/guide-business-onboarding';
+import type { BrandColors } from '@/types';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/onboarding/actions';
 import ColorThief from 'colorthief';
@@ -459,7 +459,7 @@ export default function OnboardingForm() {
       defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '', logoDataUri: '', brandColors: '' },
   });
 
-  const { formState: { isValid } } = form;
+  const { formState: { errors } } = form;
 
   useEffect(() => {
     const fromMagicLink = searchParams.get('fromMagicLink');
@@ -545,13 +545,19 @@ export default function OnboardingForm() {
     setMagicLinkSent(true);
   };
 
-  // Determine if the current step is valid
   const isStep3Valid = useMemo(() => {
     if (step !== 3) return true;
     const { email, password, confirmPassword } = form.getValues();
     const result = step3Schema.safeParse({ email, password, confirmPassword });
     return result.success;
   }, [form.watch('email'), form.watch('password'), form.watch('confirmPassword'), step]);
+  
+  const isCurrentStepValid = useMemo(() => {
+    if (step === 1) return !errors.businessName && !errors.businessType && !errors.otherBusinessType;
+    if (step === 2) return !errors.logoDataUri && !errors.brandColors;
+    if (step === 3) return isStep3Valid;
+    return false;
+  }, [step, errors, isStep3Valid]);
 
   return (
     <div className="space-y-8">
@@ -581,11 +587,9 @@ export default function OnboardingForm() {
                 )
             )}
           </div>
-          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending} isStepValid={step === 3 ? isStep3Valid : isValid} />
+          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending} isStepValid={isCurrentStepValid} />
         </form>
       </FormProvider>
     </div>
   );
 }
-
-    
