@@ -39,7 +39,7 @@ export const step2Schema = z.object({
  */
 const step3BaseSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
-  password: z.string().min(8, "Password must be at least 8 characters.").optional(),
+  password: z.union([z.string().min(8, "Password must be at least 8 characters."), z.literal('')]).optional(),
   confirmPassword: z.string().optional(),
 });
 

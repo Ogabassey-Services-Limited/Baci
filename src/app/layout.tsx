@@ -3,11 +3,9 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { CartProvider } from '@/hooks/use-cart';
-import { MerchantProvider } from '@/hooks/use-merchant';
-import { AuthProvider } from '@/contexts/auth-context';
 import AppBody from '@/components/app-body';
 import { Analytics } from "@vercel/analytics/react"
+import { Providers } from '@/contexts/providers';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -73,14 +71,10 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.variable}>
-        <AuthProvider>
-          <MerchantProvider>
-            <CartProvider>
-              <AppBody>{children}</AppBody>
-            </CartProvider>
-          </MerchantProvider>
-        </AuthProvider>
-        <Toaster />
+        <Providers>
+          <AppBody>{children}</AppBody>
+          <Toaster />
+        </Providers>
         <Analytics />
       </body>
     </html>

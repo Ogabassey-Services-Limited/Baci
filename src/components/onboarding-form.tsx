@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useActionState } from 'react';
+import { useState, useMemo, useEffect, useActionState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm, FormProvider, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -446,6 +446,7 @@ export default function OnboardingForm() {
   const [step, setStep] = useState(1);
   const [submissionState, formAction, isPending] = useActionState<ServerActionState, FormData>(submitOnboarding, { message: '', success: false });
   const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [isSubmitting, startTransition] = useTransition();
   const { toast } = useToast();
   const router = useRouter();
   const totalSteps = 3;
@@ -530,7 +531,7 @@ export default function OnboardingForm() {
 
   const handleMagicLinkSent = () => {
     const values = form.getValues();
-    const dataToSave = { 
+    const dataToSave = {
         values: {
             businessName: values.businessName,
             businessType: values.businessType,
@@ -545,12 +546,37 @@ export default function OnboardingForm() {
     setMagicLinkSent(true);
   };
 
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const values = form.getValues();
+
+    const formData = new FormData();
+    formData.append('email', values.email || '');
+    formData.append('password', values.password || '');
+    formData.append('confirmPassword', values.confirmPassword || '');
+    formData.append('businessName', values.businessName || '');
+    formData.append('businessType', values.businessType || '');
+    formData.append('otherBusinessType', values.otherBusinessType || '');
+    formData.append('brandPreferences', values.brandPreferences || '');
+    formData.append('logoDataUri', values.logoDataUri || '');
+    formData.append('brandColors', values.brandColors || '');
+
+    startTransition(() => {
+      formAction(formData);
+    });
+  };
+
+  const formEmail = form.watch('email');
+  const formPassword = form.watch('password');
+  const formConfirmPassword = form.watch('confirmPassword');
+
   const isStep3Valid = useMemo(() => {
     if (step !== 3) return true;
-    const { email, password, confirmPassword } = form.getValues();
-    const result = step3Schema.safeParse({ email, password, confirmPassword });
+    const validationData = { email: formEmail, password: formPassword, confirmPassword: formConfirmPassword };
+    const result = step3Schema.safeParse(validationData);
     return result.success;
-  }, [form.watch('email'), form.watch('password'), form.watch('confirmPassword'), step]);
+  }, [formEmail, formPassword, formConfirmPassword, step]);
   
   const isCurrentStepValid = useMemo(() => {
     if (step === 1) return !errors.businessName && !errors.businessType && !errors.otherBusinessType;
@@ -567,7 +593,7 @@ export default function OnboardingForm() {
       </header>
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
-        <form action={formAction} aria-label="Store onboarding form" noValidate>
+        <form onSubmit={handleFormSubmit} aria-label="Store onboarding form" noValidate>
             <input type="hidden" {...form.register('logoDataUri')} />
             <input type="hidden" {...form.register('brandColors')} />
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
@@ -587,7 +613,7 @@ export default function OnboardingForm() {
                 )
             )}
           </div>
-          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending} isStepValid={isCurrentStepValid} />
+          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending || isSubmitting} isStepValid={isCurrentStepValid} />
         </form>
       </FormProvider>
     </div>

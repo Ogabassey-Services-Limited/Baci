@@ -14,8 +14,8 @@ CREATE TABLE merchants (
   business_name TEXT NOT NULL,
   business_type TEXT,
   country TEXT,
-  logo TEXT,
-  colors JSONB, -- {primary, secondary, accent}
+  logo_url TEXT,
+  brand_colors JSONB, -- {primary, secondary, accent}
   pages JSONB, -- {about, contact, privacy, terms, returns, shipping}
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -229,8 +229,8 @@ CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders
 -- Then link them here with their user_id
 
 -- Sample merchant (replace USER_ID_HERE with actual auth.users id)
--- INSERT INTO merchants (user_id, email, business_name, business_type, country, colors, pages) VALUES
--- ('USER_ID_HERE', 'demo@example.com', 'Demo Store', 'fashion', 'US',
+-- INSERT INTO merchants (user_id, email, business_name, business_type, country, logo_url, brand_colors, pages) VALUES
+-- ('USER_ID_HERE', 'demo@example.com', 'Demo Store', 'fashion', 'US', 'https://example.com/logo.png',
 --  '{"primary": "#3F51B5", "secondary": "#9C27B0", "accent": "#FFC107"}'::jsonb,
 --  '{"about": "About us...", "contact": "Contact info..."}'::jsonb
 -- );

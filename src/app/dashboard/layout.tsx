@@ -12,7 +12,7 @@ import {
   Users,
   LayoutDashboard,
   Loader2,
-  ExternalLink,
+  Store,
   FileText,
   Search,
   LogOut,
@@ -39,12 +39,12 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Logo } from '@/components/logo';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
 
-function DashboardLayoutContent({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -55,7 +55,7 @@ function DashboardLayoutContent({
   const { user, signOut } = useAuth();
 
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
-  const storeUrl = '/'; // Point to the root for internal preview
+  const storeUrl = merchant?.business_name ? `/storefront/${encodeURIComponent(merchant.business_name.toLowerCase().replace(/\s+/g, '-'))}` : '#';
   
   const handleSignOut = async () => {
     await signOut();
@@ -94,12 +94,41 @@ function DashboardLayoutContent({
       icon: Settings,
       label: 'Settings',
     },
-    {
-      href: storeUrl,
-      icon: ExternalLink,
-      label: 'Visit Store',
-    },
   ];
+
+  const StoreLink = ({ isMobile = false }) => {
+    const baseClassName = isMobile 
+        ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
+        : 'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground';
+
+    const isReady = !loading && storeUrl !== '#';
+
+    const handleClick = () => {
+        if (isReady) {
+            console.log(`Navigating to store: ${storeUrl}`);
+            router.push(storeUrl);
+        } else {
+            console.log('Store URL not ready yet.');
+        }
+    };
+
+    return (
+        <div
+            className={cn(baseClassName, {
+                'transition-all hover:text-primary cursor-pointer': isReady,
+                'opacity-50 cursor-not-allowed': !isReady,
+            })}
+            onClick={handleClick}
+        >
+            {loading ? (
+                <Loader2 className={cn('h-4 w-4 animate-spin', isMobile && 'h-5 w-5')} />
+            ) : (
+                <Store className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
+            )}
+            Visit Store
+        </div>
+    );
+  };
 
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
@@ -130,6 +159,7 @@ function DashboardLayoutContent({
                   )}
                 </Link>
               ))}
+              <StoreLink />
             </nav>
           </div>
           <div className="mt-auto p-4">
@@ -189,6 +219,7 @@ function DashboardLayoutContent({
                     )}
                   </Link>
                 ))}
+                <StoreLink isMobile />
               </nav>
               <div className="mt-auto">
                 <Card>
@@ -252,17 +283,5 @@ function DashboardLayoutContent({
         </main>
       </div>
     </div>
-  );
-}
-
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <MerchantProvider>
-      <DashboardLayoutContent>{children}</DashboardLayoutContent>
-    </MerchantProvider>
   );
 }
