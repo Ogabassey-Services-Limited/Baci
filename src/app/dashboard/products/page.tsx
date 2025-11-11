@@ -22,20 +22,22 @@ function ProductsPageContent() {
 
   const handleCommandSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!searchTerm.trim()) return;
+    const query = searchTerm.trim();
+    if (!query) return;
 
-    // Heuristic to decide if it's a command or just a search
-    const isCommand = searchTerm.split(' ').length > 2 || searchTerm.includes('$') || searchTerm.toLowerCase().startsWith('update') || searchTerm.includes('\n');
+    // Trigger AI if the query contains a newline (pasted text) or looks like a command.
+    const isCommand = query.includes('\n') || query.split(' ').length > 2 || query.includes('$') || query.toLowerCase().startsWith('update');
 
     if (isCommand) {
       setIsLoading(true);
       setWorkflowStep('processing');
-      const response = await processPriceList(products, searchTerm, 'pasted text', 'text');
+      const response = await processPriceList(products, query, 'pasted text', 'text');
       setAiResponse(response);
       setWorkflowStep('review');
       setIsLoading(false);
       setSearchTerm(''); // Clear search term after command execution
     }
+    // If it's not a command, it will just act as a filter, which is already handled by the context.
   };
 
 
