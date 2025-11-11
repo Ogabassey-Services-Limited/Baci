@@ -7,7 +7,7 @@ import { FileUpload } from '@/components/products/file-upload';
 import { ProcessingView } from '@/components/products/processing-view';
 import { ReviewChanges } from '@/components/products/review-changes';
 import { Button } from '@/components/ui/button';
-import { File, PlusCircle, Search, Loader2 } from 'lucide-react';
+import { File, PlusCircle, Search, Loader2, Send } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
@@ -80,13 +80,14 @@ function ProductsPageContent() {
                 <Input
                     type="search"
                     placeholder="Search products or enter an AI command..."
-                    className="w-full appearance-none bg-background pl-8 pr-24 shadow-none"
+                    className="w-full appearance-none bg-background pl-8 pr-12 shadow-none"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     disabled={isLoading}
                 />
-                 <Button type="submit" size="sm" className="absolute right-1 top-1/2 -translate-y-1/2 h-8" disabled={isLoading}>
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Submit'}
+                 <Button type="submit" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" disabled={isLoading}>
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    <span className="sr-only">Submit</span>
                 </Button>
             </div>
         </form>
