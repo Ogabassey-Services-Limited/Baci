@@ -37,7 +37,7 @@ export async function generateProductDescription(
   input: GenerateProductDescriptionInput
 ): Promise<GenerateProductDescriptionOutput> {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const ai = new GoogleGenAI(process.env.GEMINI_API_KEY as string);
     const model = ai.getGenerativeModel({ model: 'gemini-1.5-pro-preview' });
 
     const businessTypeConfig = getBusinessTypeById(input.businessType);

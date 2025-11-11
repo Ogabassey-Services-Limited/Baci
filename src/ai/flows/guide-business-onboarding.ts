@@ -87,7 +87,7 @@ const safetySettings = [
 export async function guideBusinessOnboarding(
   input: GuideBusinessOnboardingInput
 ): Promise<GuideBusinessOnboardingOutput> {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const ai = new GoogleGenAI(process.env.GEMINI_API_KEY as string);
     const model = ai.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings });
 
     if (input.task === 'extract_colors') {
