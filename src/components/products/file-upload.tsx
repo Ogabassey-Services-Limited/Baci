@@ -7,13 +7,10 @@ import { processPriceList } from '@/app/dashboard/products/actions';
 import { useDropzone } from 'react-dropzone';
 import { UploadCloud, File as FileIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 
 export function FileUpload() {
   const { products, setWorkflowStep, setAiResponse } = useProductContext();
   const [file, setFile] = useState<File | null>(null);
-  const [vendor, setVendor] = useState<string>('');
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
@@ -32,10 +29,11 @@ export function FileUpload() {
   });
 
   const handleProcessFile = async () => {
-    if (!file || !vendor) return;
+    if (!file) return;
 
     setWorkflowStep('processing');
     const reader = new FileReader();
+    const vendor = "Uploaded File"; // Use a generic vendor name
 
     const processAsText = (fileContent: string) => {
         return processPriceList(products, fileContent, vendor, file.type);
@@ -69,24 +67,10 @@ export function FileUpload() {
     <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-muted/20 rounded-lg border-2 border-dashed">
       <h2 className="text-2xl font-bold mb-4">Upload Price List</h2>
       <p className="text-muted-foreground mb-8 max-w-md">
-        Select a vendor and upload your price list file (CSV, PDF, or even an image). The AI will analyze it and suggest catalog updates.
+        Upload your price list file (CSV, PDF, or even an image). The AI will analyze it and suggest catalog updates.
       </p>
 
       <div className="w-full max-w-sm space-y-4 mb-8">
-        <div className="grid w-full items-center gap-1.5">
-            <Label htmlFor="vendor-select">Select Vendor</Label>
-            <Select onValueChange={setVendor} value={vendor}>
-                <SelectTrigger id="vendor-select">
-                    <SelectValue placeholder="Choose a vendor..." />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="vendor-a">Vendor A</SelectItem>
-                    <SelectItem value="vendor-b">Vendor B</SelectItem>
-                    <SelectItem value="vendor-c">Vendor C</SelectItem>
-                </SelectContent>
-            </Select>
-        </div>
-
         <div
           {...getRootProps()}
           className={`p-10 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
@@ -108,7 +92,7 @@ export function FileUpload() {
         </div>
       </div>
 
-      <Button onClick={handleProcessFile} disabled={!file || !vendor}>
+      <Button onClick={handleProcessFile} disabled={!file}>
         Process File
       </Button>
     </div>
