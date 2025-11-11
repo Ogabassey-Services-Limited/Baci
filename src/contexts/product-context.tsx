@@ -38,8 +38,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return products;
-    const isCommand = searchTerm.split(' ').length > 2 || searchTerm.includes('$') || searchTerm.toLowerCase().startsWith('update');
-    if (isCommand) return products; // Don't filter if it looks like a command
+    // Always filter when searchTerm is present. The AI submission is now explicit.
     return fuse.search(searchTerm).map(result => result.item);
   }, [searchTerm, products, fuse]);
 

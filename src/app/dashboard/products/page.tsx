@@ -9,7 +9,6 @@ import { ReviewChanges } from '@/components/products/review-changes';
 import { Button } from '@/components/ui/button';
 import { File, PlusCircle, Search, Loader2, Send } from 'lucide-react';
 import Link from 'next/link';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 import { processPriceList } from '@/app/dashboard/products/actions';
@@ -25,19 +24,19 @@ function ProductsPageContent() {
     const query = searchTerm.trim();
     if (!query) return;
 
-    // Trigger AI if the query contains a newline (pasted text) or looks like a command.
-    const isCommand = query.includes('\n') || query.split(' ').length > 2 || query.includes('$') || query.toLowerCase().startsWith('update');
-
-    if (isCommand) {
-      setIsLoading(true);
-      setWorkflowStep('processing');
-      const response = await processPriceList(products, query, 'pasted text', 'text');
-      setAiResponse(response);
-      setWorkflowStep('review');
-      setIsLoading(false);
-      setSearchTerm(''); // Clear search term after command execution
+    setIsLoading(true);
+    setWorkflowStep('processing');
+    try {
+        const response = await processPriceList(products, query, 'pasted text', 'text');
+        setAiResponse(response);
+        setWorkflowStep('review');
+    } catch (error) {
+        console.error("AI processing failed", error);
+        setWorkflowStep('view'); // Revert to view on error
+    } finally {
+        setIsLoading(false);
+        setSearchTerm(''); // Clear search term after command execution
     }
-    // If it's not a command, it will just act as a filter, which is already handled by the context.
   };
 
 
@@ -88,7 +87,7 @@ function ProductsPageContent() {
                     disabled={isLoading}
                     rows={1}
                 />
-                 <Button type="submit" size="icon" className="absolute right-2 top-1.5 h-8 w-8" disabled={isLoading}>
+                 <Button type="submit" size="icon" className="absolute right-2 top-1.5 h-8 w-8" disabled={isLoading || !searchTerm.trim()}>
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     <span className="sr-only">Submit</span>
                 </Button>
