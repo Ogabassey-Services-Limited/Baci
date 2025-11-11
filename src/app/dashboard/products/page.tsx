@@ -30,33 +30,35 @@ function ProductsPageContent() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center mb-4 gap-4">
-        <h1 className="text-2xl font-bold">Products</h1>
-        <div className="ml-auto flex items-center gap-2">
-            <div className="relative">
-                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                 <Input
-                    type="search"
-                    placeholder="Search products..."
-                    className="w-full appearance-none bg-background pl-8 shadow-none md:w-[280px] lg:w-[320px]"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                 />
+      <div className="flex flex-col gap-4 mb-4">
+        <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Products</h1>
+            <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" className="h-9 gap-1" onClick={() => setWorkflowStep('upload')}>
+                    <File className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                        Import Price List
+                    </span>
+                </Button>
+                <Link href="/dashboard/products/add">
+                    <Button size="sm" className="h-9 gap-1">
+                        <PlusCircle className="h-3.5 w-3.5" />
+                        <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                            Add Product
+                        </span>
+                    </Button>
+                </Link>
             </div>
-           <Button size="sm" variant="outline" className="h-9 gap-1" onClick={() => setWorkflowStep('upload')}>
-              <File className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Import Price List
-              </span>
-            </Button>
-          <Link href="/dashboard/products/add">
-            <Button size="sm" className="h-9 gap-1">
-              <PlusCircle className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Add Product
-              </span>
-            </Button>
-          </Link>
+        </div>
+        <div className="relative">
+             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+             <Input
+                type="search"
+                placeholder="Search products by name, description, brand, or ID..."
+                className="w-full appearance-none bg-background pl-8 shadow-none"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+             />
         </div>
       </div>
       <div className="flex-1 flex flex-col">{renderContent()}</div>
