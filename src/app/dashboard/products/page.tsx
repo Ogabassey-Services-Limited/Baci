@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { File, PlusCircle, Search, Loader2, Send } from 'lucide-react';
 import Link from 'next/link';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 import { processPriceList } from '@/app/dashboard/products/actions';
 
@@ -24,7 +25,7 @@ function ProductsPageContent() {
     if (!searchTerm.trim()) return;
 
     // Heuristic to decide if it's a command or just a search
-    const isCommand = searchTerm.split(' ').length > 2 || searchTerm.includes('$') || searchTerm.toLowerCase().startsWith('update');
+    const isCommand = searchTerm.split(' ').length > 2 || searchTerm.includes('$') || searchTerm.toLowerCase().startsWith('update') || searchTerm.includes('\n');
 
     if (isCommand) {
       setIsLoading(true);
@@ -75,17 +76,17 @@ function ProductsPageContent() {
             </div>
         </div>
          <form onSubmit={handleCommandSubmit}>
-            <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                    type="search"
-                    placeholder="Search products or enter an AI command..."
-                    className="w-full appearance-none bg-background pl-8 pr-12 shadow-none"
+            <div className="relative w-full">
+                <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                <Textarea
+                    placeholder="Search products or paste a price list to run AI updates..."
+                    className="w-full resize-none appearance-none bg-background pl-8 pr-12 shadow-none min-h-[40px] pt-2.5"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     disabled={isLoading}
+                    rows={1}
                 />
-                 <Button type="submit" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" disabled={isLoading}>
+                 <Button type="submit" size="icon" className="absolute right-2 top-1.5 h-8 w-8" disabled={isLoading}>
                     {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     <span className="sr-only">Submit</span>
                 </Button>
