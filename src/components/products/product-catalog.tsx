@@ -20,7 +20,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 export function ProductCatalog() {
-  const { filteredProducts, setProducts, userRole } = useProductContext();
+  const { filteredProducts, setProducts } = useProductContext();
   const { merchant } = useMerchant();
   const { toast } = useToast();
   const [localProducts, setLocalProducts] = useState(filteredProducts);
@@ -77,7 +77,7 @@ export function ProductCatalog() {
       <CardHeader>
         <CardTitle>Product Catalog</CardTitle>
         <CardDescription>
-            Your current inventory. {userRole === 'admin' ? 'You can edit prices directly.' : 'This is a read-only view.'}
+            Your current inventory. You can edit prices directly.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 overflow-y-auto">
@@ -97,17 +97,13 @@ export function ProductCatalog() {
                   <Badge variant={product.status === 'active' ? 'default' : 'outline'}>{product.status}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  {userRole === 'admin' ? (
-                    <Input
-                      type="number"
-                      defaultValue={product.price}
-                      onChange={(e) => handlePriceChange(product.id, e.target.value)}
-                      className="w-24 h-8 text-right ml-auto"
-                      aria-label={`Price for ${product.name}`}
-                    />
-                  ) : (
-                    formatCurrency(product.price)
-                  )}
+                  <Input
+                    type="number"
+                    defaultValue={product.price}
+                    onChange={(e) => handlePriceChange(product.id, e.target.value)}
+                    className="w-24 h-8 text-right ml-auto"
+                    aria-label={`Price for ${product.name}`}
+                  />
                 </TableCell>
               </TableRow>
             ))}

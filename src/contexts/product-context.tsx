@@ -20,9 +20,6 @@ interface ProductContextType {
   applyChanges: (changesToApply: Change[]) => void;
   searchTerm: string;
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
-  userRole: 'admin' | 'customer';
-  setUserRole: React.Dispatch<React.SetStateAction<'admin' | 'customer'>>;
-  toggleRole: () => void;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -32,7 +29,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>('view');
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [userRole, setUserRole] = useState<'admin' | 'customer'>('admin');
   const { toast } = useToast();
 
   const fuse = useMemo(() => new Fuse(products, {
@@ -84,10 +80,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     setAiResponse(null);
   };
 
-  const toggleRole = () => {
-    setUserRole(prev => (prev === 'admin' ? 'customer' : 'admin'));
-  };
-
   return (
     <ProductContext.Provider value={{
       products,
@@ -100,9 +92,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       applyChanges,
       searchTerm,
       setSearchTerm,
-      userRole,
-      setUserRole,
-      toggleRole
     }}>
       {children}
     </ProductContext.Provider>
