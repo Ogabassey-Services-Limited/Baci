@@ -173,7 +173,7 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
         try {
           const colors = await extractColorsFromImage(dataUri);
           setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
-          toast({ title: 'Brand colors extracted!', description: 'You can shuffle them if you like.' });
+          toast({ title: 'Brand colors extracted!', description: 'You can shuffle them or preview your store.' });
         } catch (e) {
           logger.error({ error: e as Error, message: 'Color extraction failed.' });
           toast({ title: 'Color extraction failed', description: (e as Error).message, variant: 'destructive' });
@@ -284,29 +284,6 @@ return (
              {isExtracting && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
             <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isLoading}/>
             </div>
-            {brandColors && (
-                <div className="pt-2 animate-fade-in space-y-2">
-                    <div className="flex items-center gap-2 justify-center"><CheckCircle className="w-4 h-4 text-green-500" /><p className="text-sm font-medium">Brand Colors Extracted</p></div>
-                    <div className="grid grid-cols-3 gap-2">
-                        {displayedColors.map(({ role, color }) => (
-                            <div key={role} className="space-y-1 text-center">
-                                <div className="h-10 w-full rounded-md border-2 border-border shadow-sm" style={{ backgroundColor: color }} title={color} />
-                                <p className="text-[10px] font-medium text-muted-foreground capitalize">{role}</p>
-                            </div>
-                        ))}
-                    </div>
-                     <div className="grid grid-cols-2 gap-2">
-                        <Button type="button" variant="outline" size="sm" className="w-full" onClick={handleShuffleColors} disabled={isLoading}>
-                            <RefreshCw className="mr-2 h-3 w-3" />
-                            Shuffle
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" className="w-full" onClick={handlePreview}>
-                            <ExternalLink className="mr-2 h-3 w-3" />
-                            Preview
-                        </Button>
-                    </div>
-                </div>
-            )}
         </div>
         <div className="relative flex items-center justify-center md:hidden"><div className="absolute inset-0 flex items-center" aria-hidden="true"><div className="w-full border-t border-muted-foreground/30"></div></div><span className="relative bg-background px-2 text-sm text-muted-foreground">or</span></div>
         <div className="flex flex-col items-center justify-center h-48 space-y-4">
@@ -327,7 +304,17 @@ return (
       </div>
       {brandColors && (
         <div className='mt-6 animate-fade-in'>
-            <div className='text-sm text-muted-foreground font-medium mb-4 text-center'>Live Preview</div>
+            <div className='text-sm text-muted-foreground font-medium mb-4 text-center'>Instant Preview &amp; Controls</div>
+             <div className="grid grid-cols-2 gap-2 mb-4">
+                <Button type="button" variant="outline" size="sm" className="w-full" onClick={handleShuffleColors} disabled={isLoading}>
+                    <RefreshCw className="mr-2 h-3 w-3" />
+                    Shuffle Colors
+                </Button>
+                <Button type="button" variant="secondary" size="sm" className="w-full" onClick={handlePreview}>
+                    <ExternalLink className="mr-2 h-3 w-3" />
+                    Preview Store
+                </Button>
+            </div>
              <div 
                 className='p-6 rounded-lg border border-dashed space-y-4'
                 style={{

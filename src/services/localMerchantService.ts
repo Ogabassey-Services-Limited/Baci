@@ -34,9 +34,10 @@ export function generateUserId(): string {
 
 export function saveMerchantData(data: Partial<MerchantData>): void {
   try {
-    // For the preview feature, we'll use a consistent key
+    // For the preview feature, we'll use a consistent key that useMerchant can also read.
     const existingData = getMerchantData() || {};
     const newData = { ...existingData, ...data };
+    // Use a consistent key for both saving and retrieving preview data
     localStorage.setItem('merchantPreviewData', JSON.stringify(newData));
     logger.info({ message: 'Merchant preview data saved to localStorage', data: newData });
   } catch (error) {
@@ -47,6 +48,7 @@ export function saveMerchantData(data: Partial<MerchantData>): void {
     throw new Error('Could not save merchant data.');
   }
 }
+
 
 export function getMerchantData(): MerchantData | null {
   try {
