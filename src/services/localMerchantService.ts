@@ -34,11 +34,11 @@ export function generateUserId(): string {
 
 export function saveMerchantData(data: Partial<MerchantData>): void {
   try {
-    const userId = generateUserId();
+    // For the preview feature, we'll use a consistent key
     const existingData = getMerchantData() || {};
     const newData = { ...existingData, ...data };
-    localStorage.setItem(`merchant_${userId}`, JSON.stringify(newData));
-    logger.info({ message: 'Merchant data saved to localStorage', userId, newData });
+    localStorage.setItem('merchantPreviewData', JSON.stringify(newData));
+    logger.info({ message: 'Merchant preview data saved to localStorage', data: newData });
   } catch (error) {
     logger.error({
       message: 'Error saving merchant data to localStorage',
@@ -50,8 +50,7 @@ export function saveMerchantData(data: Partial<MerchantData>): void {
 
 export function getMerchantData(): MerchantData | null {
   try {
-    const userId = generateUserId();
-    const data = localStorage.getItem(`merchant_${userId}`);
+    const data = localStorage.getItem('merchantPreviewData');
     if (data) {
       return JSON.parse(data);
     }
@@ -67,11 +66,7 @@ export function getMerchantData(): MerchantData | null {
 
 export function clearMerchantData(): void {
   try {
-    const userId = localStorage.getItem('userId');
-    if (userId) {
-      localStorage.removeItem(`merchant_${userId}`);
-    }
-    localStorage.removeItem('userId');
+    localStorage.removeItem('merchantPreviewData');
   } catch (error) {
     logger.error({
       message: 'Error clearing merchant data',
