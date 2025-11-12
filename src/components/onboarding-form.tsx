@@ -22,7 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, Upload, CheckCircle, Mail, KeyRound, Eye, EyeOff, RefreshCw, AlertCircle } from 'lucide-react';
+import { Loader2, Sparkles, Upload, CheckCircle, Mail, KeyRound, Eye, EyeOff, RefreshCw, AlertCircle, ExternalLink } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -34,6 +34,7 @@ import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/o
 import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { OnboardingFormValues, onboardingSchema, step1Schema, step2Schema, step3Schema } from '@/schemas/onboarding';
+import { saveMerchantData } from '@/services/localMerchantService';
 
 
 // --- Step Components ---
@@ -118,7 +119,7 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
 function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
-  const { watch, setValue } = form;
+  const { watch, setValue, getValues } = form;
 
   const logoDataUri = watch('logoDataUri');
   const brandColorsString = watch('brandColors');
@@ -230,6 +231,36 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
     setValue('brandColors', JSON.stringify(remappedColors), { shouldValidate: true });
   };
   
+  const handlePreview = () => {
+    const values = getValues();
+    const storeSlug = values.businessName.toLowerCase().replace(/\s+/g, '-');
+    const storeUrl = `/storefront/${storeSlug}`;
+    
+    if (!values.businessName || !values.logoDataUri || !brandColors) {
+      toast({
+        title: 'Cannot Preview Yet',
+        description: 'Please provide a business name and upload or generate a logo first.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Save current state to localStorage so preview page can read it
+    saveMerchantData({
+      businessName: values.businessName,
+      businessType: values.businessType,
+      logo: values.logoDataUri,
+      colors: brandColors,
+    });
+
+    toast({
+      title: 'Opening Preview...',
+      description: 'Your store preview is opening in a new tab.',
+    });
+
+    window.open(storeUrl, '_blank');
+  };
+  
   const displayedColors = brandColors ? [
     { role: 'primary', color: brandColors.primary },
     { role: 'secondary', color: brandColors.secondary },
@@ -262,10 +293,16 @@ return (
                             </div>
                         ))}
                     </div>
-                    <Button type="button" variant="outline" size="sm" className="w-full" onClick={handleShuffleColors} disabled={isLoading}>
-                        <RefreshCw className="mr-2 h-3 w-3" />
-                        Shuffle Colors
-                    </Button>
+                     <div className="grid grid-cols-2 gap-2">
+                        <Button type="button" variant="outline" size="sm" className="w-full" onClick={handleShuffleColors} disabled={isLoading}>
+                            <RefreshCw className="mr-2 h-3 w-3" />
+                            Shuffle
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" className="w-full" onClick={handlePreview}>
+                            <ExternalLink className="mr-2 h-3 w-3" />
+                            Preview
+                        </Button>
+                    </div>
                 </div>
             )}
         </div>

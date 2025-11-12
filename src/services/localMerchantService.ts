@@ -32,13 +32,13 @@ export function generateUserId(): string {
   return newId;
 }
 
-export function saveMerchantData(data: MerchantData): void {
+export function saveMerchantData(data: Partial<MerchantData>): void {
   try {
     const userId = generateUserId();
     const existingData = getMerchantData() || {};
-    const newData = { ...existingData, ...data } as MerchantData;
+    const newData = { ...existingData, ...data };
     localStorage.setItem(`merchant_${userId}`, JSON.stringify(newData));
-    logger.info({ message: 'Merchant data saved to localStorage', userId });
+    logger.info({ message: 'Merchant data saved to localStorage', userId, newData });
   } catch (error) {
     logger.error({
       message: 'Error saving merchant data to localStorage',
