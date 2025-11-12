@@ -35,6 +35,8 @@ import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { OnboardingFormValues, onboardingSchema, step1Schema, step2Schema, step3Schema } from '@/schemas/onboarding';
 import { saveMerchantData } from '@/services/localMerchantService';
+import { ThemedButton, ThemedBadge, ThemedCard } from '@/components/themed';
+import { getContrastingTextColor } from '@/lib/color-utils';
 
 
 // --- Step Components ---
@@ -323,6 +325,37 @@ return (
           )}
         </div>
       </div>
+      {brandColors && (
+        <div className='mt-6 animate-fade-in'>
+            <div className='text-sm text-muted-foreground font-medium mb-4 text-center'>Live Preview</div>
+             <div 
+                className='p-6 rounded-lg border border-dashed space-y-4'
+                style={{
+                    '--store-primary': brandColors.primary,
+                    '--store-secondary': brandColors.secondary,
+                    '--store-accent': brandColors.accent,
+                    '--store-primary-text': getContrastingTextColor(brandColors.primary),
+                    '--store-secondary-text': getContrastingTextColor(brandColors.secondary),
+                    '--store-accent-text': getContrastingTextColor(brandColors.accent),
+                } as React.CSSProperties}
+            >
+                <div className='flex justify-between items-start gap-4'>
+                     <ThemedCard className="p-4 w-2/3" accentPosition='top' accentColor='primary'>
+                        <h3 className='font-bold'>Product Card</h3>
+                        <p className='text-sm text-muted-foreground'>This is how a product might look.</p>
+                    </ThemedCard>
+                    <div className='flex flex-col items-center gap-2'>
+                        <ThemedBadge colorRole='accent'>New!</ThemedBadge>
+                        <ThemedBadge colorRole='secondary'>On Sale</ThemedBadge>
+                    </div>
+                </div>
+                <div className='flex items-center justify-between gap-4'>
+                    <ThemedButton colorRole='primary' size='sm'>Primary Action</ThemedButton>
+                    <ThemedButton colorRole='accent' size='sm'>Accent Action</ThemedButton>
+                </div>
+            </div>
+        </div>
+      )}
       <FormField control={form.control} name="logoDataUri" render={() => <FormItem><FormMessage /></FormItem>} />
        <FormField control={form.control} name="brandColors" render={() => <FormItem><FormMessage /></FormItem>} />
       {isGenerating && <div className="text-center text-muted-foreground"><Loader2 className="mx-auto h-6 w-6 animate-spin" /><p>Generating logo options... this can take a moment.</p></div>}
