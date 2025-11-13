@@ -8,7 +8,7 @@
  * The description style automatically adapts based on the business category
  * (e.g., technical for electronics, aspirational for fashion, story-driven for handmade).
  *
- * Uses Gemini 1.5 Pro Preview (text-only model) for fast, cost-effective generation.
+ * Uses Gemini 1.5 Flash (text-only model) for fast, cost-effective generation.
  *
  * @exports
  * - generateProductDescription - Main flow function

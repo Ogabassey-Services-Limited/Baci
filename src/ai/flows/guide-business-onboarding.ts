@@ -8,7 +8,7 @@
  * 1. **Logo Generation:** Creates professional logo options and a matching 3-color palette based on business context and user color preferences.
  * 2. **Color Extraction:** Analyzes an existing uploaded logo and extracts a 3-color brand palette from it.
  *
- * Uses Gemini 2.5 Pro Image Preview model for both image generation and analysis.
+ * Uses Gemini 1.5 Flash model for both image generation and analysis.
  *
  * @exports
  * - guideBusinessOnboarding - Main flow function
@@ -126,7 +126,7 @@ Return 4 images. Do not return any text or JSON, only the raw image outputs.`;
 
       const { media } = await ai.generate({
           prompt,
-          model: 'googleai/gemini-1.5-flash-image-preview',
+          model: 'googleai/gemini-1.5-flash-latest',
           config: { responseModalities: ['IMAGE'] },
           output: {
               format: 'media'
