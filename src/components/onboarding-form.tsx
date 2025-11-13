@@ -120,7 +120,7 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
 function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
-  const { watch, setValue, getValues } = form;
+  const { watch, setValue } = form;
 
   const businessName = watch('businessName');
   const logoDataUri = watch('logoDataUri');

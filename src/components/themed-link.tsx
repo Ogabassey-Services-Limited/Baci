@@ -1,44 +1,78 @@
-
-'use client';
-
-import Link, { LinkProps } from 'next/link';
-import { cn } from '@/lib/utils';
-import React from 'react';
-
-interface ThemedLinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'>, LinkProps {
-  colorRole?: 'primary' | 'secondary' | 'accent';
-  children: React.ReactNode;
-  underline?: boolean;
-}
-
-/**
- * Link component that uses merchant brand colors
- *
- * @example
- * <ThemedLink href="/about" colorRole="primary">Learn More</ThemedLink>
- * <ThemedLink href="/products" colorRole="accent" underline>Shop Now</ThemedLink>
- */
-export const ThemedLink = React.forwardRef<HTMLAnchorElement, ThemedLinkProps>(
-  ({ colorRole = 'primary', underline = true, className, children, ...props }, ref) => {
-    return (
-      <Link
-        {...props}
-        ref={ref}
-        className={cn(
-          'transition-colors',
-          // Color based on role
-          colorRole === 'primary' && 'text-[var(--store-primary)] hover:text-[var(--store-primary)]/80',
-          colorRole === 'secondary' && 'text-[var(--store-secondary)] hover:text-[var(--store-secondary)]/80',
-          colorRole === 'accent' && 'text-[var(--store-accent)] hover:text-[var(--store-accent)]/80',
-          // Underline style
-          underline && 'underline underline-offset-4',
-          className
-        )}
-      >
-        {children}
-      </Link>
-    );
+{
+  "name": "nextn",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbo",
+    "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
+    "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
+    "build": "NODE_ENV=production next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^4.1.3",
+    "@radix-ui/react-accordion": "^1.2.3",
+    "@radix-ui/react-alert-dialog": "^1.1.6",
+    "@radix-ui/react-avatar": "^1.1.3",
+    "@radix-ui/react-checkbox": "^1.1.4",
+    "@radix-ui/react-collapsible": "^1.1.11",
+    "@radix-ui/react-dialog": "^1.1.6",
+    "@radix-ui/react-dropdown-menu": "^2.1.6",
+    "@radix-ui/react-label": "^2.1.2",
+    "@radix-ui/react-menubar": "^1.1.6",
+    "@radix-ui/react-popover": "^1.1.6",
+    "@radix-ui/react-progress": "^1.1.2",
+    "@radix-ui/react-radio-group": "^1.2.3",
+    "@radix-ui/react-scroll-area": "^1.2.3",
+    "@radix-ui/react-select": "^2.1.6",
+    "@radix-ui/react-separator": "^1.1.2",
+    "@radix-ui/react-slider": "^1.2.3",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.1.3",
+    "@radix-ui/react-tabs": "^1.1.3",
+    "@radix-ui/react-toast": "^1.2.6",
+    "@radix-ui/react-tooltip": "^1.1.8",
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.44.4",
+    "@vercel/analytics": "^1.3.1",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "colorthief": "^2.4.0",
+    "date-fns": "^3.6.0",
+    "dotenv": "^16.5.0",
+    "embla-carousel-react": "^8.6.0",
+    "fuse.js": "^7.0.0",
+    "genkit": "^1.20.0",
+    "lucide-react": "^0.475.0",
+    "next": "^16.0.1",
+    "patch-package": "^8.0.0",
+    "react": "18.3.1",
+    "react-day-picker": "^8.10.1",
+    "react-dom": "18.3.1",
+    "react-hook-form": "7.54.2",
+    "recharts": "^2.15.1",
+    "tailwind-merge": "^2.5.2",
+    "tailwindcss-animate": "^1.0.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "babel-plugin-react-compiler": "^0.0.0-experimental-938cd9a-20240601",
+    "critical": "^7.2.1",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^15.5.6",
+    "eslint-config-prettier": "^9.1.2",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "postcss": "^8.4.40",
+    "prettier": "^3.6.2",
+    "tailwindcss": "^3.4.7",
+    "typescript": "^5.5.4"
   }
-);
-
-ThemedLink.displayName = 'ThemedLink';
+}
