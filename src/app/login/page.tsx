@@ -67,9 +67,9 @@ export default function LoginPage() {
     return (
         <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
             <div className="w-full max-w-sm space-y-4">
-                <div className="text-center">
+                <div className="flex justify-center">
                     <Link href="/">
-                        <Logo className="mx-auto" />
+                        <Logo />
                     </Link>
                 </div>
                 <Card>
