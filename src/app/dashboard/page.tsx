@@ -15,6 +15,7 @@ import {
   Wrench,
   FlaskConical,
   RefreshCw,
+  Loader2,
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -69,7 +70,7 @@ const recentSales = [
 ];
 
 export default function DashboardPage() {
-  const { merchant } = useMerchant();
+  const { merchant, loading: merchantLoading } = useMerchant();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -167,6 +168,14 @@ export default function DashboardPage() {
       buttonText: 'Visit Store',
     },
   ];
+
+  if (merchantLoading) {
+    return (
+        <div className="flex flex-1 items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+    );
+  }
 
   return (
     <>
