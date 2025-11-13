@@ -6,7 +6,6 @@ import {
   File,
   PlusCircle,
   Search,
-  Filter,
   RefreshCw,
   MoreVertical,
   AlertTriangle,
@@ -19,6 +18,7 @@ import {
   Package,
   X,
   ChevronDown,
+  CreditCard,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,12 +40,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuPortal,
-  DropdownMenuSubContent,
   DropdownMenuCheckboxItem,
-  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -377,7 +372,8 @@ export default function OrdersPage() {
         <div className="flex gap-2 items-center">
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="gap-1">
+                    <Button variant="outline" className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
+                        <CreditCard className="h-4 w-4" />
                         <span>Payment Status</span>
                         <ChevronDown className="h-4 w-4"/>
                     </Button>
@@ -394,7 +390,8 @@ export default function OrdersPage() {
             </DropdownMenu>
              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="gap-1">
+                    <Button variant="outline" className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
+                        <Truck className="h-4 w-4" />
                         <span>Shipping Status</span>
                         <ChevronDown className="h-4 w-4"/>
                     </Button>
