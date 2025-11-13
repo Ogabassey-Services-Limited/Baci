@@ -278,6 +278,14 @@ function Storefront() {
 export default function StorefrontPage({ params }: { params: { slug: string } }) {
     const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
 
+    if (!slug) {
+        return (
+            <div className="flex h-screen w-full items-center justify-center">
+                <p>Invalid store URL.</p>
+            </div>
+        );
+    }
+    
     return (
         <MerchantProvider slug={slug}>
             <Storefront />
