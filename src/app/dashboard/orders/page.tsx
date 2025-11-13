@@ -398,13 +398,13 @@ export default function OrdersPage() {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                     <DropdownMenuCheckboxItem checked={paymentFilter === 'All'} onCheckedChange={() => setPaymentFilter('All')}>
+                     <DropdownMenuCheckboxItem checked={paymentFilter === 'All'} onCheckedChange={() => setPaymentFilter('All')} className="text-blue-800">
                         <List className="mr-2 h-4 w-4" />
                         All
                      </DropdownMenuCheckboxItem>
                      <DropdownMenuSeparator />
                     {paymentStatuses.map(status => (
-                        <DropdownMenuCheckboxItem key={status.name} checked={paymentFilter === status.name} onCheckedChange={() => setPaymentFilter(status.name)}>
+                        <DropdownMenuCheckboxItem key={status.name} checked={paymentFilter === status.name} onCheckedChange={() => setPaymentFilter(status.name)} className="text-blue-800">
                             <status.icon className="mr-2 h-4 w-4" />
                             {status.name}
                         </DropdownMenuCheckboxItem>
@@ -420,13 +420,13 @@ export default function OrdersPage() {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                     <DropdownMenuCheckboxItem checked={shippingFilter === 'All'} onCheckedChange={() => setShippingFilter('All')}>
+                     <DropdownMenuCheckboxItem checked={shippingFilter === 'All'} onCheckedChange={() => setShippingFilter('All')} className="text-blue-800">
                         <List className="mr-2 h-4 w-4" />
                         All
                      </DropdownMenuCheckboxItem>
                      <DropdownMenuSeparator />
                     {shippingStatuses.map(status => (
-                        <DropdownMenuCheckboxItem key={status.name} checked={shippingFilter === status.name} onCheckedChange={() => setShippingFilter(status.name)}>
+                        <DropdownMenuCheckboxItem key={status.name} checked={shippingFilter === status.name} onCheckedChange={() => setShippingFilter(status.name)} className="text-blue-800">
                             <status.icon className="mr-2 h-4 w-4" />
                             {status.name}
                         </DropdownMenuCheckboxItem>
