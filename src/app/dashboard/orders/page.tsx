@@ -393,7 +393,7 @@ export default function OrdersPage() {
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
                         <CreditCard className="h-4 w-4" />
-                        <span>Payment Status</span>
+                        <span>{paymentFilter === 'All' ? 'Payment Status' : paymentFilter}</span>
                         <ChevronDown className="h-4 w-4"/>
                     </Button>
                 </DropdownMenuTrigger>
@@ -415,7 +415,7 @@ export default function OrdersPage() {
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
                         <Truck className="h-4 w-4" />
-                        <span>Shipping Status</span>
+                        <span>{shippingFilter === 'All' ? 'Shipping Status' : shippingFilter}</span>
                         <ChevronDown className="h-4 w-4"/>
                     </Button>
                 </DropdownMenuTrigger>
