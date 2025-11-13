@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -35,7 +36,7 @@ const GoogleIcon = () => (
   );
 
 export default function LoginForm() {
-    const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password'>('login');
+    const [mode, setMode] = useState<'login' | 'forgot-password'>('login');
     const [isLoading, setIsLoading] = useState(false);
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
@@ -56,25 +57,14 @@ export default function LoginForm() {
     const onSubmit = async (data: AuthFormValues) => {
         setIsLoading(true);
         try {
-            if (mode === 'login') {
-                const { data: authData, error } = await supabase.auth.signInWithPassword(data);
-                if (error) throw error;
-                toast({ title: "Sign-in Successful", description: "Welcome back!" });
-                router.push('/dashboard');
-            } else {
-                const { error } = await supabase.auth.signUp(data);
-                if (error) throw error;
-                toast({ 
-                    title: "Account Created!", 
-                    description: "Please check your email to verify your account before signing in.",
-                    duration: 7000
-                });
-                setMode('login'); // Switch to login view after successful signup
-            }
+            const { data: authData, error } = await supabase.auth.signInWithPassword(data);
+            if (error) throw error;
+            toast({ title: "Sign-in Successful", description: "Welcome back!" });
+            router.push('/dashboard');
         } catch (error) {
             toast({
                 variant: 'destructive',
-                title: mode === 'login' ? 'Sign-in Failed' : 'Sign-up Failed',
+                title: 'Sign-in Failed',
                 description: (error as Error).message,
             });
         } finally {
@@ -125,13 +115,11 @@ export default function LoginForm() {
 
     const getTitle = () => {
         if (mode === 'login') return 'Welcome Back!';
-        if (mode === 'signup') return 'Create an Account';
         return 'Forgot Password';
     }
 
     const getDescription = () => {
         if (mode === 'login') return 'Enter your credentials to access your dashboard.';
-        if (mode === 'signup') return 'Sign up to start building your store.';
         return 'Enter your email to receive a password reset link.';
     }
 
@@ -211,7 +199,7 @@ export default function LoginForm() {
                                                 <FormControl>
                                                     <div className="relative">
                                                         <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                        <Input type={showPassword ? 'text' : 'password'} {...field} className="pl-10 pr-10" id="password" name="password" autoComplete={mode === 'login' ? "current-password" : "new-password"} />
+                                                        <Input type={showPassword ? 'text' : 'password'} {...field} className="pl-10 pr-10" id="password" name="password" autoComplete={"current-password"} />
                                                         <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
                                                             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                                             <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
@@ -224,7 +212,7 @@ export default function LoginForm() {
                                     />
                                     <Button type="submit" className="w-full" disabled={isLoading}>
                                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        {mode === 'login' ? 'Sign In' : 'Sign Up'}
+                                        Sign In
                                     </Button>
                                 </form>
                             </FormProvider>
@@ -245,10 +233,11 @@ export default function LoginForm() {
 
                         <p className="text-sm text-center text-muted-foreground mt-6">
                             {mode === 'login' && "Don't have an account?"}
-                            {mode === 'signup' && "Already have an account?"}
                             {mode === 'forgot-password' && "Remembered your password?"}
-                            <Button type="button" variant="link" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="px-1">
-                                {mode === 'login' ? 'Sign Up' : 'Sign In'}
+                            <Button asChild type="button" variant="link" className="px-1">
+                                <Link href={mode === 'login' ? "/onboarding" : "/login"}>
+                                    {mode === 'login' ? 'Sign Up' : 'Sign In'}
+                                </Link>
                             </Button>
                         </p>
                     </CardContent>
