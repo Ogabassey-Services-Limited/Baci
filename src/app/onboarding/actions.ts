@@ -49,56 +49,52 @@ export async function submitOnboarding(
   const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
 
   try {
-    if (password) {
-        // 1. Create or sign in user with password
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-
-        if (signInError) {
-            if (signInError.message.toLowerCase().includes('email not confirmed')) {
-                return { 
-                    success: false, 
-                    message: 'This email is already registered but not confirmed. Please check your inbox for a confirmation link. A new one has been sent.' 
-                };
-            }
-            if (signInError.message.includes('Invalid login credentials')) {
-                const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
-                if (signUpError) throw signUpError;
-                user = signUpData.user;
-            } else {
-                throw signInError;
-            }
+    // 1. Handle user authentication and creation
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      user = session.user;
+    } else if (password) {
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (signInError) {
+        if (signInError.message.includes('Invalid login credentials')) {
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+          if (signUpError) throw signUpError;
+          user = signUpData.user;
+          if (!user) throw new Error('Sign up succeeded but no user object was returned.');
         } else {
-            user = signInData.user;
+          throw signInError;
         }
-    } else {
-        // Magic link flow: user should already be logged in
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            user = session.user;
-        }
+      } else {
+        user = signInData.user;
+      }
     }
 
+    if (!user) throw new Error("Authentication failed. Please try again.");
 
-    if (!user) throw new Error("Authentication failed.");
-
-    // 2. Save merchant data
+    // 2. Ensure branding info exists
     if (!logoDataUri || !brandColors) {
       throw new Error('Missing branding information. Please ensure a logo is processed.');
     }
-
+    
+    // 3. Create or update the merchant record
     const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
 
-    const { error: merchantError } = await supabase.from('merchants').upsert({
+    const { data: merchantData, error: merchantError } = await supabase.from('merchants').upsert({
       user_id: user.id,
       email: email,
       business_name: businessName,
       business_type: finalBusinessType,
       logo_url: logoDataUri,
       brand_colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
-    }, { onConflict: 'user_id' });
+    }, { onConflict: 'user_id' }).select().single();
 
     if (merchantError) {
       throw new Error(`Failed to save merchant data: ${merchantError.message}`);
+    }
+    
+    if (!merchantData) {
+        throw new Error('Failed to create or update merchant record.');
     }
 
     return { success: true, message: 'Store Created!', businessName };
@@ -119,7 +115,7 @@ export async function sendMagicLink(email: string): Promise<{ success: boolean; 
       email,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: `http://localhost:3000/onboarding?fromMagicLink=true`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?next=/onboarding?fromMagicLink=true`,
       },
     });
 
