@@ -334,7 +334,7 @@ export default function OrdersPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card className="bg-blue-50 border-blue-200">
+            <Card className="bg-blue-50 border-blue-200 transition-transform transform hover:scale-105">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-blue-800">Total Orders 🛍️</CardTitle>
                     <ShoppingCart className="h-5 w-5 text-blue-600" />
@@ -343,7 +343,7 @@ export default function OrdersPage() {
                     <div className="text-2xl font-bold text-blue-900">5,957</div>
                 </CardContent>
             </Card>
-            <Card className="bg-yellow-50 border-yellow-200">
+            <Card className="bg-yellow-50 border-yellow-200 transition-transform transform hover:scale-105">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-yellow-800">Completed Orders ✅</CardTitle>
                     <PackageCheck className="h-5 w-5 text-yellow-600" />
@@ -352,7 +352,7 @@ export default function OrdersPage() {
                     <div className="text-2xl font-bold text-yellow-900">2,768</div>
                 </CardContent>
             </Card>
-            <Card className="bg-blue-50 border-blue-200">
+            <Card className="bg-blue-50 border-blue-200 transition-transform transform hover:scale-105">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-blue-800">Unpaid Orders 💸</CardTitle>
                     <FileWarning className="h-5 w-5 text-blue-600" />
