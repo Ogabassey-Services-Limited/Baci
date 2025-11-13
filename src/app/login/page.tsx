@@ -28,9 +28,17 @@ const forgotPasswordSchema = z.object({
 type AuthFormValues = z.infer<typeof authSchema>;
 type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
+const GoogleIcon = () => (
+    <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4">
+      <title>Google</title>
+      <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.05 1.05-2.36 1.67-4.04 1.67-3.27 0-5.93-2.66-5.93-5.93s2.66-5.93 5.93-5.93c1.73 0 3.23.68 4.17 1.57l2.48-2.48C18.47 2.44 15.82 1 12.48 1 7.23 1 3.06 4.93 3.06 10s4.17 9 9.42 9c2.8 0 4.93-1.07 6.57-2.62 1.73-1.62 2.36-3.88 2.36-6.09 0-.6-.05-1.18-.15-1.73H12.48z" />
+    </svg>
+  );
+
 export default function LoginPage() {
     const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password'>('login');
     const [isLoading, setIsLoading] = useState(false);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
@@ -98,6 +106,24 @@ export default function LoginPage() {
         }
     };
 
+    const handleGoogleSignIn = async () => {
+        setIsGoogleLoading(true);
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        if (error) {
+          toast({
+            variant: 'destructive',
+            title: 'Google Sign-in Failed',
+            description: error.message,
+          });
+          setIsGoogleLoading(false);
+        }
+    };
+
     const getTitle = () => {
         if (mode === 'login') return 'Welcome Back!';
         if (mode === 'signup') return 'Create an Account';
@@ -114,13 +140,13 @@ export default function LoginPage() {
         <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
             <div className="w-full max-w-sm">
                 <Card>
-                    <CardHeader className="text-center p-4 pt-6">
-                        <div className="flex justify-center mb-4">
+                    <CardHeader className="text-center p-4">
+                        <div className="flex justify-center">
                             <Link href="/">
                                 <Logo />
                             </Link>
                         </div>
-                        <CardTitle>{getTitle()}</CardTitle>
+                        <CardTitle className="pt-2">{getTitle()}</CardTitle>
                         <CardDescription>
                            {getDescription()}
                         </CardDescription>
@@ -204,6 +230,20 @@ export default function LoginPage() {
                                 </form>
                             </FormProvider>
                         )}
+                        <div className="relative my-6">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
+                            </div>
+                        </div>
+
+                        <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isGoogleLoading}>
+                            {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
+                            Google
+                        </Button>
+
                         <p className="text-sm text-center text-muted-foreground mt-6">
                             {mode === 'login' && "Don't have an account?"}
                             {mode === 'signup' && "Already have an account?"}
