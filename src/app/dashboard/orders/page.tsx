@@ -175,7 +175,7 @@ export default function OrdersPage() {
             </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card className="bg-green-50 border-green-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-green-800">Total Orders</CardTitle>
@@ -183,15 +183,6 @@ export default function OrdersPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold text-green-900">5,957</div>
-                </CardContent>
-            </Card>
-            <Card className="bg-red-50 border-red-200">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-red-800">Amount Owed</CardTitle>
-                    <DollarSign className="h-5 w-5 text-red-600" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold text-red-900">{formatCurrency(478819634.52)}</div>
                 </CardContent>
             </Card>
             <Card className="bg-blue-50 border-blue-200">
