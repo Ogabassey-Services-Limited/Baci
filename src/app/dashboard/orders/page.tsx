@@ -14,6 +14,9 @@ import {
   DollarSign,
   PackageCheck,
   FileWarning,
+  CheckCircle,
+  Truck,
+  Package,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,13 +36,15 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 
 // Mock data for recent orders
-const recentOrders = [
+const initialOrders = [
   {
     orderNumber: '#06092',
     customerName: 'Arinze Ihemedu',
@@ -102,6 +107,9 @@ const recentOrders = [
   },
 ];
 
+type OrderStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Canceled';
+type ShippingStatus = 'Unfulfilled' | 'Fulfilled';
+
 const StatusBadge = ({ status }: { status: string }) => {
     const variants: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
         Paid: 'default',
@@ -112,9 +120,9 @@ const StatusBadge = ({ status }: { status: string }) => {
     };
     const variant = variants[status] || 'secondary';
 
-    return <Badge variant={variant} className={cn({
+    return <Badge variant={variant} className={cn('capitalize', {
         'bg-green-100 text-green-800 border-green-200': status === 'Paid' || status === 'Fulfilled' || status === 'Delivered',
-        'bg-red-100 text-red-800 border-red-200': status === 'Unpaid',
+        'bg-red-100 text-red-800 border-red-200': status === 'Unpaid' || status === 'Canceled',
         'bg-yellow-100 text-yellow-800 border-yellow-200': status === 'Pending' || status === 'Unfulfilled',
         'bg-blue-100 text-blue-800 border-blue-200': status === 'Processing' || status === 'Shipped',
     })}>{status}</Badge>;
@@ -134,6 +142,23 @@ export default function OrdersPage() {
   const { merchant, loading } = useMerchant();
   const [filter, setFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const { toast } = useToast();
+  const [orders, setOrders] = useState(initialOrders);
+
+
+  const handleUpdateStatus = (orderNumber: string, newStatus: OrderStatus, newShippingStatus?: ShippingStatus) => {
+    setOrders(currentOrders =>
+      currentOrders.map(order =>
+        order.orderNumber === orderNumber
+          ? { ...order, status: newStatus, shipping: newShippingStatus || order.shipping }
+          : order
+      )
+    );
+    toast({
+      title: `Order ${newStatus}`,
+      description: `Order ${orderNumber} has been updated. The customer will be notified.`,
+    });
+  };
 
   const formatCurrency = (amount: number) => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
@@ -142,7 +167,7 @@ export default function OrdersPage() {
     return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
   };
   
-  const filteredOrders = recentOrders.filter(order => {
+  const filteredOrders = orders.filter(order => {
     const filterMatch = filter === 'All' || order.payment === filter || order.status === filter;
     const searchMatch = searchTerm === '' || 
                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -234,7 +259,7 @@ export default function OrdersPage() {
                     key={btnFilter}
                     variant={filter === btnFilter ? 'default' : 'outline'}
                     onClick={() => setFilter(btnFilter)}
-                    className={cn(filter === btnFilter && 'bg-green-600 hover:bg-green-700 text-white')}
+                    className={cn(filter === btnFilter && 'bg-primary hover:bg-primary/90 text-primary-foreground')}
                 >
                     {btnFilter}
                 </Button>
@@ -253,9 +278,10 @@ export default function OrdersPage() {
                          <div className="flex-1">
                              <p className="font-semibold">{order.customerName}</p>
                              <p className="text-sm text-muted-foreground">{order.orderNumber} &middot; {order.date}</p>
-                             <div className="mt-2 flex gap-2">
+                             <div className="mt-2 flex gap-2 flex-wrap">
                                 <StatusBadge status={order.payment} />
                                 <StatusBadge status={order.shipping} />
+                                <StatusBadge status={order.status} />
                             </div>
                          </div>
                          <div className="text-right">
@@ -271,6 +297,26 @@ export default function OrdersPage() {
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuItem>View Details</DropdownMenuItem>
                                     <DropdownMenuItem>Contact Customer</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                     {order.status === 'Pending' && (
+                                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.orderNumber, 'Processing')}>
+                                            <CheckCircle className="mr-2 h-4 w-4" />
+                                            <span>Confirm Order</span>
+                                        </DropdownMenuItem>
+                                    )}
+                                     {order.status === 'Processing' && (
+                                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.orderNumber, 'Shipped', 'Fulfilled')}>
+                                            <Truck className="mr-2 h-4 w-4" />
+                                            <span>Ship Order</span>
+                                        </DropdownMenuItem>
+                                    )}
+                                    {order.status === 'Shipped' && (
+                                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.orderNumber, 'Delivered')}>
+                                            <PackageCheck className="mr-2 h-4 w-4" />
+                                            <span>Mark as Delivered</span>
+                                        </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuSeparator />
                                     <DropdownMenuItem>Print Invoice</DropdownMenuItem>
                                 </DropdownMenuContent>
                              </DropdownMenu>
