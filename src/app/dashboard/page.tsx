@@ -118,7 +118,7 @@ export default function DashboardPage() {
   const { merchant, loading: merchantLoading } = useMerchant();
   const { toast } = useToast();
   const router = useRouter();
-  const [timeFrame, setTimeFrame] = useState<'monthly' | 'weekly'>('monthly');
+  const [timeFrame, setTimeFrame] = useState<'monthly' | 'weekly'>('weekly');
 
   const currentSummary = summaryData[timeFrame];
   const currentChartData = timeFrame === 'monthly' ? monthlyChartData : weeklyChartData;
@@ -277,8 +277,8 @@ export default function DashboardPage() {
       <div className="flex items-center mb-4">
         <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as 'monthly' | 'weekly')}>
             <TabsList>
-                <TabsTrigger value="monthly">Monthly</TabsTrigger>
                 <TabsTrigger value="weekly">Weekly</TabsTrigger>
+                <TabsTrigger value="monthly">Monthly</TabsTrigger>
             </TabsList>
         </Tabs>
       </div>
