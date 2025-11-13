@@ -60,7 +60,6 @@ const initialOrders = [
     total: 138000,
     status: 'Pending' as OrderStatus,
     payment: 'Paid' as PaymentStatus,
-    shipping: 'Unfulfilled' as ShippingStatus,
     date: 'Nov 12, 2025',
     source: 'whatsapp',
   },
@@ -70,7 +69,6 @@ const initialOrders = [
     total: 482000,
     status: 'Processing' as OrderStatus,
     payment: 'Paid' as PaymentStatus,
-    shipping: 'Unfulfilled' as ShippingStatus,
     date: 'Nov 11, 2025',
     source: 'whatsapp',
   },
@@ -80,7 +78,6 @@ const initialOrders = [
     total: 368000,
     status: 'Pending' as OrderStatus,
     payment: 'Unpaid' as PaymentStatus,
-    shipping: 'Unfulfilled' as ShippingStatus,
     date: 'Nov 11, 2025',
     source: 'whatsapp',
   },
@@ -90,7 +87,6 @@ const initialOrders = [
     total: 356500,
     status: 'Processing' as OrderStatus,
     payment: 'Paid' as PaymentStatus,
-    shipping: 'Unfulfilled' as ShippingStatus,
     date: 'Nov 11, 2025',
     source: 'instagram',
   },
@@ -100,7 +96,6 @@ const initialOrders = [
     total: 930000,
     status: 'Shipped' as OrderStatus,
     payment: 'Paid' as PaymentStatus,
-    shipping: 'Fulfilled' as ShippingStatus,
     date: 'Oct 30, 2025',
     source: 'other',
   },
@@ -110,7 +105,6 @@ const initialOrders = [
     total: 730000,
     status: 'Delivered' as OrderStatus,
     payment: 'Paid' as PaymentStatus,
-    shipping: 'Fulfilled' as ShippingStatus,
     date: 'Oct 30, 2025',
     source: 'other',
   },
@@ -118,7 +112,6 @@ const initialOrders = [
 
 type OrderStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Canceled';
 type PaymentStatus = 'Paid' | 'Unpaid' | 'Pending';
-type ShippingStatus = 'Unfulfilled' | 'Fulfilled';
 
 const StatusBadge = ({ status }: { status: string }) => {
     const variants: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
@@ -209,18 +202,10 @@ export default function OrdersPage() {
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
 
   const handleUpdateStatus = (orderNumber: string, newStatus: OrderStatus) => {
-    let newShippingStatus: ShippingStatus | undefined = undefined;
-    if (newStatus === 'Shipped' || newStatus === 'Delivered') {
-        newShippingStatus = 'Fulfilled';
-    }
-     if (newStatus === 'Canceled' || newStatus === 'Pending' || newStatus === 'Processing') {
-        newShippingStatus = 'Unfulfilled';
-    }
-
     setOrders(currentOrders =>
       currentOrders.map(order =>
         order.orderNumber === orderNumber
-          ? { ...order, status: newStatus, shipping: newShippingStatus || order.shipping }
+          ? { ...order, status: newStatus }
           : order
       )
     );
@@ -429,7 +414,9 @@ export default function OrdersPage() {
                                      <SourceIcon source={order.source} />
                                  </div>
                                  <div className="flex-1">
-                                     <p className="font-semibold">{order.customerName}</p>
+                                     <Link href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`} className="font-semibold hover:underline">
+                                        {order.customerName}
+                                     </Link>
                                      <p className="text-sm text-muted-foreground">{order.orderNumber} &middot; {order.date}</p>
                                  </div>
                                  <div className="flex items-center justify-end gap-4 text-sm w-[280px]">
