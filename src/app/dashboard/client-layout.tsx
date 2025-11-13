@@ -17,6 +17,7 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  ChevronDown,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +42,7 @@ import { Logo } from '@/components/logo';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useMerchant } from '@/hooks/use-merchant';
-import { getCountryByCode } from '@/lib/countries';
+import { getCountryByCode, COUNTRIES } from '@/lib/countries';
 import { useAuth } from '@/contexts/auth-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -53,7 +54,7 @@ export default function DashboardClientLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { merchant, loading: merchantLoading } = useMerchant();
+  const { merchant, loading: merchantLoading, updateMerchant } = useMerchant();
   const { user, loading: authLoading, signOut } = useAuth();
   const [hasMounted, setHasMounted] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -333,11 +334,30 @@ export default function DashboardClientLayout({
           <div className="w-full flex-1">
             {/* Search bar removed from here */}
           </div>
-           {merchantLoading ? (
-             <Loader2 className="h-5 w-5 animate-spin" />
-           ) : selectedCountry && (
-             <div className="text-2xl">{selectedCountry.flag}</div>
-           )}
+           <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2">
+                    {merchantLoading ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : selectedCountry ? (
+                        <span className="text-2xl">{selectedCountry.flag}</span>
+                    ) : (
+                        '🌐'
+                    )}
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Select Country</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {COUNTRIES.map(country => (
+                    <DropdownMenuItem key={country.code} onSelect={() => updateMerchant({ country: country.code })}>
+                        <span className="mr-2 text-lg">{country.flag}</span>
+                        <span>{country.name}</span>
+                    </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+           </DropdownMenu>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" size="icon" className="rounded-full">
