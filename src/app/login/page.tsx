@@ -204,7 +204,7 @@ export default function LoginPage() {
                                                 <div className="flex justify-between">
                                                     <FormLabel>Password</FormLabel>
                                                     {mode === 'login' && (
-                                                        <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setMode('forgot-password')}>
+                                                        <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => setMode('forgot-password')}>
                                                             Forgot Password?
                                                         </Button>
                                                     )}
@@ -248,7 +248,7 @@ export default function LoginPage() {
                             {mode === 'login' && "Don't have an account?"}
                             {mode === 'signup' && "Already have an account?"}
                             {mode === 'forgot-password' && "Remembered your password?"}
-                            <Button variant="link" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="px-1">
+                            <Button type="button" variant="link" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="px-1">
                                 {mode === 'login' ? 'Sign Up' : 'Sign In'}
                             </Button>
                         </p>
