@@ -1,20 +1,21 @@
 
 'use client';
 
-import { ThemedBadge, ThemedButton, ThemedCard, ThemedLink } from "@/components/themed";
+import { ThemedButton, ThemedCard } from "@/components/themed";
 import { getContrastingTextColor } from "@/lib/color-utils";
 import type { BrandColors } from "@/types";
 import Image from "next/image";
-import { products } from "@/lib/products";
+import { sampleProductsByCategory } from "@/lib/products";
 import { getCountryByCode } from "@/lib/countries";
 
 interface StorefrontPreviewProps {
     businessName: string;
+    businessType: string;
     logoDataUri: string | null;
     brandColors: BrandColors | null;
 }
 
-export function StorefrontPreview({ businessName, logoDataUri, brandColors }: StorefrontPreviewProps) {
+export function StorefrontPreview({ businessName, businessType, logoDataUri, brandColors }: StorefrontPreviewProps) {
     if (!brandColors) {
         return (
             <div className="p-6 rounded-lg border border-dashed flex items-center justify-center h-full text-muted-foreground">
@@ -40,7 +41,7 @@ export function StorefrontPreview({ businessName, logoDataUri, brandColors }: St
         return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
     };
 
-    const previewProducts = products.slice(0, 2);
+    const previewProducts = sampleProductsByCategory[businessType] || sampleProductsByCategory['other'];
 
     return (
         <div 
@@ -69,6 +70,7 @@ export function StorefrontPreview({ businessName, logoDataUri, brandColors }: St
                                 <Image
                                     src={product.imageLarge}
                                     alt={product.name}
+                                    data-ai-hint={product.imageHint}
                                     width={200}
                                     height={150}
                                     className="object-cover w-full h-auto aspect-video"
@@ -98,4 +100,3 @@ export function StorefrontPreview({ businessName, logoDataUri, brandColors }: St
         </div>
     );
 }
-
