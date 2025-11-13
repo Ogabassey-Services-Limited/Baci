@@ -83,6 +83,10 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
 
       if (data) {
         logger.info({ message: 'Merchant data loaded from Supabase.', data });
+        // If country is not set, default it to 'NG'
+        if (!data.country) {
+            data.country = 'NG';
+        }
         setMerchant(data as MerchantData);
       } else {
         logger.warn({ message: 'No merchant data found in Supabase.' });
