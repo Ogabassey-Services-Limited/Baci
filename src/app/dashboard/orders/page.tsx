@@ -357,36 +357,20 @@ export default function OrdersPage() {
                              <p className="font-semibold">{order.customerName}</p>
                              <p className="text-sm text-muted-foreground">{order.orderNumber} &middot; {order.date}</p>
                          </div>
-                         <div className="flex items-center gap-2">
-                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="flex items-center gap-2">
-                                        <span>Status</span>
-                                        <ChevronDown className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent>
-                                    <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>Payment: <StatusBadge status={order.payment} /></DropdownMenuSubTrigger>
-                                        <DropdownMenuPortal>
-                                            <DropdownMenuSubContent>
-                                                <DropdownMenuItem onSelect={() => handleUpdatePayment(order.orderNumber, 'Paid')}>Paid</DropdownMenuItem>
-                                                <DropdownMenuItem onSelect={() => handleUpdatePayment(order.orderNumber, 'Unpaid')}>Unpaid</DropdownMenuItem>
-                                                <DropdownMenuItem onSelect={() => handleUpdatePayment(order.orderNumber, 'Pending')}>Pending</DropdownMenuItem>
-                                            </DropdownMenuSubContent>
-                                        </DropdownMenuPortal>
-                                    </DropdownMenuSub>
-                                     <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>Shipping: <ShippingStatusDropdown 
-                                            status={order.shipping as ShippingStatus}
-                                            orderNumber={order.orderNumber}
-                                            orderStatus={order.status as OrderStatus}
-                                            onStatusUpdate={handleUpdateStatus}
-                                        /></DropdownMenuSubTrigger>
-                                     </DropdownMenuSub>
-                                    {order.status !== 'Processing' && <DropdownMenuItem disabled><StatusBadge status={order.status} /></DropdownMenuItem>}
-                                </DropdownMenuContent>
-                             </DropdownMenu>
+                         <div className="flex items-center gap-4 text-sm">
+                            <div>
+                                <span className="text-muted-foreground mr-2">Payment:</span>
+                                <StatusBadge status={order.payment} />
+                            </div>
+                            <div>
+                                <span className="text-muted-foreground mr-2">Shipping:</span>
+                                <ShippingStatusDropdown 
+                                    status={order.shipping as ShippingStatus}
+                                    orderNumber={order.orderNumber}
+                                    orderStatus={order.status as OrderStatus}
+                                    onStatusUpdate={handleUpdateStatus}
+                                />
+                            </div>
                          </div>
                          <div className="text-right">
                              <p className="font-bold text-lg">{formatCurrency(order.total)}</p>
