@@ -1,6 +1,11 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: 'https://aivqthbxdshhltbwipbr.supabase.co',
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpdnF0aGJ4ZHNoaGx0YndpcGJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwNTE0ODMsImV4cCI6MjA3NzYyNzQ4M30.hOyPsBP4mR3Bpga75L3rlgtJtub7r4jzTjkuMe_bwrg',
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
