@@ -83,14 +83,25 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
 
       if (data) {
         logger.info({ message: 'Merchant data loaded from Supabase.', data });
-        // If country is not set, default it to 'NG'
         if (!data.country) {
             data.country = 'NG';
         }
         setMerchant(data as MerchantData);
       } else {
-        logger.warn({ message: 'No merchant data found in Supabase.' });
-        setMerchant(null);
+        logger.warn({ message: 'No merchant data found in Supabase. Setting default.' });
+        // If no merchant exists for the logged-in user, create a default structure
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!slug && session?.user) {
+            const defaultMerchant: Partial<MerchantData> = {
+                user_id: session.user.id,
+                business_name: 'My Store',
+                business_type: 'other',
+                country: 'NG',
+            };
+            setMerchant(defaultMerchant as MerchantData);
+        } else {
+            setMerchant(null);
+        }
       }
     } catch (error) {
       logger.error({ message: 'Failed to load merchant data', error: error as Error, slug });
