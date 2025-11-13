@@ -57,7 +57,7 @@ function ProductsPageContent() {
   
   const handleGoogleSheetImport = () => {
     toast({
-        title: 'Coming Soon!',
+        title: 'Coming Soon! 🚀',
         description: 'Google Sheets integration is under development.'
     });
   };
@@ -81,7 +81,7 @@ function ProductsPageContent() {
     <div className="flex flex-col h-full">
        <div className="flex flex-col gap-4 mb-4">
         <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Products</h1>
+            <h1 className="text-2xl font-bold">Products 🛍️</h1>
             <div className="flex items-center gap-2">
                 <Button size="sm" variant="outline" className="h-9 gap-1" onClick={() => setWorkflowStep('upload')}>
                     <File className="h-3.5 w-3.5" />
@@ -109,7 +109,7 @@ function ProductsPageContent() {
             <div className="relative w-full">
                 <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
                 <Textarea
-                    placeholder="Search products or paste a price list to run AI updates..."
+                    placeholder="Search products or paste a price list to run AI updates... ✨"
                     className="w-full resize-none appearance-none bg-background pl-8 pr-12 shadow-none min-h-[40px] pt-2.5"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}

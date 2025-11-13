@@ -98,7 +98,7 @@ export default function DashboardPage() {
     if (fullUrl) {
         navigator.clipboard.writeText(fullUrl);
         toast({
-        title: "Copied to clipboard!",
+        title: "Copied to clipboard! 📋",
         description: "Your store URL is ready to be shared.",
         });
     }
@@ -180,7 +180,7 @@ export default function DashboardPage() {
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Welcome, {merchant?.business_name || 'Merchant'}!</h1>
+        <h1 className="text-2xl font-bold">Welcome, {merchant?.business_name || 'Merchant'}! 👋</h1>
          {merchant && displayUrl && (
             <div className="flex items-center justify-between p-2 border rounded-lg bg-muted text-sm">
                 <Link href={fullUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline px-2">
@@ -204,7 +204,7 @@ export default function DashboardPage() {
 
        <Card className="mb-8 border border-blue-200">
         <CardHeader>
-          <CardTitle>Setup Checklist</CardTitle>
+          <CardTitle>Setup Checklist ✅</CardTitle>
           <CardDescription>Follow these steps to get your store ready for customers.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -228,7 +228,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
         <Card className="border border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Revenue 💰</CardTitle>
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
@@ -240,7 +240,7 @@ export default function DashboardPage() {
         </Card>
         <Card className="border border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customers</CardTitle>
+            <CardTitle className="text-sm font-medium">Customers 👥</CardTitle>
             <Users className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
@@ -252,7 +252,7 @@ export default function DashboardPage() {
         </Card>
         <Card className="border border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sales</CardTitle>
+            <CardTitle className="text-sm font-medium">Sales 📈</CardTitle>
             <CreditCard className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
@@ -264,7 +264,7 @@ export default function DashboardPage() {
         </Card>
         <Card className="border border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Now</CardTitle>
+            <CardTitle className="text-sm font-medium">Active Now 🟢</CardTitle>
             <Activity className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
@@ -355,7 +355,7 @@ export default function DashboardPage() {
         </Card>
         <Card className="xl:col-span-3 border border-blue-200">
             <CardHeader>
-                <CardTitle>Danger Zone</CardTitle>
+                <CardTitle>Danger Zone ☢️</CardTitle>
                 <CardDescription>These actions are irreversible. Please be certain.</CardDescription>
             </CardHeader>
             <CardContent>

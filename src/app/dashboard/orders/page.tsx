@@ -211,7 +211,7 @@ export default function OrdersPage() {
       )
     );
     toast({
-      title: `Order ${newStatus}`,
+      title: `Order ${newStatus}! 🎉`,
       description: `Order ${orderNumber} has been updated. The customer will be notified.`,
     });
   };
@@ -223,7 +223,7 @@ export default function OrdersPage() {
       )
     );
     toast({
-      title: `Payment status updated`,
+      title: `Payment status updated ✅`,
       description: `Order ${orderNumber} payment status set to ${newPayment}.`,
     });
   };
@@ -256,7 +256,7 @@ export default function OrdersPage() {
   return (
     <div className="flex flex-col h-full gap-4">
         <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Orders</h1>
+            <h1 className="text-2xl font-bold">Orders 📦</h1>
             <div className="flex items-center gap-2">
             <Button size="icon" variant="outline" className="h-9 w-9">
                 <Filter className="h-4 w-4" />
@@ -278,7 +278,7 @@ export default function OrdersPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card className="bg-blue-50 border-blue-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-blue-800">Total Orders</CardTitle>
+                    <CardTitle className="text-sm font-medium text-blue-800">Total Orders 🛍️</CardTitle>
                     <ShoppingCart className="h-5 w-5 text-blue-600" />
                 </CardHeader>
                 <CardContent>
@@ -287,7 +287,7 @@ export default function OrdersPage() {
             </Card>
             <Card className="bg-yellow-50 border-yellow-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-yellow-800">Completed Orders</CardTitle>
+                    <CardTitle className="text-sm font-medium text-yellow-800">Completed Orders ✅</CardTitle>
                     <PackageCheck className="h-5 w-5 text-yellow-600" />
                 </CardHeader>
                 <CardContent>
@@ -296,7 +296,7 @@ export default function OrdersPage() {
             </Card>
             <Card className="bg-blue-50 border-blue-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-blue-800">Unpaid Orders</CardTitle>
+                    <CardTitle className="text-sm font-medium text-blue-800">Unpaid Orders 💸</CardTitle>
                     <FileWarning className="h-5 w-5 text-blue-600" />
                 </CardHeader>
                 <CardContent>
@@ -320,7 +320,7 @@ export default function OrdersPage() {
         {showAlert && (
             <Alert className="bg-yellow-50 border-yellow-200 text-yellow-900 relative">
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                <AlertTitle className="font-semibold">1,557 orders require urgent attention.</AlertTitle>
+                <AlertTitle className="font-semibold">1,557 orders require urgent attention. ⚠️</AlertTitle>
                 <AlertDescription>
                 <a href="#" className="font-medium underline">Click to resolve</a>
                 </AlertDescription>
@@ -358,6 +358,12 @@ export default function OrdersPage() {
                              <p className="text-sm text-muted-foreground">{order.orderNumber} &middot; {order.date}</p>
                          </div>
                          <div className="flex items-center gap-4 text-sm">
+                            {order.status !== 'Processing' && (
+                                <div>
+                                    <span className="text-muted-foreground mr-2">Status:</span>
+                                    <StatusBadge status={order.status} />
+                                </div>
+                            )}
                             <div>
                                 <span className="text-muted-foreground mr-2">Payment:</span>
                                 <StatusBadge status={order.payment} />

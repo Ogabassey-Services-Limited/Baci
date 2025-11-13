@@ -52,7 +52,7 @@ function BaciLandingPage() {
               <div className="flex flex-col justify-center space-y-4">
                 <div className="space-y-2">
                   <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none font-headline">
-                    Build Your E-commerce Empire with AI
+                    Build Your E-commerce Empire with AI 🚀
                   </h1>
                   <p className="max-w-[600px] text-muted-foreground md:text-xl">
                     Baci is an AI-powered platform that helps you launch a professional online store in minutes. No coding, no design skills needed.
