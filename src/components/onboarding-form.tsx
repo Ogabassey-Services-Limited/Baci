@@ -186,7 +186,13 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
     }
   };
 
-  const handleGenerateClick = () => setShowColorPrompt(true);
+  const handleGenerateClick = () => {
+      toast({
+        title: 'AI Generation Coming Soon!',
+        description: 'For now, please upload your own logo.',
+        variant: 'default',
+      });
+  };
 
   const handleGenerateLogos = async () => {
     toast({
@@ -257,19 +263,7 @@ return (
         </div>
         <div className="relative flex items-center justify-center md:hidden"><div className="absolute inset-0 flex items-center" aria-hidden="true"><div className="w-full border-t border-muted-foreground/30"></div></div><span className="relative bg-background px-2 text-sm text-muted-foreground">or</span></div>
         <div className="flex flex-col items-center justify-center h-48 space-y-4">
-          {!showColorPrompt ? <Button type="button" variant="outline" onClick={handleGenerateClick} className="w-full"><Sparkles className="mr-2 h-4 w-4" />Generate with AI</Button> : (
-            <div className="w-full space-y-2">
-              <FormField control={form.control} name="brandPreferences" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>What's your favorite color?</FormLabel>
-                    <Input {...field} placeholder="e.g., 'deep ocean blue'" onKeyDown={handlePreferenceKeyDown} id="brandPreferences" name="brandPreferences" />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="button" onClick={handleGenerateLogos} disabled={isGenerating} className='w-full'>{isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />} Generate Logos</Button>
-            </div>
-          )}
+          <Button type="button" variant="outline" onClick={handleGenerateClick} className="w-full"><Sparkles className="mr-2 h-4 w-4" />Generate with AI</Button>
         </div>
       </div>
       {brandColors && (
