@@ -13,7 +13,6 @@ import { CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
 import { useState, useMemo } from 'react';
-import { useParams } from 'next/navigation';
 import Fuse from 'fuse.js';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
@@ -275,14 +274,13 @@ function Storefront() {
   );
 }
 
-export default function StorefrontPage() {
-    const params = useParams();
-    const slug = (Array.isArray(params.slug) ? params.slug[0] : params.slug) as string;
+// The page is now a Server Component that passes the slug to the client component.
+export default function StorefrontPage({ params }: { params: { slug: string } }) {
+    const slug = Array.isArray(params.slug) ? params.slug[0] : params.slug;
 
-    console.log('Storefront page - Received slug:', slug);
     return (
         <MerchantProvider slug={slug}>
             <Storefront />
         </MerchantProvider>
-    )
+    );
 }
