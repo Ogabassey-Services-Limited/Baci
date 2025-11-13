@@ -17,6 +17,7 @@ import {
   CheckCircle,
   Truck,
   Package,
+  X,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -143,6 +144,7 @@ export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const [orders, setOrders] = useState(initialOrders);
+  const [showAlert, setShowAlert] = useState(true);
 
 
   const handleUpdateStatus = (orderNumber: string, newStatus: OrderStatus, newShippingStatus?: ShippingStatus) => {
@@ -248,13 +250,19 @@ export default function OrdersPage() {
             />
         </div>
 
-        <Alert className="bg-yellow-50 border-yellow-200 text-yellow-900">
-            <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <AlertTitle className="font-semibold">1,557 orders require urgent attention.</AlertTitle>
-            <AlertDescription>
-              <a href="#" className="font-medium underline">Click to resolve</a>
-            </AlertDescription>
-        </Alert>
+        {showAlert && (
+            <Alert className="bg-yellow-50 border-yellow-200 text-yellow-900 relative">
+                <AlertTriangle className="h-4 w-4 text-yellow-600" />
+                <AlertTitle className="font-semibold">1,557 orders require urgent attention.</AlertTitle>
+                <AlertDescription>
+                <a href="#" className="font-medium underline">Click to resolve</a>
+                </AlertDescription>
+                <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => setShowAlert(false)}>
+                    <X className="h-4 w-4 text-yellow-700" />
+                    <span className="sr-only">Dismiss</span>
+                </Button>
+            </Alert>
+        )}
         
         <div className="flex gap-2">
             {filterButtons.map(btnFilter => (
@@ -331,7 +339,3 @@ export default function OrdersPage() {
     </div>
   );
 }
-
-    
-
-    
