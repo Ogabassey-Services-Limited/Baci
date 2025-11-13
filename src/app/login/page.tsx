@@ -21,10 +21,15 @@ const authSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters.'),
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email('Please enter a valid email address.'),
+});
+
 type AuthFormValues = z.infer<typeof authSchema>;
+type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 export default function LoginPage() {
-    const [isLogin, setIsLogin] = useState(true);
+    const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password'>('login');
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
@@ -34,11 +39,16 @@ export default function LoginPage() {
         resolver: zodResolver(authSchema),
         defaultValues: { email: '', password: '' },
     });
+    
+    const forgotPasswordForm = useForm<ForgotPasswordFormValues>({
+        resolver: zodResolver(forgotPasswordSchema),
+        defaultValues: { email: '' },
+    });
 
     const onSubmit = async (data: AuthFormValues) => {
         setIsLoading(true);
         try {
-            if (isLogin) {
+            if (mode === 'login') {
                 const { data: authData, error } = await supabase.auth.signInWithPassword(data);
                 if (error) throw error;
                 toast({ title: "Sign-in Successful", description: "Welcome back!" });
@@ -51,18 +61,53 @@ export default function LoginPage() {
                     description: "Please check your email to verify your account before signing in.",
                     duration: 7000
                 });
-                setIsLogin(true); // Switch to login view after successful signup
+                setMode('login'); // Switch to login view after successful signup
             }
         } catch (error) {
             toast({
                 variant: 'destructive',
-                title: isLogin ? 'Sign-in Failed' : 'Sign-up Failed',
+                title: mode === 'login' ? 'Sign-in Failed' : 'Sign-up Failed',
                 description: (error as Error).message,
             });
         } finally {
             setIsLoading(false);
         }
     };
+    
+    const handleForgotPassword = async (data: ForgotPasswordFormValues) => {
+        setIsLoading(true);
+        try {
+            const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            });
+            if (error) throw error;
+            toast({
+                title: 'Password Reset Email Sent',
+                description: 'Please check your email for a link to reset your password.',
+            });
+            setMode('login');
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error Sending Reset Email',
+                description: (error as Error).message,
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const getTitle = () => {
+        if (mode === 'login') return 'Welcome Back!';
+        if (mode === 'signup') return 'Create an Account';
+        return 'Forgot Password';
+    }
+
+    const getDescription = () => {
+        if (mode === 'login') return 'Enter your credentials to access your dashboard.';
+        if (mode === 'signup') return 'Sign up to start building your store.';
+        return 'Enter your email to receive a password reset link.';
+    }
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
@@ -74,56 +119,92 @@ export default function LoginPage() {
                 </div>
                 <Card>
                     <CardHeader className="text-center">
-                        <CardTitle>{isLogin ? 'Welcome Back!' : 'Create an Account'}</CardTitle>
+                        <CardTitle>{getTitle()}</CardTitle>
                         <CardDescription>
-                            {isLogin ? 'Enter your credentials to access your dashboard.' : 'Sign up to start building your store.'}
+                           {getDescription()}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <FormProvider {...form}>
-                            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                <FormField
-                                    control={form.control}
-                                    name="email"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Email</FormLabel>
-                                            <FormControl>
-                                                <div className="relative">
-                                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <Input type="email" placeholder="you@example.com" {...field} className="pl-10" id="email" name="email" autoComplete="email" />
+                        {mode === 'forgot-password' ? (
+                             <FormProvider {...forgotPasswordForm}>
+                                <form onSubmit={forgotPasswordForm.handleSubmit(handleForgotPassword)} className="space-y-4">
+                                     <FormField
+                                        control={forgotPasswordForm.control}
+                                        name="email"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Email</FormLabel>
+                                                <FormControl>
+                                                    <div className="relative">
+                                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                        <Input type="email" placeholder="you@example.com" {...field} className="pl-10" id="email-forgot" name="email-forgot" autoComplete="email" />
+                                                    </div>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button type="submit" className="w-full" disabled={isLoading}>
+                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        Send Reset Link
+                                    </Button>
+                                </form>
+                            </FormProvider>
+                        ) : (
+                            <FormProvider {...form}>
+                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="email"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Email</FormLabel>
+                                                <FormControl>
+                                                    <div className="relative">
+                                                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                        <Input type="email" placeholder="you@example.com" {...field} className="pl-10" id="email" name="email" autoComplete="email" />
+                                                    </div>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="password"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <div className="flex justify-between">
+                                                    <FormLabel>Password</FormLabel>
+                                                    {mode === 'login' && (
+                                                        <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setMode('forgot-password')}>
+                                                            Forgot Password?
+                                                        </Button>
+                                                    )}
                                                 </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="password"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Password</FormLabel>
-                                            <FormControl>
-                                                <div className="relative">
-                                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <Input type="password" {...field} className="pl-10" id="password" name="password" autoComplete={isLogin ? "current-password" : "new-password"} />
-                                                </div>
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <Button type="submit" className="w-full" disabled={isLoading}>
-                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {isLogin ? 'Sign In' : 'Sign Up'}
-                                </Button>
-                            </form>
-                        </FormProvider>
+                                                <FormControl>
+                                                    <div className="relative">
+                                                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                        <Input type="password" {...field} className="pl-10" id="password" name="password" autoComplete={mode === 'login' ? "current-password" : "new-password"} />
+                                                    </div>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <Button type="submit" className="w-full" disabled={isLoading}>
+                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {mode === 'login' ? 'Sign In' : 'Sign Up'}
+                                    </Button>
+                                </form>
+                            </FormProvider>
+                        )}
                         <p className="text-sm text-center text-muted-foreground mt-6">
-                            {isLogin ? "Don't have an account?" : 'Already have an account?'}
-                            <Button variant="link" onClick={() => setIsLogin(!isLogin)} className="px-1">
-                                {isLogin ? 'Sign Up' : 'Sign In'}
+                            {mode === 'login' && "Don't have an account?"}
+                            {mode === 'signup' && "Already have an account?"}
+                            {mode === 'forgot-password' && "Remembered your password?"}
+                            <Button variant="link" onClick={() => setMode(mode === 'login' ? 'signup' : 'login')} className="px-1">
+                                {mode === 'login' ? 'Sign Up' : 'Sign In'}
                             </Button>
                         </p>
                     </CardContent>
