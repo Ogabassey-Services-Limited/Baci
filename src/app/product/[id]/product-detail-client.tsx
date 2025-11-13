@@ -63,7 +63,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
 
   const cartItem = cart.find(item => item.id === product.id);
   
-  const brandColors = merchant?.colors ? [merchant.colors.primary, merchant.colors.secondary, merchant.colors.accent] : ['#3F51B5'];
+  const brandColors = merchant?.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.secondary, merchant.brand_colors.accent] : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors);
 
   const productSchema = {

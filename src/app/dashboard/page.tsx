@@ -131,7 +131,8 @@ export default function DashboardPage() {
       const formatter = new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: currency,
-        notation: 'compact'
+        notation: 'compact',
+        currencyDisplay: 'symbol',
       });
       return formatter.format(value).replace(/\D00$/, '');
   };
