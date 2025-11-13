@@ -45,6 +45,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode, COUNTRIES } from '@/lib/countries';
 import { useAuth } from '@/contexts/auth-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useToast } from '@/hooks/use-toast';
 
 // The original layout is now a client component to prevent hydration errors.
 export default function DashboardClientLayout({
@@ -58,18 +59,36 @@ export default function DashboardClientLayout({
   const { user, loading: authLoading, signOut } = useAuth();
   const [hasMounted, setHasMounted] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-
+  const { toast } = useToast();
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
   useEffect(() => {
-    // If auth is done loading and there's no user, redirect to login.
-    if (!authLoading && !user) {
-      router.push('/login');
+    // Wait for both auth and merchant loading to finish
+    if (authLoading || merchantLoading) {
+      return;
     }
-  }, [user, authLoading, router]);
+
+    // If there's no user, redirect to login
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    // If there IS a user but NO merchant record, they haven't completed onboarding.
+    // Redirect them back to onboarding. This is the security fix.
+    if (user && !merchant) {
+      toast({
+        title: 'Onboarding Incomplete',
+        description: 'Please complete your store setup to access the dashboard.',
+        variant: 'destructive',
+      });
+      router.push('/onboarding');
+      return;
+    }
+  }, [user, merchant, authLoading, merchantLoading, router, toast]);
 
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
   
@@ -188,7 +207,7 @@ export default function DashboardClientLayout({
   };
   
   // While checking auth, show a loading screen.
-  if (authLoading || !user) {
+  if (authLoading || merchantLoading || !merchant) {
     return (
         <div className="flex min-h-screen w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -389,5 +408,7 @@ export default function DashboardClientLayout({
     </div>
   );
 }
+
+    
 
     
