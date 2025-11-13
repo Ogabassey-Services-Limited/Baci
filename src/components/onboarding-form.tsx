@@ -34,9 +34,8 @@ import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/o
 import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { OnboardingFormValues, onboardingSchema, step1Schema, step2Schema, step3Schema } from '@/schemas/onboarding';
-import { saveMerchantData } from '@/services/localMerchantService';
-import { ThemedButton, ThemedBadge, ThemedCard } from '@/components/themed';
-import { getContrastingTextColor } from '@/lib/color-utils';
+import { StorefrontPreview } from './storefront-preview';
+import { ThemedButton } from './themed';
 
 
 // --- Step Components ---
@@ -123,6 +122,7 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
   const { toast } = useToast();
   const { watch, setValue, getValues } = form;
 
+  const businessName = watch('businessName');
   const logoDataUri = watch('logoDataUri');
   const brandColorsString = watch('brandColors');
   const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
@@ -233,36 +233,6 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
     setValue('brandColors', JSON.stringify(remappedColors), { shouldValidate: true });
   };
   
-  const handlePreview = () => {
-    const values = getValues();
-    const storeSlug = values.businessName.toLowerCase().replace(/\s+/g, '-');
-    const storeUrl = `/storefront/${storeSlug}`;
-    
-    if (!values.businessName || !values.logoDataUri || !brandColors) {
-      toast({
-        title: 'Cannot Preview Yet',
-        description: 'Please provide a business name and upload or generate a logo first.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    // Save current state to localStorage so preview page can read it
-    saveMerchantData({
-      businessName: values.businessName,
-      businessType: values.businessType,
-      logo: values.logoDataUri,
-      colors: brandColors,
-    });
-
-    toast({
-      title: 'Opening Preview...',
-      description: 'Your store preview is opening in a new tab.',
-    });
-
-    window.open(storeUrl, '_blank');
-  };
-  
   const displayedColors = brandColors ? [
     { role: 'primary', color: brandColors.primary },
     { role: 'secondary', color: brandColors.secondary },
@@ -304,25 +274,18 @@ return (
       </div>
       {brandColors && (
         <div className='mt-6 animate-fade-in'>
-            <div className='text-sm text-muted-foreground font-medium mb-4 text-center'>Branding Controls</div>
-             <div className="grid grid-cols-2 gap-2 mb-4">
-                <Button type="button" variant="outline" size="sm" className="w-full" onClick={handleShuffleColors} disabled={isLoading}>
+            <div className="flex items-center justify-between mb-4">
+                <div className='text-sm text-muted-foreground font-medium'>Live Preview</div>
+                <ThemedButton type="button" variant="outline" size="sm" onClick={handleShuffleColors} disabled={isLoading}>
                     <RefreshCw className="mr-2 h-3 w-3" />
                     Shuffle Colors
-                </Button>
-                <Button type="button" variant="secondary" size="sm" className="w-full" onClick={handlePreview}>
-                    <ExternalLink className="mr-2 h-3 w-3" />
-                    Preview Store
-                </Button>
+                </ThemedButton>
             </div>
-            <div className="flex justify-center gap-4">
-              {displayedColors.map(({ role, color }) => (
-                <div key={role} className="flex flex-col items-center gap-1">
-                  <div className="w-10 h-10 rounded-full border" style={{ backgroundColor: color }} />
-                  <span className="text-xs text-muted-foreground capitalize">{role}</span>
-                </div>
-              ))}
-            </div>
+             <StorefrontPreview 
+                businessName={businessName}
+                logoDataUri={logoDataUri}
+                brandColors={brandColors}
+             />
         </div>
       )}
       <FormField control={form.control} name="logoDataUri" render={() => <FormItem><FormMessage /></FormItem>} />
