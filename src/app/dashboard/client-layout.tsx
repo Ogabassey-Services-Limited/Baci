@@ -198,7 +198,7 @@ export default function DashboardClientLayout({
 
   return (
     <div className={cn("grid min-h-screen w-full transition-all", isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]")}>
-      <div className="hidden border-r bg-card md:block relative">
+      <div className="hidden border-r bg-card md:block">
         <div className="flex h-full max-h-screen flex-col">
           <div className={cn("flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6", isCollapsed && "justify-center")}>
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
@@ -259,21 +259,23 @@ export default function DashboardClientLayout({
              )}
           </div>
         </div>
-         <Button
+         
+      </div>
+      <div className="flex flex-col relative">
+       <Button
             variant="default"
             size="icon"
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={cn(
-                "absolute -right-5 top-1/2 -translate-y-1/2 rounded-full z-10 hidden md:flex",
-                "bg-blue-600 hover:bg-blue-700 text-white"
+                "fixed top-1/2 -translate-y-1/2 z-20 hidden md:flex rounded-full",
+                isCollapsed ? "left-[68px]" : "left-[208px] lg:left-[268px]",
+                "bg-blue-600 hover:bg-blue-700 text-white transition-all"
             )}
             >
             {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
             <span className="sr-only">{isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
         </Button>
-      </div>
-      <div className="flex flex-col">
-        <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6">
+        <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 sticky top-0 z-10">
           <Sheet>
             <SheetTrigger asChild>
               <Button
@@ -378,7 +380,7 @@ export default function DashboardClientLayout({
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-auto">
           <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
             {children}
           </Suspense>
@@ -387,3 +389,5 @@ export default function DashboardClientLayout({
     </div>
   );
 }
+
+    
