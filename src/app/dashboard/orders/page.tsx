@@ -58,9 +58,9 @@ const initialOrders = [
     orderNumber: '#06092',
     customerName: 'Arinze Ihemedu',
     total: 138000,
-    status: 'Pending',
-    payment: 'Paid',
-    shipping: 'Unfulfilled',
+    status: 'Pending' as OrderStatus,
+    payment: 'Paid' as PaymentStatus,
+    shipping: 'Unfulfilled' as ShippingStatus,
     date: 'Nov 12, 2025',
     source: 'whatsapp',
   },
@@ -68,9 +68,9 @@ const initialOrders = [
     orderNumber: '#06091',
     customerName: 'Awolesi Aderemi',
     total: 482000,
-    status: 'Processing',
-    payment: 'Paid',
-    shipping: 'Unfulfilled',
+    status: 'Processing' as OrderStatus,
+    payment: 'Paid' as PaymentStatus,
+    shipping: 'Unfulfilled' as ShippingStatus,
     date: 'Nov 11, 2025',
     source: 'whatsapp',
   },
@@ -78,9 +78,9 @@ const initialOrders = [
     orderNumber: '#06090',
     customerName: 'Wema Bank PLC',
     total: 368000,
-    status: 'Pending',
-    payment: 'Unpaid',
-    shipping: 'Unfulfilled',
+    status: 'Pending' as OrderStatus,
+    payment: 'Unpaid' as PaymentStatus,
+    shipping: 'Unfulfilled' as ShippingStatus,
     date: 'Nov 11, 2025',
     source: 'whatsapp',
   },
@@ -88,9 +88,9 @@ const initialOrders = [
     orderNumber: '#06089',
     customerName: 'Jane Emmanuel Idaka',
     total: 356500,
-    status: 'Processing',
-    payment: 'Paid',
-    shipping: 'Unfulfilled',
+    status: 'Processing' as OrderStatus,
+    payment: 'Paid' as PaymentStatus,
+    shipping: 'Unfulfilled' as ShippingStatus,
     date: 'Nov 11, 2025',
     source: 'instagram',
   },
@@ -98,9 +98,9 @@ const initialOrders = [
     orderNumber: '#06056',
     customerName: 'Mbarihaus Ltd',
     total: 930000,
-    status: 'Shipped',
-    payment: 'Paid',
-    shipping: 'Fulfilled',
+    status: 'Shipped' as OrderStatus,
+    payment: 'Paid' as PaymentStatus,
+    shipping: 'Fulfilled' as ShippingStatus,
     date: 'Oct 30, 2025',
     source: 'other',
   },
@@ -108,9 +108,9 @@ const initialOrders = [
     orderNumber: '#06055',
     customerName: 'Ezekiel Oyesiji',
     total: 730000,
-    status: 'Delivered',
-    payment: 'Paid',
-    shipping: 'Fulfilled',
+    status: 'Delivered' as OrderStatus,
+    payment: 'Paid' as PaymentStatus,
+    shipping: 'Fulfilled' as ShippingStatus,
     date: 'Oct 30, 2025',
     source: 'other',
   },
@@ -392,11 +392,12 @@ export default function OrdersPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+                                <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuCheckboxItem checked>Fulfilled</DropdownMenuCheckboxItem>
-                                <DropdownMenuCheckboxItem>Unfulfilled</DropdownMenuCheckboxItem>
-                                <DropdownMenuCheckboxItem>Refunded</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem checked>Pending</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem>Processing</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem>Shipped</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem>Delivered</DropdownMenuCheckboxItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                          <DropdownMenu>
