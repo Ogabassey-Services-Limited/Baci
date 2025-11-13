@@ -58,8 +58,8 @@ const initialOrders = [
     orderNumber: '#06092',
     customerName: 'Arinze Ihemedu',
     total: 138000,
-    status: 'Pending' as OrderStatus,
-    payment: 'Paid' as PaymentStatus,
+    shippingStatus: 'Pending' as ShippingStatus,
+    paymentStatus: 'Paid' as PaymentStatus,
     date: 'Nov 12, 2025',
     source: 'whatsapp',
   },
@@ -67,8 +67,8 @@ const initialOrders = [
     orderNumber: '#06091',
     customerName: 'Awolesi Aderemi',
     total: 482000,
-    status: 'Processing' as OrderStatus,
-    payment: 'Paid' as PaymentStatus,
+    shippingStatus: 'Processing' as ShippingStatus,
+    paymentStatus: 'Paid' as PaymentStatus,
     date: 'Nov 11, 2025',
     source: 'whatsapp',
   },
@@ -76,8 +76,8 @@ const initialOrders = [
     orderNumber: '#06090',
     customerName: 'Wema Bank PLC',
     total: 368000,
-    status: 'Pending' as OrderStatus,
-    payment: 'Unpaid' as PaymentStatus,
+    shippingStatus: 'Pending' as ShippingStatus,
+    paymentStatus: 'Unpaid' as PaymentStatus,
     date: 'Nov 11, 2025',
     source: 'whatsapp',
   },
@@ -85,8 +85,8 @@ const initialOrders = [
     orderNumber: '#06089',
     customerName: 'Jane Emmanuel Idaka',
     total: 356500,
-    status: 'Processing' as OrderStatus,
-    payment: 'Paid' as PaymentStatus,
+    shippingStatus: 'Processing' as ShippingStatus,
+    paymentStatus: 'Partially Paid' as PaymentStatus,
     date: 'Nov 11, 2025',
     source: 'instagram',
   },
@@ -94,8 +94,8 @@ const initialOrders = [
     orderNumber: '#06056',
     customerName: 'Mbarihaus Ltd',
     total: 930000,
-    status: 'Shipped' as OrderStatus,
-    payment: 'Paid' as PaymentStatus,
+    shippingStatus: 'Shipped' as ShippingStatus,
+    paymentStatus: 'Paid' as PaymentStatus,
     date: 'Oct 30, 2025',
     source: 'other',
   },
@@ -103,33 +103,46 @@ const initialOrders = [
     orderNumber: '#06055',
     customerName: 'Ezekiel Oyesiji',
     total: 730000,
-    status: 'Delivered' as OrderStatus,
-    payment: 'Paid' as PaymentStatus,
+    shippingStatus: 'Delivered' as ShippingStatus,
+    paymentStatus: 'Paid' as PaymentStatus,
     date: 'Oct 30, 2025',
+    source: 'other',
+  },
+    {
+    orderNumber: '#06054',
+    customerName: 'Refund Guy',
+    total: 10000,
+    shippingStatus: 'Returned' as ShippingStatus,
+    paymentStatus: 'Refunded' as PaymentStatus,
+    date: 'Oct 29, 2025',
     source: 'other',
   },
 ];
 
-type OrderStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Canceled';
-type PaymentStatus = 'Paid' | 'Unpaid' | 'Pending';
+type ShippingStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Canceled' | 'Returned';
+type PaymentStatus = 'Paid' | 'Unpaid' | 'Pending' | 'Partially Paid' | 'Refunded';
 
-const StatusBadge = ({ status }: { status: string }) => {
-    const variants: { [key: string]: 'default' | 'secondary' | 'destructive' | 'outline' } = {
-        Paid: 'default',
-        Unpaid: 'destructive',
-        Pending: 'outline',
-        Processing: 'outline',
-        Shipped: 'default',
-        Delivered: 'default',
+const StatusBadge = ({ status, type }: { status: string, type: 'payment' | 'shipping' }) => {
+    const paymentVariants: { [key: string]: string } = {
+        Paid: 'bg-green-100 text-green-800 border-green-200',
+        Unpaid: 'bg-red-100 text-red-800 border-red-200',
+        Pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+        'Partially Paid': 'bg-blue-100 text-blue-800 border-blue-200',
+        Refunded: 'bg-gray-100 text-gray-800 border-gray-200',
     };
-    const variant = variants[status] || 'secondary';
 
-    return <Badge variant={variant} className={cn('capitalize justify-center', {
-        'bg-green-100 text-green-800 border-green-200': status === 'Paid' || status === 'Delivered',
-        'bg-red-100 text-red-800 border-red-200': status === 'Unpaid' || status === 'Canceled',
-        'bg-yellow-100 text-yellow-800 border-yellow-200': status === 'Pending' || status === 'Processing',
-        'bg-blue-100 text-blue-800 border-blue-200': status === 'Shipped'
-    })}>{status}</Badge>;
+    const shippingVariants: { [key: string]: string } = {
+        Pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+        Processing: 'bg-blue-100 text-blue-800 border-blue-200',
+        Shipped: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+        Delivered: 'bg-green-100 text-green-800 border-green-200',
+        Canceled: 'bg-red-100 text-red-800 border-red-200',
+        Returned: 'bg-purple-100 text-purple-800 border-purple-200',
+    };
+
+    const className = type === 'payment' ? paymentVariants[status] : shippingVariants[status];
+
+    return <Badge variant={'outline'} className={cn('capitalize justify-center', className)}>{status}</Badge>;
 };
 
 
@@ -138,44 +151,50 @@ const StatusDropdown = ({
   onStatusUpdate
 }: {
   order: (typeof initialOrders)[0],
-  onStatusUpdate: (orderNumber: string, newStatus: OrderStatus) => void;
+  onStatusUpdate: (orderNumber: string, newStatus: ShippingStatus) => void;
 }) => {
-  const { status } = order;
+  const { shippingStatus } = order;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" size="sm" className="flex items-center gap-2 capitalize w-full justify-between">
-            <StatusBadge status={status} />
+            <StatusBadge status={shippingStatus} type="shipping"/>
             <ChevronDown className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {status === 'Pending' && (
+        {shippingStatus === 'Pending' && (
           <DropdownMenuItem onSelect={() => onStatusUpdate(order.orderNumber, 'Processing')}>
             <CheckCircle className="mr-2 h-4 w-4" />
             <span>Confirm Order</span>
           </DropdownMenuItem>
         )}
-        {status === 'Processing' && (
+        {shippingStatus === 'Processing' && (
           <DropdownMenuItem onSelect={() => onStatusUpdate(order.orderNumber, 'Shipped')}>
             <Truck className="mr-2 h-4 w-4" />
             <span>Ship Order</span>
           </DropdownMenuItem>
         )}
-        {status === 'Shipped' && (
+        {shippingStatus === 'Shipped' && (
           <DropdownMenuItem onSelect={() => onStatusUpdate(order.orderNumber, 'Delivered')}>
             <PackageCheck className="mr-2 h-4 w-4" />
             <span>Mark as Delivered</span>
           </DropdownMenuItem>
         )}
-        {(status === 'Pending' || status === 'Processing') && (
+         {shippingStatus === 'Delivered' && (
+          <DropdownMenuItem onSelect={() => onStatusUpdate(order.orderNumber, 'Returned')}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            <span>Process Return</span>
+          </DropdownMenuItem>
+        )}
+        {(shippingStatus === 'Pending' || shippingStatus === 'Processing') && (
             <DropdownMenuItem onSelect={() => onStatusUpdate(order.orderNumber, 'Canceled')} className="text-red-600 focus:text-red-600 focus:bg-red-50">
                 <X className="mr-2 h-4 w-4" />
                 <span>Cancel Order</span>
             </DropdownMenuItem>
         )}
-         {(status === 'Delivered' || status === 'Canceled') && <DropdownMenuItem disabled>No actions available</DropdownMenuItem>}
+         {(shippingStatus === 'Canceled' || shippingStatus === 'Returned') && <DropdownMenuItem disabled>No actions available</DropdownMenuItem>}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -194,18 +213,19 @@ const SourceIcon = ({ source }: { source: string }) => {
 
 export default function OrdersPage() {
   const { merchant, loading } = useMerchant();
-  const [filter, setFilter] = useState('All');
+  const [paymentFilter, setPaymentFilter] = useState('All');
+  const [shippingFilter, setShippingFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
   const [orders, setOrders] = useState(initialOrders);
   const [showAlert, setShowAlert] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
 
-  const handleUpdateStatus = (orderNumber: string, newStatus: OrderStatus) => {
+  const handleUpdateStatus = (orderNumber: string, newStatus: ShippingStatus) => {
     setOrders(currentOrders =>
       currentOrders.map(order =>
         order.orderNumber === orderNumber
-          ? { ...order, status: newStatus }
+          ? { ...order, shippingStatus: newStatus }
           : order
       )
     );
@@ -218,7 +238,7 @@ export default function OrdersPage() {
   const handleUpdatePayment = (orderNumber: string, newPayment: PaymentStatus) => {
     setOrders(currentOrders =>
       currentOrders.map(order =>
-        order.orderNumber === orderNumber ? { ...order, payment: newPayment } : order
+        order.orderNumber === orderNumber ? { ...order, paymentStatus: newPayment } : order
       )
     );
     toast({
@@ -239,14 +259,17 @@ export default function OrdersPage() {
   };
   
   const filteredOrders = orders.filter(order => {
-    const filterMatch = filter === 'All' || order.payment === filter || order.status === filter;
+    const paymentMatch = paymentFilter === 'All' || order.paymentStatus === paymentFilter;
+    const shippingMatch = shippingFilter === 'All' || order.shippingStatus === shippingFilter;
     const searchMatch = searchTerm === '' || 
                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    return filterMatch && searchMatch;
+    return paymentMatch && shippingMatch && searchMatch;
   });
 
-  const filterButtons = ['All', 'Paid', 'Unpaid', 'Pending', 'Processing', 'Shipped', 'Delivered', 'Canceled'];
+  const paymentStatuses: PaymentStatus[] = ['Paid', 'Unpaid', 'Pending', 'Partially Paid', 'Refunded'];
+  const shippingStatuses: ShippingStatus[] = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Canceled', 'Returned'];
+
   
   const handleSelectOrder = (orderNumber: string, isSelected: boolean) => {
     setSelectedOrders(prev => {
@@ -351,17 +374,41 @@ export default function OrdersPage() {
             </Alert>
         )}
         
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-            {filterButtons.map(btnFilter => (
-                <Button 
-                    key={btnFilter}
-                    variant={filter === btnFilter ? 'default' : 'outline'}
-                    onClick={() => setFilter(btnFilter)}
-                    className={cn('shrink-0', filter === btnFilter && 'bg-primary hover:bg-primary/90 text-primary-foreground')}
-                >
-                    {btnFilter}
-                </Button>
-            ))}
+        <div className="flex gap-2 items-center">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-1">
+                        <span>Payment Status</span>
+                        <ChevronDown className="h-4 w-4"/>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                     <DropdownMenuCheckboxItem checked={paymentFilter === 'All'} onCheckedChange={() => setPaymentFilter('All')}>All</DropdownMenuCheckboxItem>
+                     <DropdownMenuSeparator />
+                    {paymentStatuses.map(status => (
+                        <DropdownMenuCheckboxItem key={status} checked={paymentFilter === status} onCheckedChange={() => setPaymentFilter(status)}>
+                            {status}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-1">
+                        <span>Shipping Status</span>
+                        <ChevronDown className="h-4 w-4"/>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                     <DropdownMenuCheckboxItem checked={shippingFilter === 'All'} onCheckedChange={() => setShippingFilter('All')}>All</DropdownMenuCheckboxItem>
+                     <DropdownMenuSeparator />
+                    {shippingStatuses.map(status => (
+                        <DropdownMenuCheckboxItem key={status} checked={shippingFilter === status} onCheckedChange={() => setShippingFilter(status)}>
+                            {status}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuContent>
+            </DropdownMenu>
         </div>
         
         <Card>
@@ -421,7 +468,7 @@ export default function OrdersPage() {
                                  </div>
                                  <div className="flex items-center justify-end gap-4 text-sm w-[280px]">
                                     <div className="w-[110px] text-center">
-                                      <StatusBadge status={order.payment} />
+                                      <StatusBadge status={order.paymentStatus} type="payment" />
                                     </div>
                                     <div className="w-[140px]">
                                       <StatusDropdown 
