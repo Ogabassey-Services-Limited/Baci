@@ -202,7 +202,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {setupTasks.map((task) => (
               <div key={task.title} className="flex items-center gap-4 p-4 rounded-lg border bg-background">
-                <task.icon className="w-8 h-8 text-muted-foreground" />
+                <task.icon className="w-8 h-8 text-primary" />
                 <div className="flex-1">
                   <p className="font-semibold">{task.title}</p>
                   <p className="text-sm text-muted-foreground">{task.description}</p>
