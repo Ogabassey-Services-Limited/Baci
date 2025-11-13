@@ -26,7 +26,7 @@ import {
   AlertCircle as AlertCircleIcon,
   Clock,
   RotateCcw,
-  Filter,
+  ListFilter,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -389,10 +389,9 @@ export default function OrdersPage() {
             </Alert>
         )}
         
-        <div className="flex gap-4 items-center text-sm text-muted-foreground">
+        <div className="flex gap-2 items-center text-sm text-muted-foreground">
             <div className="flex gap-2 items-center">
-              <Filter className="h-4 w-4" />
-              <span>Filters:</span>
+              <ListFilter className="h-4 w-4" />
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -533,3 +532,4 @@ export default function OrdersPage() {
     </div>
   );
 }
+
