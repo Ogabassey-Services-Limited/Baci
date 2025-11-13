@@ -409,7 +409,7 @@ export default function OrdersPage() {
         </div>
         
         <Card>
-            <CardHeader className="px-4 pt-4 pb-0">
+            <CardHeader className="px-4 pt-4 pb-0 border-b border-blue-200">
                  <div className="flex items-center justify-between">
                     <h3 className="text-xl font-bold">Recent Orders</h3>
                     <div className="flex items-center gap-2">
