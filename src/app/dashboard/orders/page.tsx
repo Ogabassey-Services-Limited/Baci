@@ -273,7 +273,7 @@ export default function OrdersPage() {
 
         <div className="flex-1 overflow-y-auto space-y-3 pb-4">
             {filteredOrders.map((order) => (
-                <Card key={order.orderNumber}>
+                <Card key={order.orderNumber} className="transition-shadow hover:shadow-md">
                     <CardContent className="p-4 flex items-start gap-4">
                          <div className="flex-shrink-0 mt-1">
                              <SourceIcon source={order.source} />
@@ -331,5 +331,7 @@ export default function OrdersPage() {
     </div>
   );
 }
+
+    
 
     
