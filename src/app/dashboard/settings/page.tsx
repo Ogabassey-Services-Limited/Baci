@@ -130,7 +130,7 @@ export default function SettingsPage() {
                       <SelectContent>
                         {COUNTRIES.map((country) => (
                           <SelectItem key={country.code} value={country.code}>
-                           <span className="mr-2">{country.flag}</span> {country.name}
+                           <span className="mr-2 text-lg">{country.flag}</span> {country.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
