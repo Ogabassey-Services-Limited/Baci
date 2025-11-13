@@ -18,6 +18,7 @@ import {
   Truck,
   Package,
   X,
+  ChevronDown,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -127,6 +128,55 @@ const StatusBadge = ({ status }: { status: string }) => {
         'bg-yellow-100 text-yellow-800 border-yellow-200': status === 'Pending' || status === 'Unfulfilled',
     })}>{status}</Badge>;
 };
+
+const ShippingStatusDropdown = ({
+  status,
+  orderNumber,
+  orderStatus,
+  onStatusUpdate
+}: {
+  status: ShippingStatus;
+  orderNumber: string;
+  orderStatus: OrderStatus;
+  onStatusUpdate: (orderNumber: string, newStatus: OrderStatus, newShipping: ShippingStatus) => void;
+}) => {
+
+  const handleSelect = (newShippingStatus: ShippingStatus) => {
+    let newOrderStatus: OrderStatus = orderStatus;
+    if (newShippingStatus === 'Fulfilled' && (orderStatus === 'Processing' || orderStatus === 'Pending')) {
+        newOrderStatus = 'Shipped';
+    }
+    onStatusUpdate(orderNumber, newOrderStatus, newShippingStatus);
+  };
+
+  return (
+    <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+            <Badge
+                variant={status === 'Fulfilled' ? 'default' : 'outline'}
+                className={cn('capitalize cursor-pointer flex items-center gap-1', {
+                    'bg-blue-100 text-blue-800 border-blue-200': status === 'Fulfilled',
+                    'bg-yellow-100 text-yellow-800 border-yellow-200': status === 'Unfulfilled',
+                })}
+                >
+                {status}
+                <ChevronDown className="h-3 w-3" />
+            </Badge>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => handleSelect('Unfulfilled')}>
+                <Package className="mr-2 h-4 w-4" />
+                <span>Unfulfilled</span>
+            </DropdownMenuItem>
+             <DropdownMenuItem onSelect={() => handleSelect('Fulfilled')}>
+                <Truck className="mr-2 h-4 w-4" />
+                <span>Fulfilled</span>
+            </DropdownMenuItem>
+        </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
 
 const SourceIcon = ({ source }: { source: string }) => {
     if (source === 'whatsapp') {
@@ -291,7 +341,12 @@ export default function OrdersPage() {
                              <p className="text-sm text-muted-foreground">{order.orderNumber} &middot; {order.date}</p>
                              <div className="mt-2 flex gap-2 flex-wrap">
                                 <StatusBadge status={order.payment} />
-                                <StatusBadge status={order.shipping} />
+                                <ShippingStatusDropdown 
+                                    status={order.shipping as ShippingStatus}
+                                    orderNumber={order.orderNumber}
+                                    orderStatus={order.status as OrderStatus}
+                                    onStatusUpdate={handleUpdateStatus}
+                                />
                                 {order.status !== 'Processing' && <StatusBadge status={order.status} />}
                             </div>
                          </div>
