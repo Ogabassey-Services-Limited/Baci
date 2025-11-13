@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     };
   }
 
-  const storeUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+  const storeUrl = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.store';
 
   return {
     title: `${product.name} | Baci Store`,

@@ -8,7 +8,7 @@ const products = [
 ];
  
 export default function sitemap(): MetadataRoute.Sitemap {
-  const storeUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:9002';
+  const storeUrl = process.env.NEXT_PUBLIC_ROOT_DOMAIN ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` : 'http://localhost:3000';
 
   const productEntries: MetadataRoute.Sitemap = products.map((product) => ({
     url: `${storeUrl}/product/${product.id}`,

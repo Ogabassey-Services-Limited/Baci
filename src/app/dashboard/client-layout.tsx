@@ -71,8 +71,20 @@ export default function DashboardClientLayout({
   }, [user, authLoading, router]);
 
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
-  const storeUrl = merchant?.business_name ? `/storefront/${encodeURIComponent(merchant.business_name.toLowerCase().replace(/\s+/g, '-'))}` : '#';
   
+  const getStoreUrl = () => {
+    if (!merchant?.business_name) return '#';
+    const slug = merchant.business_name.toLowerCase().replace(/\s+/g, '-');
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.store';
+    const isLocal = typeof window !== 'undefined' && window.location.hostname.includes('localhost');
+    if (isLocal) {
+        return `http://${slug}.localhost:3000`;
+    }
+    return `https://${slug}.${rootDomain}`;
+  };
+
+  const storeUrl = getStoreUrl();
+
   const handleSignOut = async () => {
     await signOut();
     router.push('/login');
@@ -119,15 +131,6 @@ export default function DashboardClientLayout({
 
     const isReady = !merchantLoading && storeUrl !== '#';
 
-    const handleClick = () => {
-        if (isReady) {
-            console.log(`Navigating to store: ${storeUrl}`);
-            router.push(storeUrl);
-        } else {
-            console.log('Store URL not ready yet.');
-        }
-    };
-
     const linkContent = (
       <>
         {merchantLoading ? (
@@ -141,12 +144,16 @@ export default function DashboardClientLayout({
     );
 
     return (
-      <div
+       <Link
+        href={isReady ? storeUrl : '#'}
+        target="_blank"
+        rel="noopener noreferrer"
         className={cn(baseClassName, {
             'transition-all hover:text-primary cursor-pointer': isReady,
             'opacity-50 cursor-not-allowed': !isReady,
         })}
-        onClick={handleClick}
+        aria-disabled={!isReady}
+        onClick={(e) => !isReady && e.preventDefault()}
       >
         {isCollapsed && !isMobile ? (
              <TooltipProvider>
@@ -160,7 +167,7 @@ export default function DashboardClientLayout({
         ) : (
             linkContent
         )}
-      </div>
+      </Link>
     );
   };
   

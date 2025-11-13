@@ -73,12 +73,29 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
   
-  const storeUrl = merchant?.business_name ? `${merchant.business_name.toLowerCase().replace(/\s+/g, '-')}.baci.store` : '';
-  const fullStoreUrl = storeUrl ? `https://${storeUrl}` : '';
+  const getStoreUrl = () => {
+    if (!merchant?.business_name) return { displayUrl: '', fullUrl: '' };
+    const slug = merchant.business_name.toLowerCase().replace(/\s+/g, '-');
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.store';
+    const isLocal = typeof window !== 'undefined' && window.location.hostname.includes('localhost');
+    
+    if (isLocal) {
+        return {
+            displayUrl: `${slug}.localhost:3000`,
+            fullUrl: `http://${slug}.localhost:3000`
+        };
+    }
+    return {
+        displayUrl: `${slug}.${rootDomain}`,
+        fullUrl: `https://${slug}.${rootDomain}`
+    };
+  };
+
+  const { displayUrl, fullUrl } = getStoreUrl();
 
   const copyToClipboard = () => {
-    if (fullStoreUrl) {
-        navigator.clipboard.writeText(fullStoreUrl);
+    if (fullUrl) {
+        navigator.clipboard.writeText(fullUrl);
         toast({
         title: "Copied to clipboard!",
         description: "Your store URL is ready to be shared.",
@@ -144,7 +161,7 @@ export default function DashboardPage() {
       icon: FlaskConical,
       title: 'Run a test order',
       description: 'Make sure your checkout process is smooth for customers.',
-      href: '/',
+      href: fullUrl || '/',
       buttonText: 'Visit Store',
     },
   ];
@@ -153,17 +170,17 @@ export default function DashboardPage() {
     <>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Welcome, {merchant?.business_name || 'Merchant'}!</h1>
-         {merchant && storeUrl && (
+         {merchant && displayUrl && (
             <div className="flex items-center justify-between p-2 border rounded-lg bg-muted text-sm">
-                <Link href={fullStoreUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline px-2">
-                    {storeUrl}
+                <Link href={fullUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline px-2">
+                    {displayUrl}
                 </Link>
                 <div className="flex items-center gap-1">
                      <Button variant="ghost" size="icon" onClick={copyToClipboard} className="h-8 w-8">
                         <Copy className="w-4 h-4" />
                         <span className="sr-only">Copy URL</span>
                     </Button>
-                    <Link href={fullStoreUrl} target="_blank" rel="noopener noreferrer">
+                    <Link href={fullUrl} target="_blank" rel="noopener noreferrer">
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                             <ExternalLink className="w-4 h-4" />
                             <span className="sr-only">Open in new tab</span>
@@ -188,7 +205,7 @@ export default function DashboardPage() {
                   <p className="font-semibold">{task.title}</p>
                   <p className="text-sm text-muted-foreground">{task.description}</p>
                 </div>
-                <Link href={task.href}>
+                <Link href={task.href} target={task.href.startsWith('http') ? '_blank' : '_self'}>
                   <Button variant="outline">{task.buttonText}</Button>
                 </Link>
               </div>
