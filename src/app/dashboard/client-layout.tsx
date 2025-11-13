@@ -134,13 +134,30 @@ export default function DashboardClientLayout({
 
     const isReady = !merchantLoading && storeUrl !== '#';
 
+    if (!isReady) {
+        const loadingContent = (
+             <div className={cn(baseClassName, 'opacity-50 cursor-not-allowed')}>
+                <Loader2 className={cn('h-4 w-4 animate-spin', isMobile && 'h-5 w-5')} />
+                {!isCollapsed && !isMobile && 'Visit Store'}
+                {isMobile && 'Visit Store'}
+            </div>
+        );
+
+        return (
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                       {loadingContent}
+                    </TooltipTrigger>
+                    <TooltipContent side="right">Loading store...</TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+        );
+    }
+
     const linkContent = (
       <>
-        {merchantLoading ? (
-          <Loader2 className={cn('h-4 w-4 animate-spin', isMobile && 'h-5 w-5')} />
-        ) : (
-          <Store className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
-        )}
+        <Store className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
         {!isCollapsed && !isMobile && 'Visit Store'}
         {isMobile && 'Visit Store'}
       </>
@@ -148,15 +165,10 @@ export default function DashboardClientLayout({
 
     return (
        <Link
-        href={isReady ? storeUrl : '#'}
+        href={storeUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className={cn(baseClassName, {
-            'transition-all hover:text-primary cursor-pointer': isReady,
-            'opacity-50 cursor-not-allowed': !isReady,
-        })}
-        aria-disabled={!isReady}
-        onClick={(e) => !isReady && e.preventDefault()}
+        className={cn(baseClassName, 'transition-all hover:text-primary')}
       >
         {isCollapsed && !isMobile ? (
              <TooltipProvider>
