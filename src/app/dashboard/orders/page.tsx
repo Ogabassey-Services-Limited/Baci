@@ -10,12 +10,18 @@ import {
   RefreshCw,
   MoreVertical,
   AlertTriangle,
+  ShoppingCart,
+  DollarSign,
+  PackageCheck,
+  FileWarning,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -169,6 +175,46 @@ export default function OrdersPage() {
             </div>
         </div>
 
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card className="bg-green-50 border-green-200">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-green-800">Total Orders</CardTitle>
+                    <ShoppingCart className="h-5 w-5 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-green-900">5,957</div>
+                </CardContent>
+            </Card>
+            <Card className="bg-red-50 border-red-200">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-red-800">Amount Owed</CardTitle>
+                    <DollarSign className="h-5 w-5 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-red-900">{formatCurrency(478819634.52)}</div>
+                </CardContent>
+            </Card>
+            <Card className="bg-blue-50 border-blue-200">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-blue-800">Completed Orders</CardTitle>
+                    <PackageCheck className="h-5 w-5 text-blue-600" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-blue-900">2,768</div>
+                </CardContent>
+            </Card>
+            <Card className="bg-yellow-50 border-yellow-200">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-yellow-800">Unpaid Orders</CardTitle>
+                    <FileWarning className="h-5 w-5 text-yellow-600" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-yellow-900">422</div>
+                </CardContent>
+            </Card>
+        </div>
+
+
         <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -200,6 +246,8 @@ export default function OrdersPage() {
                 </Button>
             ))}
         </div>
+        
+        <h3 className="text-xl font-bold mt-4">Recent Orders</h3>
 
         <div className="flex-1 overflow-y-auto space-y-3 pb-4">
             {filteredOrders.map((order) => (
