@@ -51,7 +51,7 @@ export default function SettingsPage() {
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       business_name: '',
-      country: '',
+      country: 'NG', // Default to Nigeria
     },
   });
 
@@ -59,7 +59,7 @@ export default function SettingsPage() {
     if (merchant) {
       form.reset({
         business_name: merchant.business_name || '',
-        country: merchant.country || '',
+        country: merchant.country || 'NG',
       });
     }
   }, [merchant, form]);
