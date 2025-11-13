@@ -7,7 +7,7 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { KeyRound, Loader2, Mail } from 'lucide-react';
+import { KeyRound, Loader2, Mail, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -31,6 +31,7 @@ type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 export default function LoginPage() {
     const [mode, setMode] = useState<'login' | 'signup' | 'forgot-password'>('login');
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
     const supabase = createClient();
@@ -113,8 +114,8 @@ export default function LoginPage() {
         <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
             <div className="w-full max-w-sm">
                 <Card>
-                    <CardHeader className="text-center p-4">
-                        <div className="flex justify-center">
+                    <CardHeader className="text-center p-4 pt-6">
+                        <div className="flex justify-center mb-4">
                             <Link href="/">
                                 <Logo />
                             </Link>
@@ -185,7 +186,11 @@ export default function LoginPage() {
                                                 <FormControl>
                                                     <div className="relative">
                                                         <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                        <Input type="password" {...field} className="pl-10" id="password" name="password" autoComplete={mode === 'login' ? "current-password" : "new-password"} />
+                                                        <Input type={showPassword ? 'text' : 'password'} {...field} className="pl-10 pr-10" id="password" name="password" autoComplete={mode === 'login' ? "current-password" : "new-password"} />
+                                                        <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
+                                                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                            <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
+                                                        </Button>
                                                     </div>
                                                 </FormControl>
                                                 <FormMessage />
