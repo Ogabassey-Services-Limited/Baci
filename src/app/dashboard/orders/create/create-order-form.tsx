@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, FormProvider, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
-import { Loader2, PlusCircle, User, Mail, Calendar as CalendarIcon, ShoppingBag, DollarSign, CreditCard, Trash2, Search } from 'lucide-react';
+import { Loader2, PlusCircle, User, Mail, Calendar as CalendarIcon, ShoppingBag, DollarSign, CreditCard, Trash2, Search, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -19,6 +19,7 @@ import { useProductContext } from '@/contexts/product-context';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Product } from '@/lib/products';
+import { customers, Customer } from '@/lib/customers';
 import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem, CommandList } from '@/components/ui/command';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
@@ -49,6 +50,8 @@ export function CreateOrderForm() {
   const { merchant } = useMerchant();
   const [isSaving, setIsSaving] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
 
   const form = useForm<CreateOrderFormValues>({
     resolver: zodResolver(createOrderSchema),
@@ -76,6 +79,7 @@ export function CreateOrderForm() {
   };
 
   const filteredProducts = products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) && !fields.some(item => item.productId === p.id));
+  const filteredCustomers = customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()));
   const orderTotal = fields.reduce((total, item) => total + (item.price * item.quantity), 0);
 
   const addProductToOrder = (product: Product) => {
@@ -86,6 +90,13 @@ export function CreateOrderForm() {
         quantity: 1,
     });
     setProductSearch('');
+  }
+  
+  const selectCustomer = (customer: Customer) => {
+      form.setValue('customerName', customer.name);
+      form.setValue('customerEmail', customer.email);
+      setCustomerPopoverOpen(false);
+      setCustomerSearch('');
   }
 
   async function onSubmit(data: CreateOrderFormValues) {
@@ -113,7 +124,32 @@ export function CreateOrderForm() {
                 <FormField control={form.control} name="customerName" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Customer Name</FormLabel>
-                    <FormControl><div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input placeholder="John Doe" {...field} className="pl-10" /></div></FormControl>
+                     <Popover open={customerPopoverOpen} onOpenChange={setCustomerPopoverOpen}>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                                <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                                    <User className="mr-2 h-4 w-4 shrink-0" />
+                                    {field.value || "Select or type customer name"}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                            <Command>
+                                <CommandInput placeholder="Search customers..." value={customerSearch} onValueChange={setCustomerSearch} />
+                                <CommandList>
+                                    <CommandEmpty>No customer found.</CommandEmpty>
+                                    <CommandGroup>
+                                        {filteredCustomers.map(customer => (
+                                            <CommandItem key={customer.id} value={customer.name} onSelect={() => selectCustomer(customer)}>
+                                                {customer.name}
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                </CommandList>
+                            </Command>
+                        </PopoverContent>
+                     </Popover>
                     <FormMessage />
                   </FormItem>
                 )} />
