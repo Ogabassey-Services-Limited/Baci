@@ -55,7 +55,7 @@ const initialOrders = [
     orderNumber: '#06092',
     customerName: 'Arinze Ihemedu',
     total: 138000,
-    status: 'Processing',
+    status: 'Pending',
     payment: 'Paid',
     shipping: 'Unfulfilled',
     date: 'Nov 12, 2025',
@@ -400,3 +400,4 @@ export default function OrdersPage() {
     </div>
   );
 }
+
