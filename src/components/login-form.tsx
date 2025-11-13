@@ -190,11 +190,9 @@ export default function LoginForm() {
                                             <FormItem>
                                                 <div className="flex justify-between">
                                                     <FormLabel>Password</FormLabel>
-                                                    {mode === 'login' && (
-                                                        <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => setMode('forgot-password')}>
-                                                            Forgot Password?
-                                                        </Button>
-                                                    )}
+                                                    <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={() => setMode('forgot-password')}>
+                                                        Forgot Password?
+                                                    </Button>
                                                 </div>
                                                 <FormControl>
                                                     <div className="relative">
@@ -232,8 +230,7 @@ export default function LoginForm() {
                         </Button>
 
                         <p className="text-sm text-center text-muted-foreground mt-6">
-                            {mode === 'login' && "Don't have an account?"}
-                            {mode === 'forgot-password' && "Remembered your password?"}
+                            {mode === 'login' ? "Don't have an account?" : 'Remembered your password?'}
                             <Button asChild type="button" variant="link" className="px-1">
                                 <Link href={mode === 'login' ? "/onboarding" : "/login"}>
                                     {mode === 'login' ? 'Sign Up' : 'Sign In'}
