@@ -359,24 +359,15 @@ export default function OrdersPage() {
                          </div>
                          <div className="flex items-center gap-4 text-sm">
                             {order.status !== 'Processing' && (
-                                <div>
-                                    <span className="text-muted-foreground mr-2">Status:</span>
-                                    <StatusBadge status={order.status} />
-                                </div>
+                                <StatusBadge status={order.status} />
                             )}
-                            <div>
-                                <span className="text-muted-foreground mr-2">Payment:</span>
-                                <StatusBadge status={order.payment} />
-                            </div>
-                            <div>
-                                <span className="text-muted-foreground mr-2">Shipping:</span>
-                                <ShippingStatusDropdown 
-                                    status={order.shipping as ShippingStatus}
-                                    orderNumber={order.orderNumber}
-                                    orderStatus={order.status as OrderStatus}
-                                    onStatusUpdate={handleUpdateStatus}
-                                />
-                            </div>
+                            <StatusBadge status={order.payment} />
+                            <ShippingStatusDropdown 
+                                status={order.shipping as ShippingStatus}
+                                orderNumber={order.orderNumber}
+                                orderStatus={order.status as OrderStatus}
+                                onStatusUpdate={handleUpdateStatus}
+                            />
                          </div>
                          <div className="text-right">
                              <p className="font-bold text-lg">{formatCurrency(order.total)}</p>
