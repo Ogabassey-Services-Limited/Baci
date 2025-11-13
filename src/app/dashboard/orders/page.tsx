@@ -35,6 +35,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import Link from 'next/link';
 
 
 // Mock data for recent orders
@@ -137,7 +138,7 @@ export default function OrdersPage() {
   const formatCurrency = (amount: number) => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
     const locale = country ? `en-${country.code}` : 'en-US';
-    const currency = country ? country.currency : 'NGN';
+    const currency = country ? country.currency : 'USD';
     return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
   };
   
@@ -168,10 +169,12 @@ export default function OrdersPage() {
                 <RefreshCw className="h-4 w-4" />
                 <span className="sr-only">Refresh</span>
             </Button>
-            <Button size="icon" className="h-9 w-9">
-                <PlusCircle className="h-4 w-4" />
-                <span className="sr-only">Create Order</span>
-            </Button>
+            <Link href="/dashboard/orders/create">
+              <Button size="icon" className="h-9 w-9">
+                  <PlusCircle className="h-4 w-4" />
+                  <span className="sr-only">Create Order</span>
+              </Button>
+            </Link>
             </div>
         </div>
 
