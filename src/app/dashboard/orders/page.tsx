@@ -19,6 +19,13 @@ import {
   X,
   ChevronDown,
   CreditCard,
+  List,
+  Hourglass,
+  CircleDot,
+  Undo2,
+  AlertCircle as AlertCircleIcon,
+  Clock,
+  RotateCcw,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -262,9 +269,21 @@ export default function OrdersPage() {
     return paymentMatch && shippingMatch && searchMatch;
   });
 
-  const paymentStatuses: PaymentStatus[] = ['Paid', 'Unpaid', 'Pending', 'Partially Paid', 'Refunded'];
-  const shippingStatuses: ShippingStatus[] = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Canceled', 'Returned'];
-
+  const paymentStatuses: {name: PaymentStatus, icon: React.ElementType}[] = [
+    { name: 'Paid', icon: CheckCircle },
+    { name: 'Unpaid', icon: AlertCircleIcon },
+    { name: 'Pending', icon: Hourglass },
+    { name: 'Partially Paid', icon: CircleDot },
+    { name: 'Refunded', icon: Undo2 },
+  ];
+  const shippingStatuses: {name: ShippingStatus, icon: React.ElementType}[] = [
+    { name: 'Pending', icon: Clock },
+    { name: 'Processing', icon: RefreshCw },
+    { name: 'Shipped', icon: Truck },
+    { name: 'Delivered', icon: PackageCheck },
+    { name: 'Canceled', icon: X },
+    { name: 'Returned', icon: RotateCcw },
+  ];
   
   const handleSelectOrder = (orderNumber: string, isSelected: boolean) => {
     setSelectedOrders(prev => {
@@ -379,11 +398,15 @@ export default function OrdersPage() {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                     <DropdownMenuCheckboxItem checked={paymentFilter === 'All'} onCheckedChange={() => setPaymentFilter('All')}>All</DropdownMenuCheckboxItem>
+                     <DropdownMenuCheckboxItem checked={paymentFilter === 'All'} onCheckedChange={() => setPaymentFilter('All')}>
+                        <List className="mr-2 h-4 w-4" />
+                        All
+                     </DropdownMenuCheckboxItem>
                      <DropdownMenuSeparator />
                     {paymentStatuses.map(status => (
-                        <DropdownMenuCheckboxItem key={status} checked={paymentFilter === status} onCheckedChange={() => setPaymentFilter(status)}>
-                            {status}
+                        <DropdownMenuCheckboxItem key={status.name} checked={paymentFilter === status.name} onCheckedChange={() => setPaymentFilter(status.name)}>
+                            <status.icon className="mr-2 h-4 w-4" />
+                            {status.name}
                         </DropdownMenuCheckboxItem>
                     ))}
                 </DropdownMenuContent>
@@ -397,11 +420,15 @@ export default function OrdersPage() {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                     <DropdownMenuCheckboxItem checked={shippingFilter === 'All'} onCheckedChange={() => setShippingFilter('All')}>All</DropdownMenuCheckboxItem>
+                     <DropdownMenuCheckboxItem checked={shippingFilter === 'All'} onCheckedChange={() => setShippingFilter('All')}>
+                        <List className="mr-2 h-4 w-4" />
+                        All
+                     </DropdownMenuCheckboxItem>
                      <DropdownMenuSeparator />
                     {shippingStatuses.map(status => (
-                        <DropdownMenuCheckboxItem key={status} checked={shippingFilter === status} onCheckedChange={() => setShippingFilter(status)}>
-                            {status}
+                        <DropdownMenuCheckboxItem key={status.name} checked={shippingFilter === status.name} onCheckedChange={() => setShippingFilter(status.name)}>
+                            <status.icon className="mr-2 h-4 w-4" />
+                            {status.name}
                         </DropdownMenuCheckboxItem>
                     ))}
                 </DropdownMenuContent>
