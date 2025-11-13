@@ -73,13 +73,16 @@ export default function DashboardClientLayout({
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
   
   const getStoreUrl = () => {
-    if (!merchant?.business_name) return '#';
+    if (typeof window === 'undefined' || !merchant?.business_name) return '#';
     const slug = merchant.business_name.toLowerCase().replace(/\s+/g, '-');
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.store';
-    const isLocal = typeof window !== 'undefined' && window.location.hostname.includes('localhost');
+    const isLocal = window.location.hostname.includes('localhost');
+    
     if (isLocal) {
+        // For local development, construct the subdomain URL for localhost
         return `http://${slug}.localhost:3000`;
     }
+    // For production, use the root domain
     return `https://${slug}.${rootDomain}`;
   };
 
