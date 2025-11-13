@@ -9,14 +9,14 @@ import {
   Copy,
   ExternalLink,
   PlusCircle,
-  Settings,
-  Eye,
-  ShoppingCart,
   Wrench,
   FlaskConical,
   RefreshCw,
   Loader2,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
+import { useState } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -40,15 +40,45 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { getCountryByCode } from '@/lib/countries';
 import { useRouter } from 'next/navigation';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
-const chartData = [
-  { month: 'January', desktop: 186, mobile: 80 },
-  { month: 'February', desktop: 305, mobile: 200 },
-  { month: 'March', desktop: 237, mobile: 120 },
-  { month: 'April', desktop: 73, mobile: 190 },
-  { month: 'May', desktop: 209, mobile: 130 },
-  { month: 'June', desktop: 214, mobile: 140 },
+// --- Mock Data ---
+
+const monthlyChartData = [
+  { month: 'January', desktop: 18600, mobile: 8000 },
+  { month: 'February', desktop: 30500, mobile: 20000 },
+  { month: 'March', desktop: 23700, mobile: 12000 },
+  { month: 'April', desktop: 7300, mobile: 19000 },
+  { month: 'May', desktop: 20900, mobile: 13000 },
+  { month: 'June', desktop: 21400, mobile: 14000 },
 ];
+
+const weeklyChartData = [
+    { day: 'Sun', desktop: 2200, mobile: 1100 },
+    { day: 'Mon', desktop: 3100, mobile: 1900 },
+    { day: 'Tue', desktop: 2500, mobile: 1300 },
+    { day: 'Wed', desktop: 4200, mobile: 2100 },
+    { day: 'Thu', desktop: 1800, mobile: 900 },
+    { day: 'Fri', desktop: 3800, mobile: 2400 },
+    { day: 'Sat', desktop: 5100, mobile: 3200 },
+];
+
+
+const summaryData = {
+  monthly: {
+    revenue: { value: 45231.89, change: 20.1 },
+    customers: { value: 2350, change: 180.1 },
+    sales: { value: 12234, change: 19 },
+    activeNow: { value: 573, change: 201 },
+  },
+  weekly: {
+    revenue: { value: 11489.21, change: -5.2 },
+    customers: { value: 412, change: 12.3 },
+    sales: { value: 2891, change: -2.1 },
+    activeNow: { value: 573, change: 201 }, // Active now doesn't change with filter
+  },
+};
 
 const chartConfig = {
   desktop: {
@@ -69,10 +99,29 @@ const recentSales = [
     { id: 'p5', name: 'Sofia Davis', email: 'sofia.davis@email.com', amount: 39.00, avatar: 'avatar-5' },
 ];
 
+// --- Helper Component ---
+
+function PercentageChange({ value, timeFrame }: { value: number; timeFrame: 'weekly' | 'monthly' }) {
+    const isPositive = value >= 0;
+    const Icon = isPositive ? ArrowUp : ArrowDown;
+    return (
+        <p className={cn("text-xs flex items-center", isPositive ? "text-green-600" : "text-red-600")}>
+            <Icon className="h-3 w-3 mr-1" />
+            {isPositive ? '+' : ''}{value.toFixed(1)}% from last {timeFrame === 'weekly' ? 'week' : 'month'}
+        </p>
+    );
+}
+
+// --- Main Component ---
+
 export default function DashboardPage() {
   const { merchant, loading: merchantLoading } = useMerchant();
   const { toast } = useToast();
   const router = useRouter();
+  const [timeFrame, setTimeFrame] = useState<'monthly' | 'weekly'>('monthly');
+
+  const currentSummary = summaryData[timeFrame];
+  const currentChartData = timeFrame === 'monthly' ? monthlyChartData : weeklyChartData;
   
   const getStoreUrl = () => {
     if (!merchant?.business_name) return { displayUrl: '', fullUrl: '' };
@@ -224,6 +273,15 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+      
+      <div className="flex items-center mb-4">
+        <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as 'monthly' | 'weekly')}>
+            <TabsList>
+                <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                <TabsTrigger value="weekly">Weekly</TabsTrigger>
+            </TabsList>
+        </Tabs>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
         <Card className="border border-blue-200">
@@ -232,10 +290,8 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(45231.89)}</div>
-            <p className="text-xs text-muted-foreground">
-              +20.1% from last month
-            </p>
+            <div className="text-2xl font-bold">{formatCurrency(currentSummary.revenue.value)}</div>
+            <PercentageChange value={currentSummary.revenue.change} timeFrame={timeFrame} />
           </CardContent>
         </Card>
         <Card className="border border-blue-200">
@@ -244,10 +300,8 @@ export default function DashboardPage() {
             <Users className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+2350</div>
-            <p className="text-xs text-muted-foreground">
-              +180.1% from last month
-            </p>
+            <div className="text-2xl font-bold">+{currentSummary.customers.value}</div>
+            <PercentageChange value={currentSummary.customers.change} timeFrame={timeFrame} />
           </CardContent>
         </Card>
         <Card className="border border-blue-200">
@@ -256,10 +310,8 @@ export default function DashboardPage() {
             <CreditCard className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+12,234</div>
-            <p className="text-xs text-muted-foreground">
-              +19% from last month
-            </p>
+            <div className="text-2xl font-bold">+{currentSummary.sales.value}</div>
+            <PercentageChange value={currentSummary.sales.change} timeFrame={timeFrame} />
           </CardContent>
         </Card>
         <Card className="border border-blue-200">
@@ -268,24 +320,27 @@ export default function DashboardPage() {
             <Activity className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+573</div>
+            <div className="text-2xl font-bold">+{currentSummary.activeNow.value}</div>
             <p className="text-xs text-muted-foreground">
-              +201 since last hour
+              +{currentSummary.activeNow.change} since last hour
             </p>
           </CardContent>
         </Card>
       </div>
-      <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3 mt-8">
         <Card className="xl:col-span-2 border border-blue-200">
           <CardHeader>
             <CardTitle>Overview</CardTitle>
+             <CardDescription>
+                A summary of sales activity for this {timeFrame === 'weekly' ? 'week' : 'month'}.
+            </CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
             <ChartContainer config={chartConfig} className="h-[300px] w-full">
-              <BarChart accessibilityLayer data={chartData}>
+              <BarChart accessibilityLayer data={currentChartData}>
                 <CartesianGrid vertical={false} />
                 <XAxis
-                  dataKey="month"
+                  dataKey={timeFrame === 'monthly' ? "month" : "day"}
                   tickLine={false}
                   tickMargin={10}
                   axisLine={false}
@@ -369,3 +424,5 @@ export default function DashboardPage() {
     </>
   );
 }
+
+    
