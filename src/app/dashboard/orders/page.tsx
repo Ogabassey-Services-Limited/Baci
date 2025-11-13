@@ -56,7 +56,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 
 // Mock data for recent orders
-const initialOrders = [
+export const initialOrders = [
   {
     orderNumber: '#06092',
     customerName: 'Arinze Ihemedu',
@@ -125,7 +125,7 @@ const initialOrders = [
 type ShippingStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Canceled' | 'Returned';
 type PaymentStatus = 'Paid' | 'Unpaid' | 'Pending' | 'Partially Paid' | 'Refunded';
 
-const StatusBadge = ({ status, type }: { status: string, type: 'payment' | 'shipping' }) => {
+export const StatusBadge = ({ status, type }: { status: string, type: 'payment' | 'shipping' }) => {
     const paymentVariants: { [key: string]: string } = {
         Paid: 'bg-green-100 text-green-800 border-green-200',
         Unpaid: 'bg-red-100 text-red-800 border-red-200',
@@ -204,7 +204,7 @@ const StatusDropdown = ({
 };
 
 
-const SourceIcon = ({ source }: { source: string }) => {
+export const SourceIcon = ({ source }: { source: string }) => {
     if (source === 'whatsapp') {
         return <svg className="h-6 w-6 text-green-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.74.45 3.38 1.26 4.84l-1.33 4.85 4.97-1.3c1.4.78 2.98 1.21 4.61 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-5.46-4.45-9.91-9.91-9.91zM17.48 15.36c-.21.6-1.3 1.12-1.79 1.18-.49.06-1.04.06-1.57-.09-.53-.15-1.12-.34-1.84-1.1-1.02-1.08-1.7-2.35-1.93-2.76-.23-.41-.03-.63.18-.84.2-.21.41-.35.56-.53.15-.18.2-.3.15-.49-.06-.18-.53-1.27-.73-1.76s-.4-.41-.56-.41h-.48c-.18 0-.4.18-.56.41-.18.21-.69.69-.69 1.69s.71 1.97.81 2.12c.1.15 1.41 2.35 3.43 3.21.49.21.87.34 1.18.43.53.15.99.12 1.36-.03.44-.18.69-.81.79-1.53.1-.71.1-1.3-.03-1.48-.06-.18-.24-.27-.45-.45z"/></svg>;
     }
@@ -533,4 +533,4 @@ export default function OrdersPage() {
   );
 }
 
-
+    
