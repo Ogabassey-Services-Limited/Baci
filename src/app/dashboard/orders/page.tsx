@@ -292,7 +292,7 @@ export default function OrdersPage() {
                              <div className="mt-2 flex gap-2 flex-wrap">
                                 <StatusBadge status={order.payment} />
                                 <StatusBadge status={order.shipping} />
-                                <StatusBadge status={order.status} />
+                                {order.status !== 'Processing' && <StatusBadge status={order.status} />}
                             </div>
                          </div>
                          <div className="text-right">
