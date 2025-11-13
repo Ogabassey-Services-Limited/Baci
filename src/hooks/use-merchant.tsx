@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback, createContext, useContext, ReactNode 
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/auth-context';
-import { getMerchantData as getLocalMerchantData, MerchantData as LocalMerchantData } from '@/services/localMerchantService';
 
 // Supabase data structure
 export interface MerchantData {
@@ -29,14 +28,8 @@ export interface MerchantData {
   };
 }
 
-// Unified data structure
-interface UnifiedMerchantData extends Omit<LocalMerchantData, 'logo'> { // Omit logo to use logo_url
-    logo_url?: string;
-    user_id?: string; // Optional user_id from Supabase
-}
-
 interface MerchantContextType {
-  merchant: UnifiedMerchantData | null;
+  merchant: MerchantData | null;
   loading: boolean;
   updateMerchant: (data: Partial<MerchantData>) => Promise<void>;
   reloadMerchant: () => void;
@@ -49,37 +42,15 @@ interface MerchantProviderProps {
     slug?: string; // Optional slug for storefronts
 }
 
-// Helper to convert local data to the format our UI expects
-const adaptLocalData = (localData: LocalMerchantData): UnifiedMerchantData => {
-    return {
-        business_name: localData.businessName,
-        business_type: localData.businessType,
-        logo_url: localData.logo,
-        brand_colors: localData.colors,
-        country: localData.country,
-        pages: localData.pages,
-    };
-};
-
 export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
   const { user, loading: authLoading } = useAuth();
-  const [merchant, setMerchant] = useState<UnifiedMerchantData | null>(null);
+  const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [loading, setLoading] = useState(true);
   const supabase = createClient();
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // For the demo, we *always* prioritize local storage.
-      const localData = getLocalMerchantData();
-      if (localData) {
-        console.log("Loaded merchant data from local storage.");
-        setMerchant(adaptLocalData(localData));
-        setLoading(false);
-        return;
-      }
-
-      // Fallback to Supabase only if local storage is empty.
       let query = supabase.from('merchants').select('*');
 
       if (slug) {
@@ -87,15 +58,15 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
         query = query.ilike('business_name', businessName);
       } else {
         if (authLoading) {
-          console.log("Auth is loading, waiting to fetch merchant...");
-          return; // Wait for auth to settle
+          logger.info({ message: 'Auth is loading, waiting to fetch merchant...' });
+          return; 
         }
 
         const { data: { session } } = await supabase.auth.getSession();
         const currentUser = session?.user;
 
         if (!currentUser) {
-          console.log("No user session found, clearing merchant data.");
+          logger.warn({ message: 'No user session found, clearing merchant data.' });
           setMerchant(null);
           setLoading(false);
           return;
@@ -103,7 +74,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
         query = query.eq('user_id', currentUser.id);
       }
 
-      console.log("Querying Supabase for merchant data...");
+      logger.info({ message: 'Querying Supabase for merchant data...' });
       const { data, error } = await query.single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error here
@@ -111,10 +82,10 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       }
 
       if (data) {
-        console.log("Merchant data loaded from Supabase.", data);
+        logger.info({ message: 'Merchant data loaded from Supabase.', data });
         setMerchant(data as MerchantData);
       } else {
-        console.log("No merchant data found in Supabase.");
+        logger.warn({ message: 'No merchant data found in Supabase.' });
         setMerchant(null);
       }
     } catch (error) {
@@ -130,7 +101,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (!slug && (event === 'SIGNED_IN' || event === 'SIGNED_OUT')) {
-        console.log(`Auth state changed (${event}), reloading merchant data.`);
+        logger.info({ message: `Auth state changed (${event}), reloading merchant data.` });
         loadData();
       }
     });
@@ -146,11 +117,12 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
 
   const updateMerchant = useCallback(async (data: Partial<MerchantData>) => {
     if (!user) {
-      logger.error({ message: "Cannot update merchant data, no user logged in."});
-      return;
+      const errorMsg = "Cannot update merchant data, no user logged in.";
+      logger.error({ message: errorMsg });
+      throw new Error(errorMsg);
     }
 
-    console.log("Updating merchant data in Supabase...", data);
+    logger.info({ message: 'Updating merchant data in Supabase...', data });
     const { error } = await supabase
       .from('merchants')
       .update(data)
@@ -160,16 +132,8 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       logger.error({ message: "Failed to update merchant data", error });
       throw error;
     }
-
-    // Also update local storage to keep it in sync
-    const currentLocalData = getLocalMerchantData();
-    if (currentLocalData) {
-        // This part needs a proper service function, but for a quick fix:
-        const updatedLocalData = { ...currentLocalData, ...data };
-        localStorage.setItem('merchantData', JSON.stringify(updatedLocalData));
-    }
     
-    console.log("Merchant data updated, reloading.");
+    logger.info({ message: 'Merchant data updated, reloading.' });
     reloadMerchant();
   }, [user, supabase, reloadMerchant]);
 

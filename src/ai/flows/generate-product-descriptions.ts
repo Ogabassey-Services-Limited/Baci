@@ -16,8 +16,8 @@
  * - GenerateProductDescriptionOutput - Output type definition
  */
 
-import { GoogleGenAI } from '@google/genai';
-import { z } from 'zod';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
 import { getBusinessTypeById } from '@/config/business-types';
 import { logger } from '@/lib/logger';
 
@@ -33,13 +33,10 @@ const GenerateProductDescriptionOutputSchema = z.object({
 });
 export type GenerateProductDescriptionOutput = z.infer<typeof GenerateProductDescriptionOutputSchema>;
 
-export async function generateProductDescription(
+async function generateProductDescriptionFlow(
   input: GenerateProductDescriptionInput
 ): Promise<GenerateProductDescriptionOutput> {
   try {
-    const ai = new GoogleGenAI(process.env.GEMINI_API_KEY as string);
-    const model = ai.getGenerativeModel({ model: 'gemini-1.5-pro-preview' });
-
     const businessTypeConfig = getBusinessTypeById(input.businessType);
     const styleGuidance = businessTypeConfig
       ? businessTypeConfig.journey.productCreation.aiDescriptionStyle
@@ -61,9 +58,7 @@ BUSINESS CONTEXT: ${businessContext}
 
 Write a product description that is engaging, informative, and persuasive. Follow the style guidance to ensure the description matches the business type and target audience. Return only the description text, with no extra formatting or labels.`;
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+    const { text } = await ai.generate({ prompt });
 
     if (!text) {
       throw new Error('AI failed to generate a description.');
@@ -74,4 +69,10 @@ Write a product description that is engaging, informative, and persuasive. Follo
     logger.error({ message: 'Product description generation failed', error });
     throw new Error('Failed to generate product description.');
   }
+}
+
+export async function generateProductDescription(
+  input: GenerateProductDescriptionInput
+): Promise<GenerateProductDescriptionOutput> {
+    return generateProductDescriptionFlow(input);
 }

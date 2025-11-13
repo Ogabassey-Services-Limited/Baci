@@ -25,8 +25,8 @@
  * @see /docs/adr/001-business-type-journey-architecture.md for business type architecture
  */
 
-import { GoogleGenAI, HarmCategory, HarmBlockThreshold } from '@google/genai';
-import { z } from 'zod';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
 import { logger } from '@/lib/logger';
 import { getBusinessTypeById } from '@/config/business-types';
 
@@ -62,49 +62,11 @@ const GuideBusinessOnboardingOutputSchema = z.object({
 });
 export type GuideBusinessOnboardingOutput = z.infer<typeof GuideBusinessOnboardingOutputSchema>;
 
-const safetySettings = [
-  {
-    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-    threshold: HarmBlockThreshold.BLOCK_LOW_AND_ABOVE,
-  },
-  {
-    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-    threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-  },
-];
-
-/**
- * Main onboarding flow function - generates logo options or extracts colors.
- */
-export async function guideBusinessOnboarding(
-  input: GuideBusinessOnboardingInput
-): Promise<GuideBusinessOnboardingOutput> {
-    const ai = new GoogleGenAI(process.env.GEMINI_API_KEY as string);
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-flash", safetySettings });
-
-    if (input.task === 'extract_colors') {
-      if (!input.logoDataUri) {
-        throw new Error('logoDataUri is required for color extraction.');
-      }
-      logger.info({ message: 'Extracting colors from logo.', flow: 'guideBusinessOnboardingFlow' });
-
-      try {
-        const imagePart = {
-            inlineData: {
-                data: input.logoDataUri.split(',')[1],
-                mimeType: input.logoDataUri.split(';')[0].split(':')[1],
-            }
-        };
-        
-        const prompt = `You are a professional brand designer analyzing a logo image.
+const extractColorsPrompt = ai.definePrompt({
+    name: 'extractColorsPrompt',
+    input: { schema: z.object({ logoDataUri: z.string() }) },
+    output: { schema: BrandColorsSchema },
+    prompt: `You are a professional brand designer analyzing a logo image.
 
 TASK: Extract exactly 3 brand colors from this logo in hex format.
 
@@ -119,27 +81,27 @@ IMPORTANT:
 - If logo has black text, extract black hex code
 - Return colors as they appear in the logo, not imagined colors
 
-Return format (JSON only, no markdown):
-{"primary": "#XXXXXX", "secondary": "#XXXXXX", "accent": "#XXXXXX"}`;
+Return ONLY the JSON object with primary, secondary, and accent hex codes.`,
+});
 
-        const result = await model.generateContent([prompt, imagePart]);
-        const response = result.response;
-        const text = response.text();
+async function guideBusinessOnboardingFlow(
+  input: GuideBusinessOnboardingInput
+): Promise<GuideBusinessOnboardingOutput> {
+    if (input.task === 'extract_colors') {
+      if (!input.logoDataUri) {
+        throw new Error('logoDataUri is required for color extraction.');
+      }
+      logger.info({ message: 'Extracting colors from logo.', flow: 'guideBusinessOnboardingFlow' });
 
-        logger.info({ message: 'Raw AI response for color extraction', response: text });
-
-        const jsonText = text.trim().replace(/```json|```/g, '').trim();
-        if (!jsonText) {
-          throw new Error('AI did not return any text for color extraction.');
+      try {
+        const { output } = await extractColorsPrompt({ logoDataUri: input.logoDataUri });
+        
+        if (!output) {
+            throw new Error('AI failed to extract brand colors.');
         }
 
-        logger.info({ message: 'Cleaned JSON text for color extraction', jsonText });
-
-        const colors = JSON.parse(jsonText);
-        const validatedColors = BrandColorsSchema.parse(colors);
-
-        logger.info({ message: 'Colors extracted successfully', colors: validatedColors });
-        return { brandColors: validatedColors };
+        logger.info({ message: 'Colors extracted successfully', colors: output });
+        return { brandColors: output };
 
       } catch (error) {
         logger.error({ message: 'Color extraction failed', error });
@@ -162,13 +124,16 @@ LOGO STYLE GUIDANCE: ${logoStyle}
 The logos must be visually distinct but adhere to the same style guidance. They should be suitable for a modern e-commerce brand.
 Return 4 images. Do not return any text or JSON, only the raw image outputs.`;
 
-      const result = await model.generateContent([prompt]);
-      const response = result.response;
+      const { media } = await ai.generate({
+          prompt,
+          model: 'googleai/gemini-1.5-flash-image-preview',
+          config: { responseModalities: ['IMAGE'] },
+          output: {
+              format: 'media'
+          }
+      });
       
-      const logos: string[] = response.candidates
-        ?.flatMap(candidate => candidate.content.parts)
-        .filter(part => part.inlineData)
-        .map(part => `data:${part.inlineData!.mimeType};base64,${part.inlineData!.data}`) || [];
+      const logos = media.map(m => m.url);
 
       if (logos.length < 4) {
         const error = new Error('AI failed to generate 4 logo options.');
@@ -180,4 +145,10 @@ Return 4 images. Do not return any text or JSON, only the raw image outputs.`;
     }
     
     throw new Error('Invalid task provided to guideBusinessOnboardingFlow.');
+}
+
+export async function guideBusinessOnboarding(
+  input: GuideBusinessOnboardingInput
+): Promise<GuideBusinessOnboardingOutput> {
+    return guideBusinessOnboardingFlow(input);
 }

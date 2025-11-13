@@ -18,8 +18,8 @@
  * - EnhanceProductImageOutput - Output type definition
  */
 
-import { GoogleGenAI } from '@google/genai';
-import { z } from 'zod';
+import { ai } from '@/ai/genkit';
+import { z } from 'genkit';
 import { logger } from '@/lib/logger';
 
 const EnhanceProductImageInputSchema = z.object({
@@ -38,38 +38,35 @@ const EnhanceProductImageOutputSchema = z.object({
 });
 export type EnhanceProductImageOutput = z.infer<typeof EnhanceProductImageOutputSchema>;
 
-export async function enhanceProductImage(
+async function enhanceProductImageFlow(
   input: EnhanceProductImageInput
 ): Promise<EnhanceProductImageOutput> {
   try {
-    const ai = new GoogleGenAI(process.env.GEMINI_API_KEY as string);
-    const model = ai.getGenerativeModel({ model: "gemini-1.5-pro-preview" });
+    const { media } = await ai.generate({
+      model: 'googleai/gemini-1.5-flash-image-preview',
+      prompt: [
+        { text: 'The user has uploaded an image of a product for their e-commerce store. Your task is to professionally enhance this image. Isolate the main product by removing the background and making it transparent. Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out. Return only the enhanced image.' },
+        { media: { url: input.photoDataUri } }
+      ],
+      config: {
+        responseModalities: ['IMAGE'],
+      },
+    });
 
-    const imagePart = {
-        inlineData: {
-            data: input.photoDataUri.split(',')[1],
-            mimeType: input.photoDataUri.split(';')[0].split(':')[1],
-        }
-    }
-
-    const prompt = 'The user has uploaded an image of a product for their e-commerce store. Your task is to professionally enhance this image. Isolate the main product by removing the background and making it transparent. Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out. Return only the enhanced image.';
-    
-    const result = await model.generateContent([prompt, imagePart]);
-    const response = result.response;
-    
-    // Assuming the model returns the image in the first part of the response
-    const image = response.candidates?.[0]?.content.parts.find(part => part.inlineData);
-    
-    if (!image || !image.inlineData) {
+    if (!media?.url) {
         throw new Error('AI did not return an enhanced image.');
     }
 
-    const enhancedPhotoDataUri = `data:${image.inlineData.mimeType};base64,${image.inlineData.data}`;
-    
-    return { enhancedPhotoDataUri };
+    return { enhancedPhotoDataUri: media.url };
 
   } catch (error) {
     logger.error({ message: 'Image enhancement flow failed', error });
     throw new Error('Failed to enhance product image.');
   }
+}
+
+export async function enhanceProductImage(
+  input: EnhanceProductImageInput
+): Promise<EnhanceProductImageOutput> {
+    return enhanceProductImageFlow(input);
 }
