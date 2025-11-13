@@ -302,9 +302,9 @@ export default function OrdersPage() {
                 <span className="sr-only">Refresh</span>
             </Button>
             <Link href="/dashboard/orders/create">
-              <Button size="icon" className="h-9 w-9">
+              <Button size="sm" className="h-9 gap-1">
                   <PlusCircle className="h-4 w-4" />
-                  <span className="sr-only">Create Order</span>
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Create Order</span>
               </Button>
             </Link>
             </div>
@@ -381,14 +381,14 @@ export default function OrdersPage() {
         
         <Card>
             <CardHeader className="px-4 pt-4 pb-0">
-                <div className="flex items-center justify-between">
+                 <div className="flex items-center justify-between">
                     <h3 className="text-xl font-bold">Recent Orders</h3>
                     <div className="flex items-center gap-2">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm" className="h-8 gap-1">
                                     <Filter className="h-3.5 w-3.5" />
-                                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Filter</span>
+                                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">View</span>
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -434,11 +434,12 @@ export default function OrdersPage() {
                 <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-4">
                     {filteredOrders.map((order) => (
                         <Card key={order.orderNumber} className="transition-shadow hover:shadow-md">
-                            <CardContent className="p-4 flex items-center gap-4">
+                            <CardContent className="p-4 flex items-start gap-4">
                                 <Checkbox 
                                     onCheckedChange={(checked) => handleSelectOrder(order.orderNumber, checked as boolean)}
                                     checked={selectedOrders.has(order.orderNumber)}
                                     aria-label={`Select order ${order.orderNumber}`}
+                                    className="mt-1"
                                 />
                                  <div className="flex-shrink-0 mt-1">
                                      <SourceIcon source={order.source} />
