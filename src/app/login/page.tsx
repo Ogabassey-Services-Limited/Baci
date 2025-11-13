@@ -112,13 +112,13 @@ export default function LoginPage() {
     return (
         <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
             <div className="w-full max-w-sm">
-                <div className="flex justify-center mb-4">
-                    <Link href="/">
-                        <Logo />
-                    </Link>
-                </div>
                 <Card>
                     <CardHeader className="text-center">
+                        <div className="flex justify-center mb-4">
+                            <Link href="/">
+                                <Logo />
+                            </Link>
+                        </div>
                         <CardTitle>{getTitle()}</CardTitle>
                         <CardDescription>
                            {getDescription()}
