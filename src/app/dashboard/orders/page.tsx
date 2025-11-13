@@ -40,6 +40,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
+  DropdownMenuSubContent
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -110,6 +114,7 @@ const initialOrders = [
 ];
 
 type OrderStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Canceled';
+type PaymentStatus = 'Paid' | 'Unpaid' | 'Pending';
 type ShippingStatus = 'Unfulfilled' | 'Fulfilled';
 
 const StatusBadge = ({ status }: { status: string }) => {
@@ -208,6 +213,18 @@ export default function OrdersPage() {
     toast({
       title: `Order ${newStatus}`,
       description: `Order ${orderNumber} has been updated. The customer will be notified.`,
+    });
+  };
+  
+  const handleUpdatePayment = (orderNumber: string, newPayment: PaymentStatus) => {
+    setOrders(currentOrders =>
+      currentOrders.map(order =>
+        order.orderNumber === orderNumber ? { ...order, payment: newPayment } : order
+      )
+    );
+    toast({
+      title: `Payment status updated`,
+      description: `Order ${orderNumber} payment status set to ${newPayment}.`,
     });
   };
 
@@ -339,16 +356,37 @@ export default function OrdersPage() {
                          <div className="flex-1">
                              <p className="font-semibold">{order.customerName}</p>
                              <p className="text-sm text-muted-foreground">{order.orderNumber} &middot; {order.date}</p>
-                             <div className="mt-2 flex gap-2 flex-wrap">
-                                <StatusBadge status={order.payment} />
-                                <ShippingStatusDropdown 
-                                    status={order.shipping as ShippingStatus}
-                                    orderNumber={order.orderNumber}
-                                    orderStatus={order.status as OrderStatus}
-                                    onStatusUpdate={handleUpdateStatus}
-                                />
-                                {order.status !== 'Processing' && <StatusBadge status={order.status} />}
-                            </div>
+                         </div>
+                         <div className="flex items-center gap-2">
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="flex items-center gap-2">
+                                        <span>Status</span>
+                                        <ChevronDown className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent>
+                                    <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger>Payment: <StatusBadge status={order.payment} /></DropdownMenuSubTrigger>
+                                        <DropdownMenuPortal>
+                                            <DropdownMenuSubContent>
+                                                <DropdownMenuItem onSelect={() => handleUpdatePayment(order.orderNumber, 'Paid')}>Paid</DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => handleUpdatePayment(order.orderNumber, 'Unpaid')}>Unpaid</DropdownMenuItem>
+                                                <DropdownMenuItem onSelect={() => handleUpdatePayment(order.orderNumber, 'Pending')}>Pending</DropdownMenuItem>
+                                            </DropdownMenuSubContent>
+                                        </DropdownMenuPortal>
+                                    </DropdownMenuSub>
+                                     <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger>Shipping: <ShippingStatusDropdown 
+                                            status={order.shipping as ShippingStatus}
+                                            orderNumber={order.orderNumber}
+                                            orderStatus={order.status as OrderStatus}
+                                            onStatusUpdate={handleUpdateStatus}
+                                        /></DropdownMenuSubTrigger>
+                                     </DropdownMenuSub>
+                                    {order.status !== 'Processing' && <DropdownMenuItem disabled><StatusBadge status={order.status} /></DropdownMenuItem>}
+                                </DropdownMenuContent>
+                             </DropdownMenu>
                          </div>
                          <div className="text-right">
                              <p className="font-bold text-lg">{formatCurrency(order.total)}</p>
