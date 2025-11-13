@@ -122,62 +122,65 @@ const StatusBadge = ({ status }: { status: string }) => {
         Paid: 'default',
         Unpaid: 'destructive',
         Pending: 'outline',
-        Unfulfilled: 'outline',
-        Fulfilled: 'default',
+        Processing: 'outline',
+        Shipped: 'default',
+        Delivered: 'default',
     };
     const variant = variants[status] || 'secondary';
 
     return <Badge variant={variant} className={cn('capitalize', {
-        'bg-blue-100 text-blue-800 border-blue-200': status === 'Paid' || status === 'Fulfilled' || status === 'Delivered' || status === 'Processing' || status === 'Shipped',
+        'bg-green-100 text-green-800 border-green-200': status === 'Paid' || status === 'Delivered',
         'bg-red-100 text-red-800 border-red-200': status === 'Unpaid' || status === 'Canceled',
-        'bg-yellow-100 text-yellow-800 border-yellow-200': status === 'Pending' || status === 'Unfulfilled',
+        'bg-yellow-100 text-yellow-800 border-yellow-200': status === 'Pending' || status === 'Processing',
+        'bg-blue-100 text-blue-800 border-blue-200': status === 'Shipped'
     })}>{status}</Badge>;
 };
 
-const ShippingStatusDropdown = ({
-  status,
-  orderNumber,
-  orderStatus,
+
+const StatusDropdown = ({
+  order,
   onStatusUpdate
 }: {
-  status: ShippingStatus;
-  orderNumber: string;
-  orderStatus: OrderStatus;
-  onStatusUpdate: (orderNumber: string, newStatus: OrderStatus, newShipping: ShippingStatus) => void;
+  order: (typeof initialOrders)[0],
+  onStatusUpdate: (orderNumber: string, newStatus: OrderStatus) => void;
 }) => {
-
-  const handleSelect = (newShippingStatus: ShippingStatus) => {
-    let newOrderStatus: OrderStatus = orderStatus;
-    if (newShippingStatus === 'Fulfilled' && (orderStatus === 'Processing' || orderStatus === 'Pending')) {
-        newOrderStatus = 'Shipped';
-    }
-    onStatusUpdate(orderNumber, newOrderStatus, newShippingStatus);
-  };
+  const { status } = order;
 
   return (
     <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-            <Badge
-                variant={status === 'Fulfilled' ? 'default' : 'outline'}
-                className={cn('capitalize cursor-pointer flex items-center gap-1', {
-                    'bg-blue-100 text-blue-800 border-blue-200': status === 'Fulfilled',
-                    'bg-yellow-100 text-yellow-800 border-yellow-200': status === 'Unfulfilled',
-                })}
-                >
-                {status}
-                <ChevronDown className="h-3 w-3" />
-            </Badge>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => handleSelect('Unfulfilled')}>
-                <Package className="mr-2 h-4 w-4" />
-                <span>Unfulfilled</span>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="flex items-center gap-2 capitalize">
+            <StatusBadge status={status} />
+            <ChevronDown className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {status === 'Pending' && (
+          <DropdownMenuItem onSelect={() => onStatusUpdate(order.orderNumber, 'Processing')}>
+            <CheckCircle className="mr-2 h-4 w-4" />
+            <span>Confirm Order</span>
+          </DropdownMenuItem>
+        )}
+        {status === 'Processing' && (
+          <DropdownMenuItem onSelect={() => onStatusUpdate(order.orderNumber, 'Shipped')}>
+            <Truck className="mr-2 h-4 w-4" />
+            <span>Ship Order</span>
+          </DropdownMenuItem>
+        )}
+        {status === 'Shipped' && (
+          <DropdownMenuItem onSelect={() => onStatusUpdate(order.orderNumber, 'Delivered')}>
+            <PackageCheck className="mr-2 h-4 w-4" />
+            <span>Mark as Delivered</span>
+          </DropdownMenuItem>
+        )}
+        {(status === 'Pending' || status === 'Processing') && (
+            <DropdownMenuItem onSelect={() => onStatusUpdate(order.orderNumber, 'Canceled')} className="text-red-600 focus:text-red-600 focus:bg-red-50">
+                <X className="mr-2 h-4 w-4" />
+                <span>Cancel Order</span>
             </DropdownMenuItem>
-             <DropdownMenuItem onSelect={() => handleSelect('Fulfilled')}>
-                <Truck className="mr-2 h-4 w-4" />
-                <span>Fulfilled</span>
-            </DropdownMenuItem>
-        </DropdownMenuContent>
+        )}
+         {(status === 'Delivered' || status === 'Canceled') && <DropdownMenuItem disabled>No actions available</DropdownMenuItem>}
+      </DropdownMenuContent>
     </DropdownMenu>
   );
 };
@@ -202,7 +205,15 @@ export default function OrdersPage() {
   const [showAlert, setShowAlert] = useState(true);
 
 
-  const handleUpdateStatus = (orderNumber: string, newStatus: OrderStatus, newShippingStatus?: ShippingStatus) => {
+  const handleUpdateStatus = (orderNumber: string, newStatus: OrderStatus) => {
+    let newShippingStatus: ShippingStatus | undefined = undefined;
+    if (newStatus === 'Shipped' || newStatus === 'Delivered') {
+        newShippingStatus = 'Fulfilled';
+    }
+     if (newStatus === 'Canceled' || newStatus === 'Pending' || newStatus === 'Processing') {
+        newShippingStatus = 'Unfulfilled';
+    }
+
     setOrders(currentOrders =>
       currentOrders.map(order =>
         order.orderNumber === orderNumber
@@ -358,14 +369,9 @@ export default function OrdersPage() {
                              <p className="text-sm text-muted-foreground">{order.orderNumber} &middot; {order.date}</p>
                          </div>
                          <div className="flex items-center gap-4 text-sm">
-                            {order.status !== 'Processing' && (
-                                <StatusBadge status={order.status} />
-                            )}
                             <StatusBadge status={order.payment} />
-                            <ShippingStatusDropdown 
-                                status={order.shipping as ShippingStatus}
-                                orderNumber={order.orderNumber}
-                                orderStatus={order.status as OrderStatus}
+                            <StatusDropdown 
+                                order={order}
                                 onStatusUpdate={handleUpdateStatus}
                             />
                          </div>
@@ -382,25 +388,6 @@ export default function OrdersPage() {
                                 <DropdownMenuContent align="end">
                                     <DropdownMenuItem>View Details</DropdownMenuItem>
                                     <DropdownMenuItem>Contact Customer</DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                     {order.status === 'Pending' && (
-                                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.orderNumber, 'Processing')}>
-                                            <CheckCircle className="mr-2 h-4 w-4" />
-                                            <span>Confirm Order</span>
-                                        </DropdownMenuItem>
-                                    )}
-                                     {order.status === 'Processing' && (
-                                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.orderNumber, 'Shipped', 'Fulfilled')}>
-                                            <Truck className="mr-2 h-4 w-4" />
-                                            <span>Ship Order</span>
-                                        </DropdownMenuItem>
-                                    )}
-                                    {order.status === 'Shipped' && (
-                                        <DropdownMenuItem onClick={() => handleUpdateStatus(order.orderNumber, 'Delivered')}>
-                                            <PackageCheck className="mr-2 h-4 w-4" />
-                                            <span>Mark as Delivered</span>
-                                        </DropdownMenuItem>
-                                    )}
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem>Print Invoice</DropdownMenuItem>
                                 </DropdownMenuContent>
