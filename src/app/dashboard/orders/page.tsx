@@ -163,7 +163,11 @@ export default function OrdersPage() {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
     const locale = country ? `en-${country.code}` : 'en-US';
     const currency = country ? country.currency : 'USD';
-    return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+      currencyDisplay: 'symbol',
+    }).format(amount);
   };
   
   const filteredOrders = orders.filter(order => {
@@ -327,3 +331,5 @@ export default function OrdersPage() {
     </div>
   );
 }
+
+    
