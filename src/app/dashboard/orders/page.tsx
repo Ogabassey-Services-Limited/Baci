@@ -131,7 +131,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     };
     const variant = variants[status] || 'secondary';
 
-    return <Badge variant={variant} className={cn('capitalize', {
+    return <Badge variant={variant} className={cn('capitalize justify-center', {
         'bg-green-100 text-green-800 border-green-200': status === 'Paid' || status === 'Delivered',
         'bg-red-100 text-red-800 border-red-200': status === 'Unpaid' || status === 'Canceled',
         'bg-yellow-100 text-yellow-800 border-yellow-200': status === 'Pending' || status === 'Processing',
@@ -152,7 +152,7 @@ const StatusDropdown = ({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="flex items-center gap-2 capitalize">
+        <Button variant="outline" size="sm" className="flex items-center gap-2 capitalize w-full justify-between">
             <StatusBadge status={status} />
             <ChevronDown className="h-4 w-4" />
         </Button>
@@ -261,7 +261,7 @@ export default function OrdersPage() {
     return filterMatch && searchMatch;
   });
 
-  const filterButtons = ['All', 'Paid', 'Unpaid', 'Pending'];
+  const filterButtons = ['All', 'Paid', 'Unpaid', 'Pending', 'Processing', 'Shipped', 'Delivered', 'Canceled'];
   
   const handleSelectOrder = (orderNumber: string, isSelected: boolean) => {
     setSelectedOrders(prev => {
@@ -366,13 +366,13 @@ export default function OrdersPage() {
             </Alert>
         )}
         
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
             {filterButtons.map(btnFilter => (
                 <Button 
                     key={btnFilter}
                     variant={filter === btnFilter ? 'default' : 'outline'}
                     onClick={() => setFilter(btnFilter)}
-                    className={cn(filter === btnFilter && 'bg-primary hover:bg-primary/90 text-primary-foreground')}
+                    className={cn('shrink-0', filter === btnFilter && 'bg-primary hover:bg-primary/90 text-primary-foreground')}
                 >
                     {btnFilter}
                 </Button>
@@ -384,22 +384,6 @@ export default function OrdersPage() {
                  <div className="flex items-center justify-between">
                     <h3 className="text-xl font-bold">Recent Orders</h3>
                     <div className="flex items-center gap-2">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-8 gap-1">
-                                    <Filter className="h-3.5 w-3.5" />
-                                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">View</span>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuCheckboxItem checked>Pending</DropdownMenuCheckboxItem>
-                                <DropdownMenuCheckboxItem>Processing</DropdownMenuCheckboxItem>
-                                <DropdownMenuCheckboxItem>Shipped</DropdownMenuCheckboxItem>
-                                <DropdownMenuCheckboxItem>Delivered</DropdownMenuCheckboxItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" size="sm" className="h-8 gap-1" disabled={selectedOrders.size === 0}>
@@ -434,7 +418,7 @@ export default function OrdersPage() {
                 <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-4">
                     {filteredOrders.map((order) => (
                         <Card key={order.orderNumber} className="transition-shadow hover:shadow-md">
-                            <CardContent className="p-4 flex items-start gap-4">
+                            <CardContent className="p-4 flex items-center gap-4">
                                 <Checkbox 
                                     onCheckedChange={(checked) => handleSelectOrder(order.orderNumber, checked as boolean)}
                                     checked={selectedOrders.has(order.orderNumber)}
@@ -448,12 +432,16 @@ export default function OrdersPage() {
                                      <p className="font-semibold">{order.customerName}</p>
                                      <p className="text-sm text-muted-foreground">{order.orderNumber} &middot; {order.date}</p>
                                  </div>
-                                 <div className="flex items-center gap-4 text-sm">
-                                    <StatusBadge status={order.payment} />
-                                    <StatusDropdown 
-                                        order={order}
-                                        onStatusUpdate={handleUpdateStatus}
-                                    />
+                                 <div className="flex items-center justify-end gap-4 text-sm w-[280px]">
+                                    <div className="w-[110px] text-center">
+                                      <StatusBadge status={order.payment} />
+                                    </div>
+                                    <div className="w-[140px]">
+                                      <StatusDropdown 
+                                          order={order}
+                                          onStatusUpdate={handleUpdateStatus}
+                                      />
+                                    </div>
                                  </div>
                                  <div className="text-right w-28">
                                      <p className="font-bold text-lg">{formatCurrency(order.total)}</p>
