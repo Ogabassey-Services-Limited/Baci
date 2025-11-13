@@ -43,10 +43,13 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuPortal,
-  DropdownMenuSubContent
+  DropdownMenuSubContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 // Mock data for recent orders
@@ -203,7 +206,7 @@ export default function OrdersPage() {
   const { toast } = useToast();
   const [orders, setOrders] = useState(initialOrders);
   const [showAlert, setShowAlert] = useState(true);
-
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
 
   const handleUpdateStatus = (orderNumber: string, newStatus: OrderStatus) => {
     let newShippingStatus: ShippingStatus | undefined = undefined;
@@ -259,6 +262,27 @@ export default function OrdersPage() {
   });
 
   const filterButtons = ['All', 'Paid', 'Unpaid', 'Pending'];
+  
+  const handleSelectOrder = (orderNumber: string, isSelected: boolean) => {
+    setSelectedOrders(prev => {
+        const newSelection = new Set(prev);
+        if (isSelected) {
+            newSelection.add(orderNumber);
+        } else {
+            newSelection.delete(orderNumber);
+        }
+        return newSelection;
+    });
+  };
+  
+  const handleSelectAll = (isSelected: boolean) => {
+      if (isSelected) {
+          setSelectedOrders(new Set(filteredOrders.map(o => o.orderNumber)));
+      } else {
+          setSelectedOrders(new Set());
+      }
+  }
+
 
   if (loading) {
     return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -270,8 +294,8 @@ export default function OrdersPage() {
             <h1 className="text-2xl font-bold">Orders 📦</h1>
             <div className="flex items-center gap-2">
             <Button size="icon" variant="outline" className="h-9 w-9">
-                <Filter className="h-4 w-4" />
-                <span className="sr-only">Filter</span>
+                <File className="h-4 w-4" />
+                <span className="sr-only">Export</span>
             </Button>
             <Button size="icon" variant="outline" className="h-9 w-9">
                 <RefreshCw className="h-4 w-4" />
@@ -355,49 +379,104 @@ export default function OrdersPage() {
             ))}
         </div>
         
-        <h3 className="text-xl font-bold mt-4">Recent Orders</h3>
-
-        <div className="flex-1 overflow-y-auto space-y-3 pb-4">
-            {filteredOrders.map((order) => (
-                <Card key={order.orderNumber} className="transition-shadow hover:shadow-md">
-                    <CardContent className="p-4 flex items-start gap-4">
-                         <div className="flex-shrink-0 mt-1">
-                             <SourceIcon source={order.source} />
-                         </div>
-                         <div className="flex-1">
-                             <p className="font-semibold">{order.customerName}</p>
-                             <p className="text-sm text-muted-foreground">{order.orderNumber} &middot; {order.date}</p>
-                         </div>
-                         <div className="flex items-center gap-4 text-sm">
-                            <StatusBadge status={order.payment} />
-                            <StatusDropdown 
-                                order={order}
-                                onStatusUpdate={handleUpdateStatus}
-                            />
-                         </div>
-                         <div className="text-right">
-                             <p className="font-bold text-lg">{formatCurrency(order.total)}</p>
-                         </div>
-                         <div className="flex-shrink-0 -mr-2">
-                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        <MoreVertical className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem>View Details</DropdownMenuItem>
-                                    <DropdownMenuItem>Contact Customer</DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem>Print Invoice</DropdownMenuItem>
-                                </DropdownMenuContent>
-                             </DropdownMenu>
-                         </div>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
+        <Card>
+            <CardHeader className="px-4 pt-4 pb-0">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-bold">Recent Orders</h3>
+                    <div className="flex items-center gap-2">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-8 gap-1">
+                                    <Filter className="h-3.5 w-3.5" />
+                                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Filter</span>
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuCheckboxItem checked>Fulfilled</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem>Unfulfilled</DropdownMenuCheckboxItem>
+                                <DropdownMenuCheckboxItem>Refunded</DropdownMenuCheckboxItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                         <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-8 gap-1" disabled={selectedOrders.size === 0}>
+                                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Bulk Actions</span>
+                                    <ChevronDown className="h-3.5 w-3.5" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem>Mark as Paid</DropdownMenuItem>
+                                <DropdownMenuItem>Mark as Unpaid</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>Fulfill Orders</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-red-600">Delete Selected</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                </div>
+                 <div className="flex items-center gap-2 py-4">
+                    <Checkbox 
+                        id="select-all" 
+                        onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+                        checked={selectedOrders.size > 0 && selectedOrders.size === filteredOrders.length}
+                        aria-label="Select all orders"
+                    />
+                    <label htmlFor="select-all" className="text-sm font-medium">
+                        Select All
+                    </label>
+                </div>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-4">
+                    {filteredOrders.map((order) => (
+                        <Card key={order.orderNumber} className="transition-shadow hover:shadow-md">
+                            <CardContent className="p-4 flex items-center gap-4">
+                                <Checkbox 
+                                    onCheckedChange={(checked) => handleSelectOrder(order.orderNumber, checked as boolean)}
+                                    checked={selectedOrders.has(order.orderNumber)}
+                                    aria-label={`Select order ${order.orderNumber}`}
+                                />
+                                 <div className="flex-shrink-0 mt-1">
+                                     <SourceIcon source={order.source} />
+                                 </div>
+                                 <div className="flex-1">
+                                     <p className="font-semibold">{order.customerName}</p>
+                                     <p className="text-sm text-muted-foreground">{order.orderNumber} &middot; {order.date}</p>
+                                 </div>
+                                 <div className="flex items-center gap-4 text-sm">
+                                    <StatusBadge status={order.payment} />
+                                    <StatusDropdown 
+                                        order={order}
+                                        onStatusUpdate={handleUpdateStatus}
+                                    />
+                                 </div>
+                                 <div className="text-right w-28">
+                                     <p className="font-bold text-lg">{formatCurrency(order.total)}</p>
+                                 </div>
+                                 <div className="flex-shrink-0 -mr-2">
+                                     <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem>View Details</DropdownMenuItem>
+                                            <DropdownMenuItem>Contact Customer</DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem>Print Invoice</DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                     </DropdownMenu>
+                                 </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
     </div>
   );
 }
-
