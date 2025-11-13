@@ -391,7 +391,7 @@ export default function OrdersPage() {
         
         <div className="flex gap-2 items-center text-sm text-muted-foreground">
             <div className="flex gap-2 items-center">
-              <ListFilter className="h-4 w-4" />
+              <ListFilter className="h-4 w-4 text-blue-800" />
             </div>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -532,4 +532,5 @@ export default function OrdersPage() {
     </div>
   );
 }
+
 
