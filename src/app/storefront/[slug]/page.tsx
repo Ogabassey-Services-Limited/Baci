@@ -1,7 +1,6 @@
 
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { ThemedButton, ThemedCard, ThemedBadge, ThemedLink } from '@/components/themed';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
@@ -21,9 +20,10 @@ import { useToast } from '@/hooks/use-toast';
 import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
+import { Button } from '@/components/ui/button';
 
-function Storefront() {
-  const { merchant, loading } = useMerchant();
+function StorefrontContent() {
+  const { merchant } = useMerchant();
   const [searchQuery, setSearchQuery] = useState('');
   const { cart, cartCount, addToCart, updateQuantity } = useCart();
   const { toast } = useToast();
@@ -53,33 +53,8 @@ function Storefront() {
     }
     return fuse.search(searchQuery).map(result => result.item).filter(p => p.status === 'active');
   }, [searchQuery, fuse]);
-
-  if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!merchant) {
-    return (
-        <div className="flex flex-col min-h-screen items-center justify-center bg-background text-center px-4">
-            <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl">Store Not Found</h1>
-            <p className="max-w-[600px] text-muted-foreground md:text-xl mt-4">We couldn't find a store at this address. Please check the URL and try again.</p>
-            <Button asChild className="mt-8">
-                <Link href="/">Return to Baci Home</Link>
-            </Button>
-        </div>
-    );
-  }
-
-  const businessTypeConfig = getBusinessTypeById(merchant.business_type);
-  const StoreTemplate = businessTypeConfig?.template;
   
-  if (!StoreTemplate) {
-      return <div>Error: Store template not found for business type '{merchant.business_type}'.</div>
-  }
+  if (!merchant) return null; // Should be handled by parent
 
   const formatCurrency = (amount: number) => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
@@ -106,9 +81,8 @@ function Storefront() {
   const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.secondary, merchant.brand_colors.accent] : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors);
 
-
   return (
-     <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen">
       <Sheet>
        <header className="px-4 lg:px-6 h-16 flex items-center gap-4 shadow-sm bg-card">
          <div className="flex items-center gap-2 font-semibold">
@@ -148,84 +122,80 @@ function Storefront() {
       </header>
 
       <main className="flex-1">
-        {/* Render the appropriate template */}
-        <StoreTemplate>
-            <section className="w-full py-12 md:py-24 lg:py-32">
-                <div className="container px-4 md:px-6">
-                    <div className="flex flex-col items-center space-y-4 text-center">
-                        <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl" style={{ color: 'var(--store-primary)' }}>
-                            Welcome to {merchant.business_name}
-                        </h1>
-                        <p className="max-w-[700px] text-muted-foreground md:text-xl">
-                            Your one-stop shop for the best {merchant.business_type} products.
-                        </p>
-                    </div>
+        <section className="w-full py-12 md:py-24 lg:py-32">
+            <div className="container px-4 md:px-6">
+                <div className="flex flex-col items-center space-y-4 text-center">
+                    <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl" style={{ color: 'var(--store-primary)' }}>
+                        Welcome to {merchant.business_name}
+                    </h1>
+                    <p className="max-w-[700px] text-muted-foreground md:text-xl">
+                        Your one-stop shop for the best {merchant.business_type} products.
+                    </p>
                 </div>
-            </section>
-            
-            <section className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
-                <div className="container px-4 md:px-6">
-                    <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10" style={{ color: darkestColor }}>Our Products</h2>
-                    {searchResults.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                          {searchResults.map((product, index) => {
-                              const cartItem = cart.find(item => item.id === product.id);
+            </div>
+        </section>
+        
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
+            <div className="container px-4 md:px-6">
+                <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10" style={{ color: darkestColor }}>Our Products</h2>
+                {searchResults.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                      {searchResults.map((product, index) => {
+                          const cartItem = cart.find(item => item.id === product.id);
 
-                              return (
-                                <ThemedCard key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col" accentPosition="top">
-                                    <Link href={`/product/${product.id}`} className="block">
-                                        <Image
-                                            src={product.imageLarge}
-                                            alt={product.name}
-                                            data-ai-hint={product.imageHint}
-                                            width={600}
-                                            height={400}
-                                            className="object-cover w-full h-auto aspect-video"
-                                            priority={index === 0}
-                                        />
-                                    </Link>
-                                    <CardContent className="p-4 flex flex-col flex-1">
-                                        <h3 className="font-semibold text-lg">{product.name}</h3>
-                                        <p className="text-muted-foreground text-sm mt-1 truncate flex-1">{product.description}</p>
-                                        <div className="flex items-center justify-between mt-4">
-                                            <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
-                                            {cartItem ? (
-                                                <div className="flex items-center gap-1">
-                                                    <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}>
-                                                        <Minus className="h-4 w-4" />
-                                                    </ThemedButton>
-                                                    <Input
-                                                        type="number"
-                                                        value={cartItem.quantity}
-                                                        onChange={(e) => updateQuantity(product.id, parseInt(e.target.value, 10) || 0)}
-                                                        className="h-8 w-12 text-center remove-arrow"
-                                                        min="0"
-                                                    />
-                                                    <ThemedButton colorRole="accent" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
-                                                        <Plus className="h-4 w-4" />
-                                                    </ThemedButton>
-                                                </div>
-                                            ) : (
-                                                <ThemedButton colorRole="primary" size="sm" onClick={() => handleAddToCart(product)}>
-                                                    Add to Cart
+                          return (
+                            <ThemedCard key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col" accentPosition="top">
+                                <Link href={`/product/${product.id}`} className="block">
+                                    <Image
+                                        src={product.imageLarge}
+                                        alt={product.name}
+                                        data-ai-hint={product.imageHint}
+                                        width={600}
+                                        height={400}
+                                        className="object-cover w-full h-auto aspect-video"
+                                        priority={index === 0}
+                                    />
+                                </Link>
+                                <CardContent className="p-4 flex flex-col flex-1">
+                                    <h3 className="font-semibold text-lg">{product.name}</h3>
+                                    <p className="text-muted-foreground text-sm mt-1 truncate flex-1">{product.description}</p>
+                                    <div className="flex items-center justify-between mt-4">
+                                        <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
+                                        {cartItem ? (
+                                            <div className="flex items-center gap-1">
+                                                <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}>
+                                                    <Minus className="h-4 w-4" />
                                                 </ThemedButton>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </ThemedCard>
-                              )
-                          })}
-                      </div>
-                    ) : (
-                      <div className="text-center text-muted-foreground py-16">
-                        <h3 className="text-xl font-semibold">No products found</h3>
-                        <p>Your search for "{searchQuery}" did not match any products.</p>
-                      </div>
-                    )}
-                </div>
-            </section>
-
-        </StoreTemplate>
+                                                <Input
+                                                    type="number"
+                                                    value={cartItem.quantity}
+                                                    onChange={(e) => updateQuantity(product.id, parseInt(e.target.value, 10) || 0)}
+                                                    className="h-8 w-12 text-center remove-arrow"
+                                                    min="0"
+                                                />
+                                                <ThemedButton colorRole="accent" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
+                                                    <Plus className="h-4 w-4" />
+                                                </ThemedButton>
+                                            </div>
+                                        ) : (
+                                            <ThemedButton colorRole="primary" size="sm" onClick={() => handleAddToCart(product)}>
+                                                Add to Cart
+                                            </ThemedButton>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </ThemedCard>
+                          )
+                      })}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-16">
+                    <h3 className="text-xl font-semibold">No products found</h3>
+                    <p>Your search for "{searchQuery}" did not match any products.</p>
+                  </div>
+                )}
+            </div>
+        </section>
       </main>
 
        <footer 
@@ -262,6 +232,46 @@ function Storefront() {
         <Cart />
       </Sheet>
     </div>
+  );
+}
+
+
+function Storefront() {
+  const { merchant, loading } = useMerchant();
+
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!merchant) {
+    return (
+        <div className="flex flex-col min-h-screen items-center justify-center bg-background text-center px-4">
+            <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl">Store Not Found</h1>
+            <p className="max-w-[600px] text-muted-foreground md:text-xl mt-4">We couldn't find a store at this address. Please check the URL and try again.</p>
+            <Button asChild className="mt-8">
+                <Link href="/">Return to Baci Home</Link>
+            </Button>
+        </div>
+    );
+  }
+
+  const businessTypeConfig = getBusinessTypeById(merchant.business_type);
+  const StoreTemplate = businessTypeConfig?.template;
+  
+  if (!StoreTemplate) {
+      return <div>Error: Store template not found for business type '{merchant.business_type}'.</div>
+  }
+
+  // The template component now wraps the core storefront content.
+  // Any new global features (e.g. Wishlist) would be added to StorefrontContent.
+  return (
+    <StoreTemplate>
+        <StorefrontContent />
+    </StoreTemplate>
   );
 }
 
