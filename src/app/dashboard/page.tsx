@@ -208,7 +208,7 @@ export default function DashboardPage() {
                   <p className="text-sm text-muted-foreground">{task.description}</p>
                 </div>
                 <Link href={task.href} target={task.href.startsWith('http') ? '_blank' : '_self'}>
-                  <Button variant="outline">{task.buttonText}</Button>
+                  <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary">{task.buttonText}</Button>
                 </Link>
               </div>
             ))}
