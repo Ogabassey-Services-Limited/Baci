@@ -26,6 +26,7 @@ export async function submitOnboarding(
   let user: User | null = null;
   
   const rawFormData = Object.fromEntries(formData.entries());
+  logger.info({ message: 'submitOnboarding started', rawFormData });
 
   // Validate the form data on the server
   const validationResult = onboardingSchema.safeParse(rawFormData);
@@ -47,60 +48,84 @@ export async function submitOnboarding(
   } = validationResult.data;
 
   const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
+  
+  logger.info({ message: 'Form data validated successfully', data: validationResult.data });
 
   try {
     // 1. Handle user authentication and creation
+    logger.info({ message: 'Checking for existing session...' });
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
       user = session.user;
+      logger.info({ message: 'User session found', userId: user.id });
     } else if (password) {
+      logger.info({ message: 'No session, attempting to sign in with password...' });
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       
       if (signInError) {
         if (signInError.message.includes('Invalid login credentials')) {
+          logger.warn({ message: 'Sign in failed, attempting to sign up instead.' });
           const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
-          if (signUpError) throw signUpError;
+          if (signUpError) {
+             logger.error({ message: 'Sign up failed', error: signUpError });
+             throw signUpError;
+          }
           user = signUpData.user;
           if (!user) throw new Error('Sign up succeeded but no user object was returned.');
+          logger.info({ message: 'User signed up successfully', userId: user.id });
         } else {
+          logger.error({ message: 'Sign in failed with an unexpected error', error: signInError });
           throw signInError;
         }
       } else {
         user = signInData.user;
+        logger.info({ message: 'User signed in successfully', userId: user?.id });
       }
     }
 
-    if (!user) throw new Error("Authentication failed. Please try again.");
+    if (!user) {
+        logger.error({ message: 'Authentication failed, user object is null.' });
+        throw new Error("Authentication failed. Please try again.");
+    }
 
     // 2. Ensure branding info exists
     if (!logoDataUri || !brandColors) {
+      logger.error({ message: 'Branding information is missing', hasLogo: !!logoDataUri, hasColors: !!brandColors });
       throw new Error('Missing branding information. Please ensure a logo is processed.');
     }
     
     // 3. Create or update the merchant record
     const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
-
-    const { data: merchantData, error: merchantError } = await supabase.from('merchants').upsert({
+    const merchantPayload = {
       user_id: user.id,
       email: email,
       business_name: businessName,
       business_type: finalBusinessType,
       logo_url: logoDataUri,
       brand_colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
-    }, { onConflict: 'user_id' }).select().single();
+    };
+
+    logger.info({ message: 'Attempting to upsert merchant data...', payload: merchantPayload });
+
+    const { data: merchantData, error: merchantError } = await supabase.from('merchants').upsert(merchantPayload, { onConflict: 'user_id' }).select().single();
 
     if (merchantError) {
+      logger.error({ message: 'Supabase upsert failed', error: merchantError });
       throw new Error(`Failed to save merchant data: ${merchantError.message}`);
     }
     
     if (!merchantData) {
+        logger.error({ message: 'Upsert succeeded but returned no data.' });
         throw new Error('Failed to create or update merchant record.');
     }
+    
+    logger.info({ message: 'Merchant data saved successfully', merchantData });
 
     return { success: true, message: 'Store Created!', businessName };
   } catch (e) {
-    logger.error({ message: "Onboarding submission failed.", error: e as Error });
-    return { success: false, message: (e as Error).message };
+    const error = e as Error;
+    logger.error({ message: "Onboarding submission failed.", error: { name: error.name, message: error.message, stack: error.stack } });
+    return { success: false, message: error.message };
   }
 }
 
