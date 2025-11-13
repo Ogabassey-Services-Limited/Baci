@@ -129,7 +129,7 @@ export function CreateOrderForm() {
                             <FormControl>
                                 <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
                                     <User className="mr-2 h-4 w-4 shrink-0" />
-                                    {field.value || "Select or type customer name"}
+                                    {field.value || "Select customer"}
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
                             </FormControl>
