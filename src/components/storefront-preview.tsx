@@ -38,7 +38,7 @@ export function StorefrontPreview({ businessName, businessType, logoDataUri, bra
         const country = getCountryByCode('US');
         const locale = country ? `en-${country.code}` : 'en-US';
         const currency = country ? country.currency : 'USD';
-        return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
+        return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
     };
 
     const previewProducts = sampleProductsByCategory[businessType] || sampleProductsByCategory['other'];

@@ -44,6 +44,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: currency,
+      currencyDisplay: 'symbol',
     }).format(amount);
   };
 

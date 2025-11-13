@@ -17,7 +17,7 @@ export function OrderSummary() {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
     const locale = country ? `en-${country.code}` : 'en-US';
     const currency = country ? country.currency : 'USD';
-    return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
+    return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
   };
   
   const total = cartTotal + shippingFee;
