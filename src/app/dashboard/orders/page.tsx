@@ -121,10 +121,9 @@ const StatusBadge = ({ status }: { status: string }) => {
     const variant = variants[status] || 'secondary';
 
     return <Badge variant={variant} className={cn('capitalize', {
-        'bg-green-100 text-green-800 border-green-200': status === 'Paid' || status === 'Fulfilled' || status === 'Delivered',
+        'bg-blue-100 text-blue-800 border-blue-200': status === 'Paid' || status === 'Fulfilled' || status === 'Delivered' || status === 'Processing' || status === 'Shipped',
         'bg-red-100 text-red-800 border-red-200': status === 'Unpaid' || status === 'Canceled',
         'bg-yellow-100 text-yellow-800 border-yellow-200': status === 'Pending' || status === 'Unfulfilled',
-        'bg-blue-100 text-blue-800 border-blue-200': status === 'Processing' || status === 'Shipped',
     })}>{status}</Badge>;
 };
 
@@ -204,13 +203,13 @@ export default function OrdersPage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card className="bg-green-50 border-green-200">
+            <Card className="bg-blue-50 border-blue-200">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-green-800">Total Orders</CardTitle>
-                    <ShoppingCart className="h-5 w-5 text-green-600" />
+                    <CardTitle className="text-sm font-medium text-blue-800">Total Orders</CardTitle>
+                    <ShoppingCart className="h-5 w-5 text-blue-600" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-green-900">5,957</div>
+                    <div className="text-2xl font-bold text-blue-900">5,957</div>
                 </CardContent>
             </Card>
             <Card className="bg-blue-50 border-blue-200">
