@@ -38,7 +38,7 @@ function BaciLandingPage() {
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
           <Button asChild variant="outline">
-            <Link href="/dashboard">Sign In</Link>
+            <Link href="/login">Sign In</Link>
           </Button>
           <Button asChild>
             <Link href="/onboarding">Get Started</Link>

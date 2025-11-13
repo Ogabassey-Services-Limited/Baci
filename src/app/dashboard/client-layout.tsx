@@ -14,7 +14,6 @@ import {
   Loader2,
   Store,
   FileText,
-  Search,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -43,7 +42,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
-import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -55,8 +53,8 @@ export default function DashboardClientLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { merchant, loading } = useMerchant();
-  const { user, signOut } = useAuth();
+  const { merchant, loading: merchantLoading } = useMerchant();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [hasMounted, setHasMounted] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -65,12 +63,19 @@ export default function DashboardClientLayout({
     setHasMounted(true);
   }, []);
 
+  useEffect(() => {
+    // If auth is done loading and there's no user, redirect to login.
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
+
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
   const storeUrl = merchant?.business_name ? `/storefront/${encodeURIComponent(merchant.business_name.toLowerCase().replace(/\s+/g, '-'))}` : '#';
   
   const handleSignOut = async () => {
     await signOut();
-    router.push('/');
+    router.push('/login');
   };
 
   const navItems = [
@@ -112,7 +117,7 @@ export default function DashboardClientLayout({
         ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
         : cn('flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground', isCollapsed && 'justify-center');
 
-    const isReady = !loading && storeUrl !== '#';
+    const isReady = !merchantLoading && storeUrl !== '#';
 
     const handleClick = () => {
         if (isReady) {
@@ -125,7 +130,7 @@ export default function DashboardClientLayout({
 
     const linkContent = (
       <>
-        {loading ? (
+        {merchantLoading ? (
           <Loader2 className={cn('h-4 w-4 animate-spin', isMobile && 'h-5 w-5')} />
         ) : (
           <Store className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
@@ -159,8 +164,8 @@ export default function DashboardClientLayout({
     );
   };
   
-  // Don't render anything until the component has mounted on the client
-  if (!hasMounted) {
+  // While checking auth, show a loading screen.
+  if (authLoading || !user) {
     return (
         <div className="flex min-h-screen w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
@@ -300,7 +305,7 @@ export default function DashboardClientLayout({
           <div className="w-full flex-1">
             {/* Search bar removed from here */}
           </div>
-           {loading ? (
+           {merchantLoading ? (
              <Loader2 className="h-5 w-5 animate-spin" />
            ) : selectedCountry && (
              <div className="text-2xl">{selectedCountry.flag}</div>
@@ -334,5 +339,3 @@ export default function DashboardClientLayout({
     </div>
   );
 }
-
-    
