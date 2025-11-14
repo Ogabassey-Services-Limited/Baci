@@ -3,9 +3,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { colord } from 'colord';
-import { Slider } from './ui/slider';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { cn } from '@/lib/utils';
 
 interface ColorPickerProps {
   color: string;
@@ -19,7 +19,10 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   const [hex, setHex] = useState(() => colord(color).toHex());
 
   const satLightBoxRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
+  const hueSliderRef = useRef<HTMLDivElement>(null);
+  
+  const isDraggingSatLightRef = useRef(false);
+  const isDraggingHueRef = useRef(false);
 
   useEffect(() => {
     const newColor = colord({ h: hue, s: saturation, l: lightness });
@@ -34,15 +37,15 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   // Update internal state when the parent color prop changes
   useEffect(() => {
     const newColor = colord(color);
-    if (newColor.isValid()) {
+    if (newColor.isValid() && newColor.toHex() !== hex) {
         const newHsl = newColor.toHsl();
         setHue(newHsl.h);
         setSaturation(newHsl.s);
         setLightness(newHsl.l);
         setHex(newColor.toHex());
     }
-  }, [color]);
-
+  }, [color, hex]);
+  
   const handleSatLightChange = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     if (!satLightBoxRef.current) return;
 
@@ -60,23 +63,45 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
     setLightness(newLightness);
   };
   
+   const handleHueChange = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    if (!hueSliderRef.current) return;
+    const rect = hueSliderRef.current.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    const newHue = (x / rect.width) * 360;
+    setHue(newHue);
+  };
+
   const handleMouseMove = (e: MouseEvent | TouchEvent) => {
-    if (isDraggingRef.current) {
+    if (isDraggingSatLightRef.current) {
       handleSatLightChange(e as unknown as React.MouseEvent<HTMLDivElement>);
+    }
+    if (isDraggingHueRef.current) {
+        handleHueChange(e as unknown as React.MouseEvent<HTMLDivElement>);
     }
   };
   
   const handleMouseUp = () => {
-    isDraggingRef.current = false;
+    isDraggingSatLightRef.current = false;
+    isDraggingHueRef.current = false;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
     document.removeEventListener('touchmove', handleMouseMove);
     document.removeEventListener('touchend', handleMouseUp);
   };
   
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-    isDraggingRef.current = true;
+  const handleMouseDownSatLight = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    isDraggingSatLightRef.current = true;
     handleSatLightChange(e);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleMouseMove);
+    document.addEventListener('touchend', handleMouseUp);
+  };
+  
+  const handleMouseDownHue = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    isDraggingHueRef.current = true;
+    handleHueChange(e);
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
     document.addEventListener('touchmove', handleMouseMove);
@@ -89,8 +114,8 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
         ref={satLightBoxRef}
         className="w-full h-36 rounded-md cursor-pointer relative"
         style={{ backgroundColor: `hsl(${hue}, 100%, 50%)` }}
-        onMouseDown={handleMouseDown}
-        onTouchStart={handleMouseDown}
+        onMouseDown={handleMouseDownSatLight}
+        onTouchStart={handleMouseDownSatLight}
       >
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, white, transparent)' }} />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, black, transparent)' }} />
@@ -107,13 +132,21 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
 
       <div className="space-y-2">
         <Label>Hue</Label>
-        <Slider
-          min={0}
-          max={360}
-          value={[hue]}
-          onValueChange={([val]) => setHue(val)}
-          className="bg-transparent [--slider-track-background:linear-gradient(to_right,rgb(255,0,0)_0%,rgb(255,255,0)_17%,rgb(0,255,0)_33%,rgb(0,255,255)_50%,rgb(0,0,255)_67%,rgb(255,0,255)_83%,rgb(255,0,0)_100%)]"
-        />
+        <div 
+          ref={hueSliderRef}
+          className="relative h-4 w-full cursor-pointer rounded-full"
+          style={{ background: 'linear-gradient(to right, rgb(255, 0, 0) 0%, rgb(255, 255, 0) 17%, rgb(0, 255, 0) 33%, rgb(0, 255, 255) 50%, rgb(0, 0, 255) 67%, rgb(255, 0, 255) 83%, rgb(255, 0, 0) 100%)'}}
+          onMouseDown={handleMouseDownHue}
+          onTouchStart={handleMouseDownHue}
+        >
+             <div
+                className="absolute h-5 w-5 -top-0.5 rounded-full border-2 border-white bg-transparent shadow-md pointer-events-none"
+                style={{
+                    left: `${(hue / 360) * 100}%`,
+                    transform: 'translateX(-50%)',
+                }}
+             />
+        </div>
       </div>
 
       <div className="space-y-2">

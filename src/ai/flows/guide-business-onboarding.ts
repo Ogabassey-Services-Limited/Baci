@@ -46,7 +46,7 @@ export type GuideBusinessOnboardingInput = z.infer<typeof GuideBusinessOnboardin
 
 const BrandColorsSchema = z.object({
     primary: z.string().describe('The primary color, most dominant in the logo.'),
-    background: z.string().describe('The background color, should be light and suitable for a page background.'),
+    background: z.string().describe('The background color, should be light and suitable for a page background. Prefer white or off-white.'),
     accent: z.string().describe('An accent color for highlights and calls-to-action.'),
 });
 export type BrandColors = z.infer<typeof BrandColorsSchema>;
@@ -71,14 +71,14 @@ const extractColorsPrompt = ai.definePrompt({
 TASK: Extract exactly 3 brand colors from this logo in hex format.
 
 INSTRUCTIONS:
-1. Primary color = The MOST DOMINANT color in the logo (usually the main brand color)
-2. Background color = A LIGHT, neutral color from the logo suitable for a page background. If no light color exists, generate a compatible light grey or off-white.
+1. Primary color = The MOST DOMINANT color in the logo (usually the main brand color).
+2. Background color = A LIGHT, neutral color. Prefer pure white (#FFFFFF) or a very light off-white/grey from the logo that is suitable for a page background.
 3. Accent color = A complementary or highlight color that stands out from the primary color.
 
 IMPORTANT:
 - Look at the actual colors IN THE LOGO IMAGE.
-- Return colors as they appear in the logo, not imagined colors, unless a background color must be generated.
-- Ensure the background color is light enough for good readability.
+- Return colors as they appear in the logo, unless a background color must be generated.
+- Ensure the background color is very light for good readability.
 
 Return ONLY the JSON object with primary, background, and accent hex codes.`,
 });

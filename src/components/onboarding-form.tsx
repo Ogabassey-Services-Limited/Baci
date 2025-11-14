@@ -43,6 +43,7 @@ import { OnboardingFormValues, onboardingSchema, step1Schema, step2Schema, step3
 import { StorefrontPreview } from './storefront-preview';
 import { ThemedButton } from './themed';
 import { ColorPicker } from './color-picker';
+import { colord } from 'colord';
 
 
 // --- Step Components ---
@@ -151,11 +152,29 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
 
       img.onload = async () => {
         try {
-          const palette = colorThief.getPalette(img, 3);
-          const [primary, background, accent] = palette.map(
-            (rgb: number[]) => `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`
-          );
-          resolve({ primary, background, accent });
+          const palette = colorThief.getPalette(img, 5); // Extract 5 colors to find a good background
+          
+          // Find the lightest color for the background
+          const lightestColor = palette.reduce((lightest, current) => {
+            const l1 = colord(`rgb(${lightest[0]}, ${lightest[1]}, ${lightest[2]})`).luminance();
+            const l2 = colord(`rgb(${current[0]}, ${current[1]}, ${current[2]})`).luminance();
+            return l2 > l1 ? current : lightest;
+          });
+
+          // Filter out the lightest color to find primary and accent
+          const remainingColors = palette.filter(c => c !== lightestColor);
+
+          const primaryRgb = remainingColors[0] || [0,0,0];
+          const accentRgb = remainingColors[1] || primaryRgb;
+
+          const toHex = (rgb: number[]) => `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`;
+
+          resolve({ 
+            primary: toHex(primaryRgb), 
+            background: toHex(lightestColor), 
+            accent: toHex(accentRgb)
+          });
+
         } catch (e) {
           reject(e);
         }
@@ -212,9 +231,9 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
     if (!brandColors) return;
     
     const remappedColors: BrandColors = {
-        primary: brandColors.background,
-        background: brandColors.accent,
-        accent: brandColors.primary,
+        primary: brandColors.accent,
+        background: brandColors.primary,
+        accent: brandColors.background,
     };
 
     setValue('brandColors', JSON.stringify(remappedColors), { shouldValidate: true });
@@ -256,21 +275,21 @@ return (
                         <Popover>
                             <PopoverTrigger asChild>
                                 <div
-                                    className="w-12 h-12 rounded-full border-2 cursor-pointer relative group"
+                                    className="w-12 h-12 rounded-full border-2 cursor-pointer relative"
                                     aria-label={`Edit ${role} color`}
                                 >
                                     <div
                                         className="w-full h-full rounded-full"
-                                        style={{ backgroundColor: brandColors[role as keyof typeof brandColors] }}
+                                        style={{ backgroundColor: brandColors[role] }}
                                     />
-                                    <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-70">
                                         <Pencil className="w-5 h-5 text-white" />
                                     </div>
                                 </div>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto">
                                 <ColorPicker
-                                    color={brandColors[role as keyof typeof brandColors]}
+                                    color={brandColors[role]}
                                     onChange={(newColor) => handleColorChange(role, newColor)}
                                 />
                             </PopoverContent>
