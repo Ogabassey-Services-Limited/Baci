@@ -123,6 +123,7 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
   const { watch, setValue } = form;
 
   const businessName = watch('businessName');
+  const businessType = watch('businessType');
   const logoDataUri = watch('logoDataUri');
   const brandColorsString = watch('brandColors');
   const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
@@ -269,14 +270,23 @@ return (
       {brandColors && (
         <div className='mt-6 animate-fade-in'>
             <div className="flex items-center justify-between mb-4">
-                <div className='text-sm text-muted-foreground font-medium'>Live Preview</div>
+              <div className='flex items-center gap-2'>
+                <div className='text-sm text-muted-foreground font-medium'>Extracted Colors:</div>
+                {displayedColors.map(({ role, color }) => (
+                  <div key={role} className='flex flex-col items-center gap-1 group'>
+                    <div className='w-8 h-8 rounded-full border-2' style={{ backgroundColor: color }} />
+                    <span className='text-xs capitalize text-muted-foreground group-hover:text-foreground'>{role}</span>
+                  </div>
+                ))}
+              </div>
                 <ThemedButton type="button" variant="outline" size="sm" onClick={handleShuffleColors} disabled={isLoading}>
                     <RefreshCw className="mr-2 h-3 w-3" />
-                    Shuffle Colors
+                    Shuffle
                 </ThemedButton>
             </div>
              <StorefrontPreview 
                 businessName={businessName}
+                businessType={businessType}
                 logoDataUri={logoDataUri}
                 brandColors={brandColors}
              />

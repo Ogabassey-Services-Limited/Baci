@@ -1,3 +1,4 @@
+
 // In a real app, this data would come from a database.
 // We are defining it here to be shared across the app.
 
@@ -95,7 +96,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
         { ...products[1], id: 'fas2', name: 'Classic Leather Jacket', price: 350.00, imageHint: 'leather jacket' },
     ],
     electronics: [
-        { ...products[0], id: 'elec1', name: 'Wireless Noise-Cancelling Headphones', price: 299.99, imageHint: 'headphones' },
+        { ...products[3], id: 'elec1', name: 'Wireless Noise-Cancelling Headphones', price: 299.99, imageHint: 'headphones' },
         { ...products[1], id: 'elec2', name: '4K Ultra-HD Monitor', price: 450.00, imageHint: 'computer monitor' },
     ],
     'home-goods': [
@@ -103,12 +104,12 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
         { ...products[1], id: 'home2', name: 'Acacia Wood Serving Bowl', price: 65.00, imageHint: 'wood bowl' },
     ],
     'health-beauty': [
-        { ...products[0], id: 'hb1', name: 'Vitamin C Serum', price: 55.00, imageHint: 'skincare serum' },
-        { ...products[1], id: 'hb2', name: 'Organic Lavender Bath Bombs', price: 25.00, imageHint: 'bath bombs' },
+        { ...products[4], id: 'hb1', name: 'Vitamin C Serum', price: 55.00, imageHint: 'skincare serum' },
+        { ...products[2], id: 'hb2', name: 'Organic Lavender Bath Bombs', price: 25.00, imageHint: 'bath bombs' },
     ],
     handmade: [
         { ...products[0], id: 'hand1', name: 'Hand-poured Soy Candle', price: 30.00, imageHint: 'soy candle' },
-        { ...products[1], id: 'hand2', name: 'Macrame Wall Hanging', price: 75.00, imageHint: 'macrame art' },
+        { ...products[4], id: 'hand2', name: 'Macrame Wall Hanging', price: 75.00, imageHint: 'macrame art' },
     ],
     'food-beverage': [
         { ...products[0], id: 'food1', name: 'Artisanal Sourdough Loaf', price: 12.00, imageHint: 'sourdough bread' },
