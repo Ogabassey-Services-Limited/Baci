@@ -250,7 +250,7 @@ return (
                 </Button>
             </div>
             <div className="flex items-center gap-4">
-                {([\'primary\', \'secondary\', \'accent\'] as const).map((role) => (
+                {(['primary', 'secondary', 'accent'] as const).map((role) => (
                     <div key={role} className="flex flex-col items-center gap-1.5">
                         <Popover>
                             <PopoverTrigger asChild>

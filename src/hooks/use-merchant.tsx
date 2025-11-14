@@ -57,24 +57,21 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
         const businessName = decodeURIComponent(slug.replace(/-/g, ' '));
         query = query.ilike('business_name', businessName);
       } else {
+        // Wait for auth to finish loading
         if (authLoading) {
-          logger.info({ message: 'Auth is loading, waiting to fetch merchant...' });
-          return; 
+          return;
         }
 
-        const { data: { session } } = await supabase.auth.getSession();
-        const currentUser = session?.user;
-
-        if (!currentUser) {
-          logger.warn({ message: 'No user session found, clearing merchant data.' });
+        // Use user from auth context instead of fetching session again
+        if (!user) {
+          // No user logged in - this is normal, not an error
           setMerchant(null);
           setLoading(false);
           return;
         }
-        query = query.eq('user_id', currentUser.id);
+        query = query.eq('user_id', user.id);
       }
 
-      logger.info({ message: 'Querying Supabase for merchant data...' });
       const { data, error } = await query.single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error here
@@ -82,18 +79,15 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       }
 
       if (data) {
-        logger.info({ message: 'Merchant data loaded from Supabase.', data });
         if (!data.country) {
             data.country = 'NG';
         }
         setMerchant(data as MerchantData);
       } else {
-        logger.warn({ message: 'No merchant data found in Supabase. Setting default.' });
         // If no merchant exists for the logged-in user, create a default structure
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!slug && session?.user) {
+        if (!slug && user) {
             const defaultMerchant: Partial<MerchantData> = {
-                user_id: session.user.id,
+                user_id: user.id,
                 business_name: 'My Store',
                 business_type: 'other',
                 country: 'NG',
@@ -109,7 +103,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
     } finally {
       setLoading(false);
     }
-  }, [slug, authLoading, supabase]);
+  }, [slug, authLoading, user, supabase]);
 
   useEffect(() => {
     loadData();
