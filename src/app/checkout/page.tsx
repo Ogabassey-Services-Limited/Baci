@@ -15,10 +15,11 @@ import { ThemedInput, ThemedButton } from '@/components/themed';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { OrderSummary } from '@/components/order-summary';
-import { MerchantProvider } from '@/hooks/use-merchant';
+import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import { getCountryByCode } from '@/lib/countries';
 
 const shippingSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters.'),
@@ -131,6 +132,12 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
 
 function Step1_Shipping() {
   const { control } = useFormContext<ShippingFormValues>();
+  const { merchant } = useMerchant();
+
+  const phonePlaceholder = merchant?.country 
+    ? getCountryByCode(merchant.country)?.phoneCode || '+1 (555) 123-4567'
+    : '+1 (555) 123-4567';
+
   return (
     <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
@@ -192,7 +199,7 @@ function Step1_Shipping() {
             <FormControl>
                <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <ThemedInput type="tel" placeholder="+1 (555) 123-4567" {...field} className="pl-10" id="phone" name="phone" autoComplete="tel" />
+                <ThemedInput type="tel" placeholder={phonePlaceholder} {...field} className="pl-10" id="phone" name="phone" autoComplete="tel" />
               </div>
             </FormControl>
             <FormMessage />
