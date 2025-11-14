@@ -133,10 +133,10 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
 function Step1_Shipping() {
   const { control } = useFormContext<ShippingFormValues>();
   const { merchant } = useMerchant();
+  
+  const country = merchant?.country ? getCountryByCode(merchant.country) : null;
+  const phonePlaceholder = country?.phoneCode ? `${country.phoneCode} ...` : '+1 (555) 123-4567';
 
-  const phonePlaceholder = merchant?.country 
-    ? getCountryByCode(merchant.country)?.phoneCode || '+1 (555) 123-4567'
-    : '+1 (555) 123-4567';
 
   return (
     <div className="space-y-4">
@@ -197,44 +197,18 @@ function Step1_Shipping() {
           <FormItem>
             <FormLabel>Phone Number</FormLabel>
             <FormControl>
-               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <ThemedInput type="tel" placeholder={phonePlaceholder} {...field} className="pl-10" id="phone" name="phone" autoComplete="tel" />
-              </div>
+                <div className="relative">
+                    {country && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg">{country.flag}</span>}
+                    <ThemedInput type="tel" placeholder={phonePlaceholder} {...field} className="pl-12" id="phone" name="phone" autoComplete="tel" />
+                </div>
             </FormControl>
             <FormMessage />
           </FormItem>
         )}
       />
       <AddressAutocomplete />
-      <div className="grid grid-cols-2 gap-4">
-        <FormField
-          control={control}
-          name="city"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>City</FormLabel>
-              <FormControl>
-                <ThemedInput placeholder="San Francisco" {...field} id="city" name="city" autoComplete="address-level2" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={control}
-          name="state"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>State / Province</FormLabel>
-              <FormControl>
-                <ThemedInput placeholder="California" {...field} id="state" name="state" autoComplete="address-level1" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
+       <FormField control={control} name="city" render={({ field }) => (<FormItem><FormControl><input type="hidden" {...field} /></FormControl></FormItem>)} />
+       <FormField control={control} name="state" render={({ field }) => (<FormItem><FormControl><input type="hidden" {...field} /></FormControl></FormItem>)} />
     </div>
   );
 }
