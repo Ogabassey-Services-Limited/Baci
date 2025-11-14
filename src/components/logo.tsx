@@ -10,6 +10,7 @@ export function Logo({ className }: { className?: string }) {
         width={104}
         height={34}
         className="h-auto w-auto"
+        loading="eager"
       />
     </div>
   );

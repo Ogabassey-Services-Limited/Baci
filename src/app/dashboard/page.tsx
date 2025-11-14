@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -126,30 +125,30 @@ export default function DashboardPage() {
   const getStoreUrl = () => {
     if (!merchant?.business_name) return { displayUrl: '', fullUrl: '' };
     const slug = merchant.business_name.toLowerCase().replace(/\s+/g, '-');
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.store';
-    const isLocal = typeof window !== 'undefined' && window.location.hostname.includes('localhost');
-    
-    if (isLocal) {
-        return {
-            displayUrl: `${slug}.localhost:3000`,
-            fullUrl: `http://${slug}.localhost:3000`
-        };
-    }
+
+    // Use path-based routing instead of subdomain
     return {
-        displayUrl: `${slug}.${rootDomain}`,
-        fullUrl: `https://${slug}.${rootDomain}`
+        displayUrl: `/storefront/${slug}`,
+        fullUrl: `/storefront/${slug}`
     };
   };
 
   const { displayUrl, fullUrl } = getStoreUrl();
 
-  const copyToClipboard = () => {
-    if (fullUrl) {
-        navigator.clipboard.writeText(fullUrl);
-        toast({
+  const handleShare = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
         title: "Copied to clipboard! 📋",
         description: "Your store URL is ready to be shared.",
-        });
+      });
+    } catch (err) {
+      console.error("Failed to copy: ", err);
+      toast({
+        title: "Copy Failed",
+        description: "Could not copy URL to clipboard. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -236,7 +235,7 @@ export default function DashboardPage() {
                     {displayUrl}
                 </Link>
                 <div className="flex items-center gap-1">
-                     <Button variant="ghost" size="icon" onClick={copyToClipboard} className="h-8 w-8">
+                     <Button variant="ghost" size="icon" onClick={() => handleShare(fullUrl)} className="h-8 w-8">
                         <Copy className="w-4 h-4" />
                         <span className="sr-only">Copy URL</span>
                     </Button>
@@ -424,5 +423,3 @@ export default function DashboardPage() {
     </>
   );
 }
-
-    

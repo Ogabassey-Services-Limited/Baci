@@ -34,6 +34,7 @@ import { logger } from '@/lib/logger';
 import { cn, checkPasswordStrength } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
 import type { BrandColors } from '@/types';
+import { createClient } from '@/lib/supabase/client';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/onboarding/actions';
 import ColorThief from 'colorthief';
@@ -494,7 +495,24 @@ export default function OnboardingForm() {
     if (submissionState.success) {
         localStorage.removeItem('onboardingForm');
         toast({ title: 'Store Created!', description: 'Your e-commerce store is ready. Redirecting you to the dashboard...' });
-        router.push('/dashboard');
+
+        // Refresh the client session to sync with server-side auth, then redirect
+        const supabase = createClient();
+        supabase.auth.getSession().then(({ data: { session }, error }) => {
+          console.log('Session check after signup:', { hasSession: !!session, error });
+          if (session) {
+            console.log('Session found, redirecting to dashboard');
+            window.location.href = '/dashboard';
+          } else {
+            console.error('No session found after signup!', error);
+            toast({
+              title: 'Session Error',
+              description: 'Please try logging in manually',
+              variant: 'destructive'
+            });
+            setTimeout(() => window.location.href = '/login', 2000);
+          }
+        });
     } else if (submissionState.message) {
         const fieldErrors = submissionState.errors?.fieldErrors;
         if (fieldErrors) {

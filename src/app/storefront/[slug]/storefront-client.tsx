@@ -1,11 +1,10 @@
-
 'use client';
 
 import { ThemedButton, ThemedCard, ThemedBadge, ThemedLink } from '@/components/themed';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant';
 import { getBusinessTypeById } from '@/config/business-types';
 import { products, type Product } from '@/lib/products';
 import { Loader2, ShoppingBag, Search, Plus, Minus } from 'lucide-react';
@@ -52,7 +51,7 @@ function StorefrontContent() {
     }
     return fuse.search(searchQuery).map(result => result.item).filter(p => p.status === 'active');
   }, [searchQuery, fuse]);
-  
+
   if (!merchant) return null; // Should be handled by parent
 
   const formatCurrency = (amount: number) => {
@@ -63,10 +62,9 @@ function StorefrontContent() {
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency: currency,
-      currencyDisplay: 'symbol',
     }).format(amount);
   };
-  
+
   const footerLinks = [
     { key: 'about', label: 'About Us' },
     { key: 'contact', label: 'Contact' },
@@ -78,8 +76,8 @@ function StorefrontContent() {
 
   const availableFooterLinks = footerLinks.filter(link => merchant.pages?.[link.key as keyof typeof merchant.pages]);
 
-  const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.secondary, merchant.brand_colors.accent] : ['#3F51B5'];
-  const darkestColor = findDarkestColor(brandColors);
+  const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.background, merchant.brand_colors.accent].filter(Boolean) : ['#3F51B5'];
+  const darkestColor = findDarkestColor(brandColors as string[]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -134,7 +132,7 @@ function StorefrontContent() {
                 </div>
             </div>
         </section>
-        
+
         <section className="w-full py-12 md:py-24 lg:py-32 bg-muted/20">
             <div className="container px-4 md:px-6">
                 <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10" style={{ color: darkestColor }}>Our Products</h2>
@@ -198,7 +196,7 @@ function StorefrontContent() {
         </section>
       </main>
 
-       <footer 
+       <footer
         className="text-white"
         style={{ backgroundColor: darkestColor, color: getContrastingTextColor(darkestColor) }}
        >
@@ -236,7 +234,7 @@ function StorefrontContent() {
 }
 
 
-function Storefront() {
+export function Storefront() {
   const { merchant, loading } = useMerchant();
 
   if (loading) {
@@ -261,7 +259,7 @@ function Storefront() {
 
   const businessTypeConfig = getBusinessTypeById(merchant.business_type);
   const StoreTemplate = businessTypeConfig?.template;
-  
+
   if (!StoreTemplate) {
       return <div>Error: Store template not found for business type '{merchant.business_type}'.</div>
   }
@@ -273,15 +271,4 @@ function Storefront() {
         <StorefrontContent />
     </StoreTemplate>
   );
-}
-
-// The page is now a Server Component that passes the slug to the client component.
-export default function StorefrontPage({ params }: { params: { slug: string } }) {
-    const { slug } = params;
-
-    return (
-        <MerchantProvider slug={slug}>
-            <Storefront />
-        </MerchantProvider>
-    );
 }

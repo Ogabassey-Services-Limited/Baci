@@ -21,14 +21,14 @@ function PageContent({ slug }: { slug: string }) {
     const pageContent = merchant.pages[slug as keyof typeof merchant.pages];
     const pageTitle = slug.charAt(0).toUpperCase() + slug.slice(1);
     
-    const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.secondary, merchant.brand_colors.accent] : ['#3F51B5'];
-    const darkestColor = findDarkestColor(brandColors);
+    const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.background, merchant.brand_colors.accent].filter(Boolean) : ['#3F51B5'];
+    const darkestColor = findDarkestColor(brandColors as string[]);
 
     return (
          <div
             style={{
                 '--store-primary': merchant.brand_colors?.primary,
-                '--store-secondary': merchant.brand_colors?.secondary,
+                '--store-background': merchant.brand_colors?.background,
                 '--store-accent': merchant.brand_colors?.accent,
             } as React.CSSProperties}
          >
@@ -53,10 +53,11 @@ function PageContent({ slug }: { slug: string }) {
     );
 }
 
-export default function Page({ params }: { params: { slug: string } }) {
+export default async function Page({ params }: { params: Promise<{ slug: string }> }) {
+    const { slug } = await params;
     return (
         <MerchantProvider>
-            <PageContent slug={params.slug} />
+            <PageContent slug={slug} />
         </MerchantProvider>
     );
 }

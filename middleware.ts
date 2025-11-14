@@ -13,18 +13,19 @@ export function middleware(request: NextRequest) {
   // Clean up the hostname to get the main domain part
   const normalizedHost = hostname.replace(`.${rootDomain}`, '').replace(`.${isLocal ? 'localhost:3000' : rootDomain}`, '');
 
+  // If it's a request to the main marketing site, let it pass.
+  // Path-based storefronts like /storefront/my-store will also be allowed through by this logic.
   if (hostname === `localhost:3000` || hostname === rootDomain || hostname === `www.${rootDomain}`) {
-    // This is a request to the main marketing site, do nothing.
     return NextResponse.next();
   }
 
-  // It's a storefront request. Extract the slug and rewrite to the internal _storefront page.
+  // It's a subdomain storefront request. Extract the slug and rewrite to the correct path.
   // e.g., "ogabassey.baci.store" -> "ogabassey"
   const slug = normalizedHost;
 
   if (slug) {
-    console.log(`Rewriting ${hostname} to /_storefront/${slug}`);
-    url.pathname = `/_storefront/${slug}${url.pathname}`;
+    console.log(`Rewriting ${hostname} to /storefront/${slug}`);
+    url.pathname = `/storefront/${slug}`;
     return NextResponse.rewrite(url);
   }
 

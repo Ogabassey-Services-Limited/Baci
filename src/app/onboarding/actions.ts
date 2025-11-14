@@ -66,23 +66,36 @@ export async function submitOnboarding(
         if (signInError.message.includes('Invalid login credentials')) {
           logger.warn({ message: 'Sign in failed, attempting to sign up and then sign in.' });
           
-          // Step 1: Sign up the user
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+          // Step 1: Sign up the user with email confirmation disabled
+          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/auth/callback`,
+            }
+          });
           if (signUpError) {
              logger.error({ message: 'Sign up failed', error: signUpError });
              throw signUpError;
           }
           if (!signUpData.user) throw new Error('Sign up succeeded but no user object was returned.');
-          logger.info({ message: 'User signed up successfully', userId: signUpData.user.id });
 
-          // FIX: Explicitly sign in after sign up to create a session
-          const { data: newSignInData, error: newSignInError } = await supabase.auth.signInWithPassword({ email, password });
-          if (newSignInError) {
-            logger.error({ message: 'Sign in after sign up failed', error: newSignInError });
-            throw newSignInError;
+          // Check if we got a session from signUp
+          if (signUpData.session) {
+            user = signUpData.user;
+            logger.info({ message: 'User signed up and logged in immediately', userId: user.id });
+          } else {
+            logger.warn({ message: 'User signed up but no session created (email confirmation may be required)', userId: signUpData.user.id });
+
+            // Try to sign in anyway - this will fail if email confirmation is required
+            const { data: newSignInData, error: newSignInError } = await supabase.auth.signInWithPassword({ email, password });
+            if (newSignInError) {
+              logger.error({ message: 'Sign in after sign up failed', error: newSignInError });
+              throw new Error('Account created but email confirmation may be required. Please check your email and try logging in.');
+            }
+            user = newSignInData.user;
+            logger.info({ message: 'User signed in successfully after sign up', userId: user?.id });
           }
-          user = newSignInData.user;
-          logger.info({ message: 'User signed in successfully after sign up', userId: user?.id });
 
         } else {
           logger.error({ message: 'Sign in failed with an unexpected error', error: signInError });

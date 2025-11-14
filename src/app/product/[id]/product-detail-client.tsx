@@ -63,8 +63,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
 
   const cartItem = cart.find(item => item.id === product.id);
   
-  const brandColors = merchant?.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.secondary, merchant.brand_colors.accent] : ['#3F51B5'];
-  const darkestColor = findDarkestColor(brandColors);
+  const brandColors = merchant?.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.background, merchant.brand_colors.accent].filter(Boolean) : ['#3F51B5'];
+  const darkestColor = findDarkestColor(brandColors as string[]);
 
   const productSchema = {
     '@context': 'https://schema.org',

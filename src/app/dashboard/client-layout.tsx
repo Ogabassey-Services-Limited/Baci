@@ -95,15 +95,9 @@ export default function DashboardClientLayout({
   const getStoreUrl = () => {
     if (typeof window === 'undefined' || !merchant?.business_name) return '#';
     const slug = merchant.business_name.toLowerCase().replace(/\s+/g, '-');
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.store';
-    const isLocal = window.location.hostname.includes('localhost');
-    
-    if (isLocal) {
-        // For local development, construct the subdomain URL for localhost
-        return `http://${slug}.localhost:3000`;
-    }
-    // For production, use the root domain
-    return `https://${slug}.${rootDomain}`;
+
+    // Use path-based routing instead of subdomain
+    return `/storefront/${slug}`;
   };
 
   const storeUrl = getStoreUrl();
@@ -186,8 +180,6 @@ export default function DashboardClientLayout({
     return (
        <Link
         href={storeUrl}
-        target="_blank"
-        rel="noopener noreferrer"
         className={cn(baseClassName, 'transition-all hover:text-primary')}
       >
         {isCollapsed && !isMobile ? (
@@ -408,7 +400,3 @@ export default function DashboardClientLayout({
     </div>
   );
 }
-
-    
-
-    
