@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo, useEffect, useActionState, useTransition } from 'react';
@@ -43,7 +42,10 @@ import { OnboardingFormValues, onboardingSchema, step1Schema, step2Schema, step3
 import { StorefrontPreview } from './storefront-preview';
 import { ThemedButton } from './themed';
 import { ColorPicker } from './color-picker';
-import { colord } from 'colord';
+import { colord, extend } from 'colord';
+import a11yPlugin from 'colord/plugins/a11y';
+
+extend([a11yPlugin]);
 
 
 // --- Step Components ---
@@ -275,14 +277,14 @@ return (
                         <Popover>
                             <PopoverTrigger asChild>
                                 <div
-                                    className="w-12 h-12 rounded-full border-2 cursor-pointer relative"
+                                    className="w-12 h-12 rounded-full border-2 cursor-pointer relative group"
                                     aria-label={`Edit ${role} color`}
                                 >
                                     <div
                                         className="w-full h-full rounded-full"
                                         style={{ backgroundColor: brandColors[role] }}
                                     />
-                                    <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-70">
+                                    <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-100">
                                         <Pencil className="w-5 h-5 text-white" />
                                     </div>
                                 </div>
