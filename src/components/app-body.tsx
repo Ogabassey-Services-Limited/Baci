@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -21,10 +22,10 @@ export default function AppBody({ children }: { children: React.ReactNode }) {
   // Define CSS variables for the merchant's theme
   const themeStyle = merchant?.brand_colors ? {
     '--store-primary': merchant.brand_colors.primary,
-    '--store-secondary': merchant.brand_colors.secondary,
+    '--store-background': merchant.brand_colors.background,
     '--store-accent': merchant.brand_colors.accent,
     '--store-primary-text': getContrastingTextColor(merchant.brand_colors.primary),
-    '--store-secondary-text': getContrastingTextColor(merchant.brand_colors.secondary),
+    '--store-background-text': getContrastingTextColor(merchant.brand_colors.background),
     '--store-accent-text': getContrastingTextColor(merchant.brand_colors.accent),
   } : {};
 

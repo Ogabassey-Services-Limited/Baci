@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { ThemedButton, ThemedCard } from "@/components/themed";
@@ -26,10 +27,10 @@ export function StorefrontPreview({ businessName, businessType, logoDataUri, bra
 
     const themeStyle = {
         '--store-primary': brandColors.primary,
-        '--store-secondary': brandColors.secondary,
+        '--store-background': brandColors.background,
         '--store-accent': brandColors.accent,
         '--store-primary-text': getContrastingTextColor(brandColors.primary),
-        '--store-secondary-text': getContrastingTextColor(brandColors.secondary),
+        '--store-background-text': getContrastingTextColor(brandColors.background),
         '--store-accent-text': getContrastingTextColor(brandColors.accent),
     };
     
@@ -48,7 +49,7 @@ export function StorefrontPreview({ businessName, businessType, logoDataUri, bra
           className="p-4 rounded-lg border border-dashed bg-muted/20 overflow-hidden" 
           style={themeStyle as React.CSSProperties}
         >
-            <div className="scale-[0.8] origin-top-left w-[125%] -translate-x-1 -translate-y-1 bg-background rounded-md shadow-lg pointer-events-none">
+            <div className="scale-[0.8] origin-top-left w-[125%] -translate-x-1 -translate-y-1 bg-background rounded-md shadow-lg pointer-events-none" style={{ backgroundColor: 'var(--store-background)'}}>
                 {/* Header */}
                 <header className="px-4 h-12 flex items-center gap-4 shadow-sm bg-card">
                     <div className="flex items-center gap-2 font-semibold">

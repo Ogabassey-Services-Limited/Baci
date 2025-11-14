@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect, useActionState, useTransition } from 'react';
@@ -151,10 +152,10 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
       img.onload = async () => {
         try {
           const palette = colorThief.getPalette(img, 3);
-          const [primary, secondary, accent] = palette.map(
+          const [primary, background, accent] = palette.map(
             (rgb: number[]) => `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`
           );
-          resolve({ primary, secondary, accent });
+          resolve({ primary, background, accent });
         } catch (e) {
           reject(e);
         }
@@ -211,8 +212,8 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
     if (!brandColors) return;
     
     const remappedColors: BrandColors = {
-        primary: brandColors.secondary,
-        secondary: brandColors.accent,
+        primary: brandColors.background,
+        background: brandColors.accent,
         accent: brandColors.primary,
     };
 
@@ -250,7 +251,7 @@ return (
                 </Button>
             </div>
             <div className="flex items-center gap-4">
-                {(['primary', 'secondary', 'accent'] as const).map((role) => (
+                {(['primary', 'background', 'accent'] as const).map((role) => (
                     <div key={role} className="flex flex-col items-center gap-1.5">
                         <Popover>
                             <PopoverTrigger asChild>

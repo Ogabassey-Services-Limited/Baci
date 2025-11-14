@@ -6,7 +6,7 @@ import { Button, ButtonProps } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 interface ThemedButtonProps extends ButtonProps {
-  colorRole?: 'primary' | 'secondary' | 'accent';
+  colorRole?: 'primary' | 'background' | 'accent';
 }
 
 /**
@@ -34,7 +34,7 @@ export function ThemedButton({
         className={cn(
           // Use CSS custom properties with smart text color
           colorRole === 'primary' && 'bg-[var(--store-primary)] text-[var(--store-primary-text)] hover:bg-[var(--store-primary)]/90',
-          colorRole === 'secondary' && 'bg-[var(--store-secondary)] text-[var(--store-secondary-text)] hover:bg-[var(--store-secondary)]/90',
+          colorRole === 'background' && 'bg-[var(--store-background)] text-[var(--store-background-text)] hover:bg-[var(--store-background)]/90',
           colorRole === 'accent' && 'bg-[var(--store-accent)] text-[var(--store-accent-text)] hover:bg-[var(--store-accent)]/90',
           className
         )}
@@ -52,7 +52,7 @@ export function ThemedButton({
         className={cn(
           'bg-transparent',
           colorRole === 'primary' && 'border-[var(--store-primary)] text-[var(--store-primary)] hover:bg-[var(--store-primary)]/10',
-          colorRole === 'secondary' && 'border-[var(--store-secondary)] text-[var(--store-secondary)] hover:bg-[var(--store-secondary)]/10',
+          colorRole === 'background' && 'border-[var(--store-background)] text-[var(--store-background)] hover:bg-[var(--store-background)]/10',
           colorRole === 'accent' && 'border-[var(--store-accent)] text-[var(--store-accent)] hover:bg-[var(--store-accent)]/10',
           className
         )}

@@ -18,7 +18,7 @@
  * @aiContext When modifying this flow:
  * 1. DO NOT change input/output schemas without updating callers in onboarding-form.tsx
  * 2. Logic is now split by a `task` field: 'generate_logos' or 'extract_colors'. This is a critical distinction.
- * 3. Brand colors MUST always return exactly 3 hex codes in order: primary, secondary, accent.
+ * 3. Brand colors MUST always return exactly 3 hex codes in order: primary, background, accent.
  *
  * @see /src/app/onboarding/onboarding-form.tsx - Caller component
  * @see /src/ai/flows/_AI_README.md for detailed flow documentation
@@ -46,7 +46,7 @@ export type GuideBusinessOnboardingInput = z.infer<typeof GuideBusinessOnboardin
 
 const BrandColorsSchema = z.object({
     primary: z.string().describe('The primary color, most dominant in the logo.'),
-    secondary: z.string().describe('The secondary, complementary color.'),
+    background: z.string().describe('The background color, should be light and suitable for a page background.'),
     accent: z.string().describe('An accent color for highlights and calls-to-action.'),
 });
 export type BrandColors = z.infer<typeof BrandColorsSchema>;
@@ -72,16 +72,15 @@ TASK: Extract exactly 3 brand colors from this logo in hex format.
 
 INSTRUCTIONS:
 1. Primary color = The MOST DOMINANT color in the logo (usually the main brand color)
-2. Secondary color = The SECOND most prominent color (often text or accent color)
-3. Accent color = A complementary or highlight color (can be lighter/darker variant of primary)
+2. Background color = A LIGHT, neutral color from the logo suitable for a page background. If no light color exists, generate a compatible light grey or off-white.
+3. Accent color = A complementary or highlight color that stands out from the primary color.
 
 IMPORTANT:
-- Look at the actual colors IN THE LOGO IMAGE
-- If logo has red, extract the red hex code
-- If logo has black text, extract black hex code
-- Return colors as they appear in the logo, not imagined colors
+- Look at the actual colors IN THE LOGO IMAGE.
+- Return colors as they appear in the logo, not imagined colors, unless a background color must be generated.
+- Ensure the background color is light enough for good readability.
 
-Return ONLY the JSON object with primary, secondary, and accent hex codes.`,
+Return ONLY the JSON object with primary, background, and accent hex codes.`,
 });
 
 async function guideBusinessOnboardingFlow(

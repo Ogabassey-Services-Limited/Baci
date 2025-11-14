@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
@@ -112,7 +113,7 @@ export async function submitOnboarding(
       business_name: businessName,
       business_type: finalBusinessType,
       logo_url: logoDataUri,
-      brand_colors: { primary: brandColors.primary, secondary: brandColors.secondary, accent: brandColors.accent },
+      brand_colors: { primary: brandColors.primary, background: brandColors.background, accent: brandColors.accent },
     };
 
     logger.info({ message: 'Attempting to upsert merchant data...', payload: merchantPayload });

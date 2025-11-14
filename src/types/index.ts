@@ -1,7 +1,8 @@
 
+
 export interface BrandColors {
   primary: string;
-  secondary: string;
+  background: string;
   accent: string;
 }
 

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
@@ -14,7 +15,7 @@ export interface MerchantData {
   logo_url?: string;
   brand_colors?: {
     primary: string;
-    secondary: string;
+    background: string;
     accent: string;
   };
   country?: string;
