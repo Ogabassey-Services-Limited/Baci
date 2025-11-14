@@ -20,9 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, Upload, CheckCircle, Mail, KeyRound, Eye, EyeOff, RefreshCw, AlertCircle, ExternalLink } from 'lucide-react';
+import { Loader2, Sparkles, Upload, CheckCircle, Mail, KeyRound, Eye, EyeOff, RefreshCw, AlertCircle, Pencil, Shuffle } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -36,6 +41,7 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { OnboardingFormValues, onboardingSchema, step1Schema, step2Schema, step3Schema } from '@/schemas/onboarding';
 import { StorefrontPreview } from './storefront-preview';
 import { ThemedButton } from './themed';
+import { ColorPicker } from './color-picker';
 
 
 // --- Step Components ---
@@ -133,7 +139,6 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
-  const [showColorPrompt, setShowColorPrompt] = useState(false);
 
   const isLoading = isGenerating || isExtracting;
 
@@ -174,7 +179,7 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
         try {
           const colors = await extractColorsFromImage(dataUri);
           setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
-          toast({ title: 'Brand colors extracted!', description: 'You can shuffle them or preview your store.' });
+          toast({ title: 'Brand colors extracted!', description: 'You can now customize them or preview your store.' });
         } catch (e) {
           logger.error({ error: e as Error, message: 'Color extraction failed.' });
           toast({ title: 'Color extraction failed', description: (e as Error).message, variant: 'destructive' });
@@ -195,36 +200,10 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
       });
   };
 
-  const handleGenerateLogos = async () => {
-    toast({
-        title: 'AI Logo Generation Unavailable',
-        description: 'This feature is not yet configured. Please upload a logo.',
-        variant: 'destructive'
-    });
-  };
-
-  const handleSelectAndContinue = async () => {
-    if (selectedGeneratedLogoIndex === null) return;
-    const selectedLogo = generatedLogos[selectedGeneratedLogoIndex];
-    setValue('logoDataUri', selectedLogo, { shouldValidate: true });
-    setIsExtracting(true);
-    try {
-      const colors = await extractColorsFromImage(selectedLogo);
-      setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
-      toast({ title: 'Logo selected and colors extracted!' });
-    } catch (e) {
-      logger.error({ error: e as Error, message: 'Color extraction from generated logo failed.' });
-      toast({ title: 'Failed to process selected logo', description: (e as Error).message, variant: 'destructive' });
-      setValue('brandColors', '', { shouldValidate: true });
-    } finally {
-      setIsExtracting(false);
-    }
-  };
-
-  const handlePreferenceKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleGenerateLogos();
+  const handleColorChange = (role: keyof BrandColors, newColor: string) => {
+    if (brandColors) {
+      const updatedColors = { ...brandColors, [role]: newColor };
+      setValue('brandColors', JSON.stringify(updatedColors), { shouldValidate: true });
     }
   };
 
@@ -240,12 +219,6 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
     setValue('brandColors', JSON.stringify(remappedColors), { shouldValidate: true });
   };
   
-  const displayedColors = brandColors ? [
-    { role: 'primary', color: brandColors.primary },
-    { role: 'secondary', color: brandColors.secondary },
-    { role: 'accent', color: brandColors.accent },
-] : [];
-
 return (
     <div className='space-y-4'>
       <FormLabel className="text-lg">Do you have a logo?</FormLabel>
@@ -268,22 +241,44 @@ return (
         </div>
       </div>
       {brandColors && (
-        <div className='mt-6 animate-fade-in'>
-            <div className="flex items-center justify-between mb-4">
-              <div className='flex items-center gap-2'>
-                <div className='text-sm text-muted-foreground font-medium'>Extracted Colors:</div>
-                {displayedColors.map(({ role, color }) => (
-                  <div key={role} className='flex flex-col items-center gap-1 group'>
-                    <div className='w-8 h-8 rounded-full border-2' style={{ backgroundColor: color }} />
-                    <span className='text-xs capitalize text-muted-foreground group-hover:text-foreground'>{role}</span>
-                  </div>
-                ))}
-              </div>
-                <ThemedButton type="button" variant="outline" size="sm" onClick={handleShuffleColors} disabled={isLoading}>
-                    <RefreshCw className="mr-2 h-3 w-3" />
+        <div className='mt-6 animate-fade-in space-y-4'>
+             <div className="flex items-center justify-between">
+                <div className='text-sm text-muted-foreground font-medium'>Customize Your Brand Colors</div>
+                <Button variant="outline" size="sm" onClick={handleShuffleColors} disabled={isLoading}>
+                    <Shuffle className="mr-2 h-3 w-3" />
                     Shuffle
-                </ThemedButton>
+                </Button>
             </div>
+            <div className="flex items-center gap-4">
+                {([\'primary\', \'secondary\', \'accent\'] as const).map((role) => (
+                    <div key={role} className="flex flex-col items-center gap-1.5">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <div
+                                    className="w-12 h-12 rounded-full border-2 cursor-pointer relative group"
+                                    aria-label={`Edit ${role} color`}
+                                >
+                                    <div
+                                        className="w-full h-full rounded-full"
+                                        style={{ backgroundColor: brandColors[role as keyof typeof brandColors] }}
+                                    />
+                                    <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Pencil className="w-5 h-5 text-white" />
+                                    </div>
+                                </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto">
+                                <ColorPicker
+                                    color={brandColors[role as keyof typeof brandColors]}
+                                    onChange={(newColor) => handleColorChange(role, newColor)}
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <span className="text-xs font-medium capitalize">{role}</span>
+                    </div>
+                ))}
+            </div>
+
              <StorefrontPreview 
                 businessName={businessName}
                 businessType={businessType}
@@ -294,16 +289,6 @@ return (
       )}
       <FormField control={form.control} name="logoDataUri" render={() => <FormItem><FormMessage /></FormItem>} />
        <FormField control={form.control} name="brandColors" render={() => <FormItem><FormMessage /></FormItem>} />
-      {isGenerating && <div className="text-center text-muted-foreground"><Loader2 className="mx-auto h-6 w-6 animate-spin" /><p>Generating logo options... this can take a moment.</p></div>}
-      {generatedLogos.length > 0 && (
-        <div className="mt-8 space-y-4 animate-fade-in">
-          <h3 className="text-lg font-semibold text-center">Choose your favorite logo:</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {generatedLogos.map((logo, index) => (<div key={index} onClick={() => !isLoading && setSelectedGeneratedLogoIndex(index)} className={cn("p-2 border-2 rounded-lg cursor-pointer transition-all bg-muted/50 hover:border-primary", selectedGeneratedLogoIndex === index ? 'border-primary' : 'border-transparent')}><Image src={logo} alt={`Logo option ${index + 1}`} width={150} height={150} className="w-full h-auto object-contain rounded-md aspect-square" /></div>))}
-          </div>
-          <Button type="button" onClick={handleSelectAndContinue} disabled={selectedGeneratedLogoIndex === null || isLoading} className="w-full">{isExtracting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Continue with Selected Logo</Button>
-        </div>
-      )}
     </div>
   );
 }
@@ -513,7 +498,7 @@ export default function OnboardingForm() {
     } else if (step === 2) {
         isValidStep = await form.trigger(['logoDataUri', 'brandColors']);
         if (!isValidStep) {
-             toast({ title: 'Branding Incomplete', description: 'Please upload or generate a logo to proceed.', variant: 'destructive' });
+             toast({ title: 'Branding Incomplete', description: 'Please upload a logo to extract brand colors.', variant: 'destructive' });
         }
     }
     

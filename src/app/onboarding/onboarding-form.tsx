@@ -32,10 +32,10 @@ import type { BrandColors } from '@/types';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/onboarding/actions';
 import ColorThief from 'colorthief';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { OnboardingFormValues, onboardingSchema, step1Schema, step2Schema, step3Schema } from '@/schemas/onboarding';
-import { StorefrontPreview } from '../storefront-preview';
-import { ThemedButton } from '../themed';
+import { StorefrontPreview } from '@/components/storefront-preview';
+import { ThemedButton } from '@/components/themed';
 
 
 // --- Step Components ---
@@ -282,8 +282,9 @@ return (
                 </ThemedButton>
               </div>
             </div>
-             <StorefrontPreview 
+             <StorefrontPreview
                 businessName={businessName}
+                businessType={watch('businessType') || 'other'}
                 logoDataUri={logoDataUri}
                 brandColors={brandColors}
              />
@@ -484,7 +485,8 @@ export default function OnboardingForm() {
     if (submissionState.success) {
         localStorage.removeItem('onboardingForm');
         toast({ title: 'Store Created!', description: 'Your e-commerce store is ready. Redirecting you to the dashboard...' });
-        router.push('/dashboard');
+        // Use window.location to force a full page reload, ensuring auth context is properly initialized
+        window.location.href = '/dashboard';
     } else if (submissionState.message) {
         const fieldErrors = submissionState.errors?.fieldErrors;
         if (fieldErrors) {

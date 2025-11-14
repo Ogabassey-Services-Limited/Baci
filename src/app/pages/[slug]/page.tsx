@@ -30,7 +30,7 @@ function PageContent({ slug }: { slug: string }) {
                 '--store-primary': merchant.brand_colors?.primary,
                 '--store-secondary': merchant.brand_colors?.secondary,
                 '--store-accent': merchant.brand_colors?.accent,
-            }}
+            } as React.CSSProperties}
          >
             <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm">
                  <Link href="/" className="flex items-center justify-center font-semibold">
