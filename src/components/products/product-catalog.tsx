@@ -14,10 +14,13 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Plus, Minus, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function ProductCatalog() {
   const { filteredProducts, setProducts } = useProductContext();
@@ -27,17 +30,17 @@ export function ProductCatalog() {
   const [dirtyProducts, setDirtyProducts] = useState<Set<string>>(new Set());
 
   const debouncedDirtyProducts = useDebounce(dirtyProducts, 1000);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     setLocalProducts(filteredProducts);
   }, [filteredProducts]);
 
-  const formatCurrency = (amount: number) => {
-    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
-    const locale = country ? `en-${country.code}` : 'en-US';
-    const currency = country ? country.currency : 'USD';
-    return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
-  };
+  const getCurrencySymbol = () => {
+    if (!merchant?.country) return '$';
+    const country = getCountryByCode(merchant.country);
+    return country?.currencySymbol || '$';
+  }
 
   const handlePriceChange = (productId: string, newPrice: string) => {
     const priceValue = parseFloat(newPrice);
@@ -47,16 +50,15 @@ export function ProductCatalog() {
     }
   };
 
-  const handleStockChange = (productId: string, newStock: string) => {
-    const stockValue = parseInt(newStock, 10);
-    if (!isNaN(stockValue)) {
-      setLocalProducts(current => current.map(p => p.id === productId ? { ...p, stock: stockValue } : p));
-      setDirtyProducts(prev => new Set(prev).add(productId));
-    }
+  const handleStockChange = (productId: string, newStock: number) => {
+    if (newStock < 0) return;
+    setLocalProducts(current => current.map(p => p.id === productId ? { ...p, stock: newStock } : p));
+    setDirtyProducts(prev => new Set(prev).add(productId));
   };
 
   useEffect(() => {
     if (debouncedDirtyProducts.size > 0) {
+      setIsSaving(true);
       // In a real app, you'd send this to your backend
       setProducts(currentGlobalProducts => {
         const updatedGlobalProducts = [...currentGlobalProducts];
@@ -71,12 +73,15 @@ export function ProductCatalog() {
         return updatedGlobalProducts;
       });
 
-      console.log('Auto-saving changes for:', Array.from(debouncedDirtyProducts));
-      setDirtyProducts(new Set());
-      toast({
-        title: 'Changes auto-saved!',
-        description: `Updated ${debouncedDirtyProducts.size} product(s).`,
-      });
+      // Simulate save delay
+      setTimeout(() => {
+        toast({
+            title: 'Changes Auto-Saved!',
+            description: `Updated ${debouncedDirtyProducts.size} product(s).`,
+        });
+        setDirtyProducts(new Set());
+        setIsSaving(false);
+      }, 500);
     }
   }, [debouncedDirtyProducts, localProducts, setProducts, toast]);
 
@@ -95,36 +100,53 @@ export function ProductCatalog() {
               <TableHead>Product Name</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Price</TableHead>
-              <TableHead className="text-right">Stock</TableHead>
+              <TableHead className="text-center">Stock</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {localProducts.map(product => (
               <TableRow key={product.id}>
                 <TableCell className="font-medium">
-                  <div>{product.name}</div>
+                  <div className="flex items-center gap-2">
+                    <span>{product.name}</span>
+                    {isSaving && dirtyProducts.has(product.id) && (
+                        <Loader2 className="h-4 w-4 text-muted-foreground animate-spin" />
+                    )}
+                  </div>
                   {product.mpn && <div className="text-xs text-muted-foreground">MPN: {product.mpn}</div>}
                 </TableCell>
                 <TableCell>
                   <Badge variant={product.status === 'active' ? 'default' : 'outline'}>{product.status}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Input
-                    type="number"
-                    defaultValue={product.price}
-                    onChange={(e) => handlePriceChange(product.id, e.target.value)}
-                    className="w-24 h-8 text-right ml-auto"
-                    aria-label={`Price for ${product.name}`}
-                  />
+                  <div className="relative ml-auto w-28">
+                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{getCurrencySymbol()}</span>
+                     <Input
+                        type="number"
+                        defaultValue={product.price.toFixed(2)}
+                        onBlur={(e) => handlePriceChange(product.id, e.target.value)}
+                        className="h-9 text-right pr-4 pl-7"
+                        aria-label={`Price for ${product.name}`}
+                        step="0.01"
+                      />
+                  </div>
                 </TableCell>
-                <TableCell className="text-right">
-                  <Input
-                    type="number"
-                    defaultValue={product.stock}
-                    onChange={(e) => handleStockChange(product.id, e.target.value)}
-                    className="w-20 h-8 text-right ml-auto"
-                    aria-label={`Stock for ${product.name}`}
-                  />
+                <TableCell>
+                  <div className="flex items-center justify-center gap-2">
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleStockChange(product.id, product.stock - 1)}>
+                          <Minus className="h-4 w-4"/>
+                      </Button>
+                      <Input
+                        type="number"
+                        value={product.stock}
+                        onChange={(e) => handleStockChange(product.id, parseInt(e.target.value, 10) || 0)}
+                        className="w-16 h-9 text-center font-semibold"
+                        aria-label={`Stock for ${product.name}`}
+                      />
+                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleStockChange(product.id, product.stock + 1)}>
+                          <Plus className="h-4 w-4"/>
+                      </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
