@@ -137,6 +137,16 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                 >
                     {product.name}
                 </h1>
+                {product.fulfillmentFields && (
+                  <div className="text-sm text-gray-500 mt-2">
+                    {Object.entries(product.fulfillmentFields).map(([key, value]) => (
+                      <div key={key}>
+                        <span>{key}: </span>
+                        <span>{value as string}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <p 
                   className="text-3xl font-bold mt-2"
                   style={{ color: 'var(--store-secondary)' }}

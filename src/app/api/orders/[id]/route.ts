@@ -1,16 +1,15 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { type NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 
 // GET /api/orders/[id] - Get a single order
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient(cookies());
-    const { id } = params;
+    const { id } = await params;
+    const supabase = await createClient();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -63,11 +62,11 @@ export async function GET(
 // PATCH /api/orders/[id] - Update order status
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = createClient(cookies());
-    const { id } = params;
+    const { id } = await params;
+    const supabase = await createClient();
     const body = await request.json();
 
     // Get authenticated user

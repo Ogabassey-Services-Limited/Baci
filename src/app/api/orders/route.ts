@@ -1,13 +1,11 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { type NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-
 
 // GET /api/orders - Fetch orders for authenticated merchant
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient(cookies());
+    const supabase = await createClient();
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -82,7 +80,7 @@ export async function GET(request: NextRequest) {
 // POST /api/orders - Create new order from storefront
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient(cookies());
+    const supabase = await createClient();
     const body = await request.json();
 
     const {

@@ -3,11 +3,11 @@
 
 import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Loader2, Sparkles, Upload } from 'lucide-react';
+import { Loader2, Sparkles, Upload, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -41,16 +41,25 @@ import { generateProductDescription } from '@/ai/flows/generate-product-descript
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { useMerchant } from '@/hooks/use-merchant';
 
+const fulfillmentFieldSchema = z.object({
+  name: z.string().min(1, 'Field name cannot be empty.'),
+});
+
 const addProductSchema = z.object({
   name: z.string().min(3, 'Product name must be at least 3 characters.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   price: z.coerce.number().min(0, 'Price must be a positive number.'),
-  stock: z.coerce.number().int('Stock must be a whole number.'),
+  manage_stock: z.boolean().default(true),
+  stock: z.coerce.number().int('Stock must be a whole number.').optional(),
   status: z.enum(['draft', 'active']),
   image: z.any().refine((file) => file, 'Product image is required.'),
   brand: z.string().optional(),
   gtin: z.string().optional(),
   mpn: z.string().optional(),
+  fulfillment_fields: z.array(fulfillmentFieldSchema).optional(),
+}).refine(data => data.manage_stock ? data.stock !== undefined && data.stock !== null : true, {
+    message: "Stock is required when inventory is tracked.",
+    path: ["stock"],
 });
 
 type AddProductFormValues = z.infer<typeof addProductSchema>;
@@ -73,13 +82,20 @@ export default function AddProductForm() {
       name: '',
       description: '',
       price: 0,
+      manage_stock: true,
       stock: 0,
       status: 'active',
       image: null,
       brand: '',
       gtin: '',
       mpn: '',
+      fulfillment_fields: [],
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "fulfillment_fields"
   });
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -165,6 +181,7 @@ export default function AddProductForm() {
   }
 
   const imageToDisplay = showEnhanced ? enhancedImage : originalImage;
+  const watchManageStock = form.watch("manage_stock");
   
   if (merchantLoading) {
       return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
@@ -230,7 +247,27 @@ export default function AddProductForm() {
                 <CardHeader>
                   <CardTitle>Pricing & Inventory</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-6">
+                    <FormField
+                        control={form.control}
+                        name="manage_stock"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-base">Track Inventory</FormLabel>
+                                    <FormDescription>
+                                    When disabled, stock is considered infinite.
+                                    </FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
                   <div className="grid gap-6 sm:grid-cols-2">
                     <FormField
                       control={form.control}
@@ -245,22 +282,64 @@ export default function AddProductForm() {
                         </FormItem>
                       )}
                     />
-                     <FormField
-                      control={form.control}
-                      name="stock"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Stock</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="0" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    {watchManageStock && (
+                        <FormField
+                        control={form.control}
+                        name="stock"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Stock</FormLabel>
+                            <FormControl>
+                                <Input type="number" placeholder="0" {...field} value={field.value ?? ''} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                    )}
                   </div>
                 </CardContent>
               </Card>
+
+              <Card>
+                <CardHeader>
+                    <CardTitle>Fulfillment Fields</CardTitle>
+                    <CardDescription>
+                        Define fields to be collected at fulfillment (e.g., IMEI, Serial Number).
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {fields.map((field, index) => (
+                    <FormField
+                        key={field.id}
+                        control={form.control}
+                        name={`fulfillment_fields.${index}.name`}
+                        render={({ field }) => (
+                        <FormItem>
+                            <div className="flex items-center gap-2">
+                            <FormControl>
+                                <Input placeholder="e.g. IMEI Number" {...field} />
+                            </FormControl>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}>
+                                <Trash2 className="h-4 w-4 text-muted-foreground" />
+                            </Button>
+                            </div>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    ))}
+                    <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ name: '' })}
+                    >
+                    Add Fulfillment Field
+                    </Button>
+                </CardContent>
+              </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>Google Merchant Center</CardTitle>

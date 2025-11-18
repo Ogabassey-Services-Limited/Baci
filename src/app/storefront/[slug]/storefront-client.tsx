@@ -107,7 +107,7 @@ function StorefrontContent() {
         </div>
 
         <nav className="flex items-center gap-2 sm:gap-4">
-            <Link href="/dashboard">
+            <Link href="/dashboard/orders">
                 <ThemedButton colorRole="primary">My Dashboard</ThemedButton>
             </Link>
             <SheetTrigger asChild>
