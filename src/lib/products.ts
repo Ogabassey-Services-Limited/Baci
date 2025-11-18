@@ -15,6 +15,7 @@ export interface Product {
     brand: string;
     gtin: string;
     mpn: string;
+    fulfillmentFields?: { name: string }[];
 }
 
 export const products: Product[] = [
@@ -30,7 +31,10 @@ export const products: Product[] = [
         imageHint: 'ceramic mug',
         brand: 'Baci Artisan',
         gtin: '123456789012',
-        mpn: 'CM-SET-01'
+        mpn: 'CM-SET-01',
+        fulfillmentFields: [
+            { name: 'IMEI' },
+        ],
     },
     {
         id: 'p2',
