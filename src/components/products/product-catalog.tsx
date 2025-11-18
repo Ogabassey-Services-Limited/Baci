@@ -132,20 +132,22 @@ export function ProductCatalog() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center justify-center gap-2">
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleStockChange(product.id, product.stock - 1)}>
-                          <Minus className="h-4 w-4"/>
-                      </Button>
-                      <Input
-                        type="number"
-                        value={product.stock}
-                        onChange={(e) => handleStockChange(product.id, parseInt(e.target.value, 10) || 0)}
-                        className="w-16 h-9 text-center font-semibold"
-                        aria-label={`Stock for ${product.name}`}
-                      />
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => handleStockChange(product.id, product.stock + 1)}>
-                          <Plus className="h-4 w-4"/>
-                      </Button>
+                   <div className="flex items-center justify-center">
+                    <div className="flex items-center border rounded-md">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-r-none" onClick={() => handleStockChange(product.id, product.stock - 1)}>
+                            <Minus className="h-4 w-4"/>
+                        </Button>
+                        <Input
+                            type="number"
+                            value={product.stock}
+                            onChange={(e) => handleStockChange(product.id, parseInt(e.target.value, 10) || 0)}
+                            className="w-12 h-8 text-center font-semibold border-x border-y-0 rounded-none focus-visible:ring-0 remove-arrow"
+                            aria-label={`Stock for ${product.name}`}
+                        />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-l-none" onClick={() => handleStockChange(product.id, product.stock + 1)}>
+                            <Plus className="h-4 w-4"/>
+                        </Button>
+                    </div>
                   </div>
                 </TableCell>
               </TableRow>
