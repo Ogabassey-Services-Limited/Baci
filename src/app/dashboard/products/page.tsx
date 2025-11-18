@@ -78,7 +78,7 @@ function ProductsPageContent() {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
     const locale = country ? `en-${country.code}` : 'en-US';
     const currency = country ? country.currency : 'USD';
-    return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
+    return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
   };
   
   const getCurrencySymbol = () => {
@@ -90,6 +90,7 @@ function ProductsPageContent() {
       {
         style: 'currency',
         currency: currency,
+        currencyDisplay: 'symbol',
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
       }

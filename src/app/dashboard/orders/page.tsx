@@ -122,8 +122,8 @@ export const initialOrders = [
   },
 ];
 
-type ShippingStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Canceled' | 'Returned';
-type PaymentStatus = 'Paid' | 'Unpaid' | 'Pending' | 'Partially Paid' | 'Refunded';
+export type ShippingStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Canceled' | 'Returned';
+export type PaymentStatus = 'Paid' | 'Unpaid' | 'Pending' | 'Partially Paid' | 'Refunded';
 
 export const StatusBadge = ({ status, type }: { status: string, type: 'payment' | 'shipping' }) => {
     const paymentVariants: { [key: string]: string } = {
