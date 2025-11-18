@@ -1,25 +1,16 @@
+
 import { createClient } from '@/lib/supabase/server';
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
-// Helper to create a cookie handler for the API route context
-const getApiCookieHandler = () => {
-  const cookieStore = cookies();
-  return {
-    get: (name: string) => cookieStore.get(name)?.value,
-    set: (name: string, value: string, options: any) => cookieStore.set(name, value, options),
-    remove: (name: string, options: any) => cookieStore.delete(name, options),
-  };
-};
-
 // GET /api/orders/[id] - Get a single order
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    const supabase = await createClient(getApiCookieHandler());
+    const supabase = createClient(cookies());
+    const { id } = params;
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -72,11 +63,11 @@ export async function GET(
 // PATCH /api/orders/[id] - Update order status
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    const supabase = await createClient(getApiCookieHandler());
+    const supabase = createClient(cookies());
+    const { id } = params;
     const body = await request.json();
 
     // Get authenticated user

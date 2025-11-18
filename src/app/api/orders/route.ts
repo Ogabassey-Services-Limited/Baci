@@ -1,22 +1,13 @@
+
 import { createClient } from '@/lib/supabase/server';
 import { type NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-
-// Helper to create a cookie handler for the API route context
-const getApiCookieHandler = () => {
-  const cookieStore = cookies();
-  return {
-    get: (name: string) => cookieStore.get(name)?.value,
-    set: (name: string, value: string, options: any) => cookieStore.set(name, value, options),
-    remove: (name: string, options: any) => cookieStore.delete(name, options),
-  };
-};
 
 
 // GET /api/orders - Fetch orders for authenticated merchant
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient(getApiCookieHandler());
+    const supabase = createClient(cookies());
 
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -91,7 +82,7 @@ export async function GET(request: NextRequest) {
 // POST /api/orders - Create new order from storefront
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient(getApiCookieHandler());
+    const supabase = createClient(cookies());
     const body = await request.json();
 
     const {
