@@ -7,12 +7,15 @@ import { FileUpload } from '@/components/products/file-upload';
 import { ProcessingView } from '@/components/products/processing-view';
 import { ReviewChanges } from '@/components/products/review-changes';
 import { Button } from '@/components/ui/button';
-import { File, PlusCircle, Search, Loader2, Send } from 'lucide-react';
+import { File, PlusCircle, Search, Loader2, Send, Archive, DollarSign, Package } from 'lucide-react';
 import Link from 'next/link';
 import { Textarea } from '@/components/ui/textarea';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { processPriceList } from '@/app/dashboard/products/actions';
 import { useToast } from '@/hooks/use-toast';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useMerchant } from '@/hooks/use-merchant';
+import { getCountryByCode } from '@/lib/countries';
 
 const GoogleSheetIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
@@ -27,6 +30,7 @@ const GoogleSheetIcon = () => (
 
 function ProductsPageContent() {
   const { products, workflowStep, setWorkflowStep, searchTerm, setSearchTerm, setAiResponse } = useProductContext();
+  const { merchant } = useMerchant();
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
@@ -60,6 +64,21 @@ function ProductsPageContent() {
         title: 'Coming Soon! 🚀',
         description: 'Google Sheets integration is under development.'
     });
+  };
+
+  const inventoryValue = useMemo(() => {
+    return products.reduce((total, product) => total + (product.price * product.stock), 0);
+  }, [products]);
+
+  const outOfStockCount = useMemo(() => {
+    return products.filter(p => p.stock === 0).length;
+  }, [products]);
+
+  const formatCurrency = (amount: number) => {
+    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+    const locale = country ? `en-${country.code}` : 'en-US';
+    const currency = country ? country.currency : 'USD';
+    return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
   };
 
 
@@ -105,6 +124,51 @@ function ProductsPageContent() {
                 </Link>
             </div>
         </div>
+
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Products</CardTitle>
+                <Package className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold">{products.length}</div>
+                <p className="text-xs text-muted-foreground">items in your catalog</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Inventory Value</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(inventoryValue)}</div>
+                <p className="text-xs text-muted-foreground">Total value of stock</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Out of Stock</CardTitle>
+                <Archive className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold">{outOfStockCount}</div>
+                <p className="text-xs text-muted-foreground">items need restocking</p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Categories</CardTitle>
+                <File className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                <div className="text-2xl font-bold">5</div>
+                <p className="text-xs text-muted-foreground">product categories</p>
+                </CardContent>
+            </Card>
+        </div>
+
+
          <form onSubmit={handleCommandSubmit}>
             <div className="relative w-full">
                 <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
