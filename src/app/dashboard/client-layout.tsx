@@ -57,28 +57,23 @@ export default function DashboardClientLayout({
   const router = useRouter();
   const { merchant, loading: merchantLoading, updateMerchant } = useMerchant();
   const { user, loading: authLoading, signOut } = useAuth();
-  const [hasMounted, setHasMounted] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  useEffect(() => {
-    // Wait for both auth and merchant loading to finish
+    // Wait for both auth and merchant loading to finish before making decisions
     if (authLoading || merchantLoading) {
       return;
     }
 
-    // If there's no user, redirect to login
+    // If there's no user, redirect to login page. This is the primary auth check.
     if (!user) {
       router.push('/login');
       return;
     }
 
     // If there IS a user but NO merchant record, they haven't completed onboarding.
-    // Redirect them back to onboarding. This is the security fix.
+    // This is the critical security and UX fix.
     if (user && !merchant) {
       toast({
         title: 'Onboarding Incomplete',
@@ -198,13 +193,20 @@ export default function DashboardClientLayout({
     );
   };
   
-  // While checking auth, show a loading screen.
-  if (authLoading || merchantLoading || !merchant) {
+  // While checking auth OR if auth has succeeded but we are still waiting for the merchant,
+  // show a full-page loading screen. This prevents content flashes and incorrect redirects.
+  if (authLoading || (user && merchantLoading)) {
     return (
         <div className="flex min-h-screen w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
         </div>
     );
+  }
+
+  // If after loading, there's still no user or no merchant, it means the redirect is in progress.
+  // Render nothing to prevent a flash of the layout.
+  if (!user || !merchant) {
+    return null;
   }
 
   return (

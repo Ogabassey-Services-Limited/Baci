@@ -132,7 +132,7 @@ Return 4 images. Do not return any text or JSON, only the raw image outputs.`;
           }
       });
       
-      const logos = media.map(m => m.url);
+      const logos = media ? [media.url] : [];
 
       if (logos.length < 4) {
         const error = new Error('AI failed to generate 4 logo options.');

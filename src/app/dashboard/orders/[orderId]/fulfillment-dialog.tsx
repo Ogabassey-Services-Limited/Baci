@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,14 +10,20 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2 } from 'lucide-react';
+import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 
-// Assuming these types are defined elsewhere and can be imported
-// import { Order, OrderItem, Product } from '@/lib/types';
-
-// Mock types for now
-type OrderItem = { id: string; name: string; quantity: number; product: { fulfillmentFields?: { name: string }[] } };
+// Mock types for now - in a real app, these would be imported
+type OrderItem = { 
+    id: string; 
+    name: string; 
+    quantity: number; 
+    product: { 
+        fulfillmentFields?: { name: string }[] 
+    }; 
+};
 type FulfillmentData = { [key: string]: string[][] };
 
+// --- Zod Schema Definition ---
 const fulfillmentItemSchema = z.object({
   name: z.string(),
   value: z.string().min(1, 'This field is required.'),
@@ -34,6 +40,7 @@ const fulfillmentFormSchema = z.object({
 
 type FulfillmentFormValues = z.infer<typeof fulfillmentFormSchema>;
 
+// --- Component Props ---
 interface FulfillmentDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -41,6 +48,7 @@ interface FulfillmentDialogProps {
   onConfirm: (data: FulfillmentData) => Promise<void>;
 }
 
+// --- Component ---
 export default function FulfillmentDialog({ isOpen, onClose, orderItems, onConfirm }: FulfillmentDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
 
@@ -50,27 +58,48 @@ export default function FulfillmentDialog({ isOpen, onClose, orderItems, onConfi
 
   const form = useForm<FulfillmentFormValues>({
     resolver: zodResolver(fulfillmentFormSchema),
-    defaultValues: {
-      groups: itemsWithFields.map(item => ({
-        itemId: item.id,
-        fields: Array.from({ length: item.quantity }).flatMap(() => 
-          item.product.fulfillmentFields!.map(field => ({ name: field.name, value: '' }))
-        ),
-      })),
-    },
   });
 
-  const { control } = form;
+  // Reset form when the dialog opens or items change
+  useEffect(() => {
+    if (isOpen) {
+      form.reset({
+        groups: itemsWithFields.map(item => ({
+          itemId: item.id,
+          fields: Array.from({ length: item.quantity }).flatMap(() => 
+            item.product.fulfillmentFields!.map(field => ({ name: field.name, value: '' }))
+          ),
+        })),
+      });
+    }
+  }, [isOpen, orderItems, form, itemsWithFields]);
+
 
   const onSubmit = async (data: FulfillmentFormValues) => {
     setIsSaving(true);
     const formattedData: FulfillmentData = {};
-    // Transform data into the required structure for onConfirm
-    // This is a placeholder for the actual transformation logic
-    console.log('Formatted data:', data);
-    // await onConfirm(formattedData);
+
+    data.groups.forEach(group => {
+        const item = itemsWithFields.find(i => i.id === group.itemId);
+        if (!item || !item.product.fulfillmentFields || item.product.fulfillmentFields.length === 0) return;
+
+        const numFields = item.product.fulfillmentFields.length;
+        const units: string[][] = [];
+        const numUnits = item.quantity;
+
+        for (let i = 0; i < numUnits; i++) {
+            const unitFields: string[] = [];
+            for (let j = 0; j < numFields; j++) {
+                const fieldIndex = (i * numFields) + j;
+                unitFields.push(group.fields[fieldIndex].value);
+            }
+            units.push(unitFields);
+        }
+        formattedData[group.itemId] = units;
+    });
+    
+    await onConfirm(formattedData);
     setIsSaving(false);
-    onClose();
   };
 
   return (
@@ -82,39 +111,54 @@ export default function FulfillmentDialog({ isOpen, onClose, orderItems, onConfi
             Some items in this order require additional information before fulfillment.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
-          <div className="max-h-[60vh] overflow-y-auto px-1">
-            {itemsWithFields.map((item, itemIndex) => (
-              <div key={item.id} className="space-y-4 mb-6 p-4 border rounded-lg">
-                <h3 className="font-semibold text-lg">{item.name}</h3>
-                {Array.from({ length: item.quantity }).map((_, quantityIndex) => (
-                  <div key={quantityIndex} className="space-y-3 p-3 bg-muted/50 rounded-md">
-                     <p className="font-medium text-sm">Unit {quantityIndex + 1}</p>
-                    {item.product.fulfillmentFields?.map(field => {
-                      // Find the correct field in the form array
-                      const fieldName = `groups.${itemIndex}.fields.${quantityIndex * item.product.fulfillmentFields!.length}.value`;
-                      return (
-                        <div key={field.name} className="grid grid-cols-3 items-center gap-4">
-                           <Label htmlFor={fieldName} className="text-right">{field.name}</Label>
-                          <Input id={fieldName} {...form.register(fieldName as any)} className="col-span-2" />
-                        </div>
-                      );
-                    })}
-                  </div>
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+            <div className="max-h-[60vh] overflow-y-auto px-1">
+                {itemsWithFields.map((item, itemIndex) => (
+                <div key={item.id} className="space-y-4 mb-6 p-4 border rounded-lg">
+                    <h3 className="font-semibold text-lg">{item.name}</h3>
+                    {Array.from({ length: item.quantity }).map((_, quantityIndex) => (
+                    <div key={quantityIndex} className="space-y-4 p-3 bg-muted/50 rounded-md">
+                        <p className="font-medium text-sm">Unit {quantityIndex + 1}</p>
+                        {item.product.fulfillmentFields?.map((field, fieldIndex) => {
+                            const formFieldIndex = (quantityIndex * item.product.fulfillmentFields!.length) + fieldIndex;
+                            const fieldName = `groups.${itemIndex}.fields.${formFieldIndex}.value`;
+                            
+                            return (
+                                <FormField
+                                    key={`${item.id}-${quantityIndex}-${field.name}`}
+                                    control={form.control}
+                                    name={fieldName as any}
+                                    render={({ field: formField }) => (
+                                        <FormItem className="grid grid-cols-3 items-center gap-x-4 gap-y-1">
+                                            <Label htmlFor={fieldName} className="text-right col-span-1">{field.name}</Label>
+                                            <div className="col-span-2">
+                                                <FormControl>
+                                                    <Input id={fieldName} {...formField} />
+                                                </FormControl>
+                                                <FormMessage className="mt-1" />
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
+                            );
+                        })}
+                    </div>
+                    ))}
+                </div>
                 ))}
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirm Fulfillment
-            </Button>
-          </DialogFooter>
-        </form>
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+                Cancel
+                </Button>
+                <Button type="submit" disabled={isSaving}>
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm Fulfillment
+                </Button>
+            </DialogFooter>
+            </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

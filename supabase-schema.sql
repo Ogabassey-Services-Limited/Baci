@@ -122,11 +122,7 @@ CREATE POLICY "Merchants can insert own data"
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
--- Anyone can read merchant public data (for storefronts)
-CREATE POLICY "Public can view merchant storefront data"
-  ON merchants
-  FOR SELECT
-  USING (true);
+
 
 -- ========== CUSTOMERS POLICIES ==========
 
@@ -188,11 +184,19 @@ CREATE POLICY "Merchants can update own orders"
   FOR UPDATE
   USING (merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid()));
 
--- Allow order creation (for checkout)
+-- Allow order creation for customers and merchants
 CREATE POLICY "Allow order creation"
   ON orders
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (
+    (
+      -- Is the user the customer of this order?
+      auth.uid() = (SELECT user_id FROM customers WHERE id = customer_id)
+    ) OR (
+      -- Is the user the merchant of this order's customer?
+      merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())
+    )
+  );
 
 -- =============================================
 -- FUNCTIONS & TRIGGERS

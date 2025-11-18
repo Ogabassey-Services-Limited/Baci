@@ -50,10 +50,10 @@ export function AddressAutocomplete() {
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
         if (place.address_components) {
-          const streetNumber = place.address_components.find(c => c.types.includes('street_number'))?.long_name || '';
-          const route = place.address_components.find(c => c.types.includes('route'))?.long_name || '';
-          const city = place.address_components.find(c => c.types.includes('locality'))?.long_name || '';
-          const state = place.address_components.find(c => c.types.includes('administrative_area_level_1'))?.short_name || '';
+          const streetNumber = place.address_components.find((c: google.maps.GeocoderAddressComponent) => c.types.includes('street_number'))?.long_name || '';
+          const route = place.address_components.find((c: google.maps.GeocoderAddressComponent) => c.types.includes('route'))?.long_name || '';
+          const city = place.address_components.find((c: google.maps.GeocoderAddressComponent) => c.types.includes('locality'))?.long_name || '';
+          const state = place.address_components.find((c: google.maps.GeocoderAddressComponent) => c.types.includes('administrative_area_level_1'))?.short_name || '';
           
           setValue('address', `${streetNumber} ${route}`.trim());
           setValue('city', city);

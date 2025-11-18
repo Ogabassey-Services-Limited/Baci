@@ -3,6 +3,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 import { logger } from '@/lib/logger';
 import type { User } from '@supabase/supabase-js';
 import type { BrandColors } from '@/types';
@@ -22,7 +23,8 @@ export async function submitOnboarding(
   prevState: ServerActionState,
   formData: FormData
 ): Promise<ServerActionState> {
-  const supabase = await createClient();
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
   let user: User | null = null;
   
   const rawFormData = Object.fromEntries(formData.entries());
@@ -159,7 +161,8 @@ export async function sendMagicLink(email: string): Promise<{ success: boolean; 
   }
 
   try {
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {

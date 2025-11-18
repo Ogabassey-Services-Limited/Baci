@@ -137,15 +137,15 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                 >
                     {product.name}
                 </h1>
-                {product.fulfillmentFields && (
-                  <div className="text-sm text-gray-500 mt-2">
-                    {Object.entries(product.fulfillmentFields).map(([key, value]) => (
-                      <div key={key}>
-                        <span>{key}: </span>
-                        <span>{value as string}</span>
-                      </div>
-                    ))}
-                  </div>
+                {product.fulfillmentFields && product.fulfillmentFields.length > 0 && (
+                    <div className="text-sm text-gray-500 mt-2">
+                        <p className="font-medium">Requires:</p>
+                        <ul className="list-disc list-inside">
+                        {product.fulfillmentFields.map((field) => (
+                            <li key={field.name}>{field.name}</li>
+                        ))}
+                        </ul>
+                    </div>
                 )}
                 <p 
                   className="text-3xl font-bold mt-2"

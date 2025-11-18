@@ -104,7 +104,15 @@ CREATE POLICY "Customers can view their own orders"
 CREATE POLICY "Users can view order items for orders they can access"
   ON order_items
   FOR SELECT
-  USING (order_id IN (SELECT id FROM orders));
+  USING (
+    (
+      -- Is the user the merchant of this order?
+      order_id IN (SELECT id FROM orders WHERE merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid()))
+    ) OR (
+      -- Is the user the customer of this order?
+      order_id IN (SELECT id FROM orders WHERE customer_id IN (SELECT id FROM customers WHERE user_id = auth.uid()))
+    )
+  );
 
 CREATE POLICY "Merchants can insert order items for their orders"
   ON order_items
@@ -114,6 +122,11 @@ CREATE POLICY "Merchants can insert order items for their orders"
 CREATE POLICY "Merchants can update order items for their orders"
   ON order_items
   FOR UPDATE
+  USING (order_id IN (SELECT id FROM orders WHERE merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())));
+
+CREATE POLICY "Merchants can delete order items for their orders"
+  ON order_items
+  FOR DELETE
   USING (order_id IN (SELECT id FROM orders WHERE merchant_id IN (SELECT id FROM merchants WHERE user_id = auth.uid())));
 
 
