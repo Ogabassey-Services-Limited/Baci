@@ -7,7 +7,7 @@ import { FileUpload } from '@/components/products/file-upload';
 import { ProcessingView } from '@/components/products/processing-view';
 import { ReviewChanges } from '@/components/products/review-changes';
 import { Button } from '@/components/ui/button';
-import { File, PlusCircle, Search, Loader2, Send, Archive, Package } from 'lucide-react';
+import { File, PlusCircle, Search, Loader2, Send, Archive, Package, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useMemo } from 'react';
@@ -80,23 +80,6 @@ function ProductsPageContent() {
     const currency = country ? country.currency : 'USD';
     return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
   };
-  
-  const getCurrencySymbol = () => {
-    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
-    const currency = country ? country.currency : 'USD';
-    // A bit of a hack to get just the symbol
-    return (0).toLocaleString(
-      'en-US',
-      {
-        style: 'currency',
-        currency: currency,
-        currencyDisplay: 'symbol',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }
-    ).replace(/[0-9]/g, '').trim();
-  };
-
 
   const renderContent = () => {
     switch (workflowStep) {
@@ -155,7 +138,7 @@ function ProductsPageContent() {
             <Card className="bg-green-50 border-green-200 transition-transform transform hover:scale-105">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-green-800">Inventory Value</CardTitle>
-                <div className="h-4 w-4 text-green-600 font-bold">{getCurrencySymbol()}</div>
+                <DollarSign className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
                 <div className="text-2xl font-bold text-green-900">{formatCurrency(inventoryValue)}</div>
