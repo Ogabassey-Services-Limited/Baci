@@ -239,7 +239,8 @@ function Step2_Payment() {
 function CheckoutPageContent() {
   const router = useRouter();
   const { toast } = useToast();
-  const { clearCart, cart, cartCount } = useCart();
+  const { clearCart, cart, cartCount, cartTotal } = useCart();
+  const { merchant } = useMerchant();
   const [step, setStep] = useState(0); // 0: Auth, 1: Shipping, 2: Payment
   const [pageLoading, setPageLoading] = useState(true);
   const [formIsLoading, setFormIsLoading] = useState(false);
@@ -319,27 +320,101 @@ function CheckoutPageContent() {
 
   const onShippingSubmit = async (data: ShippingFormValues) => {
     setFormIsLoading(true);
-    
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    console.log("Order submitted:", {
+
+    try {
+      // Get merchant ID from Supabase
+      if (!merchant || !merchant.user_id) {
+        throw new Error('Merchant information not available. Please try again.');
+      }
+
+      // Fetch merchant ID from database
+      const { data: merchantData, error: merchantError } = await supabase
+        .from('merchants')
+        .select('id')
+        .eq('user_id', merchant.user_id)
+        .single();
+
+      if (merchantError || !merchantData) {
+        throw new Error('Unable to find store information. Please try again.');
+      }
+
+      // Prepare order items
+      const orderItems = cart.map(item => ({
+        product_id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image,
+      }));
+
+      // Calculate totals
+      const subtotal = cartTotal;
+      const shippingFee = 10.00; // Default shipping fee
+
+      // Create order via API
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          merchant_id: merchantData.id,
+          customer_email: data.email,
+          customer_name: `${data.firstName} ${data.lastName}`,
+          customer_phone: data.phone,
+          items: orderItems,
+          subtotal,
+          shipping_fee: shippingFee,
+          payment_method: 'card',
+          payment_status: 'paid', // Since this is a demo, mark as paid
+          shipping_status: 'pending',
+          shipping_address: {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            address: data.address,
+            city: data.city,
+            state: data.state,
+          },
+          source: 'online_store',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create order');
+      }
+
+      const { order } = await response.json();
+
+      // Store order data for success page
+      const orderData = {
+        order_id: order.id,
+        order_number: order.order_number,
         shipping: data,
         items: cart,
-        userId: user?.id,
-    });
-    
-    toast({
-      title: 'Payment Successful!',
-      description: 'Your order has been placed.',
-    });
+        subtotal,
+        shipping_fee: shippingFee,
+        total: order.total,
+      };
+      sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
 
-    const orderData = { shipping: data, items: cart };
-    sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
+      toast({
+        title: 'Payment Successful!',
+        description: `Order ${order.order_number} has been placed.`,
+      });
 
-    clearCart();
-    setFormIsLoading(false);
-    
-    router.push('/checkout/success');
+      clearCart();
+      router.push('/checkout/success');
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Order Failed',
+        description: (error as Error).message || 'Failed to create order. Please try again.',
+      });
+    } finally {
+      setFormIsLoading(false);
+    }
   };
 
   const getStepTitle = () => {

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   File,
   PlusCircle,
@@ -223,31 +223,190 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState(initialOrders);
   const [showAlert, setShowAlert] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const [ordersLoading, setOrdersLoading] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
 
-  const handleUpdateStatus = (orderNumber: string, newStatus: ShippingStatus) => {
-    setOrders(currentOrders =>
-      currentOrders.map(order =>
-        order.orderNumber === orderNumber
-          ? { ...order, shippingStatus: newStatus }
-          : order
-      )
-    );
-    toast({
-      title: `Order ${newStatus}! 🎉`,
-      description: `Order ${orderNumber} has been updated. The customer will be notified.`,
-    });
+  // Fetch orders from API
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (loading || !merchant) {
+        return; // Wait for merchant data to load
+      }
+
+      setOrdersLoading(true);
+      setOrdersError(null);
+
+      try {
+        const params = new URLSearchParams();
+        if (paymentFilter !== 'All') {
+          params.append('payment_status', paymentFilter.toLowerCase().replace(' ', '_'));
+        }
+        if (shippingFilter !== 'All') {
+          params.append('shipping_status', shippingFilter.toLowerCase());
+        }
+        if (searchTerm) {
+          params.append('search', searchTerm);
+        }
+
+        const response = await fetch(`/api/orders?${params.toString()}`);
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch orders');
+        }
+
+        const data = await response.json();
+
+        // Transform API orders to match the UI format
+        const transformedOrders = data.orders.map((order: any) => ({
+          orderNumber: order.order_number,
+          customerName: order.customer_name,
+          total: parseFloat(order.total),
+          shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
+          paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
+          date: new Date(order.created_at).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+          }),
+          source: order.source === 'online_store' ? 'other' : order.source,
+          id: order.id, // Store the database ID for updates
+        }));
+
+        setOrders(transformedOrders);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        setOrdersError((error as Error).message);
+        // Fall back to initial mock orders on error
+        setOrders(initialOrders);
+      } finally {
+        setOrdersLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, [loading, merchant, paymentFilter, shippingFilter, searchTerm]);
+
+  // Helper function to format status from DB to UI
+  const formatStatus = (status: string): string => {
+    return status
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   };
-  
-  const handleUpdatePayment = (orderNumber: string, newPayment: PaymentStatus) => {
-    setOrders(currentOrders =>
-      currentOrders.map(order =>
-        order.orderNumber === orderNumber ? { ...order, paymentStatus: newPayment } : order
-      )
-    );
-    toast({
-      title: `Payment status updated ✅`,
-      description: `Order ${orderNumber} payment status set to ${newPayment}.`,
-    });
+
+  // Helper function to format status from UI to DB
+  const formatStatusForDB = (status: string): string => {
+    return status.toLowerCase().replace(' ', '_');
+  };
+
+  const handleUpdateStatus = async (orderNumber: string, newStatus: ShippingStatus) => {
+    // Find the order to get its database ID
+    const order = orders.find(o => o.orderNumber === orderNumber);
+    if (!order || !(order as any).id) {
+      // Fallback to local update if no ID (for mock data)
+      setOrders(currentOrders =>
+        currentOrders.map(order =>
+          order.orderNumber === orderNumber
+            ? { ...order, shippingStatus: newStatus }
+            : order
+        )
+      );
+      toast({
+        title: `Order ${newStatus}! 🎉`,
+        description: `Order ${orderNumber} has been updated. The customer will be notified.`,
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/orders/${(order as any).id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          shipping_status: formatStatusForDB(newStatus),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update order');
+      }
+
+      // Update local state on success
+      setOrders(currentOrders =>
+        currentOrders.map(order =>
+          order.orderNumber === orderNumber
+            ? { ...order, shippingStatus: newStatus }
+            : order
+        )
+      );
+
+      toast({
+        title: `Order ${newStatus}! 🎉`,
+        description: `Order ${orderNumber} has been updated. The customer will be notified.`,
+      });
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: 'Failed to update order status. Please try again.',
+      });
+    }
+  };
+
+  const handleUpdatePayment = async (orderNumber: string, newPayment: PaymentStatus) => {
+    // Find the order to get its database ID
+    const order = orders.find(o => o.orderNumber === orderNumber);
+    if (!order || !(order as any).id) {
+      // Fallback to local update if no ID (for mock data)
+      setOrders(currentOrders =>
+        currentOrders.map(order =>
+          order.orderNumber === orderNumber ? { ...order, paymentStatus: newPayment } : order
+        )
+      );
+      toast({
+        title: `Payment status updated ✅`,
+        description: `Order ${orderNumber} payment status set to ${newPayment}.`,
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/orders/${(order as any).id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          payment_status: formatStatusForDB(newPayment),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update order');
+      }
+
+      // Update local state on success
+      setOrders(currentOrders =>
+        currentOrders.map(order =>
+          order.orderNumber === orderNumber ? { ...order, paymentStatus: newPayment } : order
+        )
+      );
+
+      toast({
+        title: `Payment status updated ✅`,
+        description: `Order ${orderNumber} payment status set to ${newPayment}.`,
+      });
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: 'Failed to update payment status. Please try again.',
+      });
+    }
   };
 
   const formatCurrency = (amount: number) => {

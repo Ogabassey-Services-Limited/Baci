@@ -12,6 +12,8 @@ import { getCountryByCode } from '@/lib/countries';
 import { Separator } from '@/components/ui/separator';
 
 interface OrderData {
+  order_id?: string;
+  order_number?: string;
   shipping: {
     firstName: string;
     lastName: string;
@@ -27,6 +29,9 @@ interface OrderData {
     quantity: number;
     image: string;
   }>;
+  subtotal?: number;
+  shipping_fee?: number;
+  total?: number;
 }
 
 function SuccessPageContent() {
@@ -47,9 +52,9 @@ function SuccessPageContent() {
         return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
     };
 
-    const subtotal = order?.items.reduce((acc, item) => acc + item.price * item.quantity, 0) || 0;
-    const shippingFee = 10.00; // Mock shipping fee
-    const total = subtotal + shippingFee;
+    const subtotal = order?.subtotal || order?.items.reduce((acc, item) => acc + item.price * item.quantity, 0) || 0;
+    const shippingFee = order?.shipping_fee || 10.00;
+    const total = order?.total || (subtotal + shippingFee);
 
 
     return (
@@ -60,6 +65,11 @@ function SuccessPageContent() {
                         <CheckCircle className="h-12 w-12 text-green-600" />
                     </div>
                     <CardTitle className="text-3xl mt-4">Order Confirmed!</CardTitle>
+                    {order?.order_number && (
+                        <p className="text-lg font-medium text-muted-foreground mt-2">
+                            Order {order.order_number}
+                        </p>
+                    )}
                     <p className="text-muted-foreground">
                         Thank you for your purchase, {order?.shipping.firstName}! A confirmation has been sent to {order?.shipping.email}.
                     </p>
