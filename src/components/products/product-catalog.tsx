@@ -101,7 +101,10 @@ export function ProductCatalog() {
           <TableBody>
             {localProducts.map(product => (
               <TableRow key={product.id}>
-                <TableCell className="font-medium">{product.name}</TableCell>
+                <TableCell className="font-medium">
+                  <div>{product.name}</div>
+                  {product.mpn && <div className="text-xs text-muted-foreground">MPN: {product.mpn}</div>}
+                </TableCell>
                 <TableCell>
                   <Badge variant={product.status === 'active' ? 'default' : 'outline'}>{product.status}</Badge>
                 </TableCell>
