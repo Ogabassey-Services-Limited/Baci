@@ -19,7 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useDebounce } from '@/hooks/use-debounce';
 import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Minus, Loader2 } from 'lucide-react';
+import { Plus, Minus, Loader2, Infinity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Product } from '@/lib/products';
 import Fuse from 'fuse.js';
@@ -46,9 +46,11 @@ export function ProductCatalog({ statusFilter, stockFilter }: ProductCatalogProp
       results = results.filter(p => p.status === statusFilter);
     }
     if (stockFilter === 'in_stock') {
-      results = results.filter(p => p.stock > 0);
+      results = results.filter(p => p.manage_stock && p.stock > 0);
     } else if (stockFilter === 'out_of_stock') {
-      results = results.filter(p => p.stock === 0);
+      results = results.filter(p => p.manage_stock && p.stock === 0);
+    } else if (stockFilter === 'infinite') {
+        results = results.filter(p => !p.manage_stock);
     }
 
     return results;
@@ -167,15 +169,22 @@ export function ProductCatalog({ statusFilter, stockFilter }: ProductCatalogProp
                   </div>
                 </TableCell>
                 <TableCell>
-                    <div className="mx-auto w-24">
-                        <Input
-                            type="number"
-                            value={product.stock}
-                            onChange={(e) => handleStockChange(product.id, parseInt(e.target.value, 10) || 0)}
-                            className="h-9 text-center remove-arrow"
-                            aria-label={`Stock for ${product.name}`}
-                        />
-                    </div>
+                     {product.manage_stock ? (
+                        <div className="mx-auto w-32">
+                           <Input
+                                type="number"
+                                value={product.stock}
+                                onChange={(e) => handleStockChange(product.id, parseInt(e.target.value, 10) || 0)}
+                                className="h-9 text-center remove-arrow"
+                                aria-label={`Stock for ${product.name}`}
+                            />
+                        </div>
+                     ) : (
+                        <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                            <Infinity className="h-4 w-4" />
+                            <span>Infinite</span>
+                        </div>
+                     )}
                 </TableCell>
               </TableRow>
             ))}

@@ -8,6 +8,7 @@ export interface Product {
     description: string;
     status: 'published' | 'draft' | 'archived';
     price: number;
+    manage_stock: boolean;
     stock: number;
     image: string;
     imageLarge: string;
@@ -25,6 +26,7 @@ export const products: Product[] = [
         description: 'A beautiful set of two handmade ceramic mugs, perfect for your morning coffee. Each mug is unique and crafted with care.',
         status: 'published',
         price: 49.99,
+        manage_stock: true,
         stock: 120,
         image: 'https://picsum.photos/seed/p1/80/80',
         imageLarge: 'https://picsum.photos/seed/p1/600/400',
@@ -42,6 +44,7 @@ export const products: Product[] = [
         description: 'A sleek and modern desk lamp with adjustable brightness. Fits any workspace and provides perfect lighting.',
         status: 'published',
         price: 79.99,
+        manage_stock: true,
         stock: 75,
         image: 'https://picsum.photos/seed/p2/80/80',
         imageLarge: 'https://picsum.photos/seed/p2/600/400',
@@ -56,6 +59,7 @@ export const products: Product[] = [
         description: 'Set of 3 soft and absorbent towels made from 100% organic cotton. Gentle on your skin and the environment.',
         status: 'archived',
         price: 35.00,
+        manage_stock: true,
         stock: 0,
         image: 'https://picsum.photos/seed/p3/80/80',
         imageLarge: 'https://picsum.photos/seed/p3/600/400',
@@ -70,6 +74,7 @@ export const products: Product[] = [
         description: 'A water bottle that tracks your intake and reminds you to stay hydrated throughout the day. Connects to your phone.',
         status: 'draft',
         price: 89.99,
+        manage_stock: true,
         stock: 30,
         image: 'https://picsum.photos/seed/p4/80/80',
         imageLarge: 'https://picsum.photos/seed/p4/600/400',
@@ -84,7 +89,8 @@ export const products: Product[] = [
         description: 'A premium leather-bound journal for your thoughts, dreams, and sketches. Made with high-quality paper.',
         status: 'published',
         price: 25.00,
-        stock: 200,
+        manage_stock: false,
+        stock: 0,
         image: 'https://picsum.photos/seed/p5/80/80',
         imageLarge: 'https://picsum.photos/seed/p5/600/400',
         imageHint: 'leather journal',

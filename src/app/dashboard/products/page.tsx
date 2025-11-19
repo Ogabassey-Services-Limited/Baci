@@ -7,7 +7,7 @@ import { FileUpload } from '@/components/products/file-upload';
 import { ProcessingView } from '@/components/products/processing-view';
 import { ReviewChanges } from '@/components/products/review-changes';
 import { Button } from '@/components/ui/button';
-import { File, PlusCircle, Search, Loader2, Send, Archive, Package, DollarSign, ListFilter, ChevronDown, CheckCircle, Edit, Trash2 } from 'lucide-react';
+import { File, PlusCircle, Search, Loader2, Send, Archive, Package, DollarSign, ListFilter, ChevronDown, CheckCircle, Edit, Trash2, Infinity } from 'lucide-react';
 import Link from 'next/link';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useMemo } from 'react';
@@ -70,11 +70,16 @@ function ProductsPageContent() {
   };
 
   const inventoryValue = useMemo(() => {
-    return products.reduce((total, product) => total + (product.price * product.stock), 0);
+    return products.reduce((total, product) => {
+        if(product.manage_stock) {
+            return total + (product.price * product.stock);
+        }
+        return total;
+    }, 0);
   }, [products]);
 
   const outOfStockCount = useMemo(() => {
-    return products.filter(p => p.stock === 0).length;
+    return products.filter(p => p.manage_stock && p.stock === 0).length;
   }, [products]);
 
   const formatCurrency = (amount: number) => {
@@ -95,6 +100,7 @@ function ProductsPageContent() {
     { value: 'All', label: 'All Stock Levels' },
     { value: 'in_stock', label: 'In Stock' },
     { value: 'out_of_stock', label: 'Out of Stock' },
+    { value: 'infinite', label: 'Infinite' },
   ];
 
   const renderContent = () => {
@@ -158,7 +164,7 @@ function ProductsPageContent() {
                 </CardHeader>
                 <CardContent>
                 <div className="text-2xl font-bold text-green-900">{formatCurrency(inventoryValue)}</div>
-                <p className="text-xs text-muted-foreground">Total value of stock</p>
+                <p className="text-xs text-muted-foreground">Total value of tracked stock</p>
                 </CardContent>
             </Card>
             <Card className="bg-red-50 border-red-200 transition-transform transform hover:scale-105">
@@ -232,6 +238,7 @@ function ProductsPageContent() {
                     <DropdownMenuContent>
                         {stockFilterOptions.map(option => (
                              <DropdownMenuCheckboxItem key={option.value} checked={stockFilter === option.value} onCheckedChange={() => setStockFilter(option.value)} className="text-blue-800 capitalize">
+                                {option.label === 'Infinite' ? <Infinity className="mr-2 h-4 w-4" /> : <Package className="mr-2 h-4 w-4" />}
                                 {option.label}
                             </DropdownMenuCheckboxItem>
                         ))}
