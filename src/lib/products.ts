@@ -6,7 +6,7 @@ export interface Product {
     id: string;
     name: string;
     description: string;
-    status: 'active' | 'draft' | 'archived';
+    status: 'published' | 'draft' | 'archived';
     price: number;
     stock: number;
     image: string;
@@ -23,7 +23,7 @@ export const products: Product[] = [
         id: 'p1',
         name: 'Ceramic Mug Set',
         description: 'A beautiful set of two handmade ceramic mugs, perfect for your morning coffee. Each mug is unique and crafted with care.',
-        status: 'active',
+        status: 'published',
         price: 49.99,
         stock: 120,
         image: 'https://picsum.photos/seed/p1/80/80',
@@ -40,7 +40,7 @@ export const products: Product[] = [
         id: 'p2',
         name: 'Minimalist Desk Lamp',
         description: 'A sleek and modern desk lamp with adjustable brightness. Fits any workspace and provides perfect lighting.',
-        status: 'active',
+        status: 'published',
         price: 79.99,
         stock: 75,
         image: 'https://picsum.photos/seed/p2/80/80',
@@ -82,7 +82,7 @@ export const products: Product[] = [
         id: 'p5',
         name: 'Leather Journal',
         description: 'A premium leather-bound journal for your thoughts, dreams, and sketches. Made with high-quality paper.',
-        status: 'active',
+        status: 'published',
         price: 25.00,
         stock: 200,
         image: 'https://picsum.photos/seed/p5/80/80',

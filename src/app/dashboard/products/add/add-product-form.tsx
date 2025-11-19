@@ -51,7 +51,7 @@ const addProductSchema = z.object({
   price: z.coerce.number().min(0, 'Price must be a positive number.'),
   manage_stock: z.boolean().default(true),
   stock: z.coerce.number().int('Stock must be a whole number.').optional(),
-  status: z.enum(['draft', 'active']),
+  status: z.enum(['draft', 'published']),
   image: z.any().refine((file) => file, 'Product image is required.'),
   brand: z.string().optional(),
   gtin: z.string().optional(),
@@ -84,7 +84,7 @@ export default function AddProductForm() {
       price: 0,
       manage_stock: true,
       stock: 0,
-      status: 'active',
+      status: 'published',
       image: null,
       brand: '',
       gtin: '',
@@ -411,7 +411,7 @@ export default function AddProductForm() {
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="draft">Draft</SelectItem>
-                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="published">Published</SelectItem>
                           </SelectContent>
                         </Select>
                          <FormMessage />

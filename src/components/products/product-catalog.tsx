@@ -151,7 +151,7 @@ export function ProductCatalog({ statusFilter, stockFilter }: ProductCatalogProp
                   {product.mpn && <div className="text-xs text-muted-foreground">MPN: {product.mpn}</div>}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={product.status === 'active' ? 'default' : 'outline'} className="capitalize">{product.status}</Badge>
+                  <Badge variant={product.status === 'published' ? 'default' : 'outline'} className="capitalize">{product.status}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="relative ml-auto w-28">

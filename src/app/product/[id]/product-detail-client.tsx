@@ -24,7 +24,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   const { cart, cartCount, addToCart, updateQuantity } = useCart();
   const { toast } = useToast();
 
-  if (!product || product.status !== 'active') {
+  if (!product || product.status !== 'published') {
     notFound();
   }
   

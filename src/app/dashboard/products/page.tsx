@@ -86,7 +86,7 @@ function ProductsPageContent() {
   
   const statusFilterOptions = [
     { value: 'All', label: 'All Statuses', icon: ListFilter },
-    { value: 'active', label: 'Active', icon: CheckCircle },
+    { value: 'published', label: 'Published', icon: CheckCircle },
     { value: 'draft', label: 'Draft', icon: Edit },
     { value: 'archived', label: 'Archived', icon: Trash2 },
   ];

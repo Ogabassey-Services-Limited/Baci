@@ -48,9 +48,9 @@ function StorefrontContent() {
 
   const searchResults = useMemo(() => {
     if (!searchQuery || !fuse) {
-      return products.filter(p => p.status === 'active');
+      return products.filter(p => p.status === 'published');
     }
-    return fuse.search(searchQuery).map(result => result.item).filter(p => p.status === 'active');
+    return fuse.search(searchQuery).map(result => result.item).filter(p => p.status === 'published');
   }, [searchQuery, fuse]);
 
   if (!merchant) return null; // Should be handled by parent
