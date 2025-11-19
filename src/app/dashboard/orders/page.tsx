@@ -220,7 +220,7 @@ export default function OrdersPage() {
   const [shippingFilter, setShippingFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-  const [orders, setOrders] = useState(initialOrders);
+  const [orders, setOrders] = useState<(typeof initialOrders[0] & { id?: string })[]>([]);
   const [showAlert, setShowAlert] = useState(true);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [ordersLoading, setOrdersLoading] = useState(true);
@@ -229,8 +229,9 @@ export default function OrdersPage() {
   // Fetch orders from API
   useEffect(() => {
     const fetchOrders = async () => {
+      // **FIX:** Do not fetch until merchant data is loaded and available
       if (loading || !merchant) {
-        return; // Wait for merchant data to load
+        return;
       }
 
       setOrdersLoading(true);
@@ -251,7 +252,8 @@ export default function OrdersPage() {
         const response = await fetch(`/api/orders?${params.toString()}`);
 
         if (!response.ok) {
-          throw new Error('Failed to fetch orders');
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch orders');
         }
 
         const data = await response.json();
@@ -276,7 +278,7 @@ export default function OrdersPage() {
       } catch (error) {
         console.error('Error fetching orders:', error);
         setOrdersError((error as Error).message);
-        // Fall back to initial mock orders on error
+        // Fall back to mock data on error, but log the error
         setOrders(initialOrders);
       } finally {
         setOrdersLoading(false);
@@ -288,6 +290,7 @@ export default function OrdersPage() {
 
   // Helper function to format status from DB to UI
   const formatStatus = (status: string): string => {
+    if (!status) return 'Pending';
     return status
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -635,7 +638,20 @@ export default function OrdersPage() {
             </CardHeader>
             <CardContent className="p-0">
                 <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-4">
-                    {filteredOrders.map((order) => (
+                    {ordersLoading ? (
+                        <div className="flex justify-center items-center h-64">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : ordersError ? (
+                         <Alert variant="destructive" className="m-4">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Failed to Load Orders</AlertTitle>
+                            <AlertDescription>
+                                {ordersError} Please try again.
+                                <Button variant="link" className="p-0 h-auto ml-2" onClick={() => window.location.reload()}>Refresh</Button>
+                            </AlertDescription>
+                        </Alert>
+                    ) : filteredOrders.map((order) => (
                         <Card key={order.orderNumber} className="transition-shadow hover:shadow-md">
                             <CardContent className="p-4 flex items-center gap-4">
                                 <Checkbox 
@@ -691,5 +707,7 @@ export default function OrdersPage() {
     </div>
   );
 }
+
+    
 
     

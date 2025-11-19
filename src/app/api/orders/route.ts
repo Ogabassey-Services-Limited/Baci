@@ -12,8 +12,9 @@ export async function GET(request: NextRequest) {
     // Get authenticated user
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
+      console.error('API: Auth error or no user', authError);
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { error: 'Unauthorized: You must be logged in to fetch orders.' },
         { status: 401 }
       );
     }
@@ -26,8 +27,9 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
+      console.error('API: Merchant not found for user', { userId: user.id, merchantError });
       return NextResponse.json(
-        { error: 'Merchant not found' },
+        { error: 'Merchant not found for the authenticated user.' },
         { status: 404 }
       );
     }
@@ -64,7 +66,7 @@ export async function GET(request: NextRequest) {
     if (ordersError) {
       console.error('Error fetching orders:', ordersError);
       return NextResponse.json(
-        { error: 'Failed to fetch orders' },
+        { error: 'Failed to fetch orders from the database.' },
         { status: 500 }
       );
     }
@@ -73,7 +75,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Unexpected error in GET /api/orders:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'An internal server error occurred.' },
       { status: 500 }
     );
   }
@@ -197,3 +199,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+    
