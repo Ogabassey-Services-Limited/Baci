@@ -17,15 +17,42 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Minus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Product } from '@/lib/products';
 
-export function ProductCatalog() {
-  const { filteredProducts, setProducts } = useProductContext();
+interface ProductCatalogProps {
+  statusFilter: string;
+  stockFilter: string;
+}
+
+export function ProductCatalog({ statusFilter, stockFilter }: ProductCatalogProps) {
+  const { products, setProducts, searchTerm } = useProductContext();
   const { merchant } = useMerchant();
   const { toast } = useToast();
+  
+  const fuse = useMemo(() => new Fuse(products, {
+    keys: ['name', 'description', 'brand', 'id'],
+    threshold: 0.3,
+  }), [products]);
+
+  const filteredProducts = useMemo(() => {
+    let results = searchTerm ? fuse.search(searchTerm).map(result => result.item) : products;
+
+    if (statusFilter !== 'All') {
+      results = results.filter(p => p.status === statusFilter);
+    }
+    if (stockFilter === 'in_stock') {
+      results = results.filter(p => p.stock > 0);
+    } else if (stockFilter === 'out_of_stock') {
+      results = results.filter(p => p.stock === 0);
+    }
+
+    return results;
+  }, [searchTerm, products, fuse, statusFilter, stockFilter]);
+
   const [localProducts, setLocalProducts] = useState(filteredProducts);
   const [dirtyProducts, setDirtyProducts] = useState<Set<string>>(new Set());
 
@@ -36,11 +63,6 @@ export function ProductCatalog() {
     setLocalProducts(filteredProducts);
   }, [filteredProducts]);
 
-  const getCurrencySymbol = () => {
-    if (!merchant?.country) return '$';
-    const country = getCountryByCode(merchant.country);
-    return country?.currencySymbol || '$';
-  }
 
   const handlePriceChange = (productId: string, newPrice: string) => {
     const priceValue = parseFloat(newPrice);
@@ -84,6 +106,18 @@ export function ProductCatalog() {
       }, 500);
     }
   }, [debouncedDirtyProducts, localProducts, setProducts, toast]);
+  
+  const formatCurrency = (amount: number) => {
+    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+    const locale = country ? `en-${country.code}` : 'en-US';
+    const currency = country ? country.currency : 'USD';
+
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+      currencyDisplay: 'symbol',
+    }).format(amount);
+  };
 
   return (
     <Card className="flex-1 flex flex-col">
@@ -116,11 +150,11 @@ export function ProductCatalog() {
                   {product.mpn && <div className="text-xs text-muted-foreground">MPN: {product.mpn}</div>}
                 </TableCell>
                 <TableCell>
-                  <Badge variant={product.status === 'active' ? 'default' : 'outline'}>{product.status}</Badge>
+                  <Badge variant={product.status === 'active' ? 'default' : 'outline'} className="capitalize">{product.status}</Badge>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="relative ml-auto w-28">
-                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{getCurrencySymbol()}</span>
+                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{formatCurrency(0).replace(/[0-9.,\s]/g, '')}</span>
                      <Input
                         type="number"
                         defaultValue={product.price.toFixed(2)}
@@ -132,7 +166,7 @@ export function ProductCatalog() {
                   </div>
                 </TableCell>
                 <TableCell>
-                    <div className="mx-auto w-20">
+                    <div className="mx-auto w-24">
                         <Input
                             type="number"
                             value={product.stock}

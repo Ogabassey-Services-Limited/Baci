@@ -12,7 +12,6 @@ export type WorkflowStep = 'view' | 'upload' | 'processing' | 'review';
 interface ProductContextType {
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
-  filteredProducts: Product[];
   workflowStep: WorkflowStep;
   setWorkflowStep: React.Dispatch<React.SetStateAction<WorkflowStep>>;
   aiResponse: AIResponse | null;
@@ -30,17 +29,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-
-  const fuse = useMemo(() => new Fuse(products, {
-    keys: ['name', 'description', 'brand', 'id'],
-    threshold: 0.3,
-  }), [products]);
-
-  const filteredProducts = useMemo(() => {
-    if (!searchTerm) return products;
-    // Always filter when searchTerm is present. The AI submission is now explicit.
-    return fuse.search(searchTerm).map(result => result.item);
-  }, [searchTerm, products, fuse]);
 
   const applyChanges = (changesToApply: Change[]) => {
     setProducts(currentProducts => {
@@ -85,7 +73,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     <ProductContext.Provider value={{
       products,
       setProducts,
-      filteredProducts,
       workflowStep,
       setWorkflowStep,
       aiResponse,

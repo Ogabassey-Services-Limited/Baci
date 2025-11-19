@@ -7,7 +7,7 @@ import { FileUpload } from '@/components/products/file-upload';
 import { ProcessingView } from '@/components/products/processing-view';
 import { ReviewChanges } from '@/components/products/review-changes';
 import { Button } from '@/components/ui/button';
-import { File, PlusCircle, Search, Loader2, Send, Archive, Package, DollarSign } from 'lucide-react';
+import { File, PlusCircle, Search, Loader2, Send, Archive, Package, DollarSign, ListFilter, ChevronDown, CheckCircle, Edit, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useMemo } from 'react';
@@ -16,6 +16,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 const GoogleSheetIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
@@ -33,6 +34,8 @@ function ProductsPageContent() {
   const { merchant } = useMerchant();
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [stockFilter, setStockFilter] = useState('All');
 
   const handleCommandSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -80,6 +83,19 @@ function ProductsPageContent() {
     const currency = country ? country.currency : 'USD';
     return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
   };
+  
+  const statusFilterOptions = [
+    { value: 'All', label: 'All Statuses', icon: ListFilter },
+    { value: 'active', label: 'Active', icon: CheckCircle },
+    { value: 'draft', label: 'Draft', icon: Edit },
+    { value: 'archived', label: 'Archived', icon: Trash2 },
+  ];
+
+  const stockFilterOptions = [
+    { value: 'All', label: 'All Stock Levels' },
+    { value: 'in_stock', label: 'In Stock' },
+    { value: 'out_of_stock', label: 'Out of Stock' },
+  ];
 
   const renderContent = () => {
     switch (workflowStep) {
@@ -91,7 +107,7 @@ function ProductsPageContent() {
         return <ReviewChanges />;
       case 'view':
       default:
-        return <ProductCatalog />;
+        return <ProductCatalog statusFilter={statusFilter} stockFilter={stockFilter} />;
     }
   };
 
@@ -167,24 +183,62 @@ function ProductsPageContent() {
             </Card>
         </div>
 
+        <div className="flex flex-col gap-2">
+            <form onSubmit={handleCommandSubmit}>
+                <div className="relative w-full">
+                    <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
+                    <Textarea
+                        placeholder="Search products or paste a price list to run AI updates... ✨"
+                        className="w-full resize-none appearance-none bg-background pl-8 pr-12 shadow-none min-h-[40px] pt-2.5"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        disabled={isLoading}
+                        rows={1}
+                    />
+                    <Button type="submit" size="icon" className="absolute right-2 top-1.5 h-8 w-8" disabled={isLoading || !searchTerm.trim()}>
+                        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        <span className="sr-only">Submit</span>
+                    </Button>
+                </div>
+            </form>
 
-         <form onSubmit={handleCommandSubmit}>
-            <div className="relative w-full">
-                <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
-                <Textarea
-                    placeholder="Search products or paste a price list to run AI updates... ✨"
-                    className="w-full resize-none appearance-none bg-background pl-8 pr-12 shadow-none min-h-[40px] pt-2.5"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    disabled={isLoading}
-                    rows={1}
-                />
-                 <Button type="submit" size="icon" className="absolute right-2 top-1.5 h-8 w-8" disabled={isLoading || !searchTerm.trim()}>
-                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                    <span className="sr-only">Submit</span>
-                </Button>
+            <div className="flex gap-2 items-center text-sm text-muted-foreground">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
+                            <ListFilter className="h-4 w-4" />
+                            <span>Status: {statusFilter}</span>
+                            <ChevronDown className="h-4 w-4"/>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        {statusFilterOptions.map(option => (
+                            <DropdownMenuCheckboxItem key={option.value} checked={statusFilter === option.value} onCheckedChange={() => setStatusFilter(option.value)} className="text-blue-800 capitalize">
+                                <option.icon className="mr-2 h-4 w-4" />
+                                {option.label}
+                            </DropdownMenuCheckboxItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
+                            <ListFilter className="h-4 w-4" />
+                            <span>Stock: {stockFilter.replace('_', ' ')}</span>
+                            <ChevronDown className="h-4 w-4"/>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        {stockFilterOptions.map(option => (
+                             <DropdownMenuCheckboxItem key={option.value} checked={stockFilter === option.value} onCheckedChange={() => setStockFilter(option.value)} className="text-blue-800 capitalize">
+                                {option.label}
+                            </DropdownMenuCheckboxItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
-        </form>
+        </div>
       </div>
       <div className="flex-1 flex flex-col">{renderContent()}</div>
     </div>
