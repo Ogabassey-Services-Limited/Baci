@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Minus, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Product } from '@/lib/products';
+import Fuse from 'fuse.js';
 
 interface ProductCatalogProps {
   statusFilter: string;
