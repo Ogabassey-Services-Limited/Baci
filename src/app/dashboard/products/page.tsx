@@ -8,7 +8,6 @@ import { ProcessingView } from '@/components/products/processing-view';
 import { ReviewChanges } from '@/components/products/review-changes';
 import { Button } from '@/components/ui/button';
 import { File, PlusCircle, Search, Loader2, Send, Archive, Package, DollarSign, ListFilter, ChevronDown, CheckCircle, Edit, Trash2, Infinity } from 'lucide-react';
-import Link from 'next/link';
 import { Textarea } from '@/components/ui/textarea';
 import { useState, useMemo } from 'react';
 import { processPriceList } from '@/app/dashboard/products/actions';
@@ -16,7 +15,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import AddProductForm from '@/app/dashboard/products/add/add-product-form';
 
 const GoogleSheetIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
@@ -30,12 +31,13 @@ const GoogleSheetIcon = () => (
 
 
 function ProductsPageContent() {
-  const { products, workflowStep, setWorkflowStep, searchTerm, setSearchTerm, setAiResponse } = useProductContext();
+  const { products, workflowStep, setWorkflowStep, searchTerm, setSearchTerm, setAiResponse, addProduct } = useProductContext();
   const { merchant } = useMerchant();
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState('All');
   const [stockFilter, setStockFilter] = useState('All');
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
 
   const handleCommandSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -118,6 +120,22 @@ function ProductsPageContent() {
   };
 
   return (
+    <>
+    <Dialog open={isAddProductOpen} onOpenChange={setIsAddProductOpen}>
+        <DialogContent className="sm:max-w-[625px]">
+            <DialogHeader>
+                <DialogTitle>Add New Product</DialogTitle>
+                <DialogDescription>
+                    Fill in the details for your product. Click save when you're done.
+                </DialogDescription>
+            </DialogHeader>
+            <AddProductForm onProductAdded={(newProduct) => {
+                addProduct(newProduct);
+                setIsAddProductOpen(false);
+            }} onCancel={() => setIsAddProductOpen(false)} />
+        </DialogContent>
+    </Dialog>
+
     <div className="flex flex-col h-full">
        <div className="flex flex-col gap-4 mb-4">
         <div className="flex items-center justify-between">
@@ -135,14 +153,12 @@ function ProductsPageContent() {
                         Import from Google Sheet
                     </span>
                 </Button>
-                <Link href="/dashboard/products/add">
-                    <Button size="sm" className="h-9 gap-1">
-                        <PlusCircle className="h-3.5 w-3.5" />
-                        <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                            Add Product
-                        </span>
-                    </Button>
-                </Link>
+                <Button size="sm" className="h-9 gap-1" onClick={() => setIsAddProductOpen(true)}>
+                    <PlusCircle className="h-3.5 w-3.5" />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                        Add Product
+                    </span>
+                </Button>
             </div>
         </div>
 
@@ -249,6 +265,7 @@ function ProductsPageContent() {
       </div>
       <div className="flex-1 flex flex-col">{renderContent()}</div>
     </div>
+    </>
   );
 }
 

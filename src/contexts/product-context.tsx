@@ -12,6 +12,7 @@ export type WorkflowStep = 'view' | 'upload' | 'processing' | 'review';
 interface ProductContextType {
   products: Product[];
   setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
+  addProduct: (product: Product) => void;
   workflowStep: WorkflowStep;
   setWorkflowStep: React.Dispatch<React.SetStateAction<WorkflowStep>>;
   aiResponse: AIResponse | null;
@@ -30,6 +31,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
+  const addProduct = (product: Product) => {
+    setProducts(prev => [product, ...prev]);
+  };
+
   const applyChanges = (changesToApply: Change[]) => {
     setProducts(currentProducts => {
       let updatedProducts = [...currentProducts];
@@ -45,6 +50,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
             description: change.details.description || 'No description provided.',
             price: change.details.price,
             status: 'draft',
+            manage_stock: true,
             stock: change.details.stock || 0,
             image: 'https://picsum.photos/seed/new/80/80',
             imageLarge: 'https://picsum.photos/seed/new/600/400',
@@ -73,6 +79,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     <ProductContext.Provider value={{
       products,
       setProducts,
+      addProduct,
       workflowStep,
       setWorkflowStep,
       aiResponse,
