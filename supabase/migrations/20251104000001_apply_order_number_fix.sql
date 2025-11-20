@@ -36,7 +36,8 @@ BEGIN
     order_num := '#' || LPAD(next_num::TEXT, 5, '0');
     RETURN order_num;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public;
 
 -- Update the trigger function to use the new, safer order number generation function
 CREATE OR REPLACE FUNCTION set_order_number()
@@ -47,7 +48,8 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = public;
 
 -- Drop the old, race-condition-prone function
 DROP FUNCTION IF EXISTS generate_order_number();
