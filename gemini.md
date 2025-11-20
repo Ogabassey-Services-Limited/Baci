@@ -32,9 +32,9 @@ This document provides essential context for AI assistants working on this codeb
     *   Use the `zodResolver`.
     *   Use the `<FormField>` components from `/src/components/ui/form.tsx`.
 
-5.  **No Direct Firebase/Supabase Usage in Components:**
-    *   The project has migrated from Firebase to Supabase, and now uses a `localStorage`-based service for the demo.
-    *   Abstract all data operations into services (`/src/services/`) and hooks (`/src/hooks/`). Components should not directly interact with the database client.
+5.  **Data Access through Hooks and Services:**
+    *   All Supabase operations (authentication, database queries) are abstracted into hooks (e.g., `useAuth`, `useMerchant`) and server actions.
+    *   Components should use these abstractions and **NOT** interact with the Supabase client directly.
 
 ---
 
@@ -53,7 +53,7 @@ Baci is a Next.js application that allows merchants to create an e-commerce stor
 | **Language**  | TypeScript                                       | Enforces type safety, reducing bugs and improving developer experience.                         |
 | **Styling**   | Tailwind CSS + shadcn/ui                         | Utility-first CSS for rapid development and a set of accessible, customizable components.       |
 | **Branding**  | Custom Themed Components (`/src/components/themed`) | A performant, CSS variable-driven system to apply merchant brand colors.                        |
-| **Backend**   | `localStorage` (for demo) / Supabase (planned)   | Initially used Firebase, now uses a local service. Supabase is the target for production.         |
+| **Backend**   | Supabase                                         | A full-featured, open-source backend-as-a-service providing auth, database, and storage.      |
 | **AI**        | Google Genkit + Gemini Models                    | An open-source framework for building robust, production-ready AI flows with powerful models.     |
 | **Forms**     | React Hook Form + Zod                            | A performant solution for form state management with robust, type-safe validation.              |
 
@@ -138,12 +138,7 @@ The storefront's look and feel is determined by a combination of the merchant's 
     *   **Issue:** The `generateProductDescription` flow is always called with `"Handmade & Crafts"`.
     *   **Fix:** This needs to be updated to use the actual business type of the merchant, which should be fetched from the user's profile/session.
 
-2.  **Onboarding Data is Not Persisted:**
-    *   **File:** `/src/app/onboarding/onboarding-form.tsx`
-    *   **Issue:** The onboarding form uses a `localStorage` service (`localMerchantService.ts`). While this works for the demo, it's not a real backend.
-    *   **Fix:** The long-term plan is to integrate with Supabase to save merchant data.
-
-3.  **Duplicate AI Calls in Onboarding:**
+2.  **Duplicate AI Calls in Onboarding:**
     *   **File:** `/src/app/onboarding/onboarding-form.tsx`
     *   **Issue:** If a user uploads a logo, the color extraction flow is called once for the preview and again on final submission.
     *   **Fix:** Cache the result of the first call in the form state and skip the second call on submit.

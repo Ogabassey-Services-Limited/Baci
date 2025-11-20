@@ -14,18 +14,17 @@
 - **Styling:** Tailwind CSS 3.4.7 + Radix UI components
 - **AI Engine:** Google Genkit 1.20.0 with Gemini 2.5 Flash models
 - **Forms:** React Hook Form 7.54.2 + Zod 3.24.2 validation
-- **Database:** Firestore (planned, not yet implemented)
-- **Authentication:** Not yet implemented
+- **Database:** Supabase (PostgreSQL)
+- **Authentication:** Supabase Auth
+- **Payment Processing:** Paystack (planned, not yet implemented)
 
 ### Project Status
 - ✅ Landing page with feature showcase
 - ✅ 3-step onboarding flow with AI logo generation
 - ✅ Merchant dashboard layout with sidebar navigation
 - ✅ Product management forms with AI assistance
+- ✅ Supabase integration for auth and merchant data
 - ✅ Design system with CSS variable-based theming
-- ❌ Database integration (Firestore)
-- ❌ User authentication
-- ❌ Payment processing (Paystack)
 - ❌ Customer storefronts/templates
 - ❌ Mobile app (React Native - planned)
 
@@ -41,17 +40,16 @@
    - Image enhancement: `enhanceProductImage` in `enhance-product-images.ts`
 
 2. **Business types are the SINGLE SOURCE OF TRUTH**
-   - Current location (hardcoded): `/src/app/onboarding/onboarding-form.tsx:106-112`
-   - Future location: `/src/config/business-types.ts` (see ADR 001)
+   - Location: `/src/config/business-types.ts`
    - When adding/removing types, update:
-     - Onboarding form dropdown
-     - AI prompt contexts in all flows
+     - Onboarding form dropdown (auto-updated)
+     - AI prompt contexts in all flows (auto-updated from config)
      - Product description generation logic
 
 3. **Design system uses CSS variables**
    - All colors defined in: `/src/app/globals.css:6-40` (light mode) and `:41-70` (dark mode)
    - DO NOT hardcode colors - always use Tailwind utilities
-   - Merchant brand colors will override CSS variables (future feature)
+   - Merchant brand colors will override CSS variables
 
 4. **UI components are pure presentation**
    - Location: `/src/components/ui/*`
@@ -89,7 +87,7 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │ 1. Onboarding Form (Step 2)                                      │
 │    User selects business type                                    │
-│    Location: /src/app/onboarding/onboarding-form.tsx:106-112    │
+│    Location: /src/app/onboarding/onboarding-form.tsx:167-172    │
 └────────────────────────────┬────────────────────────────────────┘
                              │
                              ▼
@@ -103,7 +101,7 @@
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │ 3. Dashboard Creation                                            │
-│    Business type stored in user profile (future)                 │
+│    Business type stored in Supabase 'merchants' table            │
 │    Used to personalize dashboard experience                      │
 └────────────────────────────┬────────────────────────────────────┘
                              │
@@ -134,7 +132,7 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 
 | File | Purpose | Lines | Dependencies |
 |------|---------|-------|--------------|
-| `/src/app/onboarding/onboarding-form.tsx` | 3-step onboarding wizard | 396 | `guideBusinessOnboarding` AI flow |
+| `/src/app/onboarding/onboarding-form.tsx` | 3-step onboarding wizard | 456 | `guideBusinessOnboarding` AI flow, Supabase auth |
 | `/src/app/dashboard/products/add/add-product-form.tsx` | Product creation form | 325 | `generateProductDescription`, `enhanceProductImage` |
 | `/src/app/dashboard/layout.tsx` | Dashboard layout with sidebar | - | Sidebar component |
 | `/src/app/page.tsx` | Landing page | - | UI components |
@@ -161,10 +159,9 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 
 | File | Schema Name | Location | Purpose |
 |------|-------------|----------|---------|
-| `/src/app/onboarding/onboarding-form.tsx` | `baseFormSchema` | Line 35 | Onboarding form validation |
-| `/src/app/onboarding/onboarding-form.tsx` | `refinedFormSchema` | Line 43 | Adds "other" type validation |
-| `/src/app/dashboard/products/add/add-product-form.tsx` | `addProductSchema` | Line 42 | Product form validation |
-| `/src/ai/flows/guide-business-onboarding.ts` | `GuideBusinessOnboardingInputSchema` | Line 15 | AI flow input validation |
+| `/src/schemas/onboarding.ts` | `onboardingSchema` | - | Onboarding form validation (client and server) |
+| `/src/app/dashboard/products/add/add-product-form.tsx` | `addProductSchema` | - | Product form validation |
+| `/src/ai/flows/guide-business-onboarding.ts` | `GuideBusinessOnboardingInputSchema` | - | AI flow input validation |
 
 ---
 
@@ -173,26 +170,20 @@ See `/docs/adr/001-business-type-journey-architecture.md` for the planned archit
 ### Onboarding Flow (3 Steps)
 
 ```
-Step 1: Business Name
-├─ Input: businessName (string, min 2 chars)
-├─ Validation: baseFormSchema.pick({ businessName: true })
+Step 1: Business Details
+├─ Input: businessName, businessType
+├─ Validation: step1Schema
 └─ Next: Enabled after validation passes
 
-Step 2: Business Type
-├─ Input: businessType (dropdown selection)
-├─ Conditional: If "other" selected → show otherBusinessType field
-├─ Validation: refinedFormSchema.pick({ businessType, otherBusinessType })
-└─ Next: Enabled after validation passes
+Step 2: Logo & Branding
+├─ Option A: Upload existing logo → AI extracts 3 brand colors
+├─ Option B: Generate new logo (Future)
+└─ Validation: step2Schema (requires logo and colors)
 
-Step 3: Logo & Branding
-├─ Option A: Upload existing logo
-│   ├─ AI extracts 5 brand colors from logo
-│   └─ Flow: guideBusinessOnboarding({ logoDataUri, ... })
-├─ Option B: Generate new logo with AI
-│   ├─ Input: brandPreferences (favorite color)
-│   ├─ AI generates logo + 5 brand colors
-│   └─ Flow: guideBusinessOnboarding({ businessName, businessType, brandPreferences })
-└─ Submit: Create store → Redirect to /dashboard
+Step 3: Account Creation
+├─ Input: email, password
+├─ Validation: step3Schema
+└─ Submit: Create user & merchant record in Supabase → Redirect to /dashboard
 ```
 
 ### Product Creation Flow
@@ -286,23 +277,18 @@ Step 3: Logo & Branding
 **Issue:** Business type is hardcoded to "Handmade & Crafts" instead of reading from user profile
 **Fix:** Implement user profile storage and pass actual business type
 
-### 2. Onboarding Data Not Persisted
-**Location:** `/src/app/onboarding/onboarding-form.tsx:332-363`
-**Issue:** Form submission calls AI flow but doesn't save data to database
-**Fix:** Implement Firestore integration to store merchant profile
-
-### 3. Logo Upload Extracts Colors Twice
+### 2. Duplicate AI Calls in Onboarding
 **Location:** `/src/ai/flows/guide-business-onboarding.ts:81-86`
 **Issue:** When logo is uploaded, color extraction happens in onboarding and again on submit
 **Optimization:** Cache color extraction results in form state
 
-### 4. No Error Boundaries
+### 3. No Error Boundaries
 **Issue:** AI flow failures crash the entire form
 **Fix:** Add React Error Boundaries around AI-powered components
 
-### 5. Image Data URIs Are Large
+### 4. Image Data URIs Are Large
 **Issue:** Base64 encoded images in form state and AI calls are memory-intensive
-**Fix:** Upload images to Firebase Storage first, pass URLs instead
+**Fix:** Upload images to Supabase Storage first, pass URLs instead
 
 ---
 
