@@ -1,9 +1,9 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import Image from 'next/image';
 import { Loader2, Sparkles, Upload, Info } from 'lucide-react';
@@ -12,6 +12,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { generateProductDescription } from '@/ai/flows/generate-product-descriptions';
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
@@ -19,6 +20,10 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';
+import { uploadImage } from '@/lib/storage';
+import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
+import { VariantBuilder } from '@/components/products/variant-builder';
+import type { ProductVariant } from '@/lib/products';
 
 const addProductSchema = z.object({
   name: z.string().min(3, 'Product name must be at least 3 characters.'),
@@ -28,7 +33,10 @@ const addProductSchema = z.object({
   stock: z.coerce.number().int('Stock must be a whole number.').optional(),
   category: z.string().min(1, 'Category is required.'),
   brand: z.string().optional(),
-  fulfillment_details: z.string().optional(),
+  fulfillment_details: z.array(z.object({
+    key: z.string(),
+    value: z.string()
+  })).optional(),
   image: z.any().refine((file) => file, 'Product image is required.'),
 });
 
@@ -37,31 +45,85 @@ type AddProductFormValues = z.infer<typeof addProductSchema>;
 interface AddProductFormProps {
   onProductAdded: (product: Product) => void;
   onCancel: () => void;
+  initialData?: Product | null;
 }
 
-export default function AddProductForm({ onProductAdded, onCancel }: AddProductFormProps) {
+export default function AddProductForm({ onProductAdded, onCancel, initialData }: AddProductFormProps) {
   const { toast } = useToast();
   const { merchant } = useMerchant();
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image || null);
+  const [hasVariants, setHasVariants] = useState(initialData?.has_variants || false);
+  const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
 
   const form = useForm<AddProductFormValues>({
     resolver: zodResolver(addProductSchema),
     defaultValues: {
-      name: '',
-      description: '',
-      price: 0,
-      infinite_stock: false,
-      stock: 0,
-      category: '',
-      brand: '',
-      fulfillment_details: '',
-      image: null,
+      name: initialData?.name || '',
+      description: initialData?.description || '',
+      price: initialData?.price || 0,
+      infinite_stock: initialData?.manage_stock === false,
+      stock: initialData?.stock || 0,
+      category: initialData?.category || 'General',
+      brand: initialData?.brand || '',
+      fulfillment_details: initialData?.fulfillment_details || [],
+      image: initialData?.image || null,
     },
   });
 
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "fulfillment_details"
+  });
+
   const watchInfiniteStock = form.watch("infinite_stock");
+  const watchStock = form.watch("stock");
+
+  useEffect(() => {
+    if (watchInfiniteStock) {
+      if (fields.length > 0) remove();
+      return;
+    }
+
+    const currentStock = parseInt(String(watchStock || 0));
+    const currentFields = fields.length;
+
+    if (currentStock > currentFields) {
+      for (let i = 0; i < currentStock - currentFields; i++) {
+        append({ key: 'S/N', value: '' });
+      }
+    } else if (currentStock < currentFields) {
+      for (let i = 0; i < currentFields - currentStock; i++) {
+        remove(currentFields - 1 - i);
+      }
+    }
+  }, [watchStock, watchInfiniteStock, append, remove, fields.length]);
+
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        name: initialData.name,
+        description: initialData.description,
+        price: initialData.price,
+        infinite_stock: initialData.manage_stock === false,
+        stock: initialData.stock,
+        category: initialData.category || 'General',
+        brand: initialData.brand,
+        fulfillment_details: initialData.fulfillment_details || [],
+        image: initialData.image,
+      });
+      setHasVariants(initialData.has_variants || false);
+      setVariants(initialData.variants || []);
+      setImagePreview(initialData.image || null);
+    }
+  }, [initialData, form]);
+
+  // Get category-specific configuration based on merchant's business type
+  const categoryConfig = useMemo(() => {
+    if (!merchant?.business_type) return getCategoryConfigFromBusinessType('general');
+    return getCategoryConfigFromBusinessType(merchant.business_type);
+  }, [merchant?.business_type]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -95,7 +157,6 @@ export default function AddProductForm({ onProductAdded, onCancel }: AddProductF
       const result = await generateProductDescription({
         productName: productName,
         businessType: merchant.business_type,
-        productDetails: `A new product named ${productName}.`,
       });
       form.setValue('description', result.description);
     } catch (error) {
@@ -107,45 +168,67 @@ export default function AddProductForm({ onProductAdded, onCancel }: AddProductF
 
   async function onSubmit(data: AddProductFormValues) {
     setIsSaving(true);
-    
-    // Simulate AI enhancement if an image is present
+
+    // Simulate AI enhancement if an image is present and changed (starts with data:)
     let enhancedImage = data.image;
-    if (data.image) {
-        try {
-            const { enhancedPhotoDataUri } = await enhanceProductImage({ photoDataUri: data.image });
-            enhancedImage = enhancedPhotoDataUri;
-        } catch (error) {
-            toast({ title: 'AI enhancement failed', description: 'Could not enhance image, using original.', variant: 'destructive'});
-        }
+    if (data.image && typeof data.image === 'string' && data.image.startsWith('data:')) {
+      try {
+        const { enhancedPhotoDataUri } = await enhanceProductImage({ photoDataUri: data.image });
+        enhancedImage = enhancedPhotoDataUri;
+      } catch (error) {
+        toast({ title: 'AI enhancement failed', description: 'Could not enhance image, using original.', variant: 'destructive' });
+      }
     }
-    
-    // Create a new product object
-    const newProduct: Product = {
-        id: `prod_${Date.now()}`,
-        name: data.name,
-        description: data.description || '',
-        price: data.price,
-        manage_stock: !data.infinite_stock,
-        stock: data.infinite_stock ? 0 : data.stock || 0,
-        status: 'published', // Default to published for simplicity
-        image: enhancedImage,
-        imageLarge: enhancedImage, // Use same for now
-        imageHint: data.name,
-        brand: data.brand || '',
-        gtin: '',
-        mpn: '',
+
+    // Upload image to storage if it's a data URI
+    if (enhancedImage && typeof enhancedImage === 'string' && enhancedImage.startsWith('data:')) {
+      try {
+        const uploadedUrl = await uploadImage(enhancedImage);
+        if (uploadedUrl) {
+          enhancedImage = uploadedUrl;
+        } else {
+          console.error("Failed to upload image to storage");
+          toast({ title: 'Image Upload Failed', description: 'Could not upload image to storage.', variant: 'destructive' });
+        }
+      } catch (error) {
+        console.error("Failed to upload image to storage", error);
+        toast({ title: 'Image Upload Failed', description: 'Could not upload image to storage.', variant: 'destructive' });
+      }
+    }
+
+    // Create or update product object
+    // Create or update product object
+    const productData: Product = {
+      id: initialData?.id || `prod_${Date.now()}`,
+      name: data.name,
+      description: data.description || '',
+      price: data.price,
+      manage_stock: hasVariants ? true : !data.infinite_stock, // Always manage stock if variants exist
+      stock: hasVariants
+        ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0)
+        : (data.infinite_stock ? 0 : data.stock || 0),
+      status: initialData?.status || 'published',
+      image: enhancedImage,
+      imageLarge: enhancedImage, // Use same for now
+      imageHint: data.name,
+      brand: data.brand || '',
+      gtin: initialData?.gtin || '',
+      mpn: initialData?.mpn || '',
+      fulfillment_details: hasVariants ? [] : data.fulfillment_details, // Fulfillment details are per-variant if variants exist
+      has_variants: hasVariants,
+      variants: hasVariants ? variants : [],
     };
-    
-    onProductAdded(newProduct);
-    
+
+    onProductAdded(productData);
+
     setIsSaving(false);
     toast({
-      title: 'Product Saved!',
-      description: `${data.name} has been successfully added.`,
+      title: initialData ? 'Product Updated!' : 'Product Saved!',
+      description: `${data.name} has been successfully ${initialData ? 'updated' : 'added'}.`,
     });
   }
-  
-   const currencySymbol = useMemo(() => {
+
+  const currencySymbol = useMemo(() => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
     return country?.currencySymbol || '₦';
   }, [merchant?.country]);
@@ -155,119 +238,158 @@ export default function AddProductForm({ onProductAdded, onCancel }: AddProductF
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-6">
-            <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Name *</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
-            
-            <FormField control={form.control} name="description" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl><Textarea {...field} className="min-h-[100px]" /></FormControl>
-                    <Button type="button" variant="ghost" size="sm" onClick={handleGenerateDescription} disabled={isGenerating}>
-                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Sparkles className="mr-2 h-4 w-4" />}
-                        Generate with AI
-                    </Button>
-                    <FormMessage />
-                </FormItem>
-            )} />
+          <FormField control={form.control} name="name" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name *</FormLabel>
+              <FormControl><Input {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-            <FormField control={form.control} name="price" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Price *</FormLabel>
-                    <FormControl>
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol}</span>
-                            <Input type="number" placeholder="0.00" {...field} className="pl-8"/>
-                        </div>
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
+          <FormField control={form.control} name="description" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl><Textarea {...field} className="min-h-[100px]" /></FormControl>
+              <Button type="button" variant="ghost" size="sm" onClick={handleGenerateDescription} disabled={isGenerating}>
+                {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                Generate with AI
+              </Button>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-            <FormField control={form.control} name="infinite_stock" render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                    <div className="space-y-0.5">
-                        <FormLabel>Infinite Stock</FormLabel>
-                        <FormDescription>This product has unlimited stock.</FormDescription>
+          {/* Variant Toggle */}
+          {categoryConfig.supportsVariants && (
+            <div className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5">
+              <div className="space-y-0.5">
+                <FormLabel>Product Variants</FormLabel>
+                <FormDescription>
+                  Does this product have options like size, color, or storage?
+                </FormDescription>
+              </div>
+              <Switch
+                checked={hasVariants}
+                onCheckedChange={setHasVariants}
+              />
+            </div>
+          )}
+
+          {/* Variant Builder */}
+          {hasVariants && categoryConfig.supportsVariants ? (
+            <VariantBuilder
+              categoryConfig={categoryConfig}
+              basePrice={form.watch('price')}
+              initialVariants={variants}
+              onVariantsChange={setVariants}
+            />
+          ) : (
+            <>
+              <FormField control={form.control} name="price" render={({ field: { onChange, value, ...field } }) => (
+                <FormItem>
+                  <FormLabel>Price *</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol}</span>
+                      <Input
+                        type="text"
+                        placeholder="0.00"
+                        {...field}
+                        className="pl-8"
+                        value={value ? new Intl.NumberFormat('en-US').format(value) : ''}
+                        onChange={(e) => {
+                          const rawValue = e.target.value.replace(/,/g, '');
+                          if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
+                            onChange(rawValue === '' ? 0 : Number(rawValue));
+                          }
+                        }}
+                      />
                     </div>
-                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                  </FormControl>
+                  <FormMessage />
                 </FormItem>
-            )} />
-            
-            {!watchInfiniteStock && (
+              )} />
+              <FormField control={form.control} name="infinite_stock" render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <FormLabel>Manage Stock</FormLabel>
+                    <FormDescription>Turn on to track inventory quantity.</FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={!field.value}
+                      onCheckedChange={(checked) => field.onChange(!checked)}
+                    />
+                  </FormControl>
+                </FormItem>
+              )} />
+
+              {!watchInfiniteStock && (
                 <FormField control={form.control} name="stock" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Stock *</FormLabel>
-                        <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
-                        <FormMessage />
-                    </FormItem>
+                  <FormItem>
+                    <FormLabel>Stock *</FormLabel>
+                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
-            )}
+              )}
+            </>
+          )}
 
-            <FormField control={form.control} name="category" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Category *</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
-            
-            <FormField control={form.control} name="brand" render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Brand</FormLabel>
-                    <FormControl><Input {...field} /></FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
-            
-            <FormField control={form.control} name="fulfillment_details" render={({ field }) => (
-                <FormItem>
-                    <FormLabel className="flex items-center gap-1">
-                        Fulfillment Details
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Info className="h-3 w-3 text-muted-foreground"/>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Enter comma-separated values for fulfillment, e.g., IMEI, Serial Number.</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    </FormLabel>
-                    <FormControl><Input placeholder="e.g. IMEI, Serial Number" {...field} /></FormControl>
-                    <FormMessage />
-                </FormItem>
-            )} />
+          <FormField control={form.control} name="category" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category *</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {categoryConfig.productCategories?.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-            <FormField control={form.control} name="image" render={() => (
-                 <FormItem>
-                    <FormLabel>Images</FormLabel>
-                     <FormControl>
-                        <div className="grid h-32 w-full items-center justify-center rounded-md border border-dashed relative">
-                          {imagePreview ? (
-                            <Image
-                              alt="Product image preview"
-                              className="aspect-square w-full rounded-md object-contain"
-                              fill
-                              src={imagePreview}
-                            />
-                          ) : (
-                             <div className="text-center text-muted-foreground">
-                                <Upload className="h-8 w-8 mx-auto" />
-                                <p className="text-sm mt-1">Upload one or more images for your product.</p>
-                             </div>
-                          )}
-                           <Input id="image-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
-                        </div>
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}/>
+          <FormField control={form.control} name="brand" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Brand</FormLabel>
+              <FormControl><Input {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+
+
+
+          <FormField control={form.control} name="image" render={() => (
+            <FormItem>
+              <FormLabel>Images</FormLabel>
+              <FormControl>
+                <div className="grid h-32 w-full items-center justify-center rounded-md border border-dashed relative">
+                  {imagePreview ? (
+                    <Image
+                      alt="Product image preview"
+                      className="aspect-square w-full rounded-md object-contain"
+                      fill
+                      src={imagePreview}
+                    />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <Upload className="h-8 w-8 mx-auto" />
+                      <p className="text-sm mt-1">Upload one or more images for your product.</p>
+                    </div>
+                  )}
+                  <Input id="image-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
 
         </div>
         <div className="flex justify-end gap-2 pt-4 border-t">
@@ -276,7 +398,7 @@ export default function AddProductForm({ onProductAdded, onCancel }: AddProductF
           </Button>
           <Button type="submit" disabled={isSaving}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Product
+            {initialData ? 'Update Product' : 'Save Product'}
           </Button>
         </div>
       </form>
