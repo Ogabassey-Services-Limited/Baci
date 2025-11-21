@@ -215,12 +215,12 @@ export function VariantBuilder({
         }
         switch (attr.type) {
             case 'color':
-                return 'e.g., Black, Natural Titanium';
+                return 'e.g., Black';
             case 'number':
-                return `e.g., 42, 10.5`;
+                return `e.g., 42`;
             case 'text':
-                if (attr.key === 'storage') return 'e.g., 256GB, 1TB';
-                if (attr.key === 'ram') return 'e.g., 8GB, 16GB';
+                if (attr.key === 'storage') return 'e.g., 256GB';
+                if (attr.key === 'ram') return 'e.g., 8GB';
                 return `Enter a value for ${attr.label}`;
             default:
                 return 'Enter a value';
@@ -274,16 +274,14 @@ export function VariantBuilder({
                             <div className="flex gap-2">
                                 {attr.type === 'select' || attr.type === 'color' ? (
                                     <Select onValueChange={(value) => handleAttributeAdd(attr.key, value)}>
-                                        <SelectTrigger className={cn("flex-1", (attributeSelections[attr.key]?.length ?? 0) > 0 && "p-0")}>
-                                            {(attributeSelections[attr.key]?.length ?? 0) > 0 ? (
-                                                <div className="flex items-center w-full">
-                                                    <div className="flex-1 overflow-hidden px-3">
-                                                        {renderSelectedValues(attr.key)}
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <SelectValue placeholder={`Select ${attr.label}`} />
-                                            )}
+                                        <SelectTrigger className="flex-1 h-auto min-h-10">
+                                            <div className="flex flex-wrap items-center gap-1.5 py-1">
+                                                {(attributeSelections[attr.key]?.length ?? 0) > 0 ? (
+                                                    renderSelectedValues(attr.key)
+                                                ) : (
+                                                    <span className="text-muted-foreground">{`Select ${attr.label}`}</span>
+                                                )}
+                                            </div>
                                         </SelectTrigger>
                                         <SelectContent>
                                             {attr.options?.map((option) => (
@@ -398,15 +396,15 @@ export function VariantBuilder({
                                             const isEnhancing = enhancingImages[color];
                                             return (
                                                 <div key={color} className="relative group">
-                                                    <label className="cursor-pointer block">
-                                                        <input
-                                                            type="file"
-                                                            accept="image/*"
-                                                            className="hidden"
-                                                            onChange={(e) => handleVariantImageUpload(color, e)}
-                                                            disabled={isEnhancing}
-                                                        />
-                                                        <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                                                    <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors space-y-2">
+                                                        <label className="cursor-pointer block">
+                                                            <input
+                                                                type="file"
+                                                                accept="image/*"
+                                                                className="hidden"
+                                                                onChange={(e) => handleVariantImageUpload(color, e)}
+                                                                disabled={isEnhancing}
+                                                            />
                                                             <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center relative">
                                                                 {isEnhancing && (
                                                                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
@@ -426,20 +424,21 @@ export function VariantBuilder({
                                                                 )}
                                                             </div>
                                                             <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
-                                                        </div>
-                                                    </label>
-                                                    {variantWithColor?.primary_image && (
-                                                        <Button
-                                                            type="button"
-                                                            variant="default"
-                                                            size="icon"
-                                                            className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                                                            onClick={() => handleEnhanceImage(color)}
-                                                            disabled={isEnhancing}
-                                                        >
-                                                            <Wand2 className="h-4 w-4" />
-                                                        </Button>
-                                                    )}
+                                                        </label>
+                                                        {variantWithColor?.primary_image && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="default"
+                                                                size="sm"
+                                                                className="w-full h-8"
+                                                                onClick={() => handleEnhanceImage(color)}
+                                                                disabled={isEnhancing}
+                                                            >
+                                                                {isEnhancing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
+                                                                Enhance
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             );
                                         })}
