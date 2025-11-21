@@ -33,6 +33,7 @@ export interface Product {
     price: number;
     manage_stock: boolean;
     stock: number;
+    minimum_order_quantity?: number;
     image: string;
     imageLarge: string;
     imageHint: string;
@@ -57,6 +58,7 @@ export const products: Product[] = [
         price: 49.99,
         manage_stock: true,
         stock: 120,
+        minimum_order_quantity: 2,
         image: 'https://picsum.photos/seed/p1/80/80',
         imageLarge: 'https://picsum.photos/seed/p1/600/400',
         imageHint: 'ceramic mug',
@@ -75,6 +77,7 @@ export const products: Product[] = [
         price: 79.99,
         manage_stock: true,
         stock: 75,
+        minimum_order_quantity: 1,
         image: 'https://picsum.photos/seed/p2/80/80',
         imageLarge: 'https://picsum.photos/seed/p2/600/400',
         imageHint: 'desk lamp',

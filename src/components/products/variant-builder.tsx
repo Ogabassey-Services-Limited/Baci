@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, X, Upload, Image as ImageIcon, Wand2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { CategoryConfig, CategoryVariantAttribute } from '@/lib/category-configs';
 import type { ProductVariant } from '@/lib/products';
 import Image from 'next/image';
+import { useMerchant } from '@/hooks/use-merchant';
+import { getCountryByCode } from '@/lib/countries';
+import { FormDescription } from '../ui/form';
+import { Switch } from '../ui/switch';
+import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
+import { useToast } from '@/hooks/use-toast';
 
 interface VariantBuilderProps {
     categoryConfig: CategoryConfig;
@@ -28,9 +35,39 @@ export function VariantBuilder({
     basePrice,
     initialVariants = []
 }: VariantBuilderProps) {
+    const { merchant } = useMerchant();
+    const { toast } = useToast();
     const [attributeSelections, setAttributeSelections] = useState<AttributeSelection>({});
     const [variants, setVariants] = useState<ProductVariant[]>(initialVariants);
     const [textInputs, setTextInputs] = useState<Record<string, string>>({});
+    const [trackStock, setTrackStock] = useState(true);
+    const [enhancingImages, setEnhancingImages] = useState<Record<string, boolean>>({});
+
+
+    const currencySymbol = getCountryByCode(merchant?.country || 'NG')?.currencySymbol || '₦';
+
+    // Effect to handle AI suggestions
+    useEffect(() => {
+      const aiSuggestionsRaw = sessionStorage.getItem('ai_variant_suggestions');
+      if (aiSuggestionsRaw) {
+          try {
+              const aiSuggestions: { attribute: string; options: string[] }[] = JSON.parse(aiSuggestionsRaw);
+              const newSelections: AttributeSelection = {};
+              aiSuggestions.forEach(suggestion => {
+                  const attrKey = categoryConfig.variantAttributes?.find(a => a.label === suggestion.attribute)?.key;
+                  if (attrKey) {
+                      newSelections[attrKey] = suggestion.options;
+                  }
+              });
+              setAttributeSelections(newSelections);
+          } catch (e) {
+              console.error("Failed to parse AI variant suggestions", e);
+          } finally {
+              // Clean up immediately after use
+              sessionStorage.removeItem('ai_variant_suggestions');
+          }
+      }
+    }, [categoryConfig.variantAttributes]); // Dependency on categoryConfig to ensure keys can be mapped
 
     // Generate variant combinations whenever attribute selections change
     useEffect(() => {
@@ -56,7 +93,7 @@ export function VariantBuilder({
 
         setVariants(merged);
         onVariantsChange(merged);
-    }, [attributeSelections]);
+    }, [attributeSelections, categoryConfig.supportsVariants, categoryConfig.variantAttributes, onVariantsChange]);
 
     // Helper to sort values numerically (for RAM, storage, etc.)
     const sortAttributeValues = (values: string[], attributeKey: string): string[] => {
@@ -117,6 +154,34 @@ export function VariantBuilder({
         reader.readAsDataURL(file);
     };
 
+    const handleEnhanceImage = async (color: string) => {
+        const variantToEnhance = variants.find(v => v.attributes.color === color);
+        if (!variantToEnhance?.primary_image) {
+            toast({ title: 'No image to enhance', description: 'Please upload an image first.', variant: 'destructive' });
+            return;
+        }
+
+        setEnhancingImages(prev => ({ ...prev, [color]: true }));
+        try {
+            const { enhancedPhotoDataUri } = await enhanceProductImage({ photoDataUri: variantToEnhance.primary_image });
+
+            const updated = variants.map(v =>
+                v.attributes.color === color
+                    ? { ...v, primary_image: enhancedPhotoDataUri, images: [enhancedPhotoDataUri] }
+                    : v
+            );
+            setVariants(updated);
+            onVariantsChange(updated);
+            toast({ title: 'Image enhanced!', description: 'The variant image has been updated with the enhanced version.' });
+        } catch (error) {
+            console.error('Enhancement failed:', error);
+            toast({ title: 'Enhancement Failed', description: 'Could not enhance the image. Please try again.', variant: 'destructive' });
+        } finally {
+            setEnhancingImages(prev => ({ ...prev, [color]: false }));
+        }
+    };
+
+
     const updateVariant = (variantId: string, updates: Partial<ProductVariant>) => {
         const updated = variants.map(v =>
             v.id === variantId ? { ...v, ...updates } : v
@@ -144,6 +209,26 @@ export function VariantBuilder({
                     {categoryConfig.variantAttributes?.map((attr) => (
                         <div key={attr.key} className="space-y-2">
                             <Label>{attr.label}{attr.required && ' *'}</Label>
+
+                            {/* Selected values (Moved above input) */}
+                            <div className="flex flex-wrap gap-2">
+                                {attributeSelections[attr.key]?.map((value) => (
+                                    <div
+                                        key={value}
+                                        className="flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+                                    >
+                                        <span>{value}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleAttributeRemove(attr.key, value)}
+                                            className="hover:bg-primary/20 rounded-full p-0.5"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+
                             <div className="flex gap-2">
                                 {attr.type === 'select' && attr.options ? (
                                     <Select onValueChange={(value) => handleAttributeAdd(attr.key, value)}>
@@ -158,45 +243,11 @@ export function VariantBuilder({
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                ) : attr.type === 'color' ? (
-                                    <>
-                                        <Input
-                                            type="text"
-                                            placeholder={`Enter ${attr.label} (e.g., Black, Blue)`}
-                                            value={textInputs[attr.key] ?? ''}
-                                            onChange={(e) => setTextInputs(prev => ({ ...prev, [attr.key]: e.target.value }))}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    const value = textInputs[attr.key];
-                                                    if (value) {
-                                                        handleAttributeAdd(attr.key, value);
-                                                        setTextInputs(prev => ({ ...prev, [attr.key]: '' }));
-                                                    }
-                                                }
-                                            }}
-                                            className="flex-1"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                const value = textInputs[attr.key];
-                                                if (value) {
-                                                    handleAttributeAdd(attr.key, value);
-                                                    setTextInputs(prev => ({ ...prev, [attr.key]: '' }));
-                                                }
-                                            }}
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
-                                    </>
                                 ) : (
                                     <>
                                         <Input
                                             type="text"
-                                            placeholder={`Enter ${attr.label} and press Enter or click +`}
+                                            placeholder={`Enter ${attr.label} (e.g., Black, 16GB)`}
                                             value={textInputs[attr.key] ?? ''}
                                             onChange={(e) => setTextInputs(prev => ({ ...prev, [attr.key]: e.target.value }))}
                                             onKeyDown={(e) => {
@@ -227,25 +278,6 @@ export function VariantBuilder({
                                         </Button>
                                     </>
                                 )}
-                            </div>
-
-                            {/* Selected values */}
-                            <div className="flex flex-wrap gap-2">
-                                {attributeSelections[attr.key]?.map((value) => (
-                                    <div
-                                        key={value}
-                                        className="flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
-                                    >
-                                        <span>{value}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleAttributeRemove(attr.key, value)}
-                                            className="hover:bg-primary/20 rounded-full p-0.5"
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </div>
-                                ))}
                             </div>
                         </div>
                     ))}
@@ -281,42 +313,82 @@ export function VariantBuilder({
                             <Label className="text-base font-semibold">
                                 Configure variants ({variants.length} total)
                             </Label>
+                            
+                            <Label
+                                htmlFor="variants-stock-switch"
+                                className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+                            >
+                                <div className="space-y-0.5">
+                                    <div className="font-medium">Track Inventory</div>
+                                    <FormDescription>
+                                        Enable to manage stock levels for each variant.
+                                    </FormDescription>
+                                </div>
+                                <Switch
+                                    id="variants-stock-switch"
+                                    checked={trackStock}
+                                    onCheckedChange={setTrackStock}
+                                />
+                            </Label>
 
                             {/* Section 1: Color Images */}
-                            <div className="space-y-3">
-                                <Label className="text-sm font-semibold">1. Upload color images</Label>
-                                <div className="grid grid-cols-4 gap-3">
-                                    {colors.map(color => {
-                                        const variantWithColor = variants.find(v => v.attributes.color === color);
-                                        return (
-                                            <label key={color} className="cursor-pointer block">
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    className="hidden"
-                                                    onChange={(e) => handleVariantImageUpload(color, e)}
-                                                />
-                                                <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors">
-                                                    <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
-                                                        {variantWithColor?.primary_image ? (
-                                                            <Image
-                                                                src={variantWithColor.primary_image}
-                                                                alt={color}
-                                                                width={120}
-                                                                height={120}
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                                        )}
-                                                    </div>
-                                                    <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
+                            {colors.length > 0 && categoryConfig.variantAttributes?.some(attr => attr.key === 'color' && attr.hasImage) && (
+                                <div className="space-y-3">
+                                    <Label className="text-sm font-semibold">1. Upload color images</Label>
+                                    <div className="grid grid-cols-4 gap-3">
+                                        {colors.map(color => {
+                                            const variantWithColor = variants.find(v => v.attributes.color === color);
+                                            const isEnhancing = enhancingImages[color];
+                                            return (
+                                                <div key={color} className="relative group">
+                                                    <label className="cursor-pointer block">
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            className="hidden"
+                                                            onChange={(e) => handleVariantImageUpload(color, e)}
+                                                            disabled={isEnhancing}
+                                                        />
+                                                        <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                                                            <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center relative">
+                                                                {isEnhancing && (
+                                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                                                                        <Loader2 className="h-6 w-6 text-white animate-spin" />
+                                                                    </div>
+                                                                )}
+                                                                {variantWithColor?.primary_image ? (
+                                                                    <Image
+                                                                        src={variantWithColor.primary_image}
+                                                                        alt={color}
+                                                                        width={120}
+                                                                        height={120}
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                ) : (
+                                                                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                                                )}
+                                                            </div>
+                                                            <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
+                                                        </div>
+                                                    </label>
+                                                     {variantWithColor?.primary_image && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="default"
+                                                            size="icon"
+                                                            className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                                                            onClick={() => handleEnhanceImage(color)}
+                                                            disabled={isEnhancing}
+                                                        >
+                                                            <Wand2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
                                                 </div>
-                                            </label>
-                                        );
-                                    })}
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Section 2: Spec-based pricing */}
                             {specCombos.length > 0 && (
@@ -325,7 +397,7 @@ export function VariantBuilder({
                                         2. Set prices for specifications ({specCombos.length} {specCombos.length === 1 ? 'option' : 'options'})
                                     </Label>
                                     <p className="text-xs text-muted-foreground">
-                                        Price applies to all colors with these specs
+                                        Price applies to all colors with these specs. Leave blank to use base price.
                                     </p>
                                     <div className="space-y-2">
                                         {specCombos.map((combo, index) => {
@@ -335,26 +407,26 @@ export function VariantBuilder({
                                             return (
                                                 <div key={index} className="flex items-center gap-3 p-3 border rounded-lg bg-card">
                                                     <p className="flex-1 font-medium text-sm">{combo.label || 'Base variant'}</p>
-                                                    <div className="w-40">
+                                                    <div className="w-40 relative">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol}</span>
                                                         <Input
-                                                            type="number"
-                                                            min="0"
-                                                            step="0.01"
-                                                            placeholder={`${basePrice}`}
-                                                            value={variantWithSpec?.price_override || ''}
+                                                            type="text"
+                                                            placeholder={new Intl.NumberFormat('en-US').format(basePrice)}
+                                                            value={variantWithSpec?.price_override != null ? new Intl.NumberFormat('en-US').format(variantWithSpec.price_override) : ''}
                                                             onChange={(e) => {
-                                                                const value = e.target.value;
-                                                                const price = value ? Math.max(0, Number(value)) : undefined;
-                                                                // Apply to all variants with these specs
-                                                                const updated = variants.map(v =>
-                                                                    Object.entries(combo.attributes).every(([key, value]) => v.attributes[key] === value)
-                                                                        ? { ...v, price_override: price }
-                                                                        : v
-                                                                );
-                                                                setVariants(updated);
-                                                                onVariantsChange(updated);
+                                                                const rawValue = e.target.value.replace(/,/g, '');
+                                                                if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
+                                                                    const price = rawValue === '' ? undefined : Number(rawValue);
+                                                                    const updated = variants.map(v =>
+                                                                        Object.entries(combo.attributes).every(([key, value]) => v.attributes[key] === value)
+                                                                            ? { ...v, price_override: price }
+                                                                            : v
+                                                                    );
+                                                                    setVariants(updated);
+                                                                    onVariantsChange(updated);
+                                                                }
                                                             }}
-                                                            className="h-9 text-sm"
+                                                            className="h-9 text-sm pl-8"
                                                         />
                                                     </div>
                                                 </div>
@@ -365,7 +437,8 @@ export function VariantBuilder({
                             )}
 
                             {/* Section 3: Inventory per variant */}
-                            <div className="space-y-3">
+                            {trackStock && (
+                                <div className="space-y-3">
                                 <Label className="text-sm font-semibold">3. Set stock quantity per variant</Label>
                                 <div className="grid grid-cols-2 gap-3">
                                     {variants.map((variant, index) => (
@@ -405,6 +478,7 @@ export function VariantBuilder({
                                     ))}
                                 </div>
                             </div>
+                            )}
                         </div>
                     );
                 })()}

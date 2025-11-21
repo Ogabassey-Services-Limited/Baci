@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import Image from 'next/image';
-import { Loader2, Sparkles, Upload, Info } from 'lucide-react';
+import { Loader2, Sparkles, Upload, Info, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { generateProductDescription } from '@/ai/flows/generate-product-descriptions';
+import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { useMerchant } from '@/hooks/use-merchant';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -29,8 +30,9 @@ const addProductSchema = z.object({
   name: z.string().min(3, 'Product name must be at least 3 characters.'),
   description: z.string().optional(),
   price: z.coerce.number().min(0, 'Price must be a positive number.'),
-  infinite_stock: z.boolean().default(false),
+  infinite_stock: z.boolean().default(true),
   stock: z.coerce.number().int('Stock must be a whole number.').optional(),
+  minimum_order_quantity: z.coerce.number().int('MOQ must be a whole number.').min(1, 'Minimum order quantity must be at least 1.').optional(),
   category: z.string().min(1, 'Category is required.'),
   brand: z.string().optional(),
   fulfillment_details: z.array(z.object({
@@ -53,9 +55,11 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
   const { merchant } = useMerchant();
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAutofilling, setIsAutofilling] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image || null);
   const [hasVariants, setHasVariants] = useState(initialData?.has_variants || false);
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
+  const [variantBuilderKey, setVariantBuilderKey] = useState(Date.now()); // Key to force re-render
 
   const form = useForm<AddProductFormValues>({
     resolver: zodResolver(addProductSchema),
@@ -63,8 +67,9 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       name: initialData?.name || '',
       description: initialData?.description || '',
       price: initialData?.price || 0,
-      infinite_stock: initialData?.manage_stock === false,
+      infinite_stock: true, // Default to off
       stock: initialData?.stock || 0,
+      minimum_order_quantity: initialData?.minimum_order_quantity || 1,
       category: initialData?.category || 'General',
       brand: initialData?.brand || '',
       fulfillment_details: initialData?.fulfillment_details || [],
@@ -94,7 +99,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         append({ key: 'S/N', value: '' });
       }
     } else if (currentStock < currentFields) {
-      for (let i = 0; i < currentFields - currentStock; i++) {
+      for (let i = 0; i < currentFields - 1 - i; i++) {
         remove(currentFields - 1 - i);
       }
     }
@@ -108,6 +113,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         price: initialData.price,
         infinite_stock: initialData.manage_stock === false,
         stock: initialData.stock,
+        minimum_order_quantity: initialData.minimum_order_quantity || 1,
         category: initialData.category || 'General',
         brand: initialData.brand,
         fulfillment_details: initialData.fulfillment_details || [],
@@ -119,7 +125,6 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
     }
   }, [initialData, form]);
 
-  // Get category-specific configuration based on merchant's business type
   const categoryConfig = useMemo(() => {
     if (!merchant?.business_type) return getCategoryConfigFromBusinessType('general');
     return getCategoryConfigFromBusinessType(merchant.business_type);
@@ -135,6 +140,62 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         form.setValue('image', dataUri);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAutofill = async () => {
+    setIsAutofilling(true);
+    const productName = form.getValues('name');
+    if (!productName) {
+      form.setError('name', { message: 'Please enter a product name first.' });
+      setIsAutofilling(false);
+      return;
+    }
+
+    if (!merchant) {
+      toast({ title: "Could not autofill", description: "Merchant data not available.", variant: "destructive" });
+      setIsAutofilling(false);
+      return;
+    }
+
+    try {
+      const result = await autofillProductDetails({
+        productName: productName,
+        businessType: merchant.business_type,
+      });
+      
+      const { details } = result;
+      if (details.suggestedName) form.setValue('name', details.suggestedName, { shouldValidate: true });
+      if (details.description) form.setValue('description', details.description, { shouldValidate: true });
+      if (details.category && categoryConfig.productCategories?.includes(details.category)) {
+        form.setValue('category', details.category, { shouldValidate: true });
+      }
+      if (details.brand) form.setValue('brand', details.brand, { shouldValidate: true });
+
+      // Handle suggested variants
+      if (details.suggestedVariants && details.suggestedVariants.length > 0) {
+        setHasVariants(true);
+        const newInitialVariants = details.suggestedVariants.map(sv => ({
+          attributes: { [sv.attribute.toLowerCase()]: '' }, // placeholder
+        }));
+        
+        // This is a bit of a hack to pass suggestions to the variant builder
+        // We trigger a re-render of the builder with new initial data
+        // The builder itself needs to be able to handle this.
+        sessionStorage.setItem('ai_variant_suggestions', JSON.stringify(details.suggestedVariants));
+        setVariantBuilderKey(Date.now()); // Force re-mount of VariantBuilder
+      }
+
+
+      toast({
+        title: "Product details autofilled! ✨",
+        description: "Review the generated details and adjust as needed.",
+      });
+
+    } catch (error) {
+      toast({ title: "Autofill Failed", description: "Could not generate product details. Please try again.", variant: "destructive" });
+    } finally {
+      setIsAutofilling(false);
     }
   };
 
@@ -168,8 +229,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
   async function onSubmit(data: AddProductFormValues) {
     setIsSaving(true);
-
-    // Simulate AI enhancement if an image is present and changed (starts with data:)
+    
     let enhancedImage = data.image;
     if (data.image && typeof data.image === 'string' && data.image.startsWith('data:')) {
       try {
@@ -180,7 +240,6 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       }
     }
 
-    // Upload image to storage if it's a data URI
     if (enhancedImage && typeof enhancedImage === 'string' && enhancedImage.startsWith('data:')) {
       try {
         const uploadedUrl = await uploadImage(enhancedImage);
@@ -196,27 +255,27 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       }
     }
 
-    // Create or update product object
-    // Create or update product object
     const productData: Product = {
       id: initialData?.id || `prod_${Date.now()}`,
       name: data.name,
       description: data.description || '',
       price: data.price,
-      manage_stock: hasVariants ? true : !data.infinite_stock, // Always manage stock if variants exist
+      manage_stock: hasVariants ? true : !data.infinite_stock,
       stock: hasVariants
         ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0)
         : (data.infinite_stock ? 0 : data.stock || 0),
+      minimum_order_quantity: data.minimum_order_quantity,
       status: initialData?.status || 'published',
       image: enhancedImage,
-      imageLarge: enhancedImage, // Use same for now
+      imageLarge: enhancedImage,
       imageHint: data.name,
       brand: data.brand || '',
       gtin: initialData?.gtin || '',
       mpn: initialData?.mpn || '',
-      fulfillment_details: hasVariants ? [] : data.fulfillment_details, // Fulfillment details are per-variant if variants exist
+      fulfillment_details: hasVariants ? [] : data.fulfillment_details,
       has_variants: hasVariants,
       variants: hasVariants ? variants : [],
+      category: data.category,
     };
 
     onProductAdded(productData);
@@ -241,7 +300,13 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
           <FormField control={form.control} name="name" render={({ field }) => (
             <FormItem>
               <FormLabel>Name *</FormLabel>
-              <FormControl><Input {...field} /></FormControl>
+              <div className="flex gap-2 relative">
+                <FormControl><Input {...field} className="pr-12" /></FormControl>
+                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={handleAutofill} disabled={isAutofilling}>
+                  {isAutofilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                  <span className="sr-only">Autofill with AI</span>
+                </Button>
+              </div>
               <FormMessage />
             </FormItem>
           )} />
@@ -257,26 +322,54 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
               <FormMessage />
             </FormItem>
           )} />
+          
+          <FormField control={form.control} name="category" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category *</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {categoryConfig.productCategories?.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )} />
 
-          {/* Variant Toggle */}
           {categoryConfig.supportsVariants && (
-            <div className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5">
-              <div className="space-y-0.5">
-                <FormLabel>Product Variants</FormLabel>
-                <FormDescription>
-                  Does this product have options like size, color, or storage?
-                </FormDescription>
-              </div>
-              <Switch
-                checked={hasVariants}
-                onCheckedChange={setHasVariants}
-              />
-            </div>
+             <FormItem>
+                <FormLabel
+                    htmlFor="variants-switch"
+                    className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+                >
+                    <div className="space-y-0.5">
+                        <div className="font-medium">Product Variants</div>
+                        <FormDescription>
+                        Does this product have options like size, color, or storage?
+                        </FormDescription>
+                    </div>
+                    <FormControl>
+                        <Switch
+                            id="variants-switch"
+                            checked={hasVariants}
+                            onCheckedChange={setHasVariants}
+                        />
+                    </FormControl>
+                </FormLabel>
+            </FormItem>
           )}
 
-          {/* Variant Builder */}
           {hasVariants && categoryConfig.supportsVariants ? (
             <VariantBuilder
+              key={variantBuilderKey}
               categoryConfig={categoryConfig}
               basePrice={form.watch('price')}
               initialVariants={variants}
@@ -308,53 +401,48 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                   <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={form.control} name="infinite_stock" render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>Manage Stock</FormLabel>
-                    <FormDescription>Turn on to track inventory quantity.</FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={!field.value}
-                      onCheckedChange={(checked) => field.onChange(!checked)}
-                    />
-                  </FormControl>
-                </FormItem>
-              )} />
+              
+              <FormItem>
+                <FormLabel
+                    htmlFor="stock-switch"
+                    className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+                >
+                    <div className="space-y-0.5">
+                        <div className="font-medium">Track Inventory</div>
+                        <FormDescription>Uncheck if you have unlimited stock (e.g. digital products).</FormDescription>
+                    </div>
+                    <FormField control={form.control} name="infinite_stock" render={({ field }) => (
+                        <FormControl>
+                            <Switch
+                            id="stock-switch"
+                            checked={!field.value}
+                            onCheckedChange={(checked) => field.onChange(!checked)}
+                            />
+                        </FormControl>
+                    )} />
+                </FormLabel>
+              </FormItem>
 
               {!watchInfiniteStock && (
-                <FormField control={form.control} name="stock" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Stock *</FormLabel>
-                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="stock" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stock Quantity *</FormLabel>
+                      <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="minimum_order_quantity" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Minimum Order Qty</FormLabel>
+                      <FormControl><Input type="number" min="1" {...field} value={field.value ?? ''} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
               )}
             </>
           )}
-
-          <FormField control={form.control} name="category" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Category *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {categoryConfig.productCategories?.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )} />
 
           <FormField control={form.control} name="brand" render={({ field }) => (
             <FormItem>

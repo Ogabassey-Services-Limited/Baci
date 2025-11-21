@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { type Product } from '@/lib/products';
 import { AIResponse, Change } from '@/app/dashboard/products/actions';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from './auth-context'; // Import the useAuth hook
 
 export type WorkflowStep = 'view' | 'upload' | 'processing' | 'review';
 
@@ -41,13 +42,18 @@ interface ProductContextType {
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
+  isAddProductOpen: boolean;
+  openAddProductDialog: (product?: Product | null) => void;
+  closeAddProductDialog: () => void;
+  editingProduct: Product | null;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { user, loading: authLoading } = useAuth(); // Use the auth context
   const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start as true
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
     limit: 10,
@@ -64,8 +70,32 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  const openAddProductDialog = (product: Product | null = null) => {
+    setEditingProduct(product);
+    setIsAddProductOpen(true);
+  };
+  
+  const closeAddProductDialog = () => {
+    setIsAddProductOpen(false);
+    setEditingProduct(null);
+  };
+
 
   const fetchProducts = useCallback(async () => {
+    // **FIX**: Do not fetch if auth is still loading or if there's no user
+    if (authLoading || !user) {
+      // If we know there's no user, stop loading and clear data.
+      if (!authLoading && !user) {
+        setProducts([]);
+        setIsLoading(false);
+      }
+      return;
+    }
+
     setIsLoading(true);
     try {
       const params = new URLSearchParams({
@@ -78,7 +108,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
       const response = await fetch(`/api/products?${params}`);
       if (!response.ok) {
-        // If unauthorized (not logged in), silently fail - this is expected on public pages
+        // Silently fail on 401, as it's an expected state during logout/session expiry
         if (response.status === 401) {
           setIsLoading(false);
           return;
@@ -92,18 +122,15 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       setStats(data.stats || { inventoryValue: 0, outOfStockCount: 0 });
     } catch (error) {
       console.error('Error fetching products:', error);
-      // Only show toast if it's not an auth error
-      if (error instanceof Error && !error.message.includes('401')) {
-        toast({
-          title: 'Error',
-          description: 'Failed to load products',
-          variant: 'destructive',
-        });
-      }
+      toast({
+        title: 'Error',
+        description: 'Failed to load products',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
-  }, [pagination.page, pagination.limit, searchTerm, statusFilter, stockFilter, toast]);
+  }, [pagination.page, pagination.limit, searchTerm, statusFilter, stockFilter, toast, authLoading, user]);
 
   useEffect(() => {
     fetchProducts();
@@ -126,7 +153,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         throw new Error(errorData.error || 'Failed to add product');
       }
 
-      // Refetch to get accurate data
       await fetchProducts();
     } catch (error) {
       console.error('Error adding product:', error);
@@ -151,10 +177,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         throw new Error('Failed to update product');
       }
 
-      // Update local state
       setProducts(prev => prev.map(p => p.id === product.id ? product : p));
-
-      // Refetch to ensure consistency
       await fetchProducts();
     } catch (error) {
       console.error('Error updating product:', error);
@@ -177,10 +200,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         throw new Error('Failed to delete product');
       }
 
-      // Update local state
       setProducts(prev => prev.filter(p => p.id !== productId));
-
-      // Refetch to ensure consistency
       await fetchProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -194,22 +214,19 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   const applyChanges = async (changesToApply: Change[]) => {
-    // For now, we'll apply changes optimistically
-    // In a real implementation, you'd send these to the API
     toast({
       title: 'Catalog Updated!',
       description: `${changesToApply.length} change(s) have been applied.`
     });
     setWorkflowStep('view');
     setAiResponse(null);
-    // Refetch to get updated data
     await fetchProducts();
   };
 
   return (
     <ProductContext.Provider value={{
       products,
-      isLoading,
+      isLoading: isLoading || authLoading, // Combine loading states
       pagination,
       stats,
       statusFilter,
@@ -228,6 +245,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       setSearchTerm,
       updateProduct,
       deleteProduct,
+      isAddProductOpen,
+      openAddProductDialog,
+      closeAddProductDialog,
+      editingProduct,
     }}>
       {children}
     </ProductContext.Provider>

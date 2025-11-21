@@ -42,6 +42,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useProductContext } from '@/contexts/product-context';
 
 // --- Mock Data ---
 
@@ -99,6 +100,13 @@ const recentSales = [
     { id: 'p5', name: 'Sofia Davis', email: 'sofia.davis@email.com', amount: 39.00, avatar: 'avatar-5' },
 ];
 
+const yAxisFormatter = (value: number) => {
+    if (value >= 1000) {
+        return `${value / 1000}k`;
+    }
+    return value.toString();
+};
+
 // --- Helper Component ---
 
 function PercentageChange({ value, timeFrame }: { value: number; timeFrame: 'weekly' | 'monthly' }) {
@@ -119,6 +127,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [timeFrame, setTimeFrame] = useState<'monthly' | 'weekly'>('weekly');
+  const { openAddProductDialog } = useProductContext();
 
   const currentSummary = summaryData[timeFrame];
   const currentChartData = timeFrame === 'monthly' ? monthlyChartData : weeklyChartData;
@@ -175,45 +184,33 @@ export default function DashboardPage() {
     }).format(amount);
   };
   
-  const yAxisFormatter = (value: number) => {
-      const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
-      const currency = country ? country.currency : 'USD';
-      const formatter = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currency,
-        notation: 'compact',
-        currencyDisplay: 'symbol',
-      });
-      return formatter.format(value).replace(/\D00$/, '');
-  };
-
   const setupTasks = [
     {
       icon: PlusCircle,
       title: 'Add your first product',
       description: 'List items to start selling.',
-      href: '/dashboard/products/add',
+      action: () => openAddProductDialog(),
       buttonText: 'Add Product',
     },
     {
       icon: Wrench,
       title: 'Customize your store',
       description: 'Choose colors and a layout that matches your brand.',
-      href: '/dashboard/settings',
+      action: () => router.push('/dashboard/settings'),
       buttonText: 'Customize',
     },
     {
       icon: CreditCard,
       title: 'Set up payments',
       description: 'Connect a payment provider to start accepting money.',
-      href: '/dashboard/settings',
+      action: () => router.push('/dashboard/settings'),
       buttonText: 'Set Up',
     },
     {
       icon: FlaskConical,
       title: 'Run a test order',
       description: 'Make sure your checkout process is smooth for customers.',
-      href: fullUrl || '/',
+      action: () => window.open(fullUrl || '/', '_blank'),
       buttonText: 'Visit Store',
     },
   ];
@@ -265,9 +262,7 @@ export default function DashboardPage() {
                   <p className="font-semibold">{task.title}</p>
                   <p className="text-sm text-muted-foreground">{task.description}</p>
                 </div>
-                <Link href={task.href} target={task.href.startsWith('http') ? '_blank' : '_self'}>
-                  <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary">{task.buttonText}</Button>
-                </Link>
+                <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary" onClick={task.action}>{task.buttonText}</Button>
               </div>
             ))}
           </div>
