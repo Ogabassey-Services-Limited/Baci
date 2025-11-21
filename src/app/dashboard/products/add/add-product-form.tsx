@@ -344,28 +344,26 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
           )} />
 
           {categoryConfig.supportsVariants && (
-             <FormField control={form.control} name="has_variants" render={({ field }) => (
-                <FormItem>
-                    <FormLabel
-                        htmlFor="variants-switch"
-                        className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
-                    >
-                        <div className="space-y-0.5">
-                            <div className="font-medium">Product Variants</div>
-                            <FormDescription>
-                            Does this product have options like size, color, or storage?
-                            </FormDescription>
-                        </div>
-                        <FormControl>
-                            <Switch
-                                id="variants-switch"
-                                checked={hasVariants}
-                                onCheckedChange={setHasVariants}
-                            />
-                        </FormControl>
-                    </FormLabel>
-                </FormItem>
-             )} />
+             <FormItem>
+                <FormLabel
+                    htmlFor="variants-switch"
+                    className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+                >
+                    <div className="space-y-0.5">
+                        <div className="font-medium">Product Variants</div>
+                        <FormDescription>
+                        Does this product have options like size, color, or storage?
+                        </FormDescription>
+                    </div>
+                    <FormControl>
+                        <Switch
+                            id="variants-switch"
+                            checked={hasVariants}
+                            onCheckedChange={setHasVariants}
+                        />
+                    </FormControl>
+                </FormLabel>
+            </FormItem>
           )}
 
           {hasVariants && categoryConfig.supportsVariants ? (
@@ -403,16 +401,16 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                 </FormItem>
               )} />
               
-              <FormLabel
-                  htmlFor="stock-switch"
-                  className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
-              >
-                  <div className="space-y-0.5">
-                      <div className="font-medium">Track Inventory</div>
-                      <FormDescription>Uncheck if you have unlimited stock (e.g. digital products).</FormDescription>
-                  </div>
-                  <FormField control={form.control} name="infinite_stock" render={({ field }) => (
-                    <FormItem>
+              <FormItem>
+                <FormLabel
+                    htmlFor="stock-switch"
+                    className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+                >
+                    <div className="space-y-0.5">
+                        <div className="font-medium">Track Inventory</div>
+                        <FormDescription>Uncheck if you have unlimited stock (e.g. digital products).</FormDescription>
+                    </div>
+                    <FormField control={form.control} name="infinite_stock" render={({ field }) => (
                         <FormControl>
                             <Switch
                             id="stock-switch"
@@ -420,9 +418,9 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                             onCheckedChange={(checked) => field.onChange(!checked)}
                             />
                         </FormControl>
-                    </FormItem>
-                  )} />
-              </FormLabel>
+                    )} />
+                </FormLabel>
+              </FormItem>
 
               {!watchInfiniteStock && (
                 <div className="grid grid-cols-2 gap-4">
