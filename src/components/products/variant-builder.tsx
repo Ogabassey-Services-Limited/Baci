@@ -497,7 +497,19 @@ export function VariantBuilder({
                                 <div className="space-y-3">
                                     <Label className="text-sm font-semibold">3. Set stock quantity per variant</Label>
                                     <div className="grid grid-cols-2 gap-3">
-                                        {variants.map((variant, index) => (
+                                        {variants.map((variant, index) => {
+                                            const attributeOrder = ['ram', 'storage']; // Define your desired order
+                                            const sortedAttributes = Object.entries(variant.attributes).sort(([keyA], [keyB]) => {
+                                                const indexA = attributeOrder.indexOf(keyA);
+                                                const indexB = attributeOrder.indexOf(keyB);
+                                                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                                                if (indexA !== -1) return -1;
+                                                if (indexB !== -1) return 1;
+                                                return 0; // Keep original order for other attributes
+                                            });
+                                            const displayLabel = sortedAttributes.map(([, value]) => value).join(' / ');
+                                            
+                                            return (
                                             <div
                                                 key={variant.id || `variant-${index}`}
                                                 className="flex items-center gap-3 p-3 border rounded-lg bg-card"
@@ -514,7 +526,7 @@ export function VariantBuilder({
                                                     )}
                                                 </div>
                                                 <p className="flex-1 text-sm font-medium">
-                                                    {Object.values(variant.attributes).join(' / ')}
+                                                    {displayLabel}
                                                 </p>
                                                 <div className="w-24">
                                                     <Input
@@ -531,7 +543,7 @@ export function VariantBuilder({
                                                     />
                                                 </div>
                                             </div>
-                                        ))}
+                                        )})}
                                     </div>
                                 </div>
                             )}
@@ -573,5 +585,7 @@ function generateVariantCombinations(
 
     return combinations;
 }
+
+    
 
     
