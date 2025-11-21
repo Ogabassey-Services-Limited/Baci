@@ -13,6 +13,8 @@ import type { ProductVariant } from '@/lib/products';
 import Image from 'next/image';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
+import { FormDescription } from '../ui/form';
+import { Switch } from '../ui/switch';
 
 interface VariantBuilderProps {
     categoryConfig: CategoryConfig;
@@ -35,6 +37,7 @@ export function VariantBuilder({
     const [attributeSelections, setAttributeSelections] = useState<AttributeSelection>({});
     const [variants, setVariants] = useState<ProductVariant[]>(initialVariants);
     const [textInputs, setTextInputs] = useState<Record<string, string>>({});
+    const [trackStock, setTrackStock] = useState(true);
 
     const currencySymbol = getCountryByCode(merchant?.country || 'NG')?.currencySymbol || '₦';
 
@@ -276,6 +279,23 @@ export function VariantBuilder({
                             <Label className="text-base font-semibold">
                                 Configure variants ({variants.length} total)
                             </Label>
+                            
+                            <Label
+                                htmlFor="variants-stock-switch"
+                                className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+                            >
+                                <div className="space-y-0.5">
+                                    <div className="font-medium">Track Inventory</div>
+                                    <FormDescription>
+                                        Enable to manage stock levels for each variant.
+                                    </FormDescription>
+                                </div>
+                                <Switch
+                                    id="variants-stock-switch"
+                                    checked={trackStock}
+                                    onCheckedChange={setTrackStock}
+                                />
+                            </Label>
 
                             {/* Section 1: Color Images */}
                             {colors.length > 0 && categoryConfig.variantAttributes?.some(attr => attr.key === 'color' && attr.hasImage) && (
@@ -362,7 +382,8 @@ export function VariantBuilder({
                             )}
 
                             {/* Section 3: Inventory per variant */}
-                            <div className="space-y-3">
+                            {trackStock && (
+                                <div className="space-y-3">
                                 <Label className="text-sm font-semibold">3. Set stock quantity per variant</Label>
                                 <div className="grid grid-cols-2 gap-3">
                                     {variants.map((variant, index) => (
@@ -402,6 +423,7 @@ export function VariantBuilder({
                                     ))}
                                 </div>
                             </div>
+                            )}
                         </div>
                     );
                 })()}
