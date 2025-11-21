@@ -2,6 +2,13 @@
 import { createBrowserClient, type CookieOptions } from '@supabase/ssr';
 import { getSupabaseUrl, getSupabaseAnonKey } from '@/env';
 
+// Validate cookie name: disallow control chars, whitespace, '=', ';'
+function isValidCookieName(name: string): boolean {
+  // Per RFC 6265, cookie name should not contain control chars, spaces, =, ;
+  // This regex matches names with only allowed visible ASCII characters.
+  return /^[^=\s;]+$/.test(name);
+}
+
 export function createClient() {
   // The createClient function now calls the getter functions to ensure
   // environment variables are accessed at runtime, not build time.
@@ -24,7 +31,13 @@ export function createClient() {
         },
         set(name: string, value: string, options: CookieOptions) {
           // Use document.cookie to set cookies
-          let cookie = `${name}=${value}`;
+          // Validate cookie name
+          if (!isValidCookieName(name)) {
+            throw new Error('Invalid cookie name.');
+          }
+          // Encode cookie value
+          const encodedValue = encodeURIComponent(value);
+          let cookie = `${name}=${encodedValue}`;
           if (options.maxAge) cookie += `; max-age=${options.maxAge}`;
           if (options.path) cookie += `; path=${options.path}`;
           if (options.domain) cookie += `; domain=${options.domain}`;
@@ -33,6 +46,10 @@ export function createClient() {
           document.cookie = cookie;
         },
         remove(name: string, options: CookieOptions) {
+          // Validate cookie name
+          if (!isValidCookieName(name)) {
+            throw new Error('Invalid cookie name.');
+          }
           // Set expiry date to the past to remove cookie
           let cookie = `${name}=; max-age=0`;
           if (options.path) cookie += `; path=${options.path}`;

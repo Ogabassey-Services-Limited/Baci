@@ -30,7 +30,14 @@ export async function POST(request: NextRequest) {
 
         // Verify authorization (you might want to use a secret token here)
         const authHeader = request.headers.get('authorization');
-        const expectedToken = process.env.AI_WORKER_SECRET || 'dev-secret-token';
+        const expectedToken = process.env.AI_WORKER_SECRET;
+
+        if (!expectedToken) {
+            return NextResponse.json(
+                { error: 'AI worker secret not configured' },
+                { status: 500 }
+            );
+        }
 
         if (authHeader !== `Bearer ${expectedToken}`) {
             return NextResponse.json(
@@ -39,13 +46,17 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get pending jobs (limit to 5 at a time to avoid timeout)
+        // Get job process limit from environment variable, default to 5 if not set/invalid
+        const jobProcessLimitRaw = process.env.AI_WORKER_JOB_PROCESS_LIMIT;
+        const jobProcessLimit = (jobProcessLimitRaw && !isNaN(Number(jobProcessLimitRaw))) ? Number(jobProcessLimitRaw) : 5;
+
+        // Get pending jobs (limit to configurable number at a time to avoid timeout)
         const { data: jobs, error: fetchError } = await supabase
             .from('ai_jobs')
             .select('*')
             .eq('status', 'pending')
             .order('created_at', { ascending: true })
-            .limit(5);
+            .limit(jobProcessLimit);
 
         if (fetchError) {
             console.error('Error fetching pending jobs:', fetchError);

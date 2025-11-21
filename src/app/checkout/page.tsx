@@ -330,7 +330,7 @@ function CheckoutPageContent() {
       // Fetch merchant ID from database
       const { data: merchantData, error: merchantError } = await supabase
         .from('merchants')
-        .select('id')
+        .select('id, shipping_fee')
         .eq('user_id', merchant.user_id)
         .single();
 
@@ -349,7 +349,7 @@ function CheckoutPageContent() {
 
       // Calculate totals
       const subtotal = cartTotal;
-      const shippingFee = 10.00; // Default shipping fee
+      const shippingFee = merchantData.shipping_fee ?? 10.00; // Use merchant-configured shipping fee, fallback to default
 
       // Create order via API
       const response = await fetch('/api/orders', {

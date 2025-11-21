@@ -298,8 +298,10 @@ export default function OrdersPage() {
             variant: 'destructive',
           });
         }
-        // Fall back to mock data on error for demo purposes
-        setOrders(initialOrders);
+        // Fall back to mock data on error for demo purposes ONLY in development
+        if (process.env.NODE_ENV !== 'production') {
+          setOrders(initialOrders);
+        }
       } finally {
         setOrdersLoading(false);
       }

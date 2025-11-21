@@ -35,6 +35,8 @@ export function VariantBuilder({
     basePrice,
     initialVariants = []
 }: VariantBuilderProps) {
+    // Limit for number of color options shown (maintainability!)
+    const COLOR_OPTIONS_LIMIT = 6;
     const { merchant } = useMerchant();
     const { toast } = useToast();
     const [attributeSelections, setAttributeSelections] = useState<AttributeSelection>({});
@@ -54,9 +56,14 @@ export function VariantBuilder({
 
     // Effect to handle AI suggestions
     useEffect(() => {
-        const timer = setTimeout(() => {
+        let interval: ReturnType<typeof setInterval> | null = null;
+        let timeout: ReturnType<typeof setTimeout> | null = null;
+        let resolved = false;
+
+        function checkForSuggestions() {
             const aiSuggestionsRaw = sessionStorage.getItem('ai_variant_suggestions');
             if (aiSuggestionsRaw) {
+                resolved = true;
                 try {
                     const aiSuggestions: { attribute: string; options: string[] }[] = JSON.parse(aiSuggestionsRaw);
                     const newSelections: AttributeSelection = {};
@@ -68,7 +75,7 @@ export function VariantBuilder({
                             const attr = categoryConfig.variantAttributes?.find(a => a.key === attrKey);
                             if (attr?.type === 'color') {
                                 // Keep up to 6 color options (avoid UI overload)
-                                newSelections[attrKey] = suggestion.options.slice(0, 6);
+                                newSelections[attrKey] = suggestion.options.slice(0, COLOR_OPTIONS_LIMIT);
                             } else {
                                 newSelections[attrKey] = suggestion.options;
                             }
@@ -81,9 +88,25 @@ export function VariantBuilder({
                     // Clean up immediately after use
                     sessionStorage.removeItem('ai_variant_suggestions');
                 }
+
+                if (interval) clearInterval(interval);
+                if (timeout) clearTimeout(timeout);
             }
-        }, 50); // slight delay to ensure storage is set
-        return () => clearTimeout(timer);
+        }
+
+        interval = setInterval(checkForSuggestions, 30); // Poll every 30ms
+
+        timeout = setTimeout(() => {
+            if (!resolved && interval) {
+                clearInterval(interval);
+            }
+        }, 1000); // Max 1s polling, then give up
+
+        // Cleanup
+        return () => {
+            if (interval) clearInterval(interval);
+            if (timeout) clearTimeout(timeout);
+        };
     }, [categoryConfig.variantAttributes]); // Dependency on categoryConfig to ensure keys can be mapped
 
 
@@ -100,7 +123,7 @@ export function VariantBuilder({
             );
 
             return existing || {
-                id: `temp_${Date.now()}_${Math.random()}_${hashCombo(combo)}`,
+                id: `temp_${crypto.randomUUID()}_${hashCombo(combo)}`,
                 product_id: '',
                 merchant_id: '',
                 attributes: combo,
