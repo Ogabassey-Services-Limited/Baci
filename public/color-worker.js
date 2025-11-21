@@ -1,4 +1,6 @@
 
+/* globals ColorThief */
+
 /**
  * Web Worker for extracting dominant colors from an image.
  * This runs in a separate thread to avoid blocking the main UI thread.

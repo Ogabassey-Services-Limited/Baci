@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
 
-const AutofillProductDetailsInputSchema = z.object({
+export const AutofillProductDetailsInputSchema = z.object({
   productName: z.string().describe("The name of the product to generate details for."),
   businessType: z.string().describe("The merchant's business category (e.g., 'fashion', 'electronics')."),
 });
