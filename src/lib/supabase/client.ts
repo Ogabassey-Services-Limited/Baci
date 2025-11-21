@@ -1,9 +1,9 @@
 
 import { createBrowserClient } from '@supabase/ssr';
-import { supabaseUrl, supabaseAnonKey } from '@/env';
+import { getSupabaseUrl, getSupabaseAnonKey } from '@/env';
 
 export function createClient() {
-  // The createClient function is now simplified to use the validated variables
-  // from the new env.ts file, ensuring they are always available.
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
+  // The createClient function now calls the getter functions to ensure
+  // environment variables are accessed at runtime, not build time.
+  return createBrowserClient(getSupabaseUrl(), getSupabaseAnonKey());
 }

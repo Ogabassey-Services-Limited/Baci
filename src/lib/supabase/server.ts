@@ -1,13 +1,13 @@
 
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import type { ReadonlyRequestCookies } from 'next/dist/server/web/spec-extension/adapters/request-cookies';
-import { supabaseUrl, supabaseAnonKey } from '@/env';
+import { getSupabaseUrl, getSupabaseAnonKey } from '@/env';
 
 // Creates a Supabase client for Server Components, API Routes, and Server Actions.
 export function createClient(cookieStore: ReadonlyRequestCookies) {
   return createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
+    getSupabaseUrl(),
+    getSupabaseAnonKey(),
     {
       cookies: {
         get(name: string) {
