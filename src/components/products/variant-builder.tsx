@@ -68,8 +68,8 @@ export function VariantBuilder({
                             // For color attributes, store the first option (or all) as a string array
                             const attr = categoryConfig.variantAttributes?.find(a => a.key === attrKey);
                             if (attr?.type === 'color') {
-                                // Keep up to 5 color options (avoid UI overload)
-                                newSelections[attrKey] = suggestion.options.slice(0, 5);
+                                // Keep up to 6 color options (avoid UI overload)
+                                newSelections[attrKey] = suggestion.options.slice(0, 6);
                             } else {
                                 newSelections[attrKey] = suggestion.options;
                             }
@@ -228,7 +228,7 @@ export function VariantBuilder({
     }
 
     const renderSelectedValues = (attributeKey: string) => (
-        <div className="flex overflow-x-auto whitespace-nowrap gap-1.5 scrollbar-thin">
+        <div className="flex flex-wrap gap-1.5">
             {(attributeSelections[attributeKey] || []).map((value) => (
                 <span
                     key={value}
@@ -342,6 +342,7 @@ export function VariantBuilder({
                 {variants.length > 0 && (() => {
                     // Helper to format text to Title Case
                     const toTitleCase = (text: string) => {
+                        if (!text) return '';
                         return text.split(' ').map(word =>
                             word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
                         ).join(' ');
