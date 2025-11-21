@@ -17,6 +17,14 @@ const EnhanceProductImageOutputSchema = z.object({
 
 type EnhanceProductImageOutput = z.infer<typeof EnhanceProductImageOutputSchema>;
 
+const ENHANCE_PRODUCT_IMAGE_PROMPT = `
+  The user has uploaded an image of a product for their e-commerce store. 
+  Your task is to professionally enhance this image. 
+  Isolate the main product by removing the background and making it transparent. 
+  Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out. 
+  Return only the enhanced image.
+`;
+
 export async function enhanceProductImage(
   input: EnhanceProductImageInput
 ): Promise<EnhanceProductImageOutput> {
@@ -30,13 +38,7 @@ export async function enhanceProductImage(
     const { object: enhancedImage } = await generateObject({
       model: geminiPro,
       schema: EnhanceProductImageOutputSchema,
-      prompt: `
-        The user has uploaded an image of a product for their e-commerce store. 
-        Your task is to professionally enhance this image. 
-        Isolate the main product by removing the background and making it transparent. 
-        Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out. 
-        Return only the enhanced image.
-      `,
+      prompt: ENHANCE_PRODUCT_IMAGE_PROMPT,
     });
 
     if (!enhancedImage.enhancedPhotoDataUri) {
