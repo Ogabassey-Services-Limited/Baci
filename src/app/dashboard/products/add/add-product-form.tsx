@@ -67,7 +67,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       name: initialData?.name || '',
       description: initialData?.description || '',
       price: initialData?.price || 0,
-      infinite_stock: initialData ? (initialData.manage_stock === false) : true,
+      infinite_stock: true, // Default to off
       stock: initialData?.stock || 0,
       minimum_order_quantity: initialData?.minimum_order_quantity || 1,
       category: initialData?.category || 'General',
@@ -165,6 +165,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       });
       
       const { details } = result;
+      if (details.suggestedName) form.setValue('name', details.suggestedName, { shouldValidate: true });
       if (details.description) form.setValue('description', details.description, { shouldValidate: true });
       if (details.category && categoryConfig.productCategories?.includes(details.category)) {
         form.setValue('category', details.category, { shouldValidate: true });

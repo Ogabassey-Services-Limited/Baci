@@ -20,6 +20,7 @@ const VariantSuggestionSchema = z.object({
 });
 
 const ProductDetailsSchema = z.object({
+    suggestedName: z.string().describe("A standardized, professional product name. e.g., 'samsung s24' should become 'Samsung Galaxy S24'."),
     description: z.string().describe("A compelling, concise product description (2-3 sentences)."),
     category: z.string().describe("The most suitable category for the product."),
     brand: z.string().describe("The brand of the product. This could be the merchant's own brand or a popular brand if applicable."),
@@ -60,10 +61,11 @@ export async function autofillProductDetails(
         Possible Variant Attributes (with examples): ${possibleVariantAttributesWithLabels}
 
         Instructions:
-        1.  **Description**: Write a compelling and concise product description (2-3 sentences max).
-        2.  **Category**: Choose the single most fitting category from the provided "Available Categories" list.
-        3.  **Brand**: Suggest a brand name. If it seems like a generic or handmade item, use the business name or a generic term like "Artisan". For a known product (e.g., "Apple iPhone 15"), use the actual brand ("Apple").
-        4.  **suggestedVariants**: You **must** analyze the product name and suggest relevant variants. For electronics like phones or laptops, you **must** suggest 'Storage Capacity' and 'RAM' if they are listed as possible attributes.
+        1.  **suggestedName**: Standardize and professionalize the product name. For example, if the user enters "samsung s24", you should suggest "Samsung Galaxy S24".
+        2.  **Description**: Write a compelling and concise product description (2-3 sentences max).
+        3.  **Category**: Choose the single most fitting category from the provided "Available Categories" list.
+        4.  **Brand**: Suggest a brand name. If it seems like a generic or handmade item, use the business name or a generic term like "Artisan". For a known product (e.g., "Apple iPhone 15"), use the actual brand ("Apple").
+        5.  **suggestedVariants**: You **must** analyze the product name and suggest relevant variants. For electronics like phones or laptops, you **must** suggest 'Storage Capacity' and 'RAM' if they are listed as possible attributes.
             - The attribute name (e.g., 'RAM', 'Storage Capacity') **MUST EXACTLY MATCH** one of the labels from the "Possible Variant Attributes" list.
             - The suggested options (e.g., '8GB', '256GB') should come from the examples provided for that attribute if available.
             - **Example**: For "iPhone 15 Pro", you must suggest 'Storage Capacity' with options like ['256GB', '512GB'] AND 'Color' with options like ['Natural Titanium', 'Blue Titanium'].
