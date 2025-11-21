@@ -27,6 +27,9 @@ function createInvalidCookieSizeError(cookieString: string): Error {
 
 // Robust cookie getter utility function
 function getCookie(name: string): string | undefined {
+  if (typeof document === 'undefined') {
+    return undefined;
+  }
   const cookies = document.cookie ? document.cookie.split(';') : [];
   for (let cookie of cookies) {
     cookie = cookie.trim();
@@ -70,7 +73,9 @@ export function createClient() {
           if (!isValidCookieSize(cookie)) {
             throw createInvalidCookieSizeError(cookie);
           }
-          document.cookie = cookie;
+          if (typeof document !== 'undefined') {
+            document.cookie = cookie;
+          }
         },
         remove(name: string, options: CookieOptions) {
           // Validate cookie name
@@ -81,7 +86,9 @@ export function createClient() {
           let cookie = `${name}=; max-age=0`;
           if (options.path) cookie += `; path=${options.path}`;
           if (options.domain) cookie += `; domain=${options.domain}`;
-          document.cookie = cookie;
+          if (typeof document !== 'undefined') {
+            document.cookie = cookie;
+          }
         },
       },
     }

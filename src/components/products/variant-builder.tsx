@@ -94,7 +94,7 @@ export function VariantBuilder({
             }
         }
 
-        interval = setInterval(checkForSuggestions, 200); // Poll every 200ms
+        interval = setInterval(checkForSuggestions, 1000); // Poll every 1000ms for lower CPU usage
 
         timeout = setTimeout(() => {
             if (!resolved && interval) {
@@ -114,7 +114,7 @@ export function VariantBuilder({
     useEffect(() => {
         if (!categoryConfig.supportsVariants || !categoryConfig.variantAttributes) return;
 
-        const combinations = generateVariantCombinations(attributeSelections, categoryConfig.variantAttributes);
+        const combinations = generateVariantCombinations(attributeSelections);
 
         // Merge with existing variants to preserve images and overrides
         const merged = combinations.map(combo => {
@@ -123,7 +123,7 @@ export function VariantBuilder({
             );
 
             return existing || {
-                id: `temp_${crypto.randomUUID()}`,
+                id: `temp_${generateUUID()}`,
                 product_id: '',
                 merchant_id: '',
                 attributes: combo,
@@ -547,8 +547,7 @@ export function VariantBuilder({
 
 // Helper function to generate all variant combinations
 function generateVariantCombinations(
-    selections: AttributeSelection,
-    _attributes: CategoryVariantAttribute[]
+    selections: AttributeSelection
 ): Array<Record<string, string>> {
     const selectedAttrs = Object.entries(selections).filter(([, values]) => values.length > 0);
 
@@ -576,18 +575,15 @@ function generateVariantCombinations(
     return combinations;
 }
 
-// Simple, deterministic hash function for use in temporary ID generation
-function hashCombo(combo: object): string {
-    const str = JSON.stringify(combo);
-    let hash = 0, i = 0, chr;
-    if (str.length === 0) return hash.toString(36);
-    for (i = 0; i < str.length; i++) {
-        chr = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + chr;
-        hash |= 0; // Convert to 32bit integer
+function generateUUID(): string {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
     }
-    // Make positive and convert to base36 for compactness
-    return Math.abs(hash).toString(36);
+    // Fallback for older browsers
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
 }
 
 
