@@ -177,18 +177,6 @@ export default function DashboardPage() {
     }).format(amount);
   };
   
-  const yAxisFormatter = (value: number) => {
-      const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
-      const currency = country ? country.currency : 'USD';
-      const formatter = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currency,
-        notation: 'compact',
-        currencyDisplay: 'symbol',
-      });
-      return formatter.format(value).replace(/\D00$/, '');
-  };
-
   const setupTasks = [
     {
       icon: PlusCircle,
