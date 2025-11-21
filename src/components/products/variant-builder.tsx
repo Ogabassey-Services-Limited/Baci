@@ -33,15 +33,17 @@ interface AttributeSelection {
 const VARIANT_SUGGESTION_POLL_MS = 1000;
 
 // Deep equality check for objects (attributes)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function areObjectsEqual(a: any, b: any): boolean {
+// Deep equality check for objects (attributes)
+function areObjectsEqual(a: unknown, b: unknown): boolean {
     if (a === b) return true;
     if (typeof a !== "object" || typeof b !== "object" || a == null || b == null) return false;
     const keysA = Object.keys(a);
     const keysB = Object.keys(b);
     if (keysA.length !== keysB.length) return false;
     for (const key of keysA) {
-        if (!keysB.includes(key) || !areObjectsEqual(a[key], b[key])) return false;
+        // We know a and b are objects
+        // @ts-ignore
+        if (!keysB.includes(key) || !areObjectsEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) return false;
     }
     return true;
 }
@@ -54,6 +56,7 @@ export function VariantBuilder({
 }: VariantBuilderProps) {
     // Limit for number of color options shown (maintainability!)
     const COLOR_OPTIONS_LIMIT = 6;
+    const VARIANT_SUGGESTION_POLL_MAX_MS = VARIANT_SUGGESTION_POLL_MS * 10; // e.g. 10 polling attempts
     const { merchant } = useMerchant();
     const { toast } = useToast();
     const [attributeSelections, setAttributeSelections] = useState<AttributeSelection>({});
@@ -117,7 +120,7 @@ export function VariantBuilder({
             if (!resolved && interval) {
                 clearInterval(interval);
             }
-        }, VARIANT_SUGGESTION_POLL_MS); // Max VARIANT_SUGGESTION_POLL_MS ms polling, then give up
+        }, VARIANT_SUGGESTION_POLL_MAX_MS); // Max polling duration, then give up
 
         // Cleanup
         return () => {
