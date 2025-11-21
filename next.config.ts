@@ -36,8 +36,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Add server-side only packages to exclude from client bundle
-  serverExternalPackages: ['genkit', '@genkit-ai/google-genai'],
 };
 
 export default nextConfig;
