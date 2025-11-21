@@ -2,6 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 
+// Default number of jobs to process if not specified in environment variables
+const DEFAULT_JOB_PROCESS_LIMIT = 5;
+
 // Initialize clients lazily at runtime to avoid build-time errors
 function getSupabaseClient() {
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -47,8 +50,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Get job process limit from environment variable, default to 5 if not set/invalid
-        const jobProcessLimitRaw = process.env.AI_WORKER_JOB_PROCESS_LIMIT;
-        const jobProcessLimit = (jobProcessLimitRaw && !isNaN(Number(jobProcessLimitRaw))) ? Number(jobProcessLimitRaw) : 5;
+        const jobProcessLimitEnv = process.env.AI_WORKER_JOB_PROCESS_LIMIT;
+        const jobProcessLimit = (jobProcessLimitEnv && !isNaN(Number(jobProcessLimitEnv))) ? Number(jobProcessLimitEnv) : DEFAULT_JOB_PROCESS_LIMIT;
 
         // Get pending jobs (limit to configurable number at a time to avoid timeout)
         const { data: jobs, error: fetchError } = await supabase

@@ -9,6 +9,10 @@ function isValidCookieName(name: string): boolean {
   return /^[^=\s;]+$/.test(name);
 }
 
+function createInvalidCookieNameError(name: string): Error {
+  return new Error(`Invalid cookie name "${name}". Cookie names must not contain control characters, whitespace, '=', or ';'.`);
+}
+
 export function createClient() {
   // The createClient function now calls the getter functions to ensure
   // environment variables are accessed at runtime, not build time.
@@ -33,7 +37,7 @@ export function createClient() {
           // Use document.cookie to set cookies
           // Validate cookie name
           if (!isValidCookieName(name)) {
-            throw new Error('Invalid cookie name.');
+            throw createInvalidCookieNameError(name);
           }
           // Encode cookie value
           const encodedValue = encodeURIComponent(value);
@@ -48,7 +52,7 @@ export function createClient() {
         remove(name: string, options: CookieOptions) {
           // Validate cookie name
           if (!isValidCookieName(name)) {
-            throw new Error('Invalid cookie name.');
+            throw createInvalidCookieNameError(name);
           }
           // Set expiry date to the past to remove cookie
           let cookie = `${name}=; max-age=0`;

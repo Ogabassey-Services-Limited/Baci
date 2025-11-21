@@ -21,6 +21,8 @@ import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { getCountryByCode } from '@/lib/countries';
 
+const DEFAULT_SHIPPING_FEE = 10.00;
+
 const shippingSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters.'),
   lastName: z.string().min(2, 'Last name must be at least 2 characters.'),
@@ -349,7 +351,7 @@ function CheckoutPageContent() {
 
       // Calculate totals
       const subtotal = cartTotal;
-      const shippingFee = merchantData.shipping_fee ?? 10.00; // Use merchant-configured shipping fee, fallback to default
+      const shippingFee = merchantData.shipping_fee ?? DEFAULT_SHIPPING_FEE; // Use merchant-configured shipping fee, fallback to default
 
       // Create order via API
       const response = await fetch('/api/orders', {

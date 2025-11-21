@@ -241,8 +241,8 @@ export default function OrdersPage() {
   useEffect(() => {
     const fetchOrders = async () => {
       // **FIX:** Do not fetch until auth and merchant data is loaded and available
-      const isDataNotReady = authLoading || merchantLoading || !user || !merchant;
-      if (isDataNotReady) {
+      const isDataReady = !authLoading && !merchantLoading && user && merchant;
+      if (!isDataReady) {
         return;
       }
 
@@ -298,8 +298,8 @@ export default function OrdersPage() {
             variant: 'destructive',
           });
         }
-        // Fall back to mock data on error for demo purposes ONLY in development
-        if (process.env.NODE_ENV !== 'production') {
+        // Fall back to mock data ONLY if explicit developer flag is set
+        if (process.env.NEXT_PUBLIC_USE_MOCK_ORDERS === 'true') {
           setOrders(initialOrders);
         }
       } finally {
