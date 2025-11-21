@@ -45,6 +45,7 @@ import { ThemedButton } from './themed';
 import { ColorPicker } from './color-picker';
 import { colord, extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
+import { uploadImage } from '@/lib/storage';
 
 extend([a11yPlugin]);
 
@@ -52,10 +53,10 @@ extend([a11yPlugin]);
 // --- Step Components ---
 
 function StepIndicator({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) {
-  const progress = Math.max(0, ((currentStep - 1) / (totalSteps -1)) * 100);
+  const progress = Math.max(0, ((currentStep - 1) / (totalSteps - 1)) * 100);
   return (
-    <div className="flex items-center gap-4" role="progressbar" aria-valuenow={currentStep} aria-valuemin={1} aria-valuemax={totalSteps} aria-label="Onboarding progress">
-      <Progress value={progress} className="w-full" />
+    <div className="flex items-center gap-4">
+      <Progress value={progress} className="w-full" aria-label="Onboarding progress" />
       <span className="text-sm text-muted-foreground whitespace-nowrap" aria-live="polite">
         Step {currentStep} of {totalSteps}
       </span>
@@ -156,7 +157,7 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
       img.onload = async () => {
         try {
           const palette = colorThief.getPalette(img, 5); // Extract 5 colors to find a good background
-          
+
           // Find the lightest color for the background
           const lightestColor = palette.reduce((lightest, current) => {
             const l1 = colord(`rgb(${lightest[0]}, ${lightest[1]}, ${lightest[2]})`).luminance();
@@ -167,14 +168,14 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
           // Filter out the lightest color to find primary and accent
           const remainingColors = palette.filter(c => c !== lightestColor);
 
-          const primaryRgb = remainingColors[0] || [0,0,0];
+          const primaryRgb = remainingColors[0] || [0, 0, 0];
           const accentRgb = remainingColors[1] || primaryRgb;
 
           const toHex = (rgb: number[]) => `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`;
 
-          resolve({ 
-            primary: toHex(primaryRgb), 
-            background: toHex(lightestColor), 
+          resolve({
+            primary: toHex(primaryRgb),
+            background: toHex(lightestColor),
             accent: toHex(accentRgb)
           });
 
@@ -182,7 +183,7 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
           reject(e);
         }
       };
-      
+
       img.onerror = (e) => {
         reject(new Error('Image could not be loaded for color extraction.'));
       };
@@ -216,11 +217,11 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
   };
 
   const handleGenerateClick = () => {
-      toast({
-        title: 'AI Generation Coming Soon!',
-        description: 'For now, please upload your own logo.',
-        variant: 'default',
-      });
+    toast({
+      title: 'AI Generation Coming Soon!',
+      description: 'For now, please upload your own logo.',
+      variant: 'default',
+    });
   };
 
   const handleColorChange = (role: keyof BrandColors, newColor: string) => {
@@ -232,31 +233,31 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
 
   const handleShuffleColors = () => {
     if (!brandColors) return;
-    
+
     const remappedColors: BrandColors = {
-        primary: brandColors.accent,
-        background: brandColors.primary,
-        accent: brandColors.background,
+      primary: brandColors.accent,
+      background: brandColors.primary,
+      accent: brandColors.background,
     };
 
     setValue('brandColors', JSON.stringify(remappedColors), { shouldValidate: true });
   };
-  
-return (
+
+  return (
     <div className='space-y-4'>
       <FormLabel className="text-lg">Do you have a logo?</FormLabel>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
         <div className="space-y-2">
-            <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", logoDataUri ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
+          <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", logoDataUri ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
             {logoDataUri ? (
-                <>
+              <>
                 <Image src={logoDataUri} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
                 <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
-                </>
+              </>
             ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p></>)}
-             {isExtracting && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
-            <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isLoading}/>
-            </div>
+            {isExtracting && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
+            <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isLoading} />
+          </div>
         </div>
         <div className="relative flex items-center justify-center md:hidden"><div className="absolute inset-0 flex items-center" aria-hidden="true"><div className="w-full border-t border-muted-foreground/30"></div></div><span className="relative bg-background px-2 text-sm text-muted-foreground">or</span></div>
         <div className="flex flex-col items-center justify-center h-48 space-y-4">
@@ -265,53 +266,54 @@ return (
       </div>
       {brandColors && (
         <div className='mt-6 animate-fade-in space-y-4'>
-             <div className="flex items-center justify-between">
-                <div className='text-sm text-muted-foreground font-medium'>Customize Your Brand Colors</div>
-                <Button variant="outline" size="sm" onClick={handleShuffleColors} disabled={isLoading}>
-                    <Shuffle className="mr-2 h-3 w-3" />
-                    Shuffle
-                </Button>
-            </div>
-            <div className="flex items-center gap-4">
-                {(['primary', 'background', 'accent'] as const).map((role) => (
-                    <div key={role} className="flex flex-col items-center gap-1.5">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <div
-                                    className="w-12 h-12 rounded-full border-2 cursor-pointer relative group"
-                                    aria-label={`Edit ${role} color`}
-                                >
-                                    <div
-                                        className="w-full h-full rounded-full"
-                                        style={{ backgroundColor: brandColors[role] }}
-                                    />
-                                    <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-100">
-                                        <Pencil className="w-5 h-5 text-white" />
-                                    </div>
-                                </div>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto">
-                                <ColorPicker
-                                    color={brandColors[role]}
-                                    onChange={(newColor) => handleColorChange(role, newColor)}
-                                />
-                            </PopoverContent>
-                        </Popover>
-                        <span className="text-xs font-medium capitalize">{role}</span>
-                    </div>
-                ))}
-            </div>
+          <div className="flex items-center justify-between">
+            <div className='text-sm text-muted-foreground font-medium'>Customize Your Brand Colors</div>
+            <Button variant="outline" size="sm" onClick={handleShuffleColors} disabled={isLoading}>
+              <Shuffle className="mr-2 h-3 w-3" />
+              Shuffle
+            </Button>
+          </div>
+          <div className="flex items-center gap-4">
+            {(['primary', 'background', 'accent'] as const).map((role) => (
+              <div key={role} className="flex flex-col items-center gap-1.5">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-12 h-12 rounded-full border-2 cursor-pointer relative group focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      aria-label={`Edit ${role} color`}
+                    >
+                      <div
+                        className="w-full h-full rounded-full"
+                        style={{ backgroundColor: brandColors[role] }}
+                      />
+                      <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Pencil className="w-5 h-5 text-white" />
+                      </div>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto">
+                    <ColorPicker
+                      color={brandColors[role]}
+                      onChange={(newColor) => handleColorChange(role, newColor)}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="text-xs font-medium capitalize">{role}</span>
+              </div>
+            ))}
+          </div>
 
-             <StorefrontPreview 
-                businessName={businessName}
-                businessType={businessType}
-                logoDataUri={logoDataUri}
-                brandColors={brandColors}
-             />
+          <StorefrontPreview
+            businessName={businessName}
+            businessType={businessType}
+            logoDataUri={logoDataUri}
+            brandColors={brandColors}
+          />
         </div>
       )}
       <FormField control={form.control} name="logoDataUri" render={() => <FormItem><FormMessage /></FormItem>} />
-       <FormField control={form.control} name="brandColors" render={() => <FormItem><FormMessage /></FormItem>} />
+      <FormField control={form.control} name="brandColors" render={() => <FormItem><FormMessage /></FormItem>} />
     </div>
   );
 }
@@ -326,7 +328,7 @@ function Step3_Account({ onKeyDown, onMagicLinkSent }: { onKeyDown: (e: React.Ke
   const emailValue = watch('email');
   const passwordValue = watch('password');
   const passwordStrength = useMemo(() => checkPasswordStrength(passwordValue || ''), [passwordValue]);
-  
+
   const showPasswordFields = useMemo(() => {
     return emailValue?.includes('@');
   }, [emailValue]);
@@ -353,86 +355,86 @@ function Step3_Account({ onKeyDown, onMagicLinkSent }: { onKeyDown: (e: React.Ke
 
   return (
     <div className='space-y-4'>
-       <h3 className="text-xl font-semibold text-center">Create your account</h3>
-        <FormField
-            control={control}
-            name="email"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Email Address</FormLabel>
-                <FormControl>
-                    <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input type="email" placeholder="you@example.com" {...field} className="pl-10" id="email" name="email" autoComplete="email" />
-                    </div>
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-        />
-        
-        {showPasswordFields && (
-          <div className='space-y-4'>
-            <div className="relative flex items-center justify-center">
-                <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                    <div className="w-full border-t border-muted-foreground/30"></div>
-                </div>
-                <span className="relative bg-background px-2 text-sm text-muted-foreground">or</span>
-            </div>
+      <h3 className="text-xl font-semibold text-center">Create your account</h3>
+      <FormField
+        control={control}
+        name="email"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Email Address</FormLabel>
+            <FormControl>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input type="email" placeholder="you@example.com" {...field} className="pl-10" id="email" name="email" autoComplete="email" />
+              </div>
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
 
-            <Button type="button" variant="outline" onClick={handleMagicLinkClick} className="w-full" disabled={isMagicLinkLoading}>
-                {isMagicLinkLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-                Continue with Magic Link
-            </Button>
+      {showPasswordFields && (
+        <div className='space-y-4'>
+          <div className="relative flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center" aria-hidden="true">
+              <div className="w-full border-t border-muted-foreground/30"></div>
+            </div>
+            <span className="relative bg-background px-2 text-sm text-muted-foreground">or</span>
           </div>
-        )}
-        
-        {showPasswordFields && (
-            <div className="space-y-4 mt-4">
-              <FormField
-                  control={control}
-                  name="password"
-                  render={({ field }) => (
-                      <FormItem className="animate-fade-in">
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                          <div className="relative">
-                              <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                              <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" id="password" name="password" autoComplete="new-password" />
-                              <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
-                                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                              </Button>
-                          </div>
-                      </FormControl>
-                      <PasswordStrengthIndicator strength={passwordStrength} />
-                      <FormMessage />
-                      </FormItem>
-                  )}
-              />
 
-              {isPasswordStrong && (
-                  <FormField
-                      control={control}
-                      name="confirmPassword"
-                      render={({ field }) => (
-                          <FormItem className="animate-fade-in">
-                          <FormLabel>Confirm Password</FormLabel>
-                          <FormControl>
-                              <div className="relative">
-                                  <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                  <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} value={field.value || ''} onKeyDown={onKeyDown} className="pl-10 pr-10" id="confirmPassword" name="confirmPassword" autoComplete="new-password" />
-                                  <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                  </Button>
-                              </div>
-                          </FormControl>
-                          <FormMessage />
-                          </FormItem>
-                      )}
-                  />
+          <Button type="button" variant="outline" onClick={handleMagicLinkClick} className="w-full" disabled={isMagicLinkLoading}>
+            {isMagicLinkLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+            Continue with Magic Link
+          </Button>
+        </div>
+      )}
+
+      {showPasswordFields && (
+        <div className="space-y-4 mt-4">
+          <FormField
+            control={control}
+            name="password"
+            render={({ field }) => (
+              <FormItem className="animate-fade-in">
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" id="password" name="password" autoComplete="new-password" />
+                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"}>
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </FormControl>
+                <PasswordStrengthIndicator strength={passwordStrength} />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {isPasswordStrong && (
+            <FormField
+              control={control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem className="animate-fade-in">
+                  <FormLabel>Confirm Password</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} value={field.value || ''} onKeyDown={onKeyDown} className="pl-10 pr-10" id="confirmPassword" name="confirmPassword" autoComplete="new-password" />
+                      <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)} aria-label={showConfirmPassword ? "Hide password" : "Show password"}>
+                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )}
-            </div>
-        )}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -446,7 +448,7 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
   isStepValid: boolean;
 }) {
   const isLastStep = currentStep === totalSteps;
-  
+
   return (
     <div className="flex justify-between pt-4">
       {currentStep > 1 ? (<Button type="button" variant="outline" onClick={onPrev} disabled={isLoading}>Previous</Button>) : <div />}
@@ -466,12 +468,12 @@ export default function OnboardingForm() {
   const totalSteps = 3;
   const searchParams = useSearchParams();
 
-  const form = useForm<OnboardingFormValues>({ 
-      resolver: zodResolver(onboardingSchema),
-      mode: 'onBlur',
-      reValidateMode: 'onBlur',
-      shouldUnregister: false,
-      defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '', logoDataUri: '', brandColors: '' },
+  const form = useForm<OnboardingFormValues>({
+    resolver: zodResolver(onboardingSchema),
+    mode: 'onBlur',
+    reValidateMode: 'onBlur',
+    shouldUnregister: false,
+    defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '', logoDataUri: '', brandColors: '' },
   });
 
   const { formState: { errors } } = form;
@@ -479,69 +481,69 @@ export default function OnboardingForm() {
   useEffect(() => {
     const fromMagicLink = searchParams.get('fromMagicLink');
     if (fromMagicLink) {
-        const savedData = localStorage.getItem('onboardingForm');
-        if (savedData) {
-            const parsedData = JSON.parse(savedData);
-            form.reset(parsedData.values);
-            form.setValue('logoDataUri', parsedData.logoDataUri);
-            form.setValue('brandColors', parsedData.brandColors);
-            setStep(3);
-            toast({ title: "Welcome back!", description: "You are now logged in. Please click 'Create My Store' to finish.", duration: 5000 });
-        }
+      const savedData = localStorage.getItem('onboardingForm');
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        form.reset(parsedData.values);
+        form.setValue('logoDataUri', parsedData.logoDataUri);
+        form.setValue('brandColors', parsedData.brandColors);
+        setStep(3);
+        toast({ title: "Welcome back!", description: "You are now logged in. Please click 'Create My Store' to finish.", duration: 5000 });
+      }
     }
   }, [searchParams, form, toast]);
 
   useEffect(() => {
     if (submissionState.success) {
-        localStorage.removeItem('onboardingForm');
-        toast({ title: 'Store Created!', description: 'Your e-commerce store is ready. Redirecting you to the dashboard...' });
+      localStorage.removeItem('onboardingForm');
+      toast({ title: 'Store Created!', description: 'Your e-commerce store is ready. Redirecting you to the dashboard...' });
 
-        // Refresh the client session to sync with server-side auth, then redirect
-        const supabase = createClient();
-        supabase.auth.getSession().then(({ data: { session }, error }) => {
-          console.log('Session check after signup:', { hasSession: !!session, error });
-          if (session) {
-            console.log('Session found, redirecting to dashboard');
-            window.location.href = '/dashboard';
-          } else {
-            console.error('No session found after signup!', error);
-            toast({
-              title: 'Session Error',
-              description: 'Please try logging in manually',
-              variant: 'destructive'
+      // Refresh the client session to sync with server-side auth, then redirect
+      const supabase = createClient();
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        console.log('Session check after signup:', { hasSession: !!session, error });
+        if (session) {
+          console.log('Session found, redirecting to dashboard');
+          window.location.href = '/dashboard';
+        } else {
+          console.error('No session found after signup!', error);
+          toast({
+            title: 'Session Error',
+            description: 'Please try logging in manually',
+            variant: 'destructive'
+          });
+          setTimeout(() => window.location.href = '/login', 2000);
+        }
+      });
+    } else if (submissionState.message) {
+      const fieldErrors = submissionState.errors?.fieldErrors;
+      if (fieldErrors) {
+        Object.entries(fieldErrors).forEach(([fieldName, messages]) => {
+          if (messages?.length) {
+            form.setError(fieldName as keyof OnboardingFormValues, {
+              type: 'server',
+              message: messages.join(', '),
             });
-            setTimeout(() => window.location.href = '/login', 2000);
           }
         });
-    } else if (submissionState.message) {
-        const fieldErrors = submissionState.errors?.fieldErrors;
-        if (fieldErrors) {
-            Object.entries(fieldErrors).forEach(([fieldName, messages]) => {
-                if (messages?.length) {
-                    form.setError(fieldName as keyof OnboardingFormValues, {
-                        type: 'server',
-                        message: messages.join(', '),
-                    });
-                }
-            });
-        }
-        if (!fieldErrors || Object.keys(fieldErrors).length === 0) {
-           toast({ title: 'An error occurred', description: submissionState.message, variant: 'destructive' });
-        }
+      }
+      if (!fieldErrors || Object.keys(fieldErrors).length === 0) {
+        toast({ title: 'An error occurred', description: submissionState.message, variant: 'destructive' });
+      }
     }
   }, [submissionState, form, toast, router]);
-  
+
   const handleNext = async () => {
     let isValidStep = false;
     if (step === 1) {
-        isValidStep = await form.trigger(['businessName', 'businessType', 'otherBusinessType']);
+      isValidStep = await form.trigger(['businessName', 'businessType', 'otherBusinessType']);
     } else if (step === 2) {
-        isValidStep = await form.trigger(['logoDataUri', 'brandColors']);
-        if (!isValidStep) {
-             toast({ title: 'Branding Incomplete', description: 'Please upload a logo to extract brand colors.', variant: 'destructive' });
-        }
+      isValidStep = await form.trigger(['logoDataUri', 'brandColors']);
+      if (!isValidStep) {
+        toast({ title: 'Branding Incomplete', description: 'Please upload a logo to extract brand colors.', variant: 'destructive' });
+      }
     }
-    
+
     if (isValidStep) {
       setStep(s => s + 1);
     }
@@ -563,24 +565,43 @@ export default function OnboardingForm() {
   const handleMagicLinkSent = () => {
     const values = form.getValues();
     const dataToSave = {
-        values: {
-            businessName: values.businessName,
-            businessType: values.businessType,
-            otherBusinessType: values.otherBusinessType,
-            brandPreferences: values.brandPreferences,
-            email: values.email
-        },
-        logoDataUri: values.logoDataUri,
-        brandColors: values.brandColors,
+      values: {
+        businessName: values.businessName,
+        businessType: values.businessType,
+        otherBusinessType: values.otherBusinessType,
+        brandPreferences: values.brandPreferences,
+        email: values.email
+      },
+      logoDataUri: values.logoDataUri,
+      brandColors: values.brandColors,
     };
     localStorage.setItem('onboardingForm', JSON.stringify(dataToSave));
     setMagicLinkSent(true);
   };
 
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  // ... imports
+
+  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const values = form.getValues();
+    let logoUrl = values.logoDataUri;
+
+    if (logoUrl && logoUrl.startsWith('data:')) {
+      try {
+        toast({ title: 'Uploading logo...', description: 'Please wait while we process your image.' });
+        const uploadedUrl = await uploadImage(logoUrl);
+        if (uploadedUrl) {
+          logoUrl = uploadedUrl;
+        } else {
+          toast({ title: 'Upload failed', description: 'Could not upload logo. Please try again.', variant: 'destructive' });
+          return;
+        }
+      } catch (error) {
+        toast({ title: 'Upload failed', description: 'Could not upload logo. Please try again.', variant: 'destructive' });
+        return;
+      }
+    }
 
     const formData = new FormData();
     formData.append('email', values.email || '');
@@ -590,7 +611,7 @@ export default function OnboardingForm() {
     formData.append('businessType', values.businessType || '');
     formData.append('otherBusinessType', values.otherBusinessType || '');
     formData.append('brandPreferences', values.brandPreferences || '');
-    formData.append('logoDataUri', values.logoDataUri || '');
+    formData.append('logoDataUri', logoUrl || '');
     formData.append('brandColors', values.brandColors || '');
 
     startTransition(() => {
@@ -608,7 +629,7 @@ export default function OnboardingForm() {
     const result = step3Schema.safeParse(validationData);
     return result.success;
   }, [formEmail, formPassword, formConfirmPassword, step]);
-  
+
   const isCurrentStepValid = useMemo(() => {
     if (step === 1) return !errors.businessName && !errors.businessType && !errors.otherBusinessType;
     if (step === 2) return !errors.logoDataUri && !errors.brandColors;
@@ -625,23 +646,23 @@ export default function OnboardingForm() {
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
         <form onSubmit={handleFormSubmit} aria-label="Store onboarding form" noValidate>
-            <input type="hidden" {...form.register('logoDataUri')} />
-            <input type="hidden" {...form.register('brandColors')} />
+          <input type="hidden" {...form.register('logoDataUri')} />
+          <input type="hidden" {...form.register('brandColors')} />
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
             {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
             {step === 2 && <Step2_Branding onKeyDown={handleKeyDown} />}
             {step === 3 && (
-                magicLinkSent ? (
-                    <Alert className="mt-4">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Magic Link Sent!</AlertTitle>
-                        <AlertDescription>
-                            Please check your email for a link to sign in. You can close this window.
-                        </AlertDescription>
-                    </Alert>
-                ) : (
-                    <Step3_Account onKeyDown={handleKeyDown} onMagicLinkSent={handleMagicLinkSent} />
-                )
+              magicLinkSent ? (
+                <Alert className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Magic Link Sent!</AlertTitle>
+                  <AlertDescription>
+                    Please check your email for a link to sign in. You can close this window.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Step3_Account onKeyDown={handleKeyDown} onMagicLinkSent={handleMagicLinkSent} />
+              )
             )}
           </div>
           <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending || isSubmitting} isStepValid={isCurrentStepValid} />

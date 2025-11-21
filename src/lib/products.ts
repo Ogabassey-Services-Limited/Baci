@@ -2,6 +2,29 @@
 // In a real app, this data would come from a database.
 // We are defining it here to be shared across the app.
 
+export interface VariantInventoryItem {
+    id: string;
+    variant_id: string;
+    identifier_type: string; // 'S/N', 'IMEI', 'BATCH', etc.
+    identifier_value: string;
+    status: 'available' | 'sold' | 'reserved' | 'defective' | 'returned';
+    order_id?: string;
+    sold_at?: string;
+}
+
+export interface ProductVariant {
+    id: string;
+    product_id: string;
+    merchant_id: string;
+    attributes: Record<string, string>; // { color: 'Blue', storage: '128GB' }
+    price_override?: number;
+    images?: string[];
+    primary_image?: string;
+    stock_quantity: number;
+    sku?: string;
+    inventory_items?: VariantInventoryItem[]; // Loaded on demand
+}
+
 export interface Product {
     id: string;
     name: string;
@@ -17,6 +40,12 @@ export interface Product {
     gtin: string;
     mpn: string;
     fulfillmentFields?: { name: string }[];
+    fulfillment_details?: { key: string; value: string }[];
+    category?: string;
+
+    // Variant support
+    has_variants?: boolean;
+    variants?: ProductVariant[];
 }
 
 export const products: Product[] = [

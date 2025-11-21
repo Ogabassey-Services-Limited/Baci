@@ -39,7 +39,7 @@ export async function GET(
     // Get order (ensure it belongs to this merchant)
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('*')
+      .select('*, order_items(*)')
       .eq('id', id)
       .eq('merchant_id', merchant.id)
       .single();

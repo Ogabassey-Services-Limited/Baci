@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/auth-context';
 
 // Supabase data structure
 export interface MerchantData {
+  id: string;
   user_id: string;
   business_name: string;
   business_type: string;
@@ -39,8 +40,8 @@ interface MerchantContextType {
 const MerchantContext = createContext<MerchantContextType | undefined>(undefined);
 
 interface MerchantProviderProps {
-    children: ReactNode;
-    slug?: string; // Optional slug for storefronts
+  children: ReactNode;
+  slug?: string; // Optional slug for storefronts
 }
 
 export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
@@ -81,21 +82,21 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
 
       if (data) {
         if (!data.country) {
-            data.country = 'NG';
+          data.country = 'NG';
         }
         setMerchant(data as MerchantData);
       } else {
         // If no merchant exists for the logged-in user, create a default structure
         if (!slug && user) {
-            const defaultMerchant: Partial<MerchantData> = {
-                user_id: user.id,
-                business_name: 'My Store',
-                business_type: 'other',
-                country: 'NG',
-            };
-            setMerchant(defaultMerchant as MerchantData);
+          const defaultMerchant: Partial<MerchantData> = {
+            user_id: user.id,
+            business_name: 'My Store',
+            business_type: 'other',
+            country: 'NG',
+          };
+          setMerchant(defaultMerchant as MerchantData);
         } else {
-            setMerchant(null);
+          setMerchant(null);
         }
       }
     } catch (error) {
@@ -142,7 +143,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       logger.error({ message: "Failed to update merchant data", error });
       throw error;
     }
-    
+
     logger.info({ message: 'Merchant data updated, reloading.' });
     reloadMerchant();
   }, [user, supabase, reloadMerchant]);

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabase
       .from('orders')
-      .select('*')
+      .select('*, order_items(*)')
       .eq('merchant_id', merchant.id)
       .order('created_at', { ascending: false });
 
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
         customer_email,
         customer_name,
         customer_phone,
-        items,
+        // items removed as column does not exist
         subtotal,
         shipping_fee,
         total,
@@ -190,6 +190,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Insert order items into the new normalized table
+    if (order && items && Array.isArray(items)) {
+      const orderItems = items.map((item: any) => ({
+        order_id: order.id,
+        product_id: item.product_id || item.productId || item.id, // Handle various potential input formats
+        name: item.name || item.productName || 'Unknown Product',
+        quantity: item.quantity || 1,
+        price: item.price || 0,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        console.error('Error creating order items:', itemsError);
+        // Note: In a production environment, we should use a transaction or rollback the order creation.
+      }
+    }
+
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
     console.error('Unexpected error in POST /api/orders:', error);
@@ -200,4 +220,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-    

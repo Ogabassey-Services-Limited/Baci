@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   applicationName: VENDOR_NAME,
   authors: [{ name: VENDOR_NAME }],
   keywords: ['ai', 'ecommerce', 'store builder', 'online store', 'nextjs', 'react'],
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export const viewport: Viewport = {
@@ -45,32 +49,32 @@ export default function RootLayout({
   };
 
   const websiteSchema = {
-      '@context': 'https://schema.org',
-      '@type': 'WebSite',
-      name: VENDOR_NAME,
-      url: VENDOR_URL,
-      potentialAction: {
-        '@type': 'SearchAction',
-        target: `${VENDOR_URL}/search?q={search_term_string}`,
-        'query-input': 'required name=search_term_string',
-      },
-    };
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: VENDOR_NAME,
+    url: VENDOR_URL,
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: `${VENDOR_URL}/search?q={search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    },
+  };
 
 
   return (
     <html lang="en" suppressHydrationWarning>
-       <head>
-         <meta httpEquiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://vercel.live https://assets.vercel.com https://va.vercel-scripts.com; object-src 'none'; base-uri 'self'; clipboard-write 'self';" />
+      <head>
+        <meta httpEquiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://vercel.live https://assets.vercel.com https://va.vercel-scripts.com; object-src 'none'; base-uri 'self';" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
         />
-         <script
+        <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
       </head>
-      <body className={inter.variable}>
+      <body className={inter.variable} suppressHydrationWarning>
         <Providers>
           <AppBody>{children}</AppBody>
           <Toaster />
