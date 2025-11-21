@@ -21,7 +21,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { getCountryByCode } from '@/lib/countries';
 
-const DEFAULT_SHIPPING_FEE = 10.00;
+const DEFAULT_SHIPPING_FEE = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00');
 
 const shippingSchema = z.object({
   firstName: z.string().min(2, 'First name must be at least 2 characters.'),

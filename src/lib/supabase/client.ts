@@ -4,9 +4,9 @@ import { getSupabaseUrl, getSupabaseAnonKey } from '@/env';
 
 // Validate cookie name: disallow control chars, whitespace, '=', ';'
 function isValidCookieName(name: string): boolean {
-  // Per RFC 6265, cookie name should not contain control chars, spaces, =, ;
-  // This regex matches names with only allowed visible ASCII characters.
-  return /^[^=\s;]+$/.test(name);
+  // Per RFC 6265, cookie name should only contain visible ASCII chars excluding separators
+  // This regex only allows characters: !#$%&'*+-.0-9A-Z^_`a-z|~
+  return /^[!#$%&'*+\-.0-9A-Z^_`a-z|~]+$/.test(name);
 }
 
 function createInvalidCookieNameError(name: string): Error {

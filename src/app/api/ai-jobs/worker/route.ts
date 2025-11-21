@@ -2,8 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 
-// Default number of jobs to process if not specified in environment variables
-const DEFAULT_JOB_PROCESS_LIMIT = 5;
+// Use environment variable to configure job process limit, defaulting to 5
+const DEFAULT_JOB_PROCESS_LIMIT = (() => {
+    const limitStr = process.env.AI_WORKER_JOB_PROCESS_LIMIT;
+    const parsed = Number(limitStr);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 5;
+})();
 
 // Initialize clients lazily at runtime to avoid build-time errors
 function getSupabaseClient() {
@@ -14,9 +18,10 @@ function getSupabaseClient() {
 
 function getAIModel() {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
+    const geminiModelVersion = process.env.GEMINI_MODEL_VERSION || "gemini-1.5-pro-preview"; // Make model version configurable
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     return genAI.getGenerativeModel({
-        model: "gemini-1.5-pro-preview",
+        model: geminiModelVersion,
         safetySettings: [
             { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
             { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -49,9 +54,8 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get job process limit from environment variable, default to 5 if not set/invalid
-        const jobProcessLimitEnv = process.env.AI_WORKER_JOB_PROCESS_LIMIT;
-        const jobProcessLimit = (jobProcessLimitEnv && !isNaN(Number(jobProcessLimitEnv))) ? Number(jobProcessLimitEnv) : DEFAULT_JOB_PROCESS_LIMIT;
+        // Get job process limit from configuration
+        const jobProcessLimit = DEFAULT_JOB_PROCESS_LIMIT;
 
         // Get pending jobs (limit to configurable number at a time to avoid timeout)
         const { data: jobs, error: fetchError } = await supabase

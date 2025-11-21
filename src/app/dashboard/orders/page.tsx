@@ -241,8 +241,8 @@ export default function OrdersPage() {
   useEffect(() => {
     const fetchOrders = async () => {
       // **FIX:** Do not fetch until auth and merchant data is loaded and available
-      const isDataReady = !authLoading && !merchantLoading && user && merchant;
-      if (!isDataReady) {
+      const canFetchOrders = !authLoading && !merchantLoading && user && merchant;
+      if (!canFetchOrders) {
         return;
       }
 
@@ -299,7 +299,8 @@ export default function OrdersPage() {
           });
         }
         // Fall back to mock data ONLY if explicit developer flag is set
-        if (process.env.NEXT_PUBLIC_USE_MOCK_ORDERS === 'true') {
+        const USE_MOCK_ORDERS = false; // Set to `true` only for local development via code change
+        if (USE_MOCK_ORDERS) {
           setOrders(initialOrders);
         }
       } finally {
