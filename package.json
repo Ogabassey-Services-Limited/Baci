@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbo",
+    "dev": "next dev --turbo --port 9003 --hostname 0.0.0.0",
     "build": "NODE_ENV=production next build",
     "start": "next start",
     "lint": "eslint .",

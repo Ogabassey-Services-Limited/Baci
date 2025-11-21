@@ -1,3 +1,4 @@
+
 'use server';
 
 import { generateObject } from 'ai';
@@ -9,7 +10,7 @@ const _EnhanceProductImageInputSchema = z.object({
   photoDataUri: z.string().describe('The product image as a data URI'),
 });
 
-type EnhanceProductImageInput = z.infer<typeof EnhanceProductImageInputSchema>;
+type EnhanceProductImageInput = z.infer<typeof _EnhanceProductImageInputSchema>;
 
 const EnhanceProductImageOutputSchema = z.object({
   enhancedPhotoDataUri: z.string(),
@@ -18,11 +19,11 @@ const EnhanceProductImageOutputSchema = z.object({
 type EnhanceProductImageOutput = z.infer<typeof EnhanceProductImageOutputSchema>;
 
 const ENHANCE_PRODUCT_IMAGE_PROMPT = `
-  The user has uploaded an image of a product for their e-commerce store. 
-  Your task is to professionally enhance this image. 
-  Isolate the main product by removing the background and making it transparent. 
-  Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out. 
-  Return only the enhanced image.
+The user has uploaded an image of a product for their e-commerce store.
+Your task is to professionally enhance this image.
+Isolate the main product by removing the background and making it transparent.
+Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out.
+Return only the enhanced image.
 `;
 
 export async function enhanceProductImage(

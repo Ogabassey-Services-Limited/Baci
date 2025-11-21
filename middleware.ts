@@ -1,22 +1,70 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const { hostname } = url;
+
+  // Create a response object to update cookies
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
+
+  // Create Supabase client for middleware to manage auth session
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          });
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          });
+        },
+        remove(name: string, options: CookieOptions) {
+          request.cookies.set({
+            name,
+            value: '',
+            ...options,
+          });
+          response.cookies.set({
+            name,
+            value: '',
+            ...options,
+          });
+        },
+      },
+    }
+  );
+
+  // Refresh the auth session to ensure cookies are up to date
+  await supabase.auth.getUser();
 
   // Use a placeholder for the root domain, which you would replace with your actual domain in production.
   // We use a common pattern that should work for localhost and deployed environments.
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.store';
   const isLocal = hostname.includes('localhost');
-  
+
   // Clean up the hostname to get the main domain part
   const normalizedHost = hostname.replace(`.${rootDomain}`, '').replace(`.${isLocal ? 'localhost:3000' : rootDomain}`, '');
 
   // If it's a request to the main marketing site, let it pass.
   // Path-based storefronts like /storefront/my-store will also be allowed through by this logic.
   if (hostname === `localhost:3000` || hostname === rootDomain || hostname === `www.${rootDomain}`) {
-    return NextResponse.next();
+    return response;
   }
 
   // It's a subdomain storefront request. Extract the slug and rewrite to the correct path.
@@ -26,10 +74,15 @@ export function middleware(request: NextRequest) {
   if (slug) {
     console.log(`Rewriting ${hostname} to /storefront/${slug}`);
     url.pathname = `/storefront/${slug}`;
-    return NextResponse.rewrite(url);
+    return NextResponse.rewrite(url, {
+      request: {
+        headers: request.headers,
+      },
+      headers: response.headers,
+    });
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
@@ -37,6 +90,5 @@ export const config = {
   // - _next/static (static files)
   // - _next/image (image optimization files)
   // - favicon.ico (favicon file)
-  // - /api/ (API routes)
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
