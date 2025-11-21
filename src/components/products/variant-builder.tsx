@@ -68,7 +68,7 @@ export function VariantBuilder({
                     const aiSuggestions: { attribute: string; options: string[] }[] = JSON.parse(aiSuggestionsRaw);
                     const newSelections: AttributeSelection = {};
                     aiSuggestions.forEach(suggestion => {
-                        // Find attribute key case‑insensitively
+                        // Find attribute key case-insensitively
                         const attrKey = categoryConfig.variantAttributes?.find(a => a.label.toLowerCase() === suggestion.attribute.toLowerCase())?.key;
                         if (attrKey) {
                             // For color attributes, store the first option (or all) as a string array
@@ -94,7 +94,7 @@ export function VariantBuilder({
             }
         }
 
-        interval = setInterval(checkForSuggestions, 30); // Poll every 30ms
+        interval = setInterval(checkForSuggestions, 200); // Poll every 200ms
 
         timeout = setTimeout(() => {
             if (!resolved && interval) {
@@ -123,7 +123,7 @@ export function VariantBuilder({
             );
 
             return existing || {
-                id: `temp_${crypto.randomUUID()}_${hashCombo(combo)}`,
+                id: `temp_${crypto.randomUUID()}`,
                 product_id: '',
                 merchant_id: '',
                 attributes: combo,

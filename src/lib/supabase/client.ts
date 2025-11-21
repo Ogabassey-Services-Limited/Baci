@@ -13,6 +13,31 @@ function createInvalidCookieNameError(name: string): Error {
   return new Error(`Invalid cookie name "${name}". Cookie names must not contain control characters, whitespace, '=', or ';'.`);
 }
 
+const MAX_COOKIE_SIZE = 4096; // Most browsers limit cookies to 4KB each (including name, value, and attributes)
+
+function isValidCookieSize(cookieString: string): boolean {
+  return cookieString.length <= MAX_COOKIE_SIZE;
+}
+
+function createInvalidCookieSizeError(cookieString: string): Error {
+  return new Error(
+    `Cookie is too large (${cookieString.length} bytes, max allowed is ${MAX_COOKIE_SIZE}). Most browsers only allow up to 4KB per cookie.`
+  );
+}
+
+// Robust cookie getter utility function
+function getCookie(name: string): string | undefined {
+  const cookies = document.cookie ? document.cookie.split(';') : [];
+  for (let cookie of cookies) {
+    cookie = cookie.trim();
+    if (cookie.startsWith(name + '=')) {
+      const value = cookie.substring(name.length + 1);
+      return decodeURIComponent(value);
+    }
+  }
+  return undefined;
+}
+
 export function createClient() {
   // The createClient function now calls the getter functions to ensure
   // environment variables are accessed at runtime, not build time.
@@ -23,15 +48,8 @@ export function createClient() {
     {
       cookies: {
         get(name: string) {
-          // Use document.cookie to read cookies robustly
-          const cookies = document.cookie.split(';');
-          for (const cookie of cookies) {
-            const [cookieName, ...rest] = cookie.trim().split('=');
-            if (cookieName === name) {
-              return rest.join('=');
-            }
-          }
-          return undefined;
+          // Use robust cookie utility
+          return getCookie(name);
         },
         set(name: string, value: string, options: CookieOptions) {
           // Use document.cookie to set cookies
@@ -47,6 +65,11 @@ export function createClient() {
           if (options.domain) cookie += `; domain=${options.domain}`;
           if (options.sameSite) cookie += `; samesite=${options.sameSite}`;
           if (options.secure) cookie += '; secure';
+
+          // Validate total cookie size before setting
+          if (!isValidCookieSize(cookie)) {
+            throw createInvalidCookieSizeError(cookie);
+          }
           document.cookie = cookie;
         },
         remove(name: string, options: CookieOptions) {
