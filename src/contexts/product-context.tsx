@@ -42,6 +42,10 @@ interface ProductContextType {
   setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (productId: string) => Promise<void>;
+  isAddProductOpen: boolean;
+  openAddProductDialog: (product?: Product | null) => void;
+  closeAddProductDialog: () => void;
+  editingProduct: Product | null;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -66,6 +70,20 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
+  
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+
+  const openAddProductDialog = (product: Product | null = null) => {
+    setEditingProduct(product);
+    setIsAddProductOpen(true);
+  };
+  
+  const closeAddProductDialog = () => {
+    setIsAddProductOpen(false);
+    setEditingProduct(null);
+  };
+
 
   const fetchProducts = useCallback(async () => {
     // **FIX**: Do not fetch if auth is still loading or if there's no user
@@ -227,6 +245,10 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       setSearchTerm,
       updateProduct,
       deleteProduct,
+      isAddProductOpen,
+      openAddProductDialog,
+      closeAddProductDialog,
+      editingProduct,
     }}>
       {children}
     </ProductContext.Provider>

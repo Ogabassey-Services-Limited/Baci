@@ -42,6 +42,7 @@ import { getCountryByCode } from '@/lib/countries';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useProductContext } from '@/contexts/product-context';
 
 // --- Mock Data ---
 
@@ -119,6 +120,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [timeFrame, setTimeFrame] = useState<'monthly' | 'weekly'>('weekly');
+  const { openAddProductDialog } = useProductContext();
 
   const currentSummary = summaryData[timeFrame];
   const currentChartData = timeFrame === 'monthly' ? monthlyChartData : weeklyChartData;
@@ -192,28 +194,28 @@ export default function DashboardPage() {
       icon: PlusCircle,
       title: 'Add your first product',
       description: 'List items to start selling.',
-      href: '/dashboard/products/add',
+      action: () => openAddProductDialog(),
       buttonText: 'Add Product',
     },
     {
       icon: Wrench,
       title: 'Customize your store',
       description: 'Choose colors and a layout that matches your brand.',
-      href: '/dashboard/settings',
+      action: () => router.push('/dashboard/settings'),
       buttonText: 'Customize',
     },
     {
       icon: CreditCard,
       title: 'Set up payments',
       description: 'Connect a payment provider to start accepting money.',
-      href: '/dashboard/settings',
+      action: () => router.push('/dashboard/settings'),
       buttonText: 'Set Up',
     },
     {
       icon: FlaskConical,
       title: 'Run a test order',
       description: 'Make sure your checkout process is smooth for customers.',
-      href: fullUrl || '/',
+      action: () => window.open(fullUrl || '/', '_blank'),
       buttonText: 'Visit Store',
     },
   ];
@@ -265,9 +267,7 @@ export default function DashboardPage() {
                   <p className="font-semibold">{task.title}</p>
                   <p className="text-sm text-muted-foreground">{task.description}</p>
                 </div>
-                <Link href={task.href} target={task.href.startsWith('http') ? '_blank' : '_self'}>
-                  <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary">{task.buttonText}</Button>
-                </Link>
+                <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary" onClick={task.action}>{task.buttonText}</Button>
               </div>
             ))}
           </div>

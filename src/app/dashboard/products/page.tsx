@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuChe
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import AddProductForm from '@/app/dashboard/products/add/add-product-form';
 
+
 const GoogleSheetIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -47,18 +48,15 @@ function ProductsPageContent() {
         stockFilter,
         setStatusFilter,
         setStockFilter,
-        updateProduct
+        updateProduct,
+        isAddProductOpen,
+        openAddProductDialog,
+        closeAddProductDialog,
+        editingProduct,
     } = useProductContext();
     const { merchant } = useMerchant();
     const [isProcessing, setIsProcessing] = useState(false);
     const { toast } = useToast();
-    const [isAddProductOpen, setIsAddProductOpen] = useState(false);
-    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-
-    const handleEditProduct = (product: Product) => {
-        setEditingProduct(product);
-        setIsAddProductOpen(true);
-    };
 
     const handleProductSaved = async (product: Product) => {
         if (editingProduct) {
@@ -66,17 +64,8 @@ function ProductsPageContent() {
         } else {
             addProduct(product);
         }
-        setIsAddProductOpen(false);
-        setEditingProduct(null);
+        closeAddProductDialog();
     };
-
-    // ... existing code ...
-
-    // I need to find where the Dialog is and update it.
-    // Since I can't see the whole file, I'll assume I need to replace the Dialog block separately.
-    // But wait, I can't replace multiple non-contiguous blocks with replace_file_content unless I use multi_replace.
-    // Let's use multi_replace for this.
-
 
     const handleCommandSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -202,15 +191,14 @@ function ProductsPageContent() {
                 return <ReviewChanges />;
             case 'view':
             default:
-                return <ProductCatalog statusFilter={statusFilter} stockFilter={stockFilter} />;
+                return <ProductCatalog statusFilter={statusFilter} stockFilter={stockFilter} onEditProduct={openAddProductDialog} />;
         }
     };
 
     return (
         <>
             <Dialog open={isAddProductOpen} onOpenChange={(open) => {
-                setIsAddProductOpen(open);
-                if (!open) setEditingProduct(null);
+                if (!open) closeAddProductDialog();
             }}>
                 <DialogContent className="sm:max-w-[625px]">
                     <DialogHeader>
@@ -221,10 +209,7 @@ function ProductsPageContent() {
                     </DialogHeader>
                     <AddProductForm
                         onProductAdded={handleProductSaved}
-                        onCancel={() => {
-                            setIsAddProductOpen(false);
-                            setEditingProduct(null);
-                        }}
+                        onCancel={closeAddProductDialog}
                         initialData={editingProduct}
                     />
                 </DialogContent>
@@ -247,7 +232,7 @@ function ProductsPageContent() {
                                     Import from Google Sheet
                                 </span>
                             </Button>
-                            <Button size="sm" className="h-9 gap-1" onClick={() => setIsAddProductOpen(true)}>
+                            <Button size="sm" className="h-9 gap-1" onClick={() => openAddProductDialog()}>
                                 <PlusCircle className="h-3.5 w-3.5" />
                                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
                                     Add Product
