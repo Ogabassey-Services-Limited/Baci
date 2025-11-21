@@ -6,7 +6,7 @@ import { Plus, X, Image as ImageIcon, Wand2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // eslint-disable-line @typescript-eslint/no-unused-vars
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { CategoryConfig, CategoryVariantAttribute } from '@/lib/category-configs';
 import type { ProductVariant } from '@/lib/products';
@@ -272,31 +272,21 @@ export function VariantBuilder({
                             <Label>{attr.label}{attr.required && ' *'}</Label>
 
                             <div className="flex gap-2">
-                                {attr.type === 'select' || attr.type === 'color' ? (
-                                    <Select onValueChange={(value) => handleAttributeAdd(attr.key, value)}>
-                                        <SelectTrigger className="flex-1 h-auto min-h-10">
-                                            <div className="flex flex-wrap items-center gap-1.5 py-1">
-                                                {(attributeSelections[attr.key]?.length ?? 0) > 0 ? (
-                                                    renderSelectedValues(attr.key)
-                                                ) : (
-                                                    <span className="text-muted-foreground">{`Select ${attr.label}`}</span>
-                                                )}
-                                            </div>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {attr.options?.map((option) => (
-                                                <SelectItem key={option} value={option}>
-                                                    {option}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
+                                {(
                                     <>
                                         <div className="flex-1 relative">
                                             {(attributeSelections[attr.key]?.length ?? 0) > 0 && (
                                                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 z-10">
-                                                    {renderSelectedValues(attr.key)}
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {(attributeSelections[attr.key] || []).map((value) => (
+                                                            <span key={value} className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm flex-shrink-0">
+                                                                {value}
+                                                                <span role="button" aria-label={`Remove ${value}`} className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center" onClick={(e) => { e.stopPropagation(); handleAttributeRemove(attr.key, value); }}>
+                                                                    <X className="h-3 w-3" />
+                                                                </span>
+                                                            </span>
+                                                        ))}
+                                                    </div>
                                                 </div>
                                             )}
                                             <Input
@@ -501,8 +491,8 @@ export function VariantBuilder({
                                         {variants.map((variant, index) => {
                                             const attributeOrder = ['ram', 'storage', 'color']; // Define your desired order
                                             const sortedAttributes = Object.entries(variant.attributes).sort(([keyA], [keyB]) => {
-                                                const indexA = attributeOrder.indexOf(keyA);
-                                                const indexB = attributeOrder.indexOf(keyB);
+                                                const indexA = attributeOrder.indexOf(keyA.toLowerCase());
+                                                const indexB = attributeOrder.indexOf(keyB.toLowerCase());
                                                 if (indexA !== -1 && indexB !== -1) return indexA - indexB;
                                                 if (indexA !== -1) return -1;
                                                 if (indexB !== -1) return 1;
@@ -590,4 +580,3 @@ function generateVariantCombinations(
     
 
     
-

@@ -360,62 +360,6 @@ export default function OrdersPage() {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleUpdatePayment = async (orderNumber: string, newPayment: PaymentStatus) => {
-    // Find the order to get its database ID
-    const order = orders.find(o => o.orderNumber === orderNumber);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!order || !(order as any).id) {
-      // Fallback to local update if no ID (for mock data)
-      setOrders(currentOrders =>
-        currentOrders.map(order =>
-          order.orderNumber === orderNumber ? { ...order, paymentStatus: newPayment } : order
-        )
-      );
-      toast({
-        title: `Payment status updated ✅`,
-        description: `Order ${orderNumber} payment status set to ${newPayment}.`,
-      });
-      return;
-    }
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const response = await fetch(`/api/orders/${(order as any).id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          payment_status: formatStatusForDB(newPayment),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update order');
-      }
-
-      // Update local state on success
-      setOrders(currentOrders =>
-        currentOrders.map(order =>
-          order.orderNumber === orderNumber ? { ...order, paymentStatus: newPayment } : order
-        )
-      );
-
-      toast({
-        title: `Payment status updated ✅`,
-        description: `Order ${orderNumber} payment status set to ${newPayment}.`,
-      });
-    } catch (error) {
-      console.error('Error updating payment status:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Update Failed',
-        description: 'Failed to update payment status. Please try again.',
-      });
-    }
-  };
-
   const formatCurrency = (amount: number) => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
     const locale = country ? `en-${country.code}` : 'en-US';
@@ -711,6 +655,3 @@ export default function OrdersPage() {
     </div>
   );
 }
-
-
-
