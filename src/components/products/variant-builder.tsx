@@ -262,8 +262,8 @@ export function VariantBuilder({
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <span>{value}</span>
-                                                            <span
-                                                                role="button"
+                                                            <button
+                                                                type="button"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     handleAttributeRemove(attr.key, value);
@@ -271,7 +271,7 @@ export function VariantBuilder({
                                                                 className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center"
                                                             >
                                                                 <X className="h-3 w-3" />
-                                                            </span>
+                                                            </button>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -333,13 +333,13 @@ export function VariantBuilder({
                                             className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm"
                                         >
                                             <span>{value}</span>
-                                            <span
-                                                role="button"
+                                            <button
+                                                type="button"
                                                 onClick={() => handleAttributeRemove(attr.key, value)}
                                                 className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center"
                                             >
                                                 <X className="h-3 w-3" />
-                                            </span>
+                                            </button>
                                         </div>
                                     ))}
                                 </div>
@@ -582,3 +582,5 @@ function generateVariantCombinations(
 
     return combinations;
 }
+
+    
