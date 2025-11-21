@@ -115,7 +115,7 @@ export function ReviewChanges() {
                     ...change.details,
                     ...missingInfo[change.details.name]
                 }
-            }
+            };
         }
         return change;
     });
@@ -134,8 +134,8 @@ export function ReviewChanges() {
               ...prev[productName],
               [field]: value,
           }
-      }))
-  }
+      }));
+  };
 
   const newProductsWithMissingInfo = aiResponse.changes.filter(c => c.type === 'new' && aiResponse.missingParameterRequest && c.details.name === aiResponse.missingParameterRequest.productName);
 

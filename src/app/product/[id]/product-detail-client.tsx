@@ -45,7 +45,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
     } else {
       setQuantity(moq);
     }
-  }
+  };
 
   const formatCurrency = (amount: number) => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;

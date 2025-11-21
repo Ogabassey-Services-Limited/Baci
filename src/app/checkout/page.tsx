@@ -135,7 +135,7 @@ function Step1_Shipping() {
   const { merchant } = useMerchant();
 
   const country = merchant?.country ? getCountryByCode(merchant.country) : null;
-  const phonePlaceholder = country?.phoneCode ? `${country.phoneCode} ...` : '+1 (555) 123-4567';
+  const phonePlaceholder = country?.phoneCode ? `${'country.phoneCode'} ...` : '+1 (555) 123-4567';
 
 
   return (
@@ -293,7 +293,7 @@ function CheckoutPageContent() {
       <div className="flex flex-1 items-center justify-center h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
-    )
+    );
   }
 
   if (cartCount === 0) {
@@ -303,7 +303,7 @@ function CheckoutPageContent() {
   const handleAuthSuccess = (authedUser: SupabaseUser) => {
     setUser(authedUser);
     setStep(1);
-  }
+  };
 
   const handleNext = async () => {
     const isValid = await shippingForm.trigger();
@@ -360,7 +360,7 @@ function CheckoutPageContent() {
         body: JSON.stringify({
           merchant_id: merchantData.id,
           customer_email: data.email,
-          customer_name: `${data.firstName} ${data.lastName}`,
+          customer_name: `${'data.firstName'} ${'data.lastName'}`,
           customer_phone: data.phone,
           items: orderItems,
           subtotal,
@@ -400,7 +400,7 @@ function CheckoutPageContent() {
 
       toast({
         title: 'Payment Successful!',
-        description: `Order ${order.order_number} has been placed.`,
+        description: `Order ${'order.order_number'} has been placed.`,
       });
 
       clearCart();
@@ -421,7 +421,7 @@ function CheckoutPageContent() {
     if (step === 0) return 'Authentication';
     if (step === 1) return 'Shipping Information';
     return 'Payment';
-  }
+  };
 
   return (
     <div className="container mx-auto max-w-4xl py-12 px-4">
@@ -462,7 +462,9 @@ function CheckoutPageContent() {
                     Previous
                   </Button>
                   <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading}>
-                    {formIsLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {formIsLoading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
                     Place Order
                   </ThemedButton>
                 </div>
@@ -481,5 +483,5 @@ export default function CheckoutPage() {
     <MerchantProvider>
       <CheckoutPageContent />
     </MerchantProvider>
-  )
+  );
 }
