@@ -175,7 +175,7 @@ export default function SettingsPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
+    return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
   const brandColors = merchant?.brand_colors;
