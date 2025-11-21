@@ -12,10 +12,15 @@ export function createClient() {
     {
       cookies: {
         get(name: string) {
-          // Use document.cookie to read cookies
-          const value = `; ${document.cookie}`;
-          const parts = value.split(`; ${name}=`);
-          if (parts.length === 2) return parts.pop()?.split(';').shift();
+          // Use document.cookie to read cookies robustly
+          const cookies = document.cookie.split(';');
+          for (const cookie of cookies) {
+            const [cookieName, ...rest] = cookie.trim().split('=');
+            if (cookieName === name) {
+              return rest.join('=');
+            }
+          }
+          return undefined;
         },
         set(name: string, value: string, options: CookieOptions) {
           // Use document.cookie to set cookies

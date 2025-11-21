@@ -125,8 +125,14 @@ export async function POST(request: NextRequest) {
     }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function processPriceList(input: any) {
+interface ProcessPriceListInput {
+    currentProducts: any[];
+    priceListData: string;
+    vendor: string;
+    fileType: string;
+}
+
+async function processPriceList(input: ProcessPriceListInput) {
     const model = getAIModel();
     const { currentProducts, priceListData, vendor, fileType } = input;
 

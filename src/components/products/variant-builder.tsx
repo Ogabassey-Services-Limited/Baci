@@ -100,7 +100,7 @@ export function VariantBuilder({
             );
 
             return existing || {
-                id: `temp_${Date.now()}_${Math.random()}_${JSON.stringify(combo)}`,
+                id: `temp_${Date.now()}_${Math.random()}_${hashCombo(combo)}`,
                 product_id: '',
                 merchant_id: '',
                 attributes: combo,
@@ -474,42 +474,42 @@ export function VariantBuilder({
                                                 return 0; // Keep original order for other attributes
                                             });
                                             const displayLabel = sortedAttributes.map(([, value]) => value).join(' / ');
-                                            
+
                                             return (
-                                            <div
-                                                key={variant.id || `variant-${index}`}
-                                                className="flex items-center gap-3 p-3 border rounded-lg bg-card"
-                                            >
-                                                <div className="w-10 h-10 rounded border overflow-hidden flex-shrink-0 bg-muted">
-                                                    {variant.primary_image && (
-                                                        <Image
-                                                            src={variant.primary_image}
-                                                            alt=""
-                                                            width={40}
-                                                            height={40}
-                                                            className="w-full h-full object-cover"
+                                                <div
+                                                    key={variant.id || `variant-${index}`}
+                                                    className="flex items-center gap-3 p-3 border rounded-lg bg-card"
+                                                >
+                                                    <div className="w-10 h-10 rounded border overflow-hidden flex-shrink-0 bg-muted">
+                                                        {variant.primary_image && (
+                                                            <Image
+                                                                src={variant.primary_image}
+                                                                alt=""
+                                                                width={40}
+                                                                height={40}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        )}
+                                                    </div>
+                                                    <p className="flex-1 text-sm font-medium">
+                                                        {displayLabel}
+                                                    </p>
+                                                    <div className="w-24">
+                                                        <Input
+                                                            type="number"
+                                                            min="0"
+                                                            placeholder="Stock"
+                                                            value={variant.stock_quantity || 0}
+                                                            onChange={(e) =>
+                                                                updateVariant(variant.id, {
+                                                                    stock_quantity: parseInt(e.target.value) || 0
+                                                                })
+                                                            }
+                                                            className="h-9 text-sm"
                                                         />
-                                                    )}
+                                                    </div>
                                                 </div>
-                                                <p className="flex-1 text-sm font-medium">
-                                                    {displayLabel}
-                                                </p>
-                                                <div className="w-24">
-                                                    <Input
-                                                        type="number"
-                                                        min="0"
-                                                        placeholder="Stock"
-                                                        value={variant.stock_quantity || 0}
-                                                        onChange={(e) =>
-                                                            updateVariant(variant.id, {
-                                                                stock_quantity: parseInt(e.target.value) || 0
-                                                            })
-                                                        }
-                                                        className="h-9 text-sm"
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
+                                            );
                                         })}
                                     </div>
                                 </div>
@@ -553,7 +553,21 @@ function generateVariantCombinations(
     return combinations;
 }
 
-    
+// Simple, deterministic hash function for use in temporary ID generation
+function hashCombo(combo: object): string {
+    const str = JSON.stringify(combo);
+    let hash = 0, i = 0, chr;
+    if (str.length === 0) return hash.toString(36);
+    for (i = 0; i < str.length; i++) {
+        chr = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    // Make positive and convert to base36 for compactness
+    return Math.abs(hash).toString(36);
+}
 
-    
+
+
+
 

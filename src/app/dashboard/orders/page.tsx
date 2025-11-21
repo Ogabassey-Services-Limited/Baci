@@ -124,6 +124,17 @@ export const initialOrders = [
 export type ShippingStatus = 'Pending' | 'Processing' | 'Shipped' | 'Delivered' | 'Canceled' | 'Returned';
 export type PaymentStatus = 'Paid' | 'Unpaid' | 'Pending' | 'Partially Paid' | 'Refunded';
 
+interface ApiOrder {
+  order_number: string;
+  customer_name: string;
+  total: string;
+  shipping_status: string;
+  payment_status: string;
+  created_at: string;
+  source: string;
+  id: string;
+}
+
 export const StatusBadge = ({ status, type }: { status: string, type: 'payment' | 'shipping' }) => {
   const paymentVariants: { [key: string]: string } = {
     Paid: 'bg-green-100 text-green-800 border-green-200',
@@ -230,7 +241,8 @@ export default function OrdersPage() {
   useEffect(() => {
     const fetchOrders = async () => {
       // **FIX:** Do not fetch until auth and merchant data is loaded and available
-      if (authLoading || merchantLoading || !user || !merchant) {
+      const isDataNotReady = authLoading || merchantLoading || !user || !merchant;
+      if (isDataNotReady) {
         return;
       }
 
@@ -259,8 +271,7 @@ export default function OrdersPage() {
         const data = await response.json();
 
         // Transform API orders to match the UI format
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const transformedOrders = data.orders.map((order: any) => ({
+        const transformedOrders = data.orders.map((order: ApiOrder) => ({
           orderNumber: order.order_number,
           customerName: order.customer_name,
           total: parseFloat(order.total),
@@ -314,8 +325,7 @@ export default function OrdersPage() {
   const handleUpdateStatus = async (orderNumber: string, newStatus: ShippingStatus) => {
     // Find the order to get its database ID
     const order = orders.find(o => o.orderNumber === orderNumber);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!order || !(order as any).id) {
+    if (!order || !order.id) {
       // Fallback to local update if no ID (for mock data)
       setOrders(currentOrders =>
         currentOrders.map(order =>
@@ -332,8 +342,7 @@ export default function OrdersPage() {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const response = await fetch(`/api/orders/${(order as any).id}`, {
+      const response = await fetch(`/api/orders/${order.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

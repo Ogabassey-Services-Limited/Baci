@@ -135,7 +135,7 @@ function Step1_Shipping() {
   const { merchant } = useMerchant();
 
   const country = merchant?.country ? getCountryByCode(merchant.country) : null;
-  const phonePlaceholder = country?.phoneCode ? `${'country.phoneCode'} ...` : '+1 (555) 123-4567';
+  const phonePlaceholder = country?.phoneCode ? `${country.phoneCode} ...` : '+1 (555) 123-4567';
 
 
   return (
@@ -360,7 +360,7 @@ function CheckoutPageContent() {
         body: JSON.stringify({
           merchant_id: merchantData.id,
           customer_email: data.email,
-          customer_name: `${'data.firstName'} ${'data.lastName'}`,
+          customer_name: `${data.firstName} ${data.lastName}`,
           customer_phone: data.phone,
           items: orderItems,
           subtotal,
@@ -400,7 +400,7 @@ function CheckoutPageContent() {
 
       toast({
         title: 'Payment Successful!',
-        description: `Order ${'order.order_number'} has been placed.`,
+        description: `Order ${order.order_number} has been placed.`,
       });
 
       clearCart();
@@ -437,11 +437,9 @@ function CheckoutPageContent() {
               {getStepTitle()}
             </h2>
 
-            {formIsLoading && <div className="flex justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+            {step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
 
-            {!formIsLoading && step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
-
-            {!formIsLoading && step === 1 && (
+            {step === 1 && (
               <FormProvider {...shippingForm}>
                 <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
                   <Step1_Shipping />
@@ -454,7 +452,7 @@ function CheckoutPageContent() {
               </FormProvider>
             )}
 
-            {!formIsLoading && step === 2 && (
+            {step === 2 && (
               <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
                 <Step2_Payment />
                 <div className="flex justify-between pt-4">
