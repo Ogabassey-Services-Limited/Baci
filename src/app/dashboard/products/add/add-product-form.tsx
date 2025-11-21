@@ -217,6 +217,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       fulfillment_details: hasVariants ? [] : data.fulfillment_details, // Fulfillment details are per-variant if variants exist
       has_variants: hasVariants,
       variants: hasVariants ? variants : [],
+      category: data.category,
     };
 
     onProductAdded(productData);
@@ -258,20 +259,45 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
             </FormItem>
           )} />
 
+          <FormField control={form.control} name="category" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Category *</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {categoryConfig.productCategories?.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )} />
+
           {/* Variant Toggle */}
           {categoryConfig.supportsVariants && (
-            <div className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5">
+             <FormLabel
+                htmlFor="variants-switch"
+                className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5 cursor-pointer"
+             >
               <div className="space-y-0.5">
-                <FormLabel>Product Variants</FormLabel>
+                <div className="font-medium">Product Variants</div>
                 <FormDescription>
                   Does this product have options like size, color, or storage?
                 </FormDescription>
               </div>
               <Switch
+                id="variants-switch"
                 checked={hasVariants}
                 onCheckedChange={setHasVariants}
               />
-            </div>
+            </FormLabel>
           )}
 
           {/* Variant Builder */}
@@ -309,17 +335,23 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                 </FormItem>
               )} />
               <FormField control={form.control} name="infinite_stock" render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>Manage Stock</FormLabel>
-                    <FormDescription>Turn on to track inventory quantity.</FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={!field.value}
-                      onCheckedChange={(checked) => field.onChange(!checked)}
-                    />
-                  </FormControl>
+                <FormItem>
+                   <FormLabel
+                        htmlFor="stock-switch"
+                        className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+                    >
+                        <div className="space-y-0.5">
+                            <div className="font-medium">Manage Stock</div>
+                            <FormDescription>Turn on to track inventory quantity.</FormDescription>
+                        </div>
+                        <FormControl>
+                            <Switch
+                            id="stock-switch"
+                            checked={!field.value}
+                            onCheckedChange={(checked) => field.onChange(!checked)}
+                            />
+                        </FormControl>
+                    </FormLabel>
                 </FormItem>
               )} />
 
@@ -334,27 +366,6 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
               )}
             </>
           )}
-
-          <FormField control={form.control} name="category" render={({ field }) => (
-            <FormItem>
-              <FormLabel>Category *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {categoryConfig.productCategories?.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )} />
 
           <FormField control={form.control} name="brand" render={({ field }) => (
             <FormItem>
