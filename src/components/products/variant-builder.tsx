@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, X, Upload, Image as ImageIcon, Wand2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,8 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import { FormDescription } from '../ui/form';
 import { Switch } from '../ui/switch';
+import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
+import { useToast } from '@/hooks/use-toast';
 
 interface VariantBuilderProps {
     categoryConfig: CategoryConfig;
@@ -34,10 +36,13 @@ export function VariantBuilder({
     initialVariants = []
 }: VariantBuilderProps) {
     const { merchant } = useMerchant();
+    const { toast } = useToast();
     const [attributeSelections, setAttributeSelections] = useState<AttributeSelection>({});
     const [variants, setVariants] = useState<ProductVariant[]>(initialVariants);
     const [textInputs, setTextInputs] = useState<Record<string, string>>({});
     const [trackStock, setTrackStock] = useState(true);
+    const [enhancingImages, setEnhancingImages] = useState<Record<string, boolean>>({});
+
 
     const currencySymbol = getCountryByCode(merchant?.country || 'NG')?.currencySymbol || '₦';
 
@@ -148,6 +153,34 @@ export function VariantBuilder({
         };
         reader.readAsDataURL(file);
     };
+
+    const handleEnhanceImage = async (color: string) => {
+        const variantToEnhance = variants.find(v => v.attributes.color === color);
+        if (!variantToEnhance?.primary_image) {
+            toast({ title: 'No image to enhance', description: 'Please upload an image first.', variant: 'destructive' });
+            return;
+        }
+
+        setEnhancingImages(prev => ({ ...prev, [color]: true }));
+        try {
+            const { enhancedPhotoDataUri } = await enhanceProductImage({ photoDataUri: variantToEnhance.primary_image });
+
+            const updated = variants.map(v =>
+                v.attributes.color === color
+                    ? { ...v, primary_image: enhancedPhotoDataUri, images: [enhancedPhotoDataUri] }
+                    : v
+            );
+            setVariants(updated);
+            onVariantsChange(updated);
+            toast({ title: 'Image enhanced!', description: 'The variant image has been updated with the enhanced version.' });
+        } catch (error) {
+            console.error('Enhancement failed:', error);
+            toast({ title: 'Enhancement Failed', description: 'Could not enhance the image. Please try again.', variant: 'destructive' });
+        } finally {
+            setEnhancingImages(prev => ({ ...prev, [color]: false }));
+        }
+    };
+
 
     const updateVariant = (variantId: string, updates: Partial<ProductVariant>) => {
         const updated = variants.map(v =>
@@ -305,31 +338,52 @@ export function VariantBuilder({
                                     <div className="grid grid-cols-4 gap-3">
                                         {colors.map(color => {
                                             const variantWithColor = variants.find(v => v.attributes.color === color);
+                                            const isEnhancing = enhancingImages[color];
                                             return (
-                                                <label key={color} className="cursor-pointer block">
-                                                    <input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        className="hidden"
-                                                        onChange={(e) => handleVariantImageUpload(color, e)}
-                                                    />
-                                                    <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors">
-                                                        <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
-                                                            {variantWithColor?.primary_image ? (
-                                                                <Image
-                                                                    src={variantWithColor.primary_image}
-                                                                    alt={color}
-                                                                    width={120}
-                                                                    height={120}
-                                                                    className="w-full h-full object-cover"
-                                                                />
-                                                            ) : (
-                                                                <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                                            )}
+                                                <div key={color} className="relative group">
+                                                    <label className="cursor-pointer block">
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            className="hidden"
+                                                            onChange={(e) => handleVariantImageUpload(color, e)}
+                                                            disabled={isEnhancing}
+                                                        />
+                                                        <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                                                            <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center relative">
+                                                                {isEnhancing && (
+                                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                                                                        <Loader2 className="h-6 w-6 text-white animate-spin" />
+                                                                    </div>
+                                                                )}
+                                                                {variantWithColor?.primary_image ? (
+                                                                    <Image
+                                                                        src={variantWithColor.primary_image}
+                                                                        alt={color}
+                                                                        width={120}
+                                                                        height={120}
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                ) : (
+                                                                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                                                )}
+                                                            </div>
+                                                            <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
                                                         </div>
-                                                        <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
-                                                    </div>
-                                                </label>
+                                                    </label>
+                                                     {variantWithColor?.primary_image && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="default"
+                                                            size="icon"
+                                                            className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                                                            onClick={() => handleEnhanceImage(color)}
+                                                            disabled={isEnhancing}
+                                                        >
+                                                            <Wand2 className="h-4 w-4" />
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             );
                                         })}
                                     </div>
@@ -463,5 +517,3 @@ function generateVariantCombinations(
 
     return combinations;
 }
-
-    
