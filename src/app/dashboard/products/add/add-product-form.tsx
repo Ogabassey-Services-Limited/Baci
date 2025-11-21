@@ -340,22 +340,28 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
           )} />
 
           {categoryConfig.supportsVariants && (
-             <FormLabel
-                htmlFor="variants-switch"
-                className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/50 cursor-pointer"
-             >
-              <div className="space-y-0.5">
-                <div className="font-medium">Product Variants</div>
-                <FormDescription>
-                  Does this product have options like size, color, or storage?
-                </FormDescription>
-              </div>
-              <Switch
-                id="variants-switch"
-                checked={hasVariants}
-                onCheckedChange={setHasVariants}
-              />
-            </FormLabel>
+             <FormField control={form.control} name="has_variants" render={({ field }) => (
+                <FormItem>
+                    <FormLabel
+                        htmlFor="variants-switch"
+                        className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/50 cursor-pointer"
+                    >
+                        <div className="space-y-0.5">
+                            <div className="font-medium">Product Variants</div>
+                            <FormDescription>
+                            Does this product have options like size, color, or storage?
+                            </FormDescription>
+                        </div>
+                        <FormControl>
+                            <Switch
+                                id="variants-switch"
+                                checked={hasVariants}
+                                onCheckedChange={setHasVariants}
+                            />
+                        </FormControl>
+                    </FormLabel>
+                </FormItem>
+             )} />
           )}
 
           {hasVariants && categoryConfig.supportsVariants ? (
@@ -399,8 +405,8 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                         className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
                     >
                         <div className="space-y-0.5">
-                            <div className="font-medium">Manage Stock</div>
-                            <FormDescription>Turn on to track inventory quantity.</FormDescription>
+                            <div className="font-medium">Track Inventory</div>
+                            <FormDescription>Uncheck if you have unlimited stock (e.g. digital products).</FormDescription>
                         </div>
                         <FormControl>
                             <Switch
@@ -416,7 +422,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
               {!watchInfiniteStock && (
                 <FormField control={form.control} name="stock" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Stock *</FormLabel>
+                    <FormLabel>Stock Quantity *</FormLabel>
                     <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
                     <FormMessage />
                   </FormItem>
