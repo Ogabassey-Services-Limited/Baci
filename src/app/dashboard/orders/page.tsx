@@ -51,6 +51,7 @@ import {
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useAuth } from '@/contexts/auth-context';
 
 
 // Mock data for recent orders
@@ -213,7 +214,8 @@ export const SourceIcon = ({ source }: { source: string }) => {
 };
 
 export default function OrdersPage() {
-  const { merchant, loading } = useMerchant();
+  const { merchant, loading: merchantLoading } = useMerchant();
+  const { user, loading: authLoading } = useAuth();
   const [paymentFilter, setPaymentFilter] = useState('All');
   const [shippingFilter, setShippingFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -227,8 +229,8 @@ export default function OrdersPage() {
   // Fetch orders from API
   useEffect(() => {
     const fetchOrders = async () => {
-      // **FIX:** Do not fetch until merchant data is loaded and available
-      if (loading || !merchant) {
+      // **FIX:** Do not fetch until auth and merchant data is loaded and available
+      if (authLoading || merchantLoading || !user || !merchant) {
         return;
       }
 
@@ -276,8 +278,16 @@ export default function OrdersPage() {
         setOrders(transformedOrders);
       } catch (error) {
         console.error('Error fetching orders:', error);
-        setOrdersError((error as Error).message);
-        // Fall back to mock data on error, but log the error
+        // Only show toast if the error is not an auth error, which is handled elsewhere
+        if (!(error as Error).message.includes('Unauthorized')) {
+          setOrdersError((error as Error).message);
+          toast({
+            title: 'Error Fetching Orders',
+            description: (error as Error).message,
+            variant: 'destructive',
+          });
+        }
+        // Fall back to mock data on error for demo purposes
         setOrders(initialOrders);
       } finally {
         setOrdersLoading(false);
@@ -285,7 +295,7 @@ export default function OrdersPage() {
     };
 
     fetchOrders();
-  }, [loading, merchant, paymentFilter, shippingFilter, searchTerm]);
+  }, [authLoading, merchantLoading, user, merchant, paymentFilter, shippingFilter, searchTerm, toast]);
 
   // Helper function to format status from DB to UI
   const formatStatus = (status: string): string => {
@@ -417,7 +427,7 @@ export default function OrdersPage() {
   };
 
 
-  if (loading) {
+  if (authLoading || merchantLoading) {
     return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
