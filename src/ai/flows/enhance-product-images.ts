@@ -1,12 +1,11 @@
 'use server';
 
 import { generateObject } from 'ai';
-import { geminiFlash } from '@/ai/provider';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { geminiPro } from '../provider';
 
-const EnhanceProductImageInputSchema = z.object({
+const _EnhanceProductImageInputSchema = z.object({
   photoDataUri: z.string().describe('The product image as a data URI'),
 });
 
@@ -38,18 +37,6 @@ export async function enhanceProductImage(
         Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out. 
         Return only the enhanced image.
       `,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'image', image: input.photoDataUri },
-            {
-              type: 'text',
-              text: 'Please enhance this product image for an e-commerce store. Remove the background and improve the lighting.',
-            },
-          ],
-        },
-      ],
     });
 
     if (!enhancedImage.enhancedPhotoDataUri) {

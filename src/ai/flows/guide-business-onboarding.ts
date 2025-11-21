@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
 
-const GuideBusinessOnboardingInputSchema = z.object({
+const _GuideBusinessOnboardingInputSchema = z.object({
   businessName: z.string().describe("The user's business name."),
   businessType: z.string().describe('The type of business the user is onboarding.'),
   brandPreferences: z.string().describe("The user's favorite color to influence branding."),
@@ -25,9 +25,9 @@ const BrandColorsSchema = z.object({
   background: z.string().describe('The background color, should be light and suitable for a page background. Prefer white or off-white.'),
   accent: z.string().describe('An accent color for highlights and calls-to-action.'),
 });
-type BrandColors = z.infer<typeof BrandColorsSchema>;
+type _BrandColors = z.infer<typeof BrandColorsSchema>;
 
-const GuideBusinessOnboardingOutputSchema = z.object({
+const _GuideBusinessOnboardingOutputSchema = z.object({
   logos: z
     .array(z.string())
     .optional()

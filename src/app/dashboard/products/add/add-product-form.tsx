@@ -30,7 +30,7 @@ const addProductSchema = z.object({
   name: z.string().min(3, 'Product name must be at least 3 characters.'),
   description: z.string().optional(),
   price: z.coerce.number().min(0, 'Price must be a positive number.'),
-  infinite_stock: z.boolean().default(true),
+  infinite_stock: z.boolean().optional(),
   stock: z.coerce.number().int('Stock must be a whole number.').optional(),
   minimum_order_quantity: z.coerce.number().int('MOQ must be a whole number.').min(1, 'Minimum order quantity must be at least 1.').optional(),
   category: z.string().min(1, 'Category is required.'),

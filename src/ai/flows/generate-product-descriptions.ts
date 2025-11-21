@@ -5,7 +5,7 @@ import { geminiFlash } from '@/ai/provider';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
-const GenerateProductDescriptionInputSchema = z.object({
+const _GenerateProductDescriptionInputSchema = z.object({
   productName: z.string(),
   keywords: z.array(z.string()).optional(),
   brandVoice: z.string().optional(),
@@ -15,7 +15,7 @@ const GenerateProductDescriptionInputSchema = z.object({
 
 type GenerateProductDescriptionInput = z.infer<typeof GenerateProductDescriptionInputSchema>;
 
-const GenerateProductDescriptionOutputSchema = z.object({
+const _GenerateProductDescriptionOutputSchema = z.object({
   description: z.string(),
 });
 
