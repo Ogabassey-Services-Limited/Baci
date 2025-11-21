@@ -272,7 +272,7 @@ export function VariantBuilder({
                             <Label>{attr.label}{attr.required && ' *'}</Label>
 
                             <div className="flex gap-2">
-                                {attr.type === 'select' ? (
+                                {attr.type === 'select' || attr.type === 'color' ? (
                                     <Select onValueChange={(value) => handleAttributeAdd(attr.key, value)}>
                                         <SelectTrigger className={cn("flex-1", (attributeSelections[attr.key]?.length ?? 0) > 0 && "p-0")}>
                                             {(attributeSelections[attr.key]?.length ?? 0) > 0 ? (
@@ -316,7 +316,7 @@ export function VariantBuilder({
                                                         }
                                                     }
                                                 }}
-                                                className={cn("w-full", (attributeSelections[attr.key]?.length ?? 0) > 0 && "text-transparent placeholder-transparent focus:text-foreground focus:placeholder-muted-foreground")}
+                                                className={cn("w-full", (attributeSelections[attr.key]?.length ?? 0) > 0 && "placeholder-transparent")}
                                             />
                                         </div>
                                         <Button
