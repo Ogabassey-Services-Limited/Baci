@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert order items into the new normalized table
-    if (order && items && Array.isArray(items)) {
+    if (order) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const orderItems = items.map((item: any) => ({
         order_id: order.id,
@@ -220,4 +220,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
