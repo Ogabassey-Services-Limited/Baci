@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useState, useMemo, useEffect, useTransition } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import Image from 'next/image';
-import { Loader2, Sparkles, Upload, Info, Wand2 } from 'lucide-react';
+import { Loader2, Sparkles, Upload, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,7 @@ import { generateProductDescription } from '@/ai/flows/generate-product-descript
 import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { useMerchant } from '@/hooks/use-merchant';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';
 import { uploadImage } from '@/lib/storage';
@@ -163,7 +163,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         productName: productName,
         businessType: merchant.business_type,
       });
-      
+
       const { details } = result;
       if (details.suggestedName) form.setValue('name', details.suggestedName, { shouldValidate: true });
       if (details.description) form.setValue('description', details.description, { shouldValidate: true });
@@ -175,10 +175,10 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       // Handle suggested variants
       if (details.suggestedVariants && details.suggestedVariants.length > 0) {
         setHasVariants(true);
-        const newInitialVariants = details.suggestedVariants.map(sv => ({
+        const _newInitialVariants = details.suggestedVariants.map(sv => ({
           attributes: { [sv.attribute.toLowerCase()]: '' }, // placeholder
         }));
-        
+
         // This is a bit of a hack to pass suggestions to the variant builder
         // We trigger a re-render of the builder with new initial data
         // The builder itself needs to be able to handle this.
@@ -192,7 +192,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         description: "Review the generated details and adjust as needed.",
       });
 
-    } catch (error) {
+    } catch (_error) {
       toast({ title: "Autofill Failed", description: "Could not generate product details. Please try again.", variant: "destructive" });
     } finally {
       setIsAutofilling(false);
@@ -220,7 +220,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         businessType: merchant.business_type,
       });
       form.setValue('description', result.description);
-    } catch (error) {
+    } catch (_error) {
       toast({ title: "Description Generation Failed", description: "Could not generate a description. Please try again.", variant: "destructive" });
     } finally {
       setIsGenerating(false);
@@ -229,13 +229,13 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
   async function onSubmit(data: AddProductFormValues) {
     setIsSaving(true);
-    
+
     let enhancedImage = data.image;
     if (data.image && typeof data.image === 'string' && data.image.startsWith('data:')) {
       try {
         const { enhancedPhotoDataUri } = await enhanceProductImage({ photoDataUri: data.image });
         enhancedImage = enhancedPhotoDataUri;
-      } catch (error) {
+      } catch (_error) {
         toast({ title: 'AI enhancement failed', description: 'Could not enhance image, using original.', variant: 'destructive' });
       }
     }
@@ -259,7 +259,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       id: initialData?.id || `prod_${Date.now()}`,
       name: data.name,
       description: data.description || '',
-      price: data.price,
+      price: hasVariants ? 0 : data.price,
       manage_stock: hasVariants ? true : !data.infinite_stock,
       stock: hasVariants
         ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0)
@@ -300,13 +300,11 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
           <FormField control={form.control} name="name" render={({ field }) => (
             <FormItem>
               <FormLabel>Name *</FormLabel>
-              <div className="flex gap-2 relative">
-                <FormControl><Input {...field} className="pr-12" /></FormControl>
-                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={handleAutofill} disabled={isAutofilling}>
-                  {isAutofilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                  <span className="sr-only">Autofill with AI</span>
-                </Button>
-              </div>
+              <FormControl><Input {...field} /></FormControl>
+              <Button type="button" variant="outline" size="sm" onClick={handleAutofill} disabled={isAutofilling} className="mt-2 w-full">
+                {isAutofilling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                Autofill with AI
+              </Button>
               <FormMessage />
             </FormItem>
           )} />
@@ -322,7 +320,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
               <FormMessage />
             </FormItem>
           )} />
-          
+
           <FormField control={form.control} name="category" render={({ field }) => (
             <FormItem>
               <FormLabel>Category *</FormLabel>
@@ -345,25 +343,25 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
           )} />
 
           {categoryConfig.supportsVariants && (
-             <FormItem>
-                <FormLabel
-                    htmlFor="variants-switch"
-                    className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
-                >
-                    <div className="space-y-0.5">
-                        <div className="font-medium">Product Variants</div>
-                        <FormDescription>
-                        Does this product have options like size, color, or storage?
-                        </FormDescription>
-                    </div>
-                    <FormControl>
-                        <Switch
-                            id="variants-switch"
-                            checked={hasVariants}
-                            onCheckedChange={setHasVariants}
-                        />
-                    </FormControl>
-                </FormLabel>
+            <FormItem>
+              <FormLabel
+                htmlFor="variants-switch"
+                className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+              >
+                <div className="space-y-0.5">
+                  <div className="font-medium">Product Variants</div>
+                  <FormDescription>
+                    Does this product have options like size, color, or storage?
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    id="variants-switch"
+                    checked={hasVariants}
+                    onCheckedChange={setHasVariants}
+                  />
+                </FormControl>
+              </FormLabel>
             </FormItem>
           )}
 
@@ -401,25 +399,25 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                   <FormMessage />
                 </FormItem>
               )} />
-              
+
               <FormItem>
                 <FormLabel
-                    htmlFor="stock-switch"
-                    className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+                  htmlFor="stock-switch"
+                  className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
                 >
-                    <div className="space-y-0.5">
-                        <div className="font-medium">Track Inventory</div>
-                        <FormDescription>Uncheck if you have unlimited stock (e.g. digital products).</FormDescription>
-                    </div>
-                    <FormField control={form.control} name="infinite_stock" render={({ field }) => (
-                        <FormControl>
-                            <Switch
-                            id="stock-switch"
-                            checked={!field.value}
-                            onCheckedChange={(checked) => field.onChange(!checked)}
-                            />
-                        </FormControl>
-                    )} />
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Track Inventory</div>
+                    <FormDescription>Uncheck if you have unlimited stock (e.g. digital products).</FormDescription>
+                  </div>
+                  <FormField control={form.control} name="infinite_stock" render={({ field }) => (
+                    <FormControl>
+                      <Switch
+                        id="stock-switch"
+                        checked={!field.value}
+                        onCheckedChange={(checked) => field.onChange(!checked)}
+                      />
+                    </FormControl>
+                  )} />
                 </FormLabel>
               </FormItem>
 

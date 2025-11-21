@@ -120,6 +120,7 @@ export async function POST(request: NextRequest) {
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function processPriceList(input: any) {
     const { currentProducts, priceListData, vendor, fileType } = input;
 

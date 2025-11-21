@@ -48,6 +48,64 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 
 // The original layout is now a client component to prevent hydration errors.
+
+const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }: { isMobile?: boolean, isCollapsed: boolean, merchantLoading: boolean, storeUrl: string }) => {
+  const baseClassName = isMobile
+    ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
+    : cn('flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground', isCollapsed && 'justify-center');
+
+  const isReady = !merchantLoading && storeUrl !== '#';
+
+  if (!isReady) {
+    const loadingContent = (
+      <div className={cn(baseClassName, 'opacity-50 cursor-not-allowed')}>
+        <Loader2 className={cn('h-4 w-4 animate-spin', isMobile && 'h-5 w-5')} />
+        {!isCollapsed && !isMobile && 'Visit Store'}
+        {isMobile && 'Visit Store'}
+      </div>
+    );
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {loadingContent}
+          </TooltipTrigger>
+          <TooltipContent side="right">Loading store...</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  const linkContent = (
+    <>
+      <Store className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
+      {!isCollapsed && !isMobile && 'Visit Store'}
+      {isMobile && 'Visit Store'}
+    </>
+  );
+
+  return (
+    <Link
+      href={storeUrl}
+      className={cn(baseClassName, 'transition-all hover:text-primary')}
+    >
+      {isCollapsed && !isMobile ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>{linkContent}</span>
+            </TooltipTrigger>
+            <TooltipContent side="right">Visit Store</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        linkContent
+      )}
+    </Link>
+  );
+};
+
 export default function DashboardClientLayout({
   children,
 }: {
@@ -86,7 +144,7 @@ export default function DashboardClientLayout({
   }, [user, merchant, authLoading, merchantLoading, router, toast]);
 
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
-  
+
   const getStoreUrl = () => {
     if (typeof window === 'undefined' || !merchant?.business_name) return '#';
     const slug = merchant.business_name.toLowerCase().replace(/\s+/g, '-');
@@ -125,9 +183,9 @@ export default function DashboardClientLayout({
       label: 'Customers',
     },
     {
-        href: '/dashboard/pages',
-        icon: FileText,
-        label: 'Pages',
+      href: '/dashboard/pages',
+      icon: FileText,
+      label: 'Pages',
     },
     {
       href: '/dashboard/settings',
@@ -136,70 +194,15 @@ export default function DashboardClientLayout({
     },
   ];
 
-  const StoreLink = ({ isMobile = false }) => {
-    const baseClassName = isMobile 
-        ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
-        : cn('flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground', isCollapsed && 'justify-center');
 
-    const isReady = !merchantLoading && storeUrl !== '#';
 
-    if (!isReady) {
-        const loadingContent = (
-             <div className={cn(baseClassName, 'opacity-50 cursor-not-allowed')}>
-                <Loader2 className={cn('h-4 w-4 animate-spin', isMobile && 'h-5 w-5')} />
-                {!isCollapsed && !isMobile && 'Visit Store'}
-                {isMobile && 'Visit Store'}
-            </div>
-        );
-
-        return (
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                       {loadingContent}
-                    </TooltipTrigger>
-                    <TooltipContent side="right">Loading store...</TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-        );
-    }
-
-    const linkContent = (
-      <>
-        <Store className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
-        {!isCollapsed && !isMobile && 'Visit Store'}
-        {isMobile && 'Visit Store'}
-      </>
-    );
-
-    return (
-       <Link
-        href={storeUrl}
-        className={cn(baseClassName, 'transition-all hover:text-primary')}
-      >
-        {isCollapsed && !isMobile ? (
-             <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <span>{linkContent}</span>
-                    </TooltipTrigger>
-                    <TooltipContent side="right">Visit Store</TooltipContent>
-                </Tooltip>
-             </TooltipProvider>
-        ) : (
-            linkContent
-        )}
-      </Link>
-    );
-  };
-  
   // While checking auth OR if auth has succeeded but we are still waiting for the merchant,
   // show a full-page loading screen. This prevents content flashes and incorrect redirects.
   if (authLoading || (user && merchantLoading)) {
     return (
-        <div className="flex min-h-screen w-full items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
+      <div className="flex min-h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
     );
   }
 
@@ -220,73 +223,73 @@ export default function DashboardClientLayout({
             </Link>
           </div>
           <div className="flex-1 overflow-y-auto">
-             <TooltipProvider>
-                <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
+            <TooltipProvider>
+              <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
                 {navItems.map((item) => (
-                    <Link
+                  <Link
                     key={item.label}
                     href={item.href}
                     className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                        { 'bg-muted text-primary': pathname === item.href },
-                        isCollapsed && 'justify-center'
+                      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+                      { 'bg-muted text-primary': pathname === item.href },
+                      isCollapsed && 'justify-center'
                     )}
-                    >
+                  >
                     <Tooltip>
-                        <TooltipTrigger asChild>
-                            <div className="flex items-center gap-3">
-                                <item.icon className="h-4 w-4" />
-                                {!isCollapsed && <span>{item.label}</span>}
-                            </div>
-                        </TooltipTrigger>
-                        {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-3">
+                          <item.icon className="h-4 w-4" />
+                          {!isCollapsed && <span>{item.label}</span>}
+                        </div>
+                      </TooltipTrigger>
+                      {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
                     </Tooltip>
 
                     {!isCollapsed && item.badge && (
-                        <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                      <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
                         {item.badge}
-                        </Badge>
+                      </Badge>
                     )}
-                    </Link>
+                  </Link>
                 ))}
-                <StoreLink />
-                </nav>
+                <StoreLink isMobile={false} isCollapsed={isCollapsed} merchantLoading={merchantLoading} storeUrl={storeUrl} />
+              </nav>
             </TooltipProvider>
           </div>
           <div className="mt-auto p-4">
-             {!isCollapsed && (
-                <Card>
-                    <CardHeader className="p-2 pt-0 md:p-4">
-                        <CardTitle>Upgrade to Pro</CardTitle>
-                        <CardDescription>
-                        Unlock all features and get unlimited access to our support
-                        team.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="p-2 pt-0 md:p-4 md:pt-0">
-                        <Button size="sm" className="w-full">
-                        Upgrade
-                        </Button>
-                    </CardContent>
-                </Card>
-             )}
+            {!isCollapsed && (
+              <Card>
+                <CardHeader className="p-2 pt-0 md:p-4">
+                  <CardTitle>Upgrade to Pro</CardTitle>
+                  <CardDescription>
+                    Unlock all features and get unlimited access to our support
+                    team.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-2 pt-0 md:p-4 md:pt-0">
+                  <Button size="sm" className="w-full">
+                    Upgrade
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
-         
+
       </div>
       <div className="flex flex-col relative">
-       <Button
-            variant="default"
-            size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className={cn(
-                "fixed top-1/2 -translate-y-1/2 z-20 hidden md:flex rounded-full",
-                isCollapsed ? "left-[68px]" : "left-[208px] lg:left-[268px]",
-                "bg-blue-600 hover:bg-blue-700 text-white transition-all"
-            )}
-            >
-            {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-            <span className="sr-only">{isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
+        <Button
+          variant="default"
+          size="icon"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={cn(
+            "fixed top-1/2 -translate-y-1/2 z-20 hidden md:flex rounded-full",
+            isCollapsed ? "left-[68px]" : "left-[208px] lg:left-[268px]",
+            "bg-blue-600 hover:bg-blue-700 text-white transition-all"
+          )}
+        >
+          {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+          <span className="sr-only">{isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
         </Button>
         <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 sticky top-0 z-10">
           <Sheet>
@@ -326,7 +329,7 @@ export default function DashboardClientLayout({
                     )}
                   </Link>
                 ))}
-                <StoreLink isMobile />
+                <StoreLink isMobile={true} isCollapsed={false} merchantLoading={merchantLoading} storeUrl={storeUrl} />
               </nav>
               <div className="mt-auto">
                 <Card>
@@ -349,30 +352,30 @@ export default function DashboardClientLayout({
           <div className="w-full flex-1">
             {/* Search bar removed from here */}
           </div>
-           <DropdownMenu>
+          <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2">
-                    {merchantLoading ? (
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : selectedCountry ? (
-                        <span className="text-2xl">{selectedCountry.flag}</span>
-                    ) : (
-                        '🌐'
-                    )}
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                </Button>
+              <Button variant="outline" className="flex items-center gap-2">
+                {merchantLoading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : selectedCountry ? (
+                  <span className="text-2xl">{selectedCountry.flag}</span>
+                ) : (
+                  '🌐'
+                )}
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Select Country</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {COUNTRIES.map(country => (
-                    <DropdownMenuItem key={country.code} onSelect={() => updateMerchant({ country: country.code })}>
-                        <span className="mr-2 text-lg">{country.flag}</span>
-                        <span>{country.name}</span>
-                    </DropdownMenuItem>
-                ))}
+              <DropdownMenuLabel>Select Country</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {COUNTRIES.map(country => (
+                <DropdownMenuItem key={country.code} onSelect={() => updateMerchant({ country: country.code })}>
+                  <span className="mr-2 text-lg">{country.flag}</span>
+                  <span>{country.name}</span>
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
-           </DropdownMenu>
+          </DropdownMenu>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" size="icon" className="rounded-full">

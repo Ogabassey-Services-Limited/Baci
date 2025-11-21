@@ -7,12 +7,12 @@ import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
 
-export const AutofillProductDetailsInputSchema = z.object({
+const AutofillProductDetailsInputSchema = z.object({
   productName: z.string().describe("The name of the product to generate details for."),
   businessType: z.string().describe("The merchant's business category (e.g., 'fashion', 'electronics')."),
 });
 
-export type AutofillProductDetailsInput = z.infer<typeof AutofillProductDetailsInputSchema>;
+type AutofillProductDetailsInput = z.infer<typeof AutofillProductDetailsInputSchema>;
 
 const VariantSuggestionSchema = z.object({
   attribute: z.string().describe("The name of the variant attribute, e.g., 'Color', 'Size', 'Storage'."),
@@ -20,26 +20,26 @@ const VariantSuggestionSchema = z.object({
 });
 
 const ProductDetailsSchema = z.object({
-    suggestedName: z.string().describe("A standardized, professional product name. e.g., 'samsung s24' should become 'Samsung Galaxy S24'."),
-    description: z.string().describe("A compelling, concise product description (2-3 sentences)."),
-    category: z.string().describe("The most suitable category for the product."),
-    brand: z.string().describe("The brand of the product. This could be the merchant's own brand or a popular brand if applicable."),
-    suggestedVariants: z.array(VariantSuggestionSchema).optional().describe("An array of suggested variant attributes and their options, if applicable.")
+  suggestedName: z.string().describe("A standardized, professional product name. e.g., 'samsung s24' should become 'Samsung Galaxy S24'."),
+  description: z.string().describe("A compelling, concise product description (2-3 sentences)."),
+  category: z.string().describe("The most suitable category for the product."),
+  brand: z.string().describe("The brand of the product. This could be the merchant's own brand or a popular brand if applicable."),
+  suggestedVariants: z.array(VariantSuggestionSchema).optional().describe("An array of suggested variant attributes and their options, if applicable.")
 });
 
 const AutofillProductDetailsOutputSchema = z.object({
   details: ProductDetailsSchema,
 });
 
-export type AutofillProductDetailsOutput = z.infer<typeof AutofillProductDetailsOutputSchema>;
+type AutofillProductDetailsOutput = z.infer<typeof AutofillProductDetailsOutputSchema>;
 
 export async function autofillProductDetails(
   input: AutofillProductDetailsInput
 ): Promise<AutofillProductDetailsOutput> {
   const { productName, businessType } = input;
   const categoryConfig = getCategoryConfigFromBusinessType(businessType);
-  
-  const possibleVariantAttributesWithLabels = categoryConfig.variantAttributes?.map(attr => 
+
+  const possibleVariantAttributesWithLabels = categoryConfig.variantAttributes?.map(attr =>
     `${attr.label}${attr.options ? ` (Options: ${attr.options.join(', ')})` : ''}`
   ).join('; ') || 'None';
 
@@ -68,7 +68,8 @@ export async function autofillProductDetails(
         5.  **suggestedVariants**: You **must** analyze the product name and suggest relevant variants. For electronics like phones or laptops, you **must** suggest 'Storage Capacity' and 'RAM' if they are listed as possible attributes.
             - The attribute name (e.g., 'RAM', 'Storage Capacity') **MUST EXACTLY MATCH** one of the labels from the "Possible Variant Attributes" list.
             - The suggested options (e.g., '8GB', '256GB') should come from the examples provided for that attribute if available.
-            - **Example**: For "iPhone 15 Pro", you must suggest 'Storage Capacity' with options like ['256GB', '512GB'] AND 'Color' with options like ['Natural Titanium', 'Blue Titanium'].
+            - **Example**: For "iPhone 15 Pro", you must suggest 'Storage Capacity' with options like ['256GB', '512GB'] AND 'Color' with options like ['Natural Titanium', 'Blue Titanium', 'Midnight Black'].
+            - **IMPORTANT**: Return **at least three** distinct color options when the "Color" attribute is present.
             - If no variants seem applicable, return an empty array for this field. DO NOT suggest a price.
 
         Return a single, valid JSON object.
@@ -76,6 +77,15 @@ export async function autofillProductDetails(
     });
 
     logger.info({ message: 'Product details autofilled successfully', details: object });
+
+    // Debug logging for variant suggestions
+    if (object.suggestedVariants && object.suggestedVariants.length > 0) {
+      logger.info({
+        message: 'AI Variant Suggestions Detail',
+        suggestions: object.suggestedVariants
+      });
+    }
+
     return { details: object };
 
   } catch (error) {

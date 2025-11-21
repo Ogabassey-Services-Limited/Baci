@@ -10,19 +10,19 @@ import { useRouter } from 'next/navigation';
 import { KeyRound, Loader2, Mail, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { Logo } from '@/components/logo';
 
 const authSchema = z.object({
-  email: z.string().email('Please enter a valid email address.'),
-  password: z.string().min(6, 'Password must be at least 6 characters.'),
+    email: z.string().email('Please enter a valid email address.'),
+    password: z.string().min(6, 'Password must be at least 6 characters.'),
 });
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email('Please enter a valid email address.'),
+    email: z.string().email('Please enter a valid email address.'),
 });
 
 type AuthFormValues = z.infer<typeof authSchema>;
@@ -30,10 +30,10 @@ type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 const GoogleIcon = () => (
     <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4">
-      <title>Google</title>
-      <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.05 1.05-2.36 1.67-4.04 1.67-3.27 0-5.93-2.66-5.93-5.93s2.66-5.93 5.93-5.93c1.73 0 3.23.68 4.17 1.57l2.48-2.48C18.47 2.44 15.82 1 12.48 1 7.23 1 3.06 4.93 3.06 10s4.17 9 9.42 9c2.8 0 4.93-1.07 6.57-2.62 1.73-1.62 2.36-3.88 2.36-6.09 0-.6-.05-1.18-.15-1.73H12.48z" />
+        <title>Google</title>
+        <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.05 1.05-2.36 1.67-4.04 1.67-3.27 0-5.93-2.66-5.93-5.93s2.66-5.93 5.93-5.93c1.73 0 3.23.68 4.17 1.57l2.48-2.48C18.47 2.44 15.82 1 12.48 1 7.23 1 3.06 4.93 3.06 10s4.17 9 9.42 9c2.8 0 4.93-1.07 6.57-2.62 1.73-1.62 2.36-3.88 2.36-6.09 0-.6-.05-1.18-.15-1.73H12.48z" />
     </svg>
-  );
+);
 
 export default function LoginForm() {
     const [mode, setMode] = useState<'login' | 'forgot-password'>('login');
@@ -43,12 +43,12 @@ export default function LoginForm() {
     const { toast } = useToast();
     const router = useRouter();
     const supabase = createClient();
-    
+
     const form = useForm<AuthFormValues>({
         resolver: zodResolver(authSchema),
         defaultValues: { email: '', password: '' },
     });
-    
+
     const forgotPasswordForm = useForm<ForgotPasswordFormValues>({
         resolver: zodResolver(forgotPasswordSchema),
         defaultValues: { email: '' },
@@ -57,7 +57,7 @@ export default function LoginForm() {
     const onSubmit = async (data: AuthFormValues) => {
         setIsLoading(true);
         try {
-            const { data: authData, error } = await supabase.auth.signInWithPassword(data);
+            const { error } = await supabase.auth.signInWithPassword(data);
             if (error) throw error;
             toast({ title: "Sign-in Successful", description: "Welcome back!" });
             router.push('/dashboard');
@@ -71,7 +71,7 @@ export default function LoginForm() {
             setIsLoading(false);
         }
     };
-    
+
     const handleForgotPassword = async (data: ForgotPasswordFormValues) => {
         setIsLoading(true);
         try {
@@ -98,18 +98,18 @@ export default function LoginForm() {
     const handleGoogleSignIn = async () => {
         setIsGoogleLoading(true);
         const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/auth/callback`,
-          },
+            provider: 'google',
+            options: {
+                redirectTo: `${window.location.origin}/auth/callback`,
+            },
         });
         if (error) {
-          toast({
-            variant: 'destructive',
-            title: 'Google Sign-in Failed',
-            description: error.message,
-          });
-          setIsGoogleLoading(false);
+            toast({
+                variant: 'destructive',
+                title: 'Google Sign-in Failed',
+                description: error.message,
+            });
+            setIsGoogleLoading(false);
         }
     };
 
@@ -135,14 +135,14 @@ export default function LoginForm() {
                         </div>
                         <CardTitle className="pt-2">{getTitle()}</CardTitle>
                         <CardDescription>
-                           {getDescription()}
+                            {getDescription()}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         {mode === 'forgot-password' ? (
-                             <FormProvider {...forgotPasswordForm}>
+                            <FormProvider {...forgotPasswordForm}>
                                 <form onSubmit={forgotPasswordForm.handleSubmit(handleForgotPassword)} className="space-y-4">
-                                     <FormField
+                                    <FormField
                                         control={forgotPasswordForm.control}
                                         name="email"
                                         render={({ field }) => (

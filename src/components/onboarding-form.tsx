@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/popover";
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, Upload, CheckCircle, Mail, KeyRound, Eye, EyeOff, RefreshCw, AlertCircle, Pencil, Shuffle } from 'lucide-react';
+import { Loader2, Sparkles, Upload, CheckCircle, Mail, KeyRound, Eye, EyeOff, AlertCircle, Pencil, Shuffle } from 'lucide-react';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -39,9 +39,8 @@ import { PasswordStrengthIndicator } from '@/components/password-strength-indica
 import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/onboarding/actions';
 import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { OnboardingFormValues, onboardingSchema, step1Schema, step2Schema, step3Schema } from '@/schemas/onboarding';
+import { OnboardingFormValues, onboardingSchema, step3Schema } from '@/schemas/onboarding';
 import { StorefrontPreview } from './storefront-preview';
-import { ThemedButton } from './themed';
 import { ColorPicker } from './color-picker';
 import { colord, extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
@@ -129,7 +128,7 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
 }
 
 
-function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; }) {
+function Step2_Branding() {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
   const { watch, setValue } = form;
@@ -140,10 +139,7 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
   const brandColorsString = watch('brandColors');
   const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
 
-  const [generatedLogos, setGeneratedLogos] = useState<string[]>([]);
-  const [selectedGeneratedLogoIndex, setSelectedGeneratedLogoIndex] = useState<number | null>(null);
-
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isGenerating] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
 
   const isLoading = isGenerating || isExtracting;
@@ -184,7 +180,7 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
         }
       };
 
-      img.onerror = (e) => {
+      img.onerror = (_e) => {
         reject(new Error('Image could not be loaded for color extraction.'));
       };
     });
@@ -197,8 +193,6 @@ function Step2_Branding({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTML
       reader.onloadend = async () => {
         const dataUri = reader.result as string;
         setValue('logoDataUri', dataUri, { shouldValidate: true });
-        setGeneratedLogos([]);
-        setSelectedGeneratedLogoIndex(null);
         setIsExtracting(true);
         try {
           const colors = await extractColorsFromImage(dataUri);
@@ -597,7 +591,7 @@ export default function OnboardingForm() {
           toast({ title: 'Upload failed', description: 'Could not upload logo. Please try again.', variant: 'destructive' });
           return;
         }
-      } catch (error) {
+      } catch (_error) {
         toast({ title: 'Upload failed', description: 'Could not upload logo. Please try again.', variant: 'destructive' });
         return;
       }
@@ -650,7 +644,7 @@ export default function OnboardingForm() {
           <input type="hidden" {...form.register('brandColors')} />
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
             {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
-            {step === 2 && <Step2_Branding onKeyDown={handleKeyDown} />}
+            {step === 2 && <Step2_Branding />}
             {step === 3 && (
               magicLinkSent ? (
                 <Alert className="mt-4">

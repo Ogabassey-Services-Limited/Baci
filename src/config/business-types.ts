@@ -59,7 +59,7 @@ export interface BusinessTypeConfig {
   /** Recommended features for this business type (future) */
   recommendedFeatures?: string[];
   /** Template component to use for storefronts */
-  template: React.ComponentType<any>;
+  template: React.ComponentType<unknown>;
   /** Lucide icon component for UI */
   icon: LucideIcon;
   /** Journey configuration for onboarding and product creation */

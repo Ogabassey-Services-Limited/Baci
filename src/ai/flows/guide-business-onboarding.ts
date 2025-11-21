@@ -4,7 +4,7 @@ import { generateObject } from 'ai';
 import { geminiFlash } from '@/ai/provider';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { getBusinessTypeById } from '@/config/business-types';
+
 
 const GuideBusinessOnboardingInputSchema = z.object({
   businessName: z.string().describe("The user's business name."),
@@ -18,14 +18,14 @@ const GuideBusinessOnboardingInputSchema = z.object({
     ),
   task: z.enum(['generate_logos', 'extract_colors']).describe("The specific task for the flow to perform."),
 });
-export type GuideBusinessOnboardingInput = z.infer<typeof GuideBusinessOnboardingInputSchema>;
+type GuideBusinessOnboardingInput = z.infer<typeof GuideBusinessOnboardingInputSchema>;
 
 const BrandColorsSchema = z.object({
   primary: z.string().describe('The primary color, most dominant in the logo.'),
   background: z.string().describe('The background color, should be light and suitable for a page background. Prefer white or off-white.'),
   accent: z.string().describe('An accent color for highlights and calls-to-action.'),
 });
-export type BrandColors = z.infer<typeof BrandColorsSchema>;
+type BrandColors = z.infer<typeof BrandColorsSchema>;
 
 const GuideBusinessOnboardingOutputSchema = z.object({
   logos: z
@@ -36,7 +36,7 @@ const GuideBusinessOnboardingOutputSchema = z.object({
     ),
   brandColors: BrandColorsSchema.optional().describe('A list of 3 brand colors in hex format (e.g., #RRGGBB).'),
 });
-export type GuideBusinessOnboardingOutput = z.infer<typeof GuideBusinessOnboardingOutputSchema>;
+type GuideBusinessOnboardingOutput = z.infer<typeof GuideBusinessOnboardingOutputSchema>;
 
 export async function guideBusinessOnboarding(
   input: GuideBusinessOnboardingInput

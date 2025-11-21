@@ -1,7 +1,7 @@
 
 'use client';
 
-import { cn, checkPasswordStrength } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 const strengthLevels = [
   { level: 0, text: '', className: '' },

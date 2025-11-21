@@ -12,26 +12,26 @@ import { getCountryByCode } from '@/lib/countries';
 import { Separator } from '@/components/ui/separator';
 
 interface OrderData {
-  order_id?: string;
-  order_number?: string;
-  shipping: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    address: string;
-    city: string;
-    state: string;
-  };
-  items: Array<{
-    id: string;
-    name: string;
-    price: number;
-    quantity: number;
-    image: string;
-  }>;
-  subtotal?: number;
-  shipping_fee?: number;
-  total?: number;
+    order_id?: string;
+    order_number?: string;
+    shipping: {
+        firstName: string;
+        lastName: string;
+        email: string;
+        address: string;
+        city: string;
+        state: string;
+    };
+    items: Array<{
+        id: string;
+        name: string;
+        price: number;
+        quantity: number;
+        image: string;
+    }>;
+    subtotal?: number;
+    shipping_fee?: number;
+    total?: number;
 }
 
 function SuccessPageContent() {
@@ -41,6 +41,7 @@ function SuccessPageContent() {
     useEffect(() => {
         const orderData = sessionStorage.getItem('lastOrder');
         if (orderData) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setOrder(JSON.parse(orderData));
         }
     }, []);
@@ -76,7 +77,7 @@ function SuccessPageContent() {
                 </CardHeader>
                 <CardContent>
                     {order && (
-                         <div className="space-y-6">
+                        <div className="space-y-6">
                             <div>
                                 <h3 className="font-semibold mb-2">Shipping To</h3>
                                 <p className="text-sm text-muted-foreground">
@@ -102,7 +103,7 @@ function SuccessPageContent() {
                                 </div>
                             </div>
                             <Separator />
-                             <div className="space-y-2">
+                            <div className="space-y-2">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Subtotal</span>
                                     <span>{formatCurrency(subtotal)}</span>
@@ -116,7 +117,7 @@ function SuccessPageContent() {
                                     <span>{formatCurrency(total)}</span>
                                 </div>
                             </div>
-                         </div>
+                        </div>
                     )}
                     <div className="mt-8 text-center">
                         <Link href="/">

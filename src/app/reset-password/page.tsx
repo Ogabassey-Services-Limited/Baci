@@ -10,7 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
@@ -19,13 +19,13 @@ import { checkPasswordStrength } from '@/lib/utils';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 
 const resetPasswordSchema = z.object({
-  password: z.string().refine(password => checkPasswordStrength(password) >= 3, {
-    message: 'Password is not strong enough.',
-  }),
-  confirmPassword: z.string(),
+    password: z.string().refine(password => checkPasswordStrength(password) >= 3, {
+        message: 'Password is not strong enough.',
+    }),
+    confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords do not match.",
-  path: ["confirmPassword"],
+    message: "Passwords do not match.",
+    path: ["confirmPassword"],
 });
 
 
@@ -44,15 +44,15 @@ function ResetPasswordForm() {
         resolver: zodResolver(resetPasswordSchema),
         defaultValues: { password: '', confirmPassword: '' },
     });
-    
+
     const passwordValue = form.watch('password');
     const passwordStrength = checkPasswordStrength(passwordValue || '');
 
     useEffect(() => {
         const code = searchParams.get('code');
         if (code) {
-             supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
-                if(error) {
+            supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+                if (error) {
                     toast({
                         variant: 'destructive',
                         title: 'Invalid Link',
@@ -60,7 +60,7 @@ function ResetPasswordForm() {
                     });
                     router.push('/login');
                 }
-             });
+            });
         }
     }, [searchParams, supabase.auth, router, toast]);
 
@@ -88,7 +88,7 @@ function ResetPasswordForm() {
     return (
         <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
             <div className="w-full max-w-sm space-y-4">
-                 <div className="flex justify-center">
+                <div className="flex justify-center">
                     <Link href="/">
                         <Logo />
                     </Link>
@@ -103,45 +103,45 @@ function ResetPasswordForm() {
                     <CardContent>
                         <FormProvider {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                               <FormField
-                                  control={form.control}
-                                  name="password"
-                                  render={({ field }) => (
-                                      <FormItem>
-                                      <FormLabel>New Password</FormLabel>
-                                      <FormControl>
-                                          <div className="relative">
-                                              <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                              <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} className="pl-10 pr-10" id="password" name="password" />
-                                              <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
-                                                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                              </Button>
-                                          </div>
-                                      </FormControl>
-                                      <PasswordStrengthIndicator strength={passwordStrength} />
-                                      <FormMessage />
-                                      </FormItem>
-                                  )}
-                              />
                                 <FormField
-                                  control={form.control}
-                                  name="confirmPassword"
-                                  render={({ field }) => (
-                                      <FormItem>
-                                      <FormLabel>Confirm New Password</FormLabel>
-                                      <FormControl>
-                                          <div className="relative">
-                                              <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                              <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your new password" {...field} className="pl-10 pr-10" id="confirmPassword" name="confirmPassword" />
-                                              <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                                                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                                              </Button>
-                                          </div>
-                                      </FormControl>
-                                      <FormMessage />
-                                      </FormItem>
-                                  )}
-                              />
+                                    control={form.control}
+                                    name="password"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>New Password</FormLabel>
+                                            <FormControl>
+                                                <div className="relative">
+                                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                    <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} className="pl-10 pr-10" id="password" name="password" />
+                                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
+                                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </Button>
+                                                </div>
+                                            </FormControl>
+                                            <PasswordStrengthIndicator strength={passwordStrength} />
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="confirmPassword"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Confirm New Password</FormLabel>
+                                            <FormControl>
+                                                <div className="relative">
+                                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                    <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your new password" {...field} className="pl-10 pr-10" id="confirmPassword" name="confirmPassword" />
+                                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    </Button>
+                                                </div>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
                                 <Button type="submit" className="w-full" disabled={isLoading}>
                                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Update Password

@@ -195,8 +195,8 @@ export function getAllCategories(): string[] {
 
 export function getVariantCategories(): string[] {
     return Object.entries(CATEGORY_CONFIGS)
-        .filter(([_, config]) => config.supportsVariants)
-        .map(([key, _]) => key);
+        .filter(([, config]) => config.supportsVariants)
+        .map(([key]) => key);
 }
 
 /**

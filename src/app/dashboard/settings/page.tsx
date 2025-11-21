@@ -43,7 +43,7 @@ import { Loader2, Upload, CheckCircle, Pencil, Shuffle } from 'lucide-react';
 import Image from 'next/image';
 import { logger } from '@/lib/logger';
 import ColorThief from 'colorthief';
-import { colord, extend } from 'colord';
+import { extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
 import { ColorPicker } from '@/components/color-picker';
 import type { BrandColors } from '@/types';
@@ -59,36 +59,36 @@ const settingsSchema = z.object({
 type SettingsFormValues = z.infer<typeof settingsSchema>;
 
 const extractColorsFromImage = (imageDataUri: string): Promise<BrandColors> => {
-    return new Promise((resolve, reject) => {
-      const img = document.createElement('img');
-      img.crossOrigin = 'Anonymous';
-      img.src = imageDataUri;
+  return new Promise((resolve, reject) => {
+    const img = document.createElement('img');
+    img.crossOrigin = 'Anonymous';
+    img.src = imageDataUri;
 
-      img.onload = () => {
-        try {
-          const colorThief = new ColorThief();
-          const palette = colorThief.getPalette(img, 5);
-          
-          const toHex = (rgb: number[]) => `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`;
+    img.onload = () => {
+      try {
+        const colorThief = new ColorThief();
+        const palette = colorThief.getPalette(img, 5);
 
-          const primaryRgb = palette[0] || [0,0,0];
-          const accentRgb = palette[1] || primaryRgb;
+        const toHex = (rgb: number[]) => `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`;
 
-          resolve({
-            primary: toHex(primaryRgb),
-            background: '#FFFFFF',
-            accent: toHex(accentRgb),
-          });
+        const primaryRgb = palette[0] || [0, 0, 0];
+        const accentRgb = palette[1] || primaryRgb;
 
-        } catch (e) {
-          reject(e);
-        }
-      };
-      
-      img.onerror = () => {
-        reject(new Error('Image could not be loaded for color extraction.'));
-      };
-    });
+        resolve({
+          primary: toHex(primaryRgb),
+          background: '#FFFFFF',
+          accent: toHex(accentRgb),
+        });
+
+      } catch (e) {
+        reject(e);
+      }
+    };
+
+    img.onerror = () => {
+      reject(new Error('Image could not be loaded for color extraction.'));
+    };
+  });
 };
 
 
@@ -148,9 +148,9 @@ export default function SettingsPage() {
     if (!merchant?.brand_colors) return;
     const { primary, background, accent } = merchant.brand_colors;
     const remappedColors: BrandColors = {
-        primary: accent,
-        background: primary,
-        accent: background,
+      primary: accent,
+      background: primary,
+      accent: background,
     };
     updateMerchant({ brand_colors: remappedColors });
   };
@@ -163,8 +163,8 @@ export default function SettingsPage() {
         title: 'Settings Saved!',
         description: 'Your store settings have been updated.',
       });
-    } catch(e) {
-       toast({
+    } catch (e) {
+      toast({
         title: 'Error Saving Settings',
         description: (e as Error).message,
         variant: 'destructive',
@@ -190,60 +190,60 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="grid md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-                <Label>Logo</Label>
-                 <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 w-full flex flex-col items-center justify-center text-center transition-colors", merchant?.logo_url ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
-                    {merchant?.logo_url ? (
-                        <>
-                            <Image src={merchant.logo_url} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
-                            <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
-                        </>
-                    ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Click to upload new logo</p></>)}
-                    {isUploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
-                    <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isUploading}/>
-                </div>
+          <div className="space-y-4">
+            <Label>Logo</Label>
+            <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 w-full flex flex-col items-center justify-center text-center transition-colors", merchant?.logo_url ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
+              {merchant?.logo_url ? (
+                <>
+                  <Image src={merchant.logo_url} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
+                  <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
+                </>
+              ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Click to upload new logo</p></>)}
+              {isUploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
+              <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isUploading} />
             </div>
-            <div className="space-y-4">
-                <Label>Brand Colors</Label>
-                {brandColors ? (
-                    <div className="flex items-center gap-4">
-                        <div className="flex gap-4">
-                            {(['primary', 'background', 'accent'] as const).map((role) => (
-                                <div key={role} className="flex flex-col items-center gap-1.5">
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <div
-                                                className="w-12 h-12 rounded-full border-2 cursor-pointer relative group"
-                                                aria-label={`Edit ${role} color`}
-                                            >
-                                                <div
-                                                    className="w-full h-full rounded-full"
-                                                    style={{ backgroundColor: brandColors[role as keyof typeof brandColors] }}
-                                                />
-                                                <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-100">
-                                                    <Pencil className="w-5 h-5 text-white" />
-                                                </div>
-                                            </div>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto">
-                                            <ColorPicker
-                                                color={brandColors[role as keyof typeof brandColors]}
-                                                onChange={(newColor) => handleColorChange(role, newColor)}
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                    <span className="text-xs font-medium capitalize" style={{color: brandColors[role as keyof typeof brandColors]}}>{role}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <Button variant="outline" size="icon" onClick={handleShuffleColors} disabled={isUploading} aria-label="Shuffle Colors">
-                            <Shuffle className="w-4 h-4" />
-                        </Button>
+          </div>
+          <div className="space-y-4">
+            <Label>Brand Colors</Label>
+            {brandColors ? (
+              <div className="flex items-center gap-4">
+                <div className="flex gap-4">
+                  {(['primary', 'background', 'accent'] as const).map((role) => (
+                    <div key={role} className="flex flex-col items-center gap-1.5">
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <div
+                            className="w-12 h-12 rounded-full border-2 cursor-pointer relative group"
+                            aria-label={`Edit ${role} color`}
+                          >
+                            <div
+                              className="w-full h-full rounded-full"
+                              style={{ backgroundColor: brandColors[role as keyof typeof brandColors] }}
+                            />
+                            <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-100">
+                              <Pencil className="w-5 h-5 text-white" />
+                            </div>
+                          </div>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto">
+                          <ColorPicker
+                            color={brandColors[role as keyof typeof brandColors]}
+                            onChange={(newColor) => handleColorChange(role, newColor)}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <span className="text-xs font-medium capitalize" style={{ color: brandColors[role as keyof typeof brandColors] }}>{role}</span>
                     </div>
-                ) : (
-                    <p className="text-sm text-muted-foreground">Upload a logo to generate brand colors.</p>
-                )}
-            </div>
+                  ))}
+                </div>
+                <Button variant="outline" size="icon" onClick={handleShuffleColors} disabled={isUploading} aria-label="Shuffle Colors">
+                  <Shuffle className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Upload a logo to generate brand colors.</p>
+            )}
+          </div>
         </CardContent>
       </Card>
       <Card>
@@ -287,7 +287,7 @@ export default function SettingsPage() {
                       <SelectContent>
                         {COUNTRIES.map((country) => (
                           <SelectItem key={country.code} value={country.code}>
-                           <span className="mr-2 text-lg">{country.flag}</span> {country.name}
+                            <span className="mr-2 text-lg">{country.flag}</span> {country.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

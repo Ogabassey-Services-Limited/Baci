@@ -35,6 +35,7 @@ export async function GET(
             return NextResponse.json({ error: 'Product not found' }, { status: 404 });
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let variants: any[] = [];
         if (product.has_variants) {
             const { data: v } = await supabase
@@ -137,7 +138,9 @@ export async function PUT(
         if (body.has_variants && body.variants) {
             // 1. Get IDs of variants to keep (from the incoming list)
             const variantIdsToKeep = body.variants
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .filter((v: any) => v.id)
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .map((v: any) => v.id);
 
             // 2. Delete variants not in the list
@@ -156,6 +159,7 @@ export async function PUT(
             }
 
             // 3. Separate updates and inserts
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const variantsToUpsert = body.variants.map((v: any) => ({
                 id: v.id,
                 product_id: id,
@@ -168,7 +172,9 @@ export async function PUT(
                 images: v.images || []
             }));
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const variantsToUpdate = variantsToUpsert.filter((v: any) => v.id);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const variantsToInsert = variantsToUpsert.filter((v: any) => !v.id);
 
             if (variantsToUpdate.length > 0) {

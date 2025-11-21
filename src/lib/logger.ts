@@ -5,6 +5,7 @@ type LogLevel = 'info' | 'warn' | 'error';
 
 interface LogPayload {
   message: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: any;
 }
 
@@ -15,11 +16,11 @@ const log = (level: LogLevel, payload: LogPayload | Error) => {
   } else {
     // Check if there is an error object in the payload to log it correctly
     if (payload.error && payload.error instanceof Error) {
-       console[level](`[${timestamp}] [${level.toUpperCase()}] ${payload.message}`, payload.error);
+      console[level](`[${timestamp}] [${level.toUpperCase()}] ${payload.message}`, payload.error);
     } else {
-       console[level](`[${timestamp}] [${level.toUpperCase()}] ${payload.message}`, {
-         ...payload,
-       });
+      console[level](`[${timestamp}] [${level.toUpperCase()}] ${payload.message}`, {
+        ...payload,
+      });
     }
   }
 };

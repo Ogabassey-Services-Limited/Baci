@@ -12,17 +12,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Minus, Loader2, Infinity, Package, Edit } from 'lucide-react';
+import { Loader2, Infinity as InfinityIcon, Package, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Product } from '@/lib/products';
-import Fuse from 'fuse.js';
+import Image from 'next/image';
 
 interface ProductCatalogProps {
   statusFilter: string;
@@ -30,7 +29,7 @@ interface ProductCatalogProps {
   onEditProduct?: (product: Product) => void;
 }
 
-export function ProductCatalog({ statusFilter, stockFilter, onEditProduct }: ProductCatalogProps) {
+export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stockFilter, onEditProduct }: ProductCatalogProps) {
   const { products, isLoading, pagination, setPage, refetchProducts } = useProductContext();
   const { merchant } = useMerchant();
   const { toast } = useToast();
@@ -122,9 +121,11 @@ export function ProductCatalog({ statusFilter, stockFilter, onEditProduct }: Pro
                     <div className="flex items-center gap-4">
                       <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-border/50 bg-muted/20 shrink-0">
                         {product.image ? (
-                          <img
+                          <Image
                             src={product.image}
                             alt={product.name}
+                            width={48}
+                            height={48}
                             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                           />
                         ) : (
@@ -194,7 +195,7 @@ export function ProductCatalog({ statusFilter, stockFilter, onEditProduct }: Pro
                       </div>
                     ) : (
                       <div className="flex items-center justify-center gap-1.5 text-muted-foreground/70" title="Infinite Stock">
-                        <Infinity className="h-4 w-4" />
+                        <InfinityIcon className="h-4 w-4" />
                       </div>
                     )}
                   </TableCell>

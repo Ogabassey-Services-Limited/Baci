@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { colord } from 'colord';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { cn } from '@/lib/utils';
+
 
 interface ColorPickerProps {
   color: string;
@@ -20,7 +20,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
 
   const satLightBoxRef = useRef<HTMLDivElement>(null);
   const hueSliderRef = useRef<HTMLDivElement>(null);
-  
+
   const isDraggingSatLightRef = useRef(false);
   const isDraggingHueRef = useRef(false);
 
@@ -29,6 +29,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
     const newHex = newColor.toHex();
     // Only update if the color has actually changed to avoid feedback loops
     if (newHex !== colord(color).toHex()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHex(newHex);
       onChange(newHex);
     }
@@ -38,14 +39,15 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   useEffect(() => {
     const newColor = colord(color);
     if (newColor.isValid() && newColor.toHex() !== hex) {
-        const newHsl = newColor.toHsl();
-        setHue(newHsl.h);
-        setSaturation(newHsl.s);
-        setLightness(newHsl.l);
-        setHex(newColor.toHex());
+      const newHsl = newColor.toHsl();
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHue(newHsl.h);
+      setSaturation(newHsl.s);
+      setLightness(newHsl.l);
+      setHex(newColor.toHex());
     }
   }, [color, hex]);
-  
+
   const handleSatLightChange = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     if (!satLightBoxRef.current) return;
 
@@ -62,8 +64,8 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
     setSaturation(newSaturation);
     setLightness(newLightness);
   };
-  
-   const handleHueChange = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+
+  const handleHueChange = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     if (!hueSliderRef.current) return;
     const rect = hueSliderRef.current.getBoundingClientRect();
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
@@ -77,10 +79,10 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
       handleSatLightChange(e as unknown as React.MouseEvent<HTMLDivElement>);
     }
     if (isDraggingHueRef.current) {
-        handleHueChange(e as unknown as React.MouseEvent<HTMLDivElement>);
+      handleHueChange(e as unknown as React.MouseEvent<HTMLDivElement>);
     }
   };
-  
+
   const handleMouseUp = () => {
     isDraggingSatLightRef.current = false;
     isDraggingHueRef.current = false;
@@ -89,7 +91,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
     document.removeEventListener('touchmove', handleMouseMove);
     document.removeEventListener('touchend', handleMouseUp);
   };
-  
+
   const handleMouseDownSatLight = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     isDraggingSatLightRef.current = true;
     handleSatLightChange(e);
@@ -98,7 +100,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
     document.addEventListener('touchmove', handleMouseMove);
     document.addEventListener('touchend', handleMouseUp);
   };
-  
+
   const handleMouseDownHue = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     isDraggingHueRef.current = true;
     handleHueChange(e);
@@ -132,20 +134,20 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
 
       <div className="space-y-2">
         <Label>Hue</Label>
-        <div 
+        <div
           ref={hueSliderRef}
           className="relative h-4 w-full cursor-pointer rounded-full"
-          style={{ background: 'linear-gradient(to right, rgb(255, 0, 0) 0%, rgb(255, 255, 0) 17%, rgb(0, 255, 0) 33%, rgb(0, 255, 255) 50%, rgb(0, 0, 255) 67%, rgb(255, 0, 255) 83%, rgb(255, 0, 0) 100%)'}}
+          style={{ background: 'linear-gradient(to right, rgb(255, 0, 0) 0%, rgb(255, 255, 0) 17%, rgb(0, 255, 0) 33%, rgb(0, 255, 255) 50%, rgb(0, 0, 255) 67%, rgb(255, 0, 255) 83%, rgb(255, 0, 0) 100%)' }}
           onMouseDown={handleMouseDownHue}
           onTouchStart={handleMouseDownHue}
         >
-             <div
-                className="absolute h-5 w-5 -top-0.5 rounded-full border-2 border-white bg-transparent shadow-md pointer-events-none"
-                style={{
-                    left: `${(hue / 360) * 100}%`,
-                    transform: 'translateX(-50%)',
-                }}
-             />
+          <div
+            className="absolute h-5 w-5 -top-0.5 rounded-full border-2 border-white bg-transparent shadow-md pointer-events-none"
+            style={{
+              left: `${(hue / 360) * 100}%`,
+              transform: 'translateX(-50%)',
+            }}
+          />
         </div>
       </div>
 
@@ -155,11 +157,11 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
           id="hex-input"
           value={hex}
           onChange={(e) => {
-              const newHex = e.target.value;
-              setHex(newHex);
-              if (colord(newHex).isValid()) {
-                  onChange(newHex);
-              }
+            const newHex = e.target.value;
+            setHex(newHex);
+            if (colord(newHex).isValid()) {
+              onChange(newHex);
+            }
           }}
           className="font-mono"
         />

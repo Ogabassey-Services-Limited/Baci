@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
         })) || [];
 
         // Calculate stats (this might be expensive on large datasets, consider caching or separate endpoint)
-        const { data: allStats, error: statsError } = await supabase
+        const { data: allStats, error: _statsError } = await supabase
             .from('products')
             .select('price, stock_quantity, is_active')
             .eq('merchant_id', merchant.id);
@@ -216,6 +216,7 @@ export async function POST(request: NextRequest) {
 
         // Insert Variants if any
         if (body.has_variants && body.variants && body.variants.length > 0) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const variantsToInsert = body.variants.map((v: any) => ({
                 product_id: product.id,
                 merchant_id: merchant.id,

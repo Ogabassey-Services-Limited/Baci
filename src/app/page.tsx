@@ -6,35 +6,14 @@ import { Logo } from '@/components/logo';
 import Link from 'next/link';
 
 function BaciLandingPage() {
-   const features = [
-    {
-      icon: '🤖',
-      title: 'Intelligent Onboarding',
-      description: 'Define your business and brand preferences with a simple 3-question setup, featuring AI-powered color extraction and logo creation.',
-    },
-    {
-      icon: '🎨',
-      title: 'AI Content Generation',
-      description: 'Effortlessly generate compelling product descriptions with AI, tailored to your specific business category.',
-    },
-    {
-      icon: '📸',
-      title: 'Photo Enhancement',
-      description: 'Automatically enhance product photos with background removal, lighting adjustments, and optimal cropping.',
-    },
-    {
-      icon: '⚡️',
-      title: 'One-Click Store Creation',
-      description: 'Generate a fully functional, mobile-responsive e-commerce website in seconds from your inputs.',
-    },
-  ];
-  
+
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm">
         <Link href="/" className="flex items-center justify-center">
-            <Logo />
-            <span className="sr-only">Baci</span>
+          <Logo />
+          <span className="sr-only">Baci</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
           <Button asChild variant="outline">
@@ -73,5 +52,5 @@ function BaciLandingPage() {
 }
 
 export default function HomePage() {
-    return <BaciLandingPage />;
+  return <BaciLandingPage />;
 }

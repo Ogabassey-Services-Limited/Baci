@@ -7,7 +7,7 @@ import { FileUpload } from '@/components/products/file-upload';
 import { ProcessingView } from '@/components/products/processing-view';
 import { ReviewChanges } from '@/components/products/review-changes';
 import { Button } from '@/components/ui/button';
-import { File, PlusCircle, Search, Loader2, Send, Archive, Package, DollarSign, ListFilter, ChevronDown, CheckCircle, Edit, Trash2, Infinity } from 'lucide-react';
+import { File, PlusCircle, Search, Loader2, Send, Archive, Package, DollarSign, ListFilter, ChevronDown, CheckCircle, Edit, Trash2, Infinity as InfinityIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -333,7 +333,7 @@ function ProductsPageContent() {
                                 <DropdownMenuContent>
                                     {stockFilterOptions.map(option => (
                                         <DropdownMenuCheckboxItem key={option.value} checked={stockFilter === option.value} onCheckedChange={() => setStockFilter(option.value)} className="text-blue-800 capitalize">
-                                            {option.label === 'Infinite' ? <Infinity className="mr-2 h-4 w-4" /> : <Package className="mr-2 h-4 w-4" />}
+                                            {option.label === 'Infinite' ? <InfinityIcon className="mr-2 h-4 w-4" /> : <Package className="mr-2 h-4 w-4" />}
                                             {option.label}
                                         </DropdownMenuCheckboxItem>
                                     ))}

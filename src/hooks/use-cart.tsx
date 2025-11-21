@@ -47,6 +47,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // Load cart from localStorage on initial client-side render
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCart(getCartFromStorage());
   }, []);
 
@@ -101,7 +102,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setCart([]);
     logger.info({ message: 'Cart cleared' });
   }, []);
-  
+
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
 
   const cartTotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
