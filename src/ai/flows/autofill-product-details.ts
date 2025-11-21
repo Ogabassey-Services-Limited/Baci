@@ -38,7 +38,6 @@ export async function autofillProductDetails(
   const { productName, businessType } = input;
   const categoryConfig = getCategoryConfigFromBusinessType(businessType);
   
-  // Create a more detailed list of possible attributes with their options
   const possibleVariantAttributesWithLabels = categoryConfig.variantAttributes?.map(attr => 
     `${attr.label}${attr.options ? ` (Options: ${attr.options.join(', ')})` : ''}`
   ).join('; ') || 'None';
@@ -63,11 +62,11 @@ export async function autofillProductDetails(
         Instructions:
         1.  **Description**: Write a compelling and concise product description (2-3 sentences max).
         2.  **Category**: Choose the single most fitting category from the provided "Available Categories" list.
-        3.  **Brand**: Suggest a brand name. If it seems like a generic or handmade item, use the business name or a generic term like "Artisan". If it's a known product (like "iPhone 15"), use the actual brand (like "Apple").
-        4.  **suggestedVariants**: Analyze the product name. If it implies variants (like color, size, storage, etc.), suggest relevant attributes and options. 
-            - The attribute name (e.g., 'RAM', 'Storage Capacity') MUST EXACTLY MATCH one of the labels from the "Possible Variant Attributes" list.
-            - The suggested options (e.g., '8GB', '256GB') SHOULD COME FROM the examples provided for that attribute if available.
-            - For example, for an "iPhone 15 Pro", you might suggest 'Storage Capacity' with options like ['256GB', '512GB']. For a "Summer T-Shirt", you might suggest 'Size' and 'Color'. 
+        3.  **Brand**: Suggest a brand name. If it seems like a generic or handmade item, use the business name or a generic term like "Artisan". For a known product (e.g., "Apple iPhone 15"), use the actual brand ("Apple").
+        4.  **suggestedVariants**: You **must** analyze the product name and suggest relevant variants. For electronics like phones or laptops, you **must** suggest 'Storage Capacity' and 'RAM' if they are listed as possible attributes.
+            - The attribute name (e.g., 'RAM', 'Storage Capacity') **MUST EXACTLY MATCH** one of the labels from the "Possible Variant Attributes" list.
+            - The suggested options (e.g., '8GB', '256GB') should come from the examples provided for that attribute if available.
+            - **Example**: For "iPhone 15 Pro", you must suggest 'Storage Capacity' with options like ['256GB', '512GB'] AND 'Color' with options like ['Natural Titanium', 'Blue Titanium'].
             - If no variants seem applicable, return an empty array for this field. DO NOT suggest a price.
 
         Return a single, valid JSON object.
