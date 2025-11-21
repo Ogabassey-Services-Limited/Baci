@@ -6,8 +6,8 @@ import Image from 'next/image';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import Link from 'next/link';
-import { ShoppingBag, ArrowLeft, Plus, Minus } from 'lucide-react';
-import React from 'react';
+import { ShoppingBag, ArrowLeft, Plus, Minus, Info } from 'lucide-react';
+import React, { useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { Product } from '@/lib/products';
@@ -17,24 +17,35 @@ import { ThemedButton, ThemedBadge } from '@/components/themed';
 import { Input } from '@/components/ui/input';
 import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // This is now a dedicated Client Component that receives the product as a prop.
 export default function ProductDetailClient({ product }: { product: Product }) {
   const { merchant } = useMerchant();
   const { cart, cartCount, addToCart, updateQuantity } = useCart();
   const { toast } = useToast();
+  const [quantity, setQuantity] = useState(product.minimum_order_quantity || 1);
 
   if (!product || product.status !== 'published') {
     notFound();
   }
   
   const handleAddToCart = (product: Product) => {
-    addToCart(product);
+    addToCart(product, quantity);
     toast({
         title: "Added to cart!",
-        description: `${product.name} has been added to your cart.`,
+        description: `${quantity} x ${product.name} has been added to your cart.`,
     });
   };
+  
+  const handleQuantityChange = (newQuantity: number) => {
+    const moq = product.minimum_order_quantity || 1;
+    if (newQuantity >= moq) {
+      setQuantity(newQuantity);
+    } else {
+      setQuantity(moq);
+    }
+  }
 
   const formatCurrency = (amount: number) => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
@@ -167,6 +178,16 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                 )}
                 <p className="text-sm text-muted-foreground mt-2">{product.stock} units available</p>
               </div>
+              
+              {product.minimum_order_quantity && product.minimum_order_quantity > 1 && (
+                <Alert className="bg-blue-50 border-blue-200 text-blue-800">
+                    <Info className="h-4 w-4 text-blue-600" />
+                    <AlertDescription>
+                        Minimum order quantity: <strong>{product.minimum_order_quantity} units</strong>
+                    </AlertDescription>
+                </Alert>
+              )}
+
 
               <div className="flex flex-col gap-2">
                 {cartItem ? (
@@ -197,15 +218,32 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                     </Link>
                   </div>
                 ) : (
-                  <ThemedButton 
-                    size="lg" 
-                    colorRole="primary"
-                    className="w-full" 
-                    disabled={product.stock === 0}
-                    onClick={() => handleAddToCart(product)}
-                  >
-                    Add to Cart
-                  </ThemedButton>
+                  <div className="flex items-start gap-3">
+                    <div className="flex items-center gap-1">
+                       <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-10 w-10" onClick={() => handleQuantityChange(quantity - 1)}>
+                            <Minus className="h-4 w-4" />
+                        </ThemedButton>
+                        <Input
+                            type="number"
+                            value={quantity}
+                            onChange={(e) => handleQuantityChange(parseInt(e.target.value, 10) || 0)}
+                            className="h-10 w-16 text-center text-base remove-arrow"
+                            min={product.minimum_order_quantity || 1}
+                        />
+                        <ThemedButton colorRole="accent" size="icon" variant="default" className="h-10 w-10" onClick={() => handleQuantityChange(quantity + 1)}>
+                            <Plus className="h-4 w-4" />
+                        </ThemedButton>
+                    </div>
+                    <ThemedButton 
+                        size="lg" 
+                        colorRole="primary"
+                        className="w-full" 
+                        disabled={product.stock === 0}
+                        onClick={() => handleAddToCart(product)}
+                    >
+                        Add to Cart
+                    </ThemedButton>
+                  </div>
                 )}
               </div>
             </div>

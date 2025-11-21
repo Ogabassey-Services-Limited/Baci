@@ -12,7 +12,7 @@ interface CartItem extends Product {
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product, quantity?: number) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -55,17 +55,17 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     saveCartToStorage(cart);
   }, [cart]);
 
-  const addToCart = useCallback((product: Product) => {
+  const addToCart = useCallback((product: Product, quantity: number = 1) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id);
       if (existingItem) {
         // If item already exists, increment its quantity
         return prevCart.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
         );
       }
-      // Otherwise, add the new item with quantity 1
-      return [...prevCart, { ...product, quantity: 1 }];
+      // Otherwise, add the new item with the specified quantity
+      return [...prevCart, { ...product, quantity }];
     });
   }, []);
 
@@ -74,8 +74,20 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const updateQuantity = useCallback((productId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
+    const product = cart.find(item => item.id === productId);
+    const moq = product?.minimum_order_quantity || 1;
+
+    if (quantity < moq) {
+      if (quantity === 0) {
+        removeFromCart(productId);
+      } else {
+        // If trying to set below MOQ, reset to MOQ.
+        setCart((prevCart) =>
+          prevCart.map((item) =>
+            item.id === productId ? { ...item, quantity: moq } : item
+          )
+        );
+      }
       return;
     }
     setCart((prevCart) =>
@@ -83,7 +95,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         item.id === productId ? { ...item, quantity } : item
       )
     );
-  }, [removeFromCart]);
+  }, [cart, removeFromCart]);
 
   const clearCart = useCallback(() => {
     setCart([]);

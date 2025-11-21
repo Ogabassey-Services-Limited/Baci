@@ -32,6 +32,7 @@ const addProductSchema = z.object({
   price: z.coerce.number().min(0, 'Price must be a positive number.'),
   infinite_stock: z.boolean().default(false),
   stock: z.coerce.number().int('Stock must be a whole number.').optional(),
+  minimum_order_quantity: z.coerce.number().int('MOQ must be a whole number.').min(1, 'Minimum order quantity must be at least 1.').optional(),
   category: z.string().min(1, 'Category is required.'),
   brand: z.string().optional(),
   fulfillment_details: z.array(z.object({
@@ -68,6 +69,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       price: initialData?.price || 0,
       infinite_stock: initialData?.manage_stock === false,
       stock: initialData?.stock || 0,
+      minimum_order_quantity: initialData?.minimum_order_quantity || 1,
       category: initialData?.category || 'General',
       brand: initialData?.brand || '',
       fulfillment_details: initialData?.fulfillment_details || [],
@@ -97,7 +99,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         append({ key: 'S/N', value: '' });
       }
     } else if (currentStock < currentFields) {
-      for (let i = 0; i < currentFields - currentStock; i++) {
+      for (let i = 0; i < currentFields - 1 - i; i++) {
         remove(currentFields - 1 - i);
       }
     }
@@ -111,6 +113,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         price: initialData.price,
         infinite_stock: initialData.manage_stock === false,
         stock: initialData.stock,
+        minimum_order_quantity: initialData.minimum_order_quantity || 1,
         category: initialData.category || 'General',
         brand: initialData.brand,
         fulfillment_details: initialData.fulfillment_details || [],
@@ -260,6 +263,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       stock: hasVariants
         ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0)
         : (data.infinite_stock ? 0 : data.stock || 0),
+      minimum_order_quantity: data.minimum_order_quantity,
       status: initialData?.status || 'published',
       image: enhancedImage,
       imageLarge: enhancedImage,
@@ -295,11 +299,11 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
           <FormField control={form.control} name="name" render={({ field }) => (
             <FormItem>
               <FormLabel>Name *</FormLabel>
-              <div className="flex gap-2">
-                <FormControl><Input {...field} /></FormControl>
-                <Button type="button" variant="outline" size="sm" onClick={handleAutofill} disabled={isAutofilling}>
+              <div className="flex gap-2 relative">
+                <FormControl><Input {...field} className="pr-12" /></FormControl>
+                <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={handleAutofill} disabled={isAutofilling}>
                   {isAutofilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
-                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap ml-2">Autofill with AI</span>
+                  <span className="sr-only">Autofill with AI</span>
                 </Button>
               </div>
               <FormMessage />
@@ -344,7 +348,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                 <FormItem>
                     <FormLabel
                         htmlFor="variants-switch"
-                        className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/50 cursor-pointer"
+                        className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
                     >
                         <div className="space-y-0.5">
                             <div className="font-medium">Product Variants</div>
@@ -398,16 +402,16 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                   <FormMessage />
                 </FormItem>
               )} />
-              <FormField control={form.control} name="infinite_stock" render={({ field }) => (
-                <FormItem>
-                   <FormLabel
-                        htmlFor="stock-switch"
-                        className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
-                    >
-                        <div className="space-y-0.5">
-                            <div className="font-medium">Track Inventory</div>
-                            <FormDescription>Uncheck if you have unlimited stock (e.g. digital products).</FormDescription>
-                        </div>
+              <FormLabel
+                  htmlFor="stock-switch"
+                  className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+              >
+                  <div className="space-y-0.5">
+                      <div className="font-medium">Track Inventory</div>
+                      <FormDescription>Uncheck if you have unlimited stock (e.g. digital products).</FormDescription>
+                  </div>
+                  <FormField control={form.control} name="infinite_stock" render={({ field }) => (
+                    <FormItem>
                         <FormControl>
                             <Switch
                             id="stock-switch"
@@ -415,18 +419,27 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                             onCheckedChange={(checked) => field.onChange(!checked)}
                             />
                         </FormControl>
-                    </FormLabel>
-                </FormItem>
-              )} />
+                    </FormItem>
+                  )} />
+              </FormLabel>
 
               {!watchInfiniteStock && (
-                <FormField control={form.control} name="stock" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Stock Quantity *</FormLabel>
-                    <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )} />
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="stock" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Stock Quantity *</FormLabel>
+                      <FormControl><Input type="number" {...field} value={field.value ?? ''} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="minimum_order_quantity" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Minimum Order Qty</FormLabel>
+                      <FormControl><Input type="number" min="1" {...field} value={field.value ?? ''} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
               )}
             </>
           )}
