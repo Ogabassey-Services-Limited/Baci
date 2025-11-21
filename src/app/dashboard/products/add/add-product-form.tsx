@@ -402,6 +402,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                   <FormMessage />
                 </FormItem>
               )} />
+              
               <FormLabel
                   htmlFor="stock-switch"
                   className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
