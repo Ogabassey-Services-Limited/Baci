@@ -208,6 +208,27 @@ export function VariantBuilder({
         onVariantsChange(updated);
     };
 
+    const getPlaceholderForAttribute = (attr: CategoryVariantAttribute): string => {
+        switch (attr.type) {
+            case 'color':
+                return 'e.g., Black, Natural Titanium';
+            case 'number':
+                return `e.g., 42, 10.5`;
+            case 'select':
+                if (attr.options && attr.options.length > 0) {
+                    return `e.g., ${attr.options[0]}`;
+                }
+                return `Enter ${attr.label}`;
+            case 'text':
+                if (attr.key === 'storage') return 'e.g., 256GB, 1TB';
+                if (attr.key === 'ram') return 'e.g., 8GB, 16GB';
+                return `Enter a value for ${attr.label}`;
+            default:
+                return 'Enter a value';
+        }
+    }
+
+
     if (!categoryConfig.supportsVariants) {
         return null;
     }
@@ -270,7 +291,7 @@ export function VariantBuilder({
                                     <>
                                         <Input
                                             type="text"
-                                            placeholder={`Enter ${attr.label} (e.g., Black, 16GB)`}
+                                            placeholder={getPlaceholderForAttribute(attr)}
                                             value={textInputs[attr.key] ?? ''}
                                             onChange={(e) => setTextInputs(prev => ({ ...prev, [attr.key]: e.target.value }))}
                                             onKeyDown={(e) => {
