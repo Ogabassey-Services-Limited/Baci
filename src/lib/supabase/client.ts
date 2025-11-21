@@ -1,14 +1,9 @@
 
 import { createBrowserClient } from '@supabase/ssr';
+import { supabaseUrl, supabaseAnonKey } from '@/env';
 
 export function createClient() {
-  // Ensure the environment variables are not undefined before passing them to createBrowserClient
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Supabase URL and anonymous key must be defined in your environment variables. Please check your .env.local file.');
-  }
-
+  // The createClient function is now simplified to use the validated variables
+  // from the new env.ts file, ensuring they are always available.
   return createBrowserClient(supabaseUrl, supabaseAnonKey);
 }
