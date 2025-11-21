@@ -176,6 +176,26 @@ export function VariantBuilder({
                     {categoryConfig.variantAttributes?.map((attr) => (
                         <div key={attr.key} className="space-y-2">
                             <Label>{attr.label}{attr.required && ' *'}</Label>
+
+                            {/* Selected values (Moved above input) */}
+                            <div className="flex flex-wrap gap-2">
+                                {attributeSelections[attr.key]?.map((value) => (
+                                    <div
+                                        key={value}
+                                        className="flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+                                    >
+                                        <span>{value}</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleAttributeRemove(attr.key, value)}
+                                            className="hover:bg-primary/20 rounded-full p-0.5"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+
                             <div className="flex gap-2">
                                 {attr.type === 'select' && attr.options ? (
                                     <Select onValueChange={(value) => handleAttributeAdd(attr.key, value)}>
@@ -225,25 +245,6 @@ export function VariantBuilder({
                                         </Button>
                                     </>
                                 )}
-                            </div>
-
-                            {/* Selected values */}
-                            <div className="flex flex-wrap gap-2">
-                                {attributeSelections[attr.key]?.map((value) => (
-                                    <div
-                                        key={value}
-                                        className="flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
-                                    >
-                                        <span>{value}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleAttributeRemove(attr.key, value)}
-                                            className="hover:bg-primary/20 rounded-full p-0.5"
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </div>
-                                ))}
                             </div>
                         </div>
                     ))}
@@ -462,3 +463,5 @@ function generateVariantCombinations(
 
     return combinations;
 }
+
+    
