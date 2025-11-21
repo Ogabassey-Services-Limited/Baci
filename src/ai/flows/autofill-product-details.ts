@@ -5,21 +5,25 @@ import { generateObject } from 'ai';
 import { geminiFlash } from '@/ai/provider';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
+import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
 
 const AutofillProductDetailsInputSchema = z.object({
   productName: z.string().describe("The name of the product to generate details for."),
   businessType: z.string().describe("The merchant's business category (e.g., 'fashion', 'electronics')."),
-  currencyCode: z.string().describe("The ISO 4217 currency code for pricing (e.g., 'NGN', 'USD')."),
-  existingCategories: z.array(z.string()).describe("A list of existing product categories for the merchant's store."),
 });
 
 export type AutofillProductDetailsInput = z.infer<typeof AutofillProductDetailsInputSchema>;
 
+const VariantSuggestionSchema = z.object({
+  attribute: z.string().describe("The name of the variant attribute, e.g., 'Color', 'Size', 'Storage'."),
+  options: z.array(z.string()).describe("A list of suggested option values for this attribute, e.g., ['Small', 'Medium', 'Large'].")
+});
+
 const ProductDetailsSchema = z.object({
     description: z.string().describe("A compelling, concise product description (2-3 sentences)."),
-    price: z.number().describe("A suggested retail price for the product in the specified currency. It should be a realistic market price."),
-    category: z.string().describe("The most suitable category for the product from the provided list."),
+    category: z.string().describe("The most suitable category for the product."),
     brand: z.string().describe("The brand of the product. This could be the merchant's own brand or a popular brand if applicable."),
+    suggestedVariants: z.array(VariantSuggestionSchema).optional().describe("An array of suggested variant attributes and their options, if applicable.")
 });
 
 const AutofillProductDetailsOutputSchema = z.object({
@@ -31,27 +35,31 @@ export type AutofillProductDetailsOutput = z.infer<typeof AutofillProductDetails
 export async function autofillProductDetails(
   input: AutofillProductDetailsInput
 ): Promise<AutofillProductDetailsOutput> {
-  const { productName, businessType, currencyCode, existingCategories } = input;
+  const { productName, businessType } = input;
+  const categoryConfig = getCategoryConfigFromBusinessType(businessType);
+  const possibleVariantAttributes = categoryConfig.variantAttributes?.map(attr => attr.label).join(', ') || 'None';
+  const existingCategories = categoryConfig.productCategories || [];
+
 
   try {
     const { object } = await generateObject({
       model: geminiFlash,
       schema: ProductDetailsSchema,
       prompt: `
-        You are an AI assistant for an e-commerce platform. Your task is to autofill product details based on a product name.
+        You are an AI assistant for an e-commerce platform. Your task is to autofill product details based on a product name and business type.
 
         Product Name: "${productName}"
         Business Type: "${businessType}"
-        Currency for Price: ${currencyCode}
-        Available Categories: [${existingCategories.join(', ')}]
+        Available Categories for this Business Type: [${existingCategories.join(', ')}]
+        Possible Variant Attributes for this Business Type: ${possibleVariantAttributes}
 
         Instructions:
         1.  **Description**: Write a compelling and concise product description (2-3 sentences max).
-        2.  **Price**: Suggest a realistic market price for this product in ${currencyCode}. The price should be a number, without currency symbols.
-        3.  **Category**: Choose the most fitting category from the provided "Available Categories" list.
-        4.  **Brand**: Suggest a brand name. If it seems like a generic or handmade item, use the business name or a generic term like "Artisan". If it's a known product (like "iPhone 15"), use the actual brand (like "Apple").
+        2.  **Category**: Choose the single most fitting category from the provided "Available Categories" list.
+        3.  **Brand**: Suggest a brand name. If it seems like a generic or handmade item, use the business name or a generic term like "Artisan". If it's a known product (like "iPhone 15"), use the actual brand (like "Apple").
+        4.  **suggestedVariants**: Analyze the product name. If it implies variants (like color, size, storage, etc.), suggest relevant attributes and options. The attributes MUST be from the "Possible Variant Attributes" list. For example, for an "iPhone 15 Pro", you might suggest Storage options. For a "Summer T-Shirt", you might suggest Size and Color. If no variants seem applicable, return an empty array. DO NOT suggest a price.
 
-        Return a single, valid JSON object with the keys "description", "price", "category", and "brand".
+        Return a single, valid JSON object.
       `,
     });
 

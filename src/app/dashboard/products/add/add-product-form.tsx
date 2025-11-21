@@ -58,6 +58,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
   const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image || null);
   const [hasVariants, setHasVariants] = useState(initialData?.has_variants || false);
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
+  const [variantBuilderKey, setVariantBuilderKey] = useState(Date.now()); // Key to force re-render
 
   const form = useForm<AddProductFormValues>({
     resolver: zodResolver(addProductSchema),
@@ -158,17 +159,29 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       const result = await autofillProductDetails({
         productName: productName,
         businessType: merchant.business_type,
-        currencyCode: getCountryByCode(merchant.country || 'NG')?.currency || 'NGN',
-        existingCategories: categoryConfig.productCategories || [],
       });
       
       const { details } = result;
       if (details.description) form.setValue('description', details.description, { shouldValidate: true });
-      if (details.price) form.setValue('price', details.price, { shouldValidate: true });
       if (details.category && categoryConfig.productCategories?.includes(details.category)) {
         form.setValue('category', details.category, { shouldValidate: true });
       }
       if (details.brand) form.setValue('brand', details.brand, { shouldValidate: true });
+
+      // Handle suggested variants
+      if (details.suggestedVariants && details.suggestedVariants.length > 0) {
+        setHasVariants(true);
+        const newInitialVariants = details.suggestedVariants.map(sv => ({
+          attributes: { [sv.attribute.toLowerCase()]: '' }, // placeholder
+        }));
+        
+        // This is a bit of a hack to pass suggestions to the variant builder
+        // We trigger a re-render of the builder with new initial data
+        // The builder itself needs to be able to handle this.
+        sessionStorage.setItem('ai_variant_suggestions', JSON.stringify(details.suggestedVariants));
+        setVariantBuilderKey(Date.now()); // Force re-mount of VariantBuilder
+      }
+
 
       toast({
         title: "Product details autofilled! ✨",
@@ -347,6 +360,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
           {hasVariants && categoryConfig.supportsVariants ? (
             <VariantBuilder
+              key={variantBuilderKey}
               categoryConfig={categoryConfig}
               basePrice={form.watch('price')}
               initialVariants={variants}

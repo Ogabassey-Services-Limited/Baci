@@ -38,6 +38,29 @@ export function VariantBuilder({
 
     const currencySymbol = getCountryByCode(merchant?.country || 'NG')?.currencySymbol || '₦';
 
+    // Effect to handle AI suggestions
+    useEffect(() => {
+      const aiSuggestionsRaw = sessionStorage.getItem('ai_variant_suggestions');
+      if (aiSuggestionsRaw) {
+          try {
+              const aiSuggestions: { attribute: string; options: string[] }[] = JSON.parse(aiSuggestionsRaw);
+              const newSelections: AttributeSelection = {};
+              aiSuggestions.forEach(suggestion => {
+                  const attrKey = categoryConfig.variantAttributes?.find(a => a.label === suggestion.attribute)?.key;
+                  if (attrKey) {
+                      newSelections[attrKey] = suggestion.options;
+                  }
+              });
+              setAttributeSelections(newSelections);
+          } catch (e) {
+              console.error("Failed to parse AI variant suggestions", e);
+          } finally {
+              // Clean up immediately after use
+              sessionStorage.removeItem('ai_variant_suggestions');
+          }
+      }
+    }, [categoryConfig.variantAttributes]); // Dependency on categoryConfig to ensure keys can be mapped
+
     // Generate variant combinations whenever attribute selections change
     useEffect(() => {
         if (!categoryConfig.supportsVariants || !categoryConfig.variantAttributes) return;
