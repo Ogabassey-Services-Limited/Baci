@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -250,7 +249,7 @@ export function VariantBuilder({
                             <Label>{attr.label}{attr.required && ' *'}</Label>
 
                             <div className="flex gap-2">
-                                {attr.type === 'select' && attr.options ? (
+                                {attr.type === 'select' ? (
                                     <Select onValueChange={(value) => handleAttributeAdd(attr.key, value)}>
                                         <SelectTrigger className="flex-1">
                                             {attributeSelections[attr.key]?.length > 0 ? (
@@ -262,8 +261,9 @@ export function VariantBuilder({
                                                             onClick={(e) => e.stopPropagation()}
                                                         >
                                                             <span>{value}</span>
-                                                            <button
-                                                                type="button"
+                                                            <span
+                                                                role="button"
+                                                                aria-label={`Remove ${value}`}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     handleAttributeRemove(attr.key, value);
@@ -271,7 +271,7 @@ export function VariantBuilder({
                                                                 className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center"
                                                             >
                                                                 <X className="h-3 w-3" />
-                                                            </button>
+                                                            </span>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -280,7 +280,7 @@ export function VariantBuilder({
                                             )}
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {attr.options.map((option) => (
+                                            {attr.options?.map((option) => (
                                                 <SelectItem key={option} value={option}>
                                                     {option}
                                                 </SelectItem>
@@ -333,13 +333,14 @@ export function VariantBuilder({
                                             className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm"
                                         >
                                             <span>{value}</span>
-                                            <button
-                                                type="button"
+                                            <span
+                                                role="button"
+                                                aria-label={`Remove ${value}`}
                                                 onClick={() => handleAttributeRemove(attr.key, value)}
                                                 className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center"
                                             >
                                                 <X className="h-3 w-3" />
-                                            </button>
+                                            </span>
                                         </div>
                                     ))}
                                 </div>
