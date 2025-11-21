@@ -36,10 +36,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Reduce bundle size
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
-  },
   // Add server-side only packages to exclude from client bundle
   serverExternalPackages: ['genkit', '@genkit-ai/google-genai'],
 };
