@@ -499,7 +499,7 @@ export function VariantBuilder({
                                     <Label className="text-sm font-semibold">3. Set stock quantity per variant</Label>
                                     <div className="grid grid-cols-2 gap-3">
                                         {variants.map((variant, index) => {
-                                            const attributeOrder = ['ram', 'storage']; // Define your desired order
+                                            const attributeOrder = ['ram', 'storage', 'color']; // Define your desired order
                                             const sortedAttributes = Object.entries(variant.attributes).sort(([keyA], [keyB]) => {
                                                 const indexA = attributeOrder.indexOf(keyA);
                                                 const indexB = attributeOrder.indexOf(keyB);
@@ -590,3 +590,4 @@ function generateVariantCombinations(
     
 
     
+
