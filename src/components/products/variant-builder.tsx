@@ -226,30 +226,6 @@ export function VariantBuilder({
         }
     };
 
-    const renderSelectedValues = (attributeKey: string) => (
-        <div className="flex flex-wrap gap-1.5">
-            {(attributeSelections[attributeKey] || []).map((value) => (
-                <span
-                    key={value}
-                    className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm flex-shrink-0"
-                >
-                    {value}
-                    <span
-                        role="button"
-                        aria-label={`Remove ${value}`}
-                        className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            handleAttributeRemove(attributeKey, value);
-                        }}
-                    >
-                        <X className="h-3 w-3" />
-                    </span>
-                </span>
-            ))}
-        </div>
-    );
-
     if (!categoryConfig.supportsVariants) {
         return null;
     }
@@ -580,3 +556,4 @@ function generateVariantCombinations(
     
 
     
+
