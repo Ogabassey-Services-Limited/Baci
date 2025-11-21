@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useTransition } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import Image from 'next/image';
-import { Loader2, Sparkles, Upload, Info } from 'lucide-react';
+import { Loader2, Sparkles, Upload, Info, Wand2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { generateProductDescription } from '@/ai/flows/generate-product-descriptions';
+import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { useMerchant } from '@/hooks/use-merchant';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -53,6 +54,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
   const { merchant } = useMerchant();
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isAutofilling, setIsAutofilling] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image || null);
   const [hasVariants, setHasVariants] = useState(initialData?.has_variants || false);
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
@@ -119,7 +121,6 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
     }
   }, [initialData, form]);
 
-  // Get category-specific configuration based on merchant's business type
   const categoryConfig = useMemo(() => {
     if (!merchant?.business_type) return getCategoryConfigFromBusinessType('general');
     return getCategoryConfigFromBusinessType(merchant.business_type);
@@ -135,6 +136,49 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         form.setValue('image', dataUri);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAutofill = async () => {
+    setIsAutofilling(true);
+    const productName = form.getValues('name');
+    if (!productName) {
+      form.setError('name', { message: 'Please enter a product name first.' });
+      setIsAutofilling(false);
+      return;
+    }
+
+    if (!merchant) {
+      toast({ title: "Could not autofill", description: "Merchant data not available.", variant: "destructive" });
+      setIsAutofilling(false);
+      return;
+    }
+
+    try {
+      const result = await autofillProductDetails({
+        productName: productName,
+        businessType: merchant.business_type,
+        currencyCode: getCountryByCode(merchant.country || 'NG')?.currency || 'NGN',
+        existingCategories: categoryConfig.productCategories || [],
+      });
+      
+      const { details } = result;
+      if (details.description) form.setValue('description', details.description, { shouldValidate: true });
+      if (details.price) form.setValue('price', details.price, { shouldValidate: true });
+      if (details.category && categoryConfig.productCategories?.includes(details.category)) {
+        form.setValue('category', details.category, { shouldValidate: true });
+      }
+      if (details.brand) form.setValue('brand', details.brand, { shouldValidate: true });
+
+      toast({
+        title: "Product details autofilled! ✨",
+        description: "Review the generated details and adjust as needed.",
+      });
+
+    } catch (error) {
+      toast({ title: "Autofill Failed", description: "Could not generate product details. Please try again.", variant: "destructive" });
+    } finally {
+      setIsAutofilling(false);
     }
   };
 
@@ -168,8 +212,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
   async function onSubmit(data: AddProductFormValues) {
     setIsSaving(true);
-
-    // Simulate AI enhancement if an image is present and changed (starts with data:)
+    
     let enhancedImage = data.image;
     if (data.image && typeof data.image === 'string' && data.image.startsWith('data:')) {
       try {
@@ -180,7 +223,6 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       }
     }
 
-    // Upload image to storage if it's a data URI
     if (enhancedImage && typeof enhancedImage === 'string' && enhancedImage.startsWith('data:')) {
       try {
         const uploadedUrl = await uploadImage(enhancedImage);
@@ -196,25 +238,23 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       }
     }
 
-    // Create or update product object
-    // Create or update product object
     const productData: Product = {
       id: initialData?.id || `prod_${Date.now()}`,
       name: data.name,
       description: data.description || '',
       price: data.price,
-      manage_stock: hasVariants ? true : !data.infinite_stock, // Always manage stock if variants exist
+      manage_stock: hasVariants ? true : !data.infinite_stock,
       stock: hasVariants
         ? variants.reduce((sum, v) => sum + (v.stock_quantity || 0), 0)
         : (data.infinite_stock ? 0 : data.stock || 0),
       status: initialData?.status || 'published',
       image: enhancedImage,
-      imageLarge: enhancedImage, // Use same for now
+      imageLarge: enhancedImage,
       imageHint: data.name,
       brand: data.brand || '',
       gtin: initialData?.gtin || '',
       mpn: initialData?.mpn || '',
-      fulfillment_details: hasVariants ? [] : data.fulfillment_details, // Fulfillment details are per-variant if variants exist
+      fulfillment_details: hasVariants ? [] : data.fulfillment_details,
       has_variants: hasVariants,
       variants: hasVariants ? variants : [],
       category: data.category,
@@ -242,7 +282,13 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
           <FormField control={form.control} name="name" render={({ field }) => (
             <FormItem>
               <FormLabel>Name *</FormLabel>
-              <FormControl><Input {...field} /></FormControl>
+              <div className="flex gap-2">
+                <FormControl><Input {...field} /></FormControl>
+                <Button type="button" variant="outline" size="sm" onClick={handleAutofill} disabled={isAutofilling}>
+                  {isAutofilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap ml-2">Autofill with AI</span>
+                </Button>
+              </div>
               <FormMessage />
             </FormItem>
           )} />
@@ -258,11 +304,11 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
               <FormMessage />
             </FormItem>
           )} />
-
+          
           <FormField control={form.control} name="category" render={({ field }) => (
             <FormItem>
               <FormLabel>Category *</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select category" />
@@ -280,11 +326,10 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
             </FormItem>
           )} />
 
-          {/* Variant Toggle */}
           {categoryConfig.supportsVariants && (
              <FormLabel
                 htmlFor="variants-switch"
-                className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5 cursor-pointer"
+                className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/50 cursor-pointer"
              >
               <div className="space-y-0.5">
                 <div className="font-medium">Product Variants</div>
@@ -300,7 +345,6 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
             </FormLabel>
           )}
 
-          {/* Variant Builder */}
           {hasVariants && categoryConfig.supportsVariants ? (
             <VariantBuilder
               categoryConfig={categoryConfig}
