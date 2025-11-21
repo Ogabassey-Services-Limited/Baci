@@ -31,19 +31,25 @@ interface AttributeSelection {
 
 // Poll interval and timeout for AI variant suggestion retrieval
 const VARIANT_SUGGESTION_POLL_MS = 1000;
+const VARIANT_SUGGESTION_MAX_ATTEMPTS = 10; // Number of polling attempts for variant suggestions
 
-// Deep equality check for objects (attributes)
 // Deep equality check for objects (attributes)
 function areObjectsEqual(a: unknown, b: unknown): boolean {
     if (a === b) return true;
     if (typeof a !== "object" || typeof b !== "object" || a == null || b == null) return false;
+
     const keysA = Object.keys(a);
     const keysB = Object.keys(b);
+
     if (keysA.length !== keysB.length) return false;
+
     for (const key of keysA) {
-        // We know a and b are objects
-        // @ts-ignore
-        if (!keysB.includes(key) || !areObjectsEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) return false;
+        if (!keysB.includes(key)) return false;
+
+        const valA = (a as Record<string, unknown>)[key];
+        const valB = (b as Record<string, unknown>)[key];
+
+        if (!areObjectsEqual(valA, valB)) return false;
     }
     return true;
 }
@@ -56,7 +62,7 @@ export function VariantBuilder({
 }: VariantBuilderProps) {
     // Limit for number of color options shown (maintainability!)
     const COLOR_OPTIONS_LIMIT = 6;
-    const VARIANT_SUGGESTION_POLL_MAX_MS = VARIANT_SUGGESTION_POLL_MS * 10; // e.g. 10 polling attempts
+    const VARIANT_SUGGESTION_POLL_MAX_MS = VARIANT_SUGGESTION_POLL_MS * VARIANT_SUGGESTION_MAX_ATTEMPTS;
     const { merchant } = useMerchant();
     const { toast } = useToast();
     const [attributeSelections, setAttributeSelections] = useState<AttributeSelection>({});
@@ -81,7 +87,14 @@ export function VariantBuilder({
         let resolved = false;
 
         function checkForSuggestions() {
-            const aiSuggestionsRaw = sessionStorage.getItem('ai_variant_suggestions');
+            let aiSuggestionsRaw: string | null = null;
+            try {
+                aiSuggestionsRaw = sessionStorage.getItem('ai_variant_suggestions');
+            } catch (e) {
+                console.error('Could not access sessionStorage for ai_variant_suggestions', e);
+                return;
+            }
+
             if (aiSuggestionsRaw) {
                 resolved = true;
                 try {
@@ -106,7 +119,11 @@ export function VariantBuilder({
                     console.error('Failed to parse AI variant suggestions', e);
                 } finally {
                     // Clean up immediately after use
-                    sessionStorage.removeItem('ai_variant_suggestions');
+                    try {
+                        sessionStorage.removeItem('ai_variant_suggestions');
+                    } catch (e) {
+                        console.error('Could not remove ai_variant_suggestions from sessionStorage', e);
+                    }
                 }
 
                 if (interval) clearInterval(interval);
