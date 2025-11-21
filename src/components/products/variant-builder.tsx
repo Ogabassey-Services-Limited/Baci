@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,6 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import type { CategoryConfig, CategoryVariantAttribute } from '@/lib/category-configs';
 import type { ProductVariant } from '@/lib/products';
 import Image from 'next/image';
+import { useMerchant } from '@/hooks/use-merchant';
+import { getCountryByCode } from '@/lib/countries';
 
 interface VariantBuilderProps {
     categoryConfig: CategoryConfig;
@@ -28,9 +31,12 @@ export function VariantBuilder({
     basePrice,
     initialVariants = []
 }: VariantBuilderProps) {
+    const { merchant } = useMerchant();
     const [attributeSelections, setAttributeSelections] = useState<AttributeSelection>({});
     const [variants, setVariants] = useState<ProductVariant[]>(initialVariants);
     const [textInputs, setTextInputs] = useState<Record<string, string>>({});
+
+    const currencySymbol = getCountryByCode(merchant?.country || 'NG')?.currencySymbol || '₦';
 
     // Generate variant combinations whenever attribute selections change
     useEffect(() => {
@@ -56,7 +62,7 @@ export function VariantBuilder({
 
         setVariants(merged);
         onVariantsChange(merged);
-    }, [attributeSelections]);
+    }, [attributeSelections, categoryConfig.supportsVariants, categoryConfig.variantAttributes, onVariantsChange]);
 
     // Helper to sort values numerically (for RAM, storage, etc.)
     const sortAttributeValues = (values: string[], attributeKey: string): string[] => {
@@ -158,45 +164,11 @@ export function VariantBuilder({
                                             ))}
                                         </SelectContent>
                                     </Select>
-                                ) : attr.type === 'color' ? (
-                                    <>
-                                        <Input
-                                            type="text"
-                                            placeholder={`Enter ${attr.label} (e.g., Black, Blue)`}
-                                            value={textInputs[attr.key] ?? ''}
-                                            onChange={(e) => setTextInputs(prev => ({ ...prev, [attr.key]: e.target.value }))}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    const value = textInputs[attr.key];
-                                                    if (value) {
-                                                        handleAttributeAdd(attr.key, value);
-                                                        setTextInputs(prev => ({ ...prev, [attr.key]: '' }));
-                                                    }
-                                                }
-                                            }}
-                                            className="flex-1"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                                const value = textInputs[attr.key];
-                                                if (value) {
-                                                    handleAttributeAdd(attr.key, value);
-                                                    setTextInputs(prev => ({ ...prev, [attr.key]: '' }));
-                                                }
-                                            }}
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </Button>
-                                    </>
                                 ) : (
                                     <>
                                         <Input
                                             type="text"
-                                            placeholder={`Enter ${attr.label} and press Enter or click +`}
+                                            placeholder={`Enter ${attr.label} (e.g., Black, 16GB)`}
                                             value={textInputs[attr.key] ?? ''}
                                             onChange={(e) => setTextInputs(prev => ({ ...prev, [attr.key]: e.target.value }))}
                                             onKeyDown={(e) => {
@@ -283,40 +255,42 @@ export function VariantBuilder({
                             </Label>
 
                             {/* Section 1: Color Images */}
-                            <div className="space-y-3">
-                                <Label className="text-sm font-semibold">1. Upload color images</Label>
-                                <div className="grid grid-cols-4 gap-3">
-                                    {colors.map(color => {
-                                        const variantWithColor = variants.find(v => v.attributes.color === color);
-                                        return (
-                                            <label key={color} className="cursor-pointer block">
-                                                <input
-                                                    type="file"
-                                                    accept="image/*"
-                                                    className="hidden"
-                                                    onChange={(e) => handleVariantImageUpload(color, e)}
-                                                />
-                                                <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors">
-                                                    <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
-                                                        {variantWithColor?.primary_image ? (
-                                                            <Image
-                                                                src={variantWithColor.primary_image}
-                                                                alt={color}
-                                                                width={120}
-                                                                height={120}
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        ) : (
-                                                            <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                                        )}
+                            {colors.length > 0 && categoryConfig.variantAttributes?.some(attr => attr.key === 'color' && attr.hasImage) && (
+                                <div className="space-y-3">
+                                    <Label className="text-sm font-semibold">1. Upload color images</Label>
+                                    <div className="grid grid-cols-4 gap-3">
+                                        {colors.map(color => {
+                                            const variantWithColor = variants.find(v => v.attributes.color === color);
+                                            return (
+                                                <label key={color} className="cursor-pointer block">
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) => handleVariantImageUpload(color, e)}
+                                                    />
+                                                    <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors">
+                                                        <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                                                            {variantWithColor?.primary_image ? (
+                                                                <Image
+                                                                    src={variantWithColor.primary_image}
+                                                                    alt={color}
+                                                                    width={120}
+                                                                    height={120}
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
                                                     </div>
-                                                    <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
-                                                </div>
-                                            </label>
-                                        );
-                                    })}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Section 2: Spec-based pricing */}
                             {specCombos.length > 0 && (
@@ -325,7 +299,7 @@ export function VariantBuilder({
                                         2. Set prices for specifications ({specCombos.length} {specCombos.length === 1 ? 'option' : 'options'})
                                     </Label>
                                     <p className="text-xs text-muted-foreground">
-                                        Price applies to all colors with these specs
+                                        Price applies to all colors with these specs. Leave blank to use base price.
                                     </p>
                                     <div className="space-y-2">
                                         {specCombos.map((combo, index) => {
@@ -335,26 +309,26 @@ export function VariantBuilder({
                                             return (
                                                 <div key={index} className="flex items-center gap-3 p-3 border rounded-lg bg-card">
                                                     <p className="flex-1 font-medium text-sm">{combo.label || 'Base variant'}</p>
-                                                    <div className="w-40">
+                                                    <div className="w-40 relative">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol}</span>
                                                         <Input
-                                                            type="number"
-                                                            min="0"
-                                                            step="0.01"
-                                                            placeholder={`${basePrice}`}
-                                                            value={variantWithSpec?.price_override || ''}
+                                                            type="text"
+                                                            placeholder={new Intl.NumberFormat('en-US').format(basePrice)}
+                                                            value={variantWithSpec?.price_override != null ? new Intl.NumberFormat('en-US').format(variantWithSpec.price_override) : ''}
                                                             onChange={(e) => {
-                                                                const value = e.target.value;
-                                                                const price = value ? Math.max(0, Number(value)) : undefined;
-                                                                // Apply to all variants with these specs
-                                                                const updated = variants.map(v =>
-                                                                    Object.entries(combo.attributes).every(([key, value]) => v.attributes[key] === value)
-                                                                        ? { ...v, price_override: price }
-                                                                        : v
-                                                                );
-                                                                setVariants(updated);
-                                                                onVariantsChange(updated);
+                                                                const rawValue = e.target.value.replace(/,/g, '');
+                                                                if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
+                                                                    const price = rawValue === '' ? undefined : Number(rawValue);
+                                                                    const updated = variants.map(v =>
+                                                                        Object.entries(combo.attributes).every(([key, value]) => v.attributes[key] === value)
+                                                                            ? { ...v, price_override: price }
+                                                                            : v
+                                                                    );
+                                                                    setVariants(updated);
+                                                                    onVariantsChange(updated);
+                                                                }
                                                             }}
-                                                            className="h-9 text-sm"
+                                                            className="h-9 text-sm pl-8"
                                                         />
                                                     </div>
                                                 </div>
