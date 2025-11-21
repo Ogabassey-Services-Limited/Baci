@@ -100,6 +100,13 @@ const recentSales = [
     { id: 'p5', name: 'Sofia Davis', email: 'sofia.davis@email.com', amount: 39.00, avatar: 'avatar-5' },
 ];
 
+const yAxisFormatter = (value: number) => {
+    if (value >= 1000) {
+        return `${value / 1000}k`;
+    }
+    return value.toString();
+};
+
 // --- Helper Component ---
 
 function PercentageChange({ value, timeFrame }: { value: number; timeFrame: 'weekly' | 'monthly' }) {
