@@ -17,6 +17,7 @@ import { FormDescription } from '../ui/form';
 import { Switch } from '../ui/switch';
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface VariantBuilderProps {
     categoryConfig: CategoryConfig;
@@ -226,6 +227,29 @@ export function VariantBuilder({
         }
     }
 
+    const renderSelectedValues = (attributeKey: string) => (
+        <div className="flex overflow-x-auto whitespace-nowrap gap-1.5 scrollbar-thin">
+            {(attributeSelections[attributeKey] || []).map((value) => (
+                <span
+                    key={value}
+                    className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm flex-shrink-0"
+                >
+                    {value}
+                    <span
+                        role="button"
+                        aria-label={`Remove ${value}`}
+                        className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleAttributeRemove(attributeKey, value);
+                        }}
+                    >
+                        <X className="h-3 w-3" />
+                    </span>
+                </span>
+            ))}
+        </div>
+    );
 
     if (!categoryConfig.supportsVariants) {
         return null;
@@ -250,29 +274,12 @@ export function VariantBuilder({
                             <div className="flex gap-2">
                                 {attr.type === 'select' ? (
                                     <Select onValueChange={(value) => handleAttributeAdd(attr.key, value)}>
-                                        <SelectTrigger className="flex-1">
-                                            {attributeSelections[attr.key]?.length > 0 ? (
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {attributeSelections[attr.key]?.map((value) => (
-                                                        <div
-                                                            key={value}
-                                                            className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm"
-                                                            onClick={(e) => e.stopPropagation()}
-                                                        >
-                                                            <span>{value}</span>
-                                                            <span
-                                                                role="button"
-                                                                aria-label={`Remove ${value}`}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleAttributeRemove(attr.key, value);
-                                                                }}
-                                                                className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center"
-                                                            >
-                                                                <X className="h-3 w-3" />
-                                                            </span>
-                                                        </div>
-                                                    ))}
+                                        <SelectTrigger className={cn("flex-1", (attributeSelections[attr.key]?.length ?? 0) > 0 && "p-0")}>
+                                            {(attributeSelections[attr.key]?.length ?? 0) > 0 ? (
+                                                <div className="flex items-center w-full">
+                                                    <div className="flex-1 overflow-hidden px-3">
+                                                        {renderSelectedValues(attr.key)}
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <SelectValue placeholder={`Select ${attr.label}`} />
@@ -289,6 +296,11 @@ export function VariantBuilder({
                                 ) : (
                                     <>
                                         <div className="flex-1 relative">
+                                            {(attributeSelections[attr.key]?.length ?? 0) > 0 && (
+                                                <div className="absolute inset-y-0 left-0 flex items-center pl-3 z-10">
+                                                    {renderSelectedValues(attr.key)}
+                                                </div>
+                                            )}
                                             <Input
                                                 type="text"
                                                 placeholder={getPlaceholderForAttribute(attr)}
@@ -304,33 +316,8 @@ export function VariantBuilder({
                                                         }
                                                     }
                                                 }}
-                                                className="w-full"
+                                                className={cn("w-full", (attributeSelections[attr.key]?.length ?? 0) > 0 && "text-transparent placeholder-transparent focus:text-foreground focus:placeholder-muted-foreground")}
                                             />
-                                            {attributeSelections[attr.key]?.length > 0 && (
-                                                <div className="absolute inset-y-0 left-0 flex items-center pl-3">
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {attributeSelections[attr.key]?.map((value) => (
-                                                            <div
-                                                                key={value}
-                                                                className="flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm"
-                                                            >
-                                                                <span>{value}</span>
-                                                                <span
-                                                                    role="button"
-                                                                    aria-label={`Remove ${value}`}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        handleAttributeRemove(attr.key, value);
-                                                                    }}
-                                                                    className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center"
-                                                                >
-                                                                    <X className="h-3 w-3" />
-                                                                </span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                         <Button
                                             type="button"
