@@ -29,6 +29,23 @@ interface AttributeSelection {
     [key: string]: string[];
 }
 
+// Poll interval and timeout for AI variant suggestion retrieval
+const VARIANT_SUGGESTION_POLL_MS = 1000;
+
+// Deep equality check for objects (attributes)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function areObjectsEqual(a: any, b: any): boolean {
+    if (a === b) return true;
+    if (typeof a !== "object" || typeof b !== "object" || a == null || b == null) return false;
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+    for (const key of keysA) {
+        if (!keysB.includes(key) || !areObjectsEqual(a[key], b[key])) return false;
+    }
+    return true;
+}
+
 export function VariantBuilder({
     categoryConfig,
     onVariantsChange,
@@ -94,13 +111,13 @@ export function VariantBuilder({
             }
         }
 
-        interval = setInterval(checkForSuggestions, 1000); // Poll every 1000ms for lower CPU usage
+        interval = setInterval(checkForSuggestions, VARIANT_SUGGESTION_POLL_MS); // Poll every VARIANT_SUGGESTION_POLL_MS ms for lower CPU usage
 
         timeout = setTimeout(() => {
             if (!resolved && interval) {
                 clearInterval(interval);
             }
-        }, 1000); // Max 1s polling, then give up
+        }, VARIANT_SUGGESTION_POLL_MS); // Max VARIANT_SUGGESTION_POLL_MS ms polling, then give up
 
         // Cleanup
         return () => {
@@ -119,7 +136,7 @@ export function VariantBuilder({
         // Merge with existing variants to preserve images and overrides
         const merged = combinations.map(combo => {
             const existing = variantsRef.current.find(v =>
-                JSON.stringify(v.attributes) === JSON.stringify(combo)
+                areObjectsEqual(v.attributes, combo)
             );
 
             return existing || {
@@ -580,7 +597,7 @@ function generateUUID(): string {
         return crypto.randomUUID();
     }
     // Fallback for older browsers
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
         const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
