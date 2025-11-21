@@ -132,7 +132,7 @@ export default function DashboardClientLayout({
 
     // If there IS a user but NO merchant record, they haven't completed onboarding.
     // This is the critical security and UX fix.
-    if (user && !merchant) {
+    if (!merchant) {
       toast({
         title: 'Onboarding Incomplete',
         description: 'Please complete your store setup to access the dashboard.',
