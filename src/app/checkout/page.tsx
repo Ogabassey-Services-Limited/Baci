@@ -462,9 +462,7 @@ function CheckoutPageContent() {
                     Previous
                   </Button>
                   <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading}>
-                    {formIsLoading && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
+                    {formIsLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Place Order
                   </ThemedButton>
                 </div>
