@@ -76,34 +76,28 @@ $$;
 
 
 -- =============================================
--- TEXT SANITIZATION FUNCTION (UNSAFE - DO NOT USE FOR SECURITY)
+-- TEXT SANITIZATION - REMOVED FOR SECURITY
 -- =============================================
--- WARNING:
--- !!! This function is NOT SAFE for security-critical input. !!!
--- Regex-based HTML tag removal is easily bypassed by malformed, nested, or multiline tags.
--- Never use server-side regex for XSS prevention!
--- For any untrusted input, use a dedicated client-side library (e.g., DOMPurify).
--- This function is for basic display formatting only, NOT security!
--- ---------------------------------------------
-CREATE OR REPLACE FUNCTION sanitize_text_input(text_input TEXT)
-RETURNS TEXT
-LANGUAGE plpgsql
-AS $$
-  DECLARE
-    cleaned TEXT;
-  BEGIN
-    -- Remove HTML tags: updated regex to avoid multiline/nested tag match, but still NOT SAFE
-    cleaned := regexp_replace(text_input, E'<[^>\\n]+>', '', 'g');
-    -- Remove HTML tags that span newlines (using 'n' flag)
-    cleaned := regexp_replace(cleaned, E'<.*?>', '', 'gn');
-    -- Remove javascript: and data: protocols
-    cleaned := regexp_replace(cleaned, E'(?i)javascript:', '', 'g');
-    cleaned := regexp_replace(cleaned, E'(?i)data:', '', 'g');
-    -- Remove event handler attributes (onerror=, onload=, onclick=, etc.) - updated regex
-    cleaned := regexp_replace(cleaned, E'(?i)on\\w+\\s*=\\s*(?:"[^"]*"|\'[^\']*\'|[^\\s>]+)', '', 'g');
-    RETURN btrim(cleaned);
-  END;
-$$;
+-- The sanitize_text_input function has been REMOVED from this migration.
+--
+-- Why removed:
+--   Server-side regex-based HTML sanitization is fundamentally unsafe and creates
+--   a dangerous security anti-pattern. Even with extensive warnings, the mere
+--   existence of such a function in the codebase can lead to misuse by developers
+--   who don't read the warnings, potentially causing XSS vulnerabilities.
+--
+-- PROPER security measures to use instead:
+--   1. Store raw user input in the database (don't sanitize on input)
+--   2. Use parameterized queries to prevent SQL injection
+--   3. Sanitize at display time on the CLIENT side using:
+--      - DOMPurify (https://github.com/cure53/DOMPurify)
+--      - Framework auto-escaping (React JSX, Vue templates, Angular templates)
+--   4. Implement Content Security Policy (CSP) headers
+--   5. Use HTTP-only cookies for sensitive data
+--
+-- If you absolutely need server-side text cleanup (NOT for security):
+--   Implement it in your application layer with clear documentation that
+--   it provides cosmetic formatting only, never security.
 
 
 -- =============================================
@@ -133,63 +127,65 @@ $$;
 
 
 -- =============================================
--- RATE LIMITING FUNCTIONS
+-- RATE LIMITING FUNCTION
 -- =============================================
 CREATE OR REPLACE FUNCTION check_rate_limit(
   identifier_param TEXT,
   endpoint_param TEXT,
-  max_requests_param INT,
-  window_seconds_param INT
+  max_requests_param INTEGER,
+  window_seconds_param INTEGER
 )
-RETURNS TABLE(allowed BOOLEAN, count INT, reset_time TIMESTAMPTZ)
+RETURNS BOOLEAN
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  current_count INT;
+  updated_count INTEGER;
   window_start TIMESTAMPTZ;
 BEGIN
-  window_start := NOW() - (window_seconds_param * INTERVAL '1 second');
-  
-  SELECT COUNT(*)
-  INTO current_count
-  FROM rate_limit_log
-  WHERE identifier = identifier_param
-    AND endpoint = endpoint_param
-    AND created_at >= window_start;
+  -- Calculate aligned fixed window start (bucketed by window size)
+  window_start := to_timestamp(
+    floor(extract(epoch from now()) / window_seconds_param) * window_seconds_param
+  );
 
-  INSERT INTO rate_limit_log (identifier, endpoint)
-  VALUES (identifier_param, endpoint_param);
+  -- Atomic upsert: insert new row, or update if exists and below limit
+  INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
+  VALUES (identifier_param, endpoint_param, 1, window_start)
+  ON CONFLICT (identifier, endpoint, window_start)
+  DO UPDATE SET request_count = rate_limit_log.request_count + 1
+    WHERE rate_limit_log.request_count < max_requests_param
+  RETURNING request_count INTO updated_count;
 
-  IF current_count < max_requests_param THEN
-    RETURN QUERY SELECT TRUE, current_count + 1, window_start + (window_seconds_param * INTERVAL '1 second');
-  ELSE
-    RETURN QUERY SELECT FALSE, current_count + 1, window_start + (window_seconds_param * INTERVAL '1 second');
-  END IF;
+  -- Return true only if the request was successfully logged (allowed)
+  -- If updated_count is NULL, the rate limit was reached and no update occurred
+  RETURN updated_count IS NOT NULL;
 END;
 $$;
 
-
-CREATE OR REPLACE FUNCTION cleanup_rate_limit_log()
-RETURNS void AS $$
+-- =============================================
+-- RATE LIMIT LOG CLEANUP FUNCTION
+-- =============================================
+-- Deletes rate_limit_log entries older than the specified number of days (default: 1)
+CREATE OR REPLACE FUNCTION cleanup_rate_limit_log(days INTEGER DEFAULT 1)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
 BEGIN
-  DELETE FROM rate_limit_log WHERE created_at < NOW() - INTERVAL '1 day';
+  DELETE FROM rate_limit_log
+  WHERE window_start < NOW() - (days * INTERVAL '1 day');
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 
 -- =============================================
 -- GRANT PERMISSIONS
 -- =============================================
 -- Allow only authorized roles to call these functions
+-- TODO: Ensure authorization logic (or Row Level Security) restricts stock changes by user ownership!
 GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION decrement_variant_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION is_valid_email TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION check_rate_limit TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION cleanup_rate_limit_log TO authenticated;
-
--- Explicitly prevent 'anon' role from executing this UNSAFE function
-REVOKE EXECUTE ON FUNCTION sanitize_text_input(text) FROM anon;
-REVOKE EXECUTE ON FUNCTION sanitize_text_input(text) FROM authenticated;
 
 
 -- =============================================
