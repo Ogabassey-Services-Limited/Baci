@@ -1,3 +1,4 @@
+
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
@@ -74,20 +75,47 @@ export async function POST(request: Request) {
     }
 
     // Prepare contact information
-    // Use provided contact info or merchant details as fallback
+    // Validate required contact information before proceeding
+    const resolvedFirstname = contactInfo?.firstname || merchant.business_name?.split(' ')[0] || '';
+    const resolvedLastname = contactInfo?.lastname || merchant.business_name?.split(' ')[1] || '';
+    const resolvedFullname = contactInfo?.fullname || merchant.business_name || '';
+    const resolvedEmail = contactInfo?.email || merchant.email || user.email || '';
+    const resolvedAddress1 = contactInfo?.address1 || '';
+    const resolvedCity = contactInfo?.city || '';
+    const resolvedState = contactInfo?.state || '';
+    const resolvedZipcode = contactInfo?.zipcode || '';
+    const resolvedCountry = merchant.country || '';
+    const resolvedPhonenumber = contactInfo?.phonenumber || '';
+    if (
+      !resolvedFirstname ||
+      !resolvedLastname ||
+      !resolvedFullname ||
+      !resolvedEmail ||
+      !resolvedAddress1 ||
+      !resolvedCity ||
+      !resolvedState ||
+      !resolvedZipcode ||
+      !resolvedCountry ||
+      !resolvedPhonenumber
+    ) {
+      return NextResponse.json(
+        { error: 'Missing required contact information. Please provide all required fields.' },
+        { status: 400 }
+      );
+    }
     const contacts: ContactInfo = {
-      firstname: contactInfo?.firstname || merchant.business_name?.split(' ')[0] || 'First',
-      lastname: contactInfo?.lastname || merchant.business_name?.split(' ')[1] || 'Last',
-      fullname: contactInfo?.fullname || merchant.business_name || 'Full Name',
+      firstname: resolvedFirstname,
+      lastname: resolvedLastname,
+      fullname: resolvedFullname,
       companyname: merchant.business_name || '',
-      email: contactInfo?.email || merchant.email || user.email || '',
-      address1: contactInfo?.address1 || 'Address Line 1',
+      email: resolvedEmail,
+      address1: resolvedAddress1,
       address2: contactInfo?.address2 || '',
-      city: contactInfo?.city || 'Lagos',
-      state: contactInfo?.state || 'Lagos',
-      zipcode: contactInfo?.zipcode || '100001',
-      country: merchant.country || 'NG',
-      phonenumber: contactInfo?.phonenumber || '+2348000000000',
+      city: resolvedCity,
+      state: resolvedState,
+      zipcode: resolvedZipcode,
+      country: resolvedCountry,
+      phonenumber: resolvedPhonenumber,
     };
 
     try {
