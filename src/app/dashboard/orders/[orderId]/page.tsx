@@ -287,9 +287,9 @@ export default function OrderDetailsPage() {
                                             <p className="text-sm text-muted-foreground">Tracking #</p>
                                             <p className="font-semibold">{order.tracking_number}</p>
                                         </div>
-                                        <Link href={`/track/${order.tracking_number}`}>
-                                            <Button variant="outline" size="sm">Track</Button>
-                                        </Link>
+                                        <Button asChild variant="outline" size="sm">
+                                            <Link href={`/track/${order.tracking_number}`}>Track</Link>
+                                        </Button>
                                     </div>
                                 ) : (
                                     <p className="text-sm text-muted-foreground">No tracking information available.</p>
