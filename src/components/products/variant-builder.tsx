@@ -33,6 +33,7 @@ interface AttributeSelection {
 // Poll interval and timeout for AI variant suggestion retrieval
 const VARIANT_SUGGESTION_POLL_MS = 1000;
 const VARIANT_SUGGESTION_MAX_ATTEMPTS = 10; // Number of polling attempts for variant suggestions
+const VARIANT_SUGGESTION_POLL_MAX_MS = VARIANT_SUGGESTION_POLL_MS * VARIANT_SUGGESTION_MAX_ATTEMPTS;
 
 // Default attribute order, used if not provided via props
 const DEFAULT_ATTRIBUTE_ORDER = ['ram', 'storage', 'color'];
@@ -76,7 +77,6 @@ export function VariantBuilder({
     initialVariants = [],
     attributeOrder = DEFAULT_ATTRIBUTE_ORDER
 }: VariantBuilderProps) {
-    const VARIANT_SUGGESTION_POLL_MAX_MS = VARIANT_SUGGESTION_POLL_MS * VARIANT_SUGGESTION_MAX_ATTEMPTS;
     const { merchant } = useMerchant();
     const { toast } = useToast();
     const [attributeSelections, setAttributeSelections] = useState<AttributeSelection>({});
@@ -105,8 +105,8 @@ export function VariantBuilder({
             let aiSuggestionsRaw: string | null = null;
             try {
                 aiSuggestionsRaw = sessionStorage.getItem('ai_variant_suggestions');
-            } catch (e) {
-                console.error('Could not access sessionStorage for ai_variant_suggestions', e);
+            } catch (error) {
+                console.error('Could not access sessionStorage for ai_variant_suggestions', error);
                 return;
             }
 
@@ -130,14 +130,14 @@ export function VariantBuilder({
                         }
                     });
                     setAttributeSelections(newSelections);
-                } catch (e) {
-                    console.error('Failed to parse AI variant suggestions', e);
+                } catch (error) {
+                    console.error('Failed to parse AI variant suggestions', error);
                 } finally {
                     // Clean up immediately after use
                     try {
                         sessionStorage.removeItem('ai_variant_suggestions');
-                    } catch (e) {
-                        console.error('Could not remove ai_variant_suggestions from sessionStorage', e);
+                    } catch (error) {
+                        console.error('Could not remove ai_variant_suggestions from sessionStorage', error);
                     }
                 }
 
