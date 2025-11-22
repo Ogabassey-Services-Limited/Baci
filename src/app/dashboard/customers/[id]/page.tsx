@@ -26,10 +26,8 @@ import {
     DialogTrigger,
     DialogFooter,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { useMerchant } from '@/hooks/use-merchant';
-import { getCountryByCode } from '@/lib/countries';
+import { Label } from '@/components/ui/label';
 
 interface Customer {
     id: string;
@@ -54,7 +52,6 @@ export default function CustomerDetailPage() {
     const [isCreditOpen, setIsCreditOpen] = useState(false);
     const [orders, setOrders] = useState<any[]>([]);
     const [ordersLoading, setOrdersLoading] = useState(true);
-    const { merchant } = useMerchant();
 
     useEffect(() => {
         const fetchCustomer = async () => {
