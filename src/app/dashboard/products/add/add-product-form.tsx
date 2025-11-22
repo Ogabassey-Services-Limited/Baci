@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import Image from 'next/image';
-import { Loader2, Sparkles, Upload, Wand2 } from 'lucide-react';
+import { Loader2, Sparkles, Upload, Wand2, X, Image as ImageIcon, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -52,6 +52,14 @@ interface AddProductFormProps {
   initialData?: Product | null;
 }
 
+// Helper to format text to Title Case
+function toTitleCase(text: string) {
+  if (!text) return '';
+  return text.split(' ').map(word =>
+    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+  ).join(' ');
+}
+
 export default function AddProductForm({ onProductAdded, onCancel, initialData }: AddProductFormProps) {
   const { toast } = useToast();
   const { merchant } = useMerchant();
@@ -62,6 +70,10 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
   const [hasVariants, setHasVariants] = useState(initialData?.has_variants || false);
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
   const [variantBuilderKey, setVariantBuilderKey] = useState(Date.now()); // Key to force re-render
+  const [colorTags, setColorTags] = useState<string[]>(initialData?.color ? [initialData.color] : []);
+  const [colorInput, setColorInput] = useState('');
+  const [colorImages, setColorImages] = useState<Record<string, string>>({});
+  const [enhancingImages, setEnhancingImages] = useState<Record<string, boolean>>({});
 
   const form = useForm<AddProductFormValues>({
     resolver: zodResolver(addProductSchema),
@@ -126,6 +138,14 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       setHasVariants(initialData.has_variants || false);
       setVariants(initialData.variants || []);
       setImagePreview(initialData.image || null);
+
+      // Initialize color tags and images
+      if (initialData.color) {
+        setColorTags([initialData.color]);
+      }
+      if (initialData.image && initialData.color) {
+        setColorImages({ [initialData.color]: initialData.image });
+      }
     }
   }, [initialData, form]);
 
@@ -134,16 +154,50 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
     return getCategoryConfigFromBusinessType(merchant.business_type);
   }, [merchant?.business_type]);
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleColorImageUpload = (color: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUri = reader.result as string;
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const dataUri = reader.result as string;
+      setColorImages(prev => ({ ...prev, [color]: dataUri }));
+
+      // Update the main image preview to the first color's image
+      if (colorTags.length > 0 && colorTags[0] === color) {
         setImagePreview(dataUri);
         form.setValue('image', dataUri);
-      };
-      reader.readAsDataURL(file);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddColorTag = (color: string) => {
+    if (!color || colorTags.includes(color)) return;
+    const newColorTags = [...colorTags, color];
+    setColorTags(newColorTags);
+    form.setValue('color', newColorTags.join(', '));
+  };
+
+  const handleRemoveColorTag = (color: string) => {
+    const newColorTags = colorTags.filter(c => c !== color);
+    setColorTags(newColorTags);
+    form.setValue('color', newColorTags.join(', '));
+
+    // Remove associated image
+    setColorImages(prev => {
+      const updated = { ...prev };
+      delete updated[color];
+      return updated;
+    });
+
+    // Update main preview if needed
+    if (newColorTags.length > 0 && colorImages[newColorTags[0]]) {
+      setImagePreview(colorImages[newColorTags[0]]);
+      form.setValue('image', colorImages[newColorTags[0]]);
+    } else {
+      setImagePreview(null);
+      form.setValue('image', null);
     }
   };
 
@@ -231,15 +285,19 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
     }
   };
 
-  const handleEnhanceImage = async () => {
-    if (!imagePreview) return;
+  const handleEnhanceImage = async (color: string) => {
+    const imageToEnhance = colorImages[color];
+    if (!imageToEnhance) {
+      toast({ title: 'No image to enhance', description: 'Please upload an image first.', variant: 'destructive' });
+      return;
+    }
 
-    setIsGenerating(true);
+    setEnhancingImages(prev => ({ ...prev, [color]: true }));
     try {
       toast({ title: "Enhancing Image", description: "Removing background and adjusting lighting... This may take a moment." });
 
       // 1. Remove Background
-      const blob = await removeBackground(imagePreview);
+      const blob = await removeBackground(imageToEnhance);
       const noBgUrl = URL.createObjectURL(blob);
 
       // 2. Adjust Lighting (Brightness/Contrast)
@@ -276,15 +334,21 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       ctx.putImageData(imageData, 0, 0);
       const enhancedUrl = canvas.toDataURL('image/png');
 
-      setImagePreview(enhancedUrl);
-      form.setValue('image', enhancedUrl);
+      setColorImages(prev => ({ ...prev, [color]: enhancedUrl }));
+
+      // Update main preview if this is the first color
+      if (colorTags.length > 0 && colorTags[0] === color) {
+        setImagePreview(enhancedUrl);
+        form.setValue('image', enhancedUrl);
+      }
+
       toast({ title: "Image Enhanced", description: "Background removed and lighting adjusted." });
 
     } catch (e) {
       console.error(e);
       toast({ title: "Enhancement Failed", description: "Could not enhance image.", variant: "destructive" });
     } finally {
-      setIsGenerating(false);
+      setEnhancingImages(prev => ({ ...prev, [color]: false }));
     }
   };
 
@@ -508,44 +572,124 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
 
 
-          <FormField control={form.control} name="image" render={() => (
+          <FormField control={form.control} name="color" render={() => (
             <FormItem>
-              <FormLabel>Images</FormLabel>
+              <FormLabel>Colors</FormLabel>
               <FormControl>
                 <div className="space-y-4">
-                  <div className="grid h-64 w-full items-center justify-center rounded-md border border-dashed relative bg-muted/10">
-                    {imagePreview ? (
-                      <Image
-                        alt="Product image preview"
-                        className="aspect-square w-full h-full rounded-md object-contain p-4"
-                        fill
-                        src={imagePreview}
+                  {/* Color Tag Input */}
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      {colorTags.length > 0 && (
+                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 z-10 max-w-[calc(100%-3rem)] overflow-x-auto">
+                          <div className="flex gap-1.5 flex-nowrap">
+                            {colorTags.map((color) => (
+                              <span key={color} className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm flex-shrink-0">
+                                {color}
+                                <button
+                                  type="button"
+                                  aria-label={`Remove ${color}`}
+                                  className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveColorTag(color);
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <Input
+                        type="text"
+                        placeholder={colorTags.length > 0 ? '' : 'e.g., Black, Red, Blue'}
+                        value={colorInput}
+                        onChange={(e) => setColorInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (colorInput.trim()) {
+                              handleAddColorTag(colorInput.trim());
+                              setColorInput('');
+                            }
+                          }
+                        }}
+                        className="w-full"
                       />
-                    ) : (
-                      <div className="text-center text-muted-foreground">
-                        <Upload className="h-8 w-8 mx-auto" />
-                        <p className="text-sm mt-1">Upload one or more images for your product.</p>
-                      </div>
-                    )}
-                    <Input id="image-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (colorInput.trim()) {
+                          handleAddColorTag(colorInput.trim());
+                          setColorInput('');
+                        }
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
                   </div>
 
-                  {imagePreview && (
-                    <div className="flex gap-4 items-end">
-                      <FormField control={form.control} name="color" render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel>Color</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g. Red, Blue" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-
-                      <Button type="button" variant="secondary" onClick={handleEnhanceImage} disabled={isGenerating}>
-                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
-                        Enhance Image
-                      </Button>
+                  {/* Color Images Grid */}
+                  {colorTags.length > 0 && (
+                    <div className="space-y-3">
+                      <FormLabel className="text-sm font-semibold">Upload images for each color</FormLabel>
+                      <div className="grid grid-cols-4 gap-3">
+                        {colorTags.map(color => {
+                          const isEnhancing = enhancingImages[color];
+                          return (
+                            <div key={color} className="relative group">
+                              <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors space-y-2">
+                                <label className="cursor-pointer block">
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => handleColorImageUpload(color, e)}
+                                    disabled={isEnhancing}
+                                  />
+                                  <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center relative">
+                                    {isEnhancing && (
+                                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                                        <Loader2 className="h-6 w-6 text-white animate-spin" />
+                                      </div>
+                                    )}
+                                    {colorImages[color] ? (
+                                      <Image
+                                        src={colorImages[color]}
+                                        alt={color}
+                                        width={120}
+                                        height={120}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                    )}
+                                  </div>
+                                  <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
+                                </label>
+                                {colorImages[color] && (
+                                  <Button
+                                    type="button"
+                                    variant="default"
+                                    size="sm"
+                                    className="w-full h-8"
+                                    onClick={() => handleEnhanceImage(color)}
+                                    disabled={isEnhancing}
+                                  >
+                                    {isEnhancing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
+                                    Enhance
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>

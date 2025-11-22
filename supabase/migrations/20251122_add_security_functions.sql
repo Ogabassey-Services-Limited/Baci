@@ -97,8 +97,8 @@ LANGUAGE plpgsql
 IMMUTABLE
 AS $$
 BEGIN
-  -- Remove null bytes using TRANSLATE, which is safer than REPLACE for this.
-  input_text := TRANSLATE(input_text, E'\x00', '');
+  -- Remove null bytes
+  input_text := REPLACE(input_text, E'\x00', '');
   
   -- Trim whitespace
   input_text := TRIM(input_text);

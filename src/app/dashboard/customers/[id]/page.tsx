@@ -52,6 +52,8 @@ export default function CustomerDetailPage() {
     const [loading, setLoading] = useState(true);
     const [creditAmount, setCreditAmount] = useState('');
     const [isCreditOpen, setIsCreditOpen] = useState(false);
+    const [orders, setOrders] = useState<any[]>([]);
+    const [ordersLoading, setOrdersLoading] = useState(true);
 
     useEffect(() => {
         const fetchCustomer = async () => {
@@ -72,8 +74,22 @@ export default function CustomerDetailPage() {
             }
         };
 
+        const fetchOrders = async () => {
+            try {
+                const res = await fetch(`/api/customers/${params.id}/orders`);
+                if (!res.ok) throw new Error('Failed to fetch orders');
+                const data = await res.json();
+                setOrders(data.orders || []);
+            } catch (error) {
+                console.error(error);
+            } finally {
+                setOrdersLoading(false);
+            }
+        };
+
         if (params.id) {
             fetchCustomer();
+            fetchOrders();
         }
     }, [params.id]);
 
@@ -261,16 +277,73 @@ export default function CustomerDetailPage() {
                 </div>
             </div>
 
-            {/* Purchase History - Placeholder for now as we don't have linked orders yet */}
+            {/* Purchase History */}
             <Card>
                 <CardHeader>
                     <CardTitle>Purchase History</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-center py-8 text-muted-foreground">
-                        <ShoppingBag className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                        <p>No orders found for this customer.</p>
-                    </div>
+                    {ordersLoading ? (
+                        <div className="flex justify-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                        </div>
+                    ) : orders.length === 0 ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                            <ShoppingBag className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                            <p>No orders found for this customer.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-4">
+                            {orders.map((order) => (
+                                <div key={order.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <h3 className="font-semibold">Order #{order.order_number}</h3>
+                                                <Badge variant={
+                                                    order.shipping_status === 'delivered' ? 'default' :
+                                                        order.shipping_status === 'shipped' ? 'secondary' :
+                                                            order.shipping_status === 'processing' ? 'outline' :
+                                                                'destructive'
+                                                }>
+                                                    {order.shipping_status || 'pending'}
+                                                </Badge>
+                                            </div>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                                <div>
+                                                    <p className="text-muted-foreground">Date</p>
+                                                    <p className="font-medium">{new Date(order.created_at).toLocaleDateString()}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-muted-foreground">Total</p>
+                                                    <p className="font-medium">{formatCurrency(order.total)}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-muted-foreground">Items</p>
+                                                    <p className="font-medium">{order.items?.length || 0} items</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-muted-foreground">Payment</p>
+                                                    <p className="font-medium capitalize">{order.payment_method || 'N/A'}</p>
+                                                </div>
+                                            </div>
+                                            {order.shipping_address && (
+                                                <div className="mt-3 text-sm">
+                                                    <p className="text-muted-foreground">Shipping Address</p>
+                                                    <p className="text-sm">{order.shipping_address}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <Link href={`/dashboard/orders/${order.id}`}>
+                                            <Button variant="ghost" size="sm">
+                                                View Details
+                                            </Button>
+                                        </Link>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

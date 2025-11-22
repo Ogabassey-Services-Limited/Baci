@@ -84,27 +84,54 @@ export async function middleware(request: NextRequest) {
   // Refresh the auth session to ensure cookies are up to date
   await supabase.auth.getUser();
 
-  // Use a placeholder for the root domain, which you would replace with your actual domain in production.
-  // We use a common pattern that should work for localhost and deployed environments.
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.store';
-  const isLocal = hostname.includes('localhost');
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
 
-  // Clean up the hostname to get the main domain part
-  const normalizedHost = hostname.replace(`.${rootDomain}`, '').replace(`.${isLocal ? 'localhost:3000' : rootDomain}`, '');
+  // Check if the request is for the main marketing site or a dev environment
+  const isMainSite =
+    hostname === 'localhost' || // local dev
+    hostname === '0.0.0.0' ||
+    hostname === rootDomain ||
+    hostname === `www.${rootDomain}`;
 
-  // If it's a request to the main marketing site, let it pass.
-  // Path-based storefronts like /storefront/my-store will also be allowed through by this logic.
-  if (hostname === `localhost:3000` || hostname === rootDomain || hostname === `www.${rootDomain}`) {
+  if (isMainSite) {
     return response;
   }
 
-  // It's a subdomain storefront request. Extract the slug and rewrite to the correct path.
-  // e.g., "ogabassey.baci.store" -> "ogabassey"
-  const slug = normalizedHost;
+  // Check if it's a custom domain (not a subdomain of rootDomain)
+  const isCustomDomain = !hostname.endsWith(`.${rootDomain}`) && !hostname.includes('localhost');
 
-  if (slug) {
-    console.log(`Rewriting ${hostname} to /storefront/${slug}`);
-    url.pathname = `/storefront/${slug}`;
+  if (isCustomDomain) {
+    // Look up custom domain in database
+    const { data: domainRecord } = await supabase
+      .from('domains')
+      .select('merchant_id, status, merchants!inner(slug)')
+      .eq('domain', hostname)
+      .eq('status', 'active')
+      .single();
+
+    if (domainRecord) {
+      // @ts-ignore - Supabase typing issue with nested select
+      const merchantSlug = domainRecord.merchants?.slug;
+      if (merchantSlug) {
+        url.pathname = `/storefront/${merchantSlug}${url.pathname}`;
+        return NextResponse.rewrite(url, {
+          request: {
+            headers: request.headers,
+          },
+          headers: response.headers,
+        });
+      }
+    }
+
+    // Custom domain not found or not active - redirect to main site
+    return NextResponse.redirect(new URL('/', `https://${rootDomain}`));
+  }
+
+  // It's a subdomain storefront request. Extract the slug and rewrite.
+  const slug = hostname.replace(`.${rootDomain}`, '');
+
+  if (slug && slug !== 'www') {
+    url.pathname = `/storefront/${slug}${url.pathname}`;
     return NextResponse.rewrite(url, {
       request: {
         headers: request.headers,

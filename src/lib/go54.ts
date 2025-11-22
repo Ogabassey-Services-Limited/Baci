@@ -41,6 +41,24 @@ export interface DomainRegistrationResult {
   error?: string;
 }
 
+export interface DNSRecord {
+  type: 'A' | 'AAAA' | 'CNAME' | 'MX' | 'TXT' | 'NS' | 'SRV';
+  name: string; // hostname or @ for root
+  value: string; // IP address, hostname, or text value
+  priority?: number; // For MX and SRV records
+  ttl?: number; // Time to live in seconds
+}
+
+export interface EmailForward {
+  prefix: string; // e.g., "info", "sales", "*" for catch-all
+  forwardto: string; // destination email address
+}
+
+export interface IDProtectionStatus {
+  enabled: boolean;
+  domain: string;
+}
+
 /**
  * Generate Go54 authentication token
  * Token format: base64(hmac_sha256(api_key, "email:yy-mm-dd HH"))

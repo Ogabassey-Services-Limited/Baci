@@ -84,17 +84,13 @@ export async function setCsrfToken(): Promise<string> {
 
 /**
  * Get CSRF token from cookies (for client-side use)
+ * Note: Does not automatically generate a new token to avoid cookie modification in Server Components
  */
 export async function getCsrfToken(): Promise<string | null> {
     const cookieStore = await cookies();
     const token = cookieStore.get(CSRF_TOKEN_NAME);
 
-    if (!token) {
-        // Generate new token if none exists
-        return await setCsrfToken();
-    }
-
-    return token.value;
+    return token?.value ?? null;
 }
 
 /**
