@@ -1,8 +1,8 @@
 -- =============================================
--- PRODUCT STOCK MANAGEMENT FUNCTIONS
+-- ATOMIC STOCK DECREMENT FUNCTIONS
 -- =============================================
+-- These functions ensure that stock updates are atomic and prevent race conditions.
 
--- Decrements stock for a base product atomically
 CREATE OR REPLACE FUNCTION decrement_product_stock(
   product_id_param UUID,
   quantity_param INTEGER
@@ -17,7 +17,7 @@ BEGIN
   SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE;
 
   IF NOT FOUND THEN
-    RETURN QUERY SELECT FALSE, NULL, 'Product not found';
+    RETURN QUERY SELECT FALSE, -1, 'Product not found';
     RETURN;
   END IF;
 
@@ -26,19 +26,18 @@ BEGIN
     RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
     RETURN;
   ELSE
-    -- Decrement stock and return new quantity
-    RETURN QUERY
+    -- Decrement stock and return new quantity using RETURNING clause
+    RETURN QUERY 
     UPDATE products
     SET stock_quantity = products.stock_quantity - quantity_param,
         updated_at = NOW()
     WHERE id = product_id_param
-    RETURNING TRUE, stock_quantity, 'Stock updated';
-    RETURN;
+    RETURNING TRUE, products.stock_quantity, 'Stock updated';
   END IF;
 END;
 $$;
 
--- Decrements stock for a product variant atomically
+
 CREATE OR REPLACE FUNCTION decrement_variant_stock(
   variant_id_param UUID,
   quantity_param INTEGER
@@ -53,7 +52,7 @@ BEGIN
   SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE;
 
   IF NOT FOUND THEN
-    RETURN QUERY SELECT FALSE, NULL, 'Variant not found';
+    RETURN QUERY SELECT FALSE, -1, 'Variant not found';
     RETURN;
   END IF;
 
@@ -62,18 +61,15 @@ BEGIN
     RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
     RETURN;
   ELSE
-    -- Decrement stock and return new quantity
+    -- Decrement stock and return new quantity using RETURNING clause
     RETURN QUERY
     UPDATE product_variants
-    SET stock_quantity = product_variants.stock_quantity - quantity_param,
-        updated_at = NOW()
+    SET stock_quantity = product_variants.stock_quantity - quantity_param
     WHERE id = variant_id_param
-    RETURNING TRUE, stock_quantity, 'Stock updated';
-    RETURN;
+    RETURNING TRUE, product_variants.stock_quantity, 'Stock updated';
   END IF;
 END;
 $$;
-
 
 -- =============================================
 -- TEXT SANITIZATION FUNCTION (UNSAFE - DO NOT USE FOR SECURITY)
@@ -81,6 +77,7 @@ $$;
 -- WARNING:
 -- !!! This function is NOT SAFE for security-critical input. !!!
 -- Regex-based HTML tag removal is easily bypassed by malformed, nested, or multiline tags.
+-- Never use server-side regex for XSS prevention!
 -- For any untrusted input, use a dedicated client-side library (e.g., DOMPurify).
 -- This function is for basic display formatting only, NOT security!
 -- ---------------------------------------------
@@ -94,7 +91,7 @@ AS $$
     -- Remove HTML tags: updated regex to avoid multiline/nested tag match, but still NOT SAFE
     cleaned := regexp_replace(text_input, E'<[^>\\n]+>', '', 'g');
     -- Remove HTML tags that span newlines (still incomplete)
-    cleaned := regexp_replace(cleaned, E'(?s)<.*?>', '', 'g');
+    cleaned := regexp_replace(cleaned, E'<.*?>', '', 'gn');
     -- Remove javascript: and data: protocols
     cleaned := regexp_replace(cleaned, E'(?i)javascript:', '', 'g');
     cleaned := regexp_replace(cleaned, E'(?i)data:', '', 'g');
@@ -103,6 +100,9 @@ AS $$
     RETURN btrim(cleaned);
   END;
 $$;
+
+-- Explicitly prevent 'anon' role from executing this UNSAFE function
+REVOKE EXECUTE ON FUNCTION sanitize_text_input(text) FROM anon;
 
 
 -- =============================================
@@ -158,17 +158,13 @@ BEGIN
     current_count := 0;
   END IF;
 
-  IF current_count >= max_requests_param THEN
-    RETURN FALSE; -- Limit exceeded
-  END IF;
-
   -- Log this request and increment count on conflict
   INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
   VALUES (identifier_param, endpoint_param, 1, window_start)
   ON CONFLICT (identifier, endpoint, window_start) DO UPDATE
     SET request_count = rate_limit_log.request_count + 1;
 
-  RETURN TRUE;
+  RETURN current_count < max_requests_param;
 END;
 $$;
 
@@ -186,7 +182,6 @@ BEGIN
 END;
 $$;
 
--- NOTE: Schedule this function to run periodically (e.g., via pg_cron) to avoid unbounded log table growth.
 
 -- =============================================
 -- GRANT PERMISSIONS
@@ -195,7 +190,7 @@ $$;
 -- TODO: Ensure authorization logic (or Row Level Security) restricts stock changes by user ownership!
 GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION decrement_variant_stock TO authenticated;
-GRANT EXECUTE ON FUNCTION sanitize_text_input TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION sanitize_text_input TO authenticated;
 GRANT EXECUTE ON FUNCTION is_valid_email TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION check_rate_limit TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION cleanup_rate_limit_log TO authenticated;
