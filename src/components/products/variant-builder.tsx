@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Plus, X, Image as ImageIcon, Wand2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,7 +31,7 @@ interface AttributeSelection {
 }
 
 // Poll interval and timeout for AI variant suggestion retrieval
-const VARIANT_SUGGESTION_POLL_MS = 1000;
+const VARIANT_SUGGESTION_POLL_MS = 3000; // Increased per CodeQL recommendation for performance
 const VARIANT_SUGGESTION_MAX_ATTEMPTS = 10; // Number of polling attempts for variant suggestions
 const VARIANT_SUGGESTION_POLL_MAX_MS = VARIANT_SUGGESTION_POLL_MS * VARIANT_SUGGESTION_MAX_ATTEMPTS;
 
@@ -94,7 +94,6 @@ export function VariantBuilder({
         variantsRef.current = variants;
     }, [variants]);
 
-    // Effect to handle AI suggestions
     // Effect to handle AI suggestions
     useEffect(() => {
         let interval: ReturnType<typeof setInterval> | null = null;
@@ -188,7 +187,7 @@ export function VariantBuilder({
             );
 
             return existing || {
-                id: `temp_${generateUUID()}`,
+                id: `variant-temp-${generateUUID()}`,
                 product_id: '',
                 merchant_id: '',
                 attributes: combo,
@@ -314,10 +313,9 @@ export function VariantBuilder({
         }
     };
 
-    const renderGeneratedVariants = () => {
-        // Get unique colors and spec combinations
-        const colors = [...new Set(variants.map(v => v.attributes.color))].filter(Boolean);
-        const specCombos = variants.reduce((combos, variant) => {
+    // Memoize specCombos calculation for performance
+    const specCombos = useMemo(() => {
+        return variants.reduce((combos, variant) => {
             const specs = Object.entries(variant.attributes)
                 .filter(([key]) => key !== 'color')
                 .map(([, value]) => value)
@@ -330,6 +328,11 @@ export function VariantBuilder({
             }
             return combos;
         }, [] as Array<{ label: string; attributes: Record<string, string> }>);
+    }, [variants]);
+
+    const renderGeneratedVariants = () => {
+        // Get unique colors
+        const colors = [...new Set(variants.map(v => v.attributes.color))].filter(Boolean);
 
         return (
             <div className="space-y-6">
