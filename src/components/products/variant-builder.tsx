@@ -86,6 +86,12 @@ export function VariantBuilder({
     const [trackStock, setTrackStock] = useState(true);
     const [enhancingImages, setEnhancingImages] = useState<Record<string, boolean>>({});
 
+    // Ref to always have the latest onVariantsChange callback
+    const onVariantsChangeRef = useRef(onVariantsChange);
+    useEffect(() => {
+        onVariantsChangeRef.current = onVariantsChange;
+    }, [onVariantsChange]);
+
 
     const currencySymbol = getCountryByCode(merchant?.country || 'NG')?.currencySymbol || '₦';
 
@@ -96,7 +102,6 @@ export function VariantBuilder({
 
     // Effect to handle AI suggestions
     useEffect(() => {
-        let interval: ReturnType<typeof setInterval> | null = null;
         let timeout: ReturnType<typeof setTimeout> | null = null;
         let resolved = false;
 
@@ -140,7 +145,6 @@ export function VariantBuilder({
                     }
                 }
 
-                if (interval) clearInterval(interval);
                 if (timeout) clearTimeout(timeout);
             }
         }
@@ -153,21 +157,19 @@ export function VariantBuilder({
             }
         }
 
-        interval = setInterval(checkForSuggestions, VARIANT_SUGGESTION_POLL_MS); // Poll every VARIANT_SUGGESTION_POLL_MS ms for lower CPU usage
         // Attach listener
         window.addEventListener('storage', handleStorage);
 
+        // Initial check in case suggestion exists from previous process/run
+        checkForSuggestions();
+
         timeout = setTimeout(() => {
-            // Initial check in case suggestion exists from previous process/run
-            if (!resolved && interval) {
-                checkForSuggestions();
-                clearInterval(interval);
-            }
+            // Stop polling after maximum period; do not check for suggestions again here
+            if (timeout) clearTimeout(timeout);
         }, VARIANT_SUGGESTION_POLL_MAX_MS); // Max polling duration, then give up
 
         // Cleanup
         return () => {
-            if (interval) clearInterval(interval);
             window.removeEventListener('storage', handleStorage);
             if (timeout) clearTimeout(timeout);
         };
@@ -197,8 +199,8 @@ export function VariantBuilder({
         });
 
         setVariants(merged);
-        onVariantsChange(merged);
-    }, [attributeSelections, categoryConfig.supportsVariants, categoryConfig.variantAttributes, onVariantsChange]);
+        onVariantsChangeRef.current(merged);
+    }, [attributeSelections, categoryConfig.supportsVariants, categoryConfig.variantAttributes]);
 
     // Helper to sort values numerically (for RAM, storage, etc.)
     const sortAttributeValues = (values: string[], attributeKey: string): string[] => {
@@ -562,7 +564,7 @@ export function VariantBuilder({
                                             )}
                                             <Input
                                                 type="text"
-                                                placeholder={getPlaceholderForAttribute(attr)}
+                                                placeholder={(attributeSelections[attr.key]?.length ?? 0) > 0 ? '' : getPlaceholderForAttribute(attr)}
                                                 value={textInputs[attr.key] ?? ''}
                                                 onChange={(e) => setTextInputs(prev => ({ ...prev, [attr.key]: e.target.value }))}
                                                 onKeyDown={(e) => {
@@ -575,7 +577,7 @@ export function VariantBuilder({
                                                         }
                                                     }
                                                 }}
-                                                className={cn("w-full", (attributeSelections[attr.key]?.length ?? 0) > 0 && "placeholder-transparent")}
+                                                className="w-full"
                                             />
                                         </div>
                                         <Button
