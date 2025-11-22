@@ -156,7 +156,7 @@ RETURNS BOOLEAN
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  updated_count INTEGER;
+  affected_count INTEGER := 0;
   window_start TIMESTAMPTZ;
 BEGIN
   -- Calculate aligned fixed window start (bucketed by window size)
@@ -164,17 +164,25 @@ BEGIN
     floor(extract(epoch from now()) / window_seconds_param) * window_seconds_param
   );
 
-  -- Atomic upsert: insert new row, or update if exists and below limit
-  INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
-  VALUES (identifier_param, endpoint_param, 1, window_start)
-  ON CONFLICT (identifier, endpoint, window_start)
-  DO UPDATE SET request_count = rate_limit_log.request_count + 1
-    WHERE rate_limit_log.request_count < max_requests_param
-  RETURNING request_count INTO updated_count;
+  -- Try to insert a new row; if conflict, atomically increment only if under limit
+  BEGIN
+    INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
+    VALUES (identifier_param, endpoint_param, 1, window_start);
+    affected_count := 1; -- Insert succeeded, first request in window
+  EXCEPTION WHEN unique_violation THEN
+    -- Row exists, try to increment atomically only if below limit
+    UPDATE rate_limit_log
+    SET request_count = request_count + 1
+    WHERE identifier = identifier_param
+      AND endpoint = endpoint_param
+      AND window_start = window_start
+      AND request_count < max_requests_param;
+    -- Check if update actually occurred (affected_count = 1 means allowed, 0 means limit reached)
+    GET DIAGNOSTICS affected_count = ROW_COUNT;
+  END;
 
-  -- Return true only if the request was successfully logged (allowed)
-  -- If updated_count is NULL, the rate limit was reached and no update occurred
-  RETURN updated_count IS NOT NULL;
+  -- Return true only if insert or update succeeded (request is allowed)
+  RETURN affected_count = 1;
 END;
 $$;
 
@@ -222,16 +230,26 @@ GRANT EXECUTE ON FUNCTION cleanup_rate_limit_log TO authenticated;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
 
--- Optimize RLS policy performance: index for merchant lookup in policies
-CREATE INDEX IF NOT EXISTS idx_merchants_id_user_id ON merchants(id, user_id);
+-- Note: No additional index needed - merchants.id primary key index is sufficient
+-- The RLS policies use EXISTS which can leverage the PK index efficiently
 
 -- Policy to ensure a user can only update products belonging to their own merchant account
+-- Uses EXISTS for better performance than scalar subquery
 CREATE POLICY update_own_product_stock ON products
   FOR UPDATE
-  USING (((SELECT user_id FROM merchants WHERE id = products.merchant_id) = auth.uid()));
+  USING (EXISTS (
+    SELECT 1 FROM merchants
+    WHERE merchants.id = products.merchant_id
+      AND merchants.user_id = auth.uid()
+  ));
 
 -- Policy to ensure a user can only update variants belonging to their own merchant account
+-- Uses EXISTS for better performance than scalar subquery
 CREATE POLICY update_own_variant_stock ON product_variants
   FOR UPDATE
-  USING (((SELECT user_id FROM merchants WHERE id = product_variants.merchant_id) = auth.uid()));
+  USING (EXISTS (
+    SELECT 1 FROM merchants
+    WHERE merchants.id = product_variants.merchant_id
+      AND merchants.user_id = auth.uid()
+  ));
 

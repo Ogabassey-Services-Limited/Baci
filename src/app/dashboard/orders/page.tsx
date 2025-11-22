@@ -281,16 +281,18 @@ export default function OrdersPage() {
 
         setOrders(transformedOrders);
       } catch (error) {
-        console.error('Error fetching orders:', error);
-        // Only show toast if the error is not an auth error, which is handled elsewhere
-        if (!(error as Error).message.includes('Unauthorized')) {
-          setOrdersError((error as Error).message);
-          toast({
-            title: 'Error Fetching Orders',
-            description: (error as Error).message,
-            variant: 'destructive',
-          });
+        const errorMessage = (error as Error).message;
+        console.error('Error fetching orders:', errorMessage);
+
+        // Only show toast if the error is not a generic "Request failed" or "Unauthorized"
+        if (!errorMessage.includes('Unauthorized') && !errorMessage.includes('Request failed')) {
+            toast({
+                title: 'Error Fetching Orders',
+                description: errorMessage,
+                variant: 'destructive',
+            });
         }
+        setOrdersError(errorMessage); // Set error state to display in UI
       } finally {
         setOrdersLoading(false);
       }
