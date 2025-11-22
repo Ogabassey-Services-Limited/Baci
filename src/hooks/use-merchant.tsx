@@ -28,6 +28,7 @@ export interface MerchantData {
     faq?: string;
     legal?: string;
   };
+  slug?: string;
 }
 
 interface MerchantContextType {
@@ -51,7 +52,6 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
   const supabase = createClient();
 
   const loadData = useCallback(async () => {
-    // Only proceed if we have a slug or a user is logged in (or auth check is done)
     const shouldLoad = slug || !authLoading;
     if (!shouldLoad) {
       setLoading(false);
@@ -64,8 +64,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       let query = supabase.from('merchants').select('*');
 
       if (slug) {
-        const businessName = decodeURIComponent(slug.replace(/-/g, ' '));
-        query = query.ilike('business_name', businessName);
+        query = query.eq('slug', slug);
       } else {
         if (!user) {
           setMerchant(null);
@@ -77,7 +76,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
 
       const { data, error } = await query.single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
+      if (error && error.code !== 'PGRST116') {
         throw error;
       }
 

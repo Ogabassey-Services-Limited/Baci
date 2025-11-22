@@ -1,4 +1,5 @@
 
+
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
@@ -130,8 +131,7 @@ export async function middleware(request: NextRequest) {
 
   // It's a subdomain storefront request. Extract the slug and rewrite to the correct path.
   // e.g., "ogabassey.baci.tech" -> "ogabassey"
-  const normalizedHost = hostname.replace(`.${rootDomain}`, '');
-  const slug = normalizedHost;
+  const slug = hostname.replace(`.${rootDomain}`, '');
 
   if (slug) {
     console.log(`Subdomain ${hostname} -> /storefront/${slug}`);
