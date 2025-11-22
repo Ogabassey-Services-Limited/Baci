@@ -23,6 +23,7 @@ interface VariantBuilderProps {
     onVariantsChange: (variants: ProductVariant[]) => void;
     basePrice: number;
     initialVariants?: ProductVariant[];
+    attributeOrder?: string[]; // Optional prop to configure attribute order
 }
 
 interface AttributeSelection {
@@ -32,6 +33,12 @@ interface AttributeSelection {
 // Poll interval and timeout for AI variant suggestion retrieval
 const VARIANT_SUGGESTION_POLL_MS = 1000;
 const VARIANT_SUGGESTION_MAX_ATTEMPTS = 10; // Number of polling attempts for variant suggestions
+
+// Default attribute order, used if not provided via props
+const DEFAULT_ATTRIBUTE_ORDER = ['ram', 'storage', 'color'];
+
+// Attribute keys that should be numerically sorted in variants
+const NUMERIC_SORT_ATTRIBUTE_KEYS = ['ram', 'storage', 'size', 'weight'];
 
 // Helper to format text to Title Case
 function toTitleCase(text: string) {
@@ -66,10 +73,9 @@ export function VariantBuilder({
     categoryConfig,
     onVariantsChange,
     basePrice,
-    initialVariants = []
+    initialVariants = [],
+    attributeOrder = DEFAULT_ATTRIBUTE_ORDER
 }: VariantBuilderProps) {
-    // Limit for number of color options shown (maintainability!)
-    const COLOR_OPTIONS_LIMIT = 6;
     const VARIANT_SUGGESTION_POLL_MAX_MS = VARIANT_SUGGESTION_POLL_MS * VARIANT_SUGGESTION_MAX_ATTEMPTS;
     const { merchant } = useMerchant();
     const { toast } = useToast();
@@ -116,8 +122,8 @@ export function VariantBuilder({
                             // For color attributes, store the first option (or all) as a string array
                             const attr = categoryConfig.variantAttributes?.find(a => a.key === attrKey);
                             if (attr?.type === 'color') {
-                                // Keep up to 6 color options (avoid UI overload)
-                                newSelections[attrKey] = suggestion.options.slice(0, COLOR_OPTIONS_LIMIT);
+                                // Keep all color options
+                                newSelections[attrKey] = suggestion.options;
                             } else {
                                 newSelections[attrKey] = suggestion.options;
                             }
@@ -198,7 +204,7 @@ export function VariantBuilder({
     // Helper to sort values numerically (for RAM, storage, etc.)
     const sortAttributeValues = (values: string[], attributeKey: string): string[] => {
         // Sort numerically for RAM, storage, and similar attributes
-        if (['ram', 'storage', 'size', 'weight'].includes(attributeKey.toLowerCase())) {
+        if (NUMERIC_SORT_ATTRIBUTE_KEYS.includes(attributeKey.toLowerCase())) {
             return [...values].sort((a, b) => {
                 const numA = parseFloat(a);
                 const numB = parseFloat(b);
@@ -460,7 +466,6 @@ export function VariantBuilder({
                         <Label className="text-sm font-semibold">3. Set stock quantity per variant</Label>
                         <div className="grid grid-cols-2 gap-3">
                             {variants.map((variant, index) => {
-                                const attributeOrder = ['ram', 'storage', 'color']; // Define your desired order
                                 const sortedAttributes = Object.entries(variant.attributes).sort(([keyA], [keyB]) => {
                                     const indexA = attributeOrder.indexOf(keyA.toLowerCase());
                                     const indexB = attributeOrder.indexOf(keyB.toLowerCase());
