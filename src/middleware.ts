@@ -38,9 +38,6 @@ export async function middleware(request: NextRequest) {
   }
   const { hostname } = url;
 
-  // Debug logging
-  console.log(`[Middleware] ${request.method} ${pathname} - hostname: "${hostname}"`);
-
   // Create a response object to update cookies
   let response = NextResponse.next({
     request: {
@@ -89,38 +86,33 @@ export async function middleware(request: NextRequest) {
   await supabase.auth.getUser();
 
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
-  
-  // Explicitly define hosts that should be treated as the main marketing site
-  const mainSiteHosts = [
-      `localhost:9002`, // local dev
-      '0.0.0.0:9002',     // local network
-      rootDomain,         // production
-      `www.${rootDomain}`  // production www
-  ];
 
-  if (mainSiteHosts.includes(hostname)) {
-    console.log(`[Middleware] Main site request. Passing through.`);
+  // Check if the request is for the main marketing site or a dev environment
+  if (
+    hostname === `localhost:9002` || // local dev
+    hostname === '0.0.0.0:9002' ||
+    hostname === rootDomain ||
+    hostname === `www.${rootDomain}`
+  ) {
     return response;
   }
 
-  // Check if this is a custom domain (not a subdomain of rootDomain)
+  // Check if it's a custom domain (not a subdomain of rootDomain)
   const isCustomDomain = !hostname.endsWith(`.${rootDomain}`) && !hostname.includes('localhost');
 
   if (isCustomDomain) {
     // Look up custom domain in database
     const { data: domainRecord } = await supabase
       .from('domains')
-      .select('merchant_id, status, merchants!inner(business_name)')
+      .select('merchant_id, status, merchants!inner(slug)')
       .eq('domain', hostname)
       .eq('status', 'active')
       .single();
 
     if (domainRecord) {
       // @ts-ignore - Supabase typing issue with nested select
-      const merchantBusinessName = domainRecord.merchants?.business_name;
-      if (merchantBusinessName) {
-        const merchantSlug = merchantBusinessName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        console.log(`[Middleware] Custom domain ${hostname} -> /storefront/${merchantSlug}`);
+      const merchantSlug = domainRecord.merchants?.slug;
+      if (merchantSlug) {
         url.pathname = `/storefront/${merchantSlug}${url.pathname}`;
         return NextResponse.rewrite(url, {
           request: {
@@ -132,16 +124,13 @@ export async function middleware(request: NextRequest) {
     }
 
     // Custom domain not found or not active - redirect to main site
-    console.log(`[Middleware] Custom domain ${hostname} not found or inactive`);
     return NextResponse.redirect(new URL('/', `https://${rootDomain}`));
   }
 
-  // It's a subdomain storefront request. Extract the slug and rewrite to the correct path.
-  // e.g., "ogabassey.baci.tech" -> "ogabassey"
+  // It's a subdomain storefront request. Extract the slug and rewrite.
   const slug = hostname.replace(`.${rootDomain}`, '');
 
   if (slug && slug !== 'www') {
-    console.log(`[Middleware] Subdomain ${hostname} -> /storefront/${slug}`);
     url.pathname = `/storefront/${slug}${url.pathname}`;
     return NextResponse.rewrite(url, {
       request: {
