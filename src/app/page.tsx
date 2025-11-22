@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -62,7 +63,7 @@ function BaciLandingPage() {
                 <Button asChild size="lg" className="bg-[#FF9F43] hover:bg-[#ff8c1a] text-white text-lg px-8 py-6 h-auto font-semibold shadow-lg">
                   <Link href="/onboarding">Get Started Free →</Link>
                 </Button>
-                <Button asChild size="lg" variant="outline" className="text-white border-white hover:bg-white/10 text-lg px-8 py-6 h-auto">
+                <Button asChild size="lg" variant="outline" className="text-white border-white bg-white/10 hover:bg-transparent text-lg px-8 py-6 h-auto">
                   <Link href="#how-it-works">See How It Works</Link>
                 </Button>
               </div>
@@ -468,3 +469,5 @@ export default function HomePage() {
     </AppBody>
   );
 }
+
+    
