@@ -88,12 +88,13 @@ export async function middleware(request: NextRequest) {
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
 
   // Check if the request is for the main marketing site or a dev environment
-  if (
+  const isMainSite =
     hostname === `localhost:9002` || // local dev
     hostname === '0.0.0.0:9002' ||
     hostname === rootDomain ||
-    hostname === `www.${rootDomain}`
-  ) {
+    hostname === `www.${rootDomain}`;
+
+  if (isMainSite) {
     return response;
   }
 
