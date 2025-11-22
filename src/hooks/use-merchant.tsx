@@ -51,7 +51,15 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
   const supabase = createClient();
 
   const loadData = useCallback(async () => {
+    // Only proceed if we have a slug or a user is logged in (or auth check is done)
+    const shouldLoad = slug || !authLoading;
+    if (!shouldLoad) {
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
+
     try {
       let query = supabase.from('merchants').select('*');
 
@@ -59,14 +67,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
         const businessName = decodeURIComponent(slug.replace(/-/g, ' '));
         query = query.ilike('business_name', businessName);
       } else {
-        // Wait for auth to finish loading
-        if (authLoading) {
-          return;
-        }
-
-        // Use user from auth context instead of fetching session again
         if (!user) {
-          // No user logged in - this is normal, not an error
           setMerchant(null);
           setLoading(false);
           return;
@@ -76,28 +77,14 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
 
       const { data, error } = await query.single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error here
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
         throw error;
       }
 
       if (data) {
-        if (!data.country) {
-          data.country = 'NG';
-        }
         setMerchant(data as MerchantData);
       } else {
-        // If no merchant exists for the logged-in user, create a default structure
-        if (!slug && user) {
-          const defaultMerchant: Partial<MerchantData> = {
-            user_id: user.id,
-            business_name: 'My Store',
-            business_type: 'other',
-            country: 'NG',
-          };
-          setMerchant(defaultMerchant as MerchantData);
-        } else {
-          setMerchant(null);
-        }
+        setMerchant(null);
       }
     } catch (error) {
       logger.error({ message: 'Failed to load merchant data', error: error as Error, slug });
@@ -107,20 +94,10 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
     }
   }, [slug, authLoading, user, supabase]);
 
+
   useEffect(() => {
     loadData();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (!slug && (event === 'SIGNED_IN' || event === 'SIGNED_OUT')) {
-        logger.info({ message: `Auth state changed (${event}), reloading merchant data.` });
-        loadData();
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [loadData, supabase.auth, slug]);
+  }, [loadData]);
 
   const reloadMerchant = useCallback(() => {
     loadData();

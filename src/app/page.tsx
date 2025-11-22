@@ -4,6 +4,9 @@
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
+import { AuthProvider } from '@/contexts/auth-context';
+import AppBody from '@/components/app-body';
+
 
 function BaciLandingPage() {
 
@@ -51,6 +54,14 @@ function BaciLandingPage() {
   )
 }
 
+// Wrap the landing page in the necessary providers, but without MerchantProvider logic
+// that tries to find a store.
 export default function HomePage() {
-  return <BaciLandingPage />;
+  return (
+    <AuthProvider>
+       <AppBody>
+          <BaciLandingPage />
+       </AppBody>
+    </AuthProvider>
+  );
 }
