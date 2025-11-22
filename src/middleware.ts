@@ -90,22 +90,52 @@ export async function middleware(request: NextRequest) {
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
   const isLocal = hostname.includes('localhost');
 
-  // Clean up the hostname to get the main domain part
-  const normalizedHost = hostname.replace(`.${rootDomain}`, '').replace(`.${isLocal ? 'localhost:3000' : rootDomain}`, '');
-
   // If it's a request to the main marketing site, let it pass.
   // Path-based storefronts like /storefront/my-store will also be allowed through by this logic.
   if (hostname === `localhost:3000` || hostname === rootDomain || hostname === `www.${rootDomain}`) {
     return response;
   }
 
+  // Check if this is a custom domain (not a subdomain of rootDomain)
+  const isCustomDomain = !hostname.endsWith(`.${rootDomain}`);
+
+  if (isCustomDomain && !isLocal) {
+    // Look up custom domain in database
+    const { data: domainRecord } = await supabase
+      .from('domains')
+      .select('merchant_id, status, merchants!inner(slug)')
+      .eq('domain', hostname)
+      .eq('status', 'active')
+      .single();
+
+    if (domainRecord) {
+      // @ts-ignore - Supabase typing issue with nested select
+      const merchantSlug = domainRecord.merchants?.slug;
+      if (merchantSlug) {
+        console.log(`Custom domain ${hostname} -> /storefront/${merchantSlug}`);
+        url.pathname = `/storefront/${merchantSlug}${url.pathname}`;
+        return NextResponse.rewrite(url, {
+          request: {
+            headers: request.headers,
+          },
+          headers: response.headers,
+        });
+      }
+    }
+
+    // Custom domain not found or not active - redirect to main site
+    console.log(`Custom domain ${hostname} not found or inactive`);
+    return NextResponse.redirect(new URL('/', `https://${rootDomain}`));
+  }
+
   // It's a subdomain storefront request. Extract the slug and rewrite to the correct path.
   // e.g., "ogabassey.baci.tech" -> "ogabassey"
+  const normalizedHost = hostname.replace(`.${rootDomain}`, '');
   const slug = normalizedHost;
 
   if (slug) {
-    console.log(`Rewriting ${hostname} to /storefront/${slug}`);
-    url.pathname = `/storefront/${slug}`;
+    console.log(`Subdomain ${hostname} -> /storefront/${slug}`);
+    url.pathname = `/storefront/${slug}${url.pathname}`;
     return NextResponse.rewrite(url, {
       request: {
         headers: request.headers,

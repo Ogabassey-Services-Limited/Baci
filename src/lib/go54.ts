@@ -1,0 +1,391 @@
+/**
+ * Go54 Domain Reseller API Integration
+ * Documentation: https://api-docs.go54.com
+ */
+
+import crypto from 'crypto';
+
+const GO54_BASE_URL =
+  'https://www.whogohost.com/host/modules/addons/DomainsReseller/api/index.php';
+const GO54_EMAIL = process.env.GO54_EMAIL || '';
+const GO54_API_KEY = process.env.GO54_API_KEY || '';
+
+export interface ContactInfo {
+  firstname: string;
+  lastname: string;
+  fullname: string;
+  companyname?: string;
+  email: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  state: string;
+  zipcode: string;
+  country: string; // ISO 2-letter code (e.g., "NG")
+  phonenumber: string;
+}
+
+export interface DomainAvailabilityResult {
+  searchTerm: string;
+  tld: string;
+  available: boolean;
+  price?: number;
+  premium?: boolean;
+}
+
+export interface DomainRegistrationResult {
+  success: boolean;
+  domain: string;
+  orderId?: string;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Generate Go54 authentication token
+ * Token format: base64(hmac_sha256(api_key, "email:yy-mm-dd HH"))
+ */
+function generateToken(): string {
+  if (!GO54_EMAIL || !GO54_API_KEY) {
+    throw new Error('GO54_EMAIL and GO54_API_KEY environment variables are required');
+  }
+
+  const now = new Date();
+  const year = now.getUTCFullYear().toString().slice(2); // yy
+  const month = (now.getUTCMonth() + 1).toString().padStart(2, '0'); // mm
+  const day = now.getUTCDate().toString().padStart(2, '0'); // dd
+  const hour = now.getUTCHours().toString().padStart(2, '0'); // HH
+
+  const dateStr = `${year}-${month}-${day} ${hour}`;
+  const message = `${GO54_EMAIL}:${dateStr}`;
+
+  const hash = crypto.createHmac('sha256', message).update(GO54_API_KEY).digest('hex');
+
+  return Buffer.from(hash).toString('base64');
+}
+
+/**
+ * Make authenticated request to Go54 API
+ */
+async function go54Request<T>(
+  endpoint: string,
+  method: 'GET' | 'POST' = 'POST',
+  params?: Record<string, any>
+): Promise<T> {
+  const token = generateToken();
+  const url = `${GO54_BASE_URL}${endpoint}`;
+
+  const options: RequestInit = {
+    method,
+    headers: {
+      username: GO54_EMAIL,
+      token,
+    },
+  };
+
+  if (method === 'POST' && params) {
+    // Convert params to URLSearchParams, stringify objects/arrays
+    const formData = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (typeof value === 'object' && value !== null) {
+        formData.append(key, JSON.stringify(value));
+      } else {
+        formData.append(key, String(value));
+      }
+    });
+    options.body = formData;
+  } else if (method === 'GET' && params) {
+    const queryParams = new URLSearchParams(
+      Object.entries(params).reduce((acc, [key, value]) => {
+        acc[key] = typeof value === 'object' ? JSON.stringify(value) : String(value);
+        return acc;
+      }, {} as Record<string, string>)
+    );
+    const urlWithParams = `${url}?${queryParams}`;
+    return fetch(urlWithParams, options).then((r) => r.json());
+  }
+
+  const response = await fetch(url, options);
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(`Go54 API Error: ${JSON.stringify(data)}`);
+  }
+
+  return data;
+}
+
+/**
+ * Check if domain(s) are available for registration
+ */
+export async function checkDomainAvailability(
+  searchTerm: string,
+  tlds: string[] = ['.com', '.com.ng', '.ng']
+): Promise<DomainAvailabilityResult[]> {
+  try {
+    const result = await go54Request<any>('/domains/lookup', 'POST', {
+      searchTerm,
+      punnyCodeSearchTerm: searchTerm,
+      tldsToInclude: tlds,
+      isIdnDomain: false,
+      premiumEnabled: false,
+    });
+
+    // Parse response and return availability results
+    // Note: Actual response format needs to be confirmed with live API
+    return result;
+  } catch (error) {
+    console.error('Error checking domain availability:', error);
+    throw error;
+  }
+}
+
+/**
+ * Register a new domain
+ */
+export async function registerDomain(data: {
+  domain: string;
+  regperiod: number; // years
+  contacts: {
+    registrant: ContactInfo;
+    tech: ContactInfo;
+    billing: ContactInfo;
+    admin: ContactInfo;
+  };
+  nameservers?: {
+    ns1: string;
+    ns2: string;
+    ns3?: string;
+    ns4?: string;
+    ns5?: string;
+  };
+  addons?: {
+    dnsmanagement?: 0 | 1;
+    emailforwarding?: 0 | 1;
+    idprotection?: 0 | 1; // WHOIS privacy
+  };
+}): Promise<DomainRegistrationResult> {
+  try {
+    // Default nameservers if not provided
+    const nameservers = data.nameservers || {
+      ns1: 'ns1.whogohost.com',
+      ns2: 'ns2.whogohost.com',
+    };
+
+    const result = await go54Request<any>('/order/domains/register', 'POST', {
+      domain: data.domain,
+      regperiod: data.regperiod,
+      nameservers,
+      contacts: data.contacts,
+      addons: data.addons || {},
+      domainfields: '',
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Error registering domain:', error);
+    throw error;
+  }
+}
+
+/**
+ * Transfer a domain from another registrar
+ */
+export async function transferDomain(data: {
+  domain: string;
+  eppcode: string; // Authorization code
+  regperiod: number;
+  contacts: {
+    registrant: ContactInfo;
+    tech: ContactInfo;
+    billing: ContactInfo;
+    admin: ContactInfo;
+  };
+  nameservers?: {
+    ns1: string;
+    ns2: string;
+    ns3?: string;
+    ns4?: string;
+    ns5?: string;
+  };
+}): Promise<any> {
+  try {
+    const nameservers = data.nameservers || {
+      ns1: 'ns1.whogohost.com',
+      ns2: 'ns2.whogohost.com',
+    };
+
+    const result = await go54Request('/order/domains/transfer', 'POST', {
+      domain: data.domain,
+      eppcode: data.eppcode,
+      regperiod: data.regperiod,
+      nameservers,
+      contacts: data.contacts,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Error transferring domain:', error);
+    throw error;
+  }
+}
+
+/**
+ * Renew a domain
+ */
+export async function renewDomain(domain: string, years: number = 1): Promise<any> {
+  try {
+    const result = await go54Request('/order/domains/renew', 'POST', {
+      domain,
+      regperiod: years,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Error renewing domain:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get EPP code for domain transfer
+ */
+export async function getDomainEPPCode(domain: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/eppcode`, 'GET', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error getting EPP code:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get domain contact details
+ */
+export async function getDomainContacts(domain: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/contact`, 'GET', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error getting domain contacts:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update domain contact information
+ */
+export async function updateDomainContacts(
+  domain: string,
+  contacts: {
+    registrant: ContactInfo;
+    tech: ContactInfo;
+    billing: ContactInfo;
+    admin: ContactInfo;
+  }
+): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/contact`, 'POST', {
+      domain,
+      contacts,
+    });
+    return result;
+  } catch (error) {
+    console.error('Error updating domain contacts:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get domain nameservers
+ */
+export async function getDomainNameservers(domain: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/nameservers`, 'GET', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error getting nameservers:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update domain nameservers
+ */
+export async function updateDomainNameservers(
+  domain: string,
+  nameservers: {
+    nameserver1: string;
+    nameserver2: string;
+    nameserver3?: string;
+    nameserver4?: string;
+    nameserver5?: string;
+  }
+): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/nameservers`, 'POST', {
+      domain,
+      nameservers,
+    });
+    return result;
+  } catch (error) {
+    console.error('Error updating nameservers:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get domain registrar lock status
+ */
+export async function getDomainLock(domain: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/lock`, 'GET', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error getting domain lock:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update domain registrar lock
+ */
+export async function updateDomainLock(domain: string, lock: boolean): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/lock`, 'POST', {
+      domain,
+      lockstatus: lock ? 'true' : 'false', // API expects string, not boolean
+    });
+    return result;
+  } catch (error) {
+    console.error('Error updating domain lock:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sync domain details (status, expiry, etc.)
+ */
+export async function syncDomainDetails(domain: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/sync`, 'POST', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error syncing domain:', error);
+    throw error;
+  }
+}
+
+/**
+ * Sync transfer status for pending transfers
+ */
+export async function syncDomainTransfer(domain: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/transfersync`, 'POST', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error syncing transfer:', error);
+    throw error;
+  }
+}
