@@ -7,7 +7,7 @@ import { useForm, FormProvider, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, CreditCard, User, Mail, KeyRound, ArrowLeft } from 'lucide-react';
+import { Loader2, CreditCard, User, Mail, KeyRound, ArrowLeft, Truck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -215,10 +215,26 @@ function Step1_Shipping() {
   );
 }
 
-function Step2_Payment() {
+function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-medium">Payment Information</h3>
+      <h3 className="text-lg font-medium">Shipping & Payment</h3>
+      <Card>
+        <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                <Truck className="h-6 w-6 text-muted-foreground"/>
+                <div>
+                    <p className="font-semibold">GIGL Shipping</p>
+                    <p className="text-sm text-muted-foreground">Standard (Est. 3-5 business days)</p>
+                </div>
+            </div>
+            {shippingFee === null ? (
+                <Loader2 className="h-5 w-5 animate-spin"/>
+            ) : (
+                <p className="font-semibold">{new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(shippingFee)}</p>
+            )}
+        </CardContent>
+      </Card>
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
         <div className="flex items-center gap-4">
           <CreditCard className="h-8 w-8 text-muted-foreground" />
@@ -247,6 +263,7 @@ function CheckoutPageContent() {
   const [pageLoading, setPageLoading] = useState(true);
   const [formIsLoading, setFormIsLoading] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [shippingFee, setShippingFee] = useState<number | null>(null);
   const totalSteps = 2;
   const supabase = createClient();
 
@@ -289,6 +306,40 @@ function CheckoutPageContent() {
       router.replace('/');
     }
   }, [cartCount, pageLoading, router]);
+
+  // Fetch shipping quote when address is valid
+  const watchAddress = shippingForm.watch('address');
+  useEffect(() => {
+      const getShippingQuote = async () => {
+          setShippingFee(null); // Reset on address change
+          if (watchAddress && watchAddress.length > 5) {
+              try {
+                  const res = await fetch('/api/shipping/quote', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                          // In a real app, we'd use geocoded lat/lng
+                          cartValue: cartTotal,
+                          items: cart.map(i => ({ name: i.name, quantity: i.quantity, weight: 1, value: i.price }))
+                      }),
+                  });
+                  if (!res.ok) throw new Error('Failed to get quote');
+                  const data = await res.json();
+                  setShippingFee(data.shippingFee);
+              } catch (error) {
+                  console.error("Failed to get shipping quote:", error);
+                  setShippingFee(DEFAULT_SHIPPING_FEE); // Fallback
+              }
+          }
+      };
+      
+      const handler = setTimeout(() => {
+          getShippingQuote();
+      }, 1000); // Debounce
+
+      return () => clearTimeout(handler);
+  }, [watchAddress, cartTotal, cart]);
+
 
   if (pageLoading) {
     return (
@@ -351,7 +402,7 @@ function CheckoutPageContent() {
 
       // Calculate totals
       const subtotal = cartTotal;
-      const shippingFee = merchantData.shipping_fee ?? DEFAULT_SHIPPING_FEE; // Use merchant-configured shipping fee, fallback to default
+      const finalShippingFee = shippingFee ?? merchantData.shipping_fee ?? DEFAULT_SHIPPING_FEE;
 
       // Create order via API
       const response = await fetch('/api/orders', {
@@ -366,7 +417,7 @@ function CheckoutPageContent() {
           customer_phone: data.phone,
           items: orderItems,
           subtotal,
-          shipping_fee: shippingFee,
+          shipping_fee: finalShippingFee,
           payment_method: 'card',
           payment_status: 'paid', // Since this is a demo, mark as paid
           shipping_status: 'pending',
@@ -378,6 +429,7 @@ function CheckoutPageContent() {
             state: data.state,
           },
           source: 'online_store',
+          shipping_provider: 'GIGL', // Add shipping provider
         }),
       });
 
@@ -395,7 +447,7 @@ function CheckoutPageContent() {
         shipping: data,
         items: cart,
         subtotal,
-        shipping_fee: shippingFee,
+        shipping_fee: finalShippingFee,
         total: order.total,
       };
       sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
@@ -456,13 +508,13 @@ function CheckoutPageContent() {
 
             {step === 2 && (
               <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
-                <Step2_Payment />
+                <Step2_Payment shippingFee={shippingFee} />
                 <div className="flex justify-between pt-4">
                   <Button type="button" variant="outline" onClick={handlePrev}>
                     Previous
                   </Button>
-                  <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading}>
-                    {formIsLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading || shippingFee === null}>
+                    {(formIsLoading || shippingFee === null) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Place Order
                   </ThemedButton>
                 </div>

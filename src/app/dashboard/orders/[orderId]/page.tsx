@@ -274,10 +274,26 @@ export default function OrderDetailsPage() {
                         </Card>
                         <Card>
                             <CardHeader>
-                                <CardTitle>Transactions</CardTitle>
+                                <CardTitle>Shipment</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-sm text-muted-foreground">No transactions found for this order.</p>
+                                {order.tracking_number ? (
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Provider</p>
+                                            <p className="font-semibold">{order.shipping_provider}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-muted-foreground">Tracking #</p>
+                                            <p className="font-semibold">{order.tracking_number}</p>
+                                        </div>
+                                        <Link href={`/track/${order.tracking_number}`}>
+                                            <Button variant="outline" size="sm">Track</Button>
+                                        </Link>
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">No tracking information available.</p>
+                                )}
                             </CardContent>
                         </Card>
                     </div>

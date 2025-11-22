@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { sanitizeSearchQuery, sanitizeLikePattern, isValidUuid } from '@/lib/sanitize';
+import { createGiglShipment } from '@/lib/gigl';
+import { logger } from '@/lib/logger';
 
 // GET /api/orders - Fetch orders for authenticated merchant
 export async function GET(request: NextRequest) {
@@ -203,6 +205,54 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create order', details: orderError.message },
         { status: 500 }
       );
+    }
+
+    // Create shipment with GIGL
+    let waybill = null;
+    try {
+        const giglShipmentPayload = {
+            "SenderDetails": {
+                "SenderLocation": { "Latitude": "6.5244", "Longitude": "3.3792" }, // Merchant location
+                "SenderName": "Baci Store", // Merchant Name
+                "SenderPhoneNumber": "+234800000000",
+                "SenderStationId": 4, // Default Lagos
+                "SenderAddress": "Merchant Address",
+                "InputtedSenderAddress": "Merchant Address",
+                "SenderLocality": "Lagos"
+            },
+            "ReceiverDetails": {
+                "ReceiverLocation": { "Longitude": "3.3792", "Latitude": "6.5244" }, // Customer location
+                "ReceiverStationId": 4,
+                "ReceiverName": customer_name,
+                "ReceiverPhoneNumber": customer_phone,
+                "ReceiverAddress": shipping_address.address,
+                "InputtedReceiverAddress": shipping_address.address
+            },
+            "ShipmentDetails": { "VehicleType": 1, "IsFromAgility": 0, "IsBatchPickUp": 0 },
+            "ShipmentItems": items.map((item: { value: number, quantity: number }) => ({
+                "SpecialPackageId": 10,
+                "Quantity": item.quantity,
+                "Value": item.value,
+                "ShipmentType": 0, // Special
+            }))
+        };
+        const giglResult = await createGiglShipment(giglShipmentPayload);
+        if (giglResult.status === 200 && giglResult.data.Waybill) {
+            waybill = giglResult.data.Waybill;
+            logger.info({ message: 'GIGL shipment created successfully', waybill });
+
+            // Update order with waybill
+            await supabase.from('orders').update({
+                shipping_provider: 'GIGL',
+                tracking_number: waybill,
+            }).eq('id', order.id);
+
+        } else {
+            logger.error({ message: 'GIGL shipment creation failed', giglResult });
+        }
+    } catch (giglError) {
+        logger.error({ message: 'Error calling GIGL create shipment API', error: giglError });
+        // Don't fail the whole order creation if shipping fails
     }
 
     // Insert order items into the new normalized table
