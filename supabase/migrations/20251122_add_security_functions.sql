@@ -125,7 +125,10 @@ BEGIN
   -- Local part: one or more valid chars, followed by zero or more (dot + valid chars)
   -- This structure inherently prevents consecutive, leading, and trailing dots
   -- Supports common features: plus addressing (user+tag@), underscores, percent encoding
-  IF email_text ~* '^[A-Za-z0-9_%+-]+(\.[A-Za-z0-9_%+-]+)*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$' THEN
+  --
+  -- Domain part: RFC 1035 compliant - labels must start/end with alphanumeric
+  -- Pattern: alphanumeric + optional (hyphens/alphanumeric) + alphanumeric
+  IF email_text ~* '^[A-Za-z0-9_%+-]+(\.[A-Za-z0-9_%+-]+)*@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$' THEN
     RETURN TRUE;
   END IF;
 
