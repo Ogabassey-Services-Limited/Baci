@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { sanitizeSearchQuery, sanitizeLikePattern, isValidUuid } from '@/lib/sanitize';
 
 // GET /api/orders - Fetch orders for authenticated merchant
 export async function GET(request: NextRequest) {
@@ -38,7 +39,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const paymentStatus = searchParams.get('payment_status');
     const shippingStatus = searchParams.get('shipping_status');
-    const search = searchParams.get('search');
+    const searchRaw = searchParams.get('search');
+
+    // Sanitize search input
+    const search = searchRaw ? sanitizeSearchQuery(searchRaw) : null;
 
     // Build query
     let query = supabase
@@ -56,9 +60,10 @@ export async function GET(request: NextRequest) {
       query = query.eq('shipping_status', shippingStatus);
     }
 
-    // Search by customer name or order number
+    // Search by customer name or order number (with sanitized input)
     if (search && search.trim()) {
-      query = query.or(`customer_name.ilike.%${search}%,order_number.ilike.%${search}%`);
+      const sanitizedPattern = sanitizeLikePattern(search);
+      query = query.or(`customer_name.ilike.%${sanitizedPattern}%,order_number.ilike.%${sanitizedPattern}%`);
     }
 
     const { data: orders, error: ordersError } = await query;
@@ -104,8 +109,16 @@ export async function POST(request: NextRequest) {
       notes,
     } = body;
 
+    // Validate merchant_id is a valid UUID
+    if (!merchant_id || !isValidUuid(merchant_id)) {
+      return NextResponse.json(
+        { error: 'Invalid merchant ID' },
+        { status: 400 }
+      );
+    }
+
     // Validate required fields
-    if (!merchant_id || !customer_email || !customer_name || !items || !subtotal) {
+    if (!customer_email || !customer_name || !items || subtotal === undefined) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -208,6 +221,30 @@ export async function POST(request: NextRequest) {
       if (itemsError) {
         console.error('Error creating order items:', itemsError);
         // Note: In a production environment, we should use a transaction or rollback the order creation.
+      } else {
+        // Update product stock atomically using RPC function
+        for (const item of orderItems) {
+          if (item.product_id) {
+            // Use atomic stock decrement function to prevent race conditions
+            const { data: stockResult, error: stockError } = await supabase
+              .rpc('decrement_product_stock', {
+                product_id_param: item.product_id,
+                quantity_param: item.quantity,
+              });
+
+            if (stockError) {
+              console.error('Error updating stock:', stockError);
+              // Continue processing other items even if one fails
+            } else if (stockResult && stockResult.length > 0) {
+              const result = stockResult[0];
+              if (!result.success) {
+                console.warn(`Stock update failed for product ${item.product_id}: ${result.message}`);
+                // In production, you might want to handle insufficient stock differently
+                // For now, we log and continue
+              }
+            }
+          }
+        }
       }
     }
 

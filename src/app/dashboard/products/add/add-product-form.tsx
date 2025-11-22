@@ -18,6 +18,7 @@ import { generateProductDescription } from '@/ai/flows/generate-product-descript
 import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { useMerchant } from '@/hooks/use-merchant';
+import { removeBackground } from '@imgly/background-removal';
 
 import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';
@@ -40,6 +41,7 @@ const addProductSchema = z.object({
     value: z.string()
   })).optional(),
   image: z.any().refine((file) => file, 'Product image is required.'),
+  color: z.string().optional(),
 });
 
 type AddProductFormValues = z.infer<typeof addProductSchema>;
@@ -74,6 +76,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       brand: initialData?.brand || '',
       fulfillment_details: initialData?.fulfillment_details || [],
       image: initialData?.image || null,
+      color: initialData?.color || '',
     },
   });
 
@@ -118,6 +121,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         brand: initialData.brand,
         fulfillment_details: initialData.fulfillment_details || [],
         image: initialData.image,
+        color: initialData.color,
       });
       setHasVariants(initialData.has_variants || false);
       setVariants(initialData.variants || []);
@@ -175,7 +179,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       // Handle suggested variants
       if (details.suggestedVariants && details.suggestedVariants.length > 0) {
         setHasVariants(true);
-        const _newInitialVariants = details.suggestedVariants.map(sv => ({
+        const _newInitialVariants = details.suggestedVariants.map((sv: { attribute: string; options: string[] }) => ({
           attributes: { [sv.attribute.toLowerCase()]: '' }, // placeholder
         }));
 
@@ -227,18 +231,69 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
     }
   };
 
+  const handleEnhanceImage = async () => {
+    if (!imagePreview) return;
+
+    setIsGenerating(true);
+    try {
+      toast({ title: "Enhancing Image", description: "Removing background and adjusting lighting... This may take a moment." });
+
+      // 1. Remove Background
+      const blob = await removeBackground(imagePreview);
+      const noBgUrl = URL.createObjectURL(blob);
+
+      // 2. Adjust Lighting (Brightness/Contrast)
+      const img = new window.Image();
+      img.src = noBgUrl;
+      await new Promise((resolve) => { img.onload = resolve; });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Draw image
+      ctx.drawImage(img, 0, 0);
+
+      // Apply simple brightness/contrast
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      const contrast = 1.1; // 10% more contrast
+      const brightness = 10; // Add 10 to RGB
+
+      const intercept = 128 * (1 - contrast);
+
+      for (let i = 0; i < data.length; i += 4) {
+        // Only adjust non-transparent pixels
+        if (data[i + 3] > 0) {
+          data[i] = data[i] * contrast + intercept + brightness;     // R
+          data[i + 1] = data[i + 1] * contrast + intercept + brightness; // G
+          data[i + 2] = data[i + 2] * contrast + intercept + brightness; // B
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+      const enhancedUrl = canvas.toDataURL('image/png');
+
+      setImagePreview(enhancedUrl);
+      form.setValue('image', enhancedUrl);
+      toast({ title: "Image Enhanced", description: "Background removed and lighting adjusted." });
+
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Enhancement Failed", description: "Could not enhance image.", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   async function onSubmit(data: AddProductFormValues) {
     setIsSaving(true);
 
     let enhancedImage = data.image;
-    if (data.image && typeof data.image === 'string' && data.image.startsWith('data:')) {
-      try {
-        const { enhancedPhotoDataUri } = await enhanceProductImage({ photoDataUri: data.image });
-        enhancedImage = enhancedPhotoDataUri;
-      } catch (_error) {
-        toast({ title: 'AI enhancement failed', description: 'Could not enhance image, using original.', variant: 'destructive' });
-      }
-    }
+    // Server-side enhancement removed as per user request/issues.
+    // We now rely on the client-side "Enhance" button.
 
     if (enhancedImage && typeof enhancedImage === 'string' && enhancedImage.startsWith('data:')) {
       try {
@@ -276,6 +331,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       has_variants: hasVariants,
       variants: hasVariants ? variants : [],
       category: data.category,
+      color: data.color,
     };
 
     onProductAdded(productData);
@@ -456,21 +512,42 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
             <FormItem>
               <FormLabel>Images</FormLabel>
               <FormControl>
-                <div className="grid h-32 w-full items-center justify-center rounded-md border border-dashed relative">
-                  {imagePreview ? (
-                    <Image
-                      alt="Product image preview"
-                      className="aspect-square w-full rounded-md object-contain"
-                      fill
-                      src={imagePreview}
-                    />
-                  ) : (
-                    <div className="text-center text-muted-foreground">
-                      <Upload className="h-8 w-8 mx-auto" />
-                      <p className="text-sm mt-1">Upload one or more images for your product.</p>
+                <div className="space-y-4">
+                  <div className="grid h-64 w-full items-center justify-center rounded-md border border-dashed relative bg-muted/10">
+                    {imagePreview ? (
+                      <Image
+                        alt="Product image preview"
+                        className="aspect-square w-full h-full rounded-md object-contain p-4"
+                        fill
+                        src={imagePreview}
+                      />
+                    ) : (
+                      <div className="text-center text-muted-foreground">
+                        <Upload className="h-8 w-8 mx-auto" />
+                        <p className="text-sm mt-1">Upload one or more images for your product.</p>
+                      </div>
+                    )}
+                    <Input id="image-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
+                  </div>
+
+                  {imagePreview && (
+                    <div className="flex gap-4 items-end">
+                      <FormField control={form.control} name="color" render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Color</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. Red, Blue" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+
+                      <Button type="button" variant="secondary" onClick={handleEnhanceImage} disabled={isGenerating}>
+                        {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+                        Enhance Image
+                      </Button>
                     </div>
                   )}
-                  <Input id="image-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
                 </div>
               </FormControl>
               <FormMessage />

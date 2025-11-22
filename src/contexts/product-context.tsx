@@ -19,6 +19,7 @@ interface PaginationInfo {
 interface ProductStats {
   inventoryValue: number;
   outOfStockCount: number;
+  categoryCount: number;
 }
 
 interface ProductContextType {
@@ -63,6 +64,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [stats, setStats] = useState<ProductStats>({
     inventoryValue: 0,
     outOfStockCount: 0,
+    categoryCount: 0,
   });
   const [statusFilter, setStatusFilter] = useState('All');
   const [stockFilter, setStockFilter] = useState('All');
@@ -70,7 +72,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-  
+
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
@@ -78,7 +80,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     setEditingProduct(product);
     setIsAddProductOpen(true);
   };
-  
+
   const closeAddProductDialog = () => {
     setIsAddProductOpen(false);
     setEditingProduct(null);
@@ -119,7 +121,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       const data = await response.json();
       setProducts(data.products || []);
       setPagination(data.pagination);
-      setStats(data.stats || { inventoryValue: 0, outOfStockCount: 0 });
+      setStats(data.stats || { inventoryValue: 0, outOfStockCount: 0, categoryCount: 0 });
     } catch (error) {
       console.error('Error fetching products:', error);
       toast({

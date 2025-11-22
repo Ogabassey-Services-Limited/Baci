@@ -107,11 +107,12 @@ export async function GET(request: NextRequest) {
         // Calculate stats (this might be expensive on large datasets, consider caching or separate endpoint)
         const { data: allStats, error: _statsError } = await supabase
             .from('products')
-            .select('price, stock_quantity, is_active')
+            .select('price, stock_quantity, is_active, category')
             .eq('merchant_id', merchant.id);
 
         let inventoryValue = 0;
         let outOfStockCount = 0;
+        let categoryCount = 0;
 
         if (allStats) {
             inventoryValue = allStats.reduce((acc, curr) => {
@@ -122,6 +123,10 @@ export async function GET(request: NextRequest) {
                 return acc;
             }, 0);
             outOfStockCount = allStats.filter(p => p.stock_quantity === 0).length;
+
+            // Calculate unique categories
+            const uniqueCategories = new Set(allStats.map(p => p.category).filter(Boolean));
+            categoryCount = uniqueCategories.size;
         }
 
         return NextResponse.json({
@@ -134,7 +139,8 @@ export async function GET(request: NextRequest) {
             },
             stats: {
                 inventoryValue,
-                outOfStockCount
+                outOfStockCount,
+                categoryCount
             }
         });
 

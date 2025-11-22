@@ -42,7 +42,7 @@ export interface AIResponse {
     question: string;
     options: string[];
   };
-   missingParameterRequest?: {
+  missingParameterRequest?: {
     productName: string;
     missingFields: string[];
   };
@@ -130,7 +130,7 @@ export async function processPriceList(
   try {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-    
+
     // Clean the response to ensure it's valid JSON
     const jsonString = responseText.replace(/^```json\s*|```$/g, '').trim();
 
@@ -143,5 +143,31 @@ export async function processPriceList(
       changes: [],
       summary: "An error occurred while processing the price list. The AI model could not return a valid response. Please check the file format or try again.",
     };
+  }
+}
+
+export async function fetchGoogleSheet(url: string): Promise<string> {
+  try {
+    // Extract Spreadsheet ID and construct export URL if it's a standard edit URL
+    // Regex to capture the ID between /d/ and /
+    const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    let exportUrl = url;
+
+    if (match && match[1]) {
+      const spreadsheetId = match[1];
+      exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+    }
+
+    const response = await fetch(exportUrl);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch Google Sheet: ${response.statusText}`);
+    }
+
+    const text = await response.text();
+    return text;
+  } catch (error) {
+    console.error("Error fetching Google Sheet:", error);
+    throw new Error("Failed to fetch Google Sheet content. Please ensure the sheet is published to the web or the link is correct.");
   }
 }

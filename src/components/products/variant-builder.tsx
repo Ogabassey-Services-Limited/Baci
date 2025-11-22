@@ -17,6 +17,7 @@ import { Switch } from '../ui/switch';
 import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { removeBackground } from '@imgly/background-removal';
 
 interface VariantBuilderProps {
     categoryConfig: CategoryConfig;
@@ -30,8 +31,8 @@ interface AttributeSelection {
     [key: string]: string[];
 }
 
-// Poll interval and timeout for AI variant suggestion retrieval
-const VARIANT_SUGGESTION_POLL_MS = 3000; // Increased per CodeQL recommendation for performance
+// Timeout for AI variant suggestion retrieval
+const VARIANT_SUGGESTION_POLL_MS = 3000; // Increased interval to reduce API request frequency and potential server load
 const VARIANT_SUGGESTION_MAX_ATTEMPTS = 10; // Number of polling attempts for variant suggestions
 const VARIANT_SUGGESTION_POLL_MAX_MS = VARIANT_SUGGESTION_POLL_MS * VARIANT_SUGGESTION_MAX_ATTEMPTS;
 
@@ -101,8 +102,10 @@ export function VariantBuilder({
     }, [variants]);
 
     // Effect to handle AI suggestions
+    // Ref for timeout across effect runs
+    const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     useEffect(() => {
-        let timeout: ReturnType<typeof setTimeout> | null = null;
         let resolved = false;
 
         function checkForSuggestions() {
@@ -145,7 +148,10 @@ export function VariantBuilder({
                     }
                 }
 
-                if (timeout) clearTimeout(timeout);
+                if (timeoutRef.current) {
+                    clearTimeout(timeoutRef.current);
+                    timeoutRef.current = null;
+                }
             }
         }
 
@@ -163,15 +169,18 @@ export function VariantBuilder({
         // Initial check in case suggestion exists from previous process/run
         checkForSuggestions();
 
-        timeout = setTimeout(() => {
+        timeoutRef.current = setTimeout(() => {
             // Stop polling after maximum period; do not check for suggestions again here
-            if (timeout) clearTimeout(timeout);
+            timeoutRef.current = null;
         }, VARIANT_SUGGESTION_POLL_MAX_MS); // Max polling duration, then give up
 
         // Cleanup
         return () => {
             window.removeEventListener('storage', handleStorage);
-            if (timeout) clearTimeout(timeout);
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
         };
     }, [categoryConfig.variantAttributes]); // Dependency on categoryConfig to ensure keys can be mapped
 
@@ -270,7 +279,41 @@ export function VariantBuilder({
 
         setEnhancingImages(prev => ({ ...prev, [color]: true }));
         try {
-            const { enhancedPhotoDataUri } = await enhanceProductImage({ photoDataUri: variantToEnhance.primary_image });
+            toast({ title: "Enhancing Image", description: "Removing background and adjusting lighting... This may take a moment." });
+
+            // 1. Remove Background
+            const blob = await removeBackground(variantToEnhance.primary_image);
+            const noBgUrl = URL.createObjectURL(blob);
+
+            // 2. Adjust Lighting (Brightness/Contrast)
+            const img = new window.Image();
+            img.src = noBgUrl;
+            await new Promise((resolve) => { img.onload = resolve; });
+
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('Could not get canvas context');
+
+            ctx.drawImage(img, 0, 0);
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const contrast = 1.1;
+            const brightness = 10;
+            const intercept = 128 * (1 - contrast);
+
+            for (let i = 0; i < data.length; i += 4) {
+                // Only adjust non-transparent pixels
+                if (data[i + 3] > 0) {
+                    data[i] = data[i] * contrast + intercept + brightness;
+                    data[i + 1] = data[i + 1] * contrast + intercept + brightness;
+                    data[i + 2] = data[i + 2] * contrast + intercept + brightness;
+                }
+            }
+
+            ctx.putImageData(imageData, 0, 0);
+            const enhancedPhotoDataUri = canvas.toDataURL('image/png');
 
             const updated = variants.map(v =>
                 v.attributes.color === color
@@ -279,10 +322,14 @@ export function VariantBuilder({
             );
             setVariants(updated);
             onVariantsChange(updated);
-            toast({ title: 'Image enhanced!', description: 'The variant image has been updated with the enhanced version.' });
+            toast({ title: 'Image enhanced!', description: 'Background removed and lighting adjusted.' });
         } catch (error) {
             console.error('Enhancement failed:', error);
-            toast({ title: 'Enhancement Failed', description: 'Could not enhance the image. Please try again.', variant: 'destructive' });
+            toast({
+                title: 'Enhancement Failed',
+                description: `Could not enhance the image.`,
+                variant: 'destructive'
+            });
         } finally {
             setEnhancingImages(prev => ({ ...prev, [color]: false }));
         }
@@ -549,8 +596,8 @@ export function VariantBuilder({
                                     <>
                                         <div className="flex-1 relative">
                                             {(attributeSelections[attr.key]?.length ?? 0) > 0 && (
-                                                <div className="absolute inset-y-0 left-0 flex items-center pl-3 z-10">
-                                                    <div className="flex flex-wrap gap-1.5">
+                                                <div className="absolute inset-y-0 left-0 flex items-center pl-3 z-10 max-w-[calc(100%-3rem)] overflow-x-auto">
+                                                    <div className="flex gap-1.5 flex-nowrap">
                                                         {(attributeSelections[attr.key] || []).map((value) => (
                                                             <span key={value} className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm flex-shrink-0">
                                                                 {value}

@@ -1,9 +1,40 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { checkCsrfProtection } from '@/lib/csrf';
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
+  const pathname = url.pathname;
+
+  // Apply rate limiting to API routes
+  if (pathname.startsWith('/api/')) {
+    const rateLimitResult = checkRateLimit(request);
+
+    if (!rateLimitResult.allowed) {
+      return createRateLimitResponse(
+        rateLimitResult.limit,
+        rateLimitResult.remaining,
+        rateLimitResult.resetTime
+      );
+    }
+
+    // Add rate limit headers to response
+    const response = NextResponse.next();
+    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
+    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
+    response.headers.set('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
+  }
+
+  // Apply CSRF protection to API routes (except webhooks and auth)
+  if (pathname.startsWith('/api/') && !pathname.startsWith('/api/webhooks/') && !pathname.startsWith('/api/auth/')) {
+    const csrfResult = await checkCsrfProtection(request);
+
+    if (!csrfResult.valid && csrfResult.response) {
+      return csrfResult.response;
+    }
+  }
   const { hostname } = url;
 
   // Create a response object to update cookies

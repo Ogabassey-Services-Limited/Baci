@@ -43,6 +43,7 @@ export interface Product {
     fulfillmentFields?: { name: string }[];
     fulfillment_details?: { key: string; value: string }[];
     category?: string;
+    color?: string;
 
     // Variant support
     has_variants?: boolean;

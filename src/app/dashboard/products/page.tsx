@@ -17,10 +17,11 @@ import { getCountryByCode } from '@/lib/countries';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import AddProductForm from '@/app/dashboard/products/add/add-product-form';
+import { GoogleSheetImportDialog } from '@/components/products/google-sheet-import-dialog';
 
 
 const GoogleSheetIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-green-600">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
         <polyline points="14 2 14 8 20 8"></polyline>
         <line x1="16" y1="13" x2="8" y2="13"></line>
@@ -56,6 +57,7 @@ function ProductsPageContent() {
     } = useProductContext();
     const { merchant } = useMerchant();
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isGoogleSheetImportOpen, setIsGoogleSheetImportOpen] = useState(false);
     const { toast } = useToast();
 
     const handleProductSaved = async (product: Product) => {
@@ -67,6 +69,83 @@ function ProductsPageContent() {
         closeAddProductDialog();
     };
 
+    const startAiProcessing = async (data: string, vendor: string, fileType: string) => {
+        setIsProcessing(true);
+        setWorkflowStep('processing');
+        try {
+            // Create AI job instead of calling processPriceList directly
+            const response = await fetch('/api/ai-jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'price_list_processing',
+                    input: {
+                        currentProducts: products,
+                        priceListData: data,
+                        vendor: vendor,
+                        fileType: fileType
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to create AI job');
+            }
+
+            const { job } = await response.json();
+
+            let pollInterval: NodeJS.Timeout | null = null;
+
+            // Poll for job completion
+            pollInterval = setInterval(async () => {
+                const jobResponse = await fetch(`/api/ai-jobs/${job.id}`);
+                const { job: updatedJob } = await jobResponse.json();
+
+                if (updatedJob.status === 'completed') {
+                    if (pollInterval) clearInterval(pollInterval);
+                    setAiResponse(updatedJob.output);
+                    setWorkflowStep('review');
+                    setIsProcessing(false);
+                    setSearchTerm('');
+                } else if (updatedJob.status === 'failed') {
+                    if (pollInterval) clearInterval(pollInterval);
+                    console.error("AI processing failed:", updatedJob.error);
+                    toast({
+                        title: 'AI Processing Failed',
+                        description: updatedJob.error || 'An error occurred',
+                        variant: 'destructive'
+                    });
+                    setWorkflowStep('view');
+                    setIsProcessing(false);
+                }
+            }, 2000); // Poll every 2 seconds
+
+            // Timeout after 60 seconds
+            setTimeout(() => {
+                if (pollInterval) clearInterval(pollInterval);
+                if (isProcessing) {
+                    toast({
+                        title: 'Processing Timeout',
+                        description: 'The AI is taking longer than expected. Please check back later.',
+                        variant: 'destructive'
+                    });
+                    setWorkflowStep('view');
+                    setIsProcessing(false);
+                }
+            }, 60000);
+
+        } catch (error) {
+            console.error("AI processing failed", error);
+            toast({
+                title: 'Error',
+                description: 'Failed to start AI processing',
+                variant: 'destructive'
+            });
+            setWorkflowStep('view');
+            setIsProcessing(false);
+        }
+    };
+
     const handleCommandSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const query = searchTerm.trim();
@@ -76,88 +155,12 @@ function ProductsPageContent() {
         const isCommand = query.includes('\n');
 
         if (isCommand) {
-            setIsProcessing(true);
-            setWorkflowStep('processing');
-            try {
-                // Create AI job instead of calling processPriceList directly
-                const response = await fetch('/api/ai-jobs', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'price_list_processing',
-                        input: {
-                            currentProducts: products,
-                            priceListData: query,
-                            vendor: 'pasted text',
-                            fileType: 'text'
-                        }
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error('Failed to create AI job');
-                }
-
-                const { job } = await response.json();
-
-                let pollInterval: NodeJS.Timeout | null = null;
-
-                // Poll for job completion
-                pollInterval = setInterval(async () => {
-                    const jobResponse = await fetch(`/api/ai-jobs/${job.id}`);
-                    const { job: updatedJob } = await jobResponse.json();
-
-                    if (updatedJob.status === 'completed') {
-                        if (pollInterval) clearInterval(pollInterval);
-                        setAiResponse(updatedJob.output);
-                        setWorkflowStep('review');
-                        setIsProcessing(false);
-                        setSearchTerm('');
-                    } else if (updatedJob.status === 'failed') {
-                        if (pollInterval) clearInterval(pollInterval);
-                        console.error("AI processing failed:", updatedJob.error);
-                        toast({
-                            title: 'AI Processing Failed',
-                            description: updatedJob.error || 'An error occurred',
-                            variant: 'destructive'
-                        });
-                        setWorkflowStep('view');
-                        setIsProcessing(false);
-                    }
-                }, 2000); // Poll every 2 seconds
-
-                // Timeout after 60 seconds
-                setTimeout(() => {
-                    if (pollInterval) clearInterval(pollInterval);
-                    if (isProcessing) {
-                        toast({
-                            title: 'Processing Timeout',
-                            description: 'The AI is taking longer than expected. Please check back later.',
-                            variant: 'destructive'
-                        });
-                        setWorkflowStep('view');
-                        setIsProcessing(false);
-                    }
-                }, 60000);
-
-            } catch (error) {
-                console.error("AI processing failed", error);
-                toast({
-                    title: 'Error',
-                    description: 'Failed to start AI processing',
-                    variant: 'destructive'
-                });
-                setWorkflowStep('view');
-                setIsProcessing(false);
-            }
+            await startAiProcessing(query, 'pasted text', 'text');
         }
     };
 
     const handleGoogleSheetImport = () => {
-        toast({
-            title: 'Coming Soon! 🚀',
-            description: 'Google Sheets integration is under development.'
-        });
+        setIsGoogleSheetImportOpen(true);
     };
 
     const formatCurrency = (amount: number) => {
@@ -214,6 +217,12 @@ function ProductsPageContent() {
                     />
                 </DialogContent>
             </Dialog>
+
+            <GoogleSheetImportDialog
+                open={isGoogleSheetImportOpen}
+                onOpenChange={setIsGoogleSheetImportOpen}
+                onImport={(data) => startAiProcessing(data, 'Google Sheet Import', 'csv')}
+            />
 
             <div className="flex flex-col h-full">
                 <div className="flex flex-col gap-4 mb-4">
@@ -278,7 +287,7 @@ function ProductsPageContent() {
                                 <File className="h-4 w-4 text-yellow-600" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold text-yellow-900">5</div>
+                                <div className="text-2xl font-bold text-yellow-900">{stats.categoryCount}</div>
                                 <p className="text-xs text-muted-foreground">product categories</p>
                             </CardContent>
                         </Card>
