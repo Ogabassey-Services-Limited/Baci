@@ -64,7 +64,8 @@ BEGIN
     -- Decrement stock and return new quantity using RETURNING clause
     RETURN QUERY
     UPDATE product_variants
-    SET stock_quantity = product_variants.stock_quantity - quantity_param
+    SET stock_quantity = product_variants.stock_quantity - quantity_param,
+        updated_at = NOW()
     WHERE id = variant_id_param
     RETURNING TRUE, product_variants.stock_quantity, 'Stock updated';
   END IF;
@@ -74,12 +75,28 @@ $$;
 -- =============================================
 -- TEXT SANITIZATION FUNCTION (UNSAFE - DO NOT USE FOR SECURITY)
 -- =============================================
--- WARNING:
--- !!! This function is NOT SAFE for security-critical input. !!!
--- Regex-based HTML tag removal is easily bypassed by malformed, nested, or multiline tags.
--- Never use server-side regex for XSS prevention!
--- For any untrusted input, use a dedicated client-side library (e.g., DOMPurify).
--- This function is for basic display formatting only, NOT security!
+-- ⚠️ CRITICAL SECURITY WARNING ⚠️
+-- !!! THIS FUNCTION PROVIDES NO ACTUAL SECURITY !!!
+--
+-- This function is ONLY for basic display text formatting.
+-- DO NOT USE THIS FUNCTION TO PREVENT XSS OR ANY SECURITY ATTACKS.
+--
+-- Why this is unsafe:
+--   1. Regex-based HTML sanitization is fundamentally flawed
+--   2. Easily bypassed with: malformed tags, encoded characters, nested tags,
+--      Unicode variants, null bytes, case variations, etc.
+--   3. Cannot protect against DOM-based XSS, attribute injection, or CSS injection
+--   4. Creates a FALSE SENSE OF SECURITY that may lead to vulnerabilities
+--
+-- Proper security measures:
+--   - Use parameterized queries for database operations (prevents SQL injection)
+--   - Use Content Security Policy (CSP) headers
+--   - Use client-side sanitization with DOMPurify or similar vetted libraries
+--   - Use framework-provided auto-escaping (React, Vue, Angular, etc.)
+--   - Store raw user input and sanitize at display time in the client
+--
+-- Consider removing this function entirely to avoid misuse.
+-- If you must use it, understand it provides cosmetic cleanup only, NOT security.
 -- ---------------------------------------------
 CREATE OR REPLACE FUNCTION sanitize_text_input(text_input TEXT)
 RETURNS TEXT
@@ -88,36 +105,94 @@ AS $$
   DECLARE
     cleaned TEXT;
   BEGIN
-    -- Remove HTML tags: updated regex to avoid multiline/nested tag match, but still NOT SAFE
+    -- These regex patterns provide basic text cleanup only
+    -- They DO NOT provide security against malicious input
     cleaned := regexp_replace(text_input, E'<[^>\\n]+>', '', 'g');
-    -- Remove HTML tags that span newlines (still incomplete)
     cleaned := regexp_replace(cleaned, E'<.*?>', '', 'gn');
-    -- Remove javascript: and data: protocols
     cleaned := regexp_replace(cleaned, E'(?i)javascript:', '', 'g');
     cleaned := regexp_replace(cleaned, E'(?i)data:', '', 'g');
-    -- Remove event handler attributes (onerror=, onload=, onclick=, etc.)
     cleaned := regexp_replace(cleaned, E'(?i)on\\w+\\s*=\\s*(?:"[^"]*"|\'[^\']*\'|[^\\s>]+)', '', 'g');
     RETURN btrim(cleaned);
   END;
 $$;
 
--- Explicitly prevent 'anon' role from executing this UNSAFE function
-REVOKE EXECUTE ON FUNCTION sanitize_text_input(text) FROM anon;
+-- Revoke from all roles to prevent misuse
+-- DO NOT grant permissions unless you fully understand this provides NO security
+REVOKE EXECUTE ON FUNCTION sanitize_text_input(text) FROM PUBLIC;
 
 
 -- =============================================
 -- EMAIL VALIDATION FUNCTION
 -- =============================================
+-- Validates email addresses according to RFC 5321/5322 standards (2025)
+-- Checks:
+--   - Length limits (max 320 chars total, 64 for local, 255 for domain)
+--   - No consecutive dots
+--   - No leading/trailing dots
+--   - Proper structure: local@domain.tld
 CREATE OR REPLACE FUNCTION is_valid_email(email_text TEXT)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
+DECLARE
+  trimmed_email TEXT;
+  local_part TEXT;
+  domain_part TEXT;
+  at_position INTEGER;
 BEGIN
-  -- Improved validation: reject consecutive dots in local and domain parts (without lookahead, by direct check).
-  IF POSITION('..' IN email_text) > 0 THEN
+  -- Handle NULL or empty input
+  IF email_text IS NULL OR length(btrim(email_text)) = 0 THEN
     RETURN FALSE;
-  ELSIF email_text ~* '^[A-Za-z0-9](\.?[A-Za-z0-9_%+-])*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$' THEN
+  END IF;
+
+  -- Trim whitespace
+  trimmed_email := btrim(email_text);
+
+  -- Check overall length (RFC 5321: max 320 characters)
+  IF length(trimmed_email) > 320 THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Check for exactly one @ symbol
+  at_position := POSITION('@' IN trimmed_email);
+  IF at_position = 0 OR POSITION('@' IN substring(trimmed_email FROM at_position + 1)) > 0 THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Split into local and domain parts
+  local_part := substring(trimmed_email FROM 1 FOR at_position - 1);
+  domain_part := substring(trimmed_email FROM at_position + 1);
+
+  -- Check local part length (RFC 5321: max 64 characters)
+  IF length(local_part) = 0 OR length(local_part) > 64 THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Check domain part length (RFC 5321: max 255 characters)
+  IF length(domain_part) = 0 OR length(domain_part) > 255 THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Reject consecutive dots anywhere
+  IF POSITION('..' IN trimmed_email) > 0 THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Reject leading or trailing dots in local part
+  IF local_part ~ '^\.' OR local_part ~ '\.$' THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Reject leading or trailing dots in domain part
+  IF domain_part ~ '^\.' OR domain_part ~ '\.$' THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Validate format with improved regex (2025 standards)
+  -- Local part: starts with valid chars, dots only between groups of valid chars
+  -- Domain: alphanumeric labels separated by dots, ending with 2+ char TLD
+  IF trimmed_email ~* '^[A-Za-z0-9_%+-]+(\.[A-Za-z0-9_%+-]+)*@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$' THEN
     RETURN TRUE;
   ELSE
     RETURN FALSE;
@@ -186,11 +261,12 @@ $$;
 -- =============================================
 -- GRANT PERMISSIONS
 -- =============================================
--- Allow only authorized roles to call decrement_product_stock. 
+-- Allow only authorized roles to call these functions
 -- TODO: Ensure authorization logic (or Row Level Security) restricts stock changes by user ownership!
 GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION decrement_variant_stock TO authenticated;
-GRANT EXECUTE ON FUNCTION sanitize_text_input TO authenticated;
+-- sanitize_text_input: NO permissions granted due to security concerns (see function warnings)
+--                      Explicitly grant only if you understand it provides NO actual security
 GRANT EXECUTE ON FUNCTION is_valid_email TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION check_rate_limit TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION cleanup_rate_limit_log TO authenticated;
