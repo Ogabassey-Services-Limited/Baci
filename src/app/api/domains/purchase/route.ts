@@ -2,7 +2,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { registerDomain, type ContactInfo } from '@/lib/go54';
-import { getDomainPricing, getResalePrice, calculateDomainPrice } from '@/config/domain-pricing';
+import { getDomainPricing, calculateDomainPrice } from '@/config/domain-pricing';
 
 /**
  * POST /api/domains/purchase
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { domain, years = 1, contactInfo, paymentVerified = false } = await request.json();
+    const { domain, years = 1, contactInfo } = await request.json();
 
     // Validate domain
     const domainRegex = /^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,}$/i;

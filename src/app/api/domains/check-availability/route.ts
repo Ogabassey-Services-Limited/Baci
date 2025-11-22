@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
     try {
       // Check availability via Go54 API
-      const availabilityResults = await checkDomainAvailability(
+      await checkDomainAvailability(
         searchTerm,
         tldsToCheck
       );

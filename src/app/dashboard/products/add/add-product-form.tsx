@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import Image from 'next/image';
-import { Loader2, Sparkles, Upload, Wand2, X, Image as ImageIcon, Plus } from 'lucide-react';
+import { Loader2, Sparkles, Wand2, X, Image as ImageIcon, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -16,7 +15,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { generateProductDescription } from '@/ai/flows/generate-product-descriptions';
 import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
-import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { useMerchant } from '@/hooks/use-merchant';
 import { removeBackground } from '@imgly/background-removal';
 
@@ -66,7 +64,6 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isAutofilling, setIsAutofilling] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(initialData?.image || null);
   const [hasVariants, setHasVariants] = useState(initialData?.has_variants || false);
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
   const [variantBuilderKey, setVariantBuilderKey] = useState(Date.now()); // Key to force re-render
@@ -137,7 +134,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       });
       setHasVariants(initialData.has_variants || false);
       setVariants(initialData.variants || []);
-      setImagePreview(initialData.image || null);
+      form.setValue('image', initialData.image || null);
 
       // Initialize color tags and images
       if (initialData.color) {
@@ -165,7 +162,6 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
       // Update the main image preview to the first color's image
       if (colorTags.length > 0 && colorTags[0] === color) {
-        setImagePreview(dataUri);
         form.setValue('image', dataUri);
       }
     };
@@ -193,10 +189,8 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
     // Update main preview if needed
     if (newColorTags.length > 0 && colorImages[newColorTags[0]]) {
-      setImagePreview(colorImages[newColorTags[0]]);
       form.setValue('image', colorImages[newColorTags[0]]);
     } else {
-      setImagePreview(null);
       form.setValue('image', null);
     }
   };
@@ -338,7 +332,6 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
       // Update main preview if this is the first color
       if (colorTags.length > 0 && colorTags[0] === color) {
-        setImagePreview(enhancedUrl);
         form.setValue('image', enhancedUrl);
       }
 

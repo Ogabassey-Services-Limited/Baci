@@ -3,7 +3,6 @@
 import { logger } from './logger';
 
 const GIGL_BASE_URL = process.env.GIGL_BASE_URL || 'https://dev-thirdpartynode.theagilitysystems.com';
-const GIGL_API_KEY = process.env.GIGL_API_KEY;
 const GIGL_EMAIL = process.env.GIGL_EMAIL;
 const GIGL_PASSWORD = process.env.GIGL_PASSWORD;
 

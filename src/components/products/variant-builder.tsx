@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -14,9 +13,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import { FormDescription } from '../ui/form';
 import { Switch } from '../ui/switch';
-import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import { removeBackground } from '@imgly/background-removal';
 
 interface VariantBuilderProps {
@@ -695,8 +692,3 @@ function generateUUID(): string {
         return v.toString(16);
     });
 }
-
-
-
-
-

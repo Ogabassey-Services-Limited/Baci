@@ -75,19 +75,6 @@ export function DomainSearch() {
     alert(`Purchase flow for ${domain} - Coming soon!`);
   };
 
-  const getCategoryBadge = (category: string) => {
-    const colors = {
-      nigerian: 'bg-green-100 text-green-800',
-      global: 'bg-blue-100 text-blue-800',
-      premium: 'bg-purple-100 text-purple-800',
-    };
-    return (
-      <Badge className={colors[category as keyof typeof colors] || ''}>
-        {category}
-      </Badge>
-    );
-  };
-
   return (
     <div className="space-y-6">
       <Card>
@@ -211,6 +198,18 @@ function DomainResultCard({
   result: DomainResult;
   onPurchase: (domain: string) => void;
 }) {
+  const getCategoryBadge = (category: string) => {
+    const colors = {
+      nigerian: 'bg-green-100 text-green-800',
+      global: 'bg-blue-100 text-blue-800',
+      premium: 'bg-purple-100 text-purple-800',
+    };
+    return (
+      <Badge className={colors[category as keyof typeof colors] || ''}>
+        {category}
+      </Badge>
+    );
+  };
   return (
     <Card>
       <CardContent className="p-4">

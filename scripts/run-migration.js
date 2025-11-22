@@ -60,7 +60,7 @@ async function runMigration() {
 
       console.log(`⚙️  Executing statement ${i + 1}/${statements.length}...`);
 
-      const { data, error } = await supabase.rpc('exec_sql', {
+      const { error } = await supabase.rpc('exec_sql', {
         sql: statement
       });
 
