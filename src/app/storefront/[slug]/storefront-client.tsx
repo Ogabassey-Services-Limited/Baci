@@ -12,7 +12,7 @@ import { Loader2, ShoppingBag, Search, Plus, Minus } from 'lucide-react';
 import { CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import Fuse from 'fuse.js';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +22,16 @@ import { Cart } from '@/components/cart';
 import { Button } from '@/components/ui/button';
 import { apiGet } from '@/lib/api-client';
 import AppBody from '@/components/app-body';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
+
 
 // New component to handle the layout and theming
 function ThemedStorefrontLayout({ children }: { children: React.ReactNode }) {
@@ -38,6 +48,7 @@ function StorefrontContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: true }));
 
   useEffect(() => {
     if (merchant?.id) {
@@ -122,6 +133,13 @@ function StorefrontContent() {
 
   const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.background, merchant.brand_colors.accent].filter(Boolean) : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
+  
+  const heroSlides = PlaceHolderImages.slice(0, 3).map((img, i) => ({
+    ...img,
+    headline: `Elevate Your Style, Slide ${i + 1}`,
+    description: "Discover our latest collection of premium apparel.",
+    cta: "Shop Now"
+  }));
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -164,20 +182,52 @@ function StorefrontContent() {
         </header>
 
         <main className="flex-1">
-          <section className="w-full py-12 md:py-24 lg:py-32">
-            <div className="container px-4 md:px-6">
-              <div className="flex flex-col items-center space-y-4 text-center">
-                <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl" style={{ color: 'var(--store-primary)' }}>
-                  Welcome to {merchant.business_name}
-                </h1>
-                <p className="max-w-[700px] text-muted-foreground md:text-xl">
-                  Your one-stop shop for the best {merchant.business_type} products.
-                </p>
-              </div>
-            </div>
+          <section className="w-full relative">
+            <Carousel 
+              className="w-full"
+              plugins={[plugin.current]}
+              onMouseEnter={plugin.current.stop}
+              onMouseLeave={plugin.current.reset}
+              opts={{ loop: true }}
+            >
+              <CarouselContent>
+                {heroSlides.map((slide, index) => {
+                    const heroImage = PlaceHolderImages.find(p => p.id === slide.id) || { imageUrl: slide.imageUrl, description: slide.headline, imageHint: 'store hero' };
+                    return (
+                      <CarouselItem key={index}>
+                        <div className="w-full h-[60vh] md:h-[70vh] relative">
+                          <Image
+                            src={heroImage.imageUrl}
+                            alt={heroImage.description}
+                            fill
+                            className="object-cover"
+                            data-ai-hint={heroImage.imageHint}
+                            priority={index === 0}
+                          />
+                          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-center text-white p-4">
+                            <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
+                              {slide.headline}
+                            </h1>
+                            <p className="mt-4 max-w-2xl text-lg md:text-xl">
+                              {slide.description}
+                            </p>
+                             <ThemedButton asChild size="lg" className="mt-6" colorRole="accent">
+                                <Link href="#products">
+                                  {slide.cta}
+                                </Link>
+                            </ThemedButton>
+                          </div>
+                        </div>
+                      </CarouselItem>
+                    )
+                })}
+              </CarouselContent>
+              <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" />
+              <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" />
+            </Carousel>
           </section>
 
-          <section className="w-full py-12 md:py-24 lg:py-32">
+          <section className="w-full py-12 md:py-24 lg:py-32" id="products">
             <div className="container px-4 md:px-6">
               <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10" style={{ color: darkestColor }}>Our Products</h2>
 
