@@ -1,9 +1,8 @@
 -- =============================================
--- ATOMIC STOCK UPDATE FUNCTIONS
+-- PRODUCT STOCK MANAGEMENT FUNCTIONS
 -- =============================================
--- These functions ensure that stock is decremented atomically to prevent race conditions.
--- They lock the row, check for sufficient stock, and then update in a single transaction block.
 
+-- Decrements stock for a base product atomically
 CREATE OR REPLACE FUNCTION decrement_product_stock(
   product_id_param UUID,
   quantity_param INTEGER
@@ -14,11 +13,11 @@ AS $$
 DECLARE
   current_stock INTEGER;
 BEGIN
-  -- Lock the product row and get current stock in one operation
+  -- Lock the product row and get current stock
   SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE;
 
   IF NOT FOUND THEN
-    RETURN QUERY SELECT FALSE, -1, 'Product not found';
+    RETURN QUERY SELECT FALSE, NULL, 'Product not found';
     RETURN;
   END IF;
 
@@ -27,20 +26,19 @@ BEGIN
     RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
     RETURN;
   ELSE
-    -- Decrement stock and return new quantity using RETURNING clause
+    -- Decrement stock and return new quantity
+    RETURN QUERY
     UPDATE products
-    SET stock_quantity = stock_quantity - quantity_param,
+    SET stock_quantity = products.stock_quantity - quantity_param,
         updated_at = NOW()
     WHERE id = product_id_param
-    RETURNING stock_quantity INTO current_stock;
-
-    RETURN QUERY SELECT TRUE, current_stock, 'Stock updated';
+    RETURNING TRUE, stock_quantity, 'Stock updated';
     RETURN;
   END IF;
 END;
 $$;
 
-
+-- Decrements stock for a product variant atomically
 CREATE OR REPLACE FUNCTION decrement_variant_stock(
   variant_id_param UUID,
   quantity_param INTEGER
@@ -55,7 +53,7 @@ BEGIN
   SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE;
 
   IF NOT FOUND THEN
-    RETURN QUERY SELECT FALSE, -1, 'Variant not found';
+    RETURN QUERY SELECT FALSE, NULL, 'Variant not found';
     RETURN;
   END IF;
 
@@ -65,25 +63,27 @@ BEGIN
     RETURN;
   ELSE
     -- Decrement stock and return new quantity
+    RETURN QUERY
     UPDATE product_variants
-    SET stock_quantity = stock_quantity - quantity_param,
+    SET stock_quantity = product_variants.stock_quantity - quantity_param,
         updated_at = NOW()
     WHERE id = variant_id_param
-    RETURNING stock_quantity INTO current_stock;
-
-    RETURN QUERY SELECT TRUE, current_stock, 'Stock updated';
+    RETURNING TRUE, stock_quantity, 'Stock updated';
     RETURN;
   END IF;
 END;
 $$;
 
+
 -- =============================================
--- TEXT SANITIZATION FUNCTION
+-- TEXT SANITIZATION FUNCTION (UNSAFE - DO NOT USE FOR SECURITY)
 -- =============================================
 -- WARNING:
--- This function uses regex-based HTML tag removal which may NOT catch all potential attack vectors,
--- including malformed or nested tags. For critical security use, sanitize on the client with a 
--- dedicated library (e.g., DOMPurify) or use external trusted sanitization solutions.
+-- !!! This function is NOT SAFE for security-critical input. !!!
+-- Regex-based HTML tag removal is easily bypassed by malformed, nested, or multiline tags.
+-- For any untrusted input, use a dedicated client-side library (e.g., DOMPurify).
+-- This function is for basic display formatting only, NOT security!
+-- ---------------------------------------------
 CREATE OR REPLACE FUNCTION sanitize_text_input(text_input TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -91,13 +91,15 @@ AS $$
   DECLARE
     cleaned TEXT;
   BEGIN
-    -- Remove HTML tags (basic non-greedy pass; still limited)
-    cleaned := regexp_replace(text_input, E'(?s)<.*?>', '', 'g');
+    -- Remove HTML tags: updated regex to avoid multiline/nested tag match, but still NOT SAFE
+    cleaned := regexp_replace(text_input, E'<[^>\\n]+>', '', 'g');
+    -- Remove HTML tags that span newlines (still incomplete)
+    cleaned := regexp_replace(cleaned, E'(?s)<.*?>', '', 'g');
     -- Remove javascript: and data: protocols
     cleaned := regexp_replace(cleaned, E'(?i)javascript:', '', 'g');
     cleaned := regexp_replace(cleaned, E'(?i)data:', '', 'g');
     -- Remove event handler attributes (onerror=, onload=, onclick=, etc.)
-    cleaned := regexp_replace(cleaned, E'(?i)on\\w+\\s*=\\s*["\'][^"\']*["\']', '', 'g');
+    cleaned := regexp_replace(cleaned, E'(?i)on\\w+\\s*=\\s*(?:"[^"]*"|\'[^\']*\'|[^\\s>]+)', '', 'g');
     RETURN btrim(cleaned);
   END;
 $$;
@@ -106,18 +108,16 @@ $$;
 -- =============================================
 -- EMAIL VALIDATION FUNCTION
 -- =============================================
--- WARNING:
--- This function uses a simplified regular expression for email validation.
--- It does NOT cover all valid email formats as per RFC 5322 and may reject some valid emails or accept some invalid ones.
--- For critical or production systems, consider additional or confirmational validation methods (such as sending a confirmation email).
 CREATE OR REPLACE FUNCTION is_valid_email(email_text TEXT)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
 BEGIN
-  -- Improved validation: reject consecutive dots in local and domain parts using negative lookahead.
-  IF email_text ~* '^(?!.*\.\.)[A-Za-z0-9](\.?[A-Za-z0-9_%+-])*@[A-Za-z0-9](\.?[A-Za-z0-9-])*\.[A-Za-z]{2,}$' THEN
+  -- Improved validation: reject consecutive dots in local and domain parts (without lookahead, by direct check).
+  IF POSITION('..' IN email_text) > 0 THEN
+    RETURN FALSE;
+  ELSIF email_text ~* '^[A-Za-z0-9](\.?[A-Za-z0-9_%+-])*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$' THEN
     RETURN TRUE;
   ELSE
     RETURN FALSE;
@@ -129,7 +129,6 @@ $$;
 -- =============================================
 -- RATE LIMITING FUNCTION
 -- =============================================
--- Creates a fixed-window rate limiter. Returns TRUE if request is allowed, FALSE if blocked.
 CREATE OR REPLACE FUNCTION check_rate_limit(
   identifier_param TEXT,
   endpoint_param TEXT,
@@ -160,7 +159,7 @@ BEGIN
   END IF;
 
   IF current_count >= max_requests_param THEN
-    RETURN FALSE; -- Block request
+    RETURN FALSE; -- Limit exceeded
   END IF;
 
   -- Log this request and increment count on conflict
@@ -187,13 +186,14 @@ BEGIN
 END;
 $$;
 
+-- NOTE: Schedule this function to run periodically (e.g., via pg_cron) to avoid unbounded log table growth.
 
 -- =============================================
 -- GRANT PERMISSIONS
 -- =============================================
 -- Allow only authorized roles to call decrement_product_stock. 
-GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
 -- TODO: Ensure authorization logic (or Row Level Security) restricts stock changes by user ownership!
+GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION decrement_variant_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION sanitize_text_input TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION is_valid_email TO authenticated, anon;
