@@ -52,6 +52,7 @@ import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/contexts/auth-context';
+import { apiGet, apiPatch } from '@/lib/api-client';
 
 
 // Mock data for recent orders
@@ -163,7 +164,7 @@ const StatusDropdown = ({
   order,
   onStatusUpdate
 }: {
-  order: (typeof initialOrders)[0],
+  order: (typeof initialOrders[0]),
   onStatusUpdate: (orderNumber: string, newStatus: ShippingStatus) => void;
 }) => {
   const { shippingStatus } = order;
@@ -241,8 +242,7 @@ export default function OrdersPage() {
   useEffect(() => {
     const fetchOrders = async () => {
       // **FIX:** Do not fetch until auth and merchant data is loaded and available
-      const canFetchOrders = !authLoading && !merchantLoading && user && merchant;
-      if (!canFetchOrders) {
+      if (authLoading || merchantLoading || !user || !merchant) {
         return;
       }
 
@@ -261,15 +261,8 @@ export default function OrdersPage() {
           params.append('search', searchTerm);
         }
 
-        const response = await fetch(`/api/orders?${params.toString()}`);
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch orders');
-        }
-
-        const data = await response.json();
-
+        const data = await apiGet<{orders: ApiOrder[]}>(`/api/orders?${params.toString()}`);
+        
         // Transform API orders to match the UI format
         const transformedOrders = data.orders.map((order: ApiOrder) => ({
           orderNumber: order.order_number,
@@ -298,11 +291,6 @@ export default function OrdersPage() {
             variant: 'destructive',
           });
         }
-        // Fall back to mock data ONLY if explicit developer flag is set
-        const USE_MOCK_ORDERS = false; // Set to `true` only for local development via code change
-        if (USE_MOCK_ORDERS) {
-          setOrders(initialOrders);
-        }
       } finally {
         setOrdersLoading(false);
       }
@@ -329,48 +317,31 @@ export default function OrdersPage() {
     // Find the order to get its database ID
     const order = orders.find(o => o.orderNumber === orderNumber);
     if (!order || !order.id) {
-      // Fallback to local update if no ID (for mock data)
-      setOrders(currentOrders =>
-        currentOrders.map(order =>
-          order.orderNumber === orderNumber
-            ? { ...order, shippingStatus: newStatus }
-            : order
-        )
-      );
       toast({
-        title: `Order ${newStatus}! 🎉`,
-        description: `Order ${orderNumber} has been updated. The customer will be notified.`,
+        title: 'Error',
+        description: `Could not find order ${orderNumber} to update.`,
+        variant: 'destructive',
       });
       return;
     }
 
     try {
-      const response = await fetch(`/api/orders/${order.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          shipping_status: formatStatusForDB(newStatus),
-        }),
+      await apiPatch(`/api/orders/${order.id}`, {
+        shipping_status: formatStatusForDB(newStatus),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update order');
-      }
 
       // Update local state on success
       setOrders(currentOrders =>
-        currentOrders.map(order =>
-          order.orderNumber === orderNumber
-            ? { ...order, shippingStatus: newStatus }
-            : order
+        currentOrders.map(o =>
+          o.orderNumber === orderNumber
+            ? { ...o, shippingStatus: newStatus }
+            : o
         )
       );
 
       toast({
         title: `Order ${newStatus}! 🎉`,
-        description: `Order ${orderNumber} has been updated. The customer will be notified.`,
+        description: `Order ${orderNumber} has been updated.`,
       });
     } catch (error) {
       console.error('Error updating order status:', error);
