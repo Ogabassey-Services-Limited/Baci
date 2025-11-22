@@ -86,7 +86,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
         setMerchant(null);
       }
     } catch (error) {
-      logger.error({ message: 'Failed to load merchant data', error: error as Error, slug });
+      logger.error({ message: 'Failed to load merchant data', error: (error as Error).message, slug });
       setMerchant(null);
     } finally {
       setLoading(false);
@@ -116,7 +116,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       .eq('user_id', user.id);
 
     if (error) {
-      logger.error({ message: "Failed to update merchant data", error });
+      logger.error({ message: "Failed to update merchant data", error: error as Error });
       throw error;
     }
 
@@ -140,3 +140,4 @@ export const useMerchant = (): MerchantContextType => {
   }
   return context as MerchantContextType;
 };
+

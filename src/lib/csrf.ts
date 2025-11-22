@@ -3,17 +3,21 @@
 
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 
 const CSRF_TOKEN_NAME = 'csrf-token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
 const CSRF_SECRET_NAME = 'csrf-secret';
 
 /**
- * Generate a cryptographically secure CSRF token
+ * Generate a cryptographically secure CSRF token using Web Crypto API
  */
 export function generateCsrfToken(): string {
-    return crypto.randomBytes(32).toString('base64url');
+    const array = new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return btoa(String.fromCharCode(...array))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
 }
 
 /**
@@ -27,13 +31,27 @@ export function createCsrfTokenPair(): { token: string; secret: string } {
 }
 
 /**
- * Hash token with secret for verification
+ * Hash token with secret for verification using Web Crypto API
  */
-function hashToken(token: string, secret: string): string {
-    return crypto
-        .createHmac('sha256', secret)
-        .update(token)
-        .digest('base64url');
+async function hashToken(token: string, secret: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const keyData = encoder.encode(secret);
+    const data = encoder.encode(token);
+
+    const key = await crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+
+    const signature = await crypto.subtle.sign('HMAC', key, data);
+    const hashArray = Array.from(new Uint8Array(signature));
+    return btoa(String.fromCharCode(...hashArray))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=/g, '');
 }
 
 /**
@@ -108,8 +126,8 @@ export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
     }
 
     // Additional verification: hash check
-    const expectedHash = hashToken(tokenCookie.value, secretCookie.value);
-    const actualHash = hashToken(headerToken, secretCookie.value);
+    const expectedHash = await hashToken(tokenCookie.value, secretCookie.value);
+    const actualHash = await hashToken(headerToken, secretCookie.value);
 
     return expectedHash === actualHash;
 }
