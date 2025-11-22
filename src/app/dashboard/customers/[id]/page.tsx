@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,7 +16,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import {
@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { useMerchant } from '@/hooks/use-merchant';
+import { getCountryByCode } from '@/lib/countries';
 
 interface Customer {
     id: string;
@@ -52,6 +54,7 @@ export default function CustomerDetailPage() {
     const [isCreditOpen, setIsCreditOpen] = useState(false);
     const [orders, setOrders] = useState<any[]>([]);
     const [ordersLoading, setOrdersLoading] = useState(true);
+    const { merchant } = useMerchant();
 
     useEffect(() => {
         const fetchCustomer = async () => {
@@ -89,7 +92,7 @@ export default function CustomerDetailPage() {
             fetchCustomer();
             fetchOrders();
         }
-    }, [params.id]);
+    }, [params.id, toast]);
 
     const handleUpdateCredit = async () => {
         if (!customer) return;
@@ -142,10 +145,17 @@ export default function CustomerDetailPage() {
         }
     };
 
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-NG', {
+    const formatCurrency = (
+        amount: number, 
+        locale?: string, 
+        currency?: string
+    ) => {
+        // Fallback to browser locale and NGN if not specified
+        const userLocale = locale || (typeof navigator !== "undefined" ? navigator.language : 'en-US');
+        const userCurrency = currency || 'NGN';
+        return new Intl.NumberFormat(userLocale, {
             style: 'currency',
-            currency: 'NGN',
+            currency: userCurrency,
         }).format(amount);
     };
 

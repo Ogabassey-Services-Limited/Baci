@@ -1,3 +1,4 @@
+
 // src/lib/gigl.ts
 
 import { logger } from './logger';
@@ -5,6 +6,8 @@ import { logger } from './logger';
 const GIGL_BASE_URL = process.env.GIGL_BASE_URL || 'https://dev-thirdpartynode.theagilitysystems.com';
 const GIGL_EMAIL = process.env.GIGL_EMAIL;
 const GIGL_PASSWORD = process.env.GIGL_PASSWORD;
+const GIGL_TOKEN_EXPIRY_MS = 20 * 24 * 60 * 60 * 1000; // 20 days
+
 
 interface GiglToken {
     token: string;
@@ -48,7 +51,7 @@ async function getApiToken(): Promise<GiglToken> {
     }
     
     // Set expiry to 20 days (token seems to be valid for 20 days based on iat/exp)
-    const expiresAt = Date.now() + (20 * 24 * 60 * 60 * 1000);
+    const expiresAt = Date.now() + GIGL_TOKEN_EXPIRY_MS;
 
     apiToken = { token, userChannelCode, userChannelType, expiresAt };
     return apiToken;
