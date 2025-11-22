@@ -115,14 +115,19 @@ LANGUAGE plpgsql
 IMMUTABLE
 AS $$
 BEGIN
-  -- Improved validation: reject consecutive dots in local and domain parts (without lookahead, by direct check).
+  -- Reject consecutive dots (defense in depth)
   IF POSITION('..' IN email_text) > 0 THEN
     RETURN FALSE;
-  ELSIF email_text ~* '^[A-Za-z0-9](\.?[A-Za-z0-9_%+-])*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$' THEN
-    RETURN TRUE;
-  ELSE
-    RETURN FALSE;
   END IF;
+
+  -- RFC 5321/5322 compliant regex:
+  -- Local part: one or more valid chars, followed by zero or more (dot + valid chars)
+  -- This ensures dots are always between characters, preventing consecutive/leading/trailing dots
+  IF email_text ~* '^[A-Za-z0-9_%+-]+(\.[A-Za-z0-9_%+-]+)*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$' THEN
+    RETURN TRUE;
+  END IF;
+
+  RETURN FALSE;
 END;
 $$;
 
