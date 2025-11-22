@@ -107,6 +107,7 @@ export default function CustomersPage() {
 
     const handleAddCustomer = async () => {
         try {
+            // apiPost will throw an error if the request fails
             await apiPost('/api/customers', newCustomer);
 
             toast({
@@ -115,9 +116,11 @@ export default function CustomersPage() {
             });
             setIsAddOpen(false);
             setNewCustomer({ first_name: '', last_name: '', email: '', phone: '', address: '' });
-            // Refetch customers after adding
+            
+            // Refetch customers after adding to show the new customer
             const data = await apiGet<{customers: Customer[]}>(`/api/customers`);
             setCustomers(data.customers);
+
         } catch (error) {
             toast({
                 title: 'Error',

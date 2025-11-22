@@ -18,7 +18,10 @@ BEGIN
     SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE NOWAIT;
   EXCEPTION
     WHEN lock_not_available THEN
-      RETURN QUERY SELECT FALSE, -1, 'Product is locked by another transaction, please try again';
+      RETURN QUERY SELECT FALSE, -1, 'Product is locked by another transaction (NOWAIT), please try again';
+      RETURN;
+    WHEN deadlock_detected THEN
+      RETURN QUERY SELECT FALSE, -1, 'Deadlock detected while acquiring product lock';
       RETURN;
   END;
 
@@ -60,7 +63,10 @@ BEGIN
     SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE NOWAIT;
   EXCEPTION
     WHEN lock_not_available THEN
-      RETURN QUERY SELECT FALSE, -1, 'Variant is locked by another transaction, please try again';
+      RETURN QUERY SELECT FALSE, -1, 'Variant is locked by another transaction (NOWAIT), please try again';
+      RETURN;
+    WHEN deadlock_detected THEN
+      RETURN QUERY SELECT FALSE, -1, 'Deadlock detected while acquiring variant lock';
       RETURN;
   END;
 
