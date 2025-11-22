@@ -1,5 +1,4 @@
 
-
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
@@ -89,21 +88,21 @@ export async function middleware(request: NextRequest) {
   // Refresh the auth session to ensure cookies are up to date
   await supabase.auth.getUser();
 
-  // Use a placeholder for the root domain, which you would replace with your actual domain in production.
-  // We use a common pattern that should work for localhost and deployed environments.
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
   const isLocal = hostname.includes('localhost');
+  const localDevHost = 'localhost:9002'; // Define the specific local dev host
 
   // If it's a request to the main marketing site, let it pass.
-  // Path-based storefronts like /storefront/my-store will also be allowed through by this logic.
-  if (hostname === `localhost` || hostname === rootDomain || hostname === `www.${rootDomain}`) {
+  // This now explicitly checks for the local dev host.
+  if (hostname === localDevHost || hostname === rootDomain || hostname === `www.${rootDomain}`) {
+    console.log(`[Middleware] Main site request. Passing through.`);
     return response;
   }
 
   // Check if this is a custom domain (not a subdomain of rootDomain)
-  const isCustomDomain = !hostname.endsWith(`.${rootDomain}`);
+  const isCustomDomain = !hostname.endsWith(`.${rootDomain}`) && !isLocal;
 
-  if (isCustomDomain && !isLocal) {
+  if (isCustomDomain) {
     // Look up custom domain in database
     const { data: domainRecord } = await supabase
       .from('domains')
@@ -117,7 +116,7 @@ export async function middleware(request: NextRequest) {
       const merchantBusinessName = domainRecord.merchants?.business_name;
       if (merchantBusinessName) {
         const merchantSlug = merchantBusinessName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-        console.log(`Custom domain ${hostname} -> /storefront/${merchantSlug}`);
+        console.log(`[Middleware] Custom domain ${hostname} -> /storefront/${merchantSlug}`);
         url.pathname = `/storefront/${merchantSlug}${url.pathname}`;
         return NextResponse.rewrite(url, {
           request: {
@@ -129,7 +128,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Custom domain not found or not active - redirect to main site
-    console.log(`Custom domain ${hostname} not found or inactive`);
+    console.log(`[Middleware] Custom domain ${hostname} not found or inactive`);
     return NextResponse.redirect(new URL('/', `https://${rootDomain}`));
   }
 
@@ -137,8 +136,8 @@ export async function middleware(request: NextRequest) {
   // e.g., "ogabassey.baci.tech" -> "ogabassey"
   const slug = hostname.replace(`.${rootDomain}`, '');
 
-  if (slug) {
-    console.log(`Subdomain ${hostname} -> /storefront/${slug}`);
+  if (slug && slug !== 'www') {
+    console.log(`[Middleware] Subdomain ${hostname} -> /storefront/${slug}`);
     url.pathname = `/storefront/${slug}${url.pathname}`;
     return NextResponse.rewrite(url, {
       request: {
