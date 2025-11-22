@@ -1,8 +1,21 @@
-import { MerchantProvider } from '@/hooks/use-merchant';
-import { Storefront } from './storefront-client';
 
-export default async function StorefrontPage({ params }: { params: Promise<{ slug: string }> }) {
-    const { slug } = await params;
+'use client';
+
+import { MerchantProvider, useMerchant } from '@/hooks/use-merchant';
+import { Storefront } from './storefront-client';
+import AppBody from '@/components/app-body';
+
+function ThemedStorefront() {
+    const { merchant } = useMerchant();
+    return (
+        <AppBody merchant={merchant}>
+            <Storefront />
+        </AppBody>
+    )
+}
+
+export default function StorefrontPage({ params }: { params: { slug: string } }) {
+    const { slug } = params;
 
     if (typeof slug !== 'string' || !slug.trim()) {
         return (
@@ -14,7 +27,7 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
 
     return (
         <MerchantProvider slug={slug}>
-            <Storefront />
+            <ThemedStorefront />
         </MerchantProvider>
     );
 }

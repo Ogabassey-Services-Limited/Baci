@@ -376,7 +376,7 @@ function CheckoutPageContent() {
 
     try {
       // Get merchant ID from Supabase
-      if (!merchant || !merchant.user_id) {
+      if (!merchant || !merchant.id) {
         throw new Error('Merchant information not available. Please try again.');
       }
 
@@ -384,7 +384,7 @@ function CheckoutPageContent() {
       const { data: merchantData, error: merchantError } = await supabase
         .from('merchants')
         .select('id, shipping_fee')
-        .eq('user_id', merchant.user_id)
+        .eq('id', merchant.id)
         .single();
 
       if (merchantError || !merchantData) {

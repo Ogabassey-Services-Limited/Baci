@@ -1,25 +1,11 @@
 
-
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useMerchant } from '@/hooks/use-merchant';
 import { cn } from '@/lib/utils';
 import { getContrastingTextColor } from '@/lib/color-utils';
+import type { MerchantData } from '@/hooks/use-merchant';
 
-export default function AppBody({ children }: { children: React.ReactNode }) {
-  const { merchant, loading } = useMerchant();
-  const [hasMounted, setHasMounted] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setHasMounted(true);
-  }, []);
-
-  // To prevent flash of unstyled content, we only show the content
-  // after the client has mounted and merchant data has been loaded.
-  const showContent = hasMounted && !loading;
-
+export default function AppBody({ children, merchant }: { children: React.ReactNode, merchant?: MerchantData | null }) {
   // Define CSS variables for the merchant's theme
   const themeStyle = merchant?.brand_colors ? {
     '--store-primary': merchant.brand_colors.primary,
@@ -33,8 +19,7 @@ export default function AppBody({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={cn(
-        "min-h-screen bg-background font-sans antialiased transition-opacity duration-300",
-        showContent ? 'opacity-100' : 'opacity-0'
+        "min-h-screen bg-background font-sans antialiased transition-opacity duration-300 opacity-100"
       )}
       style={themeStyle as React.CSSProperties}
     >

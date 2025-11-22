@@ -4,7 +4,6 @@
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
-import { AuthProvider } from '@/contexts/auth-context';
 import AppBody from '@/components/app-body';
 
 
@@ -54,14 +53,12 @@ function BaciLandingPage() {
   )
 }
 
-// Wrap the landing page in the necessary providers, but without MerchantProvider logic
-// that tries to find a store.
+// The homepage should not be wrapped in MerchantProvider at all.
+// It uses the global AppBody for theming, but doesn't need merchant data.
 export default function HomePage() {
   return (
-    <AuthProvider>
-       <AppBody>
-          <BaciLandingPage />
-       </AppBody>
-    </AuthProvider>
+    <AppBody>
+        <BaciLandingPage />
+    </AppBody>
   );
 }

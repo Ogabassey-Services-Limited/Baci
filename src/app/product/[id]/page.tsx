@@ -8,8 +8,8 @@ import { notFound } from 'next/navigation';
 
 
 // This function generates metadata dynamically on the server
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params;
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const { id } = params;
   const product = getProductById(id);
 
   if (!product) {
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     };
   }
 
-  const storeUrl = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.store';
+  const storeUrl = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
 
   return {
     title: `${product.name} | Baci Store`,
@@ -50,14 +50,18 @@ export async function generateStaticParams() {
 
 // This is the main page component, which is a Server Component.
 // Its only job is to get the ID from the URL and render the client component.
-export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default function ProductPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const product = getProductById(id);
 
   if (!product) {
     notFound();
   }
 
+  // We need to figure out which merchant this product belongs to.
+  // In a real app, you'd fetch the product from DB and it would have a merchant_id.
+  // For this mock, we can't know, so we won't pass a slug to MerchantProvider.
+  // The hook will then rely on the domain/subdomain, which is what we want.
   return (
     <MerchantProvider>
       <ProductDetailClient product={product} />
