@@ -105,13 +105,21 @@ AS $$
   DECLARE
     cleaned TEXT;
   BEGIN
-    -- These regex patterns provide basic text cleanup only
-    -- They DO NOT provide security against malicious input
-    cleaned := regexp_replace(text_input, E'<[^>\\n]+>', '', 'g');
-    cleaned := regexp_replace(cleaned, E'<.*?>', '', 'gn');
+    -- WARNING: Improvements below DO NOT make this secure!
+    -- These patterns are still bypassable - use client-side sanitization instead
+
+    -- Remove tags including broken/incomplete tags like <script (without >)
+    cleaned := regexp_replace(text_input, E'<[^>]*>', '', 'g');
+    -- Remove tags spanning multiple lines
+    cleaned := regexp_replace(cleaned, E'<.*?>', '', 'gs');
+    -- Remove leftover incomplete tag fragments like '<script' without closing
+    cleaned := regexp_replace(cleaned, E'<[^\\s>]*', '', 'g');
+    -- Remove javascript: and data: protocols
     cleaned := regexp_replace(cleaned, E'(?i)javascript:', '', 'g');
     cleaned := regexp_replace(cleaned, E'(?i)data:', '', 'g');
-    cleaned := regexp_replace(cleaned, E'(?i)on\\w+\\s*=\\s*(?:"[^"]*"|\'[^\']*\'|[^\\s>]+)', '', 'g');
+    -- Remove event handler attributes (fixed quote escaping)
+    cleaned := regexp_replace(cleaned, E'(?i)on\\w+\\s*=\\s*(?:"[^"]*"|''[^'']*''|[^\\s>]+)', '', 'g');
+
     RETURN btrim(cleaned);
   END;
 $$;
@@ -214,7 +222,7 @@ RETURNS BOOLEAN
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  current_count INTEGER;
+  updated_count INTEGER;
   window_start TIMESTAMPTZ;
 BEGIN
   -- Calculate aligned fixed window start (bucketed by window size)
@@ -222,24 +230,38 @@ BEGIN
     floor(extract(epoch from now()) / window_seconds_param) * window_seconds_param
   );
 
-  -- Get current count for this window
-  SELECT SUM(request_count) INTO current_count
-  FROM rate_limit_log
+  -- Atomic operation: increment only if below limit
+  -- First, try to update existing row if count is still below limit
+  UPDATE rate_limit_log
+  SET request_count = request_count + 1
   WHERE identifier = identifier_param
     AND endpoint = endpoint_param
-    AND rate_limit_log.window_start = window_start;
+    AND window_start = window_start
+    AND request_count < max_requests_param
+  RETURNING request_count INTO updated_count;
 
-  IF current_count IS NULL THEN
-    current_count := 0;
+  -- If no row was updated, either it doesn't exist or limit is reached
+  IF updated_count IS NULL THEN
+    -- Try to insert a new row (first request in this window)
+    BEGIN
+      INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
+      VALUES (identifier_param, endpoint_param, 1, window_start);
+      updated_count := 1;
+    EXCEPTION WHEN unique_violation THEN
+      -- Concurrent insert occurred, retry the update
+      UPDATE rate_limit_log
+      SET request_count = request_count + 1
+      WHERE identifier = identifier_param
+        AND endpoint = endpoint_param
+        AND window_start = window_start
+        AND request_count < max_requests_param
+      RETURNING request_count INTO updated_count;
+    END;
   END IF;
 
-  -- Log this request and increment count on conflict
-  INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
-  VALUES (identifier_param, endpoint_param, 1, window_start)
-  ON CONFLICT (identifier, endpoint, window_start) DO UPDATE
-    SET request_count = rate_limit_log.request_count + 1;
-
-  RETURN current_count < max_requests_param;
+  -- Return true only if the request was successfully logged (allowed)
+  -- If updated_count is NULL here, it means we hit the rate limit
+  RETURN updated_count IS NOT NULL AND updated_count <= max_requests_param;
 END;
 $$;
 
