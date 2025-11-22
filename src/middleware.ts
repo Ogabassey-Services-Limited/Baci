@@ -39,6 +39,9 @@ export async function middleware(request: NextRequest) {
   }
   const { hostname } = url;
 
+  // Debug logging
+  console.log(`[Middleware] ${request.method} ${pathname} - hostname: "${hostname}"`);
+
   // Create a response object to update cookies
   let response = NextResponse.next({
     request: {
@@ -93,7 +96,7 @@ export async function middleware(request: NextRequest) {
 
   // If it's a request to the main marketing site, let it pass.
   // Path-based storefronts like /storefront/my-store will also be allowed through by this logic.
-  if (hostname === `localhost:3000` || hostname === rootDomain || hostname === `www.${rootDomain}`) {
+  if (hostname === `localhost` || hostname === rootDomain || hostname === `www.${rootDomain}`) {
     return response;
   }
 
