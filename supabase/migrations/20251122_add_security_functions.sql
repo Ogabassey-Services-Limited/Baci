@@ -1,7 +1,9 @@
 -- =============================================
--- DECREMENT STOCK FUNCTIONS
+-- ATOMIC STOCK UPDATE FUNCTIONS
 -- =============================================
--- Atomically decrements stock for a base product
+-- These functions ensure that stock is decremented atomically to prevent race conditions.
+-- They lock the row, check for sufficient stock, and then update in a single transaction block.
+
 CREATE OR REPLACE FUNCTION decrement_product_stock(
   product_id_param UUID,
   quantity_param INTEGER
@@ -9,9 +11,11 @@ CREATE OR REPLACE FUNCTION decrement_product_stock(
 RETURNS TABLE(success BOOLEAN, new_stock INTEGER, message TEXT)
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  current_stock INTEGER;
 BEGIN
-  -- Lock the product row to prevent race conditions
-  PERFORM * FROM products WHERE id = product_id_param FOR UPDATE;
+  -- Lock the product row and get current stock in one operation
+  SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE;
 
   IF NOT FOUND THEN
     RETURN QUERY SELECT FALSE, -1, 'Product not found';
@@ -19,23 +23,24 @@ BEGIN
   END IF;
 
   -- Check if stock is sufficient
-  IF (SELECT stock_quantity FROM products WHERE id = product_id_param) < quantity_param THEN
-    RETURN QUERY SELECT FALSE, (SELECT stock_quantity FROM products WHERE id = product_id_param), 'Insufficient stock';
+  IF current_stock < quantity_param THEN
+    RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
     RETURN;
   ELSE
-    -- Decrement stock and return new quantity
+    -- Decrement stock and return new quantity using RETURNING clause
     UPDATE products
     SET stock_quantity = stock_quantity - quantity_param,
         updated_at = NOW()
-    WHERE id = product_id_param;
+    WHERE id = product_id_param
+    RETURNING stock_quantity INTO current_stock;
 
-    RETURN QUERY SELECT TRUE, (SELECT stock_quantity FROM products WHERE id = product_id_param), 'Stock updated';
+    RETURN QUERY SELECT TRUE, current_stock, 'Stock updated';
     RETURN;
   END IF;
 END;
 $$;
 
--- Atomically decrements stock for a product variant
+
 CREATE OR REPLACE FUNCTION decrement_variant_stock(
   variant_id_param UUID,
   quantity_param INTEGER
@@ -44,10 +49,10 @@ RETURNS TABLE(success BOOLEAN, new_stock INTEGER, message TEXT)
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  updated_stock INTEGER;
+  current_stock INTEGER;
 BEGIN
-  -- Lock the variant row
-  PERFORM * FROM product_variants WHERE id = variant_id_param FOR UPDATE;
+  -- Lock the variant row and get current stock
+  SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE;
 
   IF NOT FOUND THEN
     RETURN QUERY SELECT FALSE, -1, 'Variant not found';
@@ -55,8 +60,8 @@ BEGIN
   END IF;
 
   -- Check stock
-  IF (SELECT stock_quantity FROM product_variants WHERE id = variant_id_param) < quantity_param THEN
-    RETURN QUERY SELECT FALSE, (SELECT stock_quantity FROM product_variants WHERE id = variant_id_param), 'Insufficient stock';
+  IF current_stock < quantity_param THEN
+    RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
     RETURN;
   ELSE
     -- Decrement stock and return new quantity
@@ -64,9 +69,9 @@ BEGIN
     SET stock_quantity = stock_quantity - quantity_param,
         updated_at = NOW()
     WHERE id = variant_id_param
-    RETURNING stock_quantity INTO updated_stock;
-    
-    RETURN QUERY SELECT TRUE, updated_stock, 'Stock updated';
+    RETURNING stock_quantity INTO current_stock;
+
+    RETURN QUERY SELECT TRUE, current_stock, 'Stock updated';
     RETURN;
   END IF;
 END;
@@ -97,6 +102,7 @@ AS $$
   END;
 $$;
 
+
 -- =============================================
 -- EMAIL VALIDATION FUNCTION
 -- =============================================
@@ -119,19 +125,11 @@ BEGIN
 END;
 $$;
 
+
 -- =============================================
 -- RATE LIMITING FUNCTION
 -- =============================================
-CREATE TABLE IF NOT EXISTS rate_limit_log (
-  id BIGSERIAL PRIMARY KEY,
-  identifier TEXT NOT NULL,
-  endpoint TEXT NOT NULL,
-  request_count INTEGER NOT NULL DEFAULT 1,
-  window_start TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(identifier, endpoint, window_start)
-);
-
+-- Creates a fixed-window rate limiter. Returns TRUE if request is allowed, FALSE if blocked.
 CREATE OR REPLACE FUNCTION check_rate_limit(
   identifier_param TEXT,
   endpoint_param TEXT,
@@ -161,9 +159,8 @@ BEGIN
     current_count := 0;
   END IF;
 
-  -- Check limit
   IF current_count >= max_requests_param THEN
-    RETURN FALSE; -- Limit exceeded
+    RETURN FALSE; -- Block request
   END IF;
 
   -- Log this request and increment count on conflict
@@ -190,7 +187,6 @@ BEGIN
 END;
 $$;
 
--- NOTE: Schedule this function to run periodically (e.g., via pg_cron) to avoid unbounded log table growth.
 
 -- =============================================
 -- GRANT PERMISSIONS
