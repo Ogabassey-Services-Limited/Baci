@@ -1,4 +1,6 @@
 
+'use server';
+
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -181,7 +183,7 @@ export async function POST(request: NextRequest) {
         customer_email,
         customer_name,
         customer_phone,
-        // items removed as column does not exist
+        items: items, // Restore the items field
         subtotal,
         shipping_fee,
         total,
