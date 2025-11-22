@@ -86,7 +86,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
         setMerchant(null);
       }
     } catch (error) {
-      logger.error({ message: 'Failed to load merchant data', error: (error as Error).message, slug });
+      logger.error({ message: `Failed to load merchant data. Slug: ${slug}, Error: ${(error as Error).message}` });
       setMerchant(null);
     } finally {
       setLoading(false);
@@ -140,4 +140,5 @@ export const useMerchant = (): MerchantContextType => {
   }
   return context as MerchantContextType;
 };
+
 
