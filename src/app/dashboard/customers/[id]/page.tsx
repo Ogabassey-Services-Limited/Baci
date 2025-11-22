@@ -26,7 +26,8 @@ import {
     DialogTrigger,
     DialogFooter,
 } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 interface Customer {
     id: string;
@@ -69,6 +70,8 @@ export default function CustomerDetailPage() {
     const [isCreditOpen, setIsCreditOpen] = useState(false);
     const [orders, setOrders] = useState<Order[]>([]);
     const [ordersLoading, setOrdersLoading] = useState(true);
+    const [editOpen, setEditOpen] = useState(false);
+    const [editData, setEditData] = useState<Partial<Customer>>({});
 
     useEffect(() => {
         const fetchCustomer = async () => {
@@ -77,6 +80,7 @@ export default function CustomerDetailPage() {
                 if (!res.ok) throw new Error('Failed to fetch customer');
                 const data = await res.json();
                 setCustomer(data.customer);
+                setEditData(data.customer);
             } catch (error) {
                 console.error(error);
                 toast({
@@ -137,6 +141,31 @@ export default function CustomerDetailPage() {
             });
         }
     };
+    
+    const handleSaveChanges = async () => {
+        if (!customer) return;
+        try {
+            const res = await fetch(`/api/customers/${customer.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(editData),
+            });
+            if (!res.ok) throw new Error('Failed to update profile');
+            const data = await res.json();
+            setCustomer(data.customer);
+            setEditOpen(false);
+            toast({
+                title: 'Success',
+                description: 'Customer profile updated',
+            });
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: 'Failed to update profile',
+                variant: 'destructive',
+            });
+        }
+    };
 
     const handleDelete = async () => {
         if (!confirm('Are you sure you want to delete this customer?')) return;
@@ -193,10 +222,43 @@ export default function CustomerDetailPage() {
                     <h1 className="text-2xl font-bold">Customer Profile</h1>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => { }}>
+                    <Button variant="outline" onClick={() => setEditOpen(true)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Profile
                     </Button>
+                     <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Edit Profile</DialogTitle>
+                            </DialogHeader>
+                            <div className="flex flex-col gap-4 py-4">
+                                <div className="grid gap-2">
+                                  <Label htmlFor="first_name">First Name</Label>
+                                  <Input id="first_name" value={editData.first_name || ''} onChange={(e) => setEditData({...editData, first_name: e.target.value})} />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="last_name">Last Name</Label>
+                                  <Input id="last_name" value={editData.last_name || ''} onChange={(e) => setEditData({...editData, last_name: e.target.value})} />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="email">Email</Label>
+                                  <Input id="email" type="email" value={editData.email || ''} onChange={(e) => setEditData({...editData, email: e.target.value})} />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="phone">Phone</Label>
+                                  <Input id="phone" value={editData.phone || ''} onChange={(e) => setEditData({...editData, phone: e.target.value})} />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor="address">Address</Label>
+                                  <Input id="address" value={editData.address || ''} onChange={(e) => setEditData({...editData, address: e.target.value})} />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+                                <Button onClick={handleSaveChanges}>Save Changes</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                     <Button variant="destructive" size="icon" onClick={handleDelete}>
                         <Trash2 className="h-4 w-4" />
                     </Button>
@@ -244,8 +306,8 @@ export default function CustomerDetailPage() {
                                                     </DialogHeader>
                                                     <div className="grid gap-4 py-4">
                                                         <div className="grid gap-2">
-                                                            <label htmlFor="credit">Credit Amount</label>
-                                                            <input
+                                                            <Label htmlFor="credit">Credit Amount</Label>
+                                                            <Input
                                                                 id="credit"
                                                                 type="number"
                                                                 value={creditAmount}
