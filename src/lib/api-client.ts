@@ -43,6 +43,7 @@ export async function fetchWithCsrf(
     return fetch(url, {
         ...options,
         headers,
+        credentials: 'include', // Include cookies for authentication
     });
 }
 
@@ -130,7 +131,9 @@ export async function apiDelete<T = unknown>(
 export async function apiGet<T = unknown>(
     url: string
 ): Promise<T> {
-    const response = await fetch(url);
+    const response = await fetch(url, {
+        credentials: 'include', // Include cookies for authentication
+    });
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Request failed' }));
