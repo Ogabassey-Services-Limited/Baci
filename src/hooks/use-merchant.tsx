@@ -64,7 +64,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       let query = supabase.from('merchants').select('*');
 
       if (slug) {
-        // Revert to using business_name, formatted as a slug
+        // Convert slug back to space-separated, case-insensitive format for searching
         const businessNameFromSlug = slug.replace(/-/g, ' ');
         query = query.ilike('business_name', businessNameFromSlug);
       } else {
@@ -78,7 +78,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
 
       const { data, error } = await query.single();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error here
         throw error;
       }
 
@@ -142,6 +142,7 @@ export const useMerchant = (): MerchantContextType => {
   }
   return context as MerchantContextType;
 };
+
 
 
 
