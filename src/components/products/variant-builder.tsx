@@ -33,6 +33,14 @@ interface AttributeSelection {
 const VARIANT_SUGGESTION_POLL_MS = 1000;
 const VARIANT_SUGGESTION_MAX_ATTEMPTS = 10; // Number of polling attempts for variant suggestions
 
+// Helper to format text to Title Case
+function toTitleCase(text: string) {
+    if (!text) return '';
+    return text.split(' ').map(word =>
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+}
+
 // Deep equality check for objects (attributes)
 function areObjectsEqual(a: unknown, b: unknown): boolean {
     if (a === b) return true;
@@ -80,6 +88,7 @@ export function VariantBuilder({
         variantsRef.current = variants;
     }, [variants]);
 
+    // Effect to handle AI suggestions
     // Effect to handle AI suggestions
     useEffect(() => {
         let interval: ReturnType<typeof setInterval> | null = null;
@@ -131,10 +140,22 @@ export function VariantBuilder({
             }
         }
 
+        // Handler for storage event
+        function handleStorage(event: StorageEvent) {
+            // Only act if key is ai_variant_suggestions and it was set (not null)
+            if (event.key === 'ai_variant_suggestions' && event.newValue) {
+                checkForSuggestions();
+            }
+        }
+
         interval = setInterval(checkForSuggestions, VARIANT_SUGGESTION_POLL_MS); // Poll every VARIANT_SUGGESTION_POLL_MS ms for lower CPU usage
+        // Attach listener
+        window.addEventListener('storage', handleStorage);
 
         timeout = setTimeout(() => {
+            // Initial check in case suggestion exists from previous process/run
             if (!resolved && interval) {
+                checkForSuggestions();
                 clearInterval(interval);
             }
         }, VARIANT_SUGGESTION_POLL_MAX_MS); // Max polling duration, then give up
@@ -142,6 +163,7 @@ export function VariantBuilder({
         // Cleanup
         return () => {
             if (interval) clearInterval(interval);
+            window.removeEventListener('storage', handleStorage);
             if (timeout) clearTimeout(timeout);
         };
     }, [categoryConfig.variantAttributes]); // Dependency on categoryConfig to ensure keys can be mapped
@@ -286,6 +308,212 @@ export function VariantBuilder({
         }
     };
 
+    const renderGeneratedVariants = () => {
+        // Get unique colors and spec combinations
+        const colors = [...new Set(variants.map(v => v.attributes.color))].filter(Boolean);
+        const specCombos = variants.reduce((combos, variant) => {
+            const specs = Object.entries(variant.attributes)
+                .filter(([key]) => key !== 'color')
+                .map(([, value]) => value)
+                .join(' / ');
+            if (specs && !combos.find(c => c.label === specs)) {
+                const specAttrs = Object.fromEntries(
+                    Object.entries(variant.attributes).filter(([key]) => key !== 'color')
+                );
+                combos.push({ label: specs, attributes: specAttrs });
+            }
+            return combos;
+        }, [] as Array<{ label: string; attributes: Record<string, string> }>);
+
+        return (
+            <div className="space-y-6">
+                <Label className="text-base font-semibold">
+                    Configure variants ({variants.length} total)
+                </Label>
+
+                <Label
+                    htmlFor="variants-stock-switch"
+                    className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
+                >
+                    <div className="space-y-0.5">
+                        <div className="font-medium">Track Inventory</div>
+                        <FormDescription>
+                            Enable to manage stock levels for each variant.
+                        </FormDescription>
+                    </div>
+                    <Switch
+                        id="variants-stock-switch"
+                        checked={trackStock}
+                        onCheckedChange={setTrackStock}
+                    />
+                </Label>
+
+                {/* Section 1: Color Images */}
+                {colors.length > 0 && categoryConfig.variantAttributes?.some(attr => attr.key === 'color' && attr.hasImage) && (
+                    <div className="space-y-3">
+                        <Label className="text-sm font-semibold">1. Upload color images</Label>
+                        <div className="grid grid-cols-4 gap-3">
+                            {colors.map(color => {
+                                const variantWithColor = variants.find(v => v.attributes.color === color);
+                                const isEnhancing = enhancingImages[color];
+                                return (
+                                    <div key={color} className="relative group">
+                                        <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors space-y-2">
+                                            <label className="cursor-pointer block">
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    className="hidden"
+                                                    onChange={(e) => handleVariantImageUpload(color, e)}
+                                                    disabled={isEnhancing}
+                                                />
+                                                <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center relative">
+                                                    {isEnhancing && (
+                                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                                                            <Loader2 className="h-6 w-6 text-white animate-spin" />
+                                                        </div>
+                                                    )}
+                                                    {variantWithColor?.primary_image ? (
+                                                        <Image
+                                                            src={variantWithColor.primary_image}
+                                                            alt={color}
+                                                            width={120}
+                                                            height={120}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                                    )}
+                                                </div>
+                                                <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
+                                            </label>
+                                            {variantWithColor?.primary_image && (
+                                                <Button
+                                                    type="button"
+                                                    variant="default"
+                                                    size="sm"
+                                                    className="w-full h-8"
+                                                    onClick={() => handleEnhanceImage(color)}
+                                                    disabled={isEnhancing}
+                                                >
+                                                    {isEnhancing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
+                                                    Enhance
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Section 2: Spec-based pricing */}
+                {specCombos.length > 0 && (
+                    <div className="space-y-3">
+                        <Label className="text-sm font-semibold">
+                            2. Set prices for specifications ({specCombos.length} {specCombos.length === 1 ? 'option' : 'options'})
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                            Price applies to all colors with these specs. Leave blank to use base price.
+                        </p>
+                        <div className="space-y-2">
+                            {specCombos.map((combo, index) => {
+                                const variantWithSpec = variants.find(v =>
+                                    Object.entries(combo.attributes).every(([key, value]) => v.attributes[key] === value)
+                                );
+                                return (
+                                    <div key={index} className="flex items-center gap-3 p-3 border rounded-lg bg-card">
+                                        <p className="flex-1 font-medium text-sm">{combo.label || 'Base variant'}</p>
+                                        <div className="w-40 relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol}</span>
+                                            <Input
+                                                type="text"
+                                                placeholder={new Intl.NumberFormat('en-US').format(basePrice)}
+                                                value={variantWithSpec?.price_override != null ? new Intl.NumberFormat('en-US').format(variantWithSpec.price_override) : ''}
+                                                onChange={(e) => {
+                                                    const rawValue = e.target.value.replace(/,/g, '');
+                                                    if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
+                                                        const price = rawValue === '' ? undefined : Number(rawValue);
+                                                        const updated = variants.map(v =>
+                                                            Object.entries(combo.attributes).every(([key, value]) => v.attributes[key] === value)
+                                                                ? { ...v, price_override: price }
+                                                                : v
+                                                        );
+                                                        setVariants(updated);
+                                                        onVariantsChange(updated);
+                                                    }
+                                                }}
+                                                className="h-9 text-sm pl-8"
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* Section 3: Inventory per variant */}
+                {trackStock && (
+                    <div className="space-y-3">
+                        <Label className="text-sm font-semibold">3. Set stock quantity per variant</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                            {variants.map((variant, index) => {
+                                const attributeOrder = ['ram', 'storage', 'color']; // Define your desired order
+                                const sortedAttributes = Object.entries(variant.attributes).sort(([keyA], [keyB]) => {
+                                    const indexA = attributeOrder.indexOf(keyA.toLowerCase());
+                                    const indexB = attributeOrder.indexOf(keyB.toLowerCase());
+                                    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                                    if (indexA !== -1) return -1;
+                                    if (indexB !== -1) return 1;
+                                    return 0; // Keep original order for other attributes
+                                });
+                                const displayLabel = sortedAttributes.map(([, value]) => value).join(' / ');
+
+                                return (
+                                    <div
+                                        key={variant.id || `variant-${index}`}
+                                        className="flex items-center gap-3 p-3 border rounded-lg bg-card"
+                                    >
+                                        <div className="w-10 h-10 rounded border overflow-hidden flex-shrink-0 bg-muted">
+                                            {variant.primary_image && (
+                                                <Image
+                                                    src={variant.primary_image}
+                                                    alt=""
+                                                    width={40}
+                                                    height={40}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            )}
+                                        </div>
+                                        <p className="flex-1 text-sm font-medium">
+                                            {displayLabel}
+                                        </p>
+                                        <div className="w-24">
+                                            <Input
+                                                type="number"
+                                                min="0"
+                                                placeholder="Stock"
+                                                value={variant.stock_quantity || 0}
+                                                onChange={(e) =>
+                                                    updateVariant(variant.id, {
+                                                        stock_quantity: parseInt(e.target.value) || 0
+                                                    })
+                                                }
+                                                className="h-9 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     if (!categoryConfig.supportsVariants) {
         return null;
     }
@@ -364,219 +592,7 @@ export function VariantBuilder({
                 </div>
 
                 {/* Generated Variants */}
-                {variants.length > 0 && (() => {
-                    // Helper to format text to Title Case
-                    const toTitleCase = (text: string) => {
-                        if (!text) return '';
-                        return text.split(' ').map(word =>
-                            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-                        ).join(' ');
-                    };
-
-                    // Get unique colors and spec combinations
-                    const colors = [...new Set(variants.map(v => v.attributes.color))].filter(Boolean);
-                    const specCombos = variants.reduce((combos, variant) => {
-                        const specs = Object.entries(variant.attributes)
-                            .filter(([key]) => key !== 'color')
-                            .map(([, value]) => value)
-                            .join(' / ');
-                        if (specs && !combos.find(c => c.label === specs)) {
-                            const specAttrs = Object.fromEntries(
-                                Object.entries(variant.attributes).filter(([key]) => key !== 'color')
-                            );
-                            combos.push({ label: specs, attributes: specAttrs });
-                        }
-                        return combos;
-                    }, [] as Array<{ label: string; attributes: Record<string, string> }>);
-
-                    return (
-                        <div className="space-y-6">
-                            <Label className="text-base font-semibold">
-                                Configure variants ({variants.length} total)
-                            </Label>
-
-                            <Label
-                                htmlFor="variants-stock-switch"
-                                className="flex flex-row items-center justify-between rounded-lg border p-3 cursor-pointer"
-                            >
-                                <div className="space-y-0.5">
-                                    <div className="font-medium">Track Inventory</div>
-                                    <FormDescription>
-                                        Enable to manage stock levels for each variant.
-                                    </FormDescription>
-                                </div>
-                                <Switch
-                                    id="variants-stock-switch"
-                                    checked={trackStock}
-                                    onCheckedChange={setTrackStock}
-                                />
-                            </Label>
-
-                            {/* Section 1: Color Images */}
-                            {colors.length > 0 && categoryConfig.variantAttributes?.some(attr => attr.key === 'color' && attr.hasImage) && (
-                                <div className="space-y-3">
-                                    <Label className="text-sm font-semibold">1. Upload color images</Label>
-                                    <div className="grid grid-cols-4 gap-3">
-                                        {colors.map(color => {
-                                            const variantWithColor = variants.find(v => v.attributes.color === color);
-                                            const isEnhancing = enhancingImages[color];
-                                            return (
-                                                <div key={color} className="relative group">
-                                                    <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors space-y-2">
-                                                        <label className="cursor-pointer block">
-                                                            <input
-                                                                type="file"
-                                                                accept="image/*"
-                                                                className="hidden"
-                                                                onChange={(e) => handleVariantImageUpload(color, e)}
-                                                                disabled={isEnhancing}
-                                                            />
-                                                            <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center relative">
-                                                                {isEnhancing && (
-                                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
-                                                                        <Loader2 className="h-6 w-6 text-white animate-spin" />
-                                                                    </div>
-                                                                )}
-                                                                {variantWithColor?.primary_image ? (
-                                                                    <Image
-                                                                        src={variantWithColor.primary_image}
-                                                                        alt={color}
-                                                                        width={120}
-                                                                        height={120}
-                                                                        className="w-full h-full object-cover"
-                                                                    />
-                                                                ) : (
-                                                                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                                                )}
-                                                            </div>
-                                                            <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
-                                                        </label>
-                                                        {variantWithColor?.primary_image && (
-                                                            <Button
-                                                                type="button"
-                                                                variant="default"
-                                                                size="sm"
-                                                                className="w-full h-8"
-                                                                onClick={() => handleEnhanceImage(color)}
-                                                                disabled={isEnhancing}
-                                                            >
-                                                                {isEnhancing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
-                                                                Enhance
-                                                            </Button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Section 2: Spec-based pricing */}
-                            {specCombos.length > 0 && (
-                                <div className="space-y-3">
-                                    <Label className="text-sm font-semibold">
-                                        2. Set prices for specifications ({specCombos.length} {specCombos.length === 1 ? 'option' : 'options'})
-                                    </Label>
-                                    <p className="text-xs text-muted-foreground">
-                                        Price applies to all colors with these specs. Leave blank to use base price.
-                                    </p>
-                                    <div className="space-y-2">
-                                        {specCombos.map((combo, index) => {
-                                            const variantWithSpec = variants.find(v =>
-                                                Object.entries(combo.attributes).every(([key, value]) => v.attributes[key] === value)
-                                            );
-                                            return (
-                                                <div key={index} className="flex items-center gap-3 p-3 border rounded-lg bg-card">
-                                                    <p className="flex-1 font-medium text-sm">{combo.label || 'Base variant'}</p>
-                                                    <div className="w-40 relative">
-                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol}</span>
-                                                        <Input
-                                                            type="text"
-                                                            placeholder={new Intl.NumberFormat('en-US').format(basePrice)}
-                                                            value={variantWithSpec?.price_override != null ? new Intl.NumberFormat('en-US').format(variantWithSpec.price_override) : ''}
-                                                            onChange={(e) => {
-                                                                const rawValue = e.target.value.replace(/,/g, '');
-                                                                if (rawValue === '' || /^\d*\.?\d*$/.test(rawValue)) {
-                                                                    const price = rawValue === '' ? undefined : Number(rawValue);
-                                                                    const updated = variants.map(v =>
-                                                                        Object.entries(combo.attributes).every(([key, value]) => v.attributes[key] === value)
-                                                                            ? { ...v, price_override: price }
-                                                                            : v
-                                                                    );
-                                                                    setVariants(updated);
-                                                                    onVariantsChange(updated);
-                                                                }
-                                                            }}
-                                                            className="h-9 text-sm pl-8"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Section 3: Inventory per variant */}
-                            {trackStock && (
-                                <div className="space-y-3">
-                                    <Label className="text-sm font-semibold">3. Set stock quantity per variant</Label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {variants.map((variant, index) => {
-                                            const attributeOrder = ['ram', 'storage', 'color']; // Define your desired order
-                                            const sortedAttributes = Object.entries(variant.attributes).sort(([keyA], [keyB]) => {
-                                                const indexA = attributeOrder.indexOf(keyA.toLowerCase());
-                                                const indexB = attributeOrder.indexOf(keyB.toLowerCase());
-                                                if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-                                                if (indexA !== -1) return -1;
-                                                if (indexB !== -1) return 1;
-                                                return 0; // Keep original order for other attributes
-                                            });
-                                            const displayLabel = sortedAttributes.map(([, value]) => value).join(' / ');
-
-                                            return (
-                                                <div
-                                                    key={variant.id || `variant-${index}`}
-                                                    className="flex items-center gap-3 p-3 border rounded-lg bg-card"
-                                                >
-                                                    <div className="w-10 h-10 rounded border overflow-hidden flex-shrink-0 bg-muted">
-                                                        {variant.primary_image && (
-                                                            <Image
-                                                                src={variant.primary_image}
-                                                                alt=""
-                                                                width={40}
-                                                                height={40}
-                                                                className="w-full h-full object-cover"
-                                                            />
-                                                        )}
-                                                    </div>
-                                                    <p className="flex-1 text-sm font-medium">
-                                                        {displayLabel}
-                                                    </p>
-                                                    <div className="w-24">
-                                                        <Input
-                                                            type="number"
-                                                            min="0"
-                                                            placeholder="Stock"
-                                                            value={variant.stock_quantity || 0}
-                                                            onChange={(e) =>
-                                                                updateVariant(variant.id, {
-                                                                    stock_quantity: parseInt(e.target.value) || 0
-                                                                })
-                                                            }
-                                                            className="h-9 text-sm"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    );
-                })()}
+                {variants.length > 0 && renderGeneratedVariants()}
             </CardContent>
         </Card >
     );
@@ -618,7 +634,7 @@ function generateUUID(): string {
     }
     // Fallback for older browsers
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        const r = (Math.random() * 16) | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
         return v.toString(16);
     });
 }
