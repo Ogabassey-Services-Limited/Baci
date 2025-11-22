@@ -308,7 +308,9 @@ export function Storefront() {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-background text-center px-4">
         <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl">Store Not Found</h1>
-        <p className="max-w-[600px] text-muted-foreground md:text-xl mt-4">We couldn't find a store at this address. Please check the URL and try again.</p>
+        <p className="max-w-[600px] text-muted-foreground md:text-xl mt-4">
+          The store you're looking for doesn't exist or the URL is incorrect. Please double-check the address. If you're the store owner, make sure you have completed the onboarding process.
+        </p>
         <Button asChild className="mt-8">
           <Link href="/">Return to Baci Home</Link>
         </Button>
