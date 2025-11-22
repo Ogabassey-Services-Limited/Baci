@@ -109,14 +109,10 @@ LANGUAGE plpgsql
 IMMUTABLE
 AS $$
 BEGIN
-  -- Reject consecutive dots (defense in depth)
-  IF POSITION('..' IN email_text) > 0 THEN
-    RETURN FALSE;
-  END IF;
-
   -- RFC 5321/5322 compliant regex:
   -- Local part: one or more valid chars, followed by zero or more (dot + valid chars)
-  -- This ensures dots are always between characters, preventing consecutive/leading/trailing dots
+  -- This structure inherently prevents consecutive, leading, and trailing dots
+  -- Supports common features: plus addressing (user+tag@), underscores, percent encoding
   IF email_text ~* '^[A-Za-z0-9_%+-]+(\.[A-Za-z0-9_%+-]+)*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$' THEN
     RETURN TRUE;
   END IF;
@@ -193,6 +189,9 @@ GRANT EXECUTE ON FUNCTION cleanup_rate_limit_log TO authenticated;
 -- =============================================
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
+
+-- Optimize RLS policy performance: index for merchant lookup in policies
+CREATE INDEX IF NOT EXISTS idx_merchants_id_user_id ON merchants(id, user_id);
 
 -- Policy to ensure a user can only update products belonging to their own merchant account
 CREATE POLICY update_own_product_stock ON products
