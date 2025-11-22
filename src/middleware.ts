@@ -87,7 +87,7 @@ export async function middleware(request: NextRequest) {
 
   // Use a placeholder for the root domain, which you would replace with your actual domain in production.
   // We use a common pattern that should work for localhost and deployed environments.
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.ai';
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
   const isLocal = hostname.includes('localhost');
 
   // Clean up the hostname to get the main domain part
@@ -100,7 +100,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // It's a subdomain storefront request. Extract the slug and rewrite to the correct path.
-  // e.g., "ogabassey.baci.ai" -> "ogabassey"
+  // e.g., "ogabassey.baci.tech" -> "ogabassey"
   const slug = normalizedHost;
 
   if (slug) {
