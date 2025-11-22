@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
+    unoptimized: true, // Add this line to disable image optimization
     remotePatterns: [
       {
         protocol: 'https',

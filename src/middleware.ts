@@ -89,18 +89,22 @@ export async function middleware(request: NextRequest) {
   await supabase.auth.getUser();
 
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
-  const isLocal = hostname.includes('localhost');
-  const localDevHost = 'localhost:9002'; // Define the specific local dev host
+  
+  // Explicitly define hosts that should be treated as the main marketing site
+  const mainSiteHosts = [
+      `localhost:9002`, // local dev
+      '0.0.0.0:9002',     // local network
+      rootDomain,         // production
+      `www.${rootDomain}`  // production www
+  ];
 
-  // If it's a request to the main marketing site, let it pass.
-  // This now explicitly checks for the local dev host.
-  if (hostname === localDevHost || hostname === rootDomain || hostname === `www.${rootDomain}`) {
+  if (mainSiteHosts.includes(hostname)) {
     console.log(`[Middleware] Main site request. Passing through.`);
     return response;
   }
 
   // Check if this is a custom domain (not a subdomain of rootDomain)
-  const isCustomDomain = !hostname.endsWith(`.${rootDomain}`) && !isLocal;
+  const isCustomDomain = !hostname.endsWith(`.${rootDomain}`) && !hostname.includes('localhost');
 
   if (isCustomDomain) {
     // Look up custom domain in database
