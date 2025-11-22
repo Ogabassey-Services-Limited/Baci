@@ -59,9 +59,9 @@ function StorefrontContent() {
       return
     }
 
-    setCurrent(api.selectedScrollSnap())
+    setCurrent(api.selectedScrollSnap() + 1)
     api.on("select", () => {
-      setCurrent(api.selectedScrollSnap())
+      setCurrent(api.selectedScrollSnap() + 1)
     })
   }, [api])
 
@@ -249,7 +249,7 @@ function StorefrontContent() {
                         onClick={() => api?.scrollTo(index)}
                         className={cn(
                             "h-2 w-2 rounded-full transition-all",
-                            current === index ? "w-4 bg-white" : "bg-white/50"
+                            current -1 === index ? "w-4 bg-white" : "bg-white/50"
                         )}
                         aria-label={`Go to slide ${index + 1}`}
                     />
