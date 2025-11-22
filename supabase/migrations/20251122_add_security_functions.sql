@@ -1,18 +1,93 @@
--- supabase/migrations/20251122_add_security_functions.sql
+-- =============================================
+-- DECREMENT STOCK FUNCTIONS
+-- =============================================
+-- Atomically decrements stock for a base product
+CREATE OR REPLACE FUNCTION decrement_product_stock(
+  product_id_param UUID,
+  quantity_param INTEGER
+)
+RETURNS TABLE(success BOOLEAN, new_stock INTEGER, message TEXT)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  -- Lock the product row to prevent race conditions
+  PERFORM * FROM products WHERE id = product_id_param FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT FALSE, -1, 'Product not found';
+    RETURN;
+  END IF;
+
+  -- Check if stock is sufficient
+  IF (SELECT stock_quantity FROM products WHERE id = product_id_param) < quantity_param THEN
+    RETURN QUERY SELECT FALSE, (SELECT stock_quantity FROM products WHERE id = product_id_param), 'Insufficient stock';
+    RETURN;
+  ELSE
+    -- Decrement stock and return new quantity
+    UPDATE products
+    SET stock_quantity = stock_quantity - quantity_param,
+        updated_at = NOW()
+    WHERE id = product_id_param;
+
+    RETURN QUERY SELECT TRUE, (SELECT stock_quantity FROM products WHERE id = product_id_param), 'Stock updated';
+    RETURN;
+  END IF;
+END;
+$$;
+
+-- Atomically decrements stock for a product variant
+CREATE OR REPLACE FUNCTION decrement_variant_stock(
+  variant_id_param UUID,
+  quantity_param INTEGER
+)
+RETURNS TABLE(success BOOLEAN, new_stock INTEGER, message TEXT)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  updated_stock INTEGER;
+BEGIN
+  -- Lock the variant row
+  PERFORM * FROM product_variants WHERE id = variant_id_param FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT FALSE, -1, 'Variant not found';
+    RETURN;
+  END IF;
+
+  -- Check stock
+  IF (SELECT stock_quantity FROM product_variants WHERE id = variant_id_param) < quantity_param THEN
+    RETURN QUERY SELECT FALSE, (SELECT stock_quantity FROM product_variants WHERE id = variant_id_param), 'Insufficient stock';
+    RETURN;
+  ELSE
+    -- Decrement stock and return new quantity
+    UPDATE product_variants
+    SET stock_quantity = stock_quantity - quantity_param,
+        updated_at = NOW()
+    WHERE id = variant_id_param
+    RETURNING stock_quantity INTO updated_stock;
+    
+    RETURN QUERY SELECT TRUE, updated_stock, 'Stock updated';
+    RETURN;
+  END IF;
+END;
+$$;
 
 -- =============================================
 -- TEXT SANITIZATION FUNCTION
 -- =============================================
+-- WARNING:
+-- This function uses regex-based HTML tag removal which may NOT catch all potential attack vectors,
+-- including malformed or nested tags. For critical security use, sanitize on the client with a 
+-- dedicated library (e.g., DOMPurify) or use external trusted sanitization solutions.
 CREATE OR REPLACE FUNCTION sanitize_text_input(text_input TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
-IMMUTABLE
 AS $$
   DECLARE
     cleaned TEXT;
   BEGIN
-    -- Remove HTML tags
-    cleaned := regexp_replace(text_input, E'<[^>]+>', '', 'g');
+    -- Remove HTML tags (basic non-greedy pass; still limited)
+    cleaned := regexp_replace(text_input, E'(?s)<.*?>', '', 'g');
     -- Remove javascript: and data: protocols
     cleaned := regexp_replace(cleaned, E'(?i)javascript:', '', 'g');
     cleaned := regexp_replace(cleaned, E'(?i)data:', '', 'g');
@@ -21,7 +96,6 @@ AS $$
     RETURN btrim(cleaned);
   END;
 $$;
-
 
 -- =============================================
 -- EMAIL VALIDATION FUNCTION
@@ -36,33 +110,28 @@ LANGUAGE plpgsql
 IMMUTABLE
 AS $$
 BEGIN
-  -- This improved validation also checks for consecutive dots in local and domain parts.
-  IF email_text ~* '^[A-Za-z0-9](\.?[A-Za-z0-9_%+-])*@[A-Za-z0-9](\.?[A-Za-z0-9-])*\.[A-Za-z]{2,}$' THEN
-    -- Split local and domain parts
-    DECLARE
-      local_part TEXT;
-      domain_part TEXT;
-    BEGIN
-      local_part := split_part(email_text, '@', 1);
-      domain_part := split_part(email_text, '@', 2);
-      IF position('..' IN local_part) > 0 OR position('..' IN domain_part) > 0 THEN
-        RETURN FALSE;
-      ELSE
-        RETURN TRUE;
-      END IF;
-    END;
+  -- Improved validation: reject consecutive dots in local and domain parts using negative lookahead.
+  IF email_text ~* '^(?!.*\.\.)[A-Za-z0-9](\.?[A-Za-z0-9_%+-])*@[A-Za-z0-9](\.?[A-Za-z0-9-])*\.[A-Za-z]{2,}$' THEN
+    RETURN TRUE;
   ELSE
     RETURN FALSE;
   END IF;
 END;
 $$;
 
-
 -- =============================================
 -- RATE LIMITING FUNCTION
 -- =============================================
--- This function checks if a given identifier has exceeded a request limit
--- for a specific endpoint within a time window.
+CREATE TABLE IF NOT EXISTS rate_limit_log (
+  id BIGSERIAL PRIMARY KEY,
+  identifier TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
+  request_count INTEGER NOT NULL DEFAULT 1,
+  window_start TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(identifier, endpoint, window_start)
+);
+
 CREATE OR REPLACE FUNCTION check_rate_limit(
   identifier_param TEXT,
   endpoint_param TEXT,
@@ -86,13 +155,13 @@ BEGIN
   FROM rate_limit_log
   WHERE identifier = identifier_param
     AND endpoint = endpoint_param
-    AND window_start = window_start;
+    AND rate_limit_log.window_start = window_start;
 
   IF current_count IS NULL THEN
     current_count := 0;
   END IF;
 
-  -- Check if limit is exceeded
+  -- Check limit
   IF current_count >= max_requests_param THEN
     RETURN FALSE; -- Limit exceeded
   END IF;
@@ -121,85 +190,14 @@ BEGIN
 END;
 $$;
 
-
--- =============================================
--- ATOMIC STOCK DECREMENT FUNCTIONS
--- =============================================
-CREATE OR REPLACE FUNCTION decrement_product_stock(
-  product_id_param UUID,
-  quantity_param INTEGER
-)
-RETURNS TABLE(success BOOLEAN, new_stock INTEGER, message TEXT)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  current_stock INTEGER;
-  updated_stock INTEGER;
-BEGIN
-  -- Lock the row to prevent race conditions
-  SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RETURN QUERY SELECT FALSE, 0, 'Product not found';
-    RETURN;
-  END IF;
-
-  IF current_stock >= quantity_param THEN
-    UPDATE products
-    SET stock_quantity = stock_quantity - quantity_param,
-        updated_at = NOW()
-    WHERE id = product_id_param
-    RETURNING stock_quantity INTO updated_stock;
-
-    RETURN QUERY SELECT TRUE, updated_stock, 'Stock updated successfully';
-  ELSE
-    RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
-  END IF;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION decrement_variant_stock(
-  variant_id_param UUID,
-  quantity_param INTEGER
-)
-RETURNS TABLE(success BOOLEAN, new_stock INTEGER, message TEXT)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  current_stock INTEGER;
-  updated_stock INTEGER;
-BEGIN
-  -- Lock the row to prevent race conditions
-  SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE;
-
-  IF NOT FOUND THEN
-    RETURN QUERY SELECT FALSE, 0, 'Variant not found';
-    RETURN;
-  END IF;
-
-  IF current_stock >= quantity_param THEN
-    UPDATE product_variants
-    SET stock_quantity = stock_quantity - quantity_param,
-        updated_at = NOW()
-    WHERE id = variant_id_param
-    RETURNING stock_quantity INTO updated_stock;
-
-    RETURN QUERY SELECT TRUE, updated_stock, 'Stock updated successfully';
-  ELSE
-    RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
-  END IF;
-END;
-$$;
-
+-- NOTE: Schedule this function to run periodically (e.g., via pg_cron) to avoid unbounded log table growth.
 
 -- =============================================
 -- GRANT PERMISSIONS
 -- =============================================
--- Allow only authorized roles to call decrement_product_stock.
--- TODO: Ensure authorization logic (or Row Level Security) restricts stock changes by user ownership!
--- For stricter control, grant only to a dedicated role, e.g.:
--- GRANT EXECUTE ON FUNCTION decrement_product_stock TO product_manager;
+-- Allow only authorized roles to call decrement_product_stock. 
 GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
+-- TODO: Ensure authorization logic (or Row Level Security) restricts stock changes by user ownership!
 GRANT EXECUTE ON FUNCTION decrement_variant_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION sanitize_text_input TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION is_valid_email TO authenticated, anon;
