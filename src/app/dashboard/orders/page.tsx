@@ -241,7 +241,6 @@ export default function OrdersPage() {
   // Fetch orders from API
   useEffect(() => {
     const fetchOrders = async () => {
-      // **FIX:** Do not fetch until auth and merchant data is loaded and available
       if (authLoading || merchantLoading || !user || !merchant) {
         return;
       }
@@ -263,7 +262,6 @@ export default function OrdersPage() {
 
         const data = await apiGet<{orders: ApiOrder[]}>(`/api/orders?${params.toString()}`);
         
-        // Transform API orders to match the UI format
         const transformedOrders = data.orders.map((order: ApiOrder) => ({
           orderNumber: order.order_number,
           customerName: order.customer_name,
@@ -276,23 +274,25 @@ export default function OrdersPage() {
             year: 'numeric'
           }),
           source: order.source === 'online_store' ? 'other' : order.source,
-          id: order.id, // Store the database ID for updates
+          id: order.id,
         }));
 
         setOrders(transformedOrders);
       } catch (error) {
         const errorMessage = (error as Error).message;
-        console.error('Error fetching orders:', errorMessage);
-
-        // Only show toast if the error is not a generic "Request failed" or "Unauthorized"
-        if (!errorMessage.includes('Unauthorized') && !errorMessage.includes('Request failed')) {
-            toast({
-                title: 'Error Fetching Orders',
-                description: errorMessage,
-                variant: 'destructive',
-            });
+        // Gracefully handle transient auth errors during initial load
+        if (errorMessage.includes('Unauthorized') || errorMessage.includes('Request failed')) {
+          // Don't set error state or show toast for these, just log and wait for next render
+          console.warn('Ignoring transient auth/fetch error during order load:', errorMessage);
+        } else {
+          console.error('Error fetching orders:', errorMessage);
+          setOrdersError(errorMessage);
+          toast({
+              title: 'Error Fetching Orders',
+              description: errorMessage,
+              variant: 'destructive',
+          });
         }
-        setOrdersError(errorMessage); // Set error state to display in UI
       } finally {
         setOrdersLoading(false);
       }
