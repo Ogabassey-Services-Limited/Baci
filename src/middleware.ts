@@ -107,15 +107,16 @@ export async function middleware(request: NextRequest) {
     // Look up custom domain in database
     const { data: domainRecord } = await supabase
       .from('domains')
-      .select('merchant_id, status, merchants!inner(slug)')
+      .select('merchant_id, status, merchants!inner(business_name)')
       .eq('domain', hostname)
       .eq('status', 'active')
       .single();
 
     if (domainRecord) {
       // @ts-ignore - Supabase typing issue with nested select
-      const merchantSlug = domainRecord.merchants?.slug;
-      if (merchantSlug) {
+      const merchantBusinessName = domainRecord.merchants?.business_name;
+      if (merchantBusinessName) {
+        const merchantSlug = merchantBusinessName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         console.log(`Custom domain ${hostname} -> /storefront/${merchantSlug}`);
         url.pathname = `/storefront/${merchantSlug}${url.pathname}`;
         return NextResponse.rewrite(url, {

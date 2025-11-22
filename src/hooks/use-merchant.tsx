@@ -64,7 +64,9 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       let query = supabase.from('merchants').select('*');
 
       if (slug) {
-        query = query.eq('slug', slug);
+        // Revert to using business_name, formatted as a slug
+        const businessNameFromSlug = slug.replace(/-/g, ' ');
+        query = query.ilike('business_name', businessNameFromSlug);
       } else {
         if (!user) {
           setMerchant(null);
@@ -140,5 +142,6 @@ export const useMerchant = (): MerchantContextType => {
   }
   return context as MerchantContextType;
 };
+
 
 

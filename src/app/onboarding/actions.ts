@@ -122,8 +122,7 @@ export async function submitOnboarding(
     
     // 3. Create or update the merchant record
     const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
-    const slug = businessName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-
+    
     const merchantPayload = {
       user_id: user.id,
       email: email,
@@ -131,7 +130,6 @@ export async function submitOnboarding(
       business_type: finalBusinessType,
       logo_url: logoDataUri,
       brand_colors: { primary: brandColors.primary, background: brandColors.background, accent: brandColors.accent },
-      slug: slug,
     };
 
     logger.info({ message: 'Attempting to upsert merchant data...', payload: merchantPayload });
