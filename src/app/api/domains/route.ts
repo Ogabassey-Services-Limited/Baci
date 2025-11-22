@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     }
 
     // Extract TLD from domain
-    const tld = '.' + domain.split('.').slice(-1)[0];
+    let tld = '.' + domain.split('.').slice(-1)[0];
     if (domain.includes('.ng')) {
       const parts = domain.split('.');
       if (parts.length >= 3) {
