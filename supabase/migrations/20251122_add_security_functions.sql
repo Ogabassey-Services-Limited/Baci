@@ -23,12 +23,10 @@ BEGIN
     WHEN deadlock_detected THEN
       RETURN QUERY SELECT FALSE, -1, 'Deadlock detected while acquiring product lock';
       RETURN;
+    WHEN no_data_found THEN
+      RETURN QUERY SELECT FALSE, -1, 'Product not found';
+      RETURN;
   END;
-
-  IF NOT FOUND THEN
-    RETURN QUERY SELECT FALSE, -1, 'Product not found';
-    RETURN;
-  END IF;
 
   -- Check if stock is sufficient
   IF current_stock < quantity_param THEN
@@ -68,12 +66,10 @@ BEGIN
     WHEN deadlock_detected THEN
       RETURN QUERY SELECT FALSE, -1, 'Deadlock detected while acquiring variant lock';
       RETURN;
+    WHEN no_data_found THEN
+      RETURN QUERY SELECT FALSE, -1, 'Variant not found';
+      RETURN;
   END;
-
-  IF NOT FOUND THEN
-    RETURN QUERY SELECT FALSE, -1, 'Variant not found';
-    RETURN;
-  END IF;
 
   -- Check stock
   IF current_stock < quantity_param THEN
@@ -158,10 +154,14 @@ AS $$
 DECLARE
   affected_count INTEGER := 0;
   window_start TIMESTAMPTZ;
+  call_time TIMESTAMPTZ;
 BEGIN
+  -- Cache the current timestamp for consistency across the function
+  call_time := now();
+
   -- Calculate aligned fixed window start (bucketed by window size)
   window_start := to_timestamp(
-    floor(extract(epoch from now()) / window_seconds_param) * window_seconds_param
+    floor(extract(epoch from call_time) / window_seconds_param) * window_seconds_param
   );
 
   -- Try to insert a new row; if conflict, atomically increment only if under limit
@@ -194,10 +194,12 @@ CREATE OR REPLACE FUNCTION cleanup_rate_limit_log(days INTEGER DEFAULT 1)
 RETURNS VOID
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  MAX_CLEANUP_DAYS CONSTANT INTEGER := 365;
 BEGIN
   -- Input validation: days must be positive and reasonable
-  IF days IS NULL OR days < 1 OR days > 365 THEN
-    RAISE EXCEPTION 'days parameter must be between 1 and 365, got: %', days;
+  IF days IS NULL OR days < 1 OR days > MAX_CLEANUP_DAYS THEN
+    RAISE EXCEPTION 'days parameter must be between 1 and %, got: %', MAX_CLEANUP_DAYS, days;
   END IF;
 
   DELETE FROM rate_limit_log
