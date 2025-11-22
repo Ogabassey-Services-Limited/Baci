@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -39,6 +40,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { useMerchant } from '@/hooks/use-merchant';
+import { getCountryByCode } from '@/lib/countries';
 
 interface Customer {
     id: string;
@@ -58,6 +61,7 @@ export default function CustomersPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [isAddOpen, setIsAddOpen] = useState(false);
     const { toast } = useToast();
+    const { merchant } = useMerchant();
 
     // Form state
     const [newCustomer, setNewCustomer] = useState({
@@ -121,9 +125,13 @@ export default function CustomersPage() {
     };
 
     const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('en-NG', {
+        const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+        const locale = country ? `en-${country.code}` : 'en-US';
+        const currency = country ? country.currency : 'NGN';
+
+        return new Intl.NumberFormat(locale, {
             style: 'currency',
-            currency: 'NGN',
+            currency: currency,
         }).format(amount);
     };
 
