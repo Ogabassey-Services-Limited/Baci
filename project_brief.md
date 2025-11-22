@@ -44,7 +44,7 @@ User Opens App
    → Shows 2 template previews with user's colors already applied
    → User selects preferred template
     ↓
-✨ STORE CREATED (subdomain: {businessname}.baci.store)
+✨ STORE CREATED (subdomain: {businessname}.baci.tech)
     ↓
 Dashboard → Quick Actions:
    • Add Your First Product
@@ -79,7 +79,7 @@ Product appears in catalog + live store
 ### Customer Purchase Flow
 
 ```
-Customer visits: username.baci.store
+Customer visits: username.baci.tech
     ↓
 Browses products (template-styled with merchant's colors)
     ↓
@@ -203,7 +203,7 @@ Development Tools:
 │                 WEB APP (Customer Stores)                    │
 │                      Next.js 14                              │
 │                                                               │
-│  Dynamic Routes: [subdomain].baci.store                     │
+│  Dynamic Routes: [subdomain].baci.tech                     │
 │  Templates: Render with merchant's brand colors             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -264,7 +264,7 @@ interface Store {
   
   // Store Configuration
   template: 'modern_minimal' | 'bold_colorful';
-  subdomain: string;           // e.g., "amaras-fashion" → amaras-fashion.baci.store
+  subdomain: string;           // e.g., "amaras-fashion" → amaras-fashion.baci.tech
   customDomain?: string;       // Premium feature: www.amarasfashion.com
   
   // Settings

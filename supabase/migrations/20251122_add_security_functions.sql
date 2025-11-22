@@ -98,7 +98,7 @@ IMMUTABLE
 AS $$
 BEGIN
   -- Remove null bytes
-  input_text := REPLACE(input_text, E'\x00', '');
+  input_text := REPLACE(input_text, chr(0), '');
   
   -- Trim whitespace
   input_text := TRIM(input_text);

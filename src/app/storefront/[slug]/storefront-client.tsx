@@ -20,6 +20,7 @@ import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
 import { Button } from '@/components/ui/button';
+import { apiGet } from '@/lib/api-client';
 
 function StorefrontContent() {
   const { merchant } = useMerchant();
@@ -32,8 +33,7 @@ function StorefrontContent() {
 
   useEffect(() => {
     if (merchant?.id) {
-      fetch(`/api/storefront/products?merchant_id=${merchant.id}`)
-        .then(res => res.json())
+      apiGet<{ products: Product[] }>(`/api/storefront/products?merchant_id=${merchant.id}`)
         .then(data => {
           if (data.products) {
             setProducts(data.products);

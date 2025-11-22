@@ -20,6 +20,7 @@ import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { getCountryByCode } from '@/lib/countries';
+import { apiPost } from '@/lib/api-client';
 
 const DEFAULT_SHIPPING_FEE = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00');
 
@@ -221,18 +222,18 @@ function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
       <h3 className="text-lg font-medium">Shipping & Payment</h3>
       <Card>
         <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-                <Truck className="h-6 w-6 text-muted-foreground"/>
-                <div>
-                    <p className="font-semibold">GIGL Shipping</p>
-                    <p className="text-sm text-muted-foreground">Standard (Est. 3-5 business days)</p>
-                </div>
+          <div className="flex items-center gap-4">
+            <Truck className="h-6 w-6 text-muted-foreground" />
+            <div>
+              <p className="font-semibold">GIGL Shipping</p>
+              <p className="text-sm text-muted-foreground">Standard (Est. 3-5 business days)</p>
             </div>
-            {shippingFee === null ? (
-                <Loader2 className="h-5 w-5 animate-spin"/>
-            ) : (
-                <p className="font-semibold">{new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(shippingFee)}</p>
-            )}
+          </div>
+          {shippingFee === null ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <p className="font-semibold">{new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(shippingFee)}</p>
+          )}
         </CardContent>
       </Card>
       <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
@@ -307,51 +308,36 @@ function CheckoutPageContent() {
     }
   }, [cartCount, pageLoading, router]);
 
+
+
+  // ... (inside component)
+
   // Fetch shipping quote when address is valid
   const watchAddress = shippingForm.watch('address');
   useEffect(() => {
-      const getShippingQuote = async () => {
-          setShippingFee(null); // Reset on address change
-          if (watchAddress && watchAddress.length > 5) {
-              try {
-                  const res = await fetch('/api/shipping/quote', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                          // In a real app, we'd use geocoded lat/lng
-                          cartValue: cartTotal,
-                          items: cart.map(i => ({ name: i.name, quantity: i.quantity, weight: 1, value: i.price }))
-                      }),
-                  });
-                  if (!res.ok) throw new Error('Failed to get quote');
-                  const data = await res.json();
-                  setShippingFee(data.shippingFee);
-              } catch (error) {
-                  console.error("Failed to get shipping quote:", error);
-                  setShippingFee(DEFAULT_SHIPPING_FEE); // Fallback
-              }
-          }
-      };
-      
-      const handler = setTimeout(() => {
-          getShippingQuote();
-      }, 1000); // Debounce
+    const getShippingQuote = async () => {
+      setShippingFee(null); // Reset on address change
+      if (watchAddress && watchAddress.length > 5) {
+        try {
+          const data = await apiPost<{ shippingFee: number }>('/api/shipping/quote', {
+            // In a real app, we'd use geocoded lat/lng
+            cartValue: cartTotal,
+            items: cart.map(i => ({ name: i.name, quantity: i.quantity, weight: 1, value: i.price }))
+          });
+          setShippingFee(data.shippingFee);
+        } catch (error) {
+          console.error("Failed to get shipping quote:", error);
+          setShippingFee(DEFAULT_SHIPPING_FEE); // Fallback
+        }
+      }
+    };
 
-      return () => clearTimeout(handler);
+    const handler = setTimeout(() => {
+      getShippingQuote();
+    }, 1000); // Debounce
+
+    return () => clearTimeout(handler);
   }, [watchAddress, cartTotal, cart]);
-
-
-  if (pageLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (cartCount === 0) {
-    return null;
-  }
 
   const handleAuthSuccess = (authedUser: SupabaseUser) => {
     setUser(authedUser);
@@ -370,7 +356,6 @@ function CheckoutPageContent() {
       setStep(step - 1);
     }
   };
-
   const onShippingSubmit = async (data: ShippingFormValues) => {
     setFormIsLoading(true);
 
@@ -405,40 +390,27 @@ function CheckoutPageContent() {
       const finalShippingFee = shippingFee ?? merchantData.shipping_fee ?? DEFAULT_SHIPPING_FEE;
 
       // Create order via API
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const { order } = await apiPost<{ order: any }>('/api/orders', {
+        merchant_id: merchantData.id,
+        customer_email: data.email,
+        customer_name: `${data.firstName} ${data.lastName}`,
+        customer_phone: data.phone,
+        items: orderItems,
+        subtotal,
+        shipping_fee: finalShippingFee,
+        payment_method: 'card',
+        payment_status: 'paid', // Since this is a demo, mark as paid
+        shipping_status: 'pending',
+        shipping_address: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          address: data.address,
+          city: data.city,
+          state: data.state,
         },
-        body: JSON.stringify({
-          merchant_id: merchantData.id,
-          customer_email: data.email,
-          customer_name: `${data.firstName} ${data.lastName}`,
-          customer_phone: data.phone,
-          items: orderItems,
-          subtotal,
-          shipping_fee: finalShippingFee,
-          payment_method: 'card',
-          payment_status: 'paid', // Since this is a demo, mark as paid
-          shipping_status: 'pending',
-          shipping_address: {
-            firstName: data.firstName,
-            lastName: data.lastName,
-            address: data.address,
-            city: data.city,
-            state: data.state,
-          },
-          source: 'online_store',
-          shipping_provider: 'GIGL', // Add shipping provider
-        }),
+        source: 'online_store',
+        shipping_provider: 'GIGL', // Add shipping provider
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create order');
-      }
-
-      const { order } = await response.json();
 
       // Store order data for success page
       const orderData = {

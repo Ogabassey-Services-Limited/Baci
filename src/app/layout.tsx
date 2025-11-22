@@ -30,11 +30,14 @@ export const viewport: Viewport = {
   themeColor: '#3F51B5',
 };
 
-export default function RootLayout({
+import { CsrfInitializer } from '@/components/csrf-initializer';
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
   const organizationSchema = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
@@ -75,6 +78,7 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.variable} suppressHydrationWarning>
+        <CsrfInitializer />
         <Providers>
           <AppBody>{children}</AppBody>
           <Toaster />
