@@ -73,60 +73,28 @@ END;
 $$;
 
 -- =============================================
--- TEXT SANITIZATION FUNCTION (UNSAFE - DO NOT USE FOR SECURITY)
+-- TEXT SANITIZATION - REMOVED FOR SECURITY
 -- =============================================
--- ⚠️ CRITICAL SECURITY WARNING ⚠️
--- !!! THIS FUNCTION PROVIDES NO ACTUAL SECURITY !!!
+-- The sanitize_text_input function has been REMOVED from this migration.
 --
--- This function is ONLY for basic display text formatting.
--- DO NOT USE THIS FUNCTION TO PREVENT XSS OR ANY SECURITY ATTACKS.
+-- Why removed:
+--   Server-side regex-based HTML sanitization is fundamentally unsafe and creates
+--   a dangerous security anti-pattern. Even with extensive warnings, the mere
+--   existence of such a function in the codebase can lead to misuse by developers
+--   who don't read the warnings, potentially causing XSS vulnerabilities.
 --
--- Why this is unsafe:
---   1. Regex-based HTML sanitization is fundamentally flawed
---   2. Easily bypassed with: malformed tags, encoded characters, nested tags,
---      Unicode variants, null bytes, case variations, etc.
---   3. Cannot protect against DOM-based XSS, attribute injection, or CSS injection
---   4. Creates a FALSE SENSE OF SECURITY that may lead to vulnerabilities
+-- PROPER security measures to use instead:
+--   1. Store raw user input in the database (don't sanitize on input)
+--   2. Use parameterized queries to prevent SQL injection
+--   3. Sanitize at display time on the CLIENT side using:
+--      - DOMPurify (https://github.com/cure53/DOMPurify)
+--      - Framework auto-escaping (React JSX, Vue templates, Angular templates)
+--   4. Implement Content Security Policy (CSP) headers
+--   5. Use HTTP-only cookies for sensitive data
 --
--- Proper security measures:
---   - Use parameterized queries for database operations (prevents SQL injection)
---   - Use Content Security Policy (CSP) headers
---   - Use client-side sanitization with DOMPurify or similar vetted libraries
---   - Use framework-provided auto-escaping (React, Vue, Angular, etc.)
---   - Store raw user input and sanitize at display time in the client
---
--- Consider removing this function entirely to avoid misuse.
--- If you must use it, understand it provides cosmetic cleanup only, NOT security.
--- ---------------------------------------------
-CREATE OR REPLACE FUNCTION sanitize_text_input(text_input TEXT)
-RETURNS TEXT
-LANGUAGE plpgsql
-AS $$
-  DECLARE
-    cleaned TEXT;
-  BEGIN
-    -- WARNING: Improvements below DO NOT make this secure!
-    -- These patterns are still bypassable - use client-side sanitization instead
-
-    -- Remove tags including broken/incomplete tags like <script (without >)
-    cleaned := regexp_replace(text_input, E'<[^>]*>', '', 'g');
-    -- Remove tags spanning multiple lines
-    cleaned := regexp_replace(cleaned, E'<.*?>', '', 'gs');
-    -- Remove leftover incomplete tag fragments like '<script' without closing
-    cleaned := regexp_replace(cleaned, E'<[^\\s>]*', '', 'g');
-    -- Remove javascript: and data: protocols
-    cleaned := regexp_replace(cleaned, E'(?i)javascript:', '', 'g');
-    cleaned := regexp_replace(cleaned, E'(?i)data:', '', 'g');
-    -- Remove event handler attributes (fixed quote escaping)
-    cleaned := regexp_replace(cleaned, E'(?i)on\\w+\\s*=\\s*(?:"[^"]*"|''[^'']*''|[^\\s>]+)', '', 'g');
-
-    RETURN btrim(cleaned);
-  END;
-$$;
-
--- Revoke from all roles to prevent misuse
--- DO NOT grant permissions unless you fully understand this provides NO security
-REVOKE EXECUTE ON FUNCTION sanitize_text_input(text) FROM PUBLIC;
+-- If you absolutely need server-side text cleanup (NOT for security):
+--   Implement it in your application layer with clear documentation that
+--   it provides cosmetic formatting only, never security.
 
 
 -- =============================================
@@ -230,38 +198,17 @@ BEGIN
     floor(extract(epoch from now()) / window_seconds_param) * window_seconds_param
   );
 
-  -- Atomic operation: increment only if below limit
-  -- First, try to update existing row if count is still below limit
-  UPDATE rate_limit_log
-  SET request_count = request_count + 1
-  WHERE identifier = identifier_param
-    AND endpoint = endpoint_param
-    AND window_start = window_start
-    AND request_count < max_requests_param
+  -- Atomic upsert: insert new row, or update if exists and below limit
+  INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
+  VALUES (identifier_param, endpoint_param, 1, window_start)
+  ON CONFLICT (identifier, endpoint, window_start)
+  DO UPDATE SET request_count = rate_limit_log.request_count + 1
+    WHERE rate_limit_log.request_count < max_requests_param
   RETURNING request_count INTO updated_count;
 
-  -- If no row was updated, either it doesn't exist or limit is reached
-  IF updated_count IS NULL THEN
-    -- Try to insert a new row (first request in this window)
-    BEGIN
-      INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
-      VALUES (identifier_param, endpoint_param, 1, window_start);
-      updated_count := 1;
-    EXCEPTION WHEN unique_violation THEN
-      -- Concurrent insert occurred, retry the update
-      UPDATE rate_limit_log
-      SET request_count = request_count + 1
-      WHERE identifier = identifier_param
-        AND endpoint = endpoint_param
-        AND window_start = window_start
-        AND request_count < max_requests_param
-      RETURNING request_count INTO updated_count;
-    END;
-  END IF;
-
   -- Return true only if the request was successfully logged (allowed)
-  -- If updated_count is NULL here, it means we hit the rate limit
-  RETURN updated_count IS NOT NULL AND updated_count <= max_requests_param;
+  -- If updated_count is NULL, the rate limit was reached and no update occurred
+  RETURN updated_count IS NOT NULL;
 END;
 $$;
 
@@ -275,7 +222,7 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   DELETE FROM rate_limit_log
-  WHERE created_at < NOW() - (days * INTERVAL '1 day');
+  WHERE window_start < NOW() - (days * INTERVAL '1 day');
 END;
 $$;
 
@@ -287,8 +234,6 @@ $$;
 -- TODO: Ensure authorization logic (or Row Level Security) restricts stock changes by user ownership!
 GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION decrement_variant_stock TO authenticated;
--- sanitize_text_input: NO permissions granted due to security concerns (see function warnings)
---                      Explicitly grant only if you understand it provides NO actual security
 GRANT EXECUTE ON FUNCTION is_valid_email TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION check_rate_limit TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION cleanup_rate_limit_log TO authenticated;
