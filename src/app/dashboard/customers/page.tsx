@@ -90,6 +90,12 @@ export default function CustomersPage() {
                 setCustomers(data.customers);
             } catch (error) {
                 console.error(error);
+                // Gracefully handle authorization errors that can happen during session loading
+                if ((error as Error).message.includes('Unauthorized')) {
+                    // This is expected if the session is not yet fully available on the server.
+                    // We can just wait for the next render when auth state is stable.
+                    return;
+                }
                 toast({
                     title: 'Error',
                     description: 'Failed to load customers',
