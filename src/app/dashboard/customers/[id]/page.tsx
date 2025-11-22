@@ -26,8 +26,7 @@ import {
     DialogTrigger,
     DialogFooter,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 interface Customer {
     id: string;
@@ -227,8 +226,8 @@ export default function CustomerDetailPage() {
                                                     </DialogHeader>
                                                     <div className="grid gap-4 py-4">
                                                         <div className="grid gap-2">
-                                                            <Label htmlFor="credit">Credit Amount</Label>
-                                                            <Input
+                                                            <label htmlFor="credit">Credit Amount</label>
+                                                            <input
                                                                 id="credit"
                                                                 type="number"
                                                                 value={creditAmount}
