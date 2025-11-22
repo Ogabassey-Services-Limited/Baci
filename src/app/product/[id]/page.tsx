@@ -50,8 +50,8 @@ export async function generateStaticParams() {
 
 // This is the main page component, which is a Server Component.
 // Its only job is to get the ID from the URL and render the client component.
-export default function ProductPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const product = getProductById(id);
 
   if (!product) {

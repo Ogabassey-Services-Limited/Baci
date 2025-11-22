@@ -325,8 +325,6 @@ export function Storefront() {
     return <div>Error: Store template not found for business type '{merchant.business_type}'.</div>
   }
 
-  // The template component now wraps the core storefront content.
-  // Any new global features (e.g. Wishlist) would be added to StorefrontContent.
   return (
     <StoreTemplate>
       <StorefrontContent />
