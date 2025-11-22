@@ -43,6 +43,7 @@ import { Badge } from '@/components/ui/badge';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import { apiGet } from '@/lib/api-client';
+import { useAuth } from '@/contexts/auth-context';
 
 interface Customer {
     id: string;
@@ -57,6 +58,7 @@ interface Customer {
 }
 
 export default function CustomersPage() {
+    const { user, loading: authLoading } = useAuth();
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -73,29 +75,33 @@ export default function CustomersPage() {
         address: '',
     });
 
-    const fetchCustomers = async () => {
-        setLoading(true);
-        try {
-            const params = new URLSearchParams();
-            if (searchTerm) params.append('search', searchTerm);
-
-            const data = await apiGet<{customers: Customer[]}>(`/api/customers?${params.toString()}`);
-            setCustomers(data.customers);
-        } catch (error) {
-            console.error(error);
-            toast({
-                title: 'Error',
-                description: 'Failed to load customers',
-                variant: 'destructive',
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
     useEffect(() => {
+        const fetchCustomers = async () => {
+            if (authLoading || !user) {
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const params = new URLSearchParams();
+                if (searchTerm) params.append('search', searchTerm);
+
+                const data = await apiGet<{customers: Customer[]}>(`/api/customers?${params.toString()}`);
+                setCustomers(data.customers);
+            } catch (error) {
+                console.error(error);
+                toast({
+                    title: 'Error',
+                    description: 'Failed to load customers',
+                    variant: 'destructive',
+                });
+            } finally {
+                setLoading(false);
+            }
+        };
+        
         fetchCustomers();
-    }, [searchTerm]);
+    }, [searchTerm, authLoading, user, toast]);
 
     const handleAddCustomer = async () => {
         try {
@@ -113,7 +119,9 @@ export default function CustomersPage() {
             });
             setIsAddOpen(false);
             setNewCustomer({ first_name: '', last_name: '', email: '', phone: '', address: '' });
-            fetchCustomers();
+            // Refetch customers after adding
+            const data = await apiGet<{customers: Customer[]}>(`/api/customers`);
+            setCustomers(data.customers);
         } catch (error) {
             toast({
                 title: 'Error',
@@ -133,6 +141,10 @@ export default function CustomersPage() {
             currency: currency,
         }).format(amount);
     };
+
+    if (authLoading) {
+        return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    }
 
     return (
         <div className="flex flex-col gap-4 h-full">
