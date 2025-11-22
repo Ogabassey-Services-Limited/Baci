@@ -1,7 +1,7 @@
 -- =============================================
--- ATOMIC STOCK DECREMENT FUNCTIONS
+-- ATOMIC STOCK UPDATE FUNCTIONS
 -- =============================================
--- These functions ensure that stock updates are atomic and prevent race conditions.
+-- These functions ensure that stock levels are updated atomically to prevent race conditions.
 
 CREATE OR REPLACE FUNCTION decrement_product_stock(
   product_id_param UUID,
@@ -13,8 +13,8 @@ AS $$
 DECLARE
   current_stock INTEGER;
 BEGIN
-  -- Lock the product row and get current stock
-  SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE;
+  -- Lock the product row and get current stock, fail immediately if locked
+  SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE NOWAIT;
 
   IF NOT FOUND THEN
     RETURN QUERY SELECT FALSE, -1, 'Product not found';
@@ -26,13 +26,14 @@ BEGIN
     RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
     RETURN;
   ELSE
-    -- Decrement stock and return new quantity using RETURNING clause
-    RETURN QUERY 
+    -- Decrement stock and return new quantity
+    RETURN QUERY
     UPDATE products
-    SET stock_quantity = products.stock_quantity - quantity_param,
+    SET stock_quantity = stock_quantity - quantity_param,
         updated_at = NOW()
     WHERE id = product_id_param
-    RETURNING TRUE, products.stock_quantity, 'Stock updated';
+    RETURNING TRUE, stock_quantity, 'Stock updated';
+    RETURN;
   END IF;
 END;
 $$;
@@ -48,8 +49,8 @@ AS $$
 DECLARE
   current_stock INTEGER;
 BEGIN
-  -- Lock the variant row and get current stock
-  SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE;
+  -- Lock the variant row and get current stock, fail immediately if locked
+  SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE NOWAIT;
 
   IF NOT FOUND THEN
     RETURN QUERY SELECT FALSE, -1, 'Variant not found';
@@ -61,114 +62,63 @@ BEGIN
     RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
     RETURN;
   ELSE
-    -- Decrement stock and return new quantity using RETURNING clause
+    -- Decrement stock and return new quantity
     RETURN QUERY
     UPDATE product_variants
-    SET stock_quantity = product_variants.stock_quantity - quantity_param,
+    SET stock_quantity = stock_quantity - quantity_param,
         updated_at = NOW()
     WHERE id = variant_id_param
-    RETURNING TRUE, product_variants.stock_quantity, 'Stock updated';
+    RETURNING TRUE, stock_quantity, 'Stock updated';
+    RETURN;
   END IF;
 END;
 $$;
 
+
 -- =============================================
--- TEXT SANITIZATION - REMOVED FOR SECURITY
+-- TEXT SANITIZATION FUNCTION (UNSAFE - DO NOT USE FOR SECURITY)
 -- =============================================
--- The sanitize_text_input function has been REMOVED from this migration.
---
--- Why removed:
---   Server-side regex-based HTML sanitization is fundamentally unsafe and creates
---   a dangerous security anti-pattern. Even with extensive warnings, the mere
---   existence of such a function in the codebase can lead to misuse by developers
---   who don't read the warnings, potentially causing XSS vulnerabilities.
---
--- PROPER security measures to use instead:
---   1. Store raw user input in the database (don't sanitize on input)
---   2. Use parameterized queries to prevent SQL injection
---   3. Sanitize at display time on the CLIENT side using:
---      - DOMPurify (https://github.com/cure53/DOMPurify)
---      - Framework auto-escaping (React JSX, Vue templates, Angular templates)
---   4. Implement Content Security Policy (CSP) headers
---   5. Use HTTP-only cookies for sensitive data
---
--- If you absolutely need server-side text cleanup (NOT for security):
---   Implement it in your application layer with clear documentation that
---   it provides cosmetic formatting only, never security.
+-- WARNING:
+-- !!! This function is NOT SAFE for security-critical input. !!!
+-- Regex-based HTML tag removal is easily bypassed by malformed, nested, or multiline tags.
+-- Never use server-side regex for XSS prevention!
+-- For any untrusted input, use a dedicated client-side library (e.g., DOMPurify).
+-- This function is for basic display formatting only, NOT security!
+-- ---------------------------------------------
+CREATE OR REPLACE FUNCTION sanitize_text_input(text_input TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+  DECLARE
+    cleaned TEXT;
+  BEGIN
+    -- Remove HTML tags: updated regex to avoid multiline/nested tag match, but still NOT SAFE
+    cleaned := regexp_replace(text_input, E'<[^>\\n]+>', '', 'g');
+    -- Remove HTML tags that span newlines (using 'n' flag)
+    cleaned := regexp_replace(cleaned, E'<.*?>', '', 'gn');
+    -- Remove javascript: and data: protocols
+    cleaned := regexp_replace(cleaned, E'(?i)javascript:', '', 'g');
+    cleaned := regexp_replace(cleaned, E'(?i)data:', '', 'g');
+    -- Remove event handler attributes (onerror=, onload=, onclick=, etc.) - updated regex
+    cleaned := regexp_replace(cleaned, E'(?i)on\\w+\\s*=\\s*(?:"[^"]*"|\'[^\']*\'|[^\\s>]+)', '', 'g');
+    RETURN btrim(cleaned);
+  END;
+$$;
 
 
 -- =============================================
 -- EMAIL VALIDATION FUNCTION
 -- =============================================
--- Validates email addresses according to RFC 5321/5322 standards (2025)
--- Checks:
---   - Length limits (max 320 chars total, 64 for local, 255 for domain)
---   - No consecutive dots
---   - No leading/trailing dots
---   - Proper structure: local@domain.tld
 CREATE OR REPLACE FUNCTION is_valid_email(email_text TEXT)
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
-DECLARE
-  trimmed_email TEXT;
-  local_part TEXT;
-  domain_part TEXT;
-  at_position INTEGER;
 BEGIN
-  -- Handle NULL or empty input
-  IF email_text IS NULL OR length(btrim(email_text)) = 0 THEN
+  -- Improved validation: reject consecutive dots in local and domain parts (without lookahead, by direct check).
+  IF POSITION('..' IN email_text) > 0 THEN
     RETURN FALSE;
-  END IF;
-
-  -- Trim whitespace
-  trimmed_email := btrim(email_text);
-
-  -- Check overall length (RFC 5321: max 320 characters)
-  IF length(trimmed_email) > 320 THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Check for exactly one @ symbol
-  at_position := POSITION('@' IN trimmed_email);
-  IF at_position = 0 OR POSITION('@' IN substring(trimmed_email FROM at_position + 1)) > 0 THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Split into local and domain parts
-  local_part := substring(trimmed_email FROM 1 FOR at_position - 1);
-  domain_part := substring(trimmed_email FROM at_position + 1);
-
-  -- Check local part length (RFC 5321: max 64 characters)
-  IF length(local_part) = 0 OR length(local_part) > 64 THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Check domain part length (RFC 5321: max 255 characters)
-  IF length(domain_part) = 0 OR length(domain_part) > 255 THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Reject consecutive dots anywhere
-  IF POSITION('..' IN trimmed_email) > 0 THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Reject leading or trailing dots in local part
-  IF local_part ~ '^\.' OR local_part ~ '\.$' THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Reject leading or trailing dots in domain part
-  IF domain_part ~ '^\.' OR domain_part ~ '\.$' THEN
-    RETURN FALSE;
-  END IF;
-
-  -- Validate format with improved regex (2025 standards)
-  -- Local part: starts with valid chars, dots only between groups of valid chars
-  -- Domain: alphanumeric labels separated by dots, ending with 2+ char TLD
-  IF trimmed_email ~* '^[A-Za-z0-9_%+-]+(\.[A-Za-z0-9_%+-]+)*@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$' THEN
+  ELSIF email_text ~* '^[A-Za-z0-9](\.?[A-Za-z0-9_%+-])*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$' THEN
     RETURN TRUE;
   ELSE
     RETURN FALSE;
@@ -178,62 +128,78 @@ $$;
 
 
 -- =============================================
--- RATE LIMITING FUNCTION
+-- RATE LIMITING FUNCTIONS
 -- =============================================
 CREATE OR REPLACE FUNCTION check_rate_limit(
   identifier_param TEXT,
   endpoint_param TEXT,
-  max_requests_param INTEGER,
-  window_seconds_param INTEGER
+  max_requests_param INT,
+  window_seconds_param INT
 )
-RETURNS BOOLEAN
+RETURNS TABLE(allowed BOOLEAN, count INT, reset_time TIMESTAMPTZ)
 LANGUAGE plpgsql
 AS $$
 DECLARE
-  updated_count INTEGER;
+  current_count INT;
   window_start TIMESTAMPTZ;
 BEGIN
-  -- Calculate aligned fixed window start (bucketed by window size)
-  window_start := to_timestamp(
-    floor(extract(epoch from now()) / window_seconds_param) * window_seconds_param
-  );
+  window_start := NOW() - (window_seconds_param * INTERVAL '1 second');
+  
+  SELECT COUNT(*)
+  INTO current_count
+  FROM rate_limit_log
+  WHERE identifier = identifier_param
+    AND endpoint = endpoint_param
+    AND created_at >= window_start;
 
-  -- Atomic upsert: insert new row, or update if exists and below limit
-  INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
-  VALUES (identifier_param, endpoint_param, 1, window_start)
-  ON CONFLICT (identifier, endpoint, window_start)
-  DO UPDATE SET request_count = rate_limit_log.request_count + 1
-    WHERE rate_limit_log.request_count < max_requests_param
-  RETURNING request_count INTO updated_count;
+  INSERT INTO rate_limit_log (identifier, endpoint)
+  VALUES (identifier_param, endpoint_param);
 
-  -- Return true only if the request was successfully logged (allowed)
-  -- If updated_count is NULL, the rate limit was reached and no update occurred
-  RETURN updated_count IS NOT NULL;
+  IF current_count < max_requests_param THEN
+    RETURN QUERY SELECT TRUE, current_count + 1, window_start + (window_seconds_param * INTERVAL '1 second');
+  ELSE
+    RETURN QUERY SELECT FALSE, current_count + 1, window_start + (window_seconds_param * INTERVAL '1 second');
+  END IF;
 END;
 $$;
 
--- =============================================
--- RATE LIMIT LOG CLEANUP FUNCTION
--- =============================================
--- Deletes rate_limit_log entries older than the specified number of days (default: 1)
-CREATE OR REPLACE FUNCTION cleanup_rate_limit_log(days INTEGER DEFAULT 1)
-RETURNS VOID
-LANGUAGE plpgsql
-AS $$
+
+CREATE OR REPLACE FUNCTION cleanup_rate_limit_log()
+RETURNS void AS $$
 BEGIN
-  DELETE FROM rate_limit_log
-  WHERE window_start < NOW() - (days * INTERVAL '1 day');
+  DELETE FROM rate_limit_log WHERE created_at < NOW() - INTERVAL '1 day';
 END;
-$$;
+$$ LANGUAGE plpgsql;
 
 
 -- =============================================
 -- GRANT PERMISSIONS
 -- =============================================
 -- Allow only authorized roles to call these functions
--- TODO: Ensure authorization logic (or Row Level Security) restricts stock changes by user ownership!
 GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION decrement_variant_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION is_valid_email TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION check_rate_limit TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION cleanup_rate_limit_log TO authenticated;
+
+-- Explicitly prevent 'anon' role from executing this UNSAFE function
+REVOKE EXECUTE ON FUNCTION sanitize_text_input(text) FROM anon;
+REVOKE EXECUTE ON FUNCTION sanitize_text_input(text) FROM authenticated;
+
+
+-- =============================================
+-- ENABLE ROW LEVEL SECURITY & CREATE POLICIES FOR STOCK TABLES
+-- =============================================
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE product_variants ENABLE ROW LEVEL SECURITY;
+
+-- Policy to ensure a user can only update products belonging to their own merchant account
+CREATE POLICY update_own_product_stock ON products
+  FOR UPDATE
+  USING (((SELECT user_id FROM merchants WHERE id = products.merchant_id) = auth.uid()));
+
+-- Policy to ensure a user can only update variants belonging to their own merchant account
+CREATE POLICY update_own_variant_stock ON product_variants
+  FOR UPDATE
+  USING (((SELECT user_id FROM merchants WHERE id = product_variants.merchant_id) = auth.uid()));
+
