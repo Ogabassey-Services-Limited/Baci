@@ -1,93 +1,27 @@
--- =============================================
--- DECREMENT PRODUCT STOCK
--- Safely decrements stock for a base product.
--- =============================================
-CREATE OR REPLACE FUNCTION decrement_product_stock(
-  product_id_param UUID,
-  quantity_param INTEGER
-)
-RETURNS TABLE(success BOOLEAN, new_stock INTEGER, message TEXT)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  current_stock INTEGER;
-  updated_stock INTEGER;
-BEGIN
-  -- Row-level lock on the product to prevent race conditions
-  SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE;
-
-  IF current_stock IS NULL THEN
-    RETURN QUERY SELECT FALSE, 0, 'Product not found';
-    RETURN;
-  END IF;
-
-  IF current_stock < quantity_param THEN
-    RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
-    RETURN;
-  END IF;
-
-  UPDATE products
-  SET
-    stock_quantity = stock_quantity - quantity_param,
-    updated_at = NOW()
-  WHERE id = product_id_param
-  RETURNING stock_quantity INTO updated_stock;
-
-  RETURN QUERY SELECT TRUE, updated_stock, 'Stock updated successfully';
-END;
-$$;
-
+-- supabase/migrations/20251122_add_security_functions.sql
 
 -- =============================================
--- DECREMENT VARIANT STOCK
--- Safely decrements stock for a product variant.
--- =============================================
-CREATE OR REPLACE FUNCTION decrement_variant_stock(
-  variant_id_param UUID,
-  quantity_param INTEGER
-)
-RETURNS TABLE(success BOOLEAN, new_stock INTEGER, message TEXT)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  current_stock INTEGER;
-  updated_stock INTEGER;
-BEGIN
-  SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE;
-
-  IF current_stock IS NULL THEN
-    RETURN QUERY SELECT FALSE, 0, 'Variant not found';
-    RETURN;
-  END IF;
-
-  IF current_stock < quantity_param THEN
-    RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock for variant';
-    RETURN;
-  END IF;
-
-  UPDATE product_variants
-  SET stock_quantity = stock_quantity - quantity_param,
-      updated_at = NOW()
-  WHERE id = variant_id_param
-  RETURNING stock_quantity INTO updated_stock;
-
-  RETURN QUERY SELECT TRUE, updated_stock, 'Variant stock updated successfully';
-END;
-$$;
-
-
--- =============================================
--- SANITIZE TEXT INPUT
--- Basic text sanitization to prevent XSS.
+-- TEXT SANITIZATION FUNCTION
 -- =============================================
 CREATE OR REPLACE FUNCTION sanitize_text_input(text_input TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
+IMMUTABLE
 AS $$
-BEGIN
-  RETURN btrim(regexp_replace(text_input, E'<[^>]+>', '', 'g'));
-END;
+  DECLARE
+    cleaned TEXT;
+  BEGIN
+    -- Remove HTML tags
+    cleaned := regexp_replace(text_input, E'<[^>]+>', '', 'g');
+    -- Remove javascript: and data: protocols
+    cleaned := regexp_replace(cleaned, E'(?i)javascript:', '', 'g');
+    cleaned := regexp_replace(cleaned, E'(?i)data:', '', 'g');
+    -- Remove event handler attributes (onerror=, onload=, onclick=, etc.)
+    cleaned := regexp_replace(cleaned, E'(?i)on\\w+\\s*=\\s*["\'][^"\']*["\']', '', 'g');
+    RETURN btrim(cleaned);
+  END;
 $$;
+
 
 -- =============================================
 -- EMAIL VALIDATION FUNCTION
@@ -102,8 +36,24 @@ LANGUAGE plpgsql
 IMMUTABLE
 AS $$
 BEGIN
-  -- The following regex is intentionally simple and does not cover all valid addresses per RFC 5322.
-  RETURN email_text ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$';
+  -- This improved validation also checks for consecutive dots in local and domain parts.
+  IF email_text ~* '^[A-Za-z0-9](\.?[A-Za-z0-9_%+-])*@[A-Za-z0-9](\.?[A-Za-z0-9-])*\.[A-Za-z]{2,}$' THEN
+    -- Split local and domain parts
+    DECLARE
+      local_part TEXT;
+      domain_part TEXT;
+    BEGIN
+      local_part := split_part(email_text, '@', 1);
+      domain_part := split_part(email_text, '@', 2);
+      IF position('..' IN local_part) > 0 OR position('..' IN domain_part) > 0 THEN
+        RETURN FALSE;
+      ELSE
+        RETURN TRUE;
+      END IF;
+    END;
+  ELSE
+    RETURN FALSE;
+  END IF;
 END;
 $$;
 
@@ -111,16 +61,8 @@ $$;
 -- =============================================
 -- RATE LIMITING FUNCTION
 -- =============================================
-CREATE TABLE IF NOT EXISTS rate_limit_log (
-    id BIGSERIAL PRIMARY KEY,
-    identifier TEXT NOT NULL,
-    endpoint TEXT NOT NULL,
-    request_count INTEGER NOT NULL DEFAULT 1,
-    window_start TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE(identifier, endpoint, window_start)
-);
-
+-- This function checks if a given identifier has exceeded a request limit
+-- for a specific endpoint within a time window.
 CREATE OR REPLACE FUNCTION check_rate_limit(
   identifier_param TEXT,
   endpoint_param TEXT,
@@ -134,26 +76,30 @@ DECLARE
   current_count INTEGER;
   window_start TIMESTAMPTZ;
 BEGIN
-  window_start := NOW() - (window_seconds_param * INTERVAL '1 second');
+  -- Calculate aligned fixed window start (bucketed by window size)
+  window_start := to_timestamp(
+    floor(extract(epoch from now()) / window_seconds_param) * window_seconds_param
+  );
 
   -- Get current count for this window
   SELECT SUM(request_count) INTO current_count
   FROM rate_limit_log
   WHERE identifier = identifier_param
     AND endpoint = endpoint_param
-    AND created_at >= window_start;
+    AND window_start = window_start;
 
   IF current_count IS NULL THEN
     current_count := 0;
   END IF;
 
+  -- Check if limit is exceeded
   IF current_count >= max_requests_param THEN
-    RETURN FALSE; -- Rate limit exceeded
+    RETURN FALSE; -- Limit exceeded
   END IF;
 
   -- Log this request and increment count on conflict
   INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
-  VALUES (identifier_param, endpoint_param, 1, NOW())
+  VALUES (identifier_param, endpoint_param, 1, window_start)
   ON CONFLICT (identifier, endpoint, window_start) DO UPDATE
     SET request_count = rate_limit_log.request_count + 1;
 
@@ -161,13 +107,101 @@ BEGIN
 END;
 $$;
 
+-- =============================================
+-- RATE LIMIT LOG CLEANUP FUNCTION
+-- =============================================
+-- Deletes rate_limit_log entries older than the specified number of days (default: 1)
+CREATE OR REPLACE FUNCTION cleanup_rate_limit_log(days INTEGER DEFAULT 1)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  DELETE FROM rate_limit_log
+  WHERE created_at < NOW() - (days * INTERVAL '1 day');
+END;
+$$;
+
+
+-- =============================================
+-- ATOMIC STOCK DECREMENT FUNCTIONS
+-- =============================================
+CREATE OR REPLACE FUNCTION decrement_product_stock(
+  product_id_param UUID,
+  quantity_param INTEGER
+)
+RETURNS TABLE(success BOOLEAN, new_stock INTEGER, message TEXT)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  current_stock INTEGER;
+  updated_stock INTEGER;
+BEGIN
+  -- Lock the row to prevent race conditions
+  SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT FALSE, 0, 'Product not found';
+    RETURN;
+  END IF;
+
+  IF current_stock >= quantity_param THEN
+    UPDATE products
+    SET stock_quantity = stock_quantity - quantity_param,
+        updated_at = NOW()
+    WHERE id = product_id_param
+    RETURNING stock_quantity INTO updated_stock;
+
+    RETURN QUERY SELECT TRUE, updated_stock, 'Stock updated successfully';
+  ELSE
+    RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
+  END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION decrement_variant_stock(
+  variant_id_param UUID,
+  quantity_param INTEGER
+)
+RETURNS TABLE(success BOOLEAN, new_stock INTEGER, message TEXT)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  current_stock INTEGER;
+  updated_stock INTEGER;
+BEGIN
+  -- Lock the row to prevent race conditions
+  SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT FALSE, 0, 'Variant not found';
+    RETURN;
+  END IF;
+
+  IF current_stock >= quantity_param THEN
+    UPDATE product_variants
+    SET stock_quantity = stock_quantity - quantity_param,
+        updated_at = NOW()
+    WHERE id = variant_id_param
+    RETURNING stock_quantity INTO updated_stock;
+
+    RETURN QUERY SELECT TRUE, updated_stock, 'Stock updated successfully';
+  ELSE
+    RETURN QUERY SELECT FALSE, current_stock, 'Insufficient stock';
+  END IF;
+END;
+$$;
+
 
 -- =============================================
 -- GRANT PERMISSIONS
 -- =============================================
--- Allow authenticated users to call these functions
+-- Allow only authorized roles to call decrement_product_stock.
+-- TODO: Ensure authorization logic (or Row Level Security) restricts stock changes by user ownership!
+-- For stricter control, grant only to a dedicated role, e.g.:
+-- GRANT EXECUTE ON FUNCTION decrement_product_stock TO product_manager;
 GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION decrement_variant_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION sanitize_text_input TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION is_valid_email TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION check_rate_limit TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION cleanup_rate_limit_log TO authenticated;
