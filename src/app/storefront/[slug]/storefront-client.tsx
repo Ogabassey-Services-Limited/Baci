@@ -21,6 +21,14 @@ import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
 import { Button } from '@/components/ui/button';
 import { apiGet } from '@/lib/api-client';
+import AppBody from '@/components/app-body';
+
+// New component to handle the layout and theming
+function ThemedStorefrontLayout({ children }: { children: React.ReactNode }) {
+  const { merchant } = useMerchant();
+  return <AppBody merchant={merchant}>{children}</AppBody>;
+}
+
 
 function StorefrontContent() {
   const { merchant } = useMerchant();
@@ -255,7 +263,7 @@ function StorefrontContent() {
           </section>
         </main>
 
-        <footer
+        <footer 
           className="text-white"
           style={{ backgroundColor: darkestColor, color: getContrastingTextColor(darkestColor) }}
         >
@@ -326,8 +334,10 @@ export function Storefront() {
   }
 
   return (
-    <StoreTemplate>
-      <StorefrontContent />
-    </StoreTemplate>
+    <ThemedStorefrontLayout>
+        <StoreTemplate>
+            <StorefrontContent />
+        </StoreTemplate>
+    </ThemedStorefrontLayout>
   );
 }
