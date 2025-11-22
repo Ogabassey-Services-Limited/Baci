@@ -42,6 +42,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
+import { apiGet } from '@/lib/api-client';
 
 interface Customer {
     id: string;
@@ -78,9 +79,7 @@ export default function CustomersPage() {
             const params = new URLSearchParams();
             if (searchTerm) params.append('search', searchTerm);
 
-            const res = await fetch(`/api/customers?${params.toString()}`);
-            if (!res.ok) throw new Error('Failed to fetch customers');
-            const data = await res.json();
+            const data = await apiGet<{customers: Customer[]}>(`/api/customers?${params.toString()}`);
             setCustomers(data.customers);
         } catch (error) {
             console.error(error);
