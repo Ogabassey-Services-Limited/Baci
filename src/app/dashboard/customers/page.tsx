@@ -42,7 +42,7 @@ import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
-import { apiGet } from '@/lib/api-client';
+import { apiGet, apiPost } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
 
 interface Customer {
@@ -89,18 +89,14 @@ export default function CustomersPage() {
                 const data = await apiGet<{customers: Customer[]}>(`/api/customers?${params.toString()}`);
                 setCustomers(data.customers);
             } catch (error) {
-                console.error(error);
                 // Gracefully handle authorization errors that can happen during session loading
-                if ((error as Error).message.includes('Unauthorized')) {
-                    // This is expected if the session is not yet fully available on the server.
-                    // We can just wait for the next render when auth state is stable.
-                    return;
+                if (!(error as Error).message.includes('Unauthorized')) {
+                    toast({
+                        title: 'Error',
+                        description: 'Failed to load customers',
+                        variant: 'destructive',
+                    });
                 }
-                toast({
-                    title: 'Error',
-                    description: 'Failed to load customers',
-                    variant: 'destructive',
-                });
             } finally {
                 setLoading(false);
             }
@@ -111,13 +107,7 @@ export default function CustomersPage() {
 
     const handleAddCustomer = async () => {
         try {
-            const res = await fetch('/api/customers', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newCustomer),
-            });
-
-            if (!res.ok) throw new Error('Failed to create customer');
+            await apiPost('/api/customers', newCustomer);
 
             toast({
                 title: 'Success',
@@ -268,7 +258,14 @@ export default function CustomersPage() {
                                 <TableRow key={customer.id}>
                                     <TableCell>
                                         <Avatar className="h-8 w-8">
-                                            <AvatarFallback>{customer.first_name.substring(0, 1).toUpperCase()}{customer.last_name.substring(0, 1).toUpperCase()}</AvatarFallback>
+                                            <AvatarFallback>
+                                                {customer.first_name && customer.first_name.length > 0
+                                                    ? customer.first_name.substring(0, 1).toUpperCase()
+                                                    : "?"}
+                                                {customer.last_name && customer.last_name.length > 0
+                                                    ? customer.last_name.substring(0, 1).toUpperCase()
+                                                    : ""}
+                                            </AvatarFallback>
                                         </Avatar>
                                     </TableCell>
                                     <TableCell className="font-medium">
