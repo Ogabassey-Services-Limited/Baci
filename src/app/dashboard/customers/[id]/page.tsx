@@ -41,6 +41,24 @@ interface Customer {
     created_at: string;
 }
 
+interface OrderItem {
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+}
+
+interface Order {
+    id: string;
+    created_at: string;
+    order_number: string;
+    total: number;
+    shipping_status: string;
+    payment_method: string;
+    shipping_address: string;
+    items: OrderItem[];
+}
+
 export default function CustomerDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -49,7 +67,7 @@ export default function CustomerDetailPage() {
     const [loading, setLoading] = useState(true);
     const [creditAmount, setCreditAmount] = useState('');
     const [isCreditOpen, setIsCreditOpen] = useState(false);
-    const [orders, setOrders] = useState<any[]>([]);
+    const [orders, setOrders] = useState<Order[]>([]);
     const [ordersLoading, setOrdersLoading] = useState(true);
 
     useEffect(() => {
@@ -142,8 +160,8 @@ export default function CustomerDetailPage() {
     };
 
     const formatCurrency = (
-        amount: number, 
-        locale?: string, 
+        amount: number,
+        locale?: string,
         currency?: string
     ) => {
         // Fallback to browser locale and NGN if not specified
