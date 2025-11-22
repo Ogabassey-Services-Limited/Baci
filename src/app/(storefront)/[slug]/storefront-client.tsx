@@ -53,18 +53,15 @@ function StorefrontContent() {
   const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: true }));
   const [api, setApi] = useState<CarouselApi>()
   const [current, setCurrent] = useState(0)
-  const [count, setCount] = useState(0)
 
   useEffect(() => {
     if (!api) {
       return
     }
 
-    setCount(api.scrollSnapList().length)
-    setCurrent(api.selectedScrollSnap() + 1)
-
+    setCurrent(api.selectedScrollSnap())
     api.on("select", () => {
-      setCurrent(api.selectedScrollSnap() + 1)
+      setCurrent(api.selectedScrollSnap())
     })
   }, [api])
 
@@ -244,21 +241,20 @@ function StorefrontContent() {
               </CarouselContent>
               <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" />
               <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" />
-
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+            </Carousel>
+             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
                 {heroSlides.map((_, index) => (
                     <button
                         key={index}
                         onClick={() => api?.scrollTo(index)}
                         className={cn(
                             "h-2 w-2 rounded-full transition-all",
-                            current === index + 1 ? "w-4 bg-white" : "bg-white/50"
+                            current === index ? "w-4 bg-white" : "bg-white/50"
                         )}
                         aria-label={`Go to slide ${index + 1}`}
                     />
                 ))}
             </div>
-            </Carousel>
           </section>
 
           <section className="w-full py-12 md:py-24 lg:py-32" id="products">

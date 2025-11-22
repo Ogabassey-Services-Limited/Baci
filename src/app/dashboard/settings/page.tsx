@@ -39,7 +39,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMerchant } from '@/hooks/use-merchant';
 import { COUNTRIES } from '@/lib/countries';
 import { useEffect, useState } from 'react';
-import { Loader2, Upload, CheckCircle, Pencil, Shuffle } from 'lucide-react';
+import { Loader2, Upload, CheckCircle, Pencil, Shuffle, Trash2 } from 'lucide-react';
 import Image from 'next/image';
 import { logger } from '@/lib/logger';
 import ColorThief from 'colorthief';
@@ -48,6 +48,7 @@ import a11yPlugin from 'colord/plugins/a11y';
 import { ColorPicker } from '@/components/color-picker';
 import type { BrandColors } from '@/types';
 import { cn } from '@/lib/utils';
+import { uploadImage } from '@/lib/storage';
 
 extend([a11yPlugin]);
 
@@ -57,6 +58,14 @@ const settingsSchema = z.object({
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
+
+interface HeroSlide {
+    id: string;
+    imageUrl: string;
+    headline: string;
+    description: string;
+    cta: string;
+}
 
 const extractColorsFromImage = (imageDataUri: string): Promise<BrandColors> => {
   return new Promise((resolve, reject) => {
@@ -97,6 +106,7 @@ export default function SettingsPage() {
   const { merchant, loading, updateMerchant } = useMerchant();
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
@@ -112,8 +122,45 @@ export default function SettingsPage() {
         business_name: merchant.business_name || '',
         country: merchant.country || 'NG',
       });
+      // @ts-ignore - hero_slides might not be on the type yet
+      setHeroSlides(merchant.hero_slides || []);
     }
   }, [merchant, form]);
+
+  const handleHeroSlideChange = (index: number, field: keyof HeroSlide, value: string) => {
+      const newSlides = [...heroSlides];
+      newSlides[index] = { ...newSlides[index], [field]: value };
+      setHeroSlides(newSlides);
+  };
+
+  const handleHeroImageUpload = async (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+              const dataUri = reader.result as string;
+              handleHeroSlideChange(index, 'imageUrl', dataUri); // Show preview immediately
+              try {
+                  const uploadedUrl = await uploadImage(dataUri, 'hero-images');
+                  if(uploadedUrl) {
+                    handleHeroSlideChange(index, 'imageUrl', uploadedUrl);
+                  }
+              } catch (error) {
+                  toast({ title: 'Upload Failed', description: 'Could not upload hero image.', variant: 'destructive' });
+              }
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
+  const addHeroSlide = () => {
+      setHeroSlides([...heroSlides, { id: crypto.randomUUID(), imageUrl: '', headline: '', description: '', cta: '' }]);
+  };
+
+  const removeHeroSlide = (index: number) => {
+      setHeroSlides(heroSlides.filter((_, i) => i !== index));
+  };
+
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -158,7 +205,8 @@ export default function SettingsPage() {
   async function onSubmit(data: SettingsFormValues) {
     setIsSaving(true);
     try {
-      await updateMerchant(data);
+      // @ts-ignore
+      await updateMerchant({ ...data, hero_slides: heroSlides });
       toast({
         title: 'Settings Saved!',
         description: 'Your store settings have been updated.',
@@ -182,80 +230,117 @@ export default function SettingsPage() {
 
   return (
     <div className="grid gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Branding</CardTitle>
-          <CardDescription>
-            Manage your store's logo and color scheme.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid md:grid-cols-2 gap-8">
-          <div className="space-y-4">
-            <Label>Logo</Label>
-            <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 w-full flex flex-col items-center justify-center text-center transition-colors", merchant?.logo_url ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
-              {merchant?.logo_url ? (
-                <>
-                  <Image src={merchant.logo_url} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
-                  <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
-                </>
-              ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Click to upload new logo</p></>)}
-              {isUploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
-              <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isUploading} />
-            </div>
-          </div>
-          <div className="space-y-4">
-            <Label>Brand Colors</Label>
-            {brandColors ? (
-              <div className="flex items-center gap-4">
-                <div className="flex gap-4">
-                  {(['primary', 'background', 'accent'] as const).map((role) => (
-                    <div key={role} className="flex flex-col items-center gap-1.5">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <div
-                            className="w-12 h-12 rounded-full border-2 cursor-pointer relative group"
-                            aria-label={`Edit ${role} color`}
-                          >
-                            <div
-                              className="w-full h-full rounded-full"
-                              style={{ backgroundColor: brandColors[role as keyof typeof brandColors] }}
-                            />
-                            <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-100">
-                              <Pencil className="w-5 h-5 text-white" />
-                            </div>
-                          </div>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto">
-                          <ColorPicker
-                            color={brandColors[role as keyof typeof brandColors]}
-                            onChange={(newColor) => handleColorChange(role, newColor)}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <span className="text-xs font-medium capitalize" style={{ color: brandColors[role as keyof typeof brandColors] }}>{role}</span>
-                    </div>
-                  ))}
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Branding</CardTitle>
+              <CardDescription>
+                Manage your store's logo and color scheme.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <Label>Logo</Label>
+                <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 w-full flex flex-col items-center justify-center text-center transition-colors", merchant?.logo_url ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
+                  {merchant?.logo_url ? (
+                    <>
+                      <Image src={merchant.logo_url} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
+                      <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
+                    </>
+                  ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Click to upload new logo</p></>)}
+                  {isUploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
+                  <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isUploading} />
                 </div>
-                <Button variant="outline" size="icon" onClick={handleShuffleColors} disabled={isUploading} aria-label="Shuffle Colors">
-                  <Shuffle className="w-4 h-4" />
-                </Button>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">Upload a logo to generate brand colors.</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Store Details</CardTitle>
-          <CardDescription>
-            Manage your store's general information and regional settings.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <div className="space-y-4">
+                <Label>Brand Colors</Label>
+                {brandColors ? (
+                  <div className="flex items-center gap-4">
+                    <div className="flex gap-4">
+                      {(['primary', 'background', 'accent'] as const).map((role) => (
+                        <div key={role} className="flex flex-col items-center gap-1.5">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <div
+                                className="w-12 h-12 rounded-full border-2 cursor-pointer relative group"
+                                aria-label={`Edit ${role} color`}
+                              >
+                                <div
+                                  className="w-full h-full rounded-full"
+                                  style={{ backgroundColor: brandColors[role as keyof typeof brandColors] }}
+                                />
+                                <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Pencil className="w-5 h-5 text-white" />
+                                </div>
+                              </div>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto">
+                              <ColorPicker
+                                color={brandColors[role as keyof typeof brandColors]}
+                                onChange={(newColor) => handleColorChange(role, newColor)}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <span className="text-xs font-medium capitalize" style={{ color: brandColors[role as keyof typeof brandColors] }}>{role}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <Button type="button" variant="outline" size="icon" onClick={handleShuffleColors} disabled={isUploading} aria-label="Shuffle Colors">
+                      <Shuffle className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Upload a logo to generate brand colors.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+              <CardHeader>
+                  <CardTitle>Hero Section Carousel</CardTitle>
+                  <CardDescription>
+                      Manage the slides for your storefront's hero section. Recommended size: 1920x1080px.
+                  </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  {heroSlides.map((slide, index) => (
+                      <Card key={slide.id} className="p-4">
+                          <div className="flex items-start gap-4">
+                              <div className="w-32 h-20 rounded-md border-2 border-dashed flex items-center justify-center overflow-hidden bg-muted">
+                                  {slide.imageUrl ? (
+                                    <Image src={slide.imageUrl} alt={`Slide ${index + 1}`} width={128} height={80} className="object-cover" />
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">Upload</span>
+                                  )}
+                                  <Input type="file" accept="image/*" className="absolute w-32 h-20 opacity-0 cursor-pointer" onChange={(e) => handleHeroImageUpload(index, e)} />
+                              </div>
+                              <div className="flex-1 space-y-2">
+                                  <Input placeholder="Headline" value={slide.headline} onChange={e => handleHeroSlideChange(index, 'headline', e.target.value)} />
+                                  <Input placeholder="Description" value={slide.description} onChange={e => handleHeroSlideChange(index, 'description', e.target.value)} />
+                                  <Input placeholder="Button Text (e.g., Shop Now)" value={slide.cta} onChange={e => handleHeroSlideChange(index, 'cta', e.target.value)} />
+                              </div>
+                              <Button variant="ghost" size="icon" onClick={() => removeHeroSlide(index)} className="text-destructive">
+                                  <Trash2 className="w-4 h-4" />
+                              </Button>
+                          </div>
+                      </Card>
+                  ))}
+                  <Button type="button" variant="outline" onClick={addHeroSlide}>
+                      <Plus className="w-4 h-4 mr-2" /> Add Slide
+                  </Button>
+              </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Store Details</CardTitle>
+              <CardDescription>
+                Manage your store's general information and regional settings.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
               <FormField
                 control={form.control}
                 name="business_name"
@@ -299,14 +384,16 @@ export default function SettingsPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={isSaving}>
+            </CardContent>
+          </Card>
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isSaving}>
                 {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Save Changes
               </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+          </div>
+        </form>
+      </Form>
     </div>
   );
 }
