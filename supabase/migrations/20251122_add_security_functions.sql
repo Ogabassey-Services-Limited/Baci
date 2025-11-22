@@ -14,7 +14,13 @@ DECLARE
   current_stock INTEGER;
 BEGIN
   -- Lock the product row and get current stock, fail immediately if locked
-  SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE NOWAIT;
+  BEGIN
+    SELECT stock_quantity INTO current_stock FROM products WHERE id = product_id_param FOR UPDATE NOWAIT;
+  EXCEPTION
+    WHEN lock_not_available THEN
+      RETURN QUERY SELECT FALSE, -1, 'Product is locked by another transaction, please try again';
+      RETURN;
+  END;
 
   IF NOT FOUND THEN
     RETURN QUERY SELECT FALSE, -1, 'Product not found';
@@ -50,7 +56,13 @@ DECLARE
   current_stock INTEGER;
 BEGIN
   -- Lock the variant row and get current stock, fail immediately if locked
-  SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE NOWAIT;
+  BEGIN
+    SELECT stock_quantity INTO current_stock FROM product_variants WHERE id = variant_id_param FOR UPDATE NOWAIT;
+  EXCEPTION
+    WHEN lock_not_available THEN
+      RETURN QUERY SELECT FALSE, -1, 'Variant is locked by another transaction, please try again';
+      RETURN;
+  END;
 
   IF NOT FOUND THEN
     RETURN QUERY SELECT FALSE, -1, 'Variant not found';
@@ -166,6 +178,11 @@ RETURNS VOID
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  -- Input validation: days must be positive and reasonable
+  IF days IS NULL OR days < 1 OR days > 365 THEN
+    RAISE EXCEPTION 'days parameter must be between 1 and 365, got: %', days;
+  END IF;
+
   DELETE FROM rate_limit_log
   WHERE window_start < NOW() - (days * INTERVAL '1 day');
 END;
@@ -175,8 +192,14 @@ $$;
 -- =============================================
 -- GRANT PERMISSIONS
 -- =============================================
--- Allow only authorized roles to call these functions
--- TODO: Ensure authorization logic (or Row Level Security) restricts stock changes by user ownership!
+-- Note: Stock decrement functions grant EXECUTE to 'authenticated' role, which is broad.
+-- Security is enforced through Row Level Security (RLS) policies below, which ensure
+-- users can only modify inventory for their own merchant accounts.
+--
+-- For stricter access control, consider:
+--   1. Creating specific roles (e.g., 'inventory_manager', 'store_owner')
+--   2. Revoking from 'authenticated' and granting only to those roles
+--   3. Managing role assignments based on your application's access requirements
 GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION decrement_variant_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION is_valid_email TO authenticated, anon;
