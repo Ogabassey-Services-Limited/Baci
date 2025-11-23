@@ -152,10 +152,15 @@ export default function DomainsPage() {
                           {getStatusBadge(domain.status)}
                         </CardDescription>
                       </div>
-                      <Button variant="outline" size="sm">
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Visit
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => window.location.href = `/dashboard/domains/${domain.domain}`}>
+                          Manage
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Visit
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-2">

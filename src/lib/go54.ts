@@ -59,6 +59,40 @@ export interface IDProtectionStatus {
   domain: string;
 }
 
+export interface TldPricing {
+  tld: string;
+  currencyCode: string;
+  years: number;
+  registrationPrice: number;
+  renewalPrice: number;
+  transferPrice: number;
+  graceDays: number;
+  graceFee: number;
+  redemptionDays: number;
+  redemptionFee: number;
+}
+
+export interface DomainSuggestion {
+  domain: string;
+  status: string;
+  currency?: string;
+  price?: number;
+}
+
+export interface DomainInformation {
+  domain: string;
+  status: string;
+  nameservers: { [key: string]: string };
+  transferLock: boolean;
+  expiryDate: string;
+  registrationDate?: string;
+  nextDueDate?: string;
+  idProtectionStatus: boolean;
+  dnsManagementStatus: boolean;
+  emailForwardingStatus: boolean;
+  registrantEmailAddress?: string;
+}
+
 /**
  * Generate Go54 authentication token
  *
@@ -151,10 +185,11 @@ export async function checkDomainAvailability(
   try {
     const result = await go54Request<any>('/domains/lookup', 'POST', {
       searchTerm,
-      punnyCodeSearchTerm: searchTerm,
+      punyCodeSearchTerm: searchTerm,
       tldsToInclude: tlds,
       isIdnDomain: false,
       premiumEnabled: false,
+      isWhmcs: 1,
     });
 
     // Parse response and return availability results
@@ -508,6 +543,149 @@ export async function updateDomainIDProtection(
     return result;
   } catch (error) {
     console.error('Error updating ID protection:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get TLD Pricing
+ */
+export async function getTldPricing(): Promise<TldPricing[]> {
+  try {
+    const result = await go54Request<any>('/tlds/pricing', 'GET');
+    // The API returns an object/array of pricing, we might need to transform it
+    // based on the PHP module: foreach ($result as $extension) ...
+    return result;
+  } catch (error) {
+    console.error('Error getting TLD pricing:', error);
+    throw error;
+  }
+}
+
+/**
+ * Register a child nameserver (Glue Record)
+ */
+export async function registerChildNameserver(
+  domain: string,
+  nameserver: string,
+  ip: string
+): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/nameservers/register`, 'POST', {
+      domain,
+      nameserver,
+      ipaddress: ip,
+    });
+    return result;
+  } catch (error) {
+    console.error('Error registering child nameserver:', error);
+    throw error;
+  }
+}
+
+/**
+ * Modify a child nameserver (Glue Record)
+ */
+export async function modifyChildNameserver(
+  domain: string,
+  nameserver: string,
+  currentIp: string,
+  newIp: string
+): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/nameservers/modify`, 'POST', {
+      domain,
+      nameserver,
+      currentipaddress: currentIp,
+      newipaddress: newIp,
+    });
+    return result;
+  } catch (error) {
+    console.error('Error modifying child nameserver:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a child nameserver (Glue Record)
+ */
+export async function deleteChildNameserver(
+  domain: string,
+  nameserver: string
+): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/nameservers/delete`, 'POST', {
+      domain,
+      nameserver,
+    });
+    return result;
+  } catch (error) {
+    console.error('Error deleting child nameserver:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get Domain Suggestions
+ */
+export async function getDomainSuggestions(
+  searchTerm: string,
+  tlds: string[] = []
+): Promise<DomainSuggestion[]> {
+  try {
+    const result = await go54Request<any>('/domains/lookup/suggestions', 'POST', {
+      searchTerm,
+      punyCodeSearchTerm: searchTerm,
+      tldsToInclude: tlds,
+      isIdnDomain: false,
+      premiumEnabled: false,
+      suggestionSettings: [],
+    });
+    return result;
+  } catch (error) {
+    console.error('Error getting domain suggestions:', error);
+    throw error;
+  }
+}
+
+/**
+ * Request Domain Deletion
+ */
+export async function requestDomainDelete(domain: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/delete`, 'POST', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error requesting domain delete:', error);
+    throw error;
+  }
+}
+
+/**
+ * Release Domain (IPS Tag)
+ */
+export async function releaseDomain(domain: string, transferTag: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/release`, 'POST', {
+      domain,
+      transfertag: transferTag,
+    });
+    return result;
+  } catch (error) {
+    console.error('Error releasing domain:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get Detailed Domain Information
+ */
+export async function getDomainInformation(domain: string): Promise<DomainInformation> {
+  try {
+    const result = await go54Request<any>(`/domains/${domain}/information`, 'GET', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error getting domain information:', error);
     throw error;
   }
 }
