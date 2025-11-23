@@ -104,7 +104,7 @@ function StorefrontContent() {
   }, [products]);
   
   const currentFilterOptions = filterBy === 'category' ? availableCategories : availableBrands;
-  const currentSelectedFilter = filterBy === 'category' ? selectedCategory : brand;
+  const currentSelectedFilter = filterBy === 'category' ? selectedCategory : selectedBrand;
 
   const handleFilterClick = (value: string | null) => {
     if (filterBy === 'category') {
