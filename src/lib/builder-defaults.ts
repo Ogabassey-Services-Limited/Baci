@@ -9,7 +9,18 @@ export function generateDefaultConfig(merchant: any): Data {
     const businessType = merchant?.business_type || 'other';
 
     // Prepare carousel slides using placeholder images
-    const slides = PlaceHolderImages.slice(0, 3).map((img, i) => {
+    // Ensure we have at least 3 images for the carousel
+    const fallbackImages = [
+        { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+1' },
+        { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+2' },
+        { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+3' }
+    ];
+    const imagesForSlides = [
+        PlaceHolderImages[0] || fallbackImages[0],
+        PlaceHolderImages[1] || fallbackImages[1],
+        PlaceHolderImages[2] || fallbackImages[2],
+    ];
+    const slides = imagesForSlides.map((img, i) => {
         let title = `Welcome to ${businessName}`;
         let subtitle = 'Discover our amazing collection of products.';
 

@@ -11,6 +11,9 @@
 -- 5. Add missing updated_at triggers
 -- 6. Optimize indexes with composite keys
 -- 7. Apply security hardening
+-- 8. Make functions more robust and configurable per code review
+-- 9. Fix null byte sanitization bug
+-- 10. Fix ambiguous function drop
 -- =============================================
 
 -- =============================================
@@ -89,7 +92,7 @@ CREATE FUNCTION check_rate_limit(
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
-SECURITY INVOKER  -- Changed from implicit to explicit
+SECURITY INVOKER
 SET search_path = pg_catalog, public
 AS $$
 DECLARE
@@ -131,16 +134,20 @@ BEGIN
 END;
 $$;
 
+-- Drop both old (no-arg) and new (interval) versions for idempotency
 DROP FUNCTION IF EXISTS cleanup_rate_limit_logs() CASCADE;
-CREATE FUNCTION cleanup_rate_limit_logs()
+DROP FUNCTION IF EXISTS cleanup_rate_limit_logs(INTERVAL) CASCADE;
+CREATE FUNCTION cleanup_rate_limit_logs(
+  retention_interval INTERVAL
+)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER  -- Needs elevated privileges to delete
+SECURITY DEFINER
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
   DELETE FROM rate_limit_log
-  WHERE created_at < clock_timestamp() - INTERVAL '1 hour';
+  WHERE created_at < clock_timestamp() - retention_interval;
 END;
 $$;
 
@@ -263,20 +270,25 @@ IMMUTABLE
 PARALLEL SAFE
 SET search_path = pg_catalog, public
 AS $$
+DECLARE
+  -- Maximum allowed input text length. 
+  -- Chosen to prevent denial-of-service and excessive resource usage;
+  -- adjust as needed for your business case.
+  MAX_TEXT_INPUT_LENGTH CONSTANT INTEGER := 10000;
 BEGIN
   IF input_text IS NULL THEN
     RETURN NULL;
   END IF;
 
-  -- Remove null bytes
-  input_text := REPLACE(input_text, CHR(0), '');
+  -- Remove null bytes using a safer method
+  input_text := regexp_replace(input_text, '\x00', '', 'g');
 
   -- Trim whitespace
   input_text := TRIM(input_text);
 
-  -- Limit length to prevent DoS (configurable based on use case)
-  IF LENGTH(input_text) > 10000 THEN
-    input_text := SUBSTRING(input_text, 1, 10000);
+  -- Limit length to prevent DoS
+  IF LENGTH(input_text) > MAX_TEXT_INPUT_LENGTH THEN
+    input_text := SUBSTRING(input_text, 1, MAX_TEXT_INPUT_LENGTH);
   END IF;
 
   RETURN input_text;
@@ -296,9 +308,12 @@ BEGIN
     RETURN FALSE;
   END IF;
 
-  -- Basic email validation (RFC 5322 simplified)
-  -- More comprehensive validation should be done in application layer
-  RETURN email_text ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$';
+  -- Basic email validation (RFC 5322 highly simplified).
+  -- WARNING: This regex does NOT support the full set of valid emails under RFC 5322,
+  -- and WILL reject legitimate emails with internationalized domains, quoted local parts,
+  -- and other complex edge cases.
+  -- For production use, more comprehensive validation MUST be done in the application layer.
+  RETURN email_text ~* '^[A-Za-z0-9.!#$%&''*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*$';
 END;
 $$;
 
@@ -327,8 +342,8 @@ BEGIN
     DO UPDATE SET last_order_number = merchant_order_counters.last_order_number + 1
     RETURNING last_order_number INTO next_num;
 
-    -- Format the order number (e.g., #00001)
-    order_num := '#' || LPAD(next_num::TEXT, 5, '0');
+    -- Format the order number (e.g., #00000001)
+    order_num := '#' || LPAD(next_num::TEXT, 8, '0');
     RETURN order_num;
 END;
 $$;
@@ -423,15 +438,15 @@ $$;
 GRANT EXECUTE ON FUNCTION sanitize_text_input TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION is_valid_email TO authenticated, anon;
 
--- Rate limiting - authenticated only (anon users can be rate limited by IP at application layer)
+-- Rate limiting - authenticated only
 GRANT EXECUTE ON FUNCTION check_rate_limit TO authenticated;
 REVOKE EXECUTE ON FUNCTION check_rate_limit FROM anon;
 
 -- Cleanup function - restricted to service role only
-REVOKE EXECUTE ON FUNCTION cleanup_rate_limit_logs FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION cleanup_rate_limit_logs TO service_role;
+REVOKE EXECUTE ON FUNCTION cleanup_rate_limit_logs(INTERVAL) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION cleanup_rate_limit_logs(INTERVAL) TO service_role;
 
--- Stock management - authenticated users only (CRITICAL: no anon access)
+-- Stock management - authenticated users only
 GRANT EXECUTE ON FUNCTION decrement_product_stock TO authenticated;
 GRANT EXECUTE ON FUNCTION decrement_variant_stock TO authenticated;
 REVOKE EXECUTE ON FUNCTION decrement_product_stock FROM anon;
@@ -449,24 +464,20 @@ REVOKE EXECUTE ON FUNCTION set_primary_domain FROM anon;
 -- SECTION 5: ADD COMMENTS FOR DOCUMENTATION
 -- =============================================
 
-COMMENT ON TABLE rate_limit_log IS 'Internal rate limiting table. RLS enabled - access only via security-definer functions. Auto-cleanup after 1 hour.';
+COMMENT ON TABLE rate_limit_log IS 'Internal rate limiting table. RLS enabled - access only via security-definer functions.';
 COMMENT ON FUNCTION check_rate_limit IS 'Rate limit checker with configurable windows. Returns FALSE if limit exceeded.';
-COMMENT ON FUNCTION cleanup_rate_limit_logs IS 'Removes rate limit logs older than 1 hour. Run via cron/pg_cron.';
+COMMENT ON FUNCTION cleanup_rate_limit_logs(INTERVAL) IS 'Removes old rate limit logs based on a given retention interval. Run via cron/pg_cron.';
 COMMENT ON FUNCTION decrement_product_stock IS 'Atomically decrements product stock with row-level locking. SECURITY DEFINER - authenticated users only.';
 COMMENT ON FUNCTION decrement_variant_stock IS 'Atomically decrements variant stock with row-level locking. SECURITY DEFINER - authenticated users only.';
 COMMENT ON FUNCTION sanitize_text_input IS 'Sanitizes text input: removes null bytes, trims whitespace, limits length. Safe for anon use.';
-COMMENT ON FUNCTION is_valid_email IS 'Basic email format validation using regex. Application layer should do comprehensive validation.';
-COMMENT ON FUNCTION generate_order_number_for_merchant IS 'Generates sequential order numbers per merchant. SECURITY DEFINER - prevents race conditions.';
+COMMENT ON FUNCTION is_valid_email IS 'Basic email format validation using a more liberal regex. Application layer should still do comprehensive validation.';
+COMMENT ON FUNCTION generate_order_number_for_merchant IS 'Generates sequential, 8-digit, padded order numbers per merchant. SECURITY DEFINER - prevents race conditions.';
 COMMENT ON FUNCTION set_primary_domain IS 'Sets a domain as primary for a merchant. Ensures only one primary domain per merchant.';
 COMMENT ON FUNCTION ensure_single_primary_domain IS 'Trigger function to maintain single primary domain constraint.';
 
 -- =============================================
 -- SECTION 6: RECREATE TRIGGERS
 -- =============================================
--- Note: Triggers were dropped via CASCADE when functions were dropped
--- Now recreate them with the new functions
-
--- Rate limit updated_at trigger (already created in Section 2)
 
 -- Order number generation trigger
 DROP TRIGGER IF EXISTS trigger_set_order_number ON orders;
@@ -502,9 +513,6 @@ CREATE TRIGGER on_domain_primary_change
 -- =============================================
 -- SECTION 7: ADDITIONAL SECURITY HARDENING
 -- =============================================
-
--- Ensure all SECURITY DEFINER functions have proper search_path
--- (Already set inline in function definitions above using SET search_path)
 
 -- Double-check RLS is enabled on sensitive tables
 ALTER TABLE rate_limit_log ENABLE ROW LEVEL SECURITY;

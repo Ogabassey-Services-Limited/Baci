@@ -155,7 +155,18 @@ function StorefrontContent() {
   const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.background, merchant.brand_colors.accent].filter(Boolean) : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
-  const heroSlides = PlaceHolderImages.slice(0, 3).map((img, i) => ({
+  // Ensure we have at least 3 images for hero carousel
+  const fallbackHeroImages = [
+    { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+1' },
+    { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+2' },
+    { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+3' }
+  ];
+  const imagesForHero = [
+    PlaceHolderImages[0] || fallbackHeroImages[0],
+    PlaceHolderImages[1] || fallbackHeroImages[1],
+    PlaceHolderImages[2] || fallbackHeroImages[2],
+  ];
+  const heroSlides = imagesForHero.map((img, i) => ({
     ...img,
     headline: `Elevate Your Style, Slide ${i + 1}`,
     description: "Discover our latest collection of premium apparel.",

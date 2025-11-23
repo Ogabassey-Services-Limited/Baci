@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ function BaciLandingPage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative w-full py-20 md:py-32 lg:py-40 overflow-hidden bg-gradient-to-br from-[#2D3E68] via-[#3d5a9f] to-[#2D3E68]">
+        <section className="relative w-full pt-6 pb-20 md:pt-10 md:pb-32 lg:pt-12 lg:pb-40 overflow-hidden bg-gradient-to-br from-[#2D3E68] via-[#3d5a9f] to-[#2D3E68]">
           {/* Geometric Shapes */}
           <div className="absolute top-10 right-10 w-24 h-24 bg-[#FF9F43] rounded-2xl transform rotate-12 opacity-20" />
           <div className="absolute bottom-20 left-20 w-32 h-32 bg-[#FF9F43] rounded-2xl transform -rotate-6 opacity-20" />
