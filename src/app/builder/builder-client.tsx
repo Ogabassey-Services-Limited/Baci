@@ -1,14 +1,14 @@
-
 'use client';
 
 import { Puck, Data } from '@measured/puck';
 import '@measured/puck/puck.css';
-import { builderConfig } from './config';
+import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
-import { Loader2, Save, Globe, ArrowLeft } from 'lucide-react';
+import { Loader2, Save, Globe, ArrowLeft, Smartphone, Tablet, Monitor } from 'lucide-react';
 import Link from 'next/link';
+import { StorefrontProvider } from '@/contexts/storefront-context';
 import { useRouter } from 'next/navigation';
 import { AiCommandBar } from '@/components/builder/ai-command-bar';
 import { defaultTheme, ThemeConfiguration } from '@/lib/theme-config';
