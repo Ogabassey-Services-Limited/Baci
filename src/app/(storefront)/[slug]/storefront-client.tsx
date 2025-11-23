@@ -37,7 +37,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
 
 
@@ -62,19 +62,19 @@ function StorefrontContent() {
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
 
   const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: true }));
-  const [api, setApi] = useState<CarouselApi>()
-  const [current, setCurrent] = useState(0)
+  const [api, setApi] = useState<CarouselApi>();
+  const [current, setCurrent] = useState(0);
 
   useEffect(() => {
     if (!api) {
-      return
+      return;
     }
 
-    setCurrent(api.selectedScrollSnap() + 1)
+    setCurrent(api.selectedScrollSnap() + 1);
     api.on("select", () => {
-      setCurrent(api.selectedScrollSnap() + 1)
-    })
-  }, [api])
+      setCurrent(api.selectedScrollSnap() + 1);
+    });
+  }, [api]);
 
 
   useEffect(() => {
@@ -104,7 +104,7 @@ function StorefrontContent() {
   }, [products]);
   
   const currentFilterOptions = filterBy === 'category' ? availableCategories : availableBrands;
-  const currentSelectedFilter = filterBy === 'category' ? selectedCategory : selectedBrand;
+  const currentSelectedFilter = filterBy === 'category' ? selectedCategory : brand;
 
   const handleFilterClick = (value: string | null) => {
     if (filterBy === 'category') {
@@ -276,7 +276,7 @@ function StorefrontContent() {
                         </div>
                       </div>
                     </CarouselItem>
-                  )
+                  );
                 })}
               </CarouselContent>
               <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" />
@@ -384,7 +384,7 @@ function StorefrontContent() {
                           </div>
                         </CardContent>
                       </ThemedCard>
-                    )
+                    );
                   })}
                 </div>
               ) : (
@@ -464,7 +464,7 @@ export function Storefront() {
   const StoreTemplate = businessTypeConfig?.template;
 
   if (!StoreTemplate) {
-    return <div>Error: Store template not found for business type '{merchant.business_type}'.</div>
+    return <div>Error: Store template not found for business type '{merchant.business_type}'.</div>;
   }
 
   return (
