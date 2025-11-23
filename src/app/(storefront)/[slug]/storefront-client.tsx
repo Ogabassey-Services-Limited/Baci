@@ -39,7 +39,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from '@/lib/utils';
-import { StorefrontProvider } from '@/contexts/storefront-context';
 
 
 // New component to handle the layout and theming
@@ -470,15 +469,11 @@ export function Storefront() {
 
   return (
     <ThemedStorefrontLayout>
-      <StoreTemplate>
-        <StorefrontProvider>
-          {merchant.published_config ? (
-            <Render config={builderConfig} data={merchant.published_config} />
-          ) : (
+        <StoreTemplate>
             <StorefrontContent />
-          )}
-        </StorefrontProvider>
-      </StoreTemplate>
+        </StoreTemplate>
     </ThemedStorefrontLayout>
   );
 }
+
+    
