@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  reactStrictMode: false, // This will reduce some warnings from third-party libraries
   images: {
     unoptimized: true, // Add this line to disable image optimization
     remotePatterns: [

@@ -1,9 +1,7 @@
-
-
 'use server';
 
 import { MerchantProvider } from '@/hooks/use-merchant';
-import { Storefront } from './storefront-client';
+import { StorefrontWrapper } from './storefront-wrapper';
 
 export default async function StorefrontPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
@@ -18,7 +16,7 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
 
     return (
         <MerchantProvider slug={slug}>
-            <Storefront />
+            <StorefrontWrapper />
         </MerchantProvider>
     );
 }

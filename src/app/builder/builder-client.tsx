@@ -1,30 +1,101 @@
 'use client';
 
-import { Puck, Data } from '@measured/puck';
+import { Puck, Data, Drawer } from '@measured/puck';
 import '@measured/puck/puck.css';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
-import { Loader2, Save, Globe, ArrowLeft, Smartphone, Tablet, Monitor } from 'lucide-react';
+import {
+    Loader2, Save, Globe, ArrowLeft, Smartphone, Tablet, Monitor,
+    LayoutTemplate, GalleryHorizontal, Type, Image as ImageIcon,
+    MousePointerClick, ShoppingBag, Quote, List, Mail,
+    MoveVertical, PanelBottom, PanelTop, Box,
+    Video, Map as MapIcon, Instagram, FormInput, Share2, Code, Search, Sparkles
+} from 'lucide-react';
 import Link from 'next/link';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { useRouter } from 'next/navigation';
-import { AiCommandBar } from '@/components/builder/ai-command-bar';
+import { GeminiCommandBar } from '@/components/builder/gemini-command-bar';
 import { defaultTheme, ThemeConfiguration } from '@/lib/theme-config';
 import { applyTheme } from '@/lib/theme-manager';
 import { ThemeEditor } from '@/components/builder/theme-editor-redesigned';
-import { Palette } from 'lucide-react';
+import { BuilderSidebar } from '@/components/builder/builder-sidebar';
+import { SEOPanel, SEOData } from '@/components/builder/seo-panel';
+import { StoreSettingsPanel, StoreSettings } from '@/components/builder/store-settings-panel';
 import { useAuth } from '@/contexts/auth-context';
 import { useMerchant } from '@/hooks/use-merchant';
 
+// Component icon mapping - using component functions for dynamic sizing
+const componentIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+    Hero: LayoutTemplate,
+    HeroCarousel: GalleryHorizontal,
+    Text: Type,
+    Image: ImageIcon,
+    Button: MousePointerClick,
+    ProductGrid: ShoppingBag,
+    Testimonial: Quote,
+    Features: List,
+    Newsletter: Mail,
+    Spacer: MoveVertical,
+    Footer: PanelBottom,
+    Header: PanelTop,
+    Video: Video,
+    Map: MapIcon,
+    InstagramFeed: Instagram,
+    ContactForm: FormInput,
+    SocialIcons: Share2,
+    CodeEmbed: Code,
+    Search: Search,
+};
+
 export default function BuilderClient() {
-    const [data, setData] = useState<Data | null>(null);
+    const [data, setData] = useState<Data>({ content: [], root: { title: 'Home' }, zones: {} });
+    const [seoData, setSeoData] = useState<SEOData>({
+        title: '',
+        description: '',
+        keywords: '',
+        twitterCard: 'summary_large_image'
+    });
+    const [storeSettings, setStoreSettings] = useState<StoreSettings>({
+        productPage: {
+            layout: 'standard',
+            showRelatedProducts: true,
+            showReviews: true,
+            showShareButtons: true,
+            imageGalleryStyle: 'thumbnails',
+            enableZoom: true,
+            showInventory: true,
+        },
+        cart: {
+            enableCartDrawer: true,
+            showShippingEstimate: true,
+            showProgressBar: false,
+            enableGiftMessage: false,
+            enableDiscountCodes: true,
+        },
+        checkout: {
+            enableGuestCheckout: true,
+            requirePhoneNumber: false,
+            showOrderNotes: true,
+            showNewsletterSignup: true,
+            enableExpressCheckout: true,
+        },
+        shipping: {
+            showEstimatedDelivery: true,
+            defaultShippingMessage: 'Free shipping on orders over $50',
+            internationalShipping: false,
+        },
+        policies: {
+            returnPolicy: '',
+            shippingPolicy: '',
+            privacyPolicy: '',
+        },
+    });
     const [pageLoading, setPageLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [isAiLoading, setIsAiLoading] = useState(false);
-    const [showThemeEditor, setShowThemeEditor] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
@@ -57,9 +128,25 @@ export default function BuilderClient() {
                 }
 
                 const json = await res.json();
+                console.log('BuilderClient: Fetched JSON:', json);
 
                 if (json.config) {
+                    console.log('BuilderClient: Setting data from config:', json.config);
                     setData(json.config);
+
+                    // Load SEO data if it exists
+                    if (json.seo) {
+                        setSeoData(json.seo);
+                    } else {
+                        // Set default SEO from page title
+                        setSeoData({
+                            title: json.config.root?.title || 'Home',
+                            description: '',
+                            keywords: '',
+                            twitterCard: 'summary_large_image'
+                        });
+                    }
+
                     if (json.config.theme) {
                         applyTheme(json.config.theme);
                     } else {
@@ -113,7 +200,8 @@ export default function BuilderClient() {
                 body: JSON.stringify({
                     slug: 'home',
                     name: 'Home',
-                    config: newData
+                    config: newData,
+                    seo: seoData
                 })
             });
         } catch (error) {
@@ -159,19 +247,22 @@ export default function BuilderClient() {
         }
     };
 
-    const handleAiCommand = async (prompt: string) => {
+    const handleAiCommand = async (command: string) => {
         setIsAiLoading(true);
         try {
-            const response = await fetch('/api/builder/ai', {
+            const response = await fetch('/api/builder/gemini', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    prompt,
+                    prompt: command,
                     currentConfig: data
                 }),
             });
 
-            if (!response.ok) throw new Error('Failed to process AI request');
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ details: 'Unknown error' }));
+                throw new Error(errorData.details || 'Failed to process AI request');
+            }
 
             const result = await response.json();
 
@@ -181,17 +272,22 @@ export default function BuilderClient() {
                     applyTheme(result.config.theme);
                 }
                 toast({
-                    title: "Design Updated",
-                    description: "AI has applied your changes.",
+                    title: "✨ Design Updated",
+                    description: "Gemini AI has applied your changes successfully!",
                 });
             } else {
                 console.warn('No config in AI response');
+                toast({
+                    title: "Warning",
+                    description: "AI response was incomplete. Please try again.",
+                    variant: "destructive"
+                });
             }
         } catch (error) {
-            console.error('AI Command Error:', error);
+            console.error('Gemini AI Command Error:', error);
             toast({
                 title: "Error",
-                description: "Failed to process AI command. Please try again.",
+                description: error instanceof Error ? error.message : "Failed to process AI command. Please try again.",
                 variant: "destructive"
             });
         } finally {
@@ -206,9 +302,9 @@ export default function BuilderClient() {
             </div>
         );
     }
-    
+
     if (!user || !merchant) {
-         return (
+        return (
             <div className="flex h-screen items-center justify-center">
                 <p>Redirecting to login...</p>
             </div>
@@ -217,73 +313,253 @@ export default function BuilderClient() {
 
     return (
         <div className="h-screen flex flex-col bg-background">
-            <header className="h-14 border-b flex items-center justify-between px-4 bg-background/95 backdrop-blur z-10">
-                <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" asChild className="h-9 w-9">
-                        <Link href="/dashboard">
-                            <ArrowLeft className="w-4 h-4" />
-                            <span className="sr-only">Back to Dashboard</span>
-                        </Link>
-                    </Button>
-                </div>
+            <StorefrontProvider>
+                <Puck
+                    config={builderConfig}
+                    data={data}
+                    onPublish={handlePublish}
+                    onChange={setData}
+                    metadata={{
+                        merchantId: merchant.id,
+                        merchant: merchant,
+                        products: []
+                    }}
+                    viewports={[
+                        {
+                            width: 375,
+                            height: 'auto',
+                            label: 'Mobile Portrait',
+                            icon: 'Smartphone'
+                        },
+                        {
+                            width: 768,
+                            height: 'auto',
+                            label: 'Tablet',
+                            icon: 'Tablet'
+                        },
+                        {
+                            width: 1440,
+                            height: 'auto',
+                            label: 'Desktop',
+                            icon: 'Monitor'
+                        }
+                    ]}
+                    overrides={{
+                        drawer: ({ children }: any) => {
+                            // Get all components from all categories (deduplicated)
+                            const allComponents: string[] = [];
+                            Object.values(builderConfig.categories || {}).forEach((category: any) => {
+                                allComponents.push(...(category.components || []));
+                            });
+                            const uniqueComponents = Array.from(new Set(allComponents));
 
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSave(data!)}
-                        disabled={saving}
-                        className="h-9"
-                    >
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        <span className="ml-2 hidden sm:inline">Save Draft</span>
-                    </Button>
-                    <Button
-                        size="sm"
-                        onClick={handlePublish}
-                        disabled={publishing}
-                        className="h-9"
-                    >
-                        {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
-                        <span className="ml-2 hidden sm:inline">Publish</span>
-                    </Button>
-                </div>
-            </header>
+                            return (
+                                <div style={{ height: '100%', overflow: 'auto' }}>
+                                    <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem' }}>
+                                        Drag and drop elements anywhere on your page
+                                    </p>
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(2, 1fr)',
+                                        gap: '0.75rem',
+                                        width: '100%'
+                                    }}>
+                                        {uniqueComponents.map((componentName, index) => {
+                                            const IconComponent = componentIcons[componentName] || Box;
+                                            return (
+                                                <Drawer.Item key={`${componentName}-${index}`} name={componentName}>
+                                                    {({ children: itemChildren }) => (
+                                                        <div style={{
+                                                            border: '1px solid #e5e7eb',
+                                                            borderRadius: '0.5rem',
+                                                            padding: '0.75rem',
+                                                            minHeight: '80px',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            cursor: 'grab',
+                                                            transition: 'all 0.2s',
+                                                            background: 'white',
+                                                            overflow: 'hidden'
+                                                        }}>
+                                                            <div style={{ color: '#9ca3af', marginBottom: '0.5rem' }}>
+                                                                <IconComponent className="w-8 h-8" />
+                                                            </div>
+                                                            <span style={{
+                                                                fontSize: '0.7rem',
+                                                                fontWeight: 400,
+                                                                color: '#6b7280',
+                                                                textAlign: 'center',
+                                                                lineHeight: '1.2',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                whiteSpace: 'nowrap',
+                                                                width: '100%'
+                                                            }}>
+                                                                {componentName}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </Drawer.Item>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        },
+                    }}
+                >
+                    <div className="flex flex-col h-screen bg-background">
+                        <header className="h-14 border-b flex items-center justify-between px-4 bg-background/95 backdrop-blur z-10 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <Button variant="ghost" size="icon" asChild className="h-9 w-9">
+                                    <Link href="/dashboard">
+                                        <ArrowLeft className="w-4 h-4" />
+                                        <span className="sr-only">Back to Dashboard</span>
+                                    </Link>
+                                </Button>
+                                <div className="flex items-center gap-2 ml-2">
+                                    <span className="font-semibold text-lg">Website Builder</span>
+                                    <div className="h-4 w-px bg-border mx-2" />
+                                    <span className="text-sm text-muted-foreground hidden sm:inline-block">
+                                        {data.root?.title || 'Home'}
+                                    </span>
+                                </div>
+                            </div>
 
-            <div className="flex-1 overflow-hidden flex">
-                {showThemeEditor && (
-                    <div className="w-80 border-r bg-background overflow-hidden flex flex-col">
-                        <ThemeEditor
-                            theme={(data as any)?.theme || defaultTheme}
-                            onChange={(newTheme: ThemeConfiguration) => {
-                                setData(prev => prev ? { ...prev, theme: newTheme } as any : null);
-                            }}
-                            onReset={() => {
-                                applyTheme(defaultTheme);
-                                setData(prev => prev ? { ...prev, theme: defaultTheme } as any : null);
-                            }}
-                        />
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleSave(data!)}
+                                    disabled={saving}
+                                    className="h-9"
+                                >
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                    <span className="ml-2 hidden sm:inline">Save Draft</span>
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={handlePublish}
+                                    disabled={publishing}
+                                    className="h-9"
+                                >
+                                    {publishing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                                    <span className="ml-2 hidden sm:inline">Publish</span>
+                                </Button>
+                            </div>
+                        </header>
+
+                        <div className="flex-1 overflow-hidden flex">
+                            <BuilderSidebar
+                                themeEditor={
+                                    <ThemeEditor
+                                        theme={(data as any)?.theme || defaultTheme}
+                                        onChange={(newTheme: ThemeConfiguration) => {
+                                            setData(prev => ({ ...prev, theme: newTheme } as any));
+                                        }}
+                                        onReset={() => {
+                                            applyTheme(defaultTheme);
+                                            setData(prev => ({ ...prev, theme: defaultTheme } as any));
+                                        }}
+                                    />
+                                }
+                                aiTools={
+                                    <div className="space-y-4">
+                                        <div className="p-4 border rounded-lg bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
+                                            <h3 className="font-semibold mb-2 flex items-center gap-2">
+                                                <Sparkles className="w-4 h-4 text-purple-600" />
+                                                Gemini AI Assistant
+                                            </h3>
+                                            <p className="text-sm text-muted-foreground mb-4">
+                                                Describe what you want to change and Gemini will update your website instantly.
+                                            </p>
+                                            <GeminiCommandBar
+                                                onCommand={handleAiCommand}
+                                                isLoading={isAiLoading}
+                                                compact={true}
+                                            />
+                                        </div>
+                                    </div>
+                                }
+                                outline={<Puck.Outline />}
+                                seoPanel={
+                                    <SEOPanel
+                                        seoData={seoData}
+                                        onChange={setSeoData}
+                                        pagePath="/home"
+                                    />
+                                }
+                                storePanel={
+                                    <StoreSettingsPanel
+                                        settings={storeSettings}
+                                        onChange={setStoreSettings}
+                                    />
+                                }
+                            >
+                                <style dangerouslySetInnerHTML={{
+                                    __html: `
+                                    /* Hide category titles to create continuous grid */
+                                    .PuckSidebarSection-title {
+                                        display: none !important;
+                                    }
+                                    .PuckSidebarSection-breadcrumbs {
+                                        display: none !important;
+                                    }
+                                    
+                                    /* Force all component lists to use 3-column grid */
+                                    .PuckComponentList {
+                                        display: grid !important;
+                                        grid-template-columns: repeat(3, 1fr) !important;
+                                        gap: 0.75rem !important;
+                                    }
+                                    
+                                    .PuckComponentList-item {
+                                        border: 1px solid #e5e7eb;
+                                        border-radius: 0.75rem;
+                                        padding: 1rem;
+                                        min-height: 100px;
+                                        display: flex;
+                                        flex-direction: column;
+                                        align-items: center;
+                                        justify-content: center;
+                                        cursor: grab;
+                                        transition: all 0.2s;
+                                    }
+                                    .PuckComponentList-item:hover {
+                                        border-color: hsl(var(--primary));
+                                        background-color: hsl(var(--primary) / 0.05);
+                                    }
+                                    .PuckComponentList-item svg {
+                                        width: 2.5rem !important;
+                                        height: 2.5rem !important;
+                                        stroke-width: 1.5 !important;
+                                        color: #9ca3af;
+                                    }
+                                    .PuckComponentList-item span {
+                                        font-size: 0.75rem;
+                                        font-weight: 400;
+                                        color: #6b7280;
+                                        margin-top: 0.625rem;
+                                        text-align: center;
+                                    }
+                                `}} />
+                                <Puck.Components />
+                            </BuilderSidebar>
+
+                            <div className="flex-1 relative bg-accent/5 flex flex-col">
+                                <div className="flex-1 overflow-y-auto p-2 pb-24">
+                                    <div className="min-h-full bg-white shadow-sm mx-auto">
+                                        <Puck.Preview />
+                                    </div>
+                                </div>
+                                <GeminiCommandBar onCommand={handleAiCommand} isLoading={isAiLoading} />
+                            </div>
+                        </div>
                     </div>
-                )}
-
-                <div className="flex-1 relative">
-                        <Puck
-                            config={builderConfig}
-                            data={data || { content: [], root: { title: 'Home' }, zones: {} } as any}
-                            onPublish={handlePublish}
-                            onChange={setData}
-                        />
-                    <AiCommandBar onCommand={handleAiCommand} isLoading={isAiLoading} />
-
-                    <button
-                        onClick={() => setShowThemeEditor(!showThemeEditor)}
-                        className="absolute top-4 right-4 z-50 p-2 rounded-md bg-background border shadow-sm hover:bg-accent transition-colors"
-                        title={showThemeEditor ? "Hide Theme Editor" : "Show Theme Editor"}
-                    >
-                        <Palette className="w-5 h-5" />
-                    </button>
-                </div>
-            </div>
+                </Puck>
+            </StorefrontProvider>
         </div>
     );
 }

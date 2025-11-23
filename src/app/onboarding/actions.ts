@@ -26,7 +26,7 @@ export async function submitOnboarding(
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   let user: User | null = null;
-  
+
   const rawFormData = Object.fromEntries(formData.entries());
   logger.info({ message: 'submitOnboarding started', rawFormData });
 
@@ -50,7 +50,7 @@ export async function submitOnboarding(
   } = validationResult.data;
 
   const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
-  
+
   logger.info({ message: 'Form data validated successfully', data: validationResult.data });
 
   try {
@@ -63,11 +63,11 @@ export async function submitOnboarding(
     } else if (password) {
       logger.info({ message: 'No session, attempting to sign in with password...' });
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      
+
       if (signInError) {
         if (signInError.message.includes('Invalid login credentials')) {
           logger.warn({ message: 'Sign in failed, attempting to sign up and then sign in.' });
-          
+
           // Step 1: Sign up the user with email confirmation disabled
           const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
             email,
@@ -77,8 +77,8 @@ export async function submitOnboarding(
             }
           });
           if (signUpError) {
-             logger.error({ message: 'Sign up failed', error: signUpError });
-             throw signUpError;
+            logger.error({ message: 'Sign up failed', error: signUpError });
+            throw signUpError;
           }
           if (!signUpData.user) throw new Error('Sign up succeeded but no user object was returned.');
 
@@ -110,8 +110,8 @@ export async function submitOnboarding(
     }
 
     if (!user) {
-        logger.error({ message: 'Authentication failed, user object is null.' });
-        throw new Error("Authentication failed. Please try again.");
+      logger.error({ message: 'Authentication failed, user object is null.' });
+      throw new Error("Authentication failed. Please try again.");
     }
 
     // 2. Ensure branding info exists
@@ -119,10 +119,10 @@ export async function submitOnboarding(
       logger.error({ message: 'Branding information is missing', hasLogo: !!logoDataUri, hasColors: !!brandColors });
       throw new Error('Missing branding information. Please ensure a logo is processed.');
     }
-    
+
     // 3. Create or update the merchant record
     const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
-    
+
     const merchantPayload = {
       user_id: user.id,
       email: email,
@@ -140,13 +140,47 @@ export async function submitOnboarding(
       logger.error({ message: 'Supabase upsert failed', error: merchantError });
       throw new Error(`Failed to save merchant data: ${merchantError.message}`);
     }
-    
+
     if (!merchantData) {
-        logger.error({ message: 'Upsert succeeded but returned no data.' });
-        throw new Error('Failed to create or update merchant record.');
+      logger.error({ message: 'Upsert succeeded but returned no data.' });
+      throw new Error('Failed to create or update merchant record.');
     }
-    
+
     logger.info({ message: 'Merchant data saved successfully', merchantData });
+
+    // 4. Generate and save initial Puck template
+    try {
+      const { generateInitialTemplate } = await import('@/lib/initial-template-generator');
+
+      const initialPuckConfig = generateInitialTemplate({
+        businessName,
+        businessType: finalBusinessType,
+        brandColors,
+        merchant: merchantData
+      });
+
+      logger.info({ message: 'Generated initial Puck template', hasTheme: !!(initialPuckConfig as any).theme });
+
+      // Save as both draft and published config
+      const { error: configError } = await supabase.from('page_configs').insert({
+        merchant_id: merchantData.id,
+        page_slug: 'home',
+        page_name: 'Home',
+        draft_config: initialPuckConfig,
+        published_config: initialPuckConfig,
+        is_published: true
+      });
+
+      if (configError) {
+        logger.error({ message: 'Failed to save initial Puck config', error: configError });
+        // Don't fail onboarding if config save fails - it can be generated later
+      } else {
+        logger.info({ message: 'Initial Puck config saved successfully' });
+      }
+    } catch (templateError) {
+      logger.error({ message: 'Failed to generate initial template', error: templateError });
+      // Don't fail onboarding if template generation fails
+    }
 
     return { success: true, message: 'Store Created!', businessName };
   } catch (e) {
@@ -163,7 +197,7 @@ export async function sendMagicLink(email: string): Promise<{ success: boolean; 
 
   try {
     const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+    const supabase = createClient(cookieStore);
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {

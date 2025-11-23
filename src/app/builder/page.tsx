@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default function BuilderPage() {
+    // Force update
     return (
         <MerchantProvider>
             <StorefrontProvider>
