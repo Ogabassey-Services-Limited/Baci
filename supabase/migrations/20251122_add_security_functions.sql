@@ -122,15 +122,17 @@ RETURNS BOOLEAN
 LANGUAGE plpgsql
 IMMUTABLE
 AS $$
-BEGIN
-  -- RFC 5321/5322 compliant regex:
+DECLARE
+  -- RFC 5321/5322 compliant email validation regex, split out for clarity
   -- Local part: one or more valid chars, followed by zero or more (dot + valid chars)
   -- This structure inherently prevents consecutive, leading, and trailing dots
   -- Supports common features: plus addressing (user+tag@), underscores, percent encoding
   --
   -- Domain part: RFC 1035 compliant - labels must start/end with alphanumeric
   -- Pattern: alphanumeric + optional (hyphens/alphanumeric) + alphanumeric
-  IF email_text ~* '^[A-Za-z0-9_%+-]+(\.[A-Za-z0-9_%+-]+)*@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$' THEN
+  email_regex CONSTANT TEXT := '^[A-Za-z0-9_%+-]+(\.[A-Za-z0-9_%+-]+)*@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$';
+BEGIN
+  IF email_text ~* email_regex THEN
     RETURN TRUE;
   END IF;
 
@@ -156,13 +158,23 @@ DECLARE
   window_start TIMESTAMPTZ;
   call_time TIMESTAMPTZ;
 BEGIN
+  -- Input validation: ensure identifier_param and endpoint_param are not empty, not too long, and do not contain control characters
+  IF identifier_param IS NULL OR identifier_param = ''
+    OR char_length(identifier_param) > 255
+    OR identifier_param ~ '[\x00-\x1F]' THEN
+    RETURN FALSE;
+  END IF;
+  IF endpoint_param IS NULL OR endpoint_param = ''
+    OR char_length(endpoint_param) > 255
+    OR endpoint_param ~ '[\x00-\x1F]' THEN
+    RETURN FALSE;
+  END IF;
+
   -- Cache the current timestamp for consistency across the function
   call_time := now();
 
-  -- Calculate aligned fixed window start (bucketed by window size)
-  window_start := to_timestamp(
-    floor(extract(epoch from call_time) / window_seconds_param) * window_seconds_param
-  );
+  -- Calculate aligned fixed window start (bucketed by window size) using interval arithmetic
+  window_start := call_time - ((extract(epoch from call_time)::integer % window_seconds_param) * interval '1 second');
 
   -- Try to insert a new row; if conflict, atomically increment only if under limit
   BEGIN
