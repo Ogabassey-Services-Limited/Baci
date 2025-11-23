@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -23,7 +24,7 @@ interface StorefrontProductGridProps {
     limit?: number;
 }
 
-export function StorefrontProductGrid({ title = 'Our Products', columns = 4, limit = 12 }: StorefrontProductGridProps) {
+export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 12 }: StorefrontProductGridProps) {
     const { merchant } = useMerchant();
     const { cart, addToCart, updateQuantity } = useCart();
     const { toast } = useToast();
