@@ -18,9 +18,9 @@ export default function DashboardLayout({
 }) {
   return (
     <MerchantProvider>
-      <ThemedDashboardLayout>
-        <DashboardClientLayout>{children}</DashboardClientLayout>
-      </ThemedDashboardLayout>
+      <DashboardClientLayout>
+        <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
+      </DashboardClientLayout>
     </MerchantProvider>
   );
 }

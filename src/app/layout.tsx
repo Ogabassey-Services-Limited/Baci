@@ -5,7 +5,6 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/react"
 import { Providers } from '@/contexts/providers';
-import AppBody from '@/components/app-body';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -80,7 +79,7 @@ export default async function RootLayout({
       <body className={inter.variable} suppressHydrationWarning>
         <CsrfInitializer />
         <Providers>
-          <AppBody>{children}</AppBody>
+          {children}
           <Toaster />
         </Providers>
         <Analytics />
