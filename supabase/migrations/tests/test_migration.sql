@@ -3,14 +3,9 @@
 -- Run this AFTER applying the migration
 -- =============================================
 
-\echo '========================================='
-\echo 'POST-MIGRATION VALIDATION TESTS'
-\echo '========================================='
-
 BEGIN;
 
 -- Test 1: Verify rate_limit_log table schema
-\echo '\n TEST 1: Verify rate_limit_log table schema'
 DO $$
 DECLARE
     col_count INTEGER;
@@ -29,7 +24,6 @@ BEGIN
 END $$;
 
 -- Test 2: Verify composite primary key
-\echo '\n TEST 2: Verify composite primary key'
 DO $$
 DECLARE
     constraint_found BOOLEAN;
@@ -53,12 +47,11 @@ BEGIN
 END $$;
 
 -- Test 3: Verify indexes
-\echo '\n TEST 3: Verify indexes exist'
 DO $$
 DECLARE
-    idx_count INTEGER;
+    index_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO idx_count
+    SELECT COUNT(*) INTO index_count
     FROM pg_indexes
     WHERE schemaname = 'public'
     AND tablename = 'rate_limit_log'
@@ -67,15 +60,14 @@ BEGIN
         'idx_rate_limit_log_created_at'
     );
 
-    IF idx_count >= 2 THEN
-        RAISE NOTICE '✓ Required indexes exist (found %)', idx_count;
+    IF index_count >= 2 THEN
+        RAISE NOTICE '✓ Required indexes exist (found %)', index_count;
     ELSE
-        RAISE EXCEPTION '✗ Missing indexes. Found % of 2', idx_count;
+        RAISE EXCEPTION '✗ Missing indexes. Found % of 2', index_count;
     END IF;
 END $$;
 
 -- Test 4: Verify RLS is enabled
-\echo '\n TEST 4: Verify RLS is enabled on rate_limit_log'
 DO $$
 DECLARE
     rls_enabled BOOLEAN;
@@ -93,17 +85,10 @@ BEGIN
 END $$;
 
 -- Test 5: Verify all functions exist
-\echo '\n TEST 5: Verify all functions were created'
 DO $$
 DECLARE
     func_count INTEGER;
-    expected_count INTEGER := 13; -- including trigger function
-BEGIN
-    SELECT COUNT(*) INTO func_count
-    FROM pg_proc p
-    JOIN pg_namespace n ON p.pronamespace = n.oid
-    WHERE n.nspname = 'public'
-    AND p.proname IN (
+    expected_funcs TEXT[] := ARRAY[
         'check_rate_limit',
         'cleanup_rate_limit_logs',
         'decrement_product_stock',
@@ -117,17 +102,22 @@ BEGIN
         'set_primary_domain',
         'ensure_single_primary_domain',
         'trg_set_updated_at_rate_limit_log'
-    );
+    ];
+BEGIN
+    SELECT COUNT(*) INTO func_count
+    FROM pg_proc p
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE n.nspname = 'public'
+    AND p.proname = ANY(expected_funcs);
 
-    IF func_count = expected_count THEN
+    IF func_count = array_length(expected_funcs, 1) THEN
         RAISE NOTICE '✓ All % functions exist', func_count;
     ELSE
-        RAISE EXCEPTION '✗ Missing functions. Found % of %', func_count, expected_count;
+        RAISE EXCEPTION '✗ Missing functions. Found % of %', func_count, array_length(expected_funcs, 1);
     END IF;
 END $$;
 
 -- Test 6: Verify search_path is set on all functions
-\echo '\n TEST 6: Verify search_path is set on all functions'
 DO $$
 DECLARE
     missing_count INTEGER;
@@ -164,8 +154,7 @@ BEGIN
     END IF;
 END $$;
 
--- Test 7: Verify SECURITY DEFINER functions have search_path
-\echo '\n TEST 7: Verify SECURITY DEFINER functions have proper search_path'
+-- Test 7: Verify SECURITY DEFINER functions have secure search_path
 DO $$
 DECLARE
     insecure_count INTEGER;
@@ -186,7 +175,7 @@ BEGIN
         SELECT option_value
         FROM pg_options_to_table(p.proconfig)
         WHERE option_name = 'search_path'
-    ) NOT LIKE '%pg_catalog%';
+    ) NOT LIKE 'pg_catalog,%';
 
     IF insecure_count = 0 THEN
         RAISE NOTICE '✓ All SECURITY DEFINER functions have secure search_path';
@@ -196,7 +185,6 @@ BEGIN
 END $$;
 
 -- Test 8: Test check_rate_limit function
-\echo '\n TEST 8: Test check_rate_limit function'
 DO $$
 DECLARE
     result BOOLEAN;
@@ -218,7 +206,6 @@ BEGIN
 END $$;
 
 -- Test 9: Test updated_at trigger
-\echo '\n TEST 9: Test updated_at trigger on rate_limit_log'
 DO $$
 DECLARE
     old_timestamp TIMESTAMPTZ;
@@ -230,9 +217,7 @@ BEGIN
     WHERE identifier = 'test_user'
     LIMIT 1;
 
-    -- Wait a tiny bit and update
-    PERFORM pg_sleep(0.1);
-
+    -- Update the record to trigger updated_at change
     UPDATE rate_limit_log
     SET request_count = request_count + 1
     WHERE identifier = 'test_user';
@@ -251,7 +236,6 @@ BEGIN
 END $$;
 
 -- Test 10: Verify anon access is revoked from critical functions
-\echo '\n TEST 10: Verify anon cannot execute critical functions'
 DO $$
 BEGIN
     -- Note: This test checks ACL, actual enforcement depends on role setup
@@ -269,7 +253,6 @@ BEGIN
 END $$;
 
 -- Test 11: Test input validation
-\echo '\n TEST 11: Test input validation on functions'
 DO $$
 DECLARE
     test_result RECORD;
@@ -302,10 +285,10 @@ BEGIN
 END $$;
 
 -- Test 12: Verify triggers are recreated
-\echo '\n TEST 12: Verify all triggers exist'
 DO $$
 DECLARE
     trigger_count INTEGER;
+    expected_trigger_count CONSTANT INTEGER := 5;
 BEGIN
     SELECT COUNT(*) INTO trigger_count
     FROM pg_trigger t
@@ -321,10 +304,10 @@ BEGIN
         'on_domain_primary_change'
     );
 
-    IF trigger_count >= 4 THEN
+    IF trigger_count = expected_trigger_count THEN
         RAISE NOTICE '✓ Triggers recreated (found %)', trigger_count;
     ELSE
-        RAISE WARNING '⚠ Some triggers may be missing. Found %', trigger_count;
+        RAISE WARNING '⚠ Some triggers may be missing (found %, expected %)', trigger_count, expected_trigger_count;
     END IF;
 END $$;
 
@@ -332,8 +315,3 @@ END $$;
 DELETE FROM rate_limit_log WHERE identifier = 'test_user';
 
 ROLLBACK; -- Rollback test transaction
-
-\echo '\n========================================='
-\echo 'ALL TESTS COMPLETED!'
-\echo 'Review any warnings or errors above.'
-\echo '========================================='

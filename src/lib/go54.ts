@@ -6,7 +6,7 @@
 import crypto from 'crypto';
 
 const GO54_BASE_URL =
-  'https://www.whogohost.com/host/modules/addons/DomainsReseller/api/index.php';
+  'https://whogohost.com/host/modules/addons/DomainsReseller/api/index.php';
 const GO54_EMAIL = process.env.GO54_EMAIL || '';
 const GO54_API_KEY = process.env.GO54_API_KEY || '';
 
@@ -61,7 +61,15 @@ export interface IDProtectionStatus {
 
 /**
  * Generate Go54 authentication token
- * Token format: base64(hmac_sha256(api_key, "email:yy-mm-dd HH"))
+ *
+ * IMPORTANT: Go54 uses an unusual HMAC pattern where:
+ * - HMAC Key: "email:yy-mm-dd HH" (timestamp-based)
+ * - HMAC Data: api_key (your secret API key)
+ *
+ * PHP equivalent: hash_hmac("sha256", "<api-key>", "<email>:<gmdate('y-m-d H')>")
+ * Node.js: crypto.createHmac('sha256', message).update(GO54_API_KEY)
+ *
+ * @see https://www.whogohost.com/host/index.php?rp=/knowledgebase/514/Introduction.html
  */
 function generateToken(): string {
   if (!GO54_EMAIL || !GO54_API_KEY) {
