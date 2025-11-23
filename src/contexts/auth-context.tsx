@@ -1,3 +1,4 @@
+
 'use client';
 
 import { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
@@ -18,15 +19,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      // This is the crucial part: only set loading to false AFTER the first auth state change.
+      // This ensures we have a definitive answer on whether the user is logged in or not.
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();

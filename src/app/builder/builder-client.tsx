@@ -9,7 +9,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { Loader2, Save, Globe, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { StorefrontProvider } from '@/contexts/storefront-context';
 import { useRouter } from 'next/navigation';
 import { AiCommandBar } from './ai-command-bar';
 import { defaultTheme, ThemeConfiguration } from '@/lib/theme-config';
@@ -268,14 +267,12 @@ export default function BuilderClient() {
                 )}
 
                 <div className="flex-1 relative">
-                    <StorefrontProvider>
                         <Puck
                             config={builderConfig}
                             data={data || { content: [], root: { title: 'Home' }, zones: {} } as any}
                             onPublish={handlePublish}
                             onChange={setData}
                         />
-                    </StorefrontProvider>
                     <AiCommandBar onCommand={handleAiCommand} isLoading={isAiLoading} />
 
                     <button

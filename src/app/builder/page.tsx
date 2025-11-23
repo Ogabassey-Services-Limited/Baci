@@ -1,8 +1,9 @@
 
-import BuilderClient from '@/components/builder/builder-client';
+import BuilderClient from './builder-client';
 import { Metadata } from 'next';
 import { MerchantProvider } from '@/hooks/use-merchant';
-import { ProductProvider } from '@/contexts/product-context';
+import { StorefrontProvider } from '@/contexts/storefront-context';
+
 
 export const metadata: Metadata = {
     title: 'Website Builder - Baci',
@@ -12,9 +13,9 @@ export const metadata: Metadata = {
 export default function BuilderPage() {
     return (
         <MerchantProvider>
-            <ProductProvider>
+            <StorefrontProvider>
                 <BuilderClient />
-            </ProductProvider>
+            </StorefrontProvider>
         </MerchantProvider>
     );
 }
