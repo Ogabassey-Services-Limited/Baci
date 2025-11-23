@@ -7,7 +7,7 @@ import { builderConfig } from './config';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
-import { Loader2, Save, Globe, ArrowLeft, Smartphone, Tablet, Monitor } from 'lucide-react';
+import { Loader2, Save, Globe, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { useRouter } from 'next/navigation';
@@ -80,7 +80,7 @@ export default function BuilderClient() {
                         theme: defaultTheme
                     };
                     setData(defaultData);
-                    applyTheme(defaultTheme);
+                    applyTheme(defaultData.theme);
                 }
             } catch (error) {
                 console.error('Failed to load builder data:', error);
@@ -216,12 +216,6 @@ export default function BuilderClient() {
         );
     }
 
-    const viewports = [
-        { width: 360, height: 'auto' as const, label: 'Mobile' },
-        { width: 768, height: 'auto' as const, label: 'Tablet' },
-        { width: 1280, height: 'auto' as const, label: 'Desktop' },
-    ];
-
     return (
         <div className="h-screen flex flex-col bg-background">
             <header className="h-14 border-b flex items-center justify-between px-4 bg-background/95 backdrop-blur z-10">
@@ -280,7 +274,6 @@ export default function BuilderClient() {
                             data={data || { content: [], root: { title: 'Home' }, zones: {} } as any}
                             onPublish={handlePublish}
                             onChange={setData}
-                            viewports={viewports}
                         />
                     </StorefrontProvider>
                     <AiCommandBar onCommand={handleAiCommand} isLoading={isAiLoading} />

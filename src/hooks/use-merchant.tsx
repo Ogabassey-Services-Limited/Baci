@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
@@ -143,7 +142,3 @@ export const useMerchant = (): MerchantContextType => {
   }
   return context as MerchantContextType;
 };
-
-
-
-
