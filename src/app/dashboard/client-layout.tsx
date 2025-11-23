@@ -18,6 +18,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronDown,
+  Paintbrush,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -186,6 +187,11 @@ export default function DashboardClientLayout({
       href: '/dashboard/pages',
       icon: FileText,
       label: 'Pages',
+    },
+    {
+      icon: Paintbrush,
+      label: 'Customize Website',
+      href: '/builder',
     },
     {
       href: '/dashboard/settings',

@@ -44,6 +44,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import { apiGet, apiPost } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
+import { AddressAutocomplete } from '@/components/address-autocomplete';
 
 interface Customer {
     id: string;
@@ -86,7 +87,7 @@ export default function CustomersPage() {
                 const params = new URLSearchParams();
                 if (searchTerm) params.append('search', searchTerm);
 
-                const data = await apiGet<{customers: Customer[]}>(`/api/customers?${params.toString()}`);
+                const data = await apiGet<{ customers: Customer[] }>(`/api/customers?${params.toString()}`);
                 setCustomers(data.customers);
             } catch (error) {
                 // Gracefully handle authorization errors that can happen during session loading
@@ -101,7 +102,7 @@ export default function CustomersPage() {
                 setLoading(false);
             }
         };
-        
+
         fetchCustomers();
     }, [searchTerm, authLoading, user, toast]);
 
@@ -116,9 +117,9 @@ export default function CustomersPage() {
             });
             setIsAddOpen(false);
             setNewCustomer({ first_name: '', last_name: '', email: '', phone: '', address: '' });
-            
+
             // Refetch customers after adding to show the new customer
-            const data = await apiGet<{customers: Customer[]}>(`/api/customers`);
+            const data = await apiGet<{ customers: Customer[] }>(`/api/customers`);
             setCustomers(data.customers);
 
         } catch (error) {
@@ -201,10 +202,16 @@ export default function CustomersPage() {
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="address">Address</Label>
-                                    <Input
+                                    <AddressAutocomplete
                                         id="address"
                                         value={newCustomer.address}
-                                        onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+                                        onChange={(val: string | React.ChangeEvent<HTMLInputElement>) => {
+                                            const value = typeof val === 'string' ? val : val.target.value;
+                                            setNewCustomer({ ...newCustomer, address: value });
+                                        }}
+                                        onSelect={(place: any) => {
+                                            setNewCustomer({ ...newCustomer, address: place.formattedAddress });
+                                        }}
                                     />
                                 </div>
                             </div>

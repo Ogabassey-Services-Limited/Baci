@@ -29,6 +29,7 @@ export interface MerchantData {
     legal?: string;
   };
   slug?: string;
+  published_config?: any;
 }
 
 interface MerchantContextType {
@@ -57,7 +58,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       setLoading(false);
       return;
     }
-    
+
     setLoading(true);
 
     try {

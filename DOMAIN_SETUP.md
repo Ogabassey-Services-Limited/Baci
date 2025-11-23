@@ -108,6 +108,21 @@ All prices are in Nigerian Naira (NGN) per year.
 - Manage DNS settings
 - Auto-renewal configuration
 
+### ✅ DNS Records Management
+- Get/update DNS records (A, AAAA, CNAME, MX, TXT, NS, SRV)
+- Configure DNS zone for custom domains
+- Full control over domain DNS settings
+
+### ✅ Email Forwarding
+- Set up email forwarding from custom domain
+- Support for multiple forwarding rules
+- Catch-all email forwarding option
+
+### ✅ ID Protection (WHOIS Privacy)
+- Enable/disable WHOIS privacy protection
+- Protect personal information in domain registration
+- Toggle privacy settings after domain registration
+
 ### ✅ Custom Domain Routing
 - Middleware automatically routes custom domains to merchant storefronts
 - Supports both subdomain (merchant.baci.tech) and custom domains (merchant.com)
@@ -167,6 +182,67 @@ POST /api/domains
 {
   "domain": "mystore.com",
   "isPrimary": false
+}
+```
+
+### Get DNS Records
+```bash
+GET /api/domains/[domain]/dns
+```
+
+### Update DNS Records
+```bash
+POST /api/domains/[domain]/dns
+{
+  "records": [
+    {
+      "type": "A",
+      "name": "@",
+      "value": "192.0.2.1",
+      "ttl": 3600
+    },
+    {
+      "type": "CNAME",
+      "name": "www",
+      "value": "example.com",
+      "ttl": 3600
+    }
+  ]
+}
+```
+
+### Get Email Forwarding
+```bash
+GET /api/domains/[domain]/email-forwarding
+```
+
+### Update Email Forwarding
+```bash
+POST /api/domains/[domain]/email-forwarding
+{
+  "forwards": [
+    {
+      "prefix": "info",
+      "forwardto": "basseybjohn@gmail.com"
+    },
+    {
+      "prefix": "*",
+      "forwardto": "basseybjohn@gmail.com"
+    }
+  ]
+}
+```
+
+### Get ID Protection Status
+```bash
+GET /api/domains/[domain]/id-protection
+```
+
+### Toggle ID Protection
+```bash
+POST /api/domains/[domain]/id-protection
+{
+  "enabled": true
 }
 ```
 

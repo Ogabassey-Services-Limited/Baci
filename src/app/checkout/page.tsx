@@ -134,7 +134,7 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
 }
 
 function Step1_Shipping() {
-  const { control } = useFormContext<ShippingFormValues>();
+  const { control, setValue } = useFormContext<ShippingFormValues>();
   const { merchant } = useMerchant();
 
   const country = merchant?.country ? getCountryByCode(merchant.country) : null;
@@ -209,7 +209,45 @@ function Step1_Shipping() {
           </FormItem>
         )}
       />
-      <AddressAutocomplete />
+      <FormField
+        control={control}
+        name="address"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Street Address</FormLabel>
+            <FormControl>
+              <AddressAutocomplete
+                {...field}
+                useThemedInput={true}
+                showIcon={true}
+                onChange={(val) => {
+                  // Handle both event and string
+                  if (typeof val === 'string') {
+                    field.onChange(val);
+                  } else {
+                    field.onChange(val);
+                  }
+                }}
+                onSelect={(place) => {
+                  // We need to set the address field to the formatted address
+                  // And also set city/state
+                  // The onChange above might have already set the address if it was triggered by typing
+                  // But onSelect gives us the final formatted one from Google
+                  field.onChange(place.formattedAddress);
+                  setValue('city', place.city);
+                  setValue('state', place.state);
+                }}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      {/* We need to handle the side effects of onSelect (setting city/state). 
+          The best way is to wrap AddressAutocomplete in a small component that uses useFormContext 
+          OR just use useFormContext here in Step1_Shipping. 
+          Step1_Shipping already uses useFormContext.
+      */}
       <FormField control={control} name="city" render={({ field }) => (<FormItem><FormControl><input type="hidden" {...field} /></FormControl></FormItem>)} />
       <FormField control={control} name="state" render={({ field }) => (<FormItem><FormControl><input type="hidden" {...field} /></FormControl></FormItem>)} />
     </div>

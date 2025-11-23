@@ -407,3 +407,99 @@ export async function syncDomainTransfer(domain: string): Promise<any> {
     throw error;
   }
 }
+
+/**
+ * Get DNS records for a domain
+ */
+export async function getDomainDNSRecords(domain: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/dns`, 'GET', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error getting DNS records:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update DNS records for a domain
+ */
+export async function updateDomainDNSRecords(
+  domain: string,
+  records: DNSRecord[]
+): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/dns`, 'POST', {
+      domain,
+      records,
+    });
+    return result;
+  } catch (error) {
+    console.error('Error updating DNS records:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get email forwarding configuration
+ */
+export async function getDomainEmailForwarding(domain: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/emailforwarding`, 'GET', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error getting email forwarding:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update email forwarding configuration
+ */
+export async function updateDomainEmailForwarding(
+  domain: string,
+  forwards: EmailForward[]
+): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/emailforwarding`, 'POST', {
+      domain,
+      forwards,
+    });
+    return result;
+  } catch (error) {
+    console.error('Error updating email forwarding:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get ID protection status
+ */
+export async function getDomainIDProtection(domain: string): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/idprotection`, 'GET', { domain });
+    return result;
+  } catch (error) {
+    console.error('Error getting ID protection status:', error);
+    throw error;
+  }
+}
+
+/**
+ * Enable/disable ID protection (WHOIS privacy)
+ */
+export async function updateDomainIDProtection(
+  domain: string,
+  enabled: boolean
+): Promise<any> {
+  try {
+    const result = await go54Request(`/domains/${domain}/idprotection`, 'POST', {
+      domain,
+      status: enabled ? 'enable' : 'disable',
+    });
+    return result;
+  } catch (error) {
+    console.error('Error updating ID protection:', error);
+    throw error;
+  }
+}

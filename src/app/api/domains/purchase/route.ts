@@ -1,5 +1,5 @@
 
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { registerDomain, type ContactInfo } from '@/lib/go54';
@@ -11,7 +11,8 @@ import { getDomainPricing, calculateDomainPrice } from '@/config/domain-pricing'
  */
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
     const {
       data: { user },
     } = await supabase.auth.getUser();

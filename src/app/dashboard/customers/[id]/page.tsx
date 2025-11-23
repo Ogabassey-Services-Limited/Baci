@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { AddressAutocomplete } from '@/components/address-autocomplete';
+import { Badge } from '@/components/ui/badge';
 
 interface Customer {
     id: string;
@@ -141,7 +143,7 @@ export default function CustomerDetailPage() {
             });
         }
     };
-    
+
     const handleSaveChanges = async () => {
         if (!customer) return;
         try {
@@ -226,31 +228,41 @@ export default function CustomerDetailPage() {
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Profile
                     </Button>
-                     <Dialog open={editOpen} onOpenChange={setEditOpen}>
+                    <Dialog open={editOpen} onOpenChange={setEditOpen}>
                         <DialogContent>
                             <DialogHeader>
                                 <DialogTitle>Edit Profile</DialogTitle>
                             </DialogHeader>
                             <div className="flex flex-col gap-4 py-4">
                                 <div className="grid gap-2">
-                                  <Label htmlFor="first_name">First Name</Label>
-                                  <Input id="first_name" value={editData.first_name || ''} onChange={(e) => setEditData({...editData, first_name: e.target.value})} />
+                                    <Label htmlFor="first_name">First Name</Label>
+                                    <Input id="first_name" value={editData.first_name || ''} onChange={(e) => setEditData({ ...editData, first_name: e.target.value })} />
                                 </div>
                                 <div className="grid gap-2">
-                                  <Label htmlFor="last_name">Last Name</Label>
-                                  <Input id="last_name" value={editData.last_name || ''} onChange={(e) => setEditData({...editData, last_name: e.target.value})} />
+                                    <Label htmlFor="last_name">Last Name</Label>
+                                    <Input id="last_name" value={editData.last_name || ''} onChange={(e) => setEditData({ ...editData, last_name: e.target.value })} />
                                 </div>
                                 <div className="grid gap-2">
-                                  <Label htmlFor="email">Email</Label>
-                                  <Input id="email" type="email" value={editData.email || ''} onChange={(e) => setEditData({...editData, email: e.target.value})} />
+                                    <Label htmlFor="email">Email</Label>
+                                    <Input id="email" type="email" value={editData.email || ''} onChange={(e) => setEditData({ ...editData, email: e.target.value })} />
                                 </div>
                                 <div className="grid gap-2">
-                                  <Label htmlFor="phone">Phone</Label>
-                                  <Input id="phone" value={editData.phone || ''} onChange={(e) => setEditData({...editData, phone: e.target.value})} />
+                                    <Label htmlFor="phone">Phone</Label>
+                                    <Input id="phone" value={editData.phone || ''} onChange={(e) => setEditData({ ...editData, phone: e.target.value })} />
                                 </div>
                                 <div className="grid gap-2">
-                                  <Label htmlFor="address">Address</Label>
-                                  <Input id="address" value={editData.address || ''} onChange={(e) => setEditData({...editData, address: e.target.value})} />
+                                    <Label htmlFor="address">Address</Label>
+                                    <AddressAutocomplete
+                                        id="address"
+                                        value={editData.address || ''}
+                                        onChange={(val: string | React.ChangeEvent<HTMLInputElement>) => {
+                                            const value = typeof val === 'string' ? val : val.target.value;
+                                            setEditData({ ...editData, address: value });
+                                        }}
+                                        onSelect={(place: any) => {
+                                            setEditData({ ...editData, address: place.formattedAddress });
+                                        }}
+                                    />
                                 </div>
                             </div>
                             <DialogFooter>

@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { checkDomainAvailability } from '@/lib/go54';
@@ -10,7 +10,8 @@ import { getDomainPricing, getResalePrice, getAllTLDs } from '@/config/domain-pr
  */
 export async function POST(request: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
       );
 
       // Enhance results with pricing information
-      const resultsWithPricing = tldsToCheck.map((tld) => {
+      const resultsWithPricing = tldsToCheck.map((tld: string) => {
         const pricing = getDomainPricing(tld);
         if (!pricing) {
           return null;
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
       console.error('Go54 API Error:', apiError);
 
       // Return pricing data even if API fails (for testing without credentials)
-      const fallbackResults = tldsToCheck.map((tld) => {
+      const fallbackResults = tldsToCheck.map((tld: string) => {
         const pricing = getDomainPricing(tld);
         if (!pricing) return null;
 
