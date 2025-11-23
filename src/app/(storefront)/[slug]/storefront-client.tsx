@@ -1,4 +1,3 @@
-
 'use client';
 
 import { ThemedButton, ThemedCard, ThemedBadge, ThemedLink } from '@/components/themed';
@@ -10,7 +9,7 @@ import { getBusinessTypeById } from '@/config/business-types';
 import { type Product } from '@/lib/products';
 import { Render } from '@measured/puck';
 import { builderConfig } from '@/components/builder/config';
-import { Loader2, ShoppingCart, X, Plus, Minus, Trash2, Menu, Search, ShoppingBag } from 'lucide-react';
+import { Loader2, ShoppingCart, X, Plus, Minus, Trash2, Menu, Search, ShoppingBag, ChevronDown } from 'lucide-react';
 import { CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
@@ -19,12 +18,18 @@ import Fuse from 'fuse.js';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
-import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
 import { Button } from '@/components/ui/button';
 import { apiGet } from '@/lib/api-client';
 import AppBody from '@/components/app-body';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   Carousel,
   CarouselContent,
@@ -52,7 +57,12 @@ function StorefrontContent() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  
+  // New state for filtering
+  const [filterBy, setFilterBy] = useState<'category' | 'brand'>('category');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+
   const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: true }));
   const [api, setApi] = useState<CarouselApi>()
   const [current, setCurrent] = useState(0)
@@ -87,10 +97,25 @@ function StorefrontContent() {
     }
   }, [merchant?.id]);
 
-  const categories = useMemo(() => {
-    const cats = new Set(products.map(p => p.category || 'General'));
-    return ['All', ...Array.from(cats)];
+  const { availableCategories, availableBrands } = useMemo(() => {
+    const categories = new Set(products.map(p => p.category || 'General'));
+    const brands = new Set(products.map(p => p.brand).filter(Boolean));
+    return {
+      availableCategories: ['All', ...Array.from(categories)],
+      availableBrands: ['All', ...Array.from(brands)],
+    };
   }, [products]);
+  
+  const currentFilterOptions = filterBy === 'category' ? availableCategories : availableBrands;
+  const currentSelectedFilter = filterBy === 'category' ? selectedCategory : selectedBrand;
+
+  const handleFilterClick = (value: string | null) => {
+    if (filterBy === 'category') {
+      setSelectedCategory(value === 'All' ? null : value);
+    } else {
+      setSelectedBrand(value === 'All' ? null : value);
+    }
+  };
 
   const handleAddToCart = (product: Product) => {
     addToCart(product);
@@ -114,18 +139,20 @@ function StorefrontContent() {
   const searchResults = useMemo(() => {
     let filtered = products;
 
-    // Search first
     if (searchQuery && fuse) {
       filtered = fuse.search(searchQuery).map(result => result.item);
     }
-
-    // Then filter by category
-    if (selectedCategory !== 'All') {
+    
+    if (filterBy === 'category' && selectedCategory) {
       filtered = filtered.filter(p => (p.category || 'General') === selectedCategory);
+    }
+    
+    if (filterBy === 'brand' && selectedBrand) {
+      filtered = filtered.filter(p => p.brand === selectedBrand);
     }
 
     return filtered.filter(p => p.status === 'published');
-  }, [searchQuery, fuse, products, selectedCategory]);
+  }, [searchQuery, fuse, products, filterBy, selectedCategory, selectedBrand]);
 
   if (!merchant) return null; // Should be handled by parent
 
@@ -275,25 +302,39 @@ function StorefrontContent() {
 
           <section className="w-full py-12 md:py-24 lg:py-32" id="products">
             <div className="container px-4 md:px-6">
-              <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10" style={{ color: darkestColor }}>Our Products</h2>
-
-              {/* Category Filter */}
-              {categories.length > 1 && (
-                <div className="flex justify-center gap-2 mb-8 flex-wrap">
-                  {categories.map(category => (
-                    <ThemedButton
-                      key={category}
-                      variant={selectedCategory === category ? 'default' : 'outline'}
-                      colorRole={selectedCategory === category ? 'primary' : 'accent'}
-                      onClick={() => setSelectedCategory(category)}
-                      size="sm"
-                      className="capitalize"
-                    >
-                      {category}
-                    </ThemedButton>
-                  ))}
+                <div className="flex items-center justify-center gap-4 mb-8">
+                    <span className="text-lg font-medium text-muted-foreground">Shop by</span>
+                    <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="min-w-[150px] justify-between">
+                        <span className="capitalize">{filterBy}</span>
+                        <ChevronDown className="h-4 w-4" style={{ color: 'var(--store-primary)' }} />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onSelect={() => setFilterBy('category')}>Category</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setFilterBy('brand')}>Brand</DropdownMenuItem>
+                    </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
-              )}
+
+                {currentFilterOptions.length > 1 && (
+                    <div className="flex justify-center gap-2 mb-8 flex-wrap">
+                    {currentFilterOptions.map(option => (
+                        <ThemedButton
+                        key={option}
+                        variant={currentSelectedFilter === option || (currentSelectedFilter === null && option === 'All') ? 'default' : 'outline'}
+                        colorRole={(currentSelectedFilter === option || (currentSelectedFilter === null && option === 'All')) ? 'primary' : 'accent'}
+                        onClick={() => handleFilterClick(option)}
+                        size="sm"
+                        className="capitalize"
+                        >
+                        {option}
+                        </ThemedButton>
+                    ))}
+                    </div>
+                )}
+
 
               {isLoading ? (
                 <div className="flex justify-center py-12">
