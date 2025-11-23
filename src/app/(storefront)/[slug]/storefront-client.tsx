@@ -8,9 +8,7 @@ import Image from 'next/image';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getBusinessTypeById } from '@/config/business-types';
 import { type Product } from '@/lib/products';
-import { Render } from '@measured/puck';
-import { builderConfig } from '@/components/builder/config';
-import { Loader2, ShoppingCart, X, Plus, Minus, Trash2, Menu, Search, ShoppingBag, ChevronDown } from 'lucide-react';
+import { Loader2, ShoppingBag, Search, Plus, Minus, ChevronDown } from 'lucide-react';
 import { CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
 import { Input } from '@/components/ui/input';
@@ -26,12 +24,6 @@ import { apiGet } from '@/lib/api-client';
 import AppBody from '@/components/app-body';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   Carousel,
   CarouselContent,
   CarouselItem,
@@ -40,6 +32,12 @@ import {
   type CarouselApi,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from '@/lib/utils';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 
@@ -67,7 +65,6 @@ function StorefrontContent() {
   const plugin = useRef(Autoplay({ delay: 3000, stopOnInteraction: true }));
   const [api, setApi] = useState<CarouselApi>()
   const [current, setCurrent] = useState(0)
-  const [customConfig, setCustomConfig] = useState<any>(null);
 
   useEffect(() => {
     if (!api) {
