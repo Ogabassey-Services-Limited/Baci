@@ -82,7 +82,7 @@ export async function middleware(request: NextRequest) {
   );
 
   // Refresh the auth session to ensure cookies are up to date
-  await supabase.auth.getUser();
+  await supabase.auth.getSession();
 
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
 
