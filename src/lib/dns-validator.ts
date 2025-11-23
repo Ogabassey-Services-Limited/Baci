@@ -135,7 +135,7 @@ function isValidIPv6(ip: string): boolean {
 }
 
 function isValidHostname(hostname: string): boolean {
-    const hostnameRegex = /^(?!:\/\/)([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]+\.[a-zA-Z]{2,11}?$/;
+    const hostnameRegex = /^(?!:\/\/)([a-zA-Z0-9-_]+\.)*[a-zA-Z0-9][a-zA-Z0-9-_]*\.[a-zA-Z]{2,11}$/;
     return hostnameRegex.test(hostname) || hostname === '@';
 }
 

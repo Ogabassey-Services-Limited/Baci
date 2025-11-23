@@ -20,7 +20,7 @@ async function testConnection() {
 
     try {
         // Dynamic import to ensure env vars are loaded first
-        const { checkDomainAvailability } = await import('../src/lib/go54.js');
+        const { checkDomainAvailability } = await import('../src/lib/go54');
 
         const testDomain = `test-conn-${Date.now()}.com`;
         console.log(`Checking availability for: ${testDomain}`);

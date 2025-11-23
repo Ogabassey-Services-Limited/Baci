@@ -11,8 +11,10 @@ import Link from 'next/link';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { useRouter } from 'next/navigation';
 import { AiCommandBar } from './ai-command-bar';
-import { defaultTheme } from '@/lib/theme-config';
+import { defaultTheme, ThemeConfiguration } from '@/lib/theme-config';
 import { applyTheme } from '@/lib/theme-manager';
+import { ThemeEditor } from './theme-editor-redesigned';
+import { Palette } from 'lucide-react';
 
 export default function BuilderClient() {
     const [data, setData] = useState<Data | null>(null);
@@ -20,6 +22,7 @@ export default function BuilderClient() {
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [isAiLoading, setIsAiLoading] = useState(false);
+    const [showThemeEditor, setShowThemeEditor] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
 
@@ -271,18 +274,47 @@ export default function BuilderClient() {
                 </div>
             </header>
 
-            <div className="flex-1 overflow-hidden">
-                <StorefrontProvider>
-                    <Puck
-                        config={builderConfig}
-                        data={data || { content: [], root: { title: 'Home' }, zones: {} }}
-                        onPublish={handlePublish}
-                        onChange={setData}
-                        viewports={viewports}
-                    />
-                </StorefrontProvider>
-                <AiCommandBar onCommand={handleAiCommand} isLoading={isAiLoading} />
+            <div className="flex-1 overflow-hidden flex">
+                {/* Theme Editor Sidebar */}
+                {showThemeEditor && (
+                    <div className="w-80 border-r bg-background overflow-hidden flex flex-col">
+                        <ThemeEditor
+                            theme={(data as any)?.theme || defaultTheme}
+                            onChange={(newTheme: ThemeConfiguration) => {
+                                setData(prev => prev ? { ...prev, theme: newTheme } as any : null);
+                            }}
+                            onReset={() => {
+                                applyTheme(defaultTheme);
+                                setData(prev => prev ? { ...prev, theme: defaultTheme } as any : null);
+                            }}
+                        />
+                    </div>
+                )}
+
+                {/* Main Builder */}
+                <div className="flex-1 relative">
+                    <StorefrontProvider>
+                        <Puck
+                            config={builderConfig}
+                            data={data || { content: [], root: { title: 'Home' }, zones: {} } as any}
+                            onPublish={handlePublish}
+                            onChange={setData}
+                            viewports={viewports}
+                        />
+                    </StorefrontProvider>
+                    <AiCommandBar onCommand={handleAiCommand} isLoading={isAiLoading} />
+
+                    {/* Theme Editor Toggle Button */}
+                    <button
+                        onClick={() => setShowThemeEditor(!showThemeEditor)}
+                        className="absolute top-4 right-4 z-50 p-2 rounded-md bg-background border shadow-sm hover:bg-accent transition-colors"
+                        title={showThemeEditor ? "Hide Theme Editor" : "Show Theme Editor"}
+                    >
+                        <Palette className="w-5 h-5" />
+                    </button>
+                </div>
             </div>
         </div>
     );
 }
+

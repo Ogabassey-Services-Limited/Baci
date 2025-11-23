@@ -119,12 +119,8 @@ export const builderConfig: Config<{
         },
     },
     root: {
-        fields: {
-            title: { type: 'text' }
-        },
-        defaultProps: {
-            title: 'Home'
-        }
+        // Hide the root fields from the UI
+        render: () => <></>,
     },
     components: {
         Hero: {

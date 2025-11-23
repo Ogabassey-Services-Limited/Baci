@@ -96,6 +96,8 @@ const ThemeColorsSchema = z.object({
     footer: z.object({
         background: z.string().optional(),
         text: z.string().optional(),
+        linkColor: z.string().optional(),
+        linkHoverColor: z.string().optional(),
     }).optional(),
 }).passthrough();
 
@@ -157,6 +159,8 @@ export async function POST(req: Request) {
       - theme.colors.header.searchBackground: Search bar background color
       - theme.colors.footer.background: Footer background color
       - theme.colors.footer.text: Footer text color
+      - theme.colors.footer.linkColor: Footer link color
+      - theme.colors.footer.linkHoverColor: Footer link hover color
       
       Rules:
       1. Return ONLY the updated JSON configuration.
@@ -166,14 +170,16 @@ export async function POST(req: Request) {
       5. For content changes (text, images), modify the component props.
       6. If the user asks to change the cart icon color, update theme.colors.header.cartIconColor.
       7. If the user asks to change header colors, update theme.colors.header properties.
-      8. For 'Features' component, you can set an 'icon' field. Valid icons: 'check', 'truck', 'shield', 'clock', 'zap', 'heart', 'award'.
-      9. For colors, use standard CSS color values (hex codes like '#0000ff', color names like 'blue', or rgb values).
-      10. If theme doesn't exist in current config, create it with the changes.
+      8. If the user asks to change footer colors, update theme.colors.footer properties.
+      9. For 'Features' component, you can set an 'icon' field. Valid icons: 'check', 'truck', 'shield', 'clock', 'zap', 'heart', 'award'.
+      10. For colors, use standard CSS color values (hex codes like '#0000ff', color names like 'blue', or rgb values).
+      11. If theme doesn't exist in current config, create it with the changes.
       
       Examples:
       - "make the cart icon blue" → { ...currentConfig, theme: { colors: { header: { cartIconColor: "#0000FF" } } } }
       - "change header background to dark" → { ...currentConfig, theme: { colors: { header: { background: "#1A202C", text: "#FFFFFF" } } } }
       - "make the search bar red" → { ...currentConfig, theme: { colors: { header: { searchBorder: "#FF0000" } } } }
+      - "make footer links yellow" → { ...currentConfig, theme: { colors: { footer: { linkColor: "#FFFF00" } } } }
       
       Current Configuration:
       ${JSON.stringify(currentConfig, null, 2)}

@@ -19,8 +19,7 @@ CREATE TABLE audit_logs (
   ip_address TEXT,
   user_agent TEXT,
   status TEXT NOT NULL, -- 'success', 'failure'
-  error_message TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  error_message TEXT
 );
 
 -- Create indexes for common query patterns

@@ -172,7 +172,13 @@ export async function POST(
         console.error('Error updating DNS records:', error);
 
         // Log failure if we have user context
-        if (user && supabase) {
+        if (
+            user &&
+            supabase &&
+            typeof supabase === 'object' &&
+            supabase !== null &&
+            typeof (supabase as any).from === 'function'
+        ) {
             await logAudit(supabase, {
                 user_id: user.id,
                 merchant_id: domainData?.merchant_id,
