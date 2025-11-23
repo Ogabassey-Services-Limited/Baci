@@ -98,19 +98,19 @@ function StorefrontContent() {
     const categories = new Set(products.map(p => p.category || 'General'));
     const brands = new Set(products.map(p => p.brand).filter(Boolean));
     return {
-      availableCategories: ['All', ...Array.from(categories)],
-      availableBrands: ['All', ...Array.from(brands)],
+      availableCategories: Array.from(categories),
+      availableBrands: Array.from(brands),
     };
   }, [products]);
   
   const currentFilterOptions = filterBy === 'category' ? availableCategories : availableBrands;
   const currentSelectedFilter = filterBy === 'category' ? selectedCategory : selectedBrand;
 
-  const handleFilterClick = (value: string | null) => {
+  const handleFilterClick = (value: string) => {
     if (filterBy === 'category') {
-      setSelectedCategory(value === 'All' ? null : value);
+      setSelectedCategory(prev => prev === value ? null : value);
     } else {
-      setSelectedBrand(value === 'All' ? null : value);
+      setSelectedBrand(prev => prev === value ? null : value);
     }
   };
 
@@ -315,13 +315,13 @@ function StorefrontContent() {
                     </DropdownMenu>
                 </div>
 
-                {currentFilterOptions.length > 1 && (
+                {currentFilterOptions.length > 0 && (
                     <div className="flex justify-center gap-2 mb-8 flex-wrap">
                     {currentFilterOptions.map(option => (
                         <ThemedButton
                         key={option}
-                        variant={currentSelectedFilter === option || (currentSelectedFilter === null && option === 'All') ? 'default' : 'outline'}
-                        colorRole={(currentSelectedFilter === option || (currentSelectedFilter === null && option === 'All')) ? 'primary' : 'accent'}
+                        variant={currentSelectedFilter === option ? 'default' : 'outline'}
+                        colorRole={currentSelectedFilter === option ? 'primary' : 'accent'}
                         onClick={() => handleFilterClick(option)}
                         size="sm"
                         className="capitalize"
@@ -475,5 +475,3 @@ export function Storefront() {
     </ThemedStorefrontLayout>
   );
 }
-
-    
