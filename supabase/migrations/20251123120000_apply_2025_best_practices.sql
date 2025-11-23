@@ -24,9 +24,9 @@ CREATE TABLE rate_limit_log (
   identifier TEXT NOT NULL,
   endpoint TEXT NOT NULL,
   request_count INTEGER NOT NULL DEFAULT 1,
-  window_start TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  window_start TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp(),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp(),
   PRIMARY KEY (identifier, endpoint, window_start)
 );
 
@@ -61,7 +61,7 @@ LANGUAGE plpgsql
 SET search_path = pg_catalog, public
 AS $$
 BEGIN
-  NEW.updated_at = NOW();
+  NEW.updated_at = clock_timestamp();
   RETURN NEW;
 END;
 $$;
@@ -105,7 +105,7 @@ BEGIN
     RAISE EXCEPTION 'max_requests and window_minutes must be positive';
   END IF;
 
-  window_start_time := NOW() - (window_minutes || ' minutes')::INTERVAL;
+  window_start_time := clock_timestamp() - (window_minutes || ' minutes')::INTERVAL;
 
   -- Get current request count in the window
   SELECT COALESCE(SUM(request_count), 0) INTO current_count
@@ -121,11 +121,11 @@ BEGIN
 
   -- Log this request (use INSERT or UPDATE for idempotency)
   INSERT INTO rate_limit_log (identifier, endpoint, request_count, window_start)
-  VALUES (identifier_param, endpoint_param, 1, NOW())
+  VALUES (identifier_param, endpoint_param, 1, clock_timestamp())
   ON CONFLICT (identifier, endpoint, window_start)
   DO UPDATE SET
     request_count = rate_limit_log.request_count + 1,
-    updated_at = NOW();
+    updated_at = clock_timestamp();
 
   RETURN TRUE;
 END;
@@ -140,7 +140,7 @@ SET search_path = pg_catalog, public
 AS $$
 BEGIN
   DELETE FROM rate_limit_log
-  WHERE created_at < NOW() - INTERVAL '1 hour';
+  WHERE created_at < clock_timestamp() - INTERVAL '1 hour';
 END;
 $$;
 
@@ -193,7 +193,7 @@ BEGIN
   -- Update the stock atomically
   UPDATE products
   SET stock_quantity = stock_quantity - quantity_param,
-      updated_at = NOW()
+      updated_at = clock_timestamp()
   WHERE id = product_id_param
   RETURNING stock_quantity INTO updated_stock;
 
@@ -244,7 +244,7 @@ BEGIN
 
   UPDATE product_variants
   SET stock_quantity = stock_quantity - quantity_param,
-      updated_at = NOW()
+      updated_at = clock_timestamp()
   WHERE id = variant_id_param
   RETURNING stock_quantity INTO updated_stock;
 
