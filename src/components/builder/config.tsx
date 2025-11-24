@@ -20,6 +20,7 @@ import Autoplay from "embla-carousel-autoplay";
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { createClient } from '@/lib/supabase/client';
 import Image from 'next/image';
+import { ImagePickerField } from './fields/image-picker-field';
 
 // ==================== TYPE DEFINITIONS ====================
 
@@ -514,7 +515,13 @@ export const builderConfig: Config<{
                 subtitle: { type: 'textarea' },
                 ctaText: { type: 'text' },
                 ctaLink: { type: 'text' },
-                backgroundImage: { type: 'text', label: 'Background Image URL (optional)' },
+                backgroundImage: {
+                    type: 'custom',
+                    label: 'Background Image (optional)',
+                    render: ({ field, onChange, value }: any) => {
+                        return <ImagePickerField field={field} onChange={onChange} value={value} />;
+                    }
+                },
                 overlay: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
                 align: {
                     type: 'select',
@@ -657,7 +664,13 @@ export const builderConfig: Config<{
             label: 'Image',
             permissions: { delete: true, duplicate: true },
             fields: {
-                src: { type: 'text', label: 'Image URL' },
+                src: {
+                    type: 'custom',
+                    label: 'Image',
+                    render: ({ field, onChange, value }: any) => {
+                        return <ImagePickerField field={field} onChange={onChange} value={value} />;
+                    }
+                },
                 alt: { type: 'text', label: 'Alt Text' },
                 link: { type: 'text', label: 'Link URL (optional)' },
                 aspectRatio: {

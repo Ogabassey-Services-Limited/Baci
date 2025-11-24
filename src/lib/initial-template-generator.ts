@@ -318,38 +318,82 @@ export function generateInitialTemplate(params: TemplateParams): Data {
     // Generate hero slides
     const slides = generateHeroSlides(businessName, businessType);
 
+    // Generate unique IDs for components
+    const headerId = `Header-${Date.now()}`;
+    const heroCarouselId = `HeroCarousel-${Date.now()}-1`;
+    const productGridId = `ProductGrid-${Date.now()}-2`;
+    const footerId = `Footer-${Date.now()}-3`;
+
     // Create Puck data structure
     const config: Data = {
         content: [
             // Header
             {
                 type: 'Header',
-                props: {}
+                props: {
+                    id: headerId,
+                    showLogo: true,
+                    showSearch: true,
+                    showCart: true,
+                    showMenu: true,
+                    sticky: true,
+                    navigationLinks: [
+                        { label: 'Home', url: '/' },
+                        { label: 'Shop', url: '/products' },
+                        { label: 'About', url: '/about' },
+                    ],
+                    ctaButton: {
+                        show: false,
+                        text: 'Get Started',
+                        url: '/signup',
+                    },
+                    // Add logo URL if merchant has one
+                    ...(params.merchant?.logo_url && {
+                        logoUrl: params.merchant.logo_url
+                    })
+                }
             },
             // Hero Carousel
             {
                 type: 'HeroCarousel',
                 props: {
-                    slides: slides
+                    id: heroCarouselId,
+                    slides: slides,
+                    autoplayDelay: 5000,
                 }
             },
             // Product Grid
             {
                 type: 'ProductGrid',
                 props: {
+                    id: productGridId,
                     title: 'Our Products',
                     columns: 4,
-                    limit: 12
+                    limit: 12,
+                    sortBy: 'newest',
                 }
             },
             // Footer
             {
                 type: 'Footer',
-                props: {}
+                props: {
+                    id: footerId,
+                    showQuickLinks: true,
+                    quickLinks: [
+                        { label: 'About Us', url: '/about' },
+                        { label: 'Contact', url: '/contact' },
+                        { label: 'Privacy Policy', url: '/privacy' },
+                        { label: 'Terms', url: '/terms' },
+                    ],
+                    socialLinks: {},
+                    showNewsletter: false,
+                }
             }
         ],
         root: {
-            title: 'Home'
+            props: {
+                title: 'Home'
+            }
         },
         zones: {}
     };

@@ -1,0 +1,129 @@
+'use client';
+
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
+import { MediaLibrary } from '../media-library';
+import { Image as ImageIcon, Link as LinkIcon } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+interface ImagePickerFieldProps {
+    field: any;
+    onChange: (value: string) => void;
+    value: string;
+}
+
+export function ImagePickerField({ field, onChange, value }: ImagePickerFieldProps) {
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<'library' | 'url'>('library');
+
+    const handleSelectImage = (url: string) => {
+        onChange(url);
+        setDialogOpen(false);
+    };
+
+    return (
+        <div className="space-y-2">
+            <Label>{field.label || 'Image'}</Label>
+
+            {/* Image Preview */}
+            {value && (
+                <div className="relative w-full aspect-video rounded-lg overflow-hidden border bg-muted">
+                    <img
+                        src={value}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                        }}
+                    />
+                </div>
+            )}
+
+            {/* Picker Dialog */}
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" className="w-full">
+                        <ImageIcon className="w-4 h-4 mr-2" />
+                        {value ? 'Change Image' : 'Choose Image'}
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-3xl max-h-[80vh]">
+                    <DialogHeader>
+                        <DialogTitle>Select Image</DialogTitle>
+                        <DialogDescription>
+                            Choose from your media library or paste an external URL
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="library">Media Library</TabsTrigger>
+                            <TabsTrigger value="url">External URL</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="library" className="mt-4">
+                            <div className="max-h-[500px] overflow-hidden">
+                                <MediaLibrary
+                                    onSelect={handleSelectImage}
+                                    maxSizeMB={5}
+                                />
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="url" className="mt-4 space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="external-url">Image URL</Label>
+                                <div className="flex gap-2">
+                                    <Input
+                                        id="external-url"
+                                        type="url"
+                                        placeholder="https://example.com/image.jpg"
+                                        defaultValue={value}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                onChange(e.currentTarget.value);
+                                                setDialogOpen(false);
+                                            }
+                                        }}
+                                    />
+                                    <Button
+                                        onClick={(e) => {
+                                            const input = document.getElementById('external-url') as HTMLInputElement;
+                                            if (input?.value) {
+                                                onChange(input.value);
+                                                setDialogOpen(false);
+                                            }
+                                        }}
+                                    >
+                                        <LinkIcon className="w-4 h-4 mr-2" />
+                                        Use URL
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Paste a URL from Unsplash, your CDN, or any other source
+                                </p>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                </DialogContent>
+            </Dialog>
+
+            {/* Current URL display */}
+            {value && (
+                <p className="text-xs text-muted-foreground truncate" title={value}>
+                    {value}
+                </p>
+            )}
+        </div>
+    );
+}
