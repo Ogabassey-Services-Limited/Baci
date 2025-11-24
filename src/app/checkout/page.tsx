@@ -358,7 +358,7 @@ function CheckoutPageContent() {
       if (watchAddress && watchAddress.length > 5) {
         try {
           const data = await apiPost<{ shippingFee: number }>('/api/shipping/quote', {
-            // In a real app, we'd use geocoded lat/lng
+            receiverCity: shippingForm.watch('city') || 'Lagos',
             cartValue: cartTotal,
             items: cart.map(i => ({ name: i.name, quantity: i.quantity, weight: 1, value: i.price }))
           });

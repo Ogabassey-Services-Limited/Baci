@@ -1,37 +1,108 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 import { getGiglPrice } from '@/lib/gigl';
+import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+
+// Fallback shipping fee if GIGL is not configured or fails
+const DEFAULT_SHIPPING_FEE = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE || '1500');
+
+// Common Nigerian cities to station ID mapping (Lagos-centric for now)
+const CITY_TO_STATION: Record<string, number> = {
+    'lagos': 39, // Lagos Main
+    'abuja': 10, // Abuja
+    'ibadan': 15, // Ibadan
+    'port harcourt': 20, // Port Harcourt
+    'kano': 25, // Kano
+    'default': 39 // Default to Lagos
+};
+
+// Get station ID from city name
+function getStationIdFromCity(city: string): number {
+    const normalizedCity = city.toLowerCase().trim();
+    return CITY_TO_STATION[normalizedCity] || CITY_TO_STATION['default'];
+}
+
+// Simple geocoding fallback based on Nigerian cities
+function getCoordinatesForCity(city: string): { latitude: number; longitude: number } {
+    const cityCoords: Record<string, { latitude: number; longitude: number }> = {
+        'lagos': { latitude: 6.5244, longitude: 3.3792 },
+        'abuja': { latitude: 9.0765, longitude: 7.3986 },
+        'ibadan': { latitude: 7.3775, longitude: 3.9470 },
+        'port harcourt': { latitude: 4.8156, longitude: 7.0498 },
+        'kano': { latitude: 12.0022, longitude: 8.5920 },
+    };
+
+    const normalizedCity = city.toLowerCase().trim();
+    return cityCoords[normalizedCity] || cityCoords['lagos']; // Default to Lagos
+}
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
+        const { receiverCity, senderCity, cartValue, items } = body;
 
-        // This is a simplified payload. In a real app, you'd get station IDs
-        // and proper locations. For now, we use example data.
+        // Check if GIGL is configured
+        const giglConfigured = process.env.GIGL_EMAIL && process.env.GIGL_PASSWORD;
+
+        if (!giglConfigured) {
+            console.warn('GIGL credentials not configured, using default shipping fee');
+            return NextResponse.json({
+                shippingFee: DEFAULT_SHIPPING_FEE,
+                provider: 'Default',
+                note: 'GIGL integration not configured. Using flat rate.',
+            });
+        }
+
+        // Get merchant's location (sender)
+        const cookieStore = await cookies();
+        const supabase = createClient(cookieStore);
+        const { data: { user } } = await supabase.auth.getUser();
+
+        let senderStationId = CITY_TO_STATION['default'];
+        let senderCoords = { latitude: 6.5244, longitude: 3.3792 }; // Lagos default
+
+        if (user) {
+            const { data: merchant } = await supabase
+                .from('merchants')
+                .select('business_location')
+                .eq('user_id', user.id)
+                .single();
+
+            if (merchant?.business_location) {
+                senderStationId = getStationIdFromCity(merchant.business_location);
+                senderCoords = getCoordinatesForCity(merchant.business_location);
+            }
+        }
+
+        // Get receiver station and coordinates
+        const receiverStationId = getStationIdFromCity(receiverCity || 'lagos');
+        const receiverCoords = getCoordinatesForCity(receiverCity || 'lagos');
+
         const giglPayload = {
-            "SenderStationId": 39,
-            "ReceiverStationId": 10,
+            "SenderStationId": senderStationId,
+            "ReceiverStationId": receiverStationId,
             "VehicleType": 1, // Bike
             "ReceiverLocation": {
-                "Latitude": body.receiverLatitude || 9.0570,
-                "Longitude": body.receiverLongitude || 7.4950
+                "Latitude": receiverCoords.latitude,
+                "Longitude": receiverCoords.longitude
             },
             "SenderLocation": {
-                "Latitude": 6.649438,
-                "Longitude": 3.340983
+                "Latitude": senderCoords.latitude,
+                "Longitude": senderCoords.longitude
             },
             "IsFromAgility": false,
-            "CustomerCode": "ECO017121", // This would be dynamic
+            "CustomerCode": user?.email || "CUSTOMER",
             "CustomerType": 0, // Individual
             "DeliveryOptionIds": [2], // Home Delivery
-            "Value": body.cartValue || 1000,
+            "Value": cartValue || 1000,
             "PickUpOptions": 1,
-            "ShipmentItems": body.items.map((item: {name: string, quantity: number, weight: number, value: number}) => ({
+            "ShipmentItems": items.map((item: {name: string, quantity: number, weight?: number, value: number}) => ({
                 "ItemName": item.name,
                 "Description": item.name,
                 "SpecialPackageId": 0,
                 "Quantity": item.quantity,
-                "Weight": item.weight || 1, // Default weight if not provided
+                "Weight": item.weight || 1, // Default 1kg if not provided
                 "IsVolumetric": false,
                 "Length": 0,
                 "Width": 0,
@@ -44,19 +115,29 @@ export async function POST(request: NextRequest) {
         const result = await getGiglPrice(giglPayload);
 
         if (result.status !== 200) {
-            throw new Error(result.message || 'Failed to get shipping quote from GIGL.');
+            console.error('GIGL API error:', result.message);
+            // Fallback to default shipping
+            return NextResponse.json({
+                shippingFee: DEFAULT_SHIPPING_FEE,
+                provider: 'Default (GIGL unavailable)',
+                note: 'GIGL service temporarily unavailable. Using flat rate.',
+            });
         }
 
         return NextResponse.json({
-            shippingFee: result.data.GrandTotal,
+            shippingFee: result.data.GrandTotal || DEFAULT_SHIPPING_FEE,
             provider: 'GIGL',
             details: result.data,
+            estimate: `Delivery to ${receiverCity || 'your location'}`
         });
 
     } catch (error) {
-        return NextResponse.json(
-            { error: 'Internal server error', details: (error as Error).message },
-            { status: 500 }
-        );
+        console.error('Shipping quote error:', error);
+        // Always fallback gracefully
+        return NextResponse.json({
+            shippingFee: DEFAULT_SHIPPING_FEE,
+            provider: 'Default',
+            note: 'Unable to calculate dynamic shipping. Using flat rate.',
+        });
     }
 }
