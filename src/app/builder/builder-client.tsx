@@ -53,6 +53,7 @@ const componentIcons: Record<string, React.ComponentType<{ className?: string }>
 
 export default function BuilderClient() {
     const [data, setData] = useState<Data>({ content: [], root: { title: 'Home' }, zones: {} });
+    const [viewportWidth, setViewportWidth] = useState<string | number>('100%');
     const [seoData, setSeoData] = useState<SEOData>({
         title: '',
         description: '',
@@ -370,26 +371,6 @@ export default function BuilderClient() {
                         merchant: merchant,
                         products: []
                     }}
-                    viewports={[
-                        {
-                            width: 375,
-                            height: 'auto',
-                            label: 'Mobile Portrait',
-                            icon: 'Smartphone'
-                        },
-                        {
-                            width: 768,
-                            height: 'auto',
-                            label: 'Tablet',
-                            icon: 'Tablet'
-                        },
-                        {
-                            width: 1440,
-                            height: 'auto',
-                            label: 'Desktop',
-                            icon: 'Monitor'
-                        }
-                    ]}
                     overrides={{
                         drawer: ({ children }: any) => {
                             // Get all components from all categories (deduplicated)
@@ -604,33 +585,30 @@ export default function BuilderClient() {
                                 <div className="h-12 bg-white border-b flex items-center justify-center gap-2 px-4 shrink-0">
                                     <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
                                         <button
-                                            onClick={() => {
-                                                const iframe = document.querySelector('.Puck-portal iframe') as HTMLIFrameElement;
-                                                if (iframe) iframe.style.width = '375px';
-                                            }}
-                                            className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-white transition-colors text-sm"
+                                            onClick={() => setViewportWidth(375)}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
+                                                viewportWidth === 375 ? 'bg-white shadow-sm' : 'hover:bg-white'
+                                            }`}
                                             title="Mobile Portrait (375px)"
                                         >
                                             <Smartphone className="w-4 h-4 text-primary" />
                                             <span className="text-xs font-medium">Mobile</span>
                                         </button>
                                         <button
-                                            onClick={() => {
-                                                const iframe = document.querySelector('.Puck-portal iframe') as HTMLIFrameElement;
-                                                if (iframe) iframe.style.width = '768px';
-                                            }}
-                                            className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-white transition-colors text-sm"
+                                            onClick={() => setViewportWidth(768)}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
+                                                viewportWidth === 768 ? 'bg-white shadow-sm' : 'hover:bg-white'
+                                            }`}
                                             title="Tablet (768px)"
                                         >
                                             <Tablet className="w-4 h-4 text-primary" />
                                             <span className="text-xs font-medium">Tablet</span>
                                         </button>
                                         <button
-                                            onClick={() => {
-                                                const iframe = document.querySelector('.Puck-portal iframe') as HTMLIFrameElement;
-                                                if (iframe) iframe.style.width = '100%';
-                                            }}
-                                            className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-white transition-colors text-sm"
+                                            onClick={() => setViewportWidth('100%')}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
+                                                viewportWidth === '100%' ? 'bg-white shadow-sm' : 'hover:bg-white'
+                                            }`}
                                             title="Desktop (1440px)"
                                         >
                                             <Monitor className="w-4 h-4 text-primary" />
@@ -640,7 +618,13 @@ export default function BuilderClient() {
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto p-2">
-                                    <div className="h-full bg-white shadow-sm mx-auto">
+                                    <div
+                                        className="h-full bg-white shadow-sm mx-auto transition-all duration-300"
+                                        style={{
+                                            width: viewportWidth,
+                                            maxWidth: '100%'
+                                        }}
+                                    >
                                         <Puck.Preview />
                                     </div>
                                 </div>
