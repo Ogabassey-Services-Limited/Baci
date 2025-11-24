@@ -3,7 +3,7 @@
  * Documentation: https://api-docs.go54.com
  */
 
-import crypto from 'crypto';
+import whois from 'whois-json';
 
 const GO54_BASE_URL =
   'https://whogohost.com/host/modules/addons/DomainsReseller/api/index.php';
@@ -176,28 +176,56 @@ async function go54Request<T>(
 }
 
 /**
- * Check if domain(s) are available for registration
+ * Check domain availability using WHOIS
+ * 
+ * Note: The official API 'lookup' action is deprecated.
+ * We use direct WHOIS lookup as a fallback.
  */
 export async function checkDomainAvailability(
-  searchTerm: string,
-  tlds: string[] = ['.com', '.com.ng', '.ng']
-): Promise<DomainAvailabilityResult[]> {
+  domain: string,
+  tldsToInclude: string[] = [],
+  isWhmcs: number = 0
+): Promise<boolean> {
   try {
-    const result = await go54Request<any>('/domains/lookup', 'POST', {
-      searchTerm,
-      punyCodeSearchTerm: searchTerm,
-      tldsToInclude: tlds,
-      isIdnDomain: false,
-      premiumEnabled: false,
-      isWhmcs: 1,
-    });
+    // Basic validation
+    if (!domain) return false;
 
-    // Parse response and return availability results
-    // Note: Actual response format needs to be confirmed with live API
-    return result;
+    // Perform WHOIS lookup
+    const results = await whois(domain);
+    console.log('WHOIS Results for', domain, ':', JSON.stringify(results, null, 2));
+
+    // Analyze WHOIS response to determine availability
+    // Common patterns for available domains:
+    const responseString = JSON.stringify(results).toLowerCase();
+
+    // Check for specific error object pattern from whois-json
+    if (results && typeof results === 'object' && 'error' in results) {
+      const errorMsg = (results as any).error.toLowerCase();
+      if (errorMsg.includes('no match for') || errorMsg.includes('not found')) {
+        return true;
+      }
+    }
+
+    const availabilityIndicators = [
+      'no match for',
+      'not found',
+      'no data found',
+      'is available for registration',
+      'domain not found',
+      'object does not exist',
+      'no entries found'
+    ];
+
+    const isAvailable = availabilityIndicators.some(indicator =>
+      responseString.includes(indicator)
+    );
+
+    return isAvailable;
+
   } catch (error) {
     console.error('Error checking domain availability:', error);
-    throw error;
+    // Fail safe: assume unavailable if check fails to prevent false positives
+    return false;
   }
 }
 

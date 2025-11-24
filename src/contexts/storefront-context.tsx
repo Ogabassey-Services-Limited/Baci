@@ -29,3 +29,12 @@ export function useStorefront() {
     }
     return context;
 }
+
+/**
+ * Safe version of useStorefront that returns null instead of throwing
+ * Use this in components that might render outside of StorefrontProvider (e.g., previews)
+ */
+export function useStorefrontSafe(): StorefrontContextType | null {
+    const context = useContext(StorefrontContext);
+    return context === undefined ? null : context;
+}

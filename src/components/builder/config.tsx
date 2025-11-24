@@ -191,6 +191,8 @@ type HeaderProps = {
     backgroundColor?: string;
     textColor?: string;
     sticky?: boolean;
+    logoUrl?: string;
+    storeName?: string;
     // Granular Customization Props
     layout?: 'logo-left-nav-center' | 'logo-left-nav-right' | 'logo-center';
     searchStyle?: 'outline' | 'filled' | 'minimal';
@@ -315,6 +317,8 @@ function CustomHeader({
     backgroundColor,
     textColor,
     sticky,
+    logoUrl,
+    storeName,
     layout = 'logo-left-nav-center',
     searchStyle = 'outline',
     searchRadius = 'md',
@@ -360,10 +364,20 @@ function CustomHeader({
                     "order-1": layout === 'logo-left-nav-center' || layout === 'logo-left-nav-right',
                     "order-2 mx-auto": layout === 'logo-center',
                 })}>
-                    <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-sm font-bold">
-                        L
-                    </div>
-                    <span className="hidden sm:inline-block">Your Store</span>
+                    {logoUrl ? (
+                        <Image
+                            src={logoUrl}
+                            alt="Store Logo"
+                            width={32}
+                            height={32}
+                            className="w-8 h-8 object-contain rounded-md"
+                        />
+                    ) : (
+                        <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-sm font-bold">
+                            L
+                        </div>
+                    )}
+                    <span className="hidden sm:inline-block">{storeName || 'Your Store'}</span>
                 </div>
             )}
 
@@ -1007,6 +1021,14 @@ export const builderConfig: Config<{
                         { label: 'Price: High to Low', value: 'price-high' },
                         { label: 'Name', value: 'name' },
                     ]
+                },
+                showFilters: {
+                    type: 'radio',
+                    label: 'Show Filter Dropdown',
+                    options: [
+                        { label: 'Yes', value: true },
+                        { label: 'No', value: false }
+                    ]
                 }
             },
             defaultProps: {
@@ -1014,6 +1036,7 @@ export const builderConfig: Config<{
                 columns: 3,
                 limit: 6,
                 sortBy: 'newest',
+                showFilters: true,
             },
             // Removed resolveData to avoid type issues
             render: (props) => <StorefrontProductGrid {...props} />

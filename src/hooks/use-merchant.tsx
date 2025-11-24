@@ -142,3 +142,12 @@ export const useMerchant = (): MerchantContextType => {
   }
   return context as MerchantContextType;
 };
+
+/**
+ * Safe version of useMerchant that returns null instead of throwing
+ * Use this in components that might render outside of MerchantProvider (e.g., previews)
+ */
+export const useMerchantSafe = (): MerchantContextType | null => {
+  const context = useContext(MerchantContext);
+  return context === undefined ? null : context;
+};

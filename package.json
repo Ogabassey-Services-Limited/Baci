@@ -65,6 +65,7 @@
     "recharts": "^2.15.1",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.0",
+    "whois-json": "^2.0.4",
     "zod": "^3.24.2"
   },
   "devDependencies": {

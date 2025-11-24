@@ -20,14 +20,19 @@ async function testConnection() {
 
     try {
         // Dynamic import to ensure env vars are loaded first
-        const { checkDomainAvailability } = await import('../src/lib/go54');
+        const { getTldPricing } = await import('../src/lib/go54');
 
-        const testDomain = `test-conn-${Date.now()}.com`;
-        console.log(`Checking availability for: ${testDomain}`);
+        console.log('Testing API connection with getTldPricing()...');
 
-        const result = await checkDomainAvailability(testDomain);
+        // Test with a supported action
+        const pricing = await getTldPricing();
         console.log('✅ API Connection Successful!');
-        console.log('Response:', JSON.stringify(result, null, 2));
+        console.log(`Retrieved pricing for ${pricing.length} TLDs.`);
+
+        // Log the first few items to verify structure
+        if (pricing.length > 0) {
+            console.log('Sample pricing:', pricing.slice(0, 2));
+        }
     } catch (error: any) {
         console.error('❌ API Connection Failed');
         console.error('Error:', error.message);

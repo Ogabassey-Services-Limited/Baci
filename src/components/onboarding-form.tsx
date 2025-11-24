@@ -40,7 +40,7 @@ import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/o
 import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { OnboardingFormValues, onboardingSchema, step3Schema } from '@/schemas/onboarding';
-import { StorefrontPreview } from './storefront-preview';
+import { OnboardingPuckPreview } from './onboarding-puck-preview';
 import { ColorPicker } from './color-picker';
 import { colord, extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
@@ -290,7 +290,7 @@ function Step2_Branding() {
             ))}
           </div>
 
-          <StorefrontPreview
+          <OnboardingPuckPreview
             businessName={businessName}
             businessType={businessType}
             logoDataUri={logoDataUri}

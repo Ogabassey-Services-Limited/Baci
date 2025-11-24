@@ -2,10 +2,10 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
-import { Product } from '@/lib/products';
+import { Product, sampleProductsByCategory } from '@/lib/products';
 import { apiGet } from '@/lib/api-client';
 import Fuse from 'fuse.js';
 import { Loader2, Minus, Plus } from 'lucide-react';
@@ -15,24 +15,43 @@ import { Input } from '@/components/ui/input';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getCountryByCode } from '@/lib/countries';
-import { useStorefront } from '@/contexts/storefront-context';
+import { useStorefrontSafe } from '@/contexts/storefront-context';
 import { findDarkestColor } from '@/lib/color-utils';
 
 interface StorefrontProductGridProps {
     title?: string;
     columns?: number;
     limit?: number;
+    showFilters?: boolean;
 }
 
-export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 12 }: StorefrontProductGridProps) {
-    const { merchant } = useMerchant();
+export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 12, showFilters = false }: StorefrontProductGridProps) {
+    const merchantContext = useMerchantSafe();
+    const merchant = merchantContext?.merchant || null;
     const { cart, addToCart, updateQuantity } = useCart();
     const { toast } = useToast();
-    const { searchQuery, selectedCategory, setSelectedCategory } = useStorefront();
+
+    const storefrontContext = useStorefrontSafe();
+    const searchQuery = storefrontContext?.searchQuery || '';
+    const selectedCategory = storefrontContext?.selectedCategory || 'All';
+    const setSelectedCategory = storefrontContext?.setSelectedCategory || (() => { });
+
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [filterType, setFilterType] = useState<'category' | 'brand' | 'price'>('category');
+
+    // Use sample products if no merchant context (preview mode)
+    const isPreviewMode = !merchantContext;
 
     useEffect(() => {
+        if (isPreviewMode) {
+            // Use sample products for preview
+            const samples = sampleProductsByCategory['fashion'] || sampleProductsByCategory['other'];
+            setProducts(samples);
+            setIsLoading(false);
+            return;
+        }
+
         if (merchant?.id) {
             apiGet<{ products: Product[] }>(`/api/storefront/products?merchant_id=${merchant.id}`)
                 .then((data) => {
@@ -46,12 +65,20 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                     setIsLoading(false);
                 });
         }
-    }, [merchant?.id]);
+    }, [isPreviewMode, merchant?.id]);
 
-    const categories = useMemo(() => {
-        const cats = new Set(products.map(p => p.category || 'General'));
-        return ['All', ...Array.from(cats)];
-    }, [products]);
+    const filterOptions = useMemo(() => {
+        if (filterType === 'category') {
+            const cats = new Set(products.map(p => p.category).filter((c): c is string => !!c && c !== 'General'));
+            return Array.from(cats);
+        } else if (filterType === 'brand') {
+            const brands = new Set(products.map(p => p.brand).filter((b): b is string => !!b));
+            return Array.from(brands);
+        } else if (filterType === 'price') {
+            return ['Under $50', '$50 - $100', '$100 - $200', 'Over $200'];
+        }
+        return [];
+    }, [products, filterType]);
 
     const fuse = useMemo(() => {
         if (products.length > 0) {
@@ -72,16 +99,31 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
         }
 
         if (selectedCategory !== 'All') {
-            filtered = filtered.filter(p => (p.category || 'General') === selectedCategory);
+            if (filterType === 'category') {
+                filtered = filtered.filter(p => p.category === selectedCategory);
+            } else if (filterType === 'brand') {
+                filtered = filtered.filter(p => p.brand === selectedCategory);
+            } else if (filterType === 'price') {
+                filtered = filtered.filter(p => {
+                    const price = p.price || 0;
+                    switch (selectedCategory) {
+                        case 'Under $50': return price < 50;
+                        case '$50 - $100': return price >= 50 && price <= 100;
+                        case '$100 - $200': return price >= 100 && price <= 200;
+                        case 'Over $200': return price > 200;
+                        default: return true;
+                    }
+                });
+            }
         }
 
         return filtered.filter(p => p.status === 'published').slice(0, limit);
-    }, [searchQuery, fuse, products, selectedCategory, limit]);
+    }, [searchQuery, fuse, products, selectedCategory, limit, filterType]);
 
     const handleAddToCart = (product: Product) => {
         addToCart(product);
         toast({
-            title: "Added to cart!",
+            title: "Added to cart",
             description: `${product.name} has been added to your cart.`,
         });
     };
@@ -101,28 +143,69 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
     const brandColors = merchant?.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.background, merchant.brand_colors.accent].filter(Boolean) : ['#3F51B5'];
     const darkestColor = findDarkestColor(brandColors as string[]);
 
-    if (!merchant) return null;
-
     return (
         <section className="w-full py-12 md:py-24 lg:py-32" id="products">
             <div className="container px-4 md:px-6">
-                <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10" style={{ color: darkestColor }}>{title}</h2>
-
-                {categories.length > 1 && (
-                    <div className="flex justify-center gap-2 mb-8 flex-wrap">
-                        {categories.map(category => (
-                            <ThemedButton
-                                key={category}
-                                variant={selectedCategory === category ? 'default' : 'outline'}
-                                colorRole={selectedCategory === category ? 'primary' : 'accent'}
-                                onClick={() => setSelectedCategory(category)}
-                                size="sm"
-                                className="capitalize"
-                            >
-                                {category}
-                            </ThemedButton>
-                        ))}
+                {showFilters ? (
+                    <div className="max-w-4xl mx-auto mb-12">
+                        <div className="bg-card border rounded-xl p-6 shadow-sm">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                                <div className="flex items-center gap-3">
+                                    <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                    </svg>
+                                    <select
+                                        className="text-base font-medium border-0 bg-transparent focus:ring-0 cursor-pointer pr-8"
+                                        value={filterType}
+                                        onChange={(e) => {
+                                            setFilterType(e.target.value as any);
+                                            setSelectedCategory('All'); // Reset active filter when type changes
+                                        }}
+                                    >
+                                        <option value="category">Shop by Category</option>
+                                        <option value="brand">Shop by Brand</option>
+                                        <option value="price">Shop by Price</option>
+                                    </select>
+                                </div>
+                                {filterOptions.length > 0 && (
+                                    <div className="flex gap-2 flex-wrap">
+                                        {filterOptions.map(option => (
+                                            <button
+                                                key={option}
+                                                onClick={() => setSelectedCategory(selectedCategory === option ? 'All' : option)}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === option
+                                                        ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
+                                                        : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
+                                                    }`}
+                                            >
+                                                {option}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
+                ) : (
+                    <>
+                        <h2 className="text-2xl font-bold tracking-tighter sm:text-3xl text-center mb-10" style={{ color: darkestColor }}>{title}</h2>
+                        {categories.length > 1 && (
+                            <div className="flex justify-center gap-2 mb-8 flex-wrap">
+                                {categories.map(category => (
+                                    <ThemedButton
+                                        key={category}
+                                        variant={selectedCategory === category ? 'default' : 'outline'}
+                                        colorRole={selectedCategory === category ? 'primary' : 'accent'}
+                                        onClick={() => setSelectedCategory(category)}
+                                        size="sm"
+                                        className="capitalize"
+                                    >
+                                        {category}
+                                    </ThemedButton>
+                                ))}
+                            </div>
+                        )}
+                    </>
                 )}
 
                 {isLoading ? (

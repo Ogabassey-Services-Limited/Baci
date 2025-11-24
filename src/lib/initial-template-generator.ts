@@ -16,7 +16,7 @@ interface TemplateParams {
 /**
  * Generate hero carousel slides based on business type
  */
-function generateHeroSlides(businessName: string, businessType: string) {
+export function generateHeroSlides(businessName: string, businessType: string) {
     const fallbackImages = [
         { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+1' },
         { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+2' },
@@ -81,7 +81,7 @@ function generateHeroSlides(businessName: string, businessType: string) {
 /**
  * Derive a complete theme configuration from brand colors
  */
-function deriveThemeFromColors(brandColors: { primary: string; background: string; accent: string }): ThemeConfiguration {
+export function deriveThemeFromColors(brandColors: { primary: string; background: string; accent: string }): ThemeConfiguration {
     // Helper to get contrasting text color (simplified)
     const getContrastColor = (bgColor: string): string => {
         // Simple heuristic - in production, use proper color contrast calculation
@@ -307,6 +307,43 @@ function deriveThemeFromColors(brandColors: { primary: string; background: strin
 }
 
 /**
+ * Generate features based on business type
+ */
+export function generateFeatures(businessType: string) {
+    const defaultFeatures = [
+        { title: 'Fast Shipping', description: 'We ship worldwide with secure packaging.', icon: 'truck' },
+        { title: '24/7 Support', description: 'Our team is here to help you anytime.', icon: 'headphones' },
+        { title: 'Secure Payment', description: '100% secure payment processing.', icon: 'shield' },
+    ];
+
+    switch (businessType) {
+        case 'fashion':
+        case 'fashion_apparel':
+            return [
+                { title: 'Premium Quality', description: 'Finest materials and craftsmanship.', icon: 'star' },
+                { title: 'Easy Returns', description: '30-day hassle-free return policy.', icon: 'refresh-cw' },
+                { title: 'Secure Payment', description: '100% secure payment processing.', icon: 'shield' },
+            ];
+        case 'electronics':
+        case 'tech':
+            return [
+                { title: 'Official Warranty', description: 'All products come with manufacturer warranty.', icon: 'check-circle' },
+                { title: 'Expert Support', description: 'Technical support from our experts.', icon: 'headphones' },
+                { title: 'Fast Delivery', description: 'Get your gadgets delivered quickly.', icon: 'truck' },
+            ];
+        case 'food':
+        case 'restaurant':
+            return [
+                { title: 'Fresh Ingredients', description: 'Farm-fresh ingredients daily.', icon: 'leaf' },
+                { title: 'Fast Delivery', description: 'Hot and fresh to your doorstep.', icon: 'truck' },
+                { title: 'Best Taste', description: 'Award-winning recipes and flavors.', icon: 'heart' },
+            ];
+        default:
+            return defaultFeatures;
+    }
+}
+
+/**
  * Generate initial Puck template for a new merchant
  */
 export function generateInitialTemplate(params: TemplateParams): Data {
@@ -318,11 +355,16 @@ export function generateInitialTemplate(params: TemplateParams): Data {
     // Generate hero slides
     const slides = generateHeroSlides(businessName, businessType);
 
+    // Generate features
+    const features = generateFeatures(businessType);
+
     // Generate unique IDs for components
     const headerId = `Header-${Date.now()}`;
     const heroCarouselId = `HeroCarousel-${Date.now()}-1`;
-    const productGridId = `ProductGrid-${Date.now()}-2`;
-    const footerId = `Footer-${Date.now()}-3`;
+    const featuresId = `Features-${Date.now()}-2`;
+    const productGridId = `ProductGrid-${Date.now()}-3`;
+    const newsletterId = `Newsletter-${Date.now()}-4`;
+    const footerId = `Footer-${Date.now()}-5`;
 
     // Create Puck data structure
     const config: Data = {
@@ -347,6 +389,7 @@ export function generateInitialTemplate(params: TemplateParams): Data {
                         text: 'Get Started',
                         url: '/signup',
                     },
+                    storeName: businessName,
                     // Add logo URL if merchant has one
                     ...(params.merchant?.logo_url && {
                         logoUrl: params.merchant.logo_url
@@ -362,6 +405,16 @@ export function generateInitialTemplate(params: TemplateParams): Data {
                     autoplayDelay: 5000,
                 }
             },
+            // Features Section
+            {
+                type: 'Features',
+                props: {
+                    id: featuresId,
+                    title: 'Why Choose Us',
+                    features: features,
+                    columns: 3,
+                }
+            },
             // Product Grid
             {
                 type: 'ProductGrid',
@@ -371,6 +424,18 @@ export function generateInitialTemplate(params: TemplateParams): Data {
                     columns: 4,
                     limit: 12,
                     sortBy: 'newest',
+                    showFilters: true,
+                }
+            },
+            // Newsletter Section
+            {
+                type: 'Newsletter',
+                props: {
+                    id: newsletterId,
+                    title: 'Stay Updated',
+                    description: 'Subscribe to our newsletter for the latest updates and exclusive offers.',
+                    buttonText: 'Subscribe',
+                    placeholder: 'Enter your email',
                 }
             },
             // Footer
