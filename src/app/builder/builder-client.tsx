@@ -337,6 +337,25 @@ export default function BuilderClient() {
         );
     }
 
+    const handleDataChange = (newData: Data) => {
+        // Ensure all components have unique IDs
+        if (newData.content) {
+            newData.content = newData.content.map((component: any, index: number) => {
+                if (!component.props?.id) {
+                    return {
+                        ...component,
+                        props: {
+                            ...component.props,
+                            id: `${component.type}-${Date.now()}-${index}`
+                        }
+                    };
+                }
+                return component;
+            });
+        }
+        setData(newData);
+    };
+
     return (
         <div className="h-screen flex flex-col bg-background">
             <StorefrontProvider>
@@ -344,7 +363,7 @@ export default function BuilderClient() {
                     config={builderConfig}
                     data={data}
                     onPublish={handlePublish}
-                    onChange={setData}
+                    onChange={handleDataChange}
                     metadata={{
                         merchantId: merchant.id,
                         merchant: merchant,
