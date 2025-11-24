@@ -56,13 +56,13 @@ const monthlyChartData = [
 ];
 
 const weeklyChartData = [
-    { day: 'Sun', desktop: 2200, mobile: 1100 },
-    { day: 'Mon', desktop: 3100, mobile: 1900 },
-    { day: 'Tue', desktop: 2500, mobile: 1300 },
-    { day: 'Wed', desktop: 4200, mobile: 2100 },
-    { day: 'Thu', desktop: 1800, mobile: 900 },
-    { day: 'Fri', desktop: 3800, mobile: 2400 },
-    { day: 'Sat', desktop: 5100, mobile: 3200 },
+  { day: 'Sun', desktop: 2200, mobile: 1100 },
+  { day: 'Mon', desktop: 3100, mobile: 1900 },
+  { day: 'Tue', desktop: 2500, mobile: 1300 },
+  { day: 'Wed', desktop: 4200, mobile: 2100 },
+  { day: 'Thu', desktop: 1800, mobile: 900 },
+  { day: 'Fri', desktop: 3800, mobile: 2400 },
+  { day: 'Sat', desktop: 5100, mobile: 3200 },
 ];
 
 
@@ -93,34 +93,41 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 const recentSales = [
-    { id: 'p1', name: 'Olivia Martin', email: 'olivia.martin@email.com', amount: 1999.00, avatar: 'avatar-1' },
-    { id: 'p2', name: 'Jackson Lee', email: 'jackson.lee@email.com', amount: 39.00, avatar: 'avatar-2' },
-    { id: 'p3', name: 'Isabella Nguyen', email: 'isabella.nguyen@email.com', amount: 299.00, avatar: 'avatar-3' },
-    { id: 'p4', name: 'William Kim', email: 'will@email.com', amount: 99.00, avatar: 'avatar-4' },
-    { id: 'p5', name: 'Sofia Davis', email: 'sofia.davis@email.com', amount: 39.00, avatar: 'avatar-5' },
+  { id: 'p1', name: 'Olivia Martin', email: 'olivia.martin@email.com', amount: 1999.00, avatar: 'avatar-1' },
+  { id: 'p2', name: 'Jackson Lee', email: 'jackson.lee@email.com', amount: 39.00, avatar: 'avatar-2' },
+  { id: 'p3', name: 'Isabella Nguyen', email: 'isabella.nguyen@email.com', amount: 299.00, avatar: 'avatar-3' },
+  { id: 'p4', name: 'William Kim', email: 'will@email.com', amount: 99.00, avatar: 'avatar-4' },
+  { id: 'p5', name: 'Sofia Davis', email: 'sofia.davis@email.com', amount: 39.00, avatar: 'avatar-5' },
 ];
 
 const yAxisFormatter = (value: number) => {
-    if (value >= 1000) {
-        return `${value / 1000}k`;
-    }
-    return value.toString();
+  if (value >= 1000) {
+    return `${value / 1000}k`;
+  }
+  return value.toString();
 };
 
 // --- Helper Component ---
 
 function PercentageChange({ value, timeFrame }: { value: number; timeFrame: 'weekly' | 'monthly' }) {
-    const isPositive = value >= 0;
-    const Icon = isPositive ? ArrowUp : ArrowDown;
-    return (
-        <p className={cn("text-xs flex items-center", isPositive ? "text-green-600" : "text-red-600")}>
-            <Icon className="h-3 w-3 mr-1" />
-            {isPositive ? '+' : ''}{value.toFixed(1)}% from last {timeFrame === 'weekly' ? 'week' : 'month'}
-        </p>
-    );
+  const isPositive = value >= 0;
+  const Icon = isPositive ? ArrowUp : ArrowDown;
+  return (
+    <p className={cn("text-xs flex items-center", isPositive ? "text-green-600" : "text-red-600")}>
+      <Icon className="h-3 w-3 mr-1" />
+      {isPositive ? '+' : ''}{value.toFixed(1)}% from last {timeFrame === 'weekly' ? 'week' : 'month'}
+    </p>
+  );
 }
 
 // --- Main Component ---
+
+interface ChartDatum {
+  day?: string;
+  month?: string;
+  desktop: number;
+  mobile: number;
+}
 
 interface AnalyticsData {
   summary: {
@@ -129,7 +136,7 @@ interface AnalyticsData {
     sales: { value: number; change: number };
     activeNow: { value: number; change: number };
   };
-  chartData: Array<any>;
+  chartData: ChartDatum[];
   recentSales: Array<{
     id: string;
     name: string;
@@ -160,7 +167,7 @@ export default function DashboardPage() {
           const data = await response.json();
           setAnalytics(data);
         } else {
-          console.error('Failed to fetch analytics');
+          console.error('Failed to fetch analytics:', response.status, response.statusText);
         }
       } catch (error) {
         console.error('Error fetching analytics:', error);
@@ -175,7 +182,7 @@ export default function DashboardPage() {
   const currentSummary = analytics?.summary || summaryData[timeFrame];
   const currentChartData = analytics?.chartData || (timeFrame === 'monthly' ? monthlyChartData : weeklyChartData);
   const currentRecentSales = analytics?.recentSales || recentSales;
-  
+
   const getStoreUrl = () => {
     if (!merchant?.slug) return { displayUrl: '', fullUrl: '' };
 
@@ -184,8 +191,8 @@ export default function DashboardPage() {
 
     // Use subdomain URL (merchant gets free subdomain on signup)
     return {
-        displayUrl: subdomain,
-        fullUrl: `https://${subdomain}`
+      displayUrl: subdomain,
+      fullUrl: `https://${subdomain}`
     };
   };
 
@@ -199,7 +206,7 @@ export default function DashboardPage() {
         description: "Your store URL is ready to be shared.",
       });
     } catch (err) {
-      console.error("Failed to copy: ", err);
+      console.error("Error copying URL to clipboard:", err);
       toast({
         title: "Copy Failed",
         description: "Could not copy URL to clipboard. Please try again.",
@@ -212,8 +219,8 @@ export default function DashboardPage() {
     // This function will need to be updated to clear Supabase data if needed
     // For now, it will clear local session and redirect
     toast({
-        title: "Reset Not Implemented",
-        description: "This functionality will be updated for Supabase.",
+      title: "Reset Not Implemented",
+      description: "This feature is coming soon.",
     });
     // router.push('/onboarding');
   };
@@ -229,7 +236,7 @@ export default function DashboardPage() {
       currencyDisplay: 'symbol',
     }).format(amount);
   };
-  
+
   const setupTasks = [
     {
       icon: PlusCircle,
@@ -263,9 +270,9 @@ export default function DashboardPage() {
 
   if (merchantLoading) {
     return (
-        <div className="flex flex-1 items-center justify-center h-full">
-            <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
+      <div className="flex flex-1 items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
     );
   }
 
@@ -273,28 +280,28 @@ export default function DashboardPage() {
     <>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold">Welcome, {merchant?.business_name || 'Merchant'}! 👋</h1>
-         {merchant && displayUrl && (
-            <div className="flex items-center justify-between p-2 border rounded-lg bg-muted text-sm">
-                <Link href={fullUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline px-2">
-                    {displayUrl}
-                </Link>
-                <div className="flex items-center gap-1">
-                     <Button variant="ghost" size="icon" onClick={() => handleShare(fullUrl)} className="h-8 w-8">
-                        <Copy className="w-4 h-4" />
-                        <span className="sr-only">Copy URL</span>
-                    </Button>
-                    <Link href={fullUrl} target="_blank" rel="noopener noreferrer">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ExternalLink className="w-4 h-4" />
-                            <span className="sr-only">Open in new tab</span>
-                        </Button>
-                    </Link>
-                </div>
+        {merchant && displayUrl && (
+          <div className="flex items-center justify-between p-2 border rounded-lg bg-muted text-sm">
+            <Link href={fullUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline px-2">
+              {displayUrl}
+            </Link>
+            <div className="flex items-center gap-1">
+              <Button variant="ghost" size="icon" onClick={() => handleShare(fullUrl)} className="h-8 w-8">
+                <Copy className="w-4 h-4" />
+                <span className="sr-only">Copy URL</span>
+              </Button>
+              <Link href={fullUrl} target="_blank" rel="noopener noreferrer">
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <ExternalLink className="w-4 h-4" />
+                  <span className="sr-only">Open in new tab</span>
+                </Button>
+              </Link>
             </div>
+          </div>
         )}
       </div>
 
-       <Card className="mb-8 border border-blue-200">
+      <Card className="mb-8 border border-blue-200">
         <CardHeader>
           <CardTitle>Setup Checklist ✅</CardTitle>
           <CardDescription>Follow these steps to get your store ready for customers.</CardDescription>
@@ -314,13 +321,13 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
-      
+
       <div className="flex items-center mb-4">
         <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as 'monthly' | 'weekly')}>
-            <TabsList>
-                <TabsTrigger value="weekly">Weekly</TabsTrigger>
-                <TabsTrigger value="monthly">Monthly</TabsTrigger>
-            </TabsList>
+          <TabsList>
+            <TabsTrigger value="weekly">Weekly</TabsTrigger>
+            <TabsTrigger value="monthly">Monthly</TabsTrigger>
+          </TabsList>
         </Tabs>
       </div>
 
@@ -372,8 +379,8 @@ export default function DashboardPage() {
         <Card className="xl:col-span-2 border border-blue-200">
           <CardHeader>
             <CardTitle>Overview</CardTitle>
-             <CardDescription>
-                A summary of sales activity for this {timeFrame === 'weekly' ? 'week' : 'month'}.
+            <CardDescription>
+              A summary of sales activity for this {timeFrame === 'weekly' ? 'week' : 'month'}.
             </CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
@@ -387,7 +394,7 @@ export default function DashboardPage() {
                   axisLine={false}
                   tickFormatter={(value) => value.slice(0, 3)}
                 />
-                 <YAxis
+                <YAxis
                   tickLine={false}
                   axisLine={false}
                   tickMargin={10}
@@ -423,46 +430,50 @@ export default function DashboardPage() {
               {currentRecentSales.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-8">No sales yet</p>
               ) : (
-                currentRecentSales.map((sale) => {
-                 const avatar = PlaceHolderImages.find(img => img.id === sale.avatar);
-                 return (
-                    <Link href={`/dashboard/orders/${sale.id}`} key={sale.id} className="flex items-center hover:bg-muted/50 p-2 rounded-lg -m-2">
+                (() => {
+                  const avatarMap = new Map(PlaceHolderImages.map(img => [img.id, img]));
+                  return currentRecentSales.map((sale) => {
+                    const avatar = avatarMap.get(sale.avatar);
+                    return (
+                      <Link href={`/dashboard/orders/${sale.id}`} key={sale.id} className="flex items-center hover:bg-muted/50 p-2 rounded-lg -m-2">
                         <Avatar className="h-9 w-9">
-                        {avatar && (
+                          {avatar && (
                             <AvatarImage
-                            src={avatar.imageUrl}
-                            alt={avatar.description}
-                            data-ai-hint={avatar.imageHint}
+                              src={avatar.imageUrl}
+                              alt={avatar.description}
+                              data-ai-hint={avatar.imageHint}
                             />
-                        )}
-                        <AvatarFallback>{sale.name.charAt(0)}</AvatarFallback>
+                          )}
+                          <AvatarFallback>{sale.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="ml-4 space-y-1">
-                        <p className="text-sm font-medium leading-none">
+                          <p className="text-sm font-medium leading-none">
                             {sale.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
+                          </p>
+                          <p className="text-sm text-muted-foreground">
                             {sale.email}
-                        </p>
+                          </p>
                         </div>
                         <div className="ml-auto font-medium">{formatCurrency(sale.amount)}</div>
-                    </Link>
-                )
-              }))}
+                      </Link>
+                    );
+                  });
+                })()
+              )}
             </div>
           </CardContent>
         </Card>
         <Card className="xl:col-span-3 border border-blue-200">
-            <CardHeader>
-                <CardTitle>Danger Zone ☢️</CardTitle>
-                <CardDescription>These actions are irreversible. Please be certain.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button variant="destructive" onClick={handleReset}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Reset and Start Over
-                </Button>
-            </CardContent>
+          <CardHeader>
+            <CardTitle>Danger Zone ☢️</CardTitle>
+            <CardDescription>These actions are irreversible. Please be certain.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="destructive" onClick={handleReset}>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Reset and Start Over
+            </Button>
+          </CardContent>
         </Card>
       </div>
     </>

@@ -7,6 +7,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { sanitizeSearchQuery, sanitizeLikePattern, isValidUuid } from '@/lib/sanitize';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
+import { sendEmail } from '@/lib/brevo';
+import { generateOrderConfirmationEmail, generateOrderConfirmationText } from '@/lib/email-templates';
 
 // GIGL-specific shipment creation logic is now in its own function
 async function handleGiglShipment(order: any, customer: any, shippingAddress: any) {
@@ -320,6 +322,66 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+    }
+
+    // Send order confirmation email (non-blocking)
+    try {
+      // Fetch merchant details for email
+      const { data: merchantDetails } = await supabase
+        .from('merchants')
+        .select('business_name, slug')
+        .eq('id', merchant_id)
+        .single();
+
+      if (merchantDetails && customer_email) {
+        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
+        const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
+
+        // Format items for email template
+        const emailItems = items.map((item: any) => ({
+          name: item.name || item.productName || 'Product',
+          quantity: item.quantity || 1,
+          price: item.price || 0,
+        }));
+
+        // Generate email content
+        const emailData = {
+          orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
+          customerName: customer_name,
+          items: emailItems,
+          subtotal: parseFloat(subtotal),
+          shippingFee: parseFloat(shipping_fee),
+          total: parseFloat(total.toString()),
+          shippingAddress: {
+            address: shipping_address?.address || '',
+            city: shipping_address?.city || '',
+            state: shipping_address?.state || '',
+            phone: customer_phone || '',
+          },
+          merchantName: merchantDetails.business_name,
+          merchantUrl,
+        };
+
+        const htmlContent = generateOrderConfirmationEmail(emailData);
+        const textContent = generateOrderConfirmationText(emailData);
+
+        // Send email asynchronously (don't wait for it)
+        sendEmail({
+          to: customer_email,
+          toName: customer_name,
+          subject: `Order Confirmation - #${emailData.orderNumber}`,
+          htmlContent,
+          textContent,
+          replyTo: `support@${merchantDetails.slug}.${rootDomain}`,
+        }).catch((emailError) => {
+          logger.error({ message: 'Failed to send order confirmation email', error: emailError });
+        });
+
+        logger.info({ message: 'Order confirmation email queued', orderId: order.id, email: customer_email });
+      }
+    } catch (emailError) {
+      // Don't fail the order creation if email fails
+      logger.error({ message: 'Error preparing order confirmation email', error: emailError });
     }
 
     return NextResponse.json({ order }, { status: 201 });

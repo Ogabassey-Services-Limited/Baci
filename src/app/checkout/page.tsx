@@ -220,19 +220,8 @@ function Step1_Shipping() {
                 {...field}
                 useThemedInput={true}
                 showIcon={true}
-                onChange={(val) => {
-                  // Handle both event and string
-                  if (typeof val === 'string') {
-                    field.onChange(val);
-                  } else {
-                    field.onChange(val);
-                  }
-                }}
+                onChange={(val) => field.onChange(val)}
                 onSelect={(place) => {
-                  // We need to set the address field to the formatted address
-                  // And also set city/state
-                  // The onChange above might have already set the address if it was triggered by typing
-                  // But onSelect gives us the final formatted one from Google
                   field.onChange(place.formattedAddress);
                   setValue('city', place.city);
                   setValue('state', place.state);
@@ -243,11 +232,7 @@ function Step1_Shipping() {
           </FormItem>
         )}
       />
-      {/* We need to handle the side effects of onSelect (setting city/state). 
-          The best way is to wrap AddressAutocomplete in a small component that uses useFormContext 
-          OR just use useFormContext here in Step1_Shipping. 
-          Step1_Shipping already uses useFormContext.
-      */}
+
       <FormField control={control} name="city" render={({ field }) => (<FormItem><FormControl><input type="hidden" {...field} /></FormControl></FormItem>)} />
       <FormField control={control} name="state" render={({ field }) => (<FormItem><FormControl><input type="hidden" {...field} /></FormControl></FormItem>)} />
     </div>
@@ -347,9 +332,6 @@ function CheckoutPageContent() {
   }, [cartCount, pageLoading, router]);
 
 
-
-  // ... (inside component)
-
   // Fetch shipping quote when address is valid
   const watchAddress = shippingForm.watch('address');
   useEffect(() => {
@@ -365,6 +347,11 @@ function CheckoutPageContent() {
           setShippingFee(data.shippingFee);
         } catch (error) {
           console.error("Failed to get shipping quote:", error);
+          toast({
+            title: "Shipping Quote Error",
+            description: "Could not fetch your shipping fee. A default shipping fee is applied.",
+            variant: "destructive",
+          });
           setShippingFee(DEFAULT_SHIPPING_FEE); // Fallback
         }
       }
