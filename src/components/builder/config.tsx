@@ -1,4 +1,4 @@
-import { Config, Fields } from '@measured/puck';
+import { Config, Fields, PuckContext } from '@measured/puck';
 import { ThemedButton } from '@/components/themed/themed-button';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -21,8 +21,51 @@ import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { createClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { ImagePickerField } from './fields/image-picker-field';
+import { AnimatedWrapper, AnimationConfig } from './animated-wrapper';
 
 // ==================== TYPE DEFINITIONS ====================
+
+// Common animation fields that can be added to any component
+const animationFields = {
+    animationType: {
+        type: 'select' as const,
+        label: 'Animation',
+        options: [
+            { label: 'None', value: 'none' },
+            { label: 'Fade In', value: 'fade-in' },
+            { label: 'Slide Up', value: 'slide-up' },
+            { label: 'Slide Down', value: 'slide-down' },
+            { label: 'Slide Left', value: 'slide-left' },
+            { label: 'Slide Right', value: 'slide-right' },
+            { label: 'Zoom In', value: 'zoom-in' },
+            { label: 'Scale Up', value: 'scale-up' },
+        ]
+    },
+    animationDuration: {
+        type: 'select' as const,
+        label: 'Animation Speed',
+        options: [
+            { label: 'Fast', value: 'fast' },
+            { label: 'Normal', value: 'normal' },
+            { label: 'Slow', value: 'slow' },
+        ]
+    },
+    animationDelay: {
+        type: 'number' as const,
+        label: 'Animation Delay (seconds)',
+        min: 0,
+        max: 5,
+        step: 0.1
+    },
+    animationTrigger: {
+        type: 'select' as const,
+        label: 'Animation Trigger',
+        options: [
+            { label: 'On Page Load', value: 'immediate' },
+            { label: 'On Scroll Into View', value: 'scroll' },
+        ]
+    }
+};
 
 type HeroProps = {
     title: string;
@@ -33,6 +76,10 @@ type HeroProps = {
     padding: 'small' | 'medium' | 'large';
     backgroundImage?: string;
     overlay?: boolean;
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
 };
 
 type HeroCarouselProps = {
@@ -538,7 +585,8 @@ export const builderConfig: Config<{
                         { label: 'Medium', value: 'medium' },
                         { label: 'Large', value: 'large' }
                     ]
-                }
+                },
+                ...animationFields
             },
             defaultProps: {
                 title: 'Welcome to Our Store',
@@ -548,8 +596,12 @@ export const builderConfig: Config<{
                 align: 'center',
                 padding: 'medium',
                 overlay: false,
+                animationType: 'fade-in',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
             },
-            render: ({ title, subtitle, ctaText, ctaLink, align, padding, backgroundImage, overlay }) => {
+            render: ({ title, subtitle, ctaText, ctaLink, align, padding, backgroundImage, overlay, animationType, animationDuration, animationDelay, animationTrigger }) => {
                 const paddingClass = {
                     small: 'py-12',
                     medium: 'py-24',
@@ -557,28 +609,37 @@ export const builderConfig: Config<{
                 }[padding];
 
                 return (
-                    <section className={cn("relative", paddingClass)} style={backgroundImage ? {
-                        backgroundImage: `url(${backgroundImage})`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                    } : {}}>
-                        {overlay && backgroundImage && (
-                            <div className="absolute inset-0 bg-black/40" />
-                        )}
-                        <div className={cn("container px-4 md:px-6 flex flex-col gap-4 relative z-10", {
-                            'items-start text-left': align === 'left',
-                            'items-center text-center': align === 'center',
-                            'items-end text-right': align === 'right',
-                        }, {
-                            'text-white': backgroundImage && overlay
-                        })}>
-                            <h1 className="text-4xl md:text-6xl font-bold tracking-tighter">{title}</h1>
-                            <p className="text-xl max-w-[700px] opacity-90">{subtitle}</p>
-                            <ThemedButton colorRole="primary" size="lg" asChild>
-                                <Link href={ctaLink}>{ctaText}</Link>
-                            </ThemedButton>
-                        </div>
-                    </section>
+                    <AnimatedWrapper
+                        animation={{
+                            type: animationType as any,
+                            duration: animationDuration as any,
+                            delay: animationDelay,
+                            trigger: animationTrigger as any,
+                        }}
+                    >
+                        <section className={cn("relative", paddingClass)} style={backgroundImage ? {
+                            backgroundImage: `url(${backgroundImage})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                        } : {}}>
+                            {overlay && backgroundImage && (
+                                <div className="absolute inset-0 bg-black/40" />
+                            )}
+                            <div className={cn("container px-4 md:px-6 flex flex-col gap-4 relative z-10", {
+                                'items-start text-left': align === 'left',
+                                'items-center text-center': align === 'center',
+                                'items-end text-right': align === 'right',
+                            }, {
+                                'text-white': backgroundImage && overlay
+                            })}>
+                                <h1 className="text-4xl md:text-6xl font-bold tracking-tighter">{title}</h1>
+                                <p className="text-xl max-w-[700px] opacity-90">{subtitle}</p>
+                                <ThemedButton colorRole="primary" size="lg" asChild>
+                                    <Link href={ctaLink}>{ctaText}</Link>
+                                </ThemedButton>
+                            </div>
+                        </section>
+                    </AnimatedWrapper>
                 );
             }
         },
@@ -638,26 +699,40 @@ export const builderConfig: Config<{
                         { label: 'Center', value: 'center' },
                         { label: 'Right', value: 'right' }
                     ]
-                }
+                },
+                ...animationFields
             },
             defaultProps: {
                 title: 'About Us',
                 content: 'Write something about your brand here.',
-                align: 'left'
+                align: 'left',
+                animationType: 'fade-in',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
             },
-            render: ({ title, content, align }) => (
-                <section className="py-12 container px-4 md:px-6">
-                    <div className={cn("max-w-3xl mx-auto", {
-                        'text-left': align === 'left',
-                        'text-center': align === 'center',
-                        'text-right': align === 'right',
-                    })}>
-                        {title && <h2 className="text-3xl font-bold mb-4">{title}</h2>}
-                        <div className="prose dark:prose-invert max-w-none">
-                            <p className="text-lg whitespace-pre-wrap">{content}</p>
+            render: ({ title, content, align, animationType, animationDuration, animationDelay, animationTrigger }) => (
+                <AnimatedWrapper
+                    animation={{
+                        type: animationType as any,
+                        duration: animationDuration as any,
+                        delay: animationDelay,
+                        trigger: animationTrigger as any,
+                    }}
+                >
+                    <section className="py-12 container px-4 md:px-6">
+                        <div className={cn("max-w-3xl mx-auto", {
+                            'text-left': align === 'left',
+                            'text-center': align === 'center',
+                            'text-right': align === 'right',
+                        })}>
+                            {title && <h2 className="text-3xl font-bold mb-4">{title}</h2>}
+                            <div className="prose dark:prose-invert max-w-none">
+                                <p className="text-lg whitespace-pre-wrap">{content}</p>
+                            </div>
                         </div>
-                    </div>
-                </section>
+                    </section>
+                </AnimatedWrapper>
             )
         },
         Image: {
@@ -681,14 +756,19 @@ export const builderConfig: Config<{
                         { label: '4:3', value: '4/3' },
                         { label: '1:1', value: '1/1' }
                     ]
-                }
+                },
+                ...animationFields
             },
             defaultProps: {
                 src: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30',
                 alt: 'Product image',
-                aspectRatio: '16/9'
+                aspectRatio: '16/9',
+                animationType: 'zoom-in',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
             },
-            render: ({ src, alt, aspectRatio, link }) => {
+            render: ({ src, alt, aspectRatio, link, animationType, animationDuration, animationDelay, animationTrigger }) => {
                 const imageElement = (
                     <div
                         className="relative w-full overflow-hidden rounded-lg bg-muted"
@@ -704,13 +784,22 @@ export const builderConfig: Config<{
                 );
 
                 return (
-                    <section className="py-8 container px-4 md:px-6">
-                        {link ? (
-                            <Link href={link} className="block hover:opacity-90 transition-opacity">
-                                {imageElement}
-                            </Link>
-                        ) : imageElement}
-                    </section>
+                    <AnimatedWrapper
+                        animation={{
+                            type: animationType as any,
+                            duration: animationDuration as any,
+                            delay: animationDelay,
+                            trigger: animationTrigger as any,
+                        }}
+                    >
+                        <section className="py-8 container px-4 md:px-6">
+                            {link ? (
+                                <Link href={link} className="block hover:opacity-90 transition-opacity">
+                                    {imageElement}
+                                </Link>
+                            ) : imageElement}
+                        </section>
+                    </AnimatedWrapper>
                 );
             }
         },
@@ -929,7 +1018,8 @@ export const builderConfig: Config<{
                             ]
                         }
                     }
-                }
+                },
+                ...animationFields
             },
             defaultProps: {
                 title: 'Why Choose Us',
@@ -938,9 +1028,13 @@ export const builderConfig: Config<{
                     { title: 'Premium Quality', description: 'We use only the finest materials.', icon: 'award' },
                     { title: 'Fast Shipping', description: 'Get your order in 2-3 business days.', icon: 'truck' },
                     { title: '24/7 Support', description: 'We are here to help anytime.', icon: 'clock' }
-                ]
+                ],
+                animationType: 'slide-up',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
             },
-            render: ({ title, subtitle, features, columns = 3 }) => {
+            render: ({ title, subtitle, features, columns = 3, animationType, animationDuration, animationDelay, animationTrigger }) => {
                 const iconMap: Record<string, any> = {
                     check: Check,
                     truck: Truck,
@@ -952,26 +1046,35 @@ export const builderConfig: Config<{
                 };
 
                 return (
-                    <section className="py-12 container px-4 md:px-6 bg-muted/30">
-                        <div className="text-center mb-12">
-                            <h2 className="text-3xl font-bold mb-4">{title}</h2>
-                            {subtitle && <p className="text-lg text-muted-foreground max-w-2xl mx-auto">{subtitle}</p>}
-                        </div>
-                        <div className={`grid grid-cols-1 md:grid-cols-${columns} gap-8`}>
-                            {features.map((feature, i) => {
-                                const IconComponent = iconMap[feature.icon as string] || Check;
-                                return (
-                                    <div key={i} className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm">
-                                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary">
-                                            <IconComponent className="w-6 h-6" />
+                    <AnimatedWrapper
+                        animation={{
+                            type: animationType as any,
+                            duration: animationDuration as any,
+                            delay: animationDelay,
+                            trigger: animationTrigger as any,
+                        }}
+                    >
+                        <section className="py-12 container px-4 md:px-6 bg-muted/30">
+                            <div className="text-center mb-12">
+                                <h2 className="text-3xl font-bold mb-4">{title}</h2>
+                                {subtitle && <p className="text-lg text-muted-foreground max-w-2xl mx-auto">{subtitle}</p>}
+                            </div>
+                            <div className={`grid grid-cols-1 md:grid-cols-${columns} gap-8`}>
+                                {features.map((feature, i) => {
+                                    const IconComponent = iconMap[feature.icon as string] || Check;
+                                    return (
+                                        <div key={i} className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm">
+                                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary">
+                                                <IconComponent className="w-6 h-6" />
+                                            </div>
+                                            <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                                            <p className="text-muted-foreground">{feature.description}</p>
                                         </div>
-                                        <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                                        <p className="text-muted-foreground">{feature.description}</p>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </section>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    </AnimatedWrapper>
                 );
             }
         },

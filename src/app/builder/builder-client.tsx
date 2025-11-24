@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { useRouter } from 'next/navigation';
 import { GeminiCommandBar } from '@/components/builder/gemini-command-bar';
+import { InlineContextMenu } from '@/components/builder/inline-context-menu';
 import { defaultTheme, ThemeConfiguration } from '@/lib/theme-config';
 import { applyTheme } from '@/lib/theme-manager';
 import { ThemeEditor } from '@/components/builder/theme-editor-redesigned';
@@ -112,6 +113,8 @@ export default function BuilderClient() {
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
     const [isAiLoading, setIsAiLoading] = useState(false);
+    const [showFieldsSidebar, setShowFieldsSidebar] = useState(false);
+    const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
     const { toast } = useToast();
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
@@ -372,6 +375,68 @@ export default function BuilderClient() {
                         products: []
                     }}
                     overrides={{
+                        componentOverlay: ({ children, componentId, componentType, isSelected }: any) => {
+                            // Get component index to determine if it can move up/down
+                            const componentIndex = data.content?.findIndex((c: any) => c.props?.id === componentId) ?? -1;
+                            const canMoveUp = componentIndex > 0;
+                            const canMoveDown = componentIndex >= 0 && componentIndex < (data.content?.length ?? 0) - 1;
+
+                            return (
+                                <div className="relative">
+                                    {children}
+                                    {isSelected && (
+                                        <InlineContextMenu
+                                            componentId={componentId}
+                                            componentType={componentType}
+                                            onEdit={() => {
+                                                setShowFieldsSidebar(true);
+                                                setSelectedComponentId(componentId);
+                                            }}
+                                            onDuplicate={() => {
+                                                // Find the component and duplicate it
+                                                const componentToDuplicate = data.content?.find((c: any) => c.props?.id === componentId);
+                                                if (componentToDuplicate) {
+                                                    const newComponent = {
+                                                        ...componentToDuplicate,
+                                                        props: {
+                                                            ...componentToDuplicate.props,
+                                                            id: `${componentToDuplicate.type}-${Date.now()}`
+                                                        }
+                                                    };
+                                                    const newContent = [...(data.content || [])];
+                                                    newContent.splice(componentIndex + 1, 0, newComponent);
+                                                    setData({ ...data, content: newContent });
+                                                }
+                                            }}
+                                            onDelete={() => {
+                                                if (confirm(`Delete this ${componentType} component?`)) {
+                                                    const newContent = data.content?.filter((c: any) => c.props?.id !== componentId) || [];
+                                                    setData({ ...data, content: newContent });
+                                                }
+                                            }}
+                                            onMoveUp={() => {
+                                                if (canMoveUp) {
+                                                    const newContent = [...(data.content || [])];
+                                                    [newContent[componentIndex - 1], newContent[componentIndex]] =
+                                                        [newContent[componentIndex], newContent[componentIndex - 1]];
+                                                    setData({ ...data, content: newContent });
+                                                }
+                                            }}
+                                            onMoveDown={() => {
+                                                if (canMoveDown) {
+                                                    const newContent = [...(data.content || [])];
+                                                    [newContent[componentIndex], newContent[componentIndex + 1]] =
+                                                        [newContent[componentIndex + 1], newContent[componentIndex]];
+                                                    setData({ ...data, content: newContent });
+                                                }
+                                            }}
+                                            canMoveUp={canMoveUp}
+                                            canMoveDown={canMoveDown}
+                                        />
+                                    )}
+                                </div>
+                            );
+                        },
                         drawer: ({ children }: any) => {
                             // Get all components from all categories (deduplicated)
                             const allComponents: string[] = [];
@@ -576,6 +641,26 @@ export default function BuilderClient() {
                                         margin-top: 0.625rem;
                                         text-align: center;
                                     }
+
+                                    /* Hide default Puck action bar since we're using inline menu */
+                                    .Puck-actionBar {
+                                        display: none !important;
+                                    }
+
+                                    /* Improve component overlay styling */
+                                    .Puck-overlay {
+                                        pointer-events: none;
+                                    }
+                                    
+                                    .Puck-overlay--isSelected {
+                                        border: 2px solid hsl(var(--primary)) !important;
+                                        box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1) !important;
+                                    }
+
+                                    /* Ensure inline menu is clickable */
+                                    .Puck-overlay > div {
+                                        pointer-events: auto;
+                                    }
                                 `}} />
                                 <Puck.Components />
                             </BuilderSidebar>
@@ -586,9 +671,8 @@ export default function BuilderClient() {
                                     <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
                                         <button
                                             onClick={() => setViewportWidth(375)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
-                                                viewportWidth === 375 ? 'bg-white shadow-sm' : 'hover:bg-white'
-                                            }`}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 375 ? 'bg-white shadow-sm' : 'hover:bg-white'
+                                                }`}
                                             title="Mobile Portrait (375px)"
                                         >
                                             <Smartphone className="w-4 h-4 text-primary" />
@@ -596,9 +680,8 @@ export default function BuilderClient() {
                                         </button>
                                         <button
                                             onClick={() => setViewportWidth(768)}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
-                                                viewportWidth === 768 ? 'bg-white shadow-sm' : 'hover:bg-white'
-                                            }`}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 768 ? 'bg-white shadow-sm' : 'hover:bg-white'
+                                                }`}
                                             title="Tablet (768px)"
                                         >
                                             <Tablet className="w-4 h-4 text-primary" />
@@ -606,9 +689,8 @@ export default function BuilderClient() {
                                         </button>
                                         <button
                                             onClick={() => setViewportWidth('100%')}
-                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
-                                                viewportWidth === '100%' ? 'bg-white shadow-sm' : 'hover:bg-white'
-                                            }`}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === '100%' ? 'bg-white shadow-sm' : 'hover:bg-white'
+                                                }`}
                                             title="Desktop (1440px)"
                                         >
                                             <Monitor className="w-4 h-4 text-primary" />
@@ -632,11 +714,27 @@ export default function BuilderClient() {
                             </div>
 
                             {/* Right Sidebar - Component Properties */}
-                            <div className="w-[320px] bg-white border-l flex flex-col h-full overflow-hidden">
-                                <div className="flex-1 overflow-y-auto">
-                                    <Puck.Fields />
+                            {showFieldsSidebar && (
+                                <div className="w-[320px] bg-white border-l flex flex-col h-full overflow-hidden animate-in slide-in-from-right duration-200">
+                                    <div className="flex items-center justify-between p-3 border-b bg-gray-50">
+                                        <h3 className="text-sm font-semibold text-gray-700">Properties</h3>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-7 w-7 p-0"
+                                            onClick={() => setShowFieldsSidebar(false)}
+                                        >
+                                            <span className="sr-only">Close</span>
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                            </svg>
+                                        </Button>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto">
+                                        <Puck.Fields />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
                 </Puck>
