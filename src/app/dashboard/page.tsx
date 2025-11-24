@@ -16,7 +16,7 @@ import {
   ArrowUp,
   ArrowDown,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -122,15 +122,59 @@ function PercentageChange({ value, timeFrame }: { value: number; timeFrame: 'wee
 
 // --- Main Component ---
 
+interface AnalyticsData {
+  summary: {
+    revenue: { value: number; change: number };
+    customers: { value: number; change: number };
+    sales: { value: number; change: number };
+    activeNow: { value: number; change: number };
+  };
+  chartData: Array<any>;
+  recentSales: Array<{
+    id: string;
+    name: string;
+    email: string;
+    amount: number;
+    avatar: string;
+  }>;
+}
+
 export default function DashboardPage() {
   const { merchant, loading: merchantLoading } = useMerchant();
   const { toast } = useToast();
   const router = useRouter();
   const [timeFrame, setTimeFrame] = useState<'monthly' | 'weekly'>('weekly');
   const { openAddProductDialog } = useProductContext();
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
-  const currentSummary = summaryData[timeFrame];
-  const currentChartData = timeFrame === 'monthly' ? monthlyChartData : weeklyChartData;
+  // Fetch analytics data
+  useEffect(() => {
+    async function fetchAnalytics() {
+      if (!merchant) return;
+
+      setLoadingAnalytics(true);
+      try {
+        const response = await fetch(`/api/analytics?timeFrame=${timeFrame}`);
+        if (response.ok) {
+          const data = await response.json();
+          setAnalytics(data);
+        } else {
+          console.error('Failed to fetch analytics');
+        }
+      } catch (error) {
+        console.error('Error fetching analytics:', error);
+      } finally {
+        setLoadingAnalytics(false);
+      }
+    }
+
+    fetchAnalytics();
+  }, [merchant, timeFrame]);
+
+  const currentSummary = analytics?.summary || summaryData[timeFrame];
+  const currentChartData = analytics?.chartData || (timeFrame === 'monthly' ? monthlyChartData : weeklyChartData);
+  const currentRecentSales = analytics?.recentSales || recentSales;
   
   const getStoreUrl = () => {
     if (!merchant?.slug) return { displayUrl: '', fullUrl: '' };
@@ -371,15 +415,18 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Recent Sales</CardTitle>
             <CardDescription>
-              You made 265 sales this month.
+              {analytics ? `You made ${currentSummary.sales.value} sales this ${timeFrame === 'weekly' ? 'week' : 'month'}.` : 'Loading sales...'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentSales.map((sale) => {
+              {currentRecentSales.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-8">No sales yet</p>
+              ) : (
+                currentRecentSales.map((sale) => {
                  const avatar = PlaceHolderImages.find(img => img.id === sale.avatar);
                  return (
-                    <Link href={`/product/${sale.id}`} key={sale.id} className="flex items-center hover:bg-muted/50 p-2 rounded-lg -m-2" target="_blank">
+                    <Link href={`/dashboard/orders/${sale.id}`} key={sale.id} className="flex items-center hover:bg-muted/50 p-2 rounded-lg -m-2">
                         <Avatar className="h-9 w-9">
                         {avatar && (
                             <AvatarImage
@@ -401,7 +448,7 @@ export default function DashboardPage() {
                         <div className="ml-auto font-medium">{formatCurrency(sale.amount)}</div>
                     </Link>
                 )
-              })}
+              }))}
             </div>
           </CardContent>
         </Card>
