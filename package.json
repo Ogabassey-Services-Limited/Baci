@@ -62,7 +62,7 @@
     "react-dom": "19.2.0",
     "react-dropzone": "^14.3.8",
     "react-hook-form": "7.55.0",
-    "recharts": "^2.15.1",
+    "recharts": "^3.5.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.0",
     "whois-json": "^2.0.4",
