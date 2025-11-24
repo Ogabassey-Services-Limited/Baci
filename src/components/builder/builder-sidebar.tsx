@@ -25,15 +25,16 @@ interface SidebarProps {
     outline?: React.ReactNode;
     seoPanel?: React.ReactNode;
     storePanel?: React.ReactNode;
+    setupPanel?: React.ReactNode;
 }
 
 type ActiveTab = 'elements' | 'pages' | 'styles' | 'ai' | 'store' | 'seo' | 'more' | 'setup' | null;
 
-export function BuilderSidebar({ children, themeEditor, aiTools, outline, seoPanel, storePanel }: SidebarProps) {
+export function BuilderSidebar({ children, themeEditor, aiTools, outline, seoPanel, storePanel, setupPanel }: SidebarProps) {
     const [activeTab, setActiveTab] = useState<ActiveTab>('elements');
 
     const menuItems = [
-        { id: 'setup', icon: Settings, label: 'Setup', disabled: true },
+        { id: 'setup', icon: Settings, label: 'Setup' },
         { id: 'elements', icon: PlusCircle, label: 'Elements' },
         { id: 'pages', icon: Layers, label: 'Pages' },
         { id: 'styles', icon: Palette, label: 'Styles' },
@@ -88,6 +89,7 @@ export function BuilderSidebar({ children, themeEditor, aiTools, outline, seoPan
                     {/* Drawer Header */}
                     <div className="h-14 px-4 border-b flex items-center justify-between shrink-0">
                         <h2 className="font-semibold text-lg">
+                            {activeTab === 'setup' && 'Setup & Settings'}
                             {activeTab === 'elements' && 'Add elements'}
                             {activeTab === 'styles' && 'Website styles'}
                             {activeTab === 'ai' && 'AI Tools'}
@@ -108,6 +110,12 @@ export function BuilderSidebar({ children, themeEditor, aiTools, outline, seoPan
 
                     {/* Drawer Content */}
                     <div className="flex-1 overflow-hidden">
+                        {activeTab === 'setup' && (
+                            <div className="h-full overflow-hidden">
+                                {setupPanel}
+                            </div>
+                        )}
+
                         {activeTab === 'elements' && (
                             <div className="h-full overflow-y-auto p-4">
                                 {children}

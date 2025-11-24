@@ -23,6 +23,7 @@ import { ThemeEditor } from '@/components/builder/theme-editor-redesigned';
 import { BuilderSidebar } from '@/components/builder/builder-sidebar';
 import { SEOPanel, SEOData } from '@/components/builder/seo-panel';
 import { StoreSettingsPanel, StoreSettings } from '@/components/builder/store-settings-panel';
+import { SetupPanel, SetupSettings } from '@/components/builder/setup-panel';
 import { useAuth } from '@/contexts/auth-context';
 import { useMerchant } from '@/hooks/use-merchant';
 
@@ -92,6 +93,19 @@ export default function BuilderClient() {
             privacyPolicy: '',
         },
     });
+    const [setupSettings, setSetupSettings] = useState<SetupSettings>({
+        site: {
+            title: 'My Store',
+            tagline: 'Premium products at affordable prices',
+            currency: 'USD',
+            timezone: 'America/New_York',
+            language: 'en',
+            units: 'imperial',
+        },
+        social: {},
+        analytics: {},
+        customCode: {},
+    });
     const [pageLoading, setPageLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [publishing, setPublishing] = useState(false);
@@ -145,6 +159,16 @@ export default function BuilderClient() {
                             keywords: '',
                             twitterCard: 'summary_large_image'
                         });
+                    }
+
+                    // Load Store Settings if they exist
+                    if (json.storeSettings) {
+                        setStoreSettings(json.storeSettings);
+                    }
+
+                    // Load Setup Settings if they exist
+                    if (json.setupSettings) {
+                        setSetupSettings(json.setupSettings);
                     }
 
                     if (json.config.theme) {
@@ -201,7 +225,9 @@ export default function BuilderClient() {
                     slug: 'home',
                     name: 'Home',
                     config: newData,
-                    seo: seoData
+                    seo: seoData,
+                    storeSettings: storeSettings,
+                    setupSettings: setupSettings
                 })
             });
         } catch (error) {
@@ -421,10 +447,6 @@ export default function BuilderClient() {
                                 </Button>
                                 <div className="flex items-center gap-2 ml-2">
                                     <span className="font-semibold text-lg">Website Builder</span>
-                                    <div className="h-4 w-px bg-border mx-2" />
-                                    <span className="text-sm text-muted-foreground hidden sm:inline-block">
-                                        {data.root?.title || 'Home'}
-                                    </span>
                                 </div>
                             </div>
 
@@ -497,6 +519,12 @@ export default function BuilderClient() {
                                         onChange={setStoreSettings}
                                     />
                                 }
+                                setupPanel={
+                                    <SetupPanel
+                                        settings={setupSettings}
+                                        onChange={setSetupSettings}
+                                    />
+                                }
                             >
                                 <style dangerouslySetInnerHTML={{
                                     __html: `
@@ -548,9 +576,48 @@ export default function BuilderClient() {
                                 <Puck.Components />
                             </BuilderSidebar>
 
-                            <div className="flex-1 relative bg-accent/5 flex flex-col">
-                                <div className="flex-1 overflow-y-auto p-2 pb-24">
-                                    <div className="min-h-full bg-white shadow-sm mx-auto">
+                            <div className="flex-1 relative bg-accent/5 flex flex-col overflow-hidden">
+                                {/* Viewport Controls - Above Canvas */}
+                                <div className="h-12 bg-white border-b flex items-center justify-center gap-2 px-4 shrink-0">
+                                    <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+                                        <button
+                                            onClick={() => {
+                                                const iframe = document.querySelector('.Puck-portal iframe') as HTMLIFrameElement;
+                                                if (iframe) iframe.style.width = '375px';
+                                            }}
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-white transition-colors text-sm"
+                                            title="Mobile Portrait (375px)"
+                                        >
+                                            <Smartphone className="w-4 h-4 text-primary" />
+                                            <span className="text-xs font-medium">Mobile</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                const iframe = document.querySelector('.Puck-portal iframe') as HTMLIFrameElement;
+                                                if (iframe) iframe.style.width = '768px';
+                                            }}
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-white transition-colors text-sm"
+                                            title="Tablet (768px)"
+                                        >
+                                            <Tablet className="w-4 h-4 text-primary" />
+                                            <span className="text-xs font-medium">Tablet</span>
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                const iframe = document.querySelector('.Puck-portal iframe') as HTMLIFrameElement;
+                                                if (iframe) iframe.style.width = '100%';
+                                            }}
+                                            className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-white transition-colors text-sm"
+                                            title="Desktop (1440px)"
+                                        >
+                                            <Monitor className="w-4 h-4 text-primary" />
+                                            <span className="text-xs font-medium">Desktop</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-2">
+                                    <div className="h-full bg-white shadow-sm mx-auto">
                                         <Puck.Preview />
                                     </div>
                                 </div>

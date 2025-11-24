@@ -523,9 +523,9 @@ export function StoreSettingsPanel({ settings, onChange }: StoreSettingsPanelPro
                 </Card>
 
                 {/* Tips */}
-                <Card className="p-4 bg-blue-50 border-blue-200">
+                <Card className="p-4 bg-primary/5 border-primary/20">
                     <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-blue-600" />
+                        <AlertCircle className="w-4 h-4 text-primary" />
                         Store Settings Tips
                     </h4>
                     <ul className="text-xs space-y-1.5 text-muted-foreground">

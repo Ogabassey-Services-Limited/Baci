@@ -153,11 +153,11 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
                 {/* Google Search Preview */}
                 <Card className="p-4">
                     <div className="flex items-center gap-2 mb-3">
-                        <Globe className="w-4 h-4 text-blue-600" />
+                        <Globe className="w-4 h-4 text-primary" />
                         <h3 className="font-medium">Google Search Preview</h3>
                     </div>
                     <div className="bg-white border rounded-lg p-3 space-y-1">
-                        <div className="text-sm text-blue-600 hover:underline cursor-pointer">
+                        <div className="text-sm text-primary hover:underline cursor-pointer">
                             {data.title || 'Your Page Title'}
                         </div>
                         <div className="text-xs text-green-700">
@@ -237,7 +237,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
                 {(data.ogTitle || data.title) && (
                     <Card className="p-4">
                         <div className="flex items-center gap-2 mb-3">
-                            <Share2 className="w-4 h-4 text-blue-500" />
+                            <Share2 className="w-4 h-4 text-primary" />
                             <h3 className="font-medium">Social Share Preview</h3>
                         </div>
                         <div className="border rounded-lg overflow-hidden bg-white">
@@ -297,9 +297,9 @@ ${data.ogImage ? `<meta name="twitter:image" content="${data.ogImage}" />` : ''}
                 </Card>
 
                 {/* SEO Tips */}
-                <Card className="p-4 bg-blue-50 border-blue-200">
+                <Card className="p-4 bg-primary/5 border-primary/20">
                     <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-blue-600" />
+                        <AlertCircle className="w-4 h-4 text-primary" />
                         SEO Tips
                     </h4>
                     <ul className="text-xs space-y-1.5 text-muted-foreground">

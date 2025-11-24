@@ -71,6 +71,8 @@ export async function GET(request: Request) {
         return NextResponse.json({
             config: configToEdit,
             seo: pageConfig?.draft_seo || null,
+            storeSettings: pageConfig?.draft_store_settings || null,
+            setupSettings: pageConfig?.draft_setup_settings || null,
             publishedConfig: pageConfig?.published_config || null,
             isPublished: pageConfig?.is_published || false,
             isDefault: isDefault,
@@ -81,6 +83,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
         config: configToEdit,
         seo: pageConfig?.draft_seo || null,
+        storeSettings: pageConfig?.draft_store_settings || null,
+        setupSettings: pageConfig?.draft_setup_settings || null,
         publishedConfig: pageConfig?.published_config || null,
         isPublished: pageConfig?.is_published || false,
         isDefault: isDefault,
@@ -89,7 +93,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-    const { slug, config, name, seo } = await request.json();
+    const { slug, config, name, seo, storeSettings, setupSettings } = await request.json();
     const cookieStore = await cookies();
 
     const supabase = createServerClient(
@@ -128,6 +132,8 @@ export async function POST(request: Request) {
             page_name: name || 'Home',
             draft_config: config,
             draft_seo: seo,
+            draft_store_settings: storeSettings,
+            draft_setup_settings: setupSettings,
             updated_at: new Date().toISOString()
         }, {
             onConflict: 'merchant_id,page_slug'
@@ -186,12 +192,14 @@ export async function PUT(request: Request) {
         });
     }
 
-    // 2. Update page_config to set published_config = draft_config and published_seo = draft_seo
+    // 2. Update page_config to publish all draft settings
     const { error } = await supabase
         .from('page_configs')
         .update({
             published_config: currentConfig.draft_config,
             published_seo: currentConfig.draft_seo,
+            published_store_settings: currentConfig.draft_store_settings,
+            published_setup_settings: currentConfig.draft_setup_settings,
             is_published: true,
             published_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
