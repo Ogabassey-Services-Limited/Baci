@@ -13,7 +13,8 @@ import {
     MessageSquare,
     Settings,
     PlusCircle,
-    Layers
+    Layers,
+    Image as ImageIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -26,16 +27,18 @@ interface SidebarProps {
     seoPanel?: React.ReactNode;
     storePanel?: React.ReactNode;
     setupPanel?: React.ReactNode;
+    mediaPanel?: React.ReactNode;
 }
 
-type ActiveTab = 'elements' | 'pages' | 'styles' | 'ai' | 'store' | 'seo' | 'more' | 'setup' | null;
+type ActiveTab = 'elements' | 'pages' | 'styles' | 'ai' | 'store' | 'seo' | 'media' | 'more' | 'setup' | null;
 
-export function BuilderSidebar({ children, themeEditor, aiTools, outline, seoPanel, storePanel, setupPanel }: SidebarProps) {
+export function BuilderSidebar({ children, themeEditor, aiTools, outline, seoPanel, storePanel, setupPanel, mediaPanel }: SidebarProps) {
     const [activeTab, setActiveTab] = useState<ActiveTab>('elements');
 
     const menuItems = [
         { id: 'setup', icon: Settings, label: 'Setup' },
         { id: 'elements', icon: PlusCircle, label: 'Elements' },
+        { id: 'media', icon: ImageIcon, label: 'Media' },
         { id: 'pages', icon: Layers, label: 'Pages' },
         { id: 'styles', icon: Palette, label: 'Styles' },
         { id: 'ai', icon: Sparkles, label: 'AI tools' },
@@ -91,6 +94,7 @@ export function BuilderSidebar({ children, themeEditor, aiTools, outline, seoPan
                         <h2 className="font-semibold text-lg">
                             {activeTab === 'setup' && 'Setup & Settings'}
                             {activeTab === 'elements' && 'Add elements'}
+                            {activeTab === 'media' && 'Media Library'}
                             {activeTab === 'styles' && 'Website styles'}
                             {activeTab === 'ai' && 'AI Tools'}
                             {activeTab === 'pages' && 'Pages and navigation'}
@@ -119,6 +123,12 @@ export function BuilderSidebar({ children, themeEditor, aiTools, outline, seoPan
                         {activeTab === 'elements' && (
                             <div className="h-full overflow-y-auto p-4">
                                 {children}
+                            </div>
+                        )}
+
+                        {activeTab === 'media' && (
+                            <div className="h-full overflow-hidden">
+                                {mediaPanel}
                             </div>
                         )}
 

@@ -24,6 +24,7 @@ import { BuilderSidebar } from '@/components/builder/builder-sidebar';
 import { SEOPanel, SEOData } from '@/components/builder/seo-panel';
 import { StoreSettingsPanel, StoreSettings } from '@/components/builder/store-settings-panel';
 import { SetupPanel, SetupSettings } from '@/components/builder/setup-panel';
+import { MediaLibrary } from '@/components/builder/media-library';
 import { useAuth } from '@/contexts/auth-context';
 import { useMerchant } from '@/hooks/use-merchant';
 
@@ -543,6 +544,9 @@ export default function BuilderClient() {
                                         settings={setupSettings}
                                         onChange={setSetupSettings}
                                     />
+                                }
+                                mediaPanel={
+                                    <MediaLibrary />
                                 }
                             >
                                 <style dangerouslySetInnerHTML={{
