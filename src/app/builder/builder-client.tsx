@@ -651,11 +651,27 @@ export default function BuilderClient() {
                                     }
                                     
                                     /* Hide the Puck component label button that overlaps */
+                                    /* Hide the Puck component label button that overlaps */
                                     .Puck-badge,
                                     [class*="Puck-badge"],
                                     [class*="ComponentLabel"],
                                     [class*="OverlayLabel"] {
                                         display: none !important;
+                                    }
+
+                                    /* Hide ActionBar visually but keep it in DOM to prevent drag errors */
+                                    [class*="ActionBar"],
+                                    [class*="_ActionBar_"],
+                                    [class*="_ActionBar-label_"] {
+                                        opacity: 0 !important;
+                                        pointer-events: none !important;
+                                        height: 0 !important;
+                                        width: 0 !important;
+                                        overflow: hidden !important;
+                                        margin: 0 !important;
+                                        padding: 0 !important;
+                                        min-height: 0 !important;
+                                        border: none !important;
                                     }
 
                                     /* Improve component overlay styling */

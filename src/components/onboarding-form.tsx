@@ -156,24 +156,14 @@ function Step2_Branding() {
         try {
           const palette = colorThief.getPalette(img, 5); // Extract 5 colors to find a good background
 
-          // Find the lightest color for the background
-          const lightestColor = palette.reduce((lightest, current) => {
-            const l1 = colord(`rgb(${lightest[0]}, ${lightest[1]}, ${lightest[2]})`).luminance();
-            const l2 = colord(`rgb(${current[0]}, ${current[1]}, ${current[2]})`).luminance();
-            return l2 > l1 ? current : lightest;
-          });
-
-          // Filter out the lightest color to find primary and accent
-          const remainingColors = palette.filter(c => c !== lightestColor);
-
-          const primaryRgb = remainingColors[0] || [0, 0, 0];
-          const accentRgb = remainingColors[1] || primaryRgb;
+          const primaryRgb = palette[0] || [0, 0, 0];
+          const accentRgb = palette[1] || primaryRgb;
 
           const toHex = (rgb: number[]) => `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`;
 
           resolve({
             primary: toHex(primaryRgb),
-            background: toHex(lightestColor),
+            background: '#FFFFFF',
             accent: toHex(accentRgb)
           });
 
@@ -264,7 +254,7 @@ function Step2_Branding() {
         <div className='mt-6 animate-fade-in space-y-4'>
           <div className="flex items-center justify-between">
             <div className='text-sm text-muted-foreground font-medium'>Customize Your Brand Colors</div>
-            <Button variant="outline" size="sm" onClick={handleShuffleColors} disabled={isLoading}>
+            <Button type="button" variant="outline" size="sm" onClick={handleShuffleColors} disabled={isLoading}>
               <Shuffle className="mr-2 h-3 w-3" />
               Shuffle
             </Button>
@@ -276,15 +266,15 @@ function Step2_Branding() {
                   <PopoverTrigger asChild>
                     <button
                       type="button"
-                      className="w-12 h-12 rounded-full border-2 cursor-pointer relative group focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      className="w-12 h-12 rounded-full border-2 cursor-pointer relative group focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 overflow-hidden"
                       aria-label={`Edit ${role} color`}
                     >
                       <div
                         className="w-full h-full rounded-full"
                         style={{ backgroundColor: brandColors[role] }}
                       />
-                      <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Pencil className="w-5 h-5 text-white" />
+                      <div className="absolute inset-0 bg-black/10 rounded-full flex items-center justify-center">
+                        <Pencil className="w-4 h-4 text-white drop-shadow-md" />
                       </div>
                     </button>
                   </PopoverTrigger>

@@ -20,7 +20,7 @@ interface ThemeEditorProps {
  * Inspired by professional website builders
  */
 export function ThemeEditor({ theme, onChange, onReset }: ThemeEditorProps) {
-    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['colors']));
+    const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['colors', 'borders', 'spacing', 'shadows']));
 
     const toggleSection = (section: string) => {
         const newExpanded = new Set(expandedSections);
@@ -214,9 +214,29 @@ export function ThemeEditor({ theme, onChange, onReset }: ThemeEditorProps) {
                     isExpanded={expandedSections.has('spacing')}
                     onToggle={() => toggleSection('spacing')}
                 >
-                    <div className="space-y-3">
-                        <div>
-                            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Header</h4>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Global Scale</h4>
+                            <div className="grid grid-cols-2 gap-2">
+                                <TextInput
+                                    label="Base (MD)"
+                                    value={theme.spacing.md}
+                                    onChange={(v) => updateColor(['spacing', 'md'], v)}
+                                    placeholder="1rem"
+                                    compact
+                                />
+                                <TextInput
+                                    label="Large (LG)"
+                                    value={theme.spacing.lg}
+                                    onChange={(v) => updateColor(['spacing', 'lg'], v)}
+                                    placeholder="1.5rem"
+                                    compact
+                                />
+                            </div>
+                        </div>
+
+                        <div className="pt-2 border-t space-y-2">
+                            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Header</h4>
                             <div className="grid grid-cols-2 gap-2">
                                 <TextInput
                                     label="Height"
@@ -243,29 +263,70 @@ export function ThemeEditor({ theme, onChange, onReset }: ThemeEditorProps) {
                     isExpanded={expandedSections.has('borders')}
                     onToggle={() => toggleSection('borders')}
                 >
-                    <div className="space-y-2">
-                        <div className="grid grid-cols-3 gap-2">
-                            <TextInput
-                                label="SM"
-                                value={theme.borders.radius.sm}
-                                onChange={(v) => updateColor(['borders', 'radius', 'sm'], v)}
-                                placeholder="0.25rem"
-                                compact
-                            />
-                            <TextInput
-                                label="MD"
-                                value={theme.borders.radius.md}
-                                onChange={(v) => updateColor(['borders', 'radius', 'md'], v)}
-                                placeholder="0.5rem"
-                                compact
-                            />
-                            <TextInput
-                                label="LG"
-                                value={theme.borders.radius.lg}
-                                onChange={(v) => updateColor(['borders', 'radius', 'lg'], v)}
-                                placeholder="0.75rem"
-                                compact
-                            />
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Corner Radius</h4>
+                            <div className="grid grid-cols-3 gap-2">
+                                <TextInput
+                                    label="Small"
+                                    value={theme.borders.radius.sm}
+                                    onChange={(v) => updateColor(['borders', 'radius', 'sm'], v)}
+                                    placeholder="0.25rem"
+                                    compact
+                                />
+                                <TextInput
+                                    label="Medium"
+                                    value={theme.borders.radius.md}
+                                    onChange={(v) => updateColor(['borders', 'radius', 'md'], v)}
+                                    placeholder="0.5rem"
+                                    compact
+                                />
+                                <TextInput
+                                    label="Large"
+                                    value={theme.borders.radius.lg}
+                                    onChange={(v) => updateColor(['borders', 'radius', 'lg'], v)}
+                                    placeholder="0.75rem"
+                                    compact
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                <TextInput
+                                    label="Full (Pill)"
+                                    value={theme.borders.radius.full}
+                                    onChange={(v) => updateColor(['borders', 'radius', 'full'], v)}
+                                    placeholder="9999px"
+                                    compact
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </Section>
+
+                {/* SHADOWS */}
+                <Section
+                    title="Shadows"
+                    isExpanded={expandedSections.has('shadows')}
+                    onToggle={() => toggleSection('shadows')}
+                >
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Elevation</h4>
+                            <div className="space-y-2">
+                                <TextInput
+                                    label="Small"
+                                    value={theme.shadows.sm}
+                                    onChange={(v) => updateColor(['shadows', 'sm'], v)}
+                                    placeholder="0 1px 2px 0 rgb(0 0 0 / 0.05)"
+                                    compact
+                                />
+                                <TextInput
+                                    label="Medium"
+                                    value={theme.shadows.md}
+                                    onChange={(v) => updateColor(['shadows', 'md'], v)}
+                                    placeholder="0 4px 6px -1px..."
+                                    compact
+                                />
+                            </div>
                         </div>
                     </div>
                 </Section>

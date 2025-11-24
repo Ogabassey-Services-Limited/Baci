@@ -98,6 +98,10 @@ type TextProps = {
     title?: string;
     content: string;
     align: 'left' | 'center' | 'right';
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
 };
 
 type ImageProps = {
@@ -105,6 +109,10 @@ type ImageProps = {
     alt: string;
     aspectRatio: 'auto' | '16/9' | '4/3' | '1/1';
     link?: string;
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
 };
 
 type ButtonProps = {
@@ -136,6 +144,10 @@ type FeaturesProps = {
     subtitle?: string;
     features: { title: string; description: string; icon?: string }[];
     columns?: number;
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
 };
 
 type NewsletterProps = {
@@ -179,6 +191,12 @@ type HeaderProps = {
     backgroundColor?: string;
     textColor?: string;
     sticky?: boolean;
+    // Granular Customization Props
+    layout?: 'logo-left-nav-center' | 'logo-left-nav-right' | 'logo-center';
+    searchStyle?: 'outline' | 'filled' | 'minimal';
+    searchRadius?: 'none' | 'sm' | 'md' | 'full';
+    paddingY?: 'sm' | 'md' | 'lg';
+    glassEffect?: boolean;
 };
 
 type VideoProps = {
@@ -296,21 +314,52 @@ function CustomHeader({
     ctaButton,
     backgroundColor,
     textColor,
-    sticky
+    sticky,
+    layout = 'logo-left-nav-center',
+    searchStyle = 'outline',
+    searchRadius = 'md',
+    paddingY = 'md',
+    glassEffect = false
 }: HeaderProps) {
+    const paddingClasses = {
+        sm: 'h-14',
+        md: 'h-16',
+        lg: 'h-20'
+    };
+
+    const searchClasses = {
+        outline: 'bg-transparent border-input',
+        filled: 'bg-muted border-transparent',
+        minimal: 'bg-transparent border-transparent border-b border-input rounded-none px-0'
+    };
+
+    const radiusClasses = {
+        none: 'rounded-none',
+        sm: 'rounded-sm',
+        md: 'rounded-md',
+        full: 'rounded-full'
+    };
+
     return (
         <header
-            className={cn("px-4 lg:px-6 flex items-center gap-4 shadow-sm z-50", {
-                "sticky top-0": sticky
+            className={cn("px-4 lg:px-6 flex items-center gap-4 shadow-sm z-50 transition-all duration-300", {
+                "sticky top-0": sticky,
+                "backdrop-blur-md bg-opacity-80": glassEffect,
+                "bg-white": !glassEffect && !backgroundColor
             })}
             style={{
-                backgroundColor: backgroundColor || 'var(--theme-header-bg, #FFFFFF)',
+                backgroundColor: backgroundColor || (glassEffect ? 'rgba(255, 255, 255, 0.8)' : 'var(--theme-header-bg, #FFFFFF)'),
                 color: textColor || 'var(--theme-header-text, #000000)',
-                height: '4rem',
+                height: 'auto',
+                minHeight: paddingClasses[paddingY as keyof typeof paddingClasses] || '4rem'
             }}
         >
+            {/* Logo Section */}
             {showLogo && (
-                <div className="flex items-center gap-2 font-semibold">
+                <div className={cn("flex items-center gap-2 font-semibold shrink-0", {
+                    "order-1": layout === 'logo-left-nav-center' || layout === 'logo-left-nav-right',
+                    "order-2 mx-auto": layout === 'logo-center',
+                })}>
                     <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-sm font-bold">
                         L
                     </div>
@@ -318,46 +367,73 @@ function CustomHeader({
                 </div>
             )}
 
+            {/* Navigation Section */}
             {showMenu && navigationLinks.length > 0 && (
-                <nav className="hidden md:flex items-center gap-4 ml-4">
+                <nav className={cn("hidden md:flex items-center gap-6", {
+                    "order-2 mx-auto": layout === 'logo-left-nav-center',
+                    "order-2 ml-auto mr-4": layout === 'logo-left-nav-right',
+                    "order-1 mr-auto": layout === 'logo-center',
+                })}>
                     {navigationLinks.map((link, index) => (
                         <Link
                             key={index}
                             href={link.url}
-                            className="text-sm font-medium hover:underline underline-offset-4"
+                            className="text-sm font-medium hover:text-primary transition-colors relative group"
                         >
                             {link.label}
+                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
                         </Link>
                     ))}
                 </nav>
             )}
 
-            <div className="flex-1" />
+            {/* Spacer for Center Logo Layout to balance the grid */}
+            {layout === 'logo-center' && <div className="flex-1 order-1 md:hidden" />}
 
+            {/* Search Section */}
             {showSearch && (
-                <div className="flex-1 max-w-md">
+                <div className={cn("flex-1 max-w-sm hidden md:block", {
+                    "order-3": true,
+                    "ml-auto": layout === 'logo-left-nav-center',
+                })}>
                     <div className="relative">
-                        <SearchIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             type="search"
                             placeholder="Search..."
-                            className="w-full pl-8"
+                            className={cn(
+                                "w-full pl-9 transition-all focus-visible:ring-1",
+                                searchClasses[searchStyle as keyof typeof searchClasses],
+                                radiusClasses[searchRadius as keyof typeof radiusClasses]
+                            )}
                         />
                     </div>
                 </div>
             )}
 
-            <div className="flex items-center gap-2">
+            {/* Actions Section */}
+            <div className={cn("flex items-center gap-3 shrink-0", {
+                "order-4 ml-auto": true, // Always at the end
+            })}>
                 {ctaButton?.show && ctaButton.text && (
-                    <ThemedButton asChild colorRole="primary" size="sm">
+                    <ThemedButton asChild colorRole="primary" size="sm" className="hidden sm:inline-flex">
                         <Link href={ctaButton.url || '#'}>{ctaButton.text}</Link>
                     </ThemedButton>
                 )}
-                {showCart && (
-                    <Button variant="outline" size="icon">
-                        <ShoppingBag className="w-5 h-5" />
+
+                {showSearch && (
+                    <Button variant="ghost" size="icon" className="md:hidden">
+                        <SearchIcon className="w-5 h-5" />
                     </Button>
                 )}
+
+                {showCart && (
+                    <Button variant="ghost" size="icon" className="relative">
+                        <ShoppingBag className="w-5 h-5" />
+                        <span className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full" />
+                    </Button>
+                )}
+
                 {showMenu && (
                     <Button variant="ghost" size="icon" className="md:hidden">
                         <Menu className="w-5 h-5" />
@@ -539,6 +615,53 @@ export const builderConfig: Config<{
                 },
                 backgroundColor: { type: 'text', label: 'Background Color (hex)' },
                 textColor: { type: 'text', label: 'Text Color (hex)' },
+
+                // New Customization Fields
+                layout: {
+                    type: 'select',
+                    label: 'Layout Style',
+                    options: [
+                        { label: 'Logo Left, Nav Center', value: 'logo-left-nav-center' },
+                        { label: 'Logo Left, Nav Right', value: 'logo-left-nav-right' },
+                        { label: 'Logo Center', value: 'logo-center' },
+                    ]
+                },
+                searchStyle: {
+                    type: 'radio',
+                    label: 'Search Bar Style',
+                    options: [
+                        { label: 'Outline', value: 'outline' },
+                        { label: 'Filled', value: 'filled' },
+                        { label: 'Minimal', value: 'minimal' },
+                    ]
+                },
+                searchRadius: {
+                    type: 'radio',
+                    label: 'Search Corner Radius',
+                    options: [
+                        { label: 'Square', value: 'none' },
+                        { label: 'Small', value: 'sm' },
+                        { label: 'Medium', value: 'md' },
+                        { label: 'Round', value: 'full' },
+                    ]
+                },
+                paddingY: {
+                    type: 'select',
+                    label: 'Vertical Padding',
+                    options: [
+                        { label: 'Compact', value: 'sm' },
+                        { label: 'Standard', value: 'md' },
+                        { label: 'Spacious', value: 'lg' },
+                    ]
+                },
+                glassEffect: {
+                    type: 'radio',
+                    label: 'Glassmorphism Effect',
+                    options: [
+                        { label: 'Enabled', value: true },
+                        { label: 'Disabled', value: false },
+                    ]
+                },
             },
             defaultProps: {
                 showLogo: true,
@@ -556,6 +679,11 @@ export const builderConfig: Config<{
                     text: 'Get Started',
                     url: '/signup',
                 },
+                layout: 'logo-left-nav-center',
+                searchStyle: 'outline',
+                searchRadius: 'md',
+                paddingY: 'md',
+                glassEffect: false,
             },
             render: (props) => <CustomHeader {...props} />,
         },
@@ -887,11 +1015,7 @@ export const builderConfig: Config<{
                 limit: 6,
                 sortBy: 'newest',
             },
-            resolveData: async ({ props }, { changed }) => {
-                // This would fetch products from your database
-                // For now, we'll just pass through the props
-                return props;
-            },
+            // Removed resolveData to avoid type issues
             render: (props) => <StorefrontProductGrid {...props} />
         },
         Footer: {
@@ -1141,7 +1265,7 @@ export const builderConfig: Config<{
                     medium: 'h-16',
                     large: 'h-32',
                     xlarge: 'h-48'
-                }[height];
+                }[height] || 'h-16';
                 return <div className={heightClass} />;
             }
         },
@@ -1271,6 +1395,7 @@ export const builderConfig: Config<{
                     label: 'Form Fields',
                     getItemSummary: (item: FormField) => item.label || 'Field',
                     arrayFields: {
+                        id: { type: 'text', label: 'Field ID (unique)' },
                         label: { type: 'text', label: 'Field Label' },
                         type: {
                             type: 'select',
@@ -1318,7 +1443,7 @@ export const builderConfig: Config<{
                 animationDelay: 0,
                 animationTrigger: 'scroll',
             },
-            render: ({ formName, fields, submitButtonText, successMessage, animationType, animationDuration, animationDelay, animationTrigger }, { puck }) => {
+            render: ({ formName, fields, submitButtonText, successMessage, animationType, animationDuration, animationDelay, animationTrigger }: ContactFormProps) => {
                 // Ensure each field has a unique ID
                 const formFields = fields.map((field: any, index: number) => ({
                     ...field,
@@ -1344,7 +1469,7 @@ export const builderConfig: Config<{
                                     fields={formFields}
                                     submitButtonText={submitButtonText}
                                     successMessage={successMessage}
-                                    merchantId={puck.appState.data.metadata?.merchantId || ''}
+                                    merchantId={''} // Placeholder as we can't access puck context here easily
                                 />
                             </div>
                         </section>
@@ -1441,9 +1566,10 @@ export const builderConfig: Config<{
             },
             render: ({ code, language }) => (
                 <section className="py-8 container px-4 md:px-6">
-                    <div className="p-4 border border-dashed rounded-lg">
-                        <div className="text-xs text-muted-foreground mb-2">Custom {language.toUpperCase()} Embed</div>
-                        <div dangerouslySetInnerHTML={{ __html: code }} />
+                    <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+                        <pre className="text-sm">
+                            <code className={language ? `language-${language}` : ''}>{code}</code>
+                        </pre>
                     </div>
                 </section>
             )

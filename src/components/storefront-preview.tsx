@@ -32,7 +32,7 @@ export function StorefrontPreview({ businessName, businessType, logoDataUri, bra
         '--store-background-text': getContrastingTextColor(brandColors.background),
         '--store-accent-text': getContrastingTextColor(brandColors.accent),
     };
-    
+
     const formatCurrency = (amount: number) => {
         // Using a default for preview
         const country = getCountryByCode('US');
@@ -44,11 +44,11 @@ export function StorefrontPreview({ businessName, businessType, logoDataUri, bra
     const previewProducts = sampleProductsByCategory[businessType] || sampleProductsByCategory['other'];
 
     return (
-        <div 
-          className="p-4 rounded-lg border border-dashed bg-muted/20 overflow-hidden" 
-          style={themeStyle as React.CSSProperties}
+        <div
+            className="p-4 rounded-lg border border-dashed bg-muted/20 overflow-hidden"
+            style={themeStyle as React.CSSProperties}
         >
-            <div className="scale-[0.8] origin-top-left w-[125%] -translate-x-1 -translate-y-1 bg-background rounded-md shadow-lg pointer-events-none" style={{ backgroundColor: 'var(--store-background)'}}>
+            <div className="scale-[0.8] origin-top-left w-[125%] -translate-x-1 -translate-y-1 bg-background rounded-md shadow-lg pointer-events-none" style={{ backgroundColor: 'var(--store-background)' }}>
                 {/* Header */}
                 <header className="px-4 h-12 flex items-center gap-4 shadow-sm bg-card">
                     <div className="flex items-center gap-2 font-semibold">
@@ -59,14 +59,31 @@ export function StorefrontPreview({ businessName, businessType, logoDataUri, bra
                     </div>
                 </header>
 
+                {/* Hero Carousel Preview */}
+                <div className="relative w-full aspect-[21/9] bg-muted overflow-hidden group">
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <div className="text-center text-white p-4">
+                            <h2 className="text-2xl font-bold mb-2 drop-shadow-md">Welcome to {businessName || 'Your Store'}</h2>
+                            <p className="text-sm mb-4 drop-shadow-md opacity-90">Discover our amazing collection</p>
+                            <ThemedButton colorRole="primary" size="sm">Shop Now</ThemedButton>
+                        </div>
+                    </div>
+                    {/* Carousel Indicators */}
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white"></div>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/50"></div>
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/50"></div>
+                    </div>
+                </div>
+
                 {/* Body */}
                 <main className="p-6">
-                     <h2 className="text-xl font-bold tracking-tighter text-center mb-6" style={{ color: 'var(--store-primary)' }}>
+                    <h2 className="text-xl font-bold tracking-tighter text-center mb-6" style={{ color: 'var(--store-primary)' }}>
                         Our Products
                     </h2>
                     <div className="grid grid-cols-2 gap-4">
                         {previewProducts.map((product) => (
-                           <ThemedCard key={product.id} className="overflow-hidden" accentPosition="top">
+                            <ThemedCard key={product.id} className="overflow-hidden" accentPosition="top">
                                 <Image
                                     src={product.imageLarge}
                                     alt={product.name}
