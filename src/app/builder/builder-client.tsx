@@ -381,6 +381,9 @@ export default function BuilderClient() {
                             const canMoveUp = componentIndex > 0;
                             const canMoveDown = componentIndex >= 0 && componentIndex < (data.content?.length ?? 0) - 1;
 
+                            // Position menu below for Header component or first component to avoid overlap
+                            const menuPosition = (componentType === 'Header' || componentIndex === 0) ? 'bottom' : 'top';
+
                             return (
                                 <div className="relative">
                                     {children}
@@ -388,12 +391,12 @@ export default function BuilderClient() {
                                         <InlineContextMenu
                                             componentId={componentId}
                                             componentType={componentType}
+                                            position={menuPosition}
                                             onEdit={() => {
                                                 setShowFieldsSidebar(true);
                                                 setSelectedComponentId(componentId);
                                             }}
                                             onDuplicate={() => {
-                                                // Find the component and duplicate it
                                                 const componentToDuplicate = data.content?.find((c: any) => c.props?.id === componentId);
                                                 if (componentToDuplicate) {
                                                     const newComponent = {
@@ -642,8 +645,16 @@ export default function BuilderClient() {
                                         text-align: center;
                                     }
 
-                                    /* Hide default Puck action bar since we're using inline menu */
+                                    /* Hide default Puck action bar and component label */
                                     .Puck-actionBar {
+                                        display: none !important;
+                                    }
+                                    
+                                    /* Hide the Puck component label button that overlaps */
+                                    .Puck-badge,
+                                    [class*="Puck-badge"],
+                                    [class*="ComponentLabel"],
+                                    [class*="OverlayLabel"] {
                                         display: none !important;
                                     }
 

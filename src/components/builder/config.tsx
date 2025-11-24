@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { ImagePickerField } from './fields/image-picker-field';
 import { AnimatedWrapper, AnimationConfig } from './animated-wrapper';
+import { StorefrontForm, FormField } from '@/components/storefront/storefront-form';
 
 // ==================== TYPE DEFINITIONS ====================
 
@@ -199,10 +200,14 @@ type InstagramFeedProps = {
 };
 
 type ContactFormProps = {
-    email: string;
-    title?: string;
-    showPhone?: boolean;
-    showMessage?: boolean;
+    formName: string;
+    fields: FormField[];
+    submitButtonText?: string;
+    successMessage?: string;
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
 };
 
 type SocialIconsProps = {
@@ -1260,34 +1265,92 @@ export const builderConfig: Config<{
             label: 'Contact Form',
             permissions: { delete: true, duplicate: true },
             fields: {
-                email: { type: 'text', label: 'Send submissions to' },
-                title: { type: 'text', label: 'Form Title' },
-                showPhone: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                showMessage: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                formName: { type: 'text', label: 'Form Name' },
+                fields: {
+                    type: 'array',
+                    label: 'Form Fields',
+                    getItemSummary: (item: FormField) => item.label || 'Field',
+                    arrayFields: {
+                        label: { type: 'text', label: 'Field Label' },
+                        type: {
+                            type: 'select',
+                            label: 'Field Type',
+                            options: [
+                                { label: 'Text', value: 'text' },
+                                { label: 'Email', value: 'email' },
+                                { label: 'Phone', value: 'phone' },
+                                { label: 'Text Area', value: 'textarea' },
+                                { label: 'Select Dropdown', value: 'select' },
+                                { label: 'Checkbox', value: 'checkbox' },
+                            ]
+                        },
+                        placeholder: { type: 'text', label: 'Placeholder (optional)' },
+                        required: {
+                            type: 'radio',
+                            label: 'Required?',
+                            options: [
+                                { label: 'Yes', value: true },
+                                { label: 'No', value: false }
+                            ]
+                        },
+                        options: {
+                            type: 'textarea',
+                            label: 'Options (for select, one per line)',
+                        }
+                    }
+                },
+                submitButtonText: { type: 'text', label: 'Submit Button Text' },
+                successMessage: { type: 'textarea', label: 'Success Message' },
+                ...animationFields
             },
             defaultProps: {
-                email: 'contact@example.com',
-                title: 'Get In Touch',
-                showPhone: true,
-                showMessage: true,
+                formName: 'Contact Form',
+                fields: [
+                    { id: 'name', type: 'text', label: 'Name', placeholder: 'Your name', required: true },
+                    { id: 'email', type: 'email', label: 'Email', placeholder: 'your@email.com', required: true },
+                    { id: 'phone', type: 'phone', label: 'Phone', placeholder: '(123) 456-7890', required: false },
+                    { id: 'message', type: 'textarea', label: 'Message', placeholder: 'How can we help?', required: true },
+                ],
+                submitButtonText: 'Send Message',
+                successMessage: 'Thank you! We\'ll get back to you soon.',
+                animationType: 'fade-in',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
             },
-            render: ({ email, title, showPhone, showMessage }) => (
-                <section className="py-8 container px-4 md:px-6">
-                    <div className="p-8 border rounded-lg max-w-md mx-auto bg-card">
-                        <h3 className="text-2xl font-bold mb-4">{title}</h3>
-                        <div className="space-y-4">
-                            <Input placeholder="Name" />
-                            <Input type="email" placeholder="Email" />
-                            {showPhone && <Input type="tel" placeholder="Phone" />}
-                            {showMessage && <Input placeholder="Message" className="min-h-[100px]" />}
-                            <Button className="w-full">Send Message</Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-4">
-                            Messages will be sent to: {email}
-                        </p>
-                    </div>
-                </section>
-            )
+            render: ({ formName, fields, submitButtonText, successMessage, animationType, animationDuration, animationDelay, animationTrigger }, { puck }) => {
+                // Ensure each field has a unique ID
+                const formFields = fields.map((field: any, index: number) => ({
+                    ...field,
+                    id: field.id || `field-${index}`,
+                    // Convert options from textarea string to array
+                    options: field.options ? field.options.split('\n').map((opt: string) => opt.trim()).filter(Boolean) : undefined
+                }));
+
+                return (
+                    <AnimatedWrapper
+                        animation={{
+                            type: animationType as any,
+                            duration: animationDuration as any,
+                            delay: animationDelay,
+                            trigger: animationTrigger as any,
+                        }}
+                    >
+                        <section className="py-12 container px-4 md:px-6">
+                            <div className="max-w-md mx-auto p-8 border rounded-lg bg-card">
+                                <h3 className="text-2xl font-bold mb-6">{formName}</h3>
+                                <StorefrontForm
+                                    formName={formName}
+                                    fields={formFields}
+                                    submitButtonText={submitButtonText}
+                                    successMessage={successMessage}
+                                    merchantId={puck.appState.data.metadata?.merchantId || ''}
+                                />
+                            </div>
+                        </section>
+                    </AnimatedWrapper>
+                );
+            }
         },
         SocialIcons: {
             label: 'Social Icons',
