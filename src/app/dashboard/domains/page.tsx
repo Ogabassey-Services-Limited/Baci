@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Globe, Search, Plus, Check, AlertCircle, Clock, ExternalLink } from 'lucide-react';
+import { Globe, Search, Plus, Check, AlertCircle, Clock, ExternalLink, Loader2, CheckCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface Domain {
   id: string;
@@ -31,6 +32,14 @@ export default function DomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'search' | 'custom'>('overview');
+  const [verifyingDomains, setVerifyingDomains] = useState<Set<string>>(new Set());
+  const [customDomainInput, setCustomDomainInput] = useState('');
+  const [addingDomain, setAddingDomain] = useState(false);
+  const [verificationInfo, setVerificationInfo] = useState<{
+    domain: string;
+    token: string;
+  } | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     fetchDomains();
@@ -77,6 +86,111 @@ export default function DomainsPage() {
       purchased: 'Purchased',
     };
     return <Badge variant="outline">{labels[type]}</Badge>;
+  };
+
+  const handleVerifyDomain = async (domain: Domain) => {
+    setVerifyingDomains((prev) => new Set(prev).add(domain.domain));
+
+    try {
+      const response = await fetch(`/api/domains/${domain.domain}/verify`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: 'Domain Verified! ✅',
+          description: `${domain.domain} has been verified and is now active.`,
+        });
+        // Refresh domains list
+        fetchDomains();
+      } else {
+        toast({
+          title: 'Verification Failed',
+          description: data.error || 'Could not verify domain. Please check your DNS records.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error verifying domain:', error);
+      toast({
+        title: 'Verification Error',
+        description: 'An error occurred while verifying the domain. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setVerifyingDomains((prev) => {
+        const next = new Set(prev);
+        next.delete(domain.domain);
+        return next;
+      });
+    }
+  };
+
+  const handleAddCustomDomain = async () => {
+    if (!customDomainInput.trim()) {
+      toast({
+        title: 'Invalid Domain',
+        description: 'Please enter a valid domain name.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setAddingDomain(true);
+
+    try {
+      const response = await fetch('/api/domains', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain: customDomainInput.trim().toLowerCase(),
+          isPrimary: domains.length === 0, // Make primary if it's the first custom domain
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: 'Domain Added! 🎉',
+          description: 'Your custom domain has been added. Please verify ownership.',
+        });
+
+        // Store verification info to show instructions
+        setVerificationInfo({
+          domain: data.domain.domain,
+          token: data.verification.value,
+        });
+
+        // Refresh domains list
+        fetchDomains();
+
+        // Clear input
+        setCustomDomainInput('');
+
+        // Switch to overview tab after a moment
+        setTimeout(() => {
+          setActiveTab('overview');
+        }, 3000);
+      } else {
+        toast({
+          title: 'Failed to Add Domain',
+          description: data.error || 'Could not add domain. Please try again.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error adding domain:', error);
+      toast({
+        title: 'Error',
+        description: 'An error occurred while adding the domain.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAddingDomain(false);
+    }
   };
 
   return (
@@ -181,11 +295,40 @@ export default function DomainsPage() {
                       )}
                     </div>
 
-                    {domain.status === 'pending' && (
+                    {domain.status === 'pending' && domain.domain_type === 'custom' && (
                       <Alert>
                         <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Domain verification pending. Please add the required DNS records.
+                        <AlertDescription className="flex items-center justify-between">
+                          <span>
+                            Domain verification pending. Please add the required DNS records.
+                          </span>
+                          <Button
+                            size="sm"
+                            onClick={() => handleVerifyDomain(domain)}
+                            disabled={verifyingDomains.has(domain.domain)}
+                            className="ml-4"
+                          >
+                            {verifyingDomains.has(domain.domain) ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Verifying...
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Verify Now
+                              </>
+                            )}
+                          </Button>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {domain.status === 'active' && domain.verified_at && (
+                      <Alert className="border-green-200 bg-green-50">
+                        <Check className="h-4 w-4 text-green-600" />
+                        <AlertDescription className="text-green-800">
+                          Domain verified on {new Date(domain.verified_at).toLocaleDateString()}
                         </AlertDescription>
                       </Alert>
                     )}
@@ -242,6 +385,14 @@ export default function DomainsPage() {
                   <Input
                     placeholder="yourdomain.com"
                     className="mt-2"
+                    value={customDomainInput}
+                    onChange={(e) => setCustomDomainInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleAddCustomDomain();
+                      }
+                    }}
+                    disabled={addingDomain}
                   />
                 </div>
 
@@ -252,7 +403,36 @@ export default function DomainsPage() {
                   </AlertDescription>
                 </Alert>
 
-                <Button>Add Domain</Button>
+                {verificationInfo && (
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-900">
+                      <div className="space-y-2">
+                        <p className="font-semibold">DNS Verification Required</p>
+                        <p className="text-sm">Add this TXT record to your DNS:</p>
+                        <div className="bg-white p-3 rounded border mt-2 font-mono text-xs">
+                          <div><strong>Type:</strong> TXT</div>
+                          <div><strong>Name:</strong> _baci-verification.{verificationInfo.domain}</div>
+                          <div><strong>Value:</strong> {verificationInfo.token}</div>
+                        </div>
+                        <p className="text-sm mt-2">
+                          DNS propagation can take up to 48 hours. You can verify once the record is added.
+                        </p>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <Button onClick={handleAddCustomDomain} disabled={addingDomain}>
+                  {addingDomain ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Domain'
+                  )}
+                </Button>
               </div>
             </CardContent>
           </Card>
