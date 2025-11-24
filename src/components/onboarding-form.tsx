@@ -52,7 +52,9 @@ extend([a11yPlugin]);
 // --- Step Components ---
 
 function StepIndicator({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) {
-  const progress = Math.max(0, ((currentStep - 1) / (totalSteps - 1)) * 100);
+  // Calculate progress with a minimum of 15% for step 1 to show visual feedback
+  const baseProgress = ((currentStep - 1) / (totalSteps - 1)) * 100;
+  const progress = currentStep === 1 ? 15 : baseProgress;
   return (
     <div className="flex items-center gap-4">
       <Progress value={progress} className="w-full" aria-label="Onboarding progress" />
