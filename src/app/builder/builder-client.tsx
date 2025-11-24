@@ -646,6 +646,13 @@ export default function BuilderClient() {
                                 </div>
                                 <GeminiCommandBar onCommand={handleAiCommand} isLoading={isAiLoading} />
                             </div>
+
+                            {/* Right Sidebar - Component Properties */}
+                            <div className="w-[320px] bg-white border-l flex flex-col h-full overflow-hidden">
+                                <div className="flex-1 overflow-y-auto">
+                                    <Puck.Fields />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </Puck>
