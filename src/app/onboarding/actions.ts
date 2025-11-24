@@ -123,6 +123,18 @@ export async function submitOnboarding(
     // 3. Create or update the merchant record
     const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
 
+    // Generate URL-safe slug from business name
+    const generateSlug = (name: string): string => {
+      return name
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+        .replace(/\s+/g, '-') // Replace spaces with hyphens
+        .replace(/-+/g, '-') // Replace multiple hyphens with single
+        .replace(/^-|-$/g, ''); // Trim hyphens from start/end
+    };
+
+    const baseSlug = generateSlug(businessName) || 'store';
+
     const merchantPayload = {
       user_id: user.id,
       email: email,
@@ -130,6 +142,7 @@ export async function submitOnboarding(
       business_type: finalBusinessType,
       logo_url: logoDataUri,
       brand_colors: { primary: brandColors.primary, background: brandColors.background, accent: brandColors.accent },
+      slug: baseSlug,
     };
 
     logger.info({ message: 'Attempting to upsert merchant data...', payload: merchantPayload });
@@ -148,7 +161,34 @@ export async function submitOnboarding(
 
     logger.info({ message: 'Merchant data saved successfully', merchantData });
 
-    // 4. Generate and save initial Puck template
+    // 4. Create free subdomain domain record
+    try {
+      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
+      const subdomainFull = `${merchantData.slug}.${rootDomain}`;
+
+      const { error: domainError } = await supabase.from('domains').insert({
+        merchant_id: merchantData.id,
+        domain: subdomainFull,
+        tld: `.${rootDomain}`,
+        domain_type: 'subdomain',
+        status: 'active',
+        is_primary: true,
+        registered_at: new Date().toISOString(),
+        ssl_status: 'active', // Assuming wildcard SSL for *.baci.tech
+      });
+
+      if (domainError) {
+        logger.error({ message: 'Failed to create subdomain domain record', error: domainError });
+        // Don't fail onboarding if domain record creation fails
+      } else {
+        logger.info({ message: 'Subdomain domain record created', domain: subdomainFull });
+      }
+    } catch (domainError) {
+      logger.error({ message: 'Exception while creating subdomain', error: domainError });
+      // Don't fail onboarding if domain creation fails
+    }
+
+    // 5. Generate and save initial Puck template
     try {
       const { generateInitialTemplate } = await import('@/lib/initial-template-generator');
 

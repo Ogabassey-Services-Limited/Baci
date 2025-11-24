@@ -133,13 +133,15 @@ export default function DashboardPage() {
   const currentChartData = timeFrame === 'monthly' ? monthlyChartData : weeklyChartData;
   
   const getStoreUrl = () => {
-    if (!merchant?.business_name) return { displayUrl: '', fullUrl: '' };
-    const slug = merchant.business_name.toLowerCase().replace(/\s+/g, '-');
+    if (!merchant?.slug) return { displayUrl: '', fullUrl: '' };
 
-    // Use path-based routing instead of subdomain
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
+    const subdomain = `${merchant.slug}.${rootDomain}`;
+
+    // Use subdomain URL (merchant gets free subdomain on signup)
     return {
-        displayUrl: `/storefront/${slug}`,
-        fullUrl: `/storefront/${slug}`
+        displayUrl: subdomain,
+        fullUrl: `https://${subdomain}`
     };
   };
 
