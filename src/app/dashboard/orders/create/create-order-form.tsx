@@ -28,15 +28,15 @@ const orderItemSchema = z.object({
     productId: z.string(),
     name: z.string(),
     price: z.number(),
-    quantity: z.coerce.number().min(1, 'Quantity must be at least 1.'),
+    quantity: z.coerce.number().min(1, { error: 'Quantity must be at least 1.' }),
 });
 
 const createOrderSchema = z.object({
-    customerName: z.string().min(2, 'Customer name is required.'),
-    customerEmail: z.string().email('A valid email is required.'),
+    customerName: z.string().min(2, { error: 'Customer name is required.' }),
+    customerEmail: z.string().email({ error: 'A valid email is required.' }),
     orderDate: z.date(),
-    salesChannel: z.string().min(1, 'Please select a sales channel.'),
-    items: z.array(orderItemSchema).min(1, 'Please add at least one product to the order.'),
+    salesChannel: z.string().min(1, { error: 'Please select a sales channel.' }),
+    items: z.array(orderItemSchema).min(1, { error: 'Please add at least one product to the order.' }),
     paymentStatus: z.enum(['Paid', 'Unpaid', 'Pending']),
     paymentMethod: z.enum(['Cash', 'Card', 'Bank Transfer']),
 });
@@ -54,7 +54,7 @@ export function CreateOrderForm() {
     const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
 
     const form = useForm<CreateOrderFormValues>({
-        resolver: zodResolver(createOrderSchema),
+        resolver: zodResolver(createOrderSchema) as any,
         defaultValues: {
             customerName: '',
             customerEmail: '',

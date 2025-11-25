@@ -333,7 +333,7 @@ export async function POST(request: NextRequest) {
         .eq('id', merchant_id)
         .single();
 
-      if (merchantDetails && customer_email) {
+      if (merchantDetails) {
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
         const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
 

@@ -32,7 +32,7 @@ export default function DebugAuthPage() {
 
         // Sign up first
         addLog(`Signing up ${email}...`);
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
             email,
             password,
         });
@@ -41,7 +41,7 @@ export default function DebugAuthPage() {
             addLog(`SignUp Error: ${signUpError.message}`);
             // Try login if user exists
             addLog('Trying login instead...');
-            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            const { error: signInError } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });

@@ -73,13 +73,9 @@ const SpacerPropsSchema = z.object({
     height: z.enum(['small', 'medium', 'large']),
 });
 
-const HeaderPropsSchema = z.object({
-    _placeholder: z.string().optional()
-}).passthrough();
+const HeaderPropsSchema = z.object({}).passthrough();
 
-const FooterPropsSchema = z.object({
-    _placeholder: z.string().optional()
-}).passthrough();
+const FooterPropsSchema = z.object({}).passthrough();
 
 // Theme Configuration Schema (subset of most commonly modified properties)
 const ThemeColorsSchema = z.object({

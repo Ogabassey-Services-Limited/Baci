@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { Badge } from '@/components/ui/badge';
 
@@ -248,7 +249,12 @@ export default function CustomerDetailPage() {
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="phone">Phone</Label>
-                                    <Input id="phone" value={editData.phone || ''} onChange={(e) => setEditData({ ...editData, phone: e.target.value })} />
+                                    <PhoneInput
+                                        id="phone"
+                                        value={editData.phone || ''}
+                                        onChange={(value) => setEditData({ ...editData, phone: value })}
+                                        defaultCountry="NG"
+                                    />
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="address">Address</Label>

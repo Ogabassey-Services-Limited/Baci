@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import ProductDetailClient from './product-detail-client';
 import { Product } from '@/lib/products';
+import { generateProductSchema } from '@/lib/seo-utils';
 
 // Force dynamic rendering since we rely on URL params and DB data
 export const dynamic = 'force-dynamic';
@@ -84,6 +85,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         };
     }
 
+    const supabase = createServerComponentClient({ cookies });
+
+    // Get merchant social media handles
+    const { data: merchant } = await supabase
+        .from('merchants')
+        .select('business_name, social_media')
+        .eq('slug', slug)
+        .single();
+
     const headersList = await headers();
     const host = headersList.get('host') || 'baci.app';
     const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
@@ -94,8 +104,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     // But middleware rewrites suggest we are at root of the store domain/subdomain
     const canonicalUrl = product.canonical_url || `${baseUrl}/products/${product.slug || product.id}`;
 
+    const socialMedia = merchant?.social_media as Record<string, string> | undefined;
+
     return {
-        title: product.meta_title || `${product.name} | Baci Store`,
+        title: product.meta_title || `${product.name} | ${merchant?.business_name || 'Baci Store'}`,
         description: product.meta_description || product.description,
         keywords: product.keywords,
         alternates: {
@@ -114,12 +126,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             ],
             url: canonicalUrl,
             type: 'website',
+            siteName: merchant?.business_name,
         },
         twitter: {
             card: 'summary_large_image',
             title: product.meta_title || product.name,
             description: product.meta_description || product.description,
             images: [product.imageLarge || product.image],
+            ...(socialMedia?.twitter && {
+                site: socialMedia.twitter.startsWith('@') ? socialMedia.twitter : `@${socialMedia.twitter}`,
+                creator: socialMedia.twitter.startsWith('@') ? socialMedia.twitter : `@${socialMedia.twitter}`,
+            }),
         },
     };
 }
@@ -132,5 +149,73 @@ export default async function ProductPage({ params }: PageProps) {
         notFound();
     }
 
-    return <ProductDetailClient product={product} />;
+    const supabase = createServerComponentClient({ cookies });
+
+    // Get merchant data for schema
+    const { data: merchant } = await supabase
+        .from('merchants')
+        .select('business_name, payout_currency, category')
+        .eq('slug', slug)
+        .single();
+
+    const headersList = await headers();
+    const host = headersList.get('host') || 'baci.app';
+    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+    const baseUrl = `${protocol}://${host}`;
+
+    // Generate or use existing product schema
+    const productSchema = product.schema_markup || generateProductSchema(
+        product,
+        merchant?.business_name || 'Baci Store',
+        merchant?.payout_currency || 'USD'
+    );
+
+    // Add URL to the schema offers
+    if (productSchema.offers) {
+        productSchema.offers.url = `${baseUrl}/products/${product.slug || product.id}`;
+    }
+
+    // Generate breadcrumb schema
+    const breadcrumbSchema = {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+            {
+                '@type': 'ListItem',
+                position: 1,
+                name: 'Home',
+                item: baseUrl
+            },
+            {
+                '@type': 'ListItem',
+                position: 2,
+                name: product.category || 'Products',
+                item: `${baseUrl}${product.category ? `?category=${encodeURIComponent(product.category)}` : ''}`
+            },
+            {
+                '@type': 'ListItem',
+                position: 3,
+                name: product.name,
+                item: `${baseUrl}/products/${product.slug || product.id}`
+            }
+        ]
+    };
+
+    return (
+        <>
+            {/* Product Schema.org JSON-LD */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+            />
+
+            {/* Breadcrumb Schema.org JSON-LD */}
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+            />
+
+            <ProductDetailClient product={product} />
+        </>
+    );
 }

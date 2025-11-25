@@ -14,7 +14,6 @@ interface AiCommandBarProps {
 
 export function AiCommandBar({ onCommand, isLoading, compact = false }: AiCommandBarProps) {
     const [command, setCommand] = useState('');
-    const [isOpen, setIsOpen] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,7 +21,6 @@ export function AiCommandBar({ onCommand, isLoading, compact = false }: AiComman
 
         onCommand(command);
         setCommand('');
-        if (!compact) setIsOpen(false);
     };
 
     if (compact) {

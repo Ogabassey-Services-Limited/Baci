@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
         // Build query
         let query = supabase
             .from('products')
-            .select('*', { count: 'exact' })
+            .select('*, variants:product_variants(*)', { count: 'exact' })
             .eq('merchant_id', merchant.id)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1);
@@ -101,6 +101,18 @@ export async function GET(request: NextRequest) {
             google_product_category: p.google_product_category,
 
             has_variants: p.has_variants || false,
+            // Map variants if they exist
+            variants: p.variants?.map((v: any) => ({
+                id: v.id,
+                product_id: v.product_id,
+                merchant_id: v.merchant_id,
+                attributes: v.attributes,
+                price_override: v.price_override,
+                stock_quantity: v.stock_quantity,
+                sku: v.sku,
+                primary_image: v.primary_image,
+                images: v.images
+            })) || [],
             category: p.category || 'General',
 
             // New fields

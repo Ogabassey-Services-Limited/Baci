@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -198,6 +199,15 @@ export function StorefrontForm({
                                 {field.placeholder || field.label}
                             </label>
                         </div>
+                    ) : field.type === 'phone' ? (
+                        <PhoneInput
+                            id={field.id}
+                            placeholder={field.placeholder}
+                            value={formData[field.id] || ''}
+                            onChange={(value) => handleChange(field.id, value)}
+                            className={errors[field.id] ? 'border-red-500' : ''}
+                            defaultCountry="NG"
+                        />
                     ) : (
                         <Input
                             id={field.id}

@@ -34,7 +34,7 @@ export async function submitOnboarding(
   const validationResult = onboardingSchema.safeParse(rawFormData);
 
   if (!validationResult.success) {
-    const errorMessage = validationResult.error.errors.map(e => e.message).join(', ');
+    const errorMessage = validationResult.error.issues.map(e => e.message).join(', ');
     logger.error({ message: 'Server-side validation failed', errors: validationResult.error.flatten() });
     return { success: false, message: `Form is incomplete: ${errorMessage}`, errors: validationResult.error.flatten() };
   }

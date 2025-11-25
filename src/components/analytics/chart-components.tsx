@@ -16,7 +16,6 @@ import {
     Pie,
     Cell,
 } from 'recharts';
-import { useTheme } from 'next-themes';
 
 interface ChartProps {
     data: any[];

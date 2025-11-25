@@ -21,24 +21,25 @@ import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { getCountryByCode } from '@/lib/countries';
 import { apiPost } from '@/lib/api-client';
+import { PhoneInput } from '@/components/ui/phone-input';
 
 const DEFAULT_SHIPPING_FEE = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00');
 
 const shippingSchema = z.object({
-  firstName: z.string().min(2, 'First name must be at least 2 characters.'),
-  lastName: z.string().min(2, 'Last name must be at least 2 characters.'),
-  email: z.string().email('Please enter a valid email address.'),
-  phone: z.string().min(10, 'Please enter a valid phone number.'),
-  address: z.string().min(5, 'Please enter a valid address.'),
-  city: z.string().min(2, 'Please enter a city.'),
-  state: z.string().min(2, 'Please enter a state.'),
+  firstName: z.string().min(2, { error: 'First name must be at least 2 characters.' }),
+  lastName: z.string().min(2, { error: 'Last name must be at least 2 characters.' }),
+  email: z.string().email({ error: 'Please enter a valid email address.' }),
+  phone: z.string().min(10, { error: 'Please enter a valid phone number.' }),
+  address: z.string().min(5, { error: 'Please enter a valid address.' }),
+  city: z.string().min(2, { error: 'Please enter a city.' }),
+  state: z.string().min(2, { error: 'Please enter a state.' }),
 });
 
 type ShippingFormValues = z.infer<typeof shippingSchema>;
 
 const authSchema = z.object({
-  email: z.string().email('Please enter a valid email address.'),
-  password: z.string().min(6, 'Password must be at least 6 characters.'),
+  email: z.string().email({ error: 'Please enter a valid email address.' }),
+  password: z.string().min(6, { error: 'Password must be at least 6 characters.' }),
 });
 
 type AuthFormValues = z.infer<typeof authSchema>;
@@ -138,8 +139,6 @@ function Step1_Shipping() {
   const { merchant } = useMerchant();
 
   const country = merchant?.country ? getCountryByCode(merchant.country) : null;
-  const phonePlaceholder = country?.phoneCode ? `${country.phoneCode} ...` : '+1 (555) 123-4567';
-
 
   return (
     <div className="space-y-4">
@@ -200,10 +199,14 @@ function Step1_Shipping() {
           <FormItem>
             <FormLabel>Phone Number</FormLabel>
             <FormControl>
-              <div className="relative">
-                {country && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg">{country.flag}</span>}
-                <ThemedInput type="tel" placeholder={phonePlaceholder} {...field} className="pl-12" id="phone" name="phone" autoComplete="tel" />
-              </div>
+              <PhoneInput
+                placeholder="Enter phone number"
+                defaultCountry={country?.code as any || 'NG'}
+                value={field.value}
+                onChange={field.onChange}
+                id="phone"
+                autoComplete="tel"
+              />
             </FormControl>
             <FormMessage />
           </FormItem>

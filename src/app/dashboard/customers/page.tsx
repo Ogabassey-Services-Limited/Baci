@@ -10,9 +10,11 @@ import {
     Trash2,
     Edit,
     Loader2,
+    BarChart,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { PhoneInput } from '@/components/ui/phone-input';
 import {
     Table,
     TableBody,
@@ -151,9 +153,15 @@ export default function CustomersPage() {
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Customers</h1>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" className="border-primary text-primary hover:bg-primary/10">
                         <Download className="mr-2 h-4 w-4" />
                         Export CSV
+                    </Button>
+                    <Button variant="outline" size="sm" asChild className="border-primary text-primary hover:bg-primary/10">
+                        <Link href="/dashboard/analytics?category=customers">
+                            <BarChart className="mr-2 h-4 w-4 text-primary" />
+                            Customer Analytics
+                        </Link>
                     </Button>
                     <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
                         <DialogTrigger asChild>
@@ -194,10 +202,11 @@ export default function CustomersPage() {
                                 </div>
                                 <div className="grid gap-2">
                                     <Label htmlFor="phone">Phone</Label>
-                                    <Input
+                                    <PhoneInput
                                         id="phone"
                                         value={newCustomer.phone}
-                                        onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                                        onChange={(value) => setNewCustomer({ ...newCustomer, phone: value })}
+                                        defaultCountry="NG"
                                     />
                                 </div>
                                 <div className="grid gap-2">
@@ -226,17 +235,17 @@ export default function CustomersPage() {
 
             <div className="flex items-center gap-2">
                 <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-primary" />
                     <Input
                         placeholder="Search customers..."
-                        className="pl-8"
+                        className="pl-8 border-primary/50 focus-visible:ring-primary"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
             </div>
 
-            <div className="border rounded-md bg-white">
+            <div className="border border-primary/20 rounded-md bg-white">
                 <Table>
                     <TableHeader>
                         <TableRow>

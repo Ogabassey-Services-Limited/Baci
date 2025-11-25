@@ -13,8 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { generateProductDescription } from '@/ai/flows/generate-product-descriptions';
 import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
@@ -28,6 +27,7 @@ import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
 import { VariantBuilder } from '@/components/products/variant-builder';
 import type { ProductVariant } from '@/lib/products';
 import { generateSlug } from '@/lib/seo-utils';
+import { SeoPreview } from '@/components/products/seo-preview';
 
 const addProductSchema = z.object({
   name: z.string().min(3, 'Product name must be at least 3 characters.'),
@@ -956,35 +956,47 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
             {/* SEO TAB */}
             <TabsContent value="seo" className="space-y-4">
-              <FormField control={form.control} name="slug" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>URL Slug</FormLabel>
-                  <FormControl><Input {...field} placeholder="product-name-slug" /></FormControl>
-                  <FormDescription>The URL-friendly version of the name.</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="meta_title" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Meta Title</FormLabel>
-                  <FormControl><Input {...field} placeholder="SEO Title" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="meta_description" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Meta Description</FormLabel>
-                  <FormControl><Textarea {...field} placeholder="Brief description for search engines" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="keywords" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Keywords</FormLabel>
-                  <FormControl><Input {...field} placeholder="comma, separated, keywords" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-4">
+                  <FormField control={form.control} name="slug" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>URL Slug</FormLabel>
+                      <FormControl><Input {...field} placeholder="product-name-slug" /></FormControl>
+                      <FormDescription>The URL-friendly version of the name.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="meta_title" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Meta Title</FormLabel>
+                      <FormControl><Input {...field} placeholder="SEO Title" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="meta_description" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Meta Description</FormLabel>
+                      <FormControl><Textarea {...field} placeholder="Brief description for search engines" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                  <FormField control={form.control} name="keywords" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Keywords</FormLabel>
+                      <FormControl><Input {...field} placeholder="comma, separated, keywords" /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )} />
+                </div>
+                <div className="space-y-4">
+                  <SeoPreview
+                    title={form.watch('meta_title') || form.watch('name')}
+                    description={form.watch('meta_description') || form.watch('description')}
+                    slug={form.watch('slug')}
+                    merchantUrl={merchant?.slug ? `${merchant.slug}.baci.tech` : undefined}
+                  />
+                </div>
+              </div>
             </TabsContent>
 
           </div>

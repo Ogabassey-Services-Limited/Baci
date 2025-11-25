@@ -140,6 +140,11 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
         return null;
     }, [products]);
 
+    const categories = useMemo(() => {
+        const cats = new Set(products.map(p => p.category).filter((c): c is string => !!c));
+        return ['All', ...Array.from(cats)];
+    }, [products]);
+
     const searchResults = useMemo(() => {
         // Use server search results if available and search is active
         if (useServerSearch && searchQuery && serverSearchResults.length > 0) {
@@ -194,7 +199,7 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
             }
         }
 
-        return filtered.filter(p => p.status === 'published').slice(0, limit);
+        return filtered.filter(p => p.status === 'active').slice(0, limit);
     }, [searchQuery, fuse, products, selectedCategory, limit, filterType, useServerSearch, serverSearchResults]);
 
     const handleAddToCart = (product: Product) => {
@@ -251,8 +256,8 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                                                 key={option}
                                                 onClick={() => setSelectedCategory(selectedCategory === option ? 'All' : option)}
                                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === option
-                                                        ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
-                                                        : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
+                                                    ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
+                                                    : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
                                                     }`}
                                             >
                                                 {option}
@@ -307,7 +312,7 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
 
                             return (
                                 <ThemedCard key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col" accentPosition="top">
-                                    <Link href={`/product/${product.id}`} className="block">
+                                    <Link href={`/product/${product.id}`} className="block relative group">
                                         <Image
                                             src={product.imageLarge}
                                             alt={product.name}
@@ -316,6 +321,23 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                                             height={400}
                                             className="object-cover w-full h-auto aspect-video"
                                         />
+                                        <div className="absolute top-2 left-2 flex flex-col gap-1">
+                                            {product.compare_at_price && product.compare_at_price > product.price && (
+                                                <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                                                    SALE
+                                                </span>
+                                            )}
+                                            {product.manage_stock && product.stock <= (product.low_stock_threshold || 5) && product.stock > 0 && (
+                                                <span className="bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                                                    LOW STOCK
+                                                </span>
+                                            )}
+                                            {product.manage_stock && product.stock === 0 && (
+                                                <span className="bg-gray-800 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                                                    OUT OF STOCK
+                                                </span>
+                                            )}
+                                        </div>
                                     </Link>
                                     <CardContent className="p-4 flex flex-col flex-1">
                                         <h3 className="font-semibold text-lg">{product.name}</h3>

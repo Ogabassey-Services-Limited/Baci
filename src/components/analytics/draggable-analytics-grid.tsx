@@ -8,7 +8,6 @@ import 'react-resizable/css/styles.css';
 import { AnalyticsCard } from './analytics-card';
 import { RevenueChart, OrdersChart, SalesByChannelChart } from './chart-components';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DollarSign, Users, ShoppingBag, Activity, LayoutGrid, Save, X, Check, Settings2, Percent, RefreshCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';

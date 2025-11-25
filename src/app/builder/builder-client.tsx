@@ -114,7 +114,6 @@ export default function BuilderClient() {
     const [publishing, setPublishing] = useState(false);
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [showFieldsSidebar, setShowFieldsSidebar] = useState(false);
-    const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
     const { toast } = useToast();
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();

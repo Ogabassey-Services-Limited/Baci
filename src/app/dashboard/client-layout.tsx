@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Paintbrush,
   BarChart3,
+  Warehouse,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -183,6 +184,11 @@ export default function DashboardClientLayout({
       href: '/dashboard/products',
       icon: Package,
       label: 'Products',
+    },
+    {
+      href: '/dashboard/inventory',
+      icon: Warehouse,
+      label: 'Inventory',
     },
     {
       href: '/dashboard/customers',

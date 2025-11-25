@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -48,12 +48,10 @@ export default function DomainDetailsPage() {
 
     // Email Forwarding State
     const [forwards, setForwards] = useState<EmailForward[]>([]);
-    const [loadingForwards, setLoadingForwards] = useState(false);
     const [newForward, setNewForward] = useState<EmailForward>({ prefix: '', forwardto: '' });
 
     // ID Protection State
     const [idProtection, setIdProtection] = useState<boolean>(false);
-    const [loadingIdProtect, setLoadingIdProtect] = useState(false);
 
     useEffect(() => {
         fetchDomainDetails();

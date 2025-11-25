@@ -53,5 +53,5 @@ export default async function sitemap({ params }: Props): Promise<MetadataRoute.
             priority: 1,
         },
         ...productEntries,
-    ]
+    ];
 }

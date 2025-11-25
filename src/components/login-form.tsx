@@ -17,12 +17,12 @@ import { createClient } from '@/lib/supabase/client';
 import { Logo } from '@/components/logo';
 
 const authSchema = z.object({
-    email: z.string().email('Please enter a valid email address.'),
-    password: z.string().min(6, 'Password must be at least 6 characters.'),
+    email: z.string().email({ error: 'Please enter a valid email address.' }),
+    password: z.string().min(6, { error: 'Password must be at least 6 characters.' }),
 });
 
 const forgotPasswordSchema = z.object({
-    email: z.string().email('Please enter a valid email address.'),
+    email: z.string().email({ error: 'Please enter a valid email address.' }),
 });
 
 type AuthFormValues = z.infer<typeof authSchema>;

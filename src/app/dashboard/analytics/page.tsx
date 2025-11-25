@@ -2,22 +2,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Download } from 'lucide-react';
+import { useMerchant } from '@/hooks/use-merchant';
+import { Loader2 } from 'lucide-react';
 import { DraggableAnalyticsGrid } from '@/components/analytics/draggable-analytics-grid';
 import { AnalyticsCategoryNav, AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import { AnalyticsFilters } from '@/components/analytics/analytics-filters';
 
 
 export default function AnalyticsPage() {
-    const { merchant, loading: merchantLoading } = useMerchant();
     const { toast } = useToast();
+    const { merchant, loading: merchantLoading } = useMerchant();
     const [date, setDate] = useState<{ from: Date | undefined; to: Date | undefined }>({
         from: new Date(new Date().setDate(new Date().getDate() - 7)),
         to: new Date(),
     });
-    const [activeCategory, setActiveCategory] = useState<AnalyticsCategory>('overview');
+    const searchParams = useSearchParams();
+    const [activeCategory, setActiveCategory] = useState<AnalyticsCategory>(
+        (searchParams.get('category') as AnalyticsCategory) || 'overview'
+    );
     const [analyticsData, setAnalyticsData] = useState<any>(null);
     const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 

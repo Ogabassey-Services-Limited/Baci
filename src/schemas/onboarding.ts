@@ -5,8 +5,8 @@ import { checkPasswordStrength } from '@/lib/utils';
  * Base schema for Step 1. Contains only field definitions.
  */
 const step1BaseSchema = z.object({
-  businessName: z.string().min(2, 'Business name must be at least 2 characters.'),
-  businessType: z.string().min(1, 'Please select a business type.'),
+  businessName: z.string().min(2, { error: 'Business name must be at least 2 characters.' }),
+  businessType: z.string().min(1, { error: 'Please select a business type.' }),
   otherBusinessType: z.string().optional(),
 });
 
@@ -14,13 +14,13 @@ const step1BaseSchema = z.object({
  * Step 1: Business Details (with client-side refinement)
  */
 export const step1Schema = step1BaseSchema.refine(data => {
-    if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
-      return false;
-    }
-    return true;
-  }, {
-    message: "If you select 'Other', please specify your business type with at least 2 characters.",
-    path: ["otherBusinessType"],
+  if (data.businessType === 'other' && (!data.otherBusinessType || data.otherBusinessType.length < 2)) {
+    return false;
+  }
+  return true;
+}, {
+  error: "If you select 'Other', please specify your business type with at least 2 characters.",
+  path: ["otherBusinessType"],
 });
 
 
@@ -28,8 +28,8 @@ export const step1Schema = step1BaseSchema.refine(data => {
  * Step 2: Branding (Client-side validation)
  */
 export const step2Schema = z.object({
-  logoDataUri: z.string().min(1, 'Logo is required. Please upload or generate one.'),
-  brandColors: z.string().min(1, 'Brand colors are required.'),
+  logoDataUri: z.string().min(1, { error: 'Logo is required. Please upload or generate one.' }),
+  brandColors: z.string().min(1, { error: 'Brand colors are required.' }),
   brandPreferences: z.string().optional(),
 });
 
@@ -38,8 +38,8 @@ export const step2Schema = z.object({
  * Base schema for Step 3. Contains only field definitions.
  */
 const step3BaseSchema = z.object({
-  email: z.string().email('Please enter a valid email address.'),
-  password: z.union([z.string().min(8, "Password must be at least 8 characters."), z.literal('')]).optional(),
+  email: z.string().email({ error: 'Please enter a valid email address.' }),
+  password: z.union([z.string().min(8, { error: "Password must be at least 8 characters." }), z.literal('')]).optional(),
   confirmPassword: z.string().optional(),
 });
 
@@ -52,7 +52,7 @@ export const step3Schema = step3BaseSchema.refine(data => {
   }
   return true;
 }, {
-  message: "Passwords do not match.",
+  error: "Passwords do not match.",
   path: ["confirmPassword"]
 });
 
@@ -70,7 +70,7 @@ export const onboardingSchema = step1BaseSchema
     }
     return true;
   }, {
-    message: "If you select 'Other', please specify your business type.",
+    error: "If you select 'Other', please specify your business type.",
     path: ["otherBusinessType"],
   })
   .refine(data => { // Refinement from step3Schema
@@ -79,7 +79,7 @@ export const onboardingSchema = step1BaseSchema
     }
     return true;
   }, {
-    message: "Passwords do not match.",
+    error: "Passwords do not match.",
     path: ["confirmPassword"],
   });
 

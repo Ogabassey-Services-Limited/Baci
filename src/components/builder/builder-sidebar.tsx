@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
-    LayoutGrid,
     Palette,
-    FileText,
     Sparkles,
     Store,
     Search,

@@ -68,8 +68,9 @@
     "react-email": "^5.0.5",
     "react-grid-layout": "^1.5.2",
     "react-hook-form": "^7.66.1",
+    "react-phone-number-input": "^3.4.14",
     "recharts": "^3.5.0",
-    "tailwind-merge": "^2.5.2",
+    "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.0",
     "whois-json": "^2.0.4",
     "zod": "^4.1.13"
@@ -93,7 +94,7 @@
     "jsdom": "^27.2.0",
     "postcss": "^8.4.40",
     "prettier": "^3.6.2",
-    "tailwindcss": "^3.4.7",
+    "tailwindcss": "^3.4.18",
     "typescript": "^5.5.4",
     "typescript-eslint": "^8.47.0"
   }

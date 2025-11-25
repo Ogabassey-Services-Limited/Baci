@@ -77,39 +77,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
     const brandColors = merchant?.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.background, merchant.brand_colors.accent].filter(Boolean) : ['#3F51B5'];
     const darkestColor = findDarkestColor(brandColors as string[]);
 
-    // JSON-LD Structured Data
-    const productSchema = {
-        '@context': 'https://schema.org',
-        '@type': 'Product',
-        name: product.name,
-        image: product.images?.map(img => img.url) || [product.imageLarge],
-        description: product.description,
-        brand: {
-            '@type': 'Brand',
-            name: product.brand,
-        },
-        sku: product.sku || product.mpn,
-        mpn: product.mpn,
-        gtin: product.gtin,
-        offers: {
-            '@type': 'Offer',
-            url: typeof window !== 'undefined' ? window.location.href : '',
-            priceCurrency: merchant?.country ? getCountryByCode(merchant.country)?.currency || 'USD' : 'USD',
-            price: product.price,
-            availability: product.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-            seller: {
-                '@type': 'Organization',
-                name: storeName,
-            },
-        },
-    };
-
     return (
         <div className="flex flex-col min-h-screen">
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
-            />
             <Sheet>
                 <header className="px-4 lg:px-6 h-16 flex items-center justify-between shadow-sm sticky top-0 bg-background/80 backdrop-blur-sm z-10">
                     <Link href="/" className="flex items-center gap-2 text-sm font-medium">

@@ -153,14 +153,12 @@ export default function DashboardPage() {
   const [timeFrame, setTimeFrame] = useState<'monthly' | 'weekly'>('weekly');
   const { openAddProductDialog } = useProductContext();
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
   // Fetch analytics data
   useEffect(() => {
     async function fetchAnalytics() {
       if (!merchant) return;
 
-      setLoadingAnalytics(true);
       try {
         const response = await fetch(`/api/analytics?timeFrame=${timeFrame}`);
         if (response.ok) {
@@ -171,8 +169,6 @@ export default function DashboardPage() {
         }
       } catch (error) {
         console.error('Error fetching analytics:', error);
-      } finally {
-        setLoadingAnalytics(false);
       }
     }
 
@@ -301,7 +297,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <Card className="mb-8 border border-blue-200">
+      <Card className="mb-8 border border-primary/20">
         <CardHeader>
           <CardTitle>Setup Checklist ✅</CardTitle>
           <CardDescription>Follow these steps to get your store ready for customers.</CardDescription>
@@ -309,7 +305,7 @@ export default function DashboardPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {setupTasks.map((task) => (
-              <div key={task.title} className="flex items-center gap-4 p-4 rounded-lg border border-blue-200 bg-background">
+              <div key={task.title} className="flex items-center gap-4 p-4 rounded-lg border border-primary/20 bg-background">
                 <task.icon className="w-8 h-8 text-primary" />
                 <div className="flex-1">
                   <p className="font-semibold">{task.title}</p>
@@ -332,7 +328,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-        <Card className="border border-blue-200">
+        <Card className="border border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue 💰</CardTitle>
             <DollarSign className="h-4 w-4 text-primary" />
@@ -342,7 +338,7 @@ export default function DashboardPage() {
             <PercentageChange value={currentSummary.revenue.change} timeFrame={timeFrame} />
           </CardContent>
         </Card>
-        <Card className="border border-blue-200">
+        <Card className="border border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Customers 👥</CardTitle>
             <Users className="h-4 w-4 text-blue-500" />
@@ -352,7 +348,7 @@ export default function DashboardPage() {
             <PercentageChange value={currentSummary.customers.change} timeFrame={timeFrame} />
           </CardContent>
         </Card>
-        <Card className="border border-blue-200">
+        <Card className="border border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Sales 📈</CardTitle>
             <CreditCard className="h-4 w-4 text-yellow-500" />
@@ -362,7 +358,7 @@ export default function DashboardPage() {
             <PercentageChange value={currentSummary.sales.change} timeFrame={timeFrame} />
           </CardContent>
         </Card>
-        <Card className="border border-blue-200">
+        <Card className="border border-primary/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Now 🟢</CardTitle>
             <Activity className="h-4 w-4 text-red-500" />
@@ -376,7 +372,7 @@ export default function DashboardPage() {
         </Card>
       </div>
       <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3 mt-8">
-        <Card className="xl:col-span-2 border border-blue-200">
+        <Card className="xl:col-span-2 border border-primary/20">
           <CardHeader>
             <CardTitle>Overview</CardTitle>
             <CardDescription>
@@ -418,7 +414,7 @@ export default function DashboardPage() {
             </ChartContainer>
           </CardContent>
         </Card>
-        <Card className="border border-blue-200">
+        <Card className="border border-primary/20">
           <CardHeader>
             <CardTitle>Recent Sales</CardTitle>
             <CardDescription>
@@ -463,7 +459,7 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="xl:col-span-3 border border-blue-200">
+        <Card className="xl:col-span-3 border border-primary/20">
           <CardHeader>
             <CardTitle>Danger Zone ☢️</CardTitle>
             <CardDescription>These actions are irreversible. Please be certain.</CardDescription>
