@@ -12,12 +12,41 @@ export interface VariantInventoryItem {
     sold_at?: string;
 }
 
+export interface ProductImage {
+    url: string;
+    alt: string;
+    order: number;
+}
+
+export interface ProductDimensions {
+    length?: number;
+    width?: number;
+    height?: number;
+    unit: 'cm' | 'in' | 'm';
+}
+
+export interface ProductSchemaMarkup {
+    '@context': 'https://schema.org';
+    '@type': 'Product';
+    name?: string;
+    description?: string;
+    image?: string[];
+    brand?: { '@type': 'Brand'; name: string };
+    offers?: {
+        '@type': 'Offer';
+        price: number;
+        priceCurrency: string;
+        availability: string;
+    };
+}
+
 export interface ProductVariant {
     id: string;
     product_id: string;
     merchant_id: string;
     attributes: Record<string, string>; // { color: 'Blue', storage: '128GB' }
     price_override?: number;
+    cost_price?: number; // New field
     images?: string[];
     primary_image?: string;
     stock_quantity: number;
@@ -29,7 +58,7 @@ export interface Product {
     id: string;
     name: string;
     description: string;
-    status: 'published' | 'draft' | 'archived';
+    status: 'draft' | 'active' | 'archived'; // Updated from published/draft/archived
     price: number;
     manage_stock: boolean;
     stock: number;
@@ -45,6 +74,39 @@ export interface Product {
     category?: string;
     color?: string;
 
+    // New fields
+    sku?: string;
+    slug?: string;
+    compare_at_price?: number;
+    cost_price?: number;
+    low_stock_threshold?: number; // Default: 5
+
+    // Multiple images
+    images?: ProductImage[];
+
+    // Shipping
+    weight_value?: number;
+    weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
+    dimensions?: ProductDimensions;
+
+    // Tax
+    taxable?: boolean;
+    tax_code?: string;
+
+    // Classification
+    condition?: 'new' | 'used';
+    condition_detail?: string; // "Brand New", "Premium Used", etc.
+
+    // SEO
+    meta_title?: string;
+    meta_description?: string;
+    keywords?: string[];
+    canonical_url?: string;
+    schema_markup?: ProductSchemaMarkup;
+
+    // Google Merchant Center
+    google_product_category?: string;
+
     // Variant support
     has_variants?: boolean;
     variants?: ProductVariant[];
@@ -55,7 +117,7 @@ export const products: Product[] = [
         id: 'p1',
         name: 'Ceramic Mug Set',
         description: 'A beautiful set of two handmade ceramic mugs, perfect for your morning coffee. Each mug is unique and crafted with care.',
-        status: 'published',
+        status: 'active',
         price: 49.99,
         manage_stock: true,
         stock: 120,
@@ -74,7 +136,7 @@ export const products: Product[] = [
         id: 'p2',
         name: 'Minimalist Desk Lamp',
         description: 'A sleek and modern desk lamp with adjustable brightness. Fits any workspace and provides perfect lighting.',
-        status: 'published',
+        status: 'active',
         price: 79.99,
         manage_stock: true,
         stock: 75,
@@ -120,7 +182,7 @@ export const products: Product[] = [
         id: 'p5',
         name: 'Leather Journal',
         description: 'A premium leather-bound journal for your thoughts, dreams, and sketches. Made with high-quality paper.',
-        status: 'published',
+        status: 'active',
         price: 25.00,
         manage_stock: false,
         stock: 0,

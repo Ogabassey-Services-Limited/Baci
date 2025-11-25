@@ -14,14 +14,50 @@ const VENDOR_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` 
 
 
 export const metadata: Metadata = {
-  title: `${VENDOR_NAME} - AI E-commerce Builder`,
-  description: 'Create your e-commerce store in seconds with AI.',
+  title: {
+    default: `${VENDOR_NAME} - AI E-commerce Builder`,
+    template: `%s | ${VENDOR_NAME}`,
+  },
+  description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
   applicationName: VENDOR_NAME,
   authors: [{ name: VENDOR_NAME }],
-  keywords: ['ai', 'ecommerce', 'store builder', 'online store', 'nextjs', 'react'],
+  keywords: ['ai', 'ecommerce', 'store builder', 'online store', 'nextjs', 'react', 'business', 'retail'],
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  openGraph: {
+    title: `${VENDOR_NAME} - AI E-commerce Builder`,
+    description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
+    url: VENDOR_URL,
+    siteName: VENDOR_NAME,
+    images: [
+      {
+        url: `${VENDOR_URL}/og-image.png`, // Ensure this image exists or use a placeholder
+        width: 1200,
+        height: 630,
+        alt: `${VENDOR_NAME} - AI E-commerce Builder`,
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${VENDOR_NAME} - AI E-commerce Builder`,
+    description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
+    creator: `@${VENDOR_NAME}`, // Update if you have a specific handle
+    images: [`${VENDOR_URL}/og-image.png`],
+  },
+  alternates: {
+    canonical: VENDOR_URL,
   },
 };
 
@@ -62,6 +98,20 @@ export default async function RootLayout({
     },
   };
 
+  const softwareApplicationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: VENDOR_NAME,
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    description: 'AI-powered e-commerce platform for building online stores.',
+  };
+
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -74,6 +124,10 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
         />
       </head>
       <body className={inter.variable} suppressHydrationWarning>

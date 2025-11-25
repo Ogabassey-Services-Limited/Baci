@@ -186,7 +186,7 @@ export default function DashboardPage() {
   const getStoreUrl = () => {
     if (!merchant?.slug) return { displayUrl: '', fullUrl: '' };
 
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const subdomain = `${merchant.slug}.${rootDomain}`;
 
     // Use subdomain URL (merchant gets free subdomain on signup)

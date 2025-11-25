@@ -4,14 +4,15 @@ import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchant } from '@/hooks/use-merchant';
-import { ShoppingBag, Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { ShoppingBag } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
 import { Button } from '@/components/ui/button';
 import { ThemedButton, ThemedBadge } from '@/components/themed';
 import { useStorefront } from '@/contexts/storefront-context';
+import { SearchAutocomplete } from './search-autocomplete';
+import { useRouter } from 'next/navigation';
 
 /**
  * StorefrontHeader - Now fully themeable via CSS variables
@@ -31,8 +32,13 @@ export function StorefrontHeader() {
     const { merchant } = useMerchant();
     const { cartCount } = useCart();
     const { searchQuery, setSearchQuery } = useStorefront();
+    const router = useRouter();
 
     if (!merchant) return null;
+
+    const handleProductSelect = (productId: string) => {
+        router.push(`/product/${productId}`);
+    };
 
     return (
         <Sheet>
@@ -56,25 +62,14 @@ export function StorefrontHeader() {
                 </div>
 
                 <div className="flex-1 flex justify-center px-4">
-                    <div className="w-full max-w-md relative">
-                        <Search
-                            className="absolute left-2.5 top-2.5 h-4 w-4"
-                            style={{ color: 'var(--theme-header-icon, #6B7280)' }}
-                        />
-                        <Input
-                            type="search"
-                            placeholder="Search products..."
-                            className="w-full appearance-none pl-8 transition-all"
-                            style={{
-                                backgroundColor: 'var(--theme-header-search-bg, #FFFFFF)',
-                                borderColor: 'var(--theme-header-search-border, #E2E8F0)',
-                                borderRadius: 'var(--theme-radius-md, 0.5rem)',
-                                color: 'var(--theme-header-text, #000000)',
-                            }}
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
+                    <SearchAutocomplete
+                        merchantId={merchant.id}
+                        value={searchQuery}
+                        onChange={setSearchQuery}
+                        onSelectProduct={handleProductSelect}
+                        placeholder="Search products..."
+                        className="w-full max-w-md"
+                    />
                 </div>
 
                 <nav className="flex items-center gap-2 sm:gap-4">

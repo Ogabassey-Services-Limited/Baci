@@ -1,0 +1,24 @@
+# Baci - AI E-commerce Builder
+
+## About
+Baci is an AI-powered e-commerce platform that allows users to build, manage, and grow their online stores with ease. It leverages artificial intelligence to generate store layouts, product descriptions, and optimize sales.
+
+## Key Features
+- **AI Store Generation**: Create a fully functional online store in seconds by describing your business.
+- **Custom Branding**: Easily customize colors, logos, and themes.
+- **Product Management**: Inventory tracking, variant management, and bulk operations.
+- **Multi-Channel Selling**: Manage online and physical sales from a single dashboard.
+- **Business Analytics**: Insights into sales, inventory, and staff performance.
+
+## Navigation
+- **Home**: /
+- **Login**: /login
+- **Sign Up**: /onboarding
+- **Features**: /#features
+- **How It Works**: /#how-it-works
+- **Pricing**: /pricing
+- **Contact**: /contact
+
+## For Developers & Agents
+- **Sitemap**: /sitemap.xml
+- **Robots.txt**: /robots.txt

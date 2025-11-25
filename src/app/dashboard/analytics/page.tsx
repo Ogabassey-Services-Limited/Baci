@@ -1,49 +1,93 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2, Download } from 'lucide-react';
 import { DraggableAnalyticsGrid } from '@/components/analytics/draggable-analytics-grid';
+import { AnalyticsCategoryNav, AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import { AnalyticsFilters } from '@/components/analytics/analytics-filters';
-import { AIInsightsPanel } from '@/components/analytics/ai-insights-panel';
+
 
 export default function AnalyticsPage() {
-  const [timeFrame, setTimeFrame] = useState<'weekly' | 'monthly'>('weekly');
-  const [analytics, setAnalytics] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+    const { merchant, loading: merchantLoading } = useMerchant();
+    const { toast } = useToast();
+    const [date, setDate] = useState<{ from: Date | undefined; to: Date | undefined }>({
+        from: new Date(new Date().setDate(new Date().getDate() - 7)),
+        to: new Date(),
+    });
+    const [activeCategory, setActiveCategory] = useState<AnalyticsCategory>('overview');
+    const [analyticsData, setAnalyticsData] = useState<any>(null);
+    const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
-  useEffect(() => {
-    async function fetchAnalytics() {
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/analytics?timeFrame=${timeFrame}`);
-        if (response.ok) {
-          const data = await response.json();
-          setAnalytics(data);
-        } else {
-          console.error('Failed to fetch analytics:', response.status);
+    // Fetch analytics data
+    useEffect(() => {
+        async function fetchAnalytics() {
+            if (!merchant || !date.from || !date.to) return;
+
+            setLoadingAnalytics(true);
+            try {
+                const queryParams = new URLSearchParams({
+                    startDate: date.from.toISOString(),
+                    endDate: date.to.toISOString(),
+                });
+                const response = await fetch(`/api/analytics?${queryParams.toString()}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setAnalyticsData(data);
+                } else {
+                    console.error('Failed to fetch analytics:', response.status, response.statusText);
+                }
+            } catch (error) {
+                console.error('Error fetching analytics:', error);
+            } finally {
+                setLoadingAnalytics(false);
+            }
         }
-      } catch (error) {
-        console.error('Error fetching analytics:', error);
-      } finally {
-        setLoading(false);
-      }
+
+        fetchAnalytics();
+    }, [merchant, date]);
+
+    if (merchantLoading) {
+        return (
+            <div className="flex flex-1 items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        );
     }
 
-    fetchAnalytics();
-  }, [timeFrame]);
+    return (
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>
+                    <p className="text-muted-foreground">Deep dive into your store's performance.</p>
+                </div>
 
-  return (
-    <div className="flex-1 space-y-4 p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Analytics</h2>
-        <AnalyticsFilters
-          timeFrame={timeFrame}
-          onTimeFrameChange={setTimeFrame}
-        />
-      </div>
+                {/* AI Assistant Panel - Moved to Grid Controls */}
+            </div>
 
-      <DraggableAnalyticsGrid data={analytics} loading={loading} />
+            {/* Analytics Controls */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-10 py-4 bg-background/80 backdrop-blur-md -mx-6 px-6 border-b">
+                <AnalyticsCategoryNav
+                    activeCategory={activeCategory}
+                    onCategoryChange={setActiveCategory}
+                />
+                <AnalyticsFilters
+                    date={date}
+                    onDateChange={setDate}
+                    onExport={() => toast({ title: "Exporting Report", description: "Your report will be ready shortly." })}
+                />
+            </div>
 
-      <AIInsightsPanel />
-    </div>
-  );
+            {/* Main Analytics Grid */}
+            <DraggableAnalyticsGrid
+                data={analyticsData}
+                loading={loadingAnalytics}
+                activeCategory={activeCategory}
+                merchant={merchant}
+            />
+        </div>
+    );
 }

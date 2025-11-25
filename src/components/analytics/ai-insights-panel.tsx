@@ -1,9 +1,11 @@
+
+'use client';
+
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, TrendingUp, AlertTriangle, Info, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
+import { AnalyticsCategory } from './analytics-category-nav';
 
 interface Insight {
     title: string;
@@ -11,16 +13,18 @@ interface Insight {
     type: 'positive' | 'negative' | 'neutral' | 'opportunity';
     priority: 'high' | 'medium' | 'low';
     action?: string;
+    category?: AnalyticsCategory;
 }
 
 interface AIInsightsPanelProps {
     className?: string;
+    activeCategory: AnalyticsCategory;
 }
 
-export function AIInsightsPanel({ className }: AIInsightsPanelProps) {
+export function AIInsightsPanel({ className, activeCategory }: AIInsightsPanelProps) {
     const [insights, setInsights] = useState<Insight[]>([]);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [currentIndex, setCurrentIndex] = useState(0);
 
     useEffect(() => {
         async function fetchInsights() {
@@ -31,7 +35,6 @@ export function AIInsightsPanel({ className }: AIInsightsPanelProps) {
                 setInsights(data.insights || []);
             } catch (err) {
                 console.error(err);
-                setError('Failed to load AI insights');
             } finally {
                 setLoading(false);
             }
@@ -40,57 +43,102 @@ export function AIInsightsPanel({ className }: AIInsightsPanelProps) {
         fetchInsights();
     }, []);
 
-    if (error) return null; // Hide panel on error for now
+    // Filter insights based on active category
+    const filteredInsights = activeCategory === 'overview'
+        ? insights
+        : insights.filter(insight => {
+            const text = (insight.title + insight.description).toLowerCase();
+            const keywords: Record<string, string[]> = {
+                finance: ['revenue', 'sales', 'profit', 'cost', 'money'],
+                products: ['product', 'stock', 'inventory', 'selling'],
+                customers: ['customer', 'user', 'buyer', 'retention'],
+                marketing: ['campaign', 'ad', 'social', 'traffic', 'conversion']
+            };
+            return keywords[activeCategory]?.some(k => text.includes(k)) ?? true;
+        });
+
+    // Auto-rotate insights every 5 seconds
+    useEffect(() => {
+        if (filteredInsights.length === 0) return;
+
+        const interval = setInterval(() => {
+            setCurrentIndex((prev) => (prev + 1) % filteredInsights.length);
+        }, 5000);
+
+        return () => clearInterval(interval);
+    }, [filteredInsights.length]);
+
+    const currentInsight = filteredInsights[currentIndex];
+
+    if (loading) {
+        return (
+            <div className={cn(
+                'min-h-[72px] h-auto rounded-xl bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border border-indigo-200/50 dark:border-indigo-800/50 backdrop-blur-sm animate-pulse',
+                className
+            )} />
+        );
+    }
+
+    if (!currentInsight) {
+        return (
+            <div className={cn(
+                'min-h-[72px] h-auto rounded-xl bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border border-indigo-200/50 dark:border-indigo-800/50 backdrop-blur-sm flex items-center px-4',
+                className
+            )}>
+                <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    <p className="text-sm text-muted-foreground">No insights available</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <Card className={cn('border-primary/20 bg-primary/5', className)}>
-            <CardHeader className="flex flex-row items-center space-y-0 pb-2">
-                <div className="flex items-center space-x-2">
-                    <Sparkles className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-lg font-semibold text-primary">AI Insights</CardTitle>
-                </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {loading ? (
-                    <div className="space-y-3">
-                        <Skeleton className="h-20 w-full rounded-lg bg-primary/10" />
-                        <Skeleton className="h-20 w-full rounded-lg bg-primary/10" />
-                        <Skeleton className="h-20 w-full rounded-lg bg-primary/10" />
-                    </div>
-                ) : (
-                    insights.map((insight, index) => (
+        <div
+            className={cn(
+                'w-full min-h-[72px] h-auto rounded-xl border bg-card/50 backdrop-blur-sm flex items-center px-4 py-3 gap-3 relative overflow-hidden shadow-sm',
+                className
+            )}
+        >
+            {/* Icon */}
+            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-primary" />
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 min-w-0 relative flex flex-col justify-center">
+                <motion.div
+                    key={currentIndex}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.5 }}
+                >
+                    <h3 className="text-sm font-semibold text-foreground">
+                        {currentInsight.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                        {currentInsight.description}
+                    </p>
+                </motion.div>
+            </div>
+
+            {/* Indicator dots */}
+            {filteredInsights.length > 1 && (
+                <div className="flex gap-1">
+                    {filteredInsights.map((_, idx) => (
                         <div
-                            key={index}
-                            className="group relative overflow-hidden rounded-lg border bg-background p-4 transition-all hover:shadow-md"
-                        >
-                            <div className="flex items-start gap-3">
-                                <div className={cn(
-                                    "mt-1 rounded-full p-1.5",
-                                    insight.type === 'positive' && "bg-green-100 text-green-600",
-                                    insight.type === 'negative' && "bg-red-100 text-red-600",
-                                    insight.type === 'opportunity' && "bg-blue-100 text-blue-600",
-                                    insight.type === 'neutral' && "bg-gray-100 text-gray-600",
-                                )}>
-                                    {insight.type === 'positive' && <TrendingUp className="h-4 w-4" />}
-                                    {insight.type === 'negative' && <AlertTriangle className="h-4 w-4" />}
-                                    {insight.type === 'opportunity' && <Sparkles className="h-4 w-4" />}
-                                    {insight.type === 'neutral' && <Info className="h-4 w-4" />}
-                                </div>
-                                <div className="flex-1 space-y-1">
-                                    <h4 className="font-medium leading-none">{insight.title}</h4>
-                                    <p className="text-sm text-muted-foreground">{insight.description}</p>
-                                    {insight.action && (
-                                        <div className="mt-3 flex items-center text-sm font-medium text-primary">
-                                            <span>Suggested Action: {insight.action}</span>
-                                            <ArrowRight className="ml-1 h-3 w-3 transition-transform group-hover:translate-x-1" />
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </CardContent>
-        </Card>
+                            key={idx}
+                            className={cn(
+                                'w-1.5 h-1.5 rounded-full transition-all',
+                                idx === currentIndex
+                                    ? 'bg-primary w-4'
+                                    : 'bg-muted-foreground/30'
+                            )}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
     );
 }

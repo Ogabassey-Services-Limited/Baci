@@ -240,6 +240,20 @@ function Step1_Shipping() {
 }
 
 function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
+  const { merchant } = useMerchant();
+
+  const formatCurrency = (value: number) => {
+    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+    const locale = country ? `en-${country.code}` : 'en-US';
+    const currency = country ? country.currency : 'USD';
+
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+      currencyDisplay: 'symbol',
+    }).format(value);
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium">Shipping & Payment</h3>
@@ -255,7 +269,7 @@ function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
           {shippingFee === null ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
-            <p className="font-semibold">{new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN' }).format(shippingFee)}</p>
+            <p className="font-semibold">{formatCurrency(shippingFee)}</p>
           )}
         </CardContent>
       </Card>

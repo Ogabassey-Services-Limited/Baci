@@ -5,6 +5,7 @@ import ProductDetailClient from './product-detail-client';
 import { getProductById, products } from '@/lib/products';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 
 
 // This function generates metadata dynamically on the server
@@ -19,11 +20,17 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     };
   }
 
-  const storeUrl = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
+  const headersList = await headers();
+  const host = headersList.get('host') || 'usebaci.com';
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const storeUrl = `${protocol}://${host}`;
 
   return {
     title: `${product.name} | Baci Store`,
     description: product.description,
+    alternates: {
+      canonical: `${storeUrl}/product/${product.id}`,
+    },
     openGraph: {
       title: product.name,
       description: product.description,

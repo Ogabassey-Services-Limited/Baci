@@ -11,6 +11,37 @@ function BaciLandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
       {/* Header */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'HowTo',
+            name: 'How to create your online store with Baci',
+            description: 'Create a professional online store in minutes using AI-powered tools.',
+            step: [
+              {
+                '@type': 'HowToStep',
+                name: 'Choose your business type',
+                text: 'Tell us about your business and let our AI generate a customized store in seconds. We\'ll create everything from your logo to product categories.',
+                position: 1,
+              },
+              {
+                '@type': 'HowToStep',
+                name: 'Customize your store',
+                text: 'Add products, adjust colors, upload your logo. Our AI helps you create professional product descriptions and optimize your store for sales.',
+                position: 2,
+              },
+              {
+                '@type': 'HowToStep',
+                name: 'Go live and start selling',
+                text: 'Launch your store with a custom domain or subdomain. Start selling immediately with built-in payments, inventory management, and order processing.',
+                position: 3,
+              },
+            ],
+          }),
+        }}
+      />
       <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm sticky top-0 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 z-50 border-b">
         <Link href="/" className="flex items-center">
           <Logo />
@@ -92,7 +123,7 @@ function BaciLandingPage() {
               <div className="text-center">
                 <div className="flex gap-1 justify-center mb-2">
                   {[...Array(5)].map((_, i) => (
-                    <svg key={i} className="w-6 h-6 fill-[#FF9F43]" viewBox="0 0 20 20">
+                    <svg key={i} className="w-6 h-6 fill-[#FF9F43]" viewBox="0 0 20 20" aria-hidden="true">
                       <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
                     </svg>
                   ))}

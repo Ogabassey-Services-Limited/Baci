@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-     // Fetch merchant to check for shipping provider preference
+    // Fetch merchant to check for shipping provider preference
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select('shipping_provider')
@@ -176,8 +176,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (merchantFetchError) {
-        logger.error({ message: 'Failed to fetch merchant for order creation', error: merchantFetchError });
-        return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      logger.error({ message: 'Failed to fetch merchant for order creation', error: merchantFetchError });
+      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
     }
 
     // Validate required fields
@@ -234,33 +234,33 @@ export async function POST(request: NextRequest) {
         customer_id = newCustomer.id;
       }
     }
-    
+
     // Base order payload
     const orderPayload: Record<string, unknown> = {
-        merchant_id,
-        customer_id,
-        customer_email,
-        customer_name,
-        customer_phone,
-        items: items,
-        subtotal,
-        shipping_fee,
-        total,
-        payment_method,
-        payment_status,
-        shipping_status,
-        shipping_address,
-        source,
-        notes,
+      merchant_id,
+      customer_id,
+      customer_email,
+      customer_name,
+      customer_phone,
+      items: items,
+      subtotal,
+      shipping_fee,
+      total,
+      payment_method,
+      payment_status,
+      shipping_status,
+      shipping_address,
+      source,
+      notes,
     };
 
     // Dynamically handle shipping based on merchant preference
     if (merchant?.shipping_provider === 'GIGL') {
-        const shipmentDetails = await handleGiglShipment({ items }, { name: customer_name, phone: customer_phone }, shipping_address);
-        if (shipmentDetails) {
-            orderPayload.shipping_provider = shipmentDetails.shipping_provider;
-            orderPayload.tracking_number = shipmentDetails.tracking_number;
-        }
+      const shipmentDetails = await handleGiglShipment({ items }, { name: customer_name, phone: customer_phone }, shipping_address);
+      if (shipmentDetails) {
+        orderPayload.shipping_provider = shipmentDetails.shipping_provider;
+        orderPayload.tracking_number = shipmentDetails.tracking_number;
+      }
     }
 
 
@@ -278,7 +278,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    
+
     // Insert order items into the new normalized table
     if (order) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -334,7 +334,7 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (merchantDetails && customer_email) {
-        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
+        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
         const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
 
         // Format items for email template

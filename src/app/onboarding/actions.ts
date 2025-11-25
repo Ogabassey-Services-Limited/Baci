@@ -163,7 +163,7 @@ export async function submitOnboarding(
 
     // 4. Create free subdomain domain record
     try {
-      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
+      const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
       const subdomainFull = `${merchantData.slug}.${rootDomain}`;
 
       const { error: domainError } = await supabase.from('domains').insert({

@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { generateSlug, generateProductSchema, generateMetaDescription } from '@/lib/seo-utils';
+import { getCountryByCode } from '@/lib/countries';
+import { Product } from '@/lib/products';
 
 export async function GET(request: NextRequest) {
     try {
@@ -19,7 +22,7 @@ export async function GET(request: NextRequest) {
         // Get merchant record
         const { data: merchant, error: merchantError } = await supabase
             .from('merchants')
-            .select('id')
+            .select('id, business_name')
             .eq('user_id', user.id)
             .single();
 
@@ -50,17 +53,7 @@ export async function GET(request: NextRequest) {
 
         // Apply filters
         if (status !== 'All') {
-            // Map UI status to DB status if needed, or assume they match
-            // DB: is_active (boolean) vs UI: published/draft/archived
-            // This might need adjustment based on actual DB schema for status
-            // For now, assuming 'is_active' maps to 'published'
-            if (status === 'published') {
-                query = query.eq('is_active', true);
-            } else if (status === 'draft') {
-                query = query.eq('is_active', false); // Simplified mapping
-            }
-            // Note: The current DB schema only has is_active (boolean). 
-            // A real implementation would need a 'status' text column to support draft/archived properly.
+            query = query.eq('status', status);
         }
 
         if (stock !== 'All') {
@@ -72,7 +65,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (search) {
-            query = query.ilike('name', `%${search}%`);
+            query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`);
         }
 
         const { data: products, error, count } = await query;
@@ -86,28 +79,58 @@ export async function GET(request: NextRequest) {
         }
 
         // Transform to match UI Product interface
-        const transformedProducts = products?.map(p => ({
+        const transformedProducts: Product[] = products?.map(p => ({
             id: p.id,
             name: p.name,
             description: p.description || '',
-            status: p.is_active ? 'published' : 'draft', // Simplified mapping
+            status: p.status || (p.is_active ? 'active' : 'draft'), // Fallback for migration
             price: parseFloat(p.price),
-            manage_stock: true, // Defaulting to true as DB has stock_quantity
+            manage_stock: p.manage_stock ?? true,
             stock: p.stock_quantity,
-            image: p.image_small || 'https://picsum.photos/seed/placeholder/80/80',
-            imageLarge: p.image_large || 'https://picsum.photos/seed/placeholder/600/400',
+            minimum_order_quantity: p.min_order_quantity,
+
+            // Image handling
+            image: p.images?.[0]?.url || p.image_small || 'https://picsum.photos/seed/placeholder/80/80',
+            imageLarge: p.images?.[0]?.url || p.image_large || 'https://picsum.photos/seed/placeholder/600/400',
             imageHint: p.image_hint || '',
-            brand: 'Generic', // DB doesn't have brand yet
-            gtin: '',
-            mpn: '',
+            images: p.images || [],
+
+            brand: p.brand || '',
+            gtin: p.gtin || '',
+            mpn: p.mpn || '',
+            google_product_category: p.google_product_category,
+
             has_variants: p.has_variants || false,
             category: p.category || 'General',
+
+            // New fields
+            sku: p.sku,
+            slug: p.slug,
+            compare_at_price: p.compare_at_price ? parseFloat(p.compare_at_price) : undefined,
+            cost_price: p.cost_price ? parseFloat(p.cost_price) : undefined,
+            low_stock_threshold: p.low_stock_threshold,
+
+            weight_value: p.weight_value ? parseFloat(p.weight_value) : undefined,
+            weight_unit: p.weight_unit,
+            dimensions: p.dimensions,
+
+            taxable: p.taxable,
+            tax_code: p.tax_code,
+
+            condition: p.condition,
+            condition_detail: p.condition_detail,
+
+            meta_title: p.meta_title,
+            meta_description: p.meta_description,
+            keywords: p.keywords,
+            canonical_url: p.canonical_url,
+            schema_markup: p.schema_markup,
         })) || [];
 
-        // Calculate stats (this might be expensive on large datasets, consider caching or separate endpoint)
-        const { data: allStats, error: _statsError } = await supabase
+        // Calculate stats
+        const { data: allStats } = await supabase
             .from('products')
-            .select('price, stock_quantity, is_active, category')
+            .select('price, stock_quantity, status, category')
             .eq('merchant_id', merchant.id);
 
         let inventoryValue = 0;
@@ -116,15 +139,12 @@ export async function GET(request: NextRequest) {
 
         if (allStats) {
             inventoryValue = allStats.reduce((acc, curr) => {
-                // Assuming is_active means "manage_stock" is true for now, or just counting all stock
                 if (curr.stock_quantity > 0) {
                     return acc + (Number(curr.price) * curr.stock_quantity);
                 }
                 return acc;
             }, 0);
             outOfStockCount = allStats.filter(p => p.stock_quantity === 0).length;
-
-            // Calculate unique categories
             const uniqueCategories = new Set(allStats.map(p => p.category).filter(Boolean));
             categoryCount = uniqueCategories.size;
         }
@@ -170,7 +190,7 @@ export async function POST(request: NextRequest) {
         // Get merchant record
         const { data: merchant, error: merchantError } = await supabase
             .from('merchants')
-            .select('id')
+            .select('id, business_name, country')
             .eq('user_id', user.id)
             .single();
 
@@ -191,6 +211,40 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        // Prepare data for insertion
+        const slug = body.slug || generateSlug(body.name);
+        const sku = body.sku || generateSlug(body.name).toUpperCase().substring(0, 20); // Fallback SKU
+
+        // Generate SEO data if missing
+        const meta_description = body.meta_description || generateMetaDescription(body.description);
+        const meta_title = body.meta_title || body.name;
+
+        // Prepare product object for schema generation
+        const productForSchema: Product = {
+            id: '', // Placeholder
+            name: body.name,
+            description: body.description,
+            price: body.price,
+            stock: body.stock || 0,
+            manage_stock: true,
+            status: body.status || 'draft',
+            image: body.images?.[0]?.url || '',
+            imageLarge: body.images?.[0]?.url || '',
+            imageHint: '',
+            brand: body.brand || merchant.business_name,
+            sku: sku,
+            gtin: body.gtin,
+            mpn: body.mpn,
+            weight_value: body.weight_value,
+            weight_unit: body.weight_unit,
+            condition: body.condition,
+            images: body.images
+        };
+
+        const country = merchant.country ? getCountryByCode(merchant.country) : undefined;
+        const currency = country ? country.currency : 'USD';
+        const schema_markup = body.schema_markup || generateProductSchema(productForSchema, merchant.business_name, currency);
+
         // Insert Product
         const { data: product, error: productError } = await supabase
             .from('products')
@@ -200,14 +254,48 @@ export async function POST(request: NextRequest) {
                 description: body.description,
                 price: body.price,
                 stock_quantity: body.stock,
-                is_active: body.status === 'published',
-                image_small: body.image,
-                image_large: body.imageLarge,
+
+                // New fields
+                sku: sku,
+                slug: slug,
+                compare_at_price: body.compare_at_price,
+                cost_price: body.cost_price,
+                low_stock_threshold: body.low_stock_threshold ?? 5,
+
+                images: body.images || [],
+                // Legacy image fields for backward compatibility
+                image_small: body.images?.[0]?.url || body.image,
+                image_large: body.images?.[0]?.url || body.imageLarge,
                 image_hint: body.imageHint,
+
+                weight_value: body.weight_value,
+                weight_unit: body.weight_unit,
+                dimensions: body.dimensions,
+
+                status: body.status || 'draft',
+                // Legacy is_active for backward compatibility
+                is_active: body.status === 'active',
+
+                taxable: body.taxable ?? true,
+                tax_code: body.tax_code,
+
+                condition: body.condition || 'new',
+                condition_detail: body.condition_detail,
+
+                meta_title: meta_title,
+                meta_description: meta_description,
+                keywords: body.keywords,
+                canonical_url: body.canonical_url,
+                schema_markup: schema_markup,
+
+                gtin: body.gtin,
+                mpn: body.mpn,
+                google_product_category: body.google_product_category,
+                brand: body.brand,
+
                 fulfillment_details: body.fulfillment_details,
                 has_variants: body.has_variants || false,
                 category: body.category,
-                // brand: body.brand, // Assuming column exists or will be added
             })
             .select()
             .single();
@@ -215,7 +303,7 @@ export async function POST(request: NextRequest) {
         if (productError) {
             console.error('Error creating product:', productError);
             return NextResponse.json(
-                { error: 'Failed to create product' },
+                { error: 'Failed to create product', details: productError.message },
                 { status: 500 }
             );
         }
@@ -228,6 +316,7 @@ export async function POST(request: NextRequest) {
                 merchant_id: merchant.id,
                 attributes: v.attributes,
                 price_override: v.price,
+                cost_price: v.cost_price, // New field
                 stock_quantity: v.stock_quantity,
                 sku: v.sku,
                 primary_image: v.image,
@@ -240,7 +329,6 @@ export async function POST(request: NextRequest) {
 
             if (variantsError) {
                 console.error('Error creating variants:', variantsError);
-                // Consider rolling back product creation here in a real transaction
             }
         }
 

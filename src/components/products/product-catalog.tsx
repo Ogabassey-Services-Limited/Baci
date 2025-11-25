@@ -18,10 +18,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useDebounce } from '@/hooks/use-debounce';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Infinity as InfinityIcon, Package, Edit } from 'lucide-react';
+import { Loader2, Infinity as InfinityIcon, Package, Edit, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Product } from '@/lib/products';
 import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
 
 interface ProductCatalogProps {
   statusFilter: string;
@@ -115,102 +116,113 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
               </TableRow>
             </TableHeader>
             <TableBody>
-              {localProducts.map(product => (
-                <TableRow key={product.id} className="group hover:bg-muted/30 transition-colors border-b border-border/40">
-                  <TableCell className="pl-6 py-3">
-                    <div className="flex items-center gap-4">
-                      <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-border/50 bg-muted/20 shrink-0">
-                        {product.image ? (
-                          <Image
-                            src={product.image}
-                            alt={product.name}
-                            width={48}
-                            height={48}
-                            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                          />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
-                            <Package className="h-5 w-5" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-medium text-foreground/90 group-hover:text-primary transition-colors">
-                          {product.name}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {product.mpn && <span className="text-[11px] text-muted-foreground font-mono">SKU: {product.mpn}</span>}
-                          {isSaving && dirtyProducts.has(product.id) && (
-                            <span className="flex items-center gap-1 text-[10px] text-blue-600 font-medium animate-pulse">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Saving...
-                            </span>
+              {localProducts.map(product => {
+                const isLowStock = !product.manage_stock ? false : (product.stock <= (product.low_stock_threshold || 5));
+                return (
+                  <TableRow key={product.id} className="group hover:bg-muted/30 transition-colors border-b border-border/40">
+                    <TableCell className="pl-6 py-3">
+                      <div className="flex items-center gap-4">
+                        <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-border/50 bg-muted/20 shrink-0">
+                          {product.image ? (
+                            <Image
+                              src={product.image}
+                              alt={product.name}
+                              width={48}
+                              height={48}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
+                              <Package className="h-5 w-5" />
+                            </div>
                           )}
                         </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="font-medium text-foreground/90 group-hover:text-primary transition-colors">
+                            {product.name}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {product.sku && <span className="text-[11px] text-muted-foreground font-mono">SKU: {product.sku}</span>}
+                            {isSaving && dirtyProducts.has(product.id) && (
+                              <span className="flex items-center gap-1 text-[10px] text-blue-600 font-medium animate-pulse">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                Saving...
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className={cn(
-                      "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
-                      product.status === 'published'
-                        ? "bg-green-50 text-green-700 border-green-200/50"
-                        : "bg-gray-50 text-gray-600 border-gray-200/50"
-                    )}>
-                      <span className={cn(
-                        "mr-1.5 h-1.5 w-1.5 rounded-full",
-                        product.status === 'published' ? "bg-green-500" : "bg-gray-400"
-                      )} />
-                      <span className="capitalize">{product.status}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="relative ml-auto w-28 group/input">
-                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground/70 font-medium">
-                        {formatCurrency(0).replace(/[0-9.,\s]/g, '')}
-                      </span>
-                      <Input
-                        type="number"
-                        defaultValue={product.price.toFixed(2)}
-                        onBlur={(e) => handlePriceChange(product.id, e.target.value)}
-                        className="h-9 text-left pr-3 pl-6 font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm"
-                        aria-label={`Price for ${product.name}`}
-                        step="0.01"
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {product.manage_stock ? (
-                      <div className="mx-auto w-24">
+                    </TableCell>
+                    <TableCell>
+                      <div className={cn(
+                        "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
+                        product.status === 'active'
+                          ? "bg-green-50 text-green-700 border-green-200/50"
+                          : product.status === 'draft'
+                            ? "bg-yellow-50 text-yellow-700 border-yellow-200/50"
+                            : "bg-gray-50 text-gray-600 border-gray-200/50"
+                      )}>
+                        <span className={cn(
+                          "mr-1.5 h-1.5 w-1.5 rounded-full",
+                          product.status === 'active' ? "bg-green-500" : product.status === 'draft' ? "bg-yellow-500" : "bg-gray-400"
+                        )} />
+                        <span className="capitalize">{product.status}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="relative ml-auto w-28 group/input">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground/70 font-medium">
+                          {formatCurrency(0).replace(/[0-9.,\s]/g, '')}
+                        </span>
                         <Input
                           type="number"
-                          value={product.stock}
-                          onChange={(e) => handleStockChange(product.id, parseInt(e.target.value, 10) || 0)}
-                          className={cn(
-                            "h-8 text-center font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md",
-                            product.stock === 0 && "text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200"
-                          )}
-                          aria-label={`Stock for ${product.name}`}
+                          defaultValue={product.price.toFixed(2)}
+                          onBlur={(e) => handlePriceChange(product.id, e.target.value)}
+                          className="h-9 text-left pr-3 pl-6 font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm"
+                          aria-label={`Price for ${product.name}`}
+                          step="0.01"
                         />
                       </div>
-                    ) : (
-                      <div className="flex items-center justify-center gap-1.5 text-muted-foreground/70" title="Infinite Stock">
-                        <InfinityIcon className="h-4 w-4" />
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                      onClick={() => onEditProduct?.(product)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell>
+                      {product.manage_stock ? (
+                        <div className="mx-auto w-24 relative">
+                          <Input
+                            type="number"
+                            value={product.stock}
+                            onChange={(e) => handleStockChange(product.id, parseInt(e.target.value, 10) || 0)}
+                            className={cn(
+                              "h-8 text-center font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md",
+                              product.stock === 0 && "text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200",
+                              isLowStock && product.stock > 0 && "text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200"
+                            )}
+                            aria-label={`Stock for ${product.name}`}
+                          />
+                          {isLowStock && (
+                            <div className="absolute -right-6 top-1/2 -translate-y-1/2" title={`Low Stock (Threshold: ${product.low_stock_threshold || 5})`}>
+                              <AlertTriangle className="h-4 w-4 text-amber-500" />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-1.5 text-muted-foreground/70" title="Infinite Stock">
+                          <InfinityIcon className="h-4 w-4" />
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                        onClick={() => onEditProduct?.(product)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
           {isLoading && (

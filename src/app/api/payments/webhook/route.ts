@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (merchantDetails && order.customer_email) {
-            const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
+            const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
             const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
 
             const emailItems = (order.order_items || []).map((item: any) => ({

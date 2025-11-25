@@ -8,7 +8,7 @@ apiInstance.setApiKey(
 );
 
 // Default sender email
-const DEFAULT_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || 'orders@baci.tech';
+const DEFAULT_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || 'orders@usebaci.com';
 const DEFAULT_FROM_NAME = process.env.BREVO_FROM_NAME || 'Baci';
 
 interface SendEmailParams {

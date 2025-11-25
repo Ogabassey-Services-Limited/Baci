@@ -17,6 +17,7 @@ import Image from 'next/image';
 import { getCountryByCode } from '@/lib/countries';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
 import { findDarkestColor } from '@/lib/color-utils';
+import { DidYouMeanBanner } from './did-you-mean-banner';
 
 interface StorefrontProductGridProps {
     title?: string;
@@ -39,20 +40,27 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [filterType, setFilterType] = useState<'category' | 'brand' | 'price'>('category');
+    const [useServerSearch, setUseServerSearch] = useState(false);
+    const [serverSearchResults, setServerSearchResults] = useState<Product[]>([]);
+    const [didYouMean, setDidYouMean] = useState<string | null>(null);
+    const [isSearching, setIsSearching] = useState(false);
 
     // Use sample products if no merchant context (preview mode)
     const isPreviewMode = !merchantContext;
 
+    // Check product count and determine search method
     useEffect(() => {
         if (isPreviewMode) {
             // Use sample products for preview
             const samples = sampleProductsByCategory['fashion'] || sampleProductsByCategory['other'];
             setProducts(samples);
             setIsLoading(false);
+            setUseServerSearch(false);
             return;
         }
 
         if (merchant?.id) {
+            // Fetch products
             apiGet<{ products: Product[] }>(`/api/storefront/products?merchant_id=${merchant.id}`)
                 .then((data) => {
                     if (data.products) {
@@ -64,8 +72,49 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                     console.error(err);
                     setIsLoading(false);
                 });
+
+            // Check if we should use server search
+            apiGet<{ count: number; recommendedMethod: 'client' | 'server' }>(
+                `/api/products/count?merchant_id=${merchant.id}`
+            )
+                .then((data) => {
+                    setUseServerSearch(data.recommendedMethod === 'server');
+                })
+                .catch(err => {
+                    console.error('Failed to check product count:', err);
+                    setUseServerSearch(false);
+                });
         }
     }, [isPreviewMode, merchant?.id]);
+
+    // Perform server-side search when needed
+    useEffect(() => {
+        if (!useServerSearch || !searchQuery || !merchant?.id || isPreviewMode) {
+            setServerSearchResults([]);
+            setDidYouMean(null);
+            return;
+        }
+
+        const timeoutId = setTimeout(() => {
+            setIsSearching(true);
+            apiGet<{ results: Product[]; didYouMean: string | null }>(
+                `/api/search?q=${encodeURIComponent(searchQuery)}&merchant_id=${merchant.id}`
+            )
+                .then((data) => {
+                    setServerSearchResults(data.results || []);
+                    setDidYouMean(data.didYouMean || null);
+                    setIsSearching(false);
+                })
+                .catch(err => {
+                    console.error('Search error:', err);
+                    setServerSearchResults([]);
+                    setDidYouMean(null);
+                    setIsSearching(false);
+                });
+        }, 300); // Debounce search
+
+        return () => clearTimeout(timeoutId);
+    }, [searchQuery, useServerSearch, merchant?.id, isPreviewMode]);
 
     const filterOptions = useMemo(() => {
         if (filterType === 'category') {
@@ -92,6 +141,34 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
     }, [products]);
 
     const searchResults = useMemo(() => {
+        // Use server search results if available and search is active
+        if (useServerSearch && searchQuery && serverSearchResults.length > 0) {
+            let filtered = serverSearchResults;
+
+            // Apply category/brand/price filters
+            if (selectedCategory !== 'All') {
+                if (filterType === 'category') {
+                    filtered = filtered.filter(p => p.category === selectedCategory);
+                } else if (filterType === 'brand') {
+                    filtered = filtered.filter(p => p.brand === selectedCategory);
+                } else if (filterType === 'price') {
+                    filtered = filtered.filter(p => {
+                        const price = p.price || 0;
+                        switch (selectedCategory) {
+                            case 'Under $50': return price < 50;
+                            case '$50 - $100': return price >= 50 && price <= 100;
+                            case '$100 - $200': return price >= 100 && price <= 200;
+                            case 'Over $200': return price > 200;
+                            default: return true;
+                        }
+                    });
+                }
+            }
+
+            return filtered.slice(0, limit);
+        }
+
+        // Fall back to client-side search
         let filtered = products;
 
         if (searchQuery && fuse) {
@@ -118,7 +195,7 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
         }
 
         return filtered.filter(p => p.status === 'published').slice(0, limit);
-    }, [searchQuery, fuse, products, selectedCategory, limit, filterType]);
+    }, [searchQuery, fuse, products, selectedCategory, limit, filterType, useServerSearch, serverSearchResults]);
 
     const handleAddToCart = (product: Product) => {
         addToCart(product);
@@ -208,7 +285,18 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                     </>
                 )}
 
-                {isLoading ? (
+                {/* Did you mean banner */}
+                {didYouMean && searchQuery && (
+                    <DidYouMeanBanner
+                        originalQuery={searchQuery}
+                        suggestion={didYouMean}
+                        onSuggestionClick={(suggestion) => {
+                            storefrontContext?.setSearchQuery?.(suggestion);
+                        }}
+                    />
+                )}
+
+                {isLoading || isSearching ? (
                     <div className="flex justify-center py-12">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>

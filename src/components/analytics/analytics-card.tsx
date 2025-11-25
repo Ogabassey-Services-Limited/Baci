@@ -1,72 +1,104 @@
+
+'use client';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { ArrowDownIcon, ArrowUpIcon, MinusIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface AnalyticsCardProps {
     title: string;
     value: string | number;
     change?: number;
-    changeLabel?: string;
-    icon?: React.ReactNode;
+    icon: React.ElementType;
     loading?: boolean;
     className?: string;
-    children?: React.ReactNode;
+    trend?: 'up' | 'down' | 'neutral';
+    description?: string;
 }
 
 export function AnalyticsCard({
     title,
     value,
     change,
-    changeLabel = 'from last period',
-    icon,
+    icon: Icon,
     loading,
     className,
-    children,
+    trend,
+    description,
 }: AnalyticsCardProps) {
+    const getTrendColor = (t?: 'up' | 'down' | 'neutral') => {
+        switch (t) {
+            case 'up':
+                return 'text-emerald-500 bg-emerald-500/10';
+            case 'down':
+                return 'text-rose-500 bg-rose-500/10';
+            default:
+                return 'text-muted-foreground bg-muted';
+        }
+    };
+
+    const getTrendIcon = (t?: 'up' | 'down' | 'neutral') => {
+        switch (t) {
+            case 'up':
+                return <ArrowUp className="h-3 w-3" />;
+            case 'down':
+                return <ArrowDown className="h-3 w-3" />;
+            default:
+                return <Minus className="h-3 w-3" />;
+        }
+    };
+
     return (
-        <Card className={cn('overflow-hidden', className)}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                    {title}
-                </CardTitle>
-                {icon && <div className="text-muted-foreground">{icon}</div>}
-            </CardHeader>
-            <CardContent>
-                {loading ? (
-                    <div className="space-y-2 animate-pulse">
-                        <div className="h-8 w-24 bg-muted rounded" />
-                        <div className="h-4 w-32 bg-muted rounded" />
+        <motion.div
+            whileHover={{ scale: 1.02 }}
+            transition={{ type: 'spring', stiffness: 300 }}
+            className={cn("h-full", className)}
+        >
+            <Card className="h-full overflow-hidden border-none bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl ring-1 ring-black/5 dark:ring-white/10">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                        {title}
+                    </CardTitle>
+                    <div className="p-2 rounded-xl bg-primary/5 text-primary">
+                        <Icon className="h-4 w-4" />
                     </div>
-                ) : (
-                    <>
-                        <div className="text-2xl font-bold">{value}</div>
-                        {change !== undefined && (
-                            <div className="flex items-center text-xs text-muted-foreground mt-1">
-                                {change > 0 ? (
-                                    <ArrowUpIcon className="mr-1 h-4 w-4 text-green-500" />
-                                ) : change < 0 ? (
-                                    <ArrowDownIcon className="mr-1 h-4 w-4 text-red-500" />
-                                ) : (
-                                    <MinusIcon className="mr-1 h-4 w-4" />
-                                )}
-                                <span
-                                    className={cn(
-                                        change > 0
-                                            ? 'text-green-500'
-                                            : change < 0
-                                                ? 'text-red-500'
-                                                : ''
-                                    )}
-                                >
-                                    {Math.abs(change).toFixed(1)}%
-                                </span>
-                                <span className="ml-1">{changeLabel}</span>
+                </CardHeader>
+                <CardContent>
+                    {loading ? (
+                        <div className="space-y-2 animate-pulse">
+                            <div className="h-8 w-24 bg-muted rounded-lg" />
+                            <div className="h-4 w-16 bg-muted rounded-lg" />
+                        </div>
+                    ) : (
+                        <div className="space-y-1">
+                            <div className="text-3xl font-bold tracking-tight text-foreground">
+                                {value}
                             </div>
-                        )}
-                        {children}
-                    </>
-                )}
-            </CardContent>
-        </Card>
+                            {(change !== undefined || description) && (
+                                <div className="flex items-center gap-2 text-xs">
+                                    {change !== undefined && (
+                                        <span
+                                            className={cn(
+                                                "flex items-center gap-1 px-2 py-0.5 rounded-full font-medium",
+                                                getTrendColor(trend)
+                                            )}
+                                        >
+                                            {getTrendIcon(trend)}
+                                            {Math.abs(change)}%
+                                        </span>
+                                    )}
+                                    {description && (
+                                        <span className="text-muted-foreground truncate">
+                                            {description}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        </motion.div>
     );
 }
