@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect, useActionState, useTransition } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useForm, FormProvider, useFormContext } from 'react-hook-form';
+import { useForm, FormProvider, useFormContext, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -537,8 +537,11 @@ export default function OnboardingForm() {
         form.reset(parsedData.values);
         form.setValue('logoDataUri', parsedData.logoDataUri);
         form.setValue('brandColors', parsedData.brandColors);
-        setStep(3);
-        toast({ title: "Welcome back!", description: "You are now logged in. Please click 'Create My Store' to finish.", duration: 5000 });
+        // Defer state update to avoid cascading renders
+        queueMicrotask(() => {
+          setStep(3);
+          toast({ title: "Welcome back!", description: "You are now logged in. Please click 'Create My Store' to finish.", duration: 5000 });
+        });
       }
     }
   }, [searchParams, form, toast]);
@@ -667,9 +670,9 @@ export default function OnboardingForm() {
     });
   };
 
-  const formEmail = form.watch('email');
-  const formPassword = form.watch('password');
-  const formConfirmPassword = form.watch('confirmPassword');
+  const formEmail = useWatch({ control: form.control, name: 'email' });
+  const formPassword = useWatch({ control: form.control, name: 'password' });
+  const formConfirmPassword = useWatch({ control: form.control, name: 'confirmPassword' });
 
   const isStep3Valid = useMemo(() => {
     if (step !== 3) return true;
