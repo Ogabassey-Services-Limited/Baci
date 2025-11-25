@@ -19,6 +19,7 @@ import {
   PanelLeftOpen,
   ChevronDown,
   Paintbrush,
+  BarChart3,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -166,6 +167,11 @@ export default function DashboardClientLayout({
       href: '/dashboard',
       icon: LayoutDashboard,
       label: 'Dashboard',
+    },
+    {
+      href: '/dashboard/analytics',
+      icon: BarChart3,
+      label: 'Analytics',
     },
     {
       href: '/dashboard/orders',
