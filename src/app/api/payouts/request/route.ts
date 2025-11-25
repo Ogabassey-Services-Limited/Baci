@@ -14,9 +14,9 @@ const MINIMUM_PAYOUT_AMOUNTS: Record<Currency, number> = {
   XOF: 3000, // CFA 3,000
 };
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: Request) {
   try {
-    const body = await request.json();
+    const body = await _request.json();
     const { amount, currency = 'NGN', bank_code, account_number } = body;
 
     if (!amount || !bank_code || !account_number) {
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
 }
 
 // GET endpoint to fetch payout history
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);

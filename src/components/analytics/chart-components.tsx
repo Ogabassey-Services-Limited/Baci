@@ -18,11 +18,18 @@ import {
 } from 'recharts';
 
 interface ChartProps {
-    data: any[];
+    data: Record<string, unknown>[];
     className?: string;
 }
 
-const CustomTooltip = ({ active, payload, label, prefix = '' }: any) => {
+interface TooltipProps {
+    active?: boolean;
+    payload?: Array<{ value: number }>;
+    label?: string;
+    prefix?: string;
+}
+
+const CustomTooltip = ({ active, payload, label, prefix = '' }: TooltipProps) => {
     if (active && payload && payload.length) {
         return (
             <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl ring-1 ring-black/5 dark:ring-white/10">

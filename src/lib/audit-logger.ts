@@ -7,8 +7,8 @@ export interface AuditLogEntry {
     resource_type: 'domain' | 'dns' | 'email_forwarding' | 'id_protection';
     resource_id: string;
     changes?: {
-        before?: any;
-        after?: any;
+        before?: Record<string, unknown>;
+        after?: Record<string, unknown>;
     };
     ip_address?: string;
     user_agent?: string;

@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
+
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Search, Share2, Code, AlertCircle, CheckCircle2, Globe } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface SEOData {
@@ -276,7 +276,7 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
                     </div>
                     <div className="bg-muted rounded-md p-3 font-mono text-xs overflow-x-auto">
                         <pre className="whitespace-pre-wrap">
-{`<title>${data.title || 'Your Page Title'}</title>
+                            {`<title>${data.title || 'Your Page Title'}</title>
 <meta name="description" content="${data.description || 'Your description'}" />
 ${data.keywords ? `<meta name="keywords" content="${data.keywords}" />\n` : ''}${data.canonicalUrl ? `<link rel="canonical" href="${data.canonicalUrl}" />\n` : ''}
 {/* Open Graph */}

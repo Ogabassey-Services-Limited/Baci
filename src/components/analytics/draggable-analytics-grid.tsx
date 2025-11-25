@@ -6,12 +6,10 @@ import { Responsive, WidthProvider } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { AnalyticsCard } from './analytics-card';
-import { RevenueChart, OrdersChart, SalesByChannelChart } from './chart-components';
+import { RevenueChart, SalesByChannelChart } from './chart-components';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Users, ShoppingBag, Activity, LayoutGrid, Save, X, Check, Settings2, Percent, RefreshCcw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { DollarSign, Users, ShoppingBag, Activity, Check, Settings2, Percent, RefreshCcw } from 'lucide-react';
 import { AnalyticsCategory } from './analytics-category-nav';
 import { AIInsightsPanel } from './ai-insights-panel';
 import { getCountryByCode } from '@/lib/countries';
@@ -20,7 +18,7 @@ import type { MerchantData } from '@/hooks/use-merchant';
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
 interface DraggableAnalyticsGridProps {
-    data: any;
+    data: Record<string, unknown>;
     loading: boolean;
     activeCategory: AnalyticsCategory;
     merchant: MerchantData | null;
@@ -97,7 +95,7 @@ export function DraggableAnalyticsGrid({ data, loading, activeCategory, merchant
     }, []);
 
     // Save layout change
-    const onLayoutChange = async (currentLayout: any, allLayouts: any) => {
+    const onLayoutChange = async (currentLayout: unknown, allLayouts: Record<string, unknown>) => {
         setLayouts(allLayouts);
         if (!isEditMode) return; // Only save if in edit mode (optional, but good for performance)
 
@@ -124,7 +122,7 @@ export function DraggableAnalyticsGrid({ data, loading, activeCategory, merchant
         );
     }
 
-    const { chartData, recentSales, topProducts, salesByChannel } = data || {};
+    const { chartData: _chartData, recentSales: _recentSales, topProducts: _topProducts, salesByChannel: _salesByChannel } = data || {};
 
     // Filter widgets based on active category
     const isWidgetVisible = (key: string) => {
@@ -301,8 +299,8 @@ export function DraggableAnalyticsGrid({ data, loading, activeCategory, merchant
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {data?.recentSales?.map((sale: any) => (
-                                        <div key={sale.id} className="flex items-center justify-between">
+                                    {data?.recentSales?.map((sale: Record<string, unknown>) => (
+                                        <div key={sale.id as string} className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                                                     {sale.name.charAt(0)}
@@ -340,8 +338,8 @@ export function DraggableAnalyticsGrid({ data, loading, activeCategory, merchant
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {data?.topProducts?.map((product: any, index: number) => (
-                                        <div key={product.id} className="flex items-center justify-between">
+                                    {data?.topProducts?.map((product: Record<string, unknown>, index: number) => (
+                                        <div key={product.id as string} className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
                                                     #{index + 1}

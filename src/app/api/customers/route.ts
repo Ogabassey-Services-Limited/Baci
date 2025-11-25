@@ -85,7 +85,7 @@ export async function POST(request: Request) {
         }
 
         return NextResponse.json({ customer });
-    } catch (error) {
+    } catch (_) {
         return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 }

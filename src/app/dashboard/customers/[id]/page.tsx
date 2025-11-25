@@ -139,7 +139,7 @@ export default function CustomerDetailPage() {
         } catch (error) {
             toast({
                 title: 'Error',
-                description: 'Failed to update store credit',
+                description: error instanceof Error ? error.message : 'Failed to update store credit',
                 variant: 'destructive',
             });
         }
@@ -164,7 +164,7 @@ export default function CustomerDetailPage() {
         } catch (error) {
             toast({
                 title: 'Error',
-                description: 'Failed to update profile',
+                description: error instanceof Error ? error.message : 'Failed to update profile',
                 variant: 'destructive',
             });
         }
@@ -185,7 +185,7 @@ export default function CustomerDetailPage() {
         } catch (error) {
             toast({
                 title: 'Error',
-                description: 'Failed to delete customer',
+                description: error instanceof Error ? error.message : 'Failed to delete customer',
                 variant: 'destructive',
             });
         }
@@ -265,8 +265,8 @@ export default function CustomerDetailPage() {
                                             const value = typeof val === 'string' ? val : val.target.value;
                                             setEditData({ ...editData, address: value });
                                         }}
-                                        onSelect={(place: any) => {
-                                            setEditData({ ...editData, address: place.formattedAddress });
+                                        onSelect={(place: Record<string, unknown>) => {
+                                            setEditData({ ...editData, address: place.formattedAddress as string });
                                         }}
                                     />
                                 </div>

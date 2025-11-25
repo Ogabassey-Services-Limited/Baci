@@ -9,8 +9,8 @@ export function generateSlug(text: string): string {
         .toLowerCase()
         .trim()
         .replace(/\s+/g, '-')     // Replace spaces with -
-        .replace(/[^\w\-]+/g, '') // Remove all non-word chars
-        .replace(/\-\-+/g, '-')   // Replace multiple - with single -
+        .replace(/[^\w-]+/g, '') // Remove all non-word chars
+        .replace(/--+/g, '-')   // Replace multiple - with single -
         .replace(/^-+/, '')       // Trim - from start of text
         .replace(/-+$/, '');      // Trim - from end of text
 }
@@ -19,7 +19,7 @@ export function generateSlug(text: string): string {
  * Generates JSON-LD structured data for a product
  */
 export function generateProductSchema(product: Product, merchantName: string = 'Baci Store', currency: string = 'USD'): ProductSchemaMarkup {
-    const schema: ProductSchemaMarkup = {
+    const schema: ProductSchemaMarkup & Record<string, unknown> = {
         '@context': 'https://schema.org',
         '@type': 'Product',
         name: product.name,
@@ -38,19 +38,19 @@ export function generateProductSchema(product: Product, merchantName: string = '
     };
 
     if (product.sku) {
-        (schema as any).sku = product.sku;
+        schema.sku = product.sku;
     }
 
     if (product.gtin) {
-        (schema as any).gtin = product.gtin;
+        schema.gtin = product.gtin;
     }
 
     if (product.mpn) {
-        (schema as any).mpn = product.mpn;
+        schema.mpn = product.mpn;
     }
 
     if (product.weight_value && product.weight_unit) {
-        (schema as any).weight = {
+        schema.weight = {
             '@type': 'QuantitativeValue',
             value: product.weight_value,
             unitCode: product.weight_unit === 'kg' ? 'KGM' : 'LBR' // Simplified mapping
@@ -58,7 +58,7 @@ export function generateProductSchema(product: Product, merchantName: string = '
     }
 
     if (product.condition) {
-        (schema as any).itemCondition = product.condition === 'new'
+        schema.itemCondition = product.condition === 'new'
             ? 'https://schema.org/NewCondition'
             : 'https://schema.org/UsedCondition';
     }

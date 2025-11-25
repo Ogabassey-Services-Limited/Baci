@@ -1,4 +1,4 @@
-import { Config, Fields, PuckContext } from '@measured/puck';
+import { Config } from '@measured/puck';
 import { ThemedButton } from '@/components/themed/themed-button';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -18,10 +18,9 @@ import {
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
-import { createClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 import { ImagePickerField } from './fields/image-picker-field';
-import { AnimatedWrapper, AnimationConfig } from './animated-wrapper';
+import { AnimatedWrapper } from './animated-wrapper';
 import { StorefrontForm, FormField } from '@/components/storefront/storefront-form';
 
 // ==================== TYPE DEFINITIONS ====================
@@ -254,10 +253,10 @@ type RootProps = {
     title: string;
 };
 
-type MetadataType = {
+type _MetadataType = {
     merchantId?: string;
-    merchant?: any;
-    products?: any[];
+    merchant?: Record<string, unknown>;
+    products?: Record<string, unknown>[];
 };
 
 // ==================== HELPER COMPONENTS ====================
@@ -467,7 +466,7 @@ function CustomFooter({
     backgroundColor,
     textColor
 }: FooterProps) {
-    const socialIcons: Record<string, any> = {
+    const socialIcons: Record<string, React.ComponentType<{ className?: string }>> = {
         facebook: Facebook,
         instagram: Instagram,
         twitter: Twitter,
@@ -712,7 +711,7 @@ export const builderConfig: Config<{
                 backgroundImage: {
                     type: 'custom',
                     label: 'Background Image (optional)',
-                    render: ({ field, onChange, value }: any) => {
+                    render: ({ field, onChange, value }: { field: { label?: string }; onChange: (value: string) => void; value: string }) => {
                         return <ImagePickerField field={field} onChange={onChange} value={value} />;
                     }
                 },
@@ -758,10 +757,10 @@ export const builderConfig: Config<{
                 return (
                     <AnimatedWrapper
                         animation={{
-                            type: animationType as any,
-                            duration: animationDuration as any,
+                            type: animationType as 'fade' | 'slide' | 'zoom' | 'none',
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
                             delay: animationDelay,
-                            trigger: animationTrigger as any,
+                            trigger: animationTrigger as 'onload' | 'scroll',
                         }}
                     >
                         <section className={cn("relative", paddingClass)} style={backgroundImage ? {
@@ -861,10 +860,10 @@ export const builderConfig: Config<{
             render: ({ title, content, align, animationType, animationDuration, animationDelay, animationTrigger }) => (
                 <AnimatedWrapper
                     animation={{
-                        type: animationType as any,
-                        duration: animationDuration as any,
+                        type: animationType as 'fade' | 'slide' | 'zoom' | 'none',
+                        duration: animationDuration as 'fast' | 'normal' | 'slow',
                         delay: animationDelay,
-                        trigger: animationTrigger as any,
+                        trigger: animationTrigger as 'onload' | 'scroll',
                     }}
                 >
                     <section className="py-12 container px-4 md:px-6">
@@ -889,7 +888,7 @@ export const builderConfig: Config<{
                 src: {
                     type: 'custom',
                     label: 'Image',
-                    render: ({ field, onChange, value }: any) => {
+                    render: ({ field, onChange, value }: { field: { label?: string }; onChange: (value: string) => void; value: string }) => {
                         return <ImagePickerField field={field} onChange={onChange} value={value} />;
                     }
                 },
@@ -933,10 +932,10 @@ export const builderConfig: Config<{
                 return (
                     <AnimatedWrapper
                         animation={{
-                            type: animationType as any,
-                            duration: animationDuration as any,
+                            type: animationType as 'fade' | 'slide' | 'zoom' | 'none',
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
                             delay: animationDelay,
-                            trigger: animationTrigger as any,
+                            trigger: animationTrigger as 'onload' | 'scroll',
                         }}
                     >
                         <section className="py-8 container px-4 md:px-6">
@@ -1187,7 +1186,7 @@ export const builderConfig: Config<{
                 animationTrigger: 'scroll',
             },
             render: ({ title, subtitle, features, columns = 3, animationType, animationDuration, animationDelay, animationTrigger }) => {
-                const iconMap: Record<string, any> = {
+                const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
                     check: Check,
                     truck: Truck,
                     shield: Shield,
@@ -1200,10 +1199,10 @@ export const builderConfig: Config<{
                 return (
                     <AnimatedWrapper
                         animation={{
-                            type: animationType as any,
-                            duration: animationDuration as any,
+                            type: animationType as 'fade' | 'slide' | 'zoom' | 'none',
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
                             delay: animationDelay,
-                            trigger: animationTrigger as any,
+                            trigger: animationTrigger as 'onload' | 'scroll',
                         }}
                     >
                         <section className="py-12 container px-4 md:px-6 bg-muted/30">
@@ -1468,20 +1467,20 @@ export const builderConfig: Config<{
             },
             render: ({ formName, fields, submitButtonText, successMessage, animationType, animationDuration, animationDelay, animationTrigger }: ContactFormProps) => {
                 // Ensure each field has a unique ID
-                const formFields = fields.map((field: any, index: number) => ({
+                const formFields = fields.map((field: Record<string, unknown>, index: number) => ({
                     ...field,
                     id: field.id || `field-${index}`,
                     // Convert options from textarea string to array
-                    options: field.options ? field.options.split('\n').map((opt: string) => opt.trim()).filter(Boolean) : undefined
+                    options: field.options ? (field.options as string).split('\n').map((opt: string) => opt.trim()).filter(Boolean) : undefined
                 }));
 
                 return (
                     <AnimatedWrapper
                         animation={{
-                            type: animationType as any,
-                            duration: animationDuration as any,
+                            type: animationType as 'fade' | 'slide' | 'zoom' | 'none',
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
                             delay: animationDelay,
-                            trigger: animationTrigger as any,
+                            trigger: animationTrigger as 'onload' | 'scroll',
                         }}
                     >
                         <section className="py-12 container px-4 md:px-6">

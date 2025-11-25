@@ -42,7 +42,7 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { OnboardingFormValues, onboardingSchema, step3Schema } from '@/schemas/onboarding';
 import { OnboardingPuckPreview } from './onboarding-puck-preview';
 import { ColorPicker } from './color-picker';
-import { colord, extend } from 'colord';
+import { extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
 import { uploadImage } from '@/lib/storage';
 
@@ -304,11 +304,19 @@ function Step2_Branding() {
   );
 }
 
-function Step3_Account({ onKeyDown, onMagicLinkSent }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; onMagicLinkSent: () => void; }) {
+// ... (previous imports)
+import { User } from '@supabase/supabase-js';
+
+// ... (StepIndicator and Step1_BusinessDetails remain the same)
+
+// ... (Step2_Branding remains the same)
+
+function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; onMagicLinkSent: () => void; user: User | null }) {
   const { control, watch, trigger, getValues } = useFormContext<OnboardingFormValues>();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isMagicLinkLoading, setIsMagicLinkLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const { toast } = useToast();
 
   const emailValue = watch('email');
@@ -339,6 +347,41 @@ function Step3_Account({ onKeyDown, onMagicLinkSent }: { onKeyDown: (e: React.Ke
     setIsMagicLinkLoading(false);
   };
 
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Google Sign-in Failed',
+        description: error.message,
+      });
+      setIsGoogleLoading(false);
+    }
+  };
+
+  if (user) {
+    return (
+      <div className='space-y-4 text-center'>
+        <h3 className="text-xl font-semibold">Account Verified</h3>
+        <div className="p-4 border rounded-lg bg-muted/50">
+          <p className="text-muted-foreground mb-2">You are logged in as:</p>
+          <p className="font-medium text-lg">{user.email}</p>
+          <div className="mt-4 flex items-center justify-center gap-2 text-green-600">
+            <CheckCircle className="h-5 w-5" />
+            <span className="font-medium">Ready to create your store</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className='space-y-4'>
       <h3 className="text-xl font-semibold text-center">Create your account</h3>
@@ -368,10 +411,21 @@ function Step3_Account({ onKeyDown, onMagicLinkSent }: { onKeyDown: (e: React.Ke
             <span className="relative bg-background px-2 text-sm text-muted-foreground">or</span>
           </div>
 
-          <Button type="button" variant="outline" onClick={handleMagicLinkClick} className="w-full" disabled={isMagicLinkLoading}>
-            {isMagicLinkLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-            Continue with Magic Link
-          </Button>
+          <div className="grid grid-cols-2 gap-4">
+            <Button type="button" variant="outline" onClick={handleMagicLinkClick} className="w-full" disabled={isMagicLinkLoading || isGoogleLoading}>
+              {isMagicLinkLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              Magic Link
+            </Button>
+            <Button type="button" variant="outline" onClick={handleGoogleSignIn} className="w-full" disabled={isMagicLinkLoading || isGoogleLoading}>
+              {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (
+                <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4">
+                  <title>Google</title>
+                  <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.05 1.05-2.36 1.67-4.04 1.67-3.27 0-5.93-2.66-5.93-5.93s2.66-5.93 5.93-5.93c1.73 0 3.23.68 4.17 1.57l2.48-2.48C18.47 2.44 15.82 1 12.48 1 7.23 1 3.06 4.93 3.06 10s4.17 9 9.42 9c2.8 0 4.93-1.07 6.57-2.62 1.73-1.62 2.36-3.88 2.36-6.09 0-.6-.05-1.18-.15-1.73H12.48z" />
+                </svg>
+              )}
+              Google
+            </Button>
+          </div>
         </div>
       )}
 
@@ -449,6 +503,7 @@ export default function OnboardingForm() {
   const [submissionState, formAction, isPending] = useActionState<ServerActionState, FormData>(submitOnboarding, { message: '', success: false });
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [isSubmitting, startTransition] = useTransition();
+  const [user, setUser] = useState<User | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   const totalSteps = 3;
@@ -465,6 +520,15 @@ export default function OnboardingForm() {
   const { formState: { errors } } = form;
 
   useEffect(() => {
+    // Check for existing session
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        form.setValue('email', session.user.email || '');
+      }
+    });
+
     const fromMagicLink = searchParams.get('fromMagicLink');
     if (fromMagicLink) {
       const savedData = localStorage.getItem('onboardingForm');
@@ -565,8 +629,6 @@ export default function OnboardingForm() {
     setMagicLinkSent(true);
   };
 
-  // ... imports
-
   const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
@@ -611,10 +673,11 @@ export default function OnboardingForm() {
 
   const isStep3Valid = useMemo(() => {
     if (step !== 3) return true;
+    if (user) return true; // Skip validation if user is logged in
     const validationData = { email: formEmail, password: formPassword, confirmPassword: formConfirmPassword };
     const result = step3Schema.safeParse(validationData);
     return result.success;
-  }, [formEmail, formPassword, formConfirmPassword, step]);
+  }, [formEmail, formPassword, formConfirmPassword, step, user]);
 
   const isCurrentStepValid = useMemo(() => {
     if (step === 1) return !errors.businessName && !errors.businessType && !errors.otherBusinessType;
@@ -647,7 +710,7 @@ export default function OnboardingForm() {
                   </AlertDescription>
                 </Alert>
               ) : (
-                <Step3_Account onKeyDown={handleKeyDown} onMagicLinkSent={handleMagicLinkSent} />
+                <Step3_Account onKeyDown={handleKeyDown} onMagicLinkSent={handleMagicLinkSent} user={user} />
               )
             )}
           </div>

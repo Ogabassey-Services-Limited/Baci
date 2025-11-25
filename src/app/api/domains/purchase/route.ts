@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const { domain, years = 1, contactInfo } = await request.json();
 
     // Validate domain
-    const domainRegex = /^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,}$/i;
+    const domainRegex = /^[a-z0-9]+([-.]?[a-z0-9]+)*\.[a-z]{2,}$/i;
     if (!domainRegex.test(domain)) {
       return NextResponse.json({ error: 'Invalid domain format' }, { status: 400 });
     }
@@ -191,13 +191,14 @@ export async function POST(request: Request) {
           'Point your domain to Baci by updating nameservers',
         ],
       });
-    } catch (go54Error: any) {
+    } catch (go54Error: unknown) {
       console.error('Go54 registration error:', go54Error);
+      const errorMessage = go54Error instanceof Error ? go54Error.message : 'Unknown error';
 
       return NextResponse.json(
         {
           error: 'Failed to register domain with Go54',
-          details: go54Error.message || 'Unknown error',
+          details: errorMessage,
           suggestion: 'Please ensure Go54 API credentials are configured and account has sufficient balance',
         },
         { status: 500 }

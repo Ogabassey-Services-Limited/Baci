@@ -76,7 +76,7 @@ export async function POST(
     let domainData = null;
     const domain = params.domain;
     let cookieStore;
-    let supabase: any;
+    let supabase;
 
     try {
         cookieStore = await cookies();
@@ -156,8 +156,8 @@ export async function POST(
             resource_type: 'dns',
             resource_id: domain,
             changes: {
-                before: currentRecords,
-                after: records
+                before: { records: currentRecords },
+                after: { records: records }
             },
             ip_address: request.headers.get('x-forwarded-for') || 'unknown',
             user_agent: request.headers.get('user-agent') || 'unknown',
@@ -168,7 +168,8 @@ export async function POST(
             ...result,
             warnings: validation.warnings.length > 0 ? validation.warnings : undefined
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Error updating DNS records:', error);
 
         // Log failure if we have user context
@@ -180,7 +181,7 @@ export async function POST(
                 resource_type: 'dns',
                 resource_id: domain,
                 status: 'failure',
-                error_message: error.message || 'Unknown error'
+                error_message: errorMessage
             });
         }
 

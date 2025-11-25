@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
 }
 
 interface ProcessPriceListInput {
-    currentProducts: any[];
+    currentProducts: Record<string, unknown>[];
     priceListData: string;
     vendor: string;
     fileType: string;

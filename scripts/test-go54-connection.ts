@@ -33,11 +33,15 @@ async function testConnection() {
         if (pricing.length > 0) {
             console.log('Sample pricing:', pricing.slice(0, 2));
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('❌ API Connection Failed');
-        console.error('Error:', error.message);
-        if (error.cause) {
-            console.error('Cause:', error.cause);
+        if (error instanceof Error) {
+            console.error('Error:', error.message);
+            if (error.cause) {
+                console.error('Cause:', error.cause);
+            }
+        } else {
+            console.error('Error:', String(error));
         }
     }
 }

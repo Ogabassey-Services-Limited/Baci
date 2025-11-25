@@ -17,7 +17,7 @@ import { Image as ImageIcon, Link as LinkIcon } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface ImagePickerFieldProps {
-    field: any;
+    field: { label?: string };
     onChange: (value: string) => void;
     value: string;
 }
@@ -65,7 +65,7 @@ export function ImagePickerField({ field, onChange, value }: ImagePickerFieldPro
                         </DialogDescription>
                     </DialogHeader>
 
-                    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+                    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'library' | 'url')} className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="library">Media Library</TabsTrigger>
                             <TabsTrigger value="url">External URL</TabsTrigger>
@@ -97,7 +97,7 @@ export function ImagePickerField({ field, onChange, value }: ImagePickerFieldPro
                                         }}
                                     />
                                     <Button
-                                        onClick={(e) => {
+                                        onClick={() => {
                                             const input = document.getElementById('external-url') as HTMLInputElement;
                                             if (input?.value) {
                                                 onChange(input.value);

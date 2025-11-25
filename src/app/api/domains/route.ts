@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     const { domain, isPrimary = false } = await request.json();
 
     // Validate domain format
-    const domainRegex = /^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,}$/i;
+    const domainRegex = /^[a-z0-9]+([-.]?[a-z0-9]+)*\.[a-z]{2,}$/i;
     if (!domainRegex.test(domain)) {
       return NextResponse.json({ error: 'Invalid domain format' }, { status: 400 });
     }

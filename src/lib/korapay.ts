@@ -34,7 +34,7 @@ export const CURRENCY_NAMES: Record<Currency, string> = {
   XOF: 'West African CFA Franc',
 };
 
-interface KorapayResponse<T = any> {
+interface KorapayResponse<T = unknown> {
   status: boolean;
   message: string;
   data: T;
@@ -52,7 +52,7 @@ interface PaymentInitData {
   reference?: string;
   narration?: string;
   notification_url?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 interface PaymentInitResponse {
@@ -125,7 +125,7 @@ interface PayoutResponse {
 /**
  * Make authenticated request to Korapay API
  */
-async function korapayRequest<T = any>(
+async function korapayRequest<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<KorapayResponse<T>> {

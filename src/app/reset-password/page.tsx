@@ -26,6 +26,23 @@ const resetPasswordSchema = z.object({
 }).refine(data => data.password === data.confirmPassword, {
     message: "Passwords do not match.",
     path: ["confirmPassword"],
+}).superRefine(async (data, ctx) => {
+    // Check for breached passwords
+    if (data.password && data.password.length >= 8) {
+        try {
+            const { checkPasswordBreach } = await import('@/lib/password-breach');
+            const { isBreached } = await checkPasswordBreach(data.password);
+            if (isBreached) {
+                ctx.addIssue({
+                    code: 'custom',
+                    path: ['password'],
+                    message: 'This password has been compromised in a data breach. Please choose a different password.'
+                });
+            }
+        } catch (error) {
+            console.error('Breach check failed:', error);
+        }
+    }
 });
 
 
@@ -132,7 +149,7 @@ function ResetPasswordForm() {
                                             <FormControl>
                                                 <div className="relative">
                                                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your new password" {...field} className="pl-10 pr-10" id="confirmPassword" name="confirmPassword" />
+                                                    <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your new password" {...field} className="pl-10 pr-10" id="confirmPassword" name="confirmPassword" autoComplete="new-password" />
                                                     <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
                                                         {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                                     </Button>

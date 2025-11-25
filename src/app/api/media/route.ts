@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 
 const BUCKET_NAME = 'media';
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
     const cookieStore = await cookies();
 
     const supabase = createServerClient(
@@ -162,9 +162,10 @@ export async function POST(request: Request) {
             }
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Upload error:', error);
-        return NextResponse.json({ error: error.message || 'Upload failed' }, { status: 500 });
+        const message = error instanceof Error ? error.message : 'Upload failed';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }
 

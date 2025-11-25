@@ -22,7 +22,7 @@ import { Loader2, Infinity as InfinityIcon, Package, Edit, AlertTriangle } from 
 import { cn } from '@/lib/utils';
 import { Product } from '@/lib/products';
 import Image from 'next/image';
-import { Badge } from '@/components/ui/badge';
+
 
 interface ProductCatalogProps {
   statusFilter: string;
@@ -31,7 +31,7 @@ interface ProductCatalogProps {
 }
 
 export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stockFilter, onEditProduct }: ProductCatalogProps) {
-  const { products, isLoading, pagination, setPage, refetchProducts, updateProduct } = useProductContext();
+  const { products, isLoading, pagination, setPage, updateProduct } = useProductContext();
   const { merchant } = useMerchant();
   const { toast } = useToast();
 
@@ -119,8 +119,8 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
   };
 
   return (
-    <Card className="flex-1 flex flex-col border-none shadow-sm bg-white/50 backdrop-blur-sm">
-      <CardHeader className="px-6 py-4 border-b border-border/40">
+    <Card className="flex-1 flex flex-col border border-primary/20 shadow-sm bg-white/50 backdrop-blur-sm">
+      <CardHeader className="px-6 py-4 border-b border-primary/10">
         <div className="flex items-center justify-between">
           <div>
             <CardTitle className="text-xl font-semibold tracking-tight">Product Catalog</CardTitle>
@@ -135,7 +135,7 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
         <div className="h-full overflow-y-auto">
           <Table>
             <TableHeader className="sticky top-0 bg-white/95 backdrop-blur-md z-10 shadow-sm">
-              <TableRow className="hover:bg-transparent border-b border-border/60">
+              <TableRow className="hover:bg-transparent border-b border-primary/10">
                 <TableHead className="w-[400px] pl-6">Product</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Price</TableHead>
@@ -148,7 +148,7 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
                 const isLowStock = !product.manage_stock ? false : (product.stock <= (product.low_stock_threshold || 5));
                 return (
                   <React.Fragment key={product.id}>
-                    <TableRow className={cn("group hover:bg-muted/30 transition-colors border-b border-border/40", product.variants && product.variants.length > 0 && "bg-muted/5")}>
+                    <TableRow className={cn("group hover:bg-muted/30 transition-colors border-b border-primary/5", product.variants && product.variants.length > 0 && "bg-muted/5")}>
                       <TableCell className="pl-6 py-3">
                         <div className="flex items-center gap-4">
                           <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-border/50 bg-muted/20 shrink-0">

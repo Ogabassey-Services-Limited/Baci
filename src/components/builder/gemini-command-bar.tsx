@@ -5,7 +5,7 @@ import { Sparkles, Loader2, ArrowRight, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
+
 
 interface GeminiCommandBarProps {
     onCommand: (command: string) => void;

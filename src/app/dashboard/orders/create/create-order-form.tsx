@@ -54,7 +54,7 @@ export function CreateOrderForm() {
     const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
 
     const form = useForm<CreateOrderFormValues>({
-        resolver: zodResolver(createOrderSchema) as any,
+        resolver: zodResolver(createOrderSchema),
         defaultValues: {
             customerName: '',
             customerEmail: '',

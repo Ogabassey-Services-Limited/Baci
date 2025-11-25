@@ -40,30 +40,32 @@ export function StorefrontForm({
     successMessage = 'Thank you! Your submission has been received.',
     merchantId
 }: StorefrontFormProps) {
-    const [formData, setFormData] = useState<Record<string, any>>({});
+    const [formData, setFormData] = useState<Record<string, unknown>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-    const validateField = (field: FormField, value: any): string | null => {
+    const validateField = (field: FormField, value: unknown): string | null => {
         if (field.required && !value) {
             return `${field.label} is required`;
         }
 
         if (value) {
             switch (field.type) {
-                case 'email':
+                case 'email': {
                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                    if (!emailRegex.test(value)) {
+                    if (typeof value === 'string' && !emailRegex.test(value)) {
                         return 'Please enter a valid email address';
                     }
                     break;
-                case 'phone':
-                    const phoneRegex = /^[\d\s\-\+\(\)]+$/;
-                    if (!phoneRegex.test(value)) {
+                }
+                case 'phone': {
+                    const phoneRegex = /^[\d\s\-+()]+$/;
+                    if (typeof value === 'string' && !phoneRegex.test(value)) {
                         return 'Please enter a valid phone number';
                     }
                     break;
+                }
             }
         }
 
@@ -121,7 +123,7 @@ export function StorefrontForm({
         }
     };
 
-    const handleChange = (fieldId: string, value: any) => {
+    const handleChange = (fieldId: string, value: unknown) => {
         setFormData(prev => ({ ...prev, [fieldId]: value }));
         // Clear error for this field when user starts typing
         if (errors[fieldId]) {
@@ -164,14 +166,14 @@ export function StorefrontForm({
                         <Textarea
                             id={field.id}
                             placeholder={field.placeholder}
-                            value={formData[field.id] || ''}
+                            value={(formData[field.id] as string) || ''}
                             onChange={(e) => handleChange(field.id, e.target.value)}
                             className={errors[field.id] ? 'border-red-500' : ''}
                             rows={4}
                         />
                     ) : field.type === 'select' ? (
                         <Select
-                            value={formData[field.id] || ''}
+                            value={(formData[field.id] as string) || ''}
                             onValueChange={(value) => handleChange(field.id, value)}
                         >
                             <SelectTrigger className={errors[field.id] ? 'border-red-500' : ''}>
@@ -189,7 +191,7 @@ export function StorefrontForm({
                         <div className="flex items-center space-x-2">
                             <Checkbox
                                 id={field.id}
-                                checked={formData[field.id] || false}
+                                checked={(formData[field.id] as boolean) || false}
                                 onCheckedChange={(checked) => handleChange(field.id, checked)}
                             />
                             <label
@@ -203,7 +205,7 @@ export function StorefrontForm({
                         <PhoneInput
                             id={field.id}
                             placeholder={field.placeholder}
-                            value={formData[field.id] || ''}
+                            value={(formData[field.id] as string) || ''}
                             onChange={(value) => handleChange(field.id, value)}
                             className={errors[field.id] ? 'border-red-500' : ''}
                             defaultCountry="NG"
@@ -213,7 +215,7 @@ export function StorefrontForm({
                             id={field.id}
                             type={field.type}
                             placeholder={field.placeholder}
-                            value={formData[field.id] || ''}
+                            value={(formData[field.id] as string) || ''}
                             onChange={(e) => handleChange(field.id, e.target.value)}
                             className={errors[field.id] ? 'border-red-500' : ''}
                         />

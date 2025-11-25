@@ -103,7 +103,7 @@ export function VariantBuilder({
     const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
-        let resolved = false;
+
 
         function checkForSuggestions() {
             let aiSuggestionsRaw: string | null = null;
@@ -115,7 +115,6 @@ export function VariantBuilder({
             }
 
             if (aiSuggestionsRaw) {
-                resolved = true;
                 try {
                     const aiSuggestions: { attribute: string; options: string[] }[] = JSON.parse(aiSuggestionsRaw);
                     const newSelections: AttributeSelection = {};

@@ -43,9 +43,13 @@ async function testGo54Integration() {
     console.log('📊 Domain availability results:');
     console.log(JSON.stringify(results, null, 2));
     console.log('\n');
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('❌ Test 1 Failed:');
-    console.error('Error:', error.message);
+    if (error instanceof Error) {
+      console.error('Error:', error.message);
+    } else {
+      console.error('Error:', String(error));
+    }
     console.error('\nPossible issues:');
     console.error('- API credentials are incorrect');
     console.error('- Network connectivity issue');

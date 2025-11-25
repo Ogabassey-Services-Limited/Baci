@@ -75,7 +75,7 @@ export async function POST(
     let domainData = null;
     const domain = params.domain;
     let cookieStore;
-    let supabase: any;
+    let supabase;
 
     try {
         cookieStore = await cookies();
@@ -142,7 +142,7 @@ export async function POST(
             resource_type: 'id_protection',
             resource_id: domain,
             changes: {
-                before: currentStatus,
+                before: (currentStatus || undefined) as unknown as Record<string, unknown>,
                 after: { enabled }
             },
             ip_address: request.headers.get('x-forwarded-for') || 'unknown',
@@ -151,7 +151,8 @@ export async function POST(
         });
 
         return NextResponse.json(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Error updating ID protection:', error);
 
         // Log failure
@@ -163,7 +164,7 @@ export async function POST(
                 resource_type: 'id_protection',
                 resource_id: domain,
                 status: 'failure',
-                error_message: error.message || 'Unknown error'
+                error_message: errorMessage
             });
         }
 

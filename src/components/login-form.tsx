@@ -18,7 +18,7 @@ import { Logo } from '@/components/logo';
 
 const authSchema = z.object({
     email: z.string().email({ error: 'Please enter a valid email address.' }),
-    password: z.string().min(6, { error: 'Password must be at least 6 characters.' }),
+    password: z.string().min(8, { error: 'Password must be at least 8 characters.' }),
 });
 
 const forgotPasswordSchema = z.object({

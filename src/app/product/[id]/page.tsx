@@ -24,7 +24,7 @@ async function getProduct(id: string): Promise<Product | undefined> {
       // Map Supabase result to Product interface
       const categoryConfig = productData.category ? getCategoryConfig(productData.category) : undefined;
 
-      const variants = (productData.variants || []).map((v: any) => ({
+      const variants = (productData.variants || []).map((v: Record<string, unknown>) => ({
         id: v.id,
         product_id: v.product_id,
         merchant_id: v.merchant_id,
@@ -39,7 +39,7 @@ async function getProduct(id: string): Promise<Product | undefined> {
         id: productData.id,
         name: productData.name,
         description: productData.description || '',
-        status: productData.status as any,
+        status: productData.status as 'active' | 'draft' | 'archived',
         price: Number(productData.price),
         manage_stock: productData.manage_stock ?? true,
         stock: productData.stock_quantity ?? 0,

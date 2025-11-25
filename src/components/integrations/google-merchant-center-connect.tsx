@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, AlertCircle, RefreshCw, LogOut, ExternalLink, ShoppingBag } from 'lucide-react';
+import { Loader2, CheckCircle, AlertCircle, RefreshCw, ExternalLink, LogOut, ShoppingBag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import Image from 'next/image';
+
 
 interface GoogleMerchantCenterConnectProps {
     isConnected?: boolean;
@@ -41,7 +41,7 @@ export function GoogleMerchantCenterConnect({
             });
             // In a real app, this would redirect to the OAuth endpoint
             // window.location.href = '/api/integrations/google-merchant-center/auth';
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Connection Failed',
                 description: 'Could not initiate connection. Please try again.',
@@ -61,7 +61,7 @@ export function GoogleMerchantCenterConnect({
                 title: 'Sync Started',
                 description: 'Product feed is being updated and pushed to Google Merchant Center.',
             });
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Sync Failed',
                 description: 'Could not sync products. Please check your connection.',
@@ -185,6 +185,7 @@ export function GoogleMerchantCenterConnect({
     );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function InfoIcon(props: any) {
     return (
         <svg

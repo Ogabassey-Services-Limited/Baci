@@ -11,7 +11,28 @@ import { sendEmail } from '@/lib/brevo';
 import { generateOrderConfirmationEmail, generateOrderConfirmationText } from '@/lib/email-templates';
 
 // GIGL-specific shipment creation logic is now in its own function
-async function handleGiglShipment(order: any, customer: any, shippingAddress: any) {
+interface OrderItem {
+  value: number;
+  quantity: number;
+  product_id?: string;
+  productId?: string;
+  id?: string;
+  name?: string;
+  productName?: string;
+  price?: number;
+}
+
+interface CustomerInfo {
+  name: string;
+  phone: string;
+}
+
+interface ShippingAddress {
+  address: string;
+}
+
+// GIGL-specific shipment creation logic is now in its own function
+async function handleGiglShipment(order: { items: OrderItem[] }, customer: CustomerInfo, shippingAddress: ShippingAddress) {
   try {
     const giglShipmentPayload = {
       "SenderDetails": {
@@ -281,8 +302,7 @@ export async function POST(request: NextRequest) {
 
     // Insert order items into the new normalized table
     if (order) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const orderItems = items.map((item: any) => ({
+      const orderItems = items.map((item: OrderItem) => ({
         order_id: order.id,
         product_id: item.product_id || item.productId || item.id, // Handle various potential input formats
         name: item.name || item.productName || 'Unknown Product',
@@ -338,7 +358,7 @@ export async function POST(request: NextRequest) {
         const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
 
         // Format items for email template
-        const emailItems = items.map((item: any) => ({
+        const emailItems = items.map((item: OrderItem) => ({
           name: item.name || item.productName || 'Product',
           quantity: item.quantity || 1,
           price: item.price || 0,

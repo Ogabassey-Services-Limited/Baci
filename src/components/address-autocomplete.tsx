@@ -11,18 +11,18 @@ const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 // Helper to load the Google Maps script
 const loadScript = (url: string, callback: () => void) => {
-  if (typeof window !== 'undefined' && (window as any).google?.maps?.places) {
+  if (typeof window !== 'undefined' && (window as Record<string, unknown>).google?.maps?.places) {
     callback();
     return;
   }
 
   if (document.querySelector(`script[src="${url}"]`)) {
     // Script already loading or loaded
-    if ((window as any).google?.maps?.places) {
+    if ((window as Record<string, unknown>).google?.maps?.places) {
       callback();
     } else {
       const interval = setInterval(() => {
-        if ((window as any).google?.maps?.places) {
+        if ((window as Record<string, unknown>).google?.maps?.places) {
           clearInterval(interval);
           callback();
         }
@@ -54,6 +54,7 @@ interface AddressAutocompleteProps extends Omit<React.InputHTMLAttributes<HTMLIn
   onSelect?: (place: PlaceDetails) => void;
   useThemedInput?: boolean;
   showIcon?: boolean;
+  country?: string;
 }
 
 export function AddressAutocomplete({
@@ -62,6 +63,7 @@ export function AddressAutocomplete({
   onSelect,
   useThemedInput = false,
   showIcon = false,
+  country = 'us',
   className,
   ...props
 }: AddressAutocompleteProps) {
@@ -82,7 +84,7 @@ export function AddressAutocomplete({
   useEffect(() => {
     if (scriptLoaded && inputRef.current && !autocompleteRef.current) {
       const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-        componentRestrictions: { country: 'us' }, // Restrict to US for now, can be dynamic
+        componentRestrictions: { country: country.toLowerCase() },
         fields: ['address_components', 'formatted_address'],
         types: ['address'],
       });
@@ -121,8 +123,10 @@ export function AddressAutocomplete({
         }
       });
       autocompleteRef.current = autocomplete;
+    } else if (autocompleteRef.current && country) {
+      autocompleteRef.current.setComponentRestrictions({ country: country.toLowerCase() });
     }
-  }, [scriptLoaded, onChange, onSelect]);
+  }, [scriptLoaded, onChange, onSelect, country]);
 
   const InputComponent = useThemedInput ? ThemedInput : Input;
 

@@ -39,8 +39,7 @@ function getCoordinatesForCity(city: string): { latitude: number; longitude: num
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-        const { receiverCity, senderCity, cartValue, items } = body;
+        const { receiverCity, senderCity: _senderCity, cartValue, items } = await request.json();
 
         // Check if GIGL is configured
         const giglConfigured = process.env.GIGL_EMAIL && process.env.GIGL_PASSWORD;
@@ -97,7 +96,7 @@ export async function POST(request: NextRequest) {
             "DeliveryOptionIds": [2], // Home Delivery
             "Value": cartValue || 1000,
             "PickUpOptions": 1,
-            "ShipmentItems": items.map((item: {name: string, quantity: number, weight?: number, value: number}) => ({
+            "ShipmentItems": items.map((item: { name: string, quantity: number, weight?: number, value: number }) => ({
                 "ItemName": item.name,
                 "Description": item.name,
                 "SpecialPackageId": 0,

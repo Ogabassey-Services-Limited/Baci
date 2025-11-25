@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
+
 import {
   User,
   Menu,
@@ -20,7 +21,7 @@ import {
   ChevronDown,
   Paintbrush,
   BarChart3,
-  Warehouse,
+  Plug
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -135,7 +136,9 @@ export default function DashboardClientLayout({
 
     // If there IS a user but NO merchant record, they haven't completed onboarding.
     // This is the critical security and UX fix.
-    if (!merchant) {
+    // If there IS a user but NO merchant record OR incomplete profile, they haven't completed onboarding.
+    // This is the critical security and UX fix.
+    if (!merchant || !merchant.business_name) {
       toast({
         title: 'Onboarding Incomplete',
         description: 'Please complete your store setup to access the dashboard.',
@@ -185,11 +188,7 @@ export default function DashboardClientLayout({
       icon: Package,
       label: 'Products',
     },
-    {
-      href: '/dashboard/inventory',
-      icon: Warehouse,
-      label: 'Inventory',
-    },
+
     {
       href: '/dashboard/customers',
       icon: Users,
@@ -204,6 +203,11 @@ export default function DashboardClientLayout({
       icon: Paintbrush,
       label: 'Customize Website',
       href: '/builder',
+    },
+    {
+      href: `/merchant/${merchant?.slug}/integrations`,
+      icon: Plug,
+      label: 'Integrations',
     },
     {
       href: '/dashboard/settings',
@@ -276,7 +280,7 @@ export default function DashboardClientLayout({
           </div>
           <div className="mt-auto p-4">
             {!isCollapsed && (
-              <Card>
+              <Card className="border-primary/20">
                 <CardHeader className="p-2 pt-0 md:p-4">
                   <CardTitle>Upgrade to Pro</CardTitle>
                   <CardDescription>
@@ -350,7 +354,7 @@ export default function DashboardClientLayout({
                 <StoreLink isMobile={true} isCollapsed={false} merchantLoading={merchantLoading} storeUrl={storeUrl} />
               </nav>
               <div className="mt-auto">
-                <Card>
+                <Card className="border-primary/20">
                   <CardHeader>
                     <CardTitle>Upgrade to Pro</CardTitle>
                     <CardDescription>

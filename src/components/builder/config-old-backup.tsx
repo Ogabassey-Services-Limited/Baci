@@ -1,8 +1,8 @@
-import { Config, Fields } from '@measured/puck';
+import { Config } from '@measured/puck';
 import { ThemedButton } from '@/components/themed/themed-button';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { Star, Mail, Check, Quote, AlignJustify, Truck, Shield, Clock, Zap, Heart, Award, Search as SearchIcon, Facebook, Instagram, Twitter, Linkedin, Youtube } from 'lucide-react';
+import { Star, Mail, Check, Quote, Truck, Shield, Clock, Zap, Heart, Award, Search as SearchIcon } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
-import { createClient } from '@/lib/supabase/client';
 import Image from 'next/image';
 
 // Define the props for each component
@@ -125,10 +124,10 @@ type RootProps = {
 };
 
 // Metadata type for merchant context
-type MetadataType = {
+type _MetadataType = {
     merchantId?: string;
-    merchant?: any;
-    products?: any[];
+    merchant?: Record<string, unknown>;
+    products?: Record<string, unknown>[];
 };
 
 // Separate component for HeroCarousel to properly use React hooks
@@ -627,7 +626,7 @@ export const builderConfig: Config<{
         ContactForm: {
             fields: { email: { type: 'text' } },
             defaultProps: { email: 'contact@example.com' },
-            render: ({ email }) => (
+            render: ({ email: _email }) => (
                 <div className="p-8 border rounded-lg max-w-md mx-auto bg-card">
                     <h3 className="text-lg font-bold mb-4">Contact Us</h3>
                     <div className="space-y-4">
@@ -653,7 +652,7 @@ export const builderConfig: Config<{
         CodeEmbed: {
             fields: { code: { type: 'textarea' } },
             defaultProps: { code: '<div>Custom Code</div>' },
-            render: ({ code }) => (
+            render: ({ code: _code }) => (
                 <div className="p-4 border border-dashed rounded-lg text-center text-muted-foreground">
                     Custom Code Embed
                 </div>

@@ -44,17 +44,37 @@ const step3BaseSchema = z.object({
 });
 
 /**
- * Step 3: Account Creation (with client-side refinement)
+ * Step 3: Account Creation (with client-side refinement + breach checking)
  */
-export const step3Schema = step3BaseSchema.refine(data => {
-  if (data.password && checkPasswordStrength(data.password || '') >= 3) {
-    return data.password === data.confirmPassword;
-  }
-  return true;
-}, {
-  error: "Passwords do not match.",
-  path: ["confirmPassword"]
-});
+export const step3Schema = step3BaseSchema
+  .refine(data => {
+    if (data.password && checkPasswordStrength(data.password || '') >= 3) {
+      return data.password === data.confirmPassword;
+    }
+    return true;
+  }, {
+    error: "Passwords do not match.",
+    path: ["confirmPassword"]
+  })
+  .superRefine(async (data, ctx) => {
+    // Check for breached passwords
+    if (data.password && data.password.length >= 8) {
+      try {
+        const { checkPasswordBreach } = await import('@/lib/password-breach');
+        const { isBreached } = await checkPasswordBreach(data.password);
+        if (isBreached) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['password'],
+            message: 'This password has been compromised in a data breach. Please choose a different password.'
+          });
+        }
+      } catch (error) {
+        // Fail open - if check fails, allow password
+        console.error('Breach check failed:', error);
+      }
+    }
+  });
 
 
 /**

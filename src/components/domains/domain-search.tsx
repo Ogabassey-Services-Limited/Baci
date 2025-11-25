@@ -63,8 +63,9 @@ export function DomainSearch() {
       if (data.warning) {
         setWarning(data.warning);
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred while searching');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred while searching';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

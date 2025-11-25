@@ -60,7 +60,7 @@ export default function DomainsPage() {
   };
 
   const getStatusBadge = (status: Domain['status']) => {
-    const variants: Record<Domain['status'], { variant: any; label: string; icon: any }> = {
+    const variants: Record<Domain['status'], { variant: string; label: string; icon: React.ComponentType<{ className?: string }> }> = {
       active: { variant: 'default', label: 'Active', icon: Check },
       pending: { variant: 'secondary', label: 'Pending', icon: Clock },
       verifying: { variant: 'secondary', label: 'Verifying', icon: Clock },
@@ -206,7 +206,7 @@ export default function DomainsPage() {
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'overview' | 'search')}>
         <TabsList>
           <TabsTrigger value="overview">
             <Globe className="w-4 h-4 mr-2" />

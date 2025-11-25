@@ -199,7 +199,7 @@ export async function submitOnboarding(
         merchant: merchantData
       });
 
-      logger.info({ message: 'Generated initial Puck template', hasTheme: !!(initialPuckConfig as any).theme });
+      logger.info({ message: 'Generated initial Puck template', hasTheme: !!(initialPuckConfig as Record<string, unknown>).theme });
 
       // Save as both draft and published config
       const { error: configError } = await supabase.from('page_configs').insert({

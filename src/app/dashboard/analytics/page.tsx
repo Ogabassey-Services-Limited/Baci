@@ -22,7 +22,7 @@ export default function AnalyticsPage() {
     const [activeCategory, setActiveCategory] = useState<AnalyticsCategory>(
         (searchParams.get('category') as AnalyticsCategory) || 'overview'
     );
-    const [analyticsData, setAnalyticsData] = useState<any>(null);
+    const [analyticsData, setAnalyticsData] = useState<Record<string, unknown> | null>(null);
     const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
     // Fetch analytics data

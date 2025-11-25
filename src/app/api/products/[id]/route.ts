@@ -80,6 +80,7 @@ export async function GET(
 
             has_variants: product.has_variants || false,
             category: product.category || 'General',
+            color: product.color,
 
             sku: product.sku,
             slug: product.slug,
@@ -243,6 +244,7 @@ export async function PUT(
             fulfillment_details: body.fulfillment_details,
             has_variants: body.has_variants,
             category: body.category,
+            color: body.color,
             updated_at: new Date().toISOString(),
         };
 

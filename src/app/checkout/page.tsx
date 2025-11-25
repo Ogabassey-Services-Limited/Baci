@@ -22,6 +22,7 @@ import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { getCountryByCode } from '@/lib/countries';
 import { apiPost } from '@/lib/api-client';
 import { PhoneInput } from '@/components/ui/phone-input';
+import { isValidPhoneNumber } from 'react-phone-number-input';
 
 const DEFAULT_SHIPPING_FEE = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00');
 
@@ -29,7 +30,7 @@ const shippingSchema = z.object({
   firstName: z.string().min(2, { error: 'First name must be at least 2 characters.' }),
   lastName: z.string().min(2, { error: 'Last name must be at least 2 characters.' }),
   email: z.string().email({ error: 'Please enter a valid email address.' }),
-  phone: z.string().min(10, { error: 'Please enter a valid phone number.' }),
+  phone: z.string().refine(isValidPhoneNumber, { message: 'Please enter a valid phone number.' }),
   address: z.string().min(5, { error: 'Please enter a valid address.' }),
   city: z.string().min(2, { error: 'Please enter a city.' }),
   state: z.string().min(2, { error: 'Please enter a state.' }),
@@ -39,7 +40,24 @@ type ShippingFormValues = z.infer<typeof shippingSchema>;
 
 const authSchema = z.object({
   email: z.string().email({ error: 'Please enter a valid email address.' }),
-  password: z.string().min(6, { error: 'Password must be at least 6 characters.' }),
+  password: z.string().min(8, { error: 'Password must be at least 8 characters.' }),
+}).superRefine(async (data, ctx) => {
+  // Check for breached passwords during signup
+  if (data.password && data.password.length >= 8) {
+    try {
+      const { checkPasswordBreach } = await import('@/lib/password-breach');
+      const { isBreached } = await checkPasswordBreach(data.password);
+      if (isBreached) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['password'],
+          message: 'This password has been compromised in a data breach. Please choose a different password.'
+        });
+      }
+    } catch (error) {
+      console.error('Breach check failed:', error);
+    }
+  }
 });
 
 type AuthFormValues = z.infer<typeof authSchema>;
@@ -201,7 +219,7 @@ function Step1_Shipping() {
             <FormControl>
               <PhoneInput
                 placeholder="Enter phone number"
-                defaultCountry={country?.code as any || 'NG'}
+                defaultCountry={(country?.code as string) || 'NG'}
                 value={field.value}
                 onChange={field.onChange}
                 id="phone"
@@ -223,6 +241,7 @@ function Step1_Shipping() {
                 {...field}
                 useThemedInput={true}
                 showIcon={true}
+                country={country?.code}
                 onChange={(val) => field.onChange(val)}
                 onSelect={(place) => {
                   field.onChange(place.formattedAddress);
@@ -335,9 +354,30 @@ function CheckoutPageContent() {
   });
 
   useEffect(() => {
-    // If user changes, reset email field
+    // If user changes, autofill email and name fields from user metadata
     if (user) {
       shippingForm.setValue('email', user.email || '');
+
+      // Autofill name fields from user metadata if available
+      const metadata = user.user_metadata;
+      if (metadata) {
+        if (metadata.first_name) {
+          shippingForm.setValue('firstName', metadata.first_name);
+        } else if (metadata.full_name) {
+          // Try to split full_name if first_name is not available
+          const nameParts = metadata.full_name.split(' ');
+          if (nameParts.length > 0) {
+            shippingForm.setValue('firstName', nameParts[0]);
+            if (nameParts.length > 1) {
+              shippingForm.setValue('lastName', nameParts.slice(1).join(' '));
+            }
+          }
+        }
+
+        if (metadata.last_name) {
+          shippingForm.setValue('lastName', metadata.last_name);
+        }
+      }
     }
   }, [user, shippingForm]);
 
@@ -351,13 +391,14 @@ function CheckoutPageContent() {
 
   // Fetch shipping quote when address is valid
   const watchAddress = shippingForm.watch('address');
+  const watchCity = shippingForm.watch('city');
   useEffect(() => {
     const getShippingQuote = async () => {
       setShippingFee(null); // Reset on address change
       if (watchAddress && watchAddress.length > 5) {
         try {
           const data = await apiPost<{ shippingFee: number }>('/api/shipping/quote', {
-            receiverCity: shippingForm.watch('city') || 'Lagos',
+            receiverCity: watchCity || 'Lagos',
             cartValue: cartTotal,
             items: cart.map(i => ({ name: i.name, quantity: i.quantity, weight: 1, value: i.price }))
           });
@@ -379,7 +420,7 @@ function CheckoutPageContent() {
     }, 1000); // Debounce
 
     return () => clearTimeout(handler);
-  }, [watchAddress, cartTotal, cart]);
+  }, [watchAddress, watchCity, cartTotal, cart, toast]);
 
   const handleAuthSuccess = (authedUser: SupabaseUser) => {
     setUser(authedUser);
@@ -432,7 +473,7 @@ function CheckoutPageContent() {
       const finalShippingFee = shippingFee ?? merchantData.shipping_fee ?? DEFAULT_SHIPPING_FEE;
 
       // Create order via API
-      const { order } = await apiPost<{ order: any }>('/api/orders', {
+      const { order } = await apiPost<{ order: Record<string, unknown> }>('/api/orders', {
         merchant_id: merchantData.id,
         customer_email: data.email,
         customer_name: `${data.firstName} ${data.lastName}`,

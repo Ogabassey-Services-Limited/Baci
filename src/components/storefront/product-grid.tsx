@@ -37,28 +37,25 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
     const selectedCategory = storefrontContext?.selectedCategory || 'All';
     const setSelectedCategory = storefrontContext?.setSelectedCategory || (() => { });
 
-    const [products, setProducts] = useState<Product[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const isPreviewMode = !merchantContext;
+    const [products, setProducts] = useState<Product[]>(() => {
+        if (isPreviewMode) {
+            return sampleProductsByCategory['fashion'] || sampleProductsByCategory['other'];
+        }
+        return [];
+    });
+    const [isLoading, setIsLoading] = useState(!isPreviewMode);
     const [filterType, setFilterType] = useState<'category' | 'brand' | 'price'>('category');
     const [useServerSearch, setUseServerSearch] = useState(false);
     const [serverSearchResults, setServerSearchResults] = useState<Product[]>([]);
     const [didYouMean, setDidYouMean] = useState<string | null>(null);
     const [isSearching, setIsSearching] = useState(false);
 
-    // Use sample products if no merchant context (preview mode)
-    const isPreviewMode = !merchantContext;
 
     // Check product count and determine search method
-    useEffect(() => {
-        if (isPreviewMode) {
-            // Use sample products for preview
-            const samples = sampleProductsByCategory['fashion'] || sampleProductsByCategory['other'];
-            setProducts(samples);
-            setIsLoading(false);
-            setUseServerSearch(false);
-            return;
-        }
 
+
+    useEffect(() => {
         if (merchant?.id) {
             // Fetch products
             apiGet<{ products: Product[] }>(`/api/storefront/products?merchant_id=${merchant.id}`)
@@ -90,8 +87,14 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
     // Perform server-side search when needed
     useEffect(() => {
         if (!useServerSearch || !searchQuery || !merchant?.id || isPreviewMode) {
-            setServerSearchResults([]);
-            setDidYouMean(null);
+            // Avoid synchronous state updates in effect
+            if (serverSearchResults.length > 0 || didYouMean !== null) {
+                const timer = setTimeout(() => {
+                    setServerSearchResults([]);
+                    setDidYouMean(null);
+                }, 0);
+                return () => clearTimeout(timer);
+            }
             return;
         }
 
@@ -114,7 +117,7 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
         }, 300); // Debounce search
 
         return () => clearTimeout(timeoutId);
-    }, [searchQuery, useServerSearch, merchant?.id, isPreviewMode]);
+    }, [searchQuery, useServerSearch, merchant?.id, isPreviewMode, didYouMean, serverSearchResults.length]);
 
     const filterOptions = useMemo(() => {
         if (filterType === 'category') {
@@ -240,7 +243,7 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                                         className="text-base font-medium border-0 bg-transparent focus:ring-0 cursor-pointer pr-8"
                                         value={filterType}
                                         onChange={(e) => {
-                                            setFilterType(e.target.value as any);
+                                            setFilterType(e.target.value as 'category' | 'brand' | 'price');
                                             setSelectedCategory('All'); // Reset active filter when type changes
                                         }}
                                     >
@@ -307,7 +310,7 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                     </div>
                 ) : searchResults.length > 0 ? (
                     <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-${columns} gap-6`}>
-                        {searchResults.map((product, index) => {
+                        {searchResults.map((product) => {
                             const cartItem = cart.find(item => item.id === product.id);
 
                             return (

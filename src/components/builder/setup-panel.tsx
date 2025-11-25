@@ -4,22 +4,16 @@ import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
+
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
-    Settings,
-    BarChart3,
-    Code2,
     Globe,
     Image as ImageIcon,
-    Mail,
-    AlertCircle,
-    Palette,
-    DollarSign,
-    Clock,
-    Languages
+    BarChart3,
+    Code2,
+    AlertCircle
 } from 'lucide-react';
 import {
     Select,
@@ -113,10 +107,11 @@ export function SetupPanel({ settings, onChange }: SetupPanelProps) {
     const [data, setData] = useState<SetupSettings>(settings || defaultSettings);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setData(settings || defaultSettings);
     }, [settings]);
 
-    const handleChange = (section: keyof SetupSettings, field: string, value: any) => {
+    const handleChange = (section: keyof SetupSettings, field: string, value: unknown) => {
         const updated = {
             ...data,
             [section]: {

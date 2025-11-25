@@ -75,7 +75,7 @@ export async function POST(
     let domainData = null;
     const domain = params.domain;
     let cookieStore;
-    let supabase: any;
+    let supabase;
 
     try {
         cookieStore = await cookies();
@@ -159,8 +159,8 @@ export async function POST(
             resource_type: 'email_forwarding',
             resource_id: domain,
             changes: {
-                before: currentConfig,
-                after: forwards
+                before: { forwards: currentConfig },
+                after: { forwards: forwards }
             },
             ip_address: request.headers.get('x-forwarded-for') || 'unknown',
             user_agent: request.headers.get('user-agent') || 'unknown',
@@ -168,7 +168,8 @@ export async function POST(
         });
 
         return NextResponse.json(result);
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Error updating email forwarding:', error);
 
         // Log failure
@@ -180,7 +181,7 @@ export async function POST(
                 resource_type: 'email_forwarding',
                 resource_id: domain,
                 status: 'failure',
-                error_message: error.message || 'Unknown error'
+                error_message: errorMessage
             });
         }
 

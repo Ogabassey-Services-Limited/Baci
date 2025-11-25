@@ -8,12 +8,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import {
     Upload,
-    Image as ImageIcon,
     Trash2,
     Copy,
     Search,
     Loader2,
-    X,
     Check,
     AlertCircle,
     FolderOpen
@@ -125,11 +123,11 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
             if (onSelect && data.file?.url) {
                 setSelectedFile(data.file.url);
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error('Upload error:', error);
             toast({
                 title: 'Upload failed',
-                description: error.message || 'Failed to upload file',
+                description: (error as Error).message || 'Failed to upload file',
                 variant: 'destructive',
             });
         } finally {
@@ -176,7 +174,7 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
                 title: 'Copied',
                 description: `URL for ${fileName} copied to clipboard`,
             });
-        } catch (error) {
+        } catch (_) {
             toast({
                 title: 'Error',
                 description: 'Failed to copy URL',

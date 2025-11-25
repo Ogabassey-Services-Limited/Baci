@@ -98,10 +98,10 @@ export async function POST(request: NextRequest) {
             const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
             const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
 
-            const emailItems = (order.order_items || []).map((item: any) => ({
-              name: item.name || 'Product',
-              quantity: item.quantity || 1,
-              price: item.price || 0,
+            const emailItems = (order.order_items || []).map((item: Record<string, unknown>) => ({
+              name: (item.name as string) || 'Product',
+              quantity: (item.quantity as number) || 1,
+              price: (item.price as number) || 0,
             }));
 
             const emailData = {

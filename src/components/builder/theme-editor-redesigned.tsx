@@ -34,6 +34,7 @@ export function ThemeEditor({ theme, onChange, onReset }: ThemeEditorProps) {
 
     const updateColor = (path: string[], value: string) => {
         const newTheme = { ...theme };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let current: any = newTheme;
 
         for (let i = 0; i < path.length - 1; i++) {

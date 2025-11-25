@@ -1,14 +1,12 @@
-
 'use client';
 
 import {
-  SheetContent,
   SheetHeader,
   SheetTitle,
   SheetFooter,
   SheetClose,
 } from '@/components/ui/sheet';
-import { ThemedButton } from '@/components/themed';
+import { ThemedButton, ThemedSheetContent } from '@/components/themed';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchant } from '@/hooks/use-merchant';
 import Image from 'next/image';
@@ -22,7 +20,7 @@ import { Minus, Plus, ShoppingBag } from 'lucide-react';
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
   const { merchant } = useMerchant();
-  
+
   const formatCurrency = (amount: number) => {
     const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
     const locale = country ? `en-${country.code}` : 'en-US';
@@ -36,7 +34,7 @@ export function Cart() {
   };
 
   return (
-    <SheetContent 
+    <ThemedSheetContent
       className="flex w-full flex-col pr-0 sm:max-w-lg"
     >
       <SheetHeader className="px-6">
@@ -100,7 +98,7 @@ export function Cart() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">
-              <ShoppingBag className="w-20 h-20 text-muted-foreground/50 mb-4"/>
+              <ShoppingBag className="w-20 h-20 text-muted-foreground/50 mb-4" />
               <p className="text-lg font-semibold">Your cart is empty</p>
               <p className="text-muted-foreground mt-2">
                 Add some products to get started!
@@ -111,25 +109,25 @@ export function Cart() {
       </div>
       {cart.length > 0 && (
         <SheetFooter className="px-6 py-4 bg-background border-t">
-            <div className="w-full space-y-4">
-                <div className="flex justify-between font-semibold">
-                    <span>Subtotal</span>
-                    <span>{formatCurrency(cartTotal)}</span>
-                </div>
-                <SheetClose asChild>
-                  <Link href="/checkout" className="w-full">
-                      <ThemedButton
-                        size="lg"
-                        className="w-full"
-                        colorRole="primary"
-                      >
-                          Proceed to Checkout
-                      </ThemedButton>
-                  </Link>
-                </SheetClose>
+          <div className="w-full space-y-4">
+            <div className="flex justify-between font-semibold">
+              <span>Subtotal</span>
+              <span>{formatCurrency(cartTotal)}</span>
             </div>
+            <SheetClose asChild>
+              <Link href="/checkout" className="w-full">
+                <ThemedButton
+                  size="lg"
+                  className="w-full"
+                  colorRole="primary"
+                >
+                  Proceed to Checkout
+                </ThemedButton>
+              </Link>
+            </SheetClose>
+          </div>
         </SheetFooter>
       )}
-    </SheetContent>
+    </ThemedSheetContent>
   );
 }

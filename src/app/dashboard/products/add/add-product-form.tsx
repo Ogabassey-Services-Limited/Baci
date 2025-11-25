@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { z } from 'zod';
 import Image from 'next/image';
-import { Loader2, Sparkles, Wand2, X, Image as ImageIcon, Plus, Info, Truck, Tag, DollarSign, Globe, BarChart } from 'lucide-react';
+import { Loader2, Sparkles, Wand2, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { generateProductDescription } from '@/ai/flows/generate-product-descriptions';
 import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
@@ -28,6 +28,9 @@ import { VariantBuilder } from '@/components/products/variant-builder';
 import type { ProductVariant } from '@/lib/products';
 import { generateSlug } from '@/lib/seo-utils';
 import { SeoPreview } from '@/components/products/seo-preview';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
+import { FileUploader } from '@/components/ui/file-uploader';
+import { TagInput } from '@/components/ui/tag-input';
 
 const addProductSchema = z.object({
   name: z.string().min(3, 'Product name must be at least 3 characters.'),
@@ -95,13 +98,6 @@ interface AddProductFormProps {
   initialData?: Product | null;
 }
 
-function toTitleCase(text: string) {
-  if (!text) return '';
-  return text.split(' ').map(word =>
-    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
-  ).join(' ');
-}
-
 export default function AddProductForm({ onProductAdded, onCancel, initialData }: AddProductFormProps) {
   const { toast } = useToast();
   const { merchant } = useMerchant();
@@ -112,13 +108,12 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
   const [variants, setVariants] = useState<ProductVariant[]>(initialData?.variants || []);
   const [variantBuilderKey, setVariantBuilderKey] = useState(Date.now());
   const [colorTags, setColorTags] = useState<string[]>(initialData?.color ? initialData.color.split(',').map(s => s.trim()).filter(Boolean) : []);
-  const [colorInput, setColorInput] = useState('');
   const [colorImages, setColorImages] = useState<Record<string, string>>({});
   const [enhancingImages, setEnhancingImages] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState('general');
 
   const form = useForm<AddProductFormValues>({
-    resolver: zodResolver(addProductSchema) as any,
+    resolver: zodResolver(addProductSchema),
     defaultValues: {
       name: initialData?.name || '',
       description: initialData?.description || '',
@@ -140,7 +135,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       weight_unit: (initialData?.weight_unit as "kg" | "lb" | "g" | "oz") || 'kg',
       dimensions: initialData?.dimensions || { unit: 'cm' },
       image: initialData?.image || null,
-      images: initialData?.images || [],
+      images: initialData?.images?.map(img => img.url) || [],
       condition: (initialData?.condition as "new" | "used") || 'new',
       condition_detail: initialData?.condition_detail || '',
       slug: initialData?.slug || '',
@@ -384,6 +379,26 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       }
     }
 
+    // Handle Gallery Images
+    const processedImages: string[] = [];
+    if (data.images && data.images.length > 0) {
+      for (const img of data.images) {
+        if (img instanceof File) {
+          try {
+            const blobUrl = URL.createObjectURL(img);
+            const uploadedUrl = await uploadImage(blobUrl);
+            URL.revokeObjectURL(blobUrl);
+            if (uploadedUrl) processedImages.push(uploadedUrl);
+          } catch (error) {
+            console.error("Failed to upload gallery image", error);
+            toast({ title: "Upload Failed", description: `Failed to upload ${img.name}`, variant: "destructive" });
+          }
+        } else if (typeof img === 'string') {
+          processedImages.push(img);
+        }
+      }
+    }
+
     const keywordsArray = data.keywords ? data.keywords.split(',').map(k => k.trim()).filter(Boolean) : [];
 
     const productData: Product = {
@@ -415,7 +430,11 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       image: enhancedImage,
       imageLarge: enhancedImage,
       imageHint: data.name,
-      images: data.images, // TODO: Handle multiple image uploads properly
+      images: processedImages.map((url, index) => ({
+        url,
+        alt: data.name,
+        order: index
+      })),
 
       condition: data.condition,
       condition_detail: data.condition_detail,
@@ -480,7 +499,13 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
               <FormField control={form.control} name="description" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Description</FormLabel>
-                  <FormControl><Textarea {...field} className="min-h-[100px]" /></FormControl>
+                  <FormControl>
+                    <RichTextEditor
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      placeholder="Describe your product..."
+                    />
+                  </FormControl>
                   <Button type="button" variant="ghost" size="sm" onClick={handleGenerateDescription} disabled={isGenerating}>
                     {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                     Generate with AI
@@ -740,6 +765,20 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
             {/* MEDIA TAB */}
             <TabsContent value="media" className="space-y-4">
+              <FormField control={form.control} name="images" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Product Gallery</FormLabel>
+                  <FormControl>
+                    <FileUploader
+                      onFilesSelected={field.onChange}
+                      initialFiles={field.value?.filter((f: unknown) => typeof f === 'string') || []}
+                      maxFiles={5}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+
               <FormField control={form.control} name="color" render={() => (
                 <FormItem>
                   <FormLabel>Colors & Images</FormLabel>
@@ -747,143 +786,78 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                     <div className="space-y-4">
                       <div className="flex gap-2">
                         <div className="flex-1 relative">
-                          {colorTags.length > 0 && (
-                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 z-10 max-w-[calc(100%-3rem)] overflow-x-auto">
-                              <div className="flex gap-1.5 flex-nowrap">
-                                {colorTags.map((color) => (
-                                  <span key={color} className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm flex-shrink-0">
-                                    {color}
-                                    <button
-                                      type="button"
-                                      className="hover:bg-primary/20 rounded-full p-0.5 cursor-pointer inline-flex items-center"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleRemoveColorTag(color);
-                                      }}
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          <Input
-                            type="text"
-                            placeholder={colorTags.length > 0 ? '' : 'e.g., Black, Red, Blue'}
-                            value={colorInput}
-                            onChange={(e) => setColorInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                if (colorInput.trim()) {
-                                  handleAddColorTag(colorInput.trim());
-                                  setColorInput('');
-                                }
-                              }
+                          <TagInput
+                            placeholder="e.g., Black, Red, Blue"
+                            value={colorTags}
+                            onChange={(tags) => {
+                              // Handle adding/removing tags
+                              const newTags = tags.filter(t => !colorTags.includes(t));
+                              const removedTags = colorTags.filter(t => !tags.includes(t));
+
+                              newTags.forEach(tag => handleAddColorTag(tag));
+                              removedTags.forEach(tag => handleRemoveColorTag(tag));
                             }}
-                            className="w-full"
                           />
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            if (colorInput.trim()) {
-                              handleAddColorTag(colorInput.trim());
-                              setColorInput('');
-                            }
-                          }}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
                       </div>
 
-                      {colorTags.length > 0 ? (
-                        <div className="grid grid-cols-4 gap-3">
-                          {colorTags.map(color => {
-                            const isEnhancing = enhancingImages[color];
-                            return (
-                              <div key={color} className="relative group">
-                                <div className="border-2 border-dashed rounded-lg p-3 hover:bg-muted/50 transition-colors space-y-2">
-                                  <label className="cursor-pointer block">
+                      {colorTags.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                          {colorTags.map((color) => (
+                            <Card key={color} className="p-3">
+                              <div className="text-sm font-medium mb-2 flex items-center justify-between">
+                                <span>{color}</span>
+                                {enhancingImages[color] && <Sparkles className="h-3 w-3 text-yellow-500 animate-pulse" />}
+                              </div>
+                              <div className="aspect-square relative rounded-md overflow-hidden bg-muted border group">
+                                {colorImages[color] ? (
+                                  <>
+                                    <Image
+                                      src={colorImages[color]}
+                                      alt={color}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        className="h-8 text-xs"
+                                        onClick={() => handleEnhanceImage(color)}
+                                        disabled={enhancingImages[color]}
+                                      >
+                                        <Wand2 className="h-3 w-3 mr-1" />
+                                        Enhance
+                                      </Button>
+                                      <label className="cursor-pointer">
+                                        <Button type="button" variant="secondary" size="sm" className="h-8 text-xs pointer-events-none">
+                                          Change
+                                        </Button>
+                                        <input
+                                          type="file"
+                                          className="hidden"
+                                          accept="image/*"
+                                          onChange={(e) => handleColorImageUpload(color, e)}
+                                        />
+                                      </label>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer hover:bg-muted/80 transition-colors">
+                                    <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                                    <span className="text-xs text-muted-foreground">Upload</span>
                                     <input
                                       type="file"
-                                      accept="image/*"
                                       className="hidden"
+                                      accept="image/*"
                                       onChange={(e) => handleColorImageUpload(color, e)}
-                                      disabled={isEnhancing}
                                     />
-                                    <div className="aspect-square mb-2 rounded-lg overflow-hidden bg-muted flex items-center justify-center relative">
-                                      {isEnhancing && (
-                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
-                                          <Loader2 className="h-6 w-6 text-white animate-spin" />
-                                        </div>
-                                      )}
-                                      {colorImages[color] ? (
-                                        <Image
-                                          src={colorImages[color]}
-                                          alt={color}
-                                          width={120}
-                                          height={120}
-                                          className="w-full h-full object-cover"
-                                        />
-                                      ) : (
-                                        <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                                      )}
-                                    </div>
-                                    <p className="text-sm font-medium text-center">{toTitleCase(color)}</p>
                                   </label>
-                                  {colorImages[color] && (
-                                    <Button
-                                      type="button"
-                                      variant="default"
-                                      size="sm"
-                                      className="w-full h-8"
-                                      onClick={() => handleEnhanceImage(color)}
-                                      disabled={isEnhancing}
-                                    >
-                                      {isEnhancing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4 mr-2" />}
-                                      Enhance
-                                    </Button>
-                                  )}
-                                </div>
+                                )}
                               </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
-                          <ImageIcon className="mx-auto h-12 w-12 mb-3 opacity-50" />
-                          <p>Add colors above to upload images for each variant.</p>
-                          <p className="text-xs mt-1">Or just upload a main image if no colors.</p>
-                          <label className="mt-4 inline-block cursor-pointer">
-                            <Button type="button" variant="outline" size="sm" asChild>
-                              <span>Upload Main Image</span>
-                            </Button>
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept="image/*"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  const reader = new FileReader();
-                                  reader.onloadend = () => {
-                                    form.setValue('image', reader.result);
-                                    // Also set as 'default' color image if needed
-                                  };
-                                  reader.readAsDataURL(file);
-                                }
-                              }}
-                            />
-                          </label>
-                          {form.watch('image') && (
-                            <div className="mt-4 w-24 h-24 mx-auto relative rounded-lg overflow-hidden border">
-                              <Image src={form.watch('image')} alt="Main" fill className="object-cover" />
-                            </div>
-                          )}
+                            </Card>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -900,20 +874,18 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                   <FormItem>
                     <FormLabel>Weight</FormLabel>
                     <div className="flex gap-2">
-                      <FormControl><Input type="number" {...field} placeholder="0.0" /></FormControl>
-                      <FormField control={form.control} name="weight_unit" render={({ field: unitField }) => (
-                        <Select onValueChange={unitField.onChange} value={unitField.value}>
-                          <SelectTrigger className="w-[80px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="kg">kg</SelectItem>
-                            <SelectItem value="lb">lb</SelectItem>
-                            <SelectItem value="g">g</SelectItem>
-                            <SelectItem value="oz">oz</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )} />
+                      <FormControl><Input type="number" {...field} /></FormControl>
+                      <Select value={form.watch('weight_unit')} onValueChange={(val) => form.setValue('weight_unit', val as 'kg' | 'g' | 'lb' | 'oz')}>
+                        <SelectTrigger className="w-[80px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="kg">kg</SelectItem>
+                          <SelectItem value="lb">lb</SelectItem>
+                          <SelectItem value="g">g</SelectItem>
+                          <SelectItem value="oz">oz</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <FormMessage />
                   </FormItem>
@@ -921,34 +893,38 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
               </div>
 
               <div className="space-y-2">
-                <FormLabel>Dimensions</FormLabel>
-                <div className="grid grid-cols-4 gap-2">
+                <FormLabel>Dimensions (L x W x H)</FormLabel>
+                <div className="flex gap-2 items-end">
                   <FormField control={form.control} name="dimensions.length" render={({ field }) => (
-                    <FormItem>
-                      <FormControl><Input type="number" {...field} placeholder="Length" /></FormControl>
+                    <FormItem className="flex-1">
+                      <FormControl><Input type="number" placeholder="Length" {...field} /></FormControl>
                     </FormItem>
                   )} />
+                  <span className="pb-2 text-muted-foreground">x</span>
                   <FormField control={form.control} name="dimensions.width" render={({ field }) => (
-                    <FormItem>
-                      <FormControl><Input type="number" {...field} placeholder="Width" /></FormControl>
+                    <FormItem className="flex-1">
+                      <FormControl><Input type="number" placeholder="Width" {...field} /></FormControl>
                     </FormItem>
                   )} />
+                  <span className="pb-2 text-muted-foreground">x</span>
                   <FormField control={form.control} name="dimensions.height" render={({ field }) => (
-                    <FormItem>
-                      <FormControl><Input type="number" {...field} placeholder="Height" /></FormControl>
+                    <FormItem className="flex-1">
+                      <FormControl><Input type="number" placeholder="Height" {...field} /></FormControl>
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="dimensions.unit" render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cm">cm</SelectItem>
-                        <SelectItem value="in">in</SelectItem>
-                        <SelectItem value="m">m</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <FormItem className="w-[80px]">
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cm">cm</SelectItem>
+                          <SelectItem value="in">in</SelectItem>
+                          <SelectItem value="m">m</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
                   )} />
                 </div>
               </div>
@@ -983,16 +959,22 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                   <FormField control={form.control} name="keywords" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Keywords</FormLabel>
-                      <FormControl><Input {...field} placeholder="comma, separated, keywords" /></FormControl>
+                      <FormControl>
+                        <TagInput
+                          placeholder="e.g., keyword1, keyword2"
+                          value={field.value ? field.value.split(',').map((k: string) => k.trim()).filter(Boolean) : []}
+                          onChange={(tags) => field.onChange(tags.join(', '))}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                 </div>
                 <div className="space-y-4">
                   <SeoPreview
-                    title={form.watch('meta_title') || form.watch('name')}
-                    description={form.watch('meta_description') || form.watch('description')}
-                    slug={form.watch('slug')}
+                    title={form.watch('meta_title') || form.watch('name') || ''}
+                    description={form.watch('meta_description') || form.watch('description') || ''}
+                    slug={form.watch('slug') || ''}
                     merchantUrl={merchant?.slug ? `${merchant.slug}.baci.tech` : undefined}
                   />
                 </div>

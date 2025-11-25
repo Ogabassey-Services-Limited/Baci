@@ -38,7 +38,7 @@ export async function middleware(request: NextRequest) {
   const { hostname } = url;
 
   // Create a response object to update cookies
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -110,7 +110,7 @@ export async function middleware(request: NextRequest) {
       .single();
 
     if (domainRecord) {
-      // @ts-ignore - Supabase typing issue with nested select
+      // @ts-expect-error - Supabase typing issue with nested select
       const merchantSlug = domainRecord.merchants?.slug;
       if (merchantSlug) {
         url.pathname = `/storefront/${merchantSlug}${url.pathname}`;

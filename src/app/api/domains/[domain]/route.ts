@@ -31,10 +31,11 @@ export async function GET(
             nameservers,
             lock
         });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch domain details';
         console.error('Error fetching domain details:', error);
         return NextResponse.json(
-            { error: error.message || 'Failed to fetch domain details' },
+            { error: errorMessage },
             { status: 500 }
         );
     }
@@ -72,10 +73,11 @@ export async function POST(
 
         return NextResponse.json(result);
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Failed to update domain';
         console.error('Error updating domain:', error);
         return NextResponse.json(
-            { error: error.message || 'Failed to update domain' },
+            { error: errorMessage },
             { status: 500 }
         );
     }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import 'react';
 import {
     Copy,
     Trash2,
@@ -41,7 +41,7 @@ interface InlineContextMenuProps {
 }
 
 export function InlineContextMenu({
-    componentId,
+    // componentId,
     componentType,
     onEdit,
     onDuplicate,
@@ -52,7 +52,7 @@ export function InlineContextMenu({
     canMoveDown = true,
     position = 'top',
 }: InlineContextMenuProps) {
-    const [isVisible, setIsVisible] = useState(true);
+    // const [isVisible, setIsVisible] = useState(true);
 
     const handleAction = (action?: () => void) => {
         if (action) {

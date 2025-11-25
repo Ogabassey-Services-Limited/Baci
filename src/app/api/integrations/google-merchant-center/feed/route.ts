@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+export async function GET(_request: Request) {
     const supabase = createRouteHandlerClient({ cookies });
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://baci.app';
 

@@ -1,20 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Globe, Mail, Shield, Lock, RefreshCw, Plus, Trash2, Save, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Globe, Mail, Shield, Lock, RefreshCw, Plus, Trash2, CheckCircle2 } from 'lucide-react';
 
 interface DNSRecord {
     type: 'A' | 'AAAA' | 'CNAME' | 'MX' | 'TXT' | 'NS';
@@ -36,8 +36,8 @@ export default function DomainDetailsPage() {
     const domain = params.domain as string;
 
     const [loading, setLoading] = useState(true);
-    const [domainInfo, setDomainInfo] = useState<any>(null);
-    const [nameservers, setNameservers] = useState<any>(null);
+    const [domainInfo, setDomainInfo] = useState<Record<string, unknown> | null>(null);
+    const [nameservers, setNameservers] = useState<Record<string, unknown> | null>(null);
     const [lockStatus, setLockStatus] = useState<boolean>(false);
 
     // DNS State
@@ -53,11 +53,33 @@ export default function DomainDetailsPage() {
     // ID Protection State
     const [idProtection, setIdProtection] = useState<boolean>(false);
 
-    useEffect(() => {
-        fetchDomainDetails();
+
+    const fetchDnsRecords = useCallback(async () => {
+        try {
+            setLoadingDns(true);
+            const res = await fetch(`/api/domains/${domain}/dns`);
+            const data = await res.json();
+            if (res.ok) setDnsRecords(data.records || []);
+        } catch (e) { console.error(e); } finally { setLoadingDns(false); }
     }, [domain]);
 
-    const fetchDomainDetails = async () => {
+    const fetchEmailForwards = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/domains/${domain}/email-forwarding`);
+            const data = await res.json();
+            if (res.ok) setForwards(data.forwards || []);
+        } catch (e) { console.error(e); }
+    }, [domain]);
+
+    const fetchIdProtection = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/domains/${domain}/id-protection`);
+            const data = await res.json();
+            if (res.ok) setIdProtection(data.enabled);
+        } catch (e) { console.error(e); }
+    }, [domain]);
+
+    const fetchDomainDetails = useCallback(async () => {
         try {
             setLoading(true);
             const response = await fetch(`/api/domains/${domain}`);
@@ -66,7 +88,7 @@ export default function DomainDetailsPage() {
             if (response.ok) {
                 setDomainInfo(data.info);
                 setNameservers(data.nameservers);
-                setLockStatus(data.lock?.status === 'active'); // Adjust based on actual API response
+                setLockStatus(data.lock?.status === 'active');
 
                 // Also fetch initial tab data
                 fetchDnsRecords();
@@ -84,34 +106,11 @@ export default function DomainDetailsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [domain, toast, fetchDnsRecords, fetchEmailForwards, fetchIdProtection]);
 
-    const fetchDnsRecords = async () => {
-        try {
-            setLoadingDns(true);
-            const res = await fetch(`/api/domains/${domain}/dns`);
-            const data = await res.json();
-            if (res.ok) setDnsRecords(data.records || []);
-        } catch (e) { console.error(e); } finally { setLoadingDns(false); }
-    };
-
-    const fetchEmailForwards = async () => {
-        try {
-            setLoadingForwards(true);
-            const res = await fetch(`/api/domains/${domain}/email-forwarding`);
-            const data = await res.json();
-            if (res.ok) setForwards(data.forwards || []);
-        } catch (e) { console.error(e); } finally { setLoadingForwards(false); }
-    };
-
-    const fetchIdProtection = async () => {
-        try {
-            setLoadingIdProtect(true);
-            const res = await fetch(`/api/domains/${domain}/id-protection`);
-            const data = await res.json();
-            if (res.ok) setIdProtection(data.enabled);
-        } catch (e) { console.error(e); } finally { setLoadingIdProtect(false); }
-    };
+    useEffect(() => {
+        fetchDomainDetails();
+    }, [fetchDomainDetails]);
 
     // --- Actions ---
 
@@ -132,7 +131,7 @@ export default function DomainDetailsPage() {
             } else {
                 throw new Error('Failed to add record');
             }
-        } catch (error) {
+        } catch (_) {
             toast({ title: 'Error', description: 'Failed to add DNS record', variant: 'destructive' });
         }
     };
@@ -150,7 +149,7 @@ export default function DomainDetailsPage() {
                 setDnsRecords(updatedRecords);
                 toast({ title: 'Success', description: 'DNS record deleted' });
             }
-        } catch (error) {
+        } catch (_) {
             toast({ title: 'Error', description: 'Failed to delete record', variant: 'destructive' });
         }
     };
@@ -169,7 +168,7 @@ export default function DomainDetailsPage() {
                 setNewForward({ prefix: '', forwardto: '' });
                 toast({ title: 'Success', description: 'Email forward added' });
             }
-        } catch (error) {
+        } catch (_) {
             toast({ title: 'Error', description: 'Failed to add email forward', variant: 'destructive' });
         }
     };
@@ -186,7 +185,7 @@ export default function DomainDetailsPage() {
                 setIdProtection(checked);
                 toast({ title: 'Success', description: `ID Protection ${checked ? 'enabled' : 'disabled'}` });
             }
-        } catch (error) {
+        } catch (_) {
             toast({ title: 'Error', description: 'Failed to update ID Protection', variant: 'destructive' });
         }
     };
@@ -203,7 +202,7 @@ export default function DomainDetailsPage() {
                 setLockStatus(checked);
                 toast({ title: 'Success', description: `Registrar Lock ${checked ? 'enabled' : 'disabled'}` });
             }
-        } catch (error) {
+        } catch (_) {
             toast({ title: 'Error', description: 'Failed to update Registrar Lock', variant: 'destructive' });
         }
     };
@@ -316,7 +315,7 @@ export default function DomainDetailsPage() {
                                             <Label className="text-right">Type</Label>
                                             <Select
                                                 value={newRecord.type}
-                                                onValueChange={(v: any) => setNewRecord({ ...newRecord, type: v })}
+                                                onValueChange={(v: string) => setNewRecord({ ...newRecord, type: v })}
                                             >
                                                 <SelectTrigger className="col-span-3">
                                                     <SelectValue placeholder="Select type" />

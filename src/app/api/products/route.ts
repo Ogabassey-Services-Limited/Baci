@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
 
             has_variants: p.has_variants || false,
             // Map variants if they exist
-            variants: p.variants?.map((v: any) => ({
+            variants: p.variants?.map((v: Record<string, unknown>) => ({
                 id: v.id,
                 product_id: v.product_id,
                 merchant_id: v.merchant_id,
@@ -114,6 +114,7 @@ export async function GET(request: NextRequest) {
                 images: v.images
             })) || [],
             category: p.category || 'General',
+            color: p.color,
 
             // New fields
             sku: p.sku,
@@ -308,6 +309,7 @@ export async function POST(request: NextRequest) {
                 fulfillment_details: body.fulfillment_details,
                 has_variants: body.has_variants || false,
                 category: body.category,
+                color: body.color,
             })
             .select()
             .single();
@@ -322,8 +324,7 @@ export async function POST(request: NextRequest) {
 
         // Insert Variants if any
         if (body.has_variants && body.variants && body.variants.length > 0) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const variantsToInsert = body.variants.map((v: any) => ({
+            const variantsToInsert = body.variants.map((v: Record<string, unknown>) => ({
                 product_id: product.id,
                 merchant_id: merchant.id,
                 attributes: v.attributes,

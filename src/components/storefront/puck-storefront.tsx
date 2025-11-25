@@ -43,10 +43,11 @@ export function PuckStorefront({ onNoConfig }: PuckStorefrontProps) {
                     setPuckData(pageConfig.published_config as Data);
 
                     // Apply theme if it exists
-                    const configWithTheme = pageConfig.published_config as any;
+                    const configWithTheme = pageConfig.published_config as { theme?: Record<string, unknown> };
                     if (configWithTheme.theme) {
                         const { applyTheme } = await import('@/lib/theme-manager');
-                        applyTheme(configWithTheme.theme);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        applyTheme(configWithTheme.theme as any);
                     }
                 } else {
                     // Config exists but is empty

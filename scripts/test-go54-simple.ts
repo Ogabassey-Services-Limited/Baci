@@ -9,8 +9,8 @@ import crypto from 'crypto';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
-const GO54_EMAIL = process.env.GO54_EMAIL;
-const GO54_API_KEY = process.env.GO54_API_KEY;
+const GO54_EMAIL = process.env.GO54_EMAIL || '';
+const GO54_API_KEY = process.env.GO54_API_KEY || '';
 const GO54_BASE_URL = 'https://whogohost.com/host/modules/addons/DomainsReseller/api/index.php';
 
 console.log('🔧 Simple Go54 API Test\n');
@@ -97,17 +97,21 @@ async function testAPI() {
       } else {
         console.log('\n✅ Success! API is working!');
       }
-    } catch (e) {
+    } catch (_e) {
       console.log('   Raw response (not JSON):');
       console.log('   ' + responseText.substring(0, 200));
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.log('\n❌ Request Failed:');
-    console.log(`   ${error.message}`);
+    if (error instanceof Error) {
+      console.log(`   ${error.message}`);
 
-    if (error.message.includes('fetch')) {
-      console.log('\n💡 Network error - check your internet connection');
+      if (error.message.includes('fetch')) {
+        console.log('\n💡 Network error - check your internet connection');
+      }
+    } else {
+      console.log(`   ${String(error)}`);
     }
   }
 

@@ -28,7 +28,7 @@ export interface MerchantData {
     legal?: string;
   };
   slug?: string;
-  published_config?: any;
+  published_config?: Record<string, unknown> | null;
 }
 
 interface MerchantContextType {

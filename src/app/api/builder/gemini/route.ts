@@ -127,18 +127,18 @@ Please return the complete updated configuration as valid JSON. Make intelligent
             const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/```\s*([\s\S]*?)\s*```/);
             const jsonText = jsonMatch ? jsonMatch[1] : text;
             updatedConfig = JSON.parse(jsonText);
-        } catch (parseError) {
+        } catch (_) {
             console.error('Failed to parse AI response:', text);
             throw new Error('AI returned invalid JSON');
         }
 
         // Ensure all components have unique IDs
         if (updatedConfig.content && Array.isArray(updatedConfig.content)) {
-            updatedConfig.content = updatedConfig.content.map((component: any, index: number) => ({
+            updatedConfig.content = updatedConfig.content.map((component: Record<string, unknown>, index: number) => ({
                 ...component,
                 props: {
-                    ...component.props,
-                    id: component.props?.id || `${component.type.toLowerCase()}-${Date.now()}-${index}`
+                    ...(component.props as Record<string, unknown>),
+                    id: (component.props as Record<string, unknown>)?.id || `${(component.type as string).toLowerCase()}-${Date.now()}-${index}`
                 }
             }));
         }

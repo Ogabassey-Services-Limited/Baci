@@ -1,7 +1,7 @@
 'use client';
 
 import { useMerchant } from '@/hooks/use-merchant';
-import { ThemedLink } from '@/components/themed';
+
 
 /**
  * StorefrontFooter - Now fully themeable via CSS variables

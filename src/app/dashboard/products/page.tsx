@@ -299,7 +299,7 @@ function ProductsPageContent() {
                                 <Search className="absolute left-2.5 top-3 h-4 w-4 text-muted-foreground" />
                                 <Textarea
                                     placeholder="Search products or paste a price list to run AI updates... ✨"
-                                    className="w-full resize-none appearance-none bg-background pl-8 pr-12 shadow-none min-h-[40px] pt-2.5"
+                                    className="w-full resize-none appearance-none bg-background pl-8 pr-12 shadow-none min-h-[40px] pt-2.5 border-primary/20"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     disabled={isLoading}
@@ -315,7 +315,7 @@ function ProductsPageContent() {
                         <div className="flex gap-2 items-center text-sm text-muted-foreground">
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
+                                    <Button variant="outline" className="gap-1 border-primary/20 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
                                         <ListFilter className="h-4 w-4" />
                                         <span>Status: {statusFilter}</span>
                                         <ChevronDown className="h-4 w-4" />
@@ -333,7 +333,7 @@ function ProductsPageContent() {
 
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
+                                    <Button variant="outline" className="gap-1 border-primary/20 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900">
                                         <ListFilter className="h-4 w-4" />
                                         <span>Stock: {stockFilter.replace('_', ' ')}</span>
                                         <ChevronDown className="h-4 w-4" />

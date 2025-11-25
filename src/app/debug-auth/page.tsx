@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 
 export default function DebugAuthPage() {
     const { user, loading } = useAuth();
-    const [session, setSession] = useState<any>(null);
+    const [session, setSession] = useState<Record<string, unknown> | null>(null);
     const [cookies, setCookies] = useState<string>('');
     const [logs, setLogs] = useState<string[]>([]);
     const supabase = createClient();
@@ -15,7 +15,7 @@ export default function DebugAuthPage() {
     const addLog = (msg: string) => setLogs(prev => [...prev, `${new Date().toISOString().split('T')[1]} - ${msg}`]);
 
     useEffect(() => {
-        setCookies(document.cookie);
+        // Get session on mount
         supabase.auth.getSession().then(({ data, error }) => {
             if (error) addLog(`Session Error: ${error.message}`);
             else {
@@ -23,6 +23,12 @@ export default function DebugAuthPage() {
                 addLog(`Session found: ${data.session ? 'YES' : 'NO'}`);
             }
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        // Set cookies separately to avoid synchronous state updates
+        setCookies(document.cookie);
     }, []);
 
     const handleLogin = async () => {

@@ -62,7 +62,7 @@ export default function IntegrationsPage() {
             setFeedStatus('invalid');
             toast({
                 title: 'Feed validation failed',
-                description: 'Could not connect to your product feed',
+                description: error instanceof Error ? error.message : 'Could not connect to your product feed',
                 variant: 'destructive',
             });
         } finally {

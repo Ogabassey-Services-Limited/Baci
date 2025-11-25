@@ -102,9 +102,12 @@ export async function POST(
           { status: 400 }
         );
       }
-    } catch (dnsError: any) {
+    } catch (dnsError: unknown) {
       // DNS lookup failed - record doesn't exist
-      if (dnsError.code === 'ENOTFOUND' || dnsError.code === 'ENODATA') {
+      const errorCode = (dnsError as { code?: string }).code;
+      const errorMessage = dnsError instanceof Error ? dnsError.message : 'Unknown error';
+
+      if (errorCode === 'ENOTFOUND' || errorCode === 'ENODATA') {
         return NextResponse.json(
           {
             success: false,
@@ -120,7 +123,7 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error: `DNS lookup failed: ${dnsError.message}`,
+          error: `DNS lookup failed: ${errorMessage}`,
         },
         { status: 500 }
       );

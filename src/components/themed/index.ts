@@ -23,3 +23,5 @@ export { ThemedCard } from './themed-card';
 export { ThemedBadge } from './themed-badge';
 export { ThemedLink } from './themed-link';
 export { ThemedInput } from './themed-input';
+export { ThemedSheetContent } from './themed-sheet';
+

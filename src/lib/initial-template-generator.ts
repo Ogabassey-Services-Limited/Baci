@@ -10,7 +10,7 @@ interface TemplateParams {
         background: string;
         accent: string;
     };
-    merchant: any;
+    merchant: Record<string, unknown>;
 }
 
 /**
@@ -89,13 +89,13 @@ export function deriveThemeFromColors(brandColors: { primary: string; background
     };
 
     // Helper to darken color (simplified)
-    const darken = (color: string, percent: number = 10): string => {
+    const darken = (color: string, _percent: number = 10): string => {
         // Simplified - in production, use proper color manipulation library
         return color;
     };
 
     // Helper to lighten color (simplified)
-    const lighten = (color: string, percent: number = 10): string => {
+    const _lighten = (color: string, _percent: number = 10): string => {
         // Simplified - in production, use proper color manipulation library
         return color;
     };
@@ -463,8 +463,8 @@ export function generateInitialTemplate(params: TemplateParams): Data {
         zones: {}
     };
 
-    // Add theme to config (cast to any since theme isn't in official Data type)
-    (config as any).theme = theme;
+    // Add theme to config (cast to Record since theme isn't in official Data type)
+    (config as Record<string, unknown>).theme = theme;
 
     return config;
 }

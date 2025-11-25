@@ -3,20 +3,17 @@
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
+
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
-    Store,
     ShoppingCart,
     CreditCard,
-    Package,
     FileText,
     AlertCircle,
-    CheckCircle2,
     Truck,
     Palette
 } from 'lucide-react';
@@ -115,10 +112,15 @@ export function StoreSettingsPanel({ settings, onChange }: StoreSettingsPanelPro
     const [data, setData] = useState<StoreSettings>(settings || defaultSettings);
 
     useEffect(() => {
-        setData(settings || defaultSettings);
+        if (settings) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setData(settings);
+        } else {
+            setData(defaultSettings);
+        }
     }, [settings]);
 
-    const handleChange = (section: keyof StoreSettings, field: string, value: any) => {
+    const handleChange = (section: keyof StoreSettings, field: string, value: unknown) => {
         const updated = {
             ...data,
             [section]: {

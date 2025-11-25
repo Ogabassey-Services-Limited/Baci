@@ -84,7 +84,7 @@ export async function PATCH(
         }
 
         return NextResponse.json({ customer });
-    } catch (error) {
+    } catch (_) {
         return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }
 }

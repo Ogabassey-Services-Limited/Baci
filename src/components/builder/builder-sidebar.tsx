@@ -15,7 +15,6 @@ import {
     Image as ImageIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SidebarProps {
     children: React.ReactNode; // This will be Puck's default components list

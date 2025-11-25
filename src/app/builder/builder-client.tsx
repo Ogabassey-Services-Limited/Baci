@@ -344,7 +344,7 @@ export default function BuilderClient() {
     const handleDataChange = (newData: Data) => {
         // Ensure all components have unique IDs
         if (newData.content) {
-            newData.content = newData.content.map((component: any, index: number) => {
+            newData.content = newData.content.map((component: Record<string, unknown>, index: number) => {
                 if (!component.props?.id) {
                     return {
                         ...component,
@@ -374,9 +374,9 @@ export default function BuilderClient() {
                         products: []
                     }}
                     overrides={{
-                        componentOverlay: ({ children, componentId, componentType, isSelected }: any) => {
+                        componentOverlay: ({ children, componentId, componentType, isSelected }: Record<string, unknown>) => {
                             // Get component index to determine if it can move up/down
-                            const componentIndex = data.content?.findIndex((c: any) => c.props?.id === componentId) ?? -1;
+                            const componentIndex = data.content?.findIndex((c: Record<string, unknown>) => c.props?.id === componentId) ?? -1;
                             const canMoveUp = componentIndex > 0;
                             const canMoveDown = componentIndex >= 0 && componentIndex < (data.content?.length ?? 0) - 1;
 
@@ -396,7 +396,7 @@ export default function BuilderClient() {
                                                 setSelectedComponentId(componentId);
                                             }}
                                             onDuplicate={() => {
-                                                const componentToDuplicate = data.content?.find((c: any) => c.props?.id === componentId);
+                                                const componentToDuplicate = data.content?.find((c: Record<string, unknown>) => c.props?.id === componentId);
                                                 if (componentToDuplicate) {
                                                     const newComponent = {
                                                         ...componentToDuplicate,
@@ -412,7 +412,7 @@ export default function BuilderClient() {
                                             }}
                                             onDelete={() => {
                                                 if (confirm(`Delete this ${componentType} component?`)) {
-                                                    const newContent = data.content?.filter((c: any) => c.props?.id !== componentId) || [];
+                                                    const newContent = data.content?.filter((c: Record<string, unknown>) => c.props?.id !== componentId) || [];
                                                     setData({ ...data, content: newContent });
                                                 }
                                             }}
@@ -439,10 +439,10 @@ export default function BuilderClient() {
                                 </div>
                             );
                         },
-                        drawer: ({ children }: any) => {
+                        drawer: ({ children: _children }: Record<string, unknown>) => {
                             // Get all components from all categories (deduplicated)
                             const allComponents: string[] = [];
-                            Object.values(builderConfig.categories || {}).forEach((category: any) => {
+                            Object.values(builderConfig.categories || {}).forEach((category: Record<string, unknown>) => {
                                 allComponents.push(...(category.components || []));
                             });
                             const uniqueComponents = Array.from(new Set(allComponents));
@@ -462,7 +462,7 @@ export default function BuilderClient() {
                                             const IconComponent = componentIcons[componentName] || Box;
                                             return (
                                                 <Drawer.Item key={`${componentName}-${index}`} name={componentName}>
-                                                    {({ children: itemChildren }) => (
+                                                    {({ children: _itemChildren }) => (
                                                         <div style={{
                                                             border: '1px solid #e5e7eb',
                                                             borderRadius: '0.5rem',
@@ -545,13 +545,13 @@ export default function BuilderClient() {
                             <BuilderSidebar
                                 themeEditor={
                                     <ThemeEditor
-                                        theme={(data as any)?.theme || defaultTheme}
+                                        theme={(data as Record<string, unknown>)?.theme || defaultTheme}
                                         onChange={(newTheme: ThemeConfiguration) => {
-                                            setData(prev => ({ ...prev, theme: newTheme } as any));
+                                            setData(prev => ({ ...prev, theme: newTheme } as Record<string, unknown>));
                                         }}
                                         onReset={() => {
                                             applyTheme(defaultTheme);
-                                            setData(prev => ({ ...prev, theme: defaultTheme } as any));
+                                            setData(prev => ({ ...prev, theme: defaultTheme } as Record<string, unknown>));
                                         }}
                                     />
                                 }

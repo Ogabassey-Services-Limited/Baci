@@ -75,7 +75,7 @@ const SpacerPropsSchema = z.object({
 
 const HeaderPropsSchema = z.object({}).passthrough();
 
-const FooterPropsSchema = z.object({}).passthrough();
+const _FooterPropsSchema = z.object({}).passthrough();
 
 // Theme Configuration Schema (subset of most commonly modified properties)
 const ThemeColorsSchema = z.object({
@@ -216,11 +216,11 @@ export async function POST(req: Request) {
         const configWithIds = {
             ...result.object,
             theme: mergedTheme,
-            content: result.object.content.map((component: any, index: number) => ({
+            content: result.object.content.map((component: Record<string, unknown>, index: number) => ({
                 ...component,
                 props: {
-                    ...component.props,
-                    id: component.props?.id || `${component.type.toLowerCase()}-${Date.now()}-${index}`
+                    ...(component.props as Record<string, unknown>),
+                    id: (component.props as Record<string, unknown>)?.id || `${(component.type as string).toLowerCase()}-${Date.now()}-${index}`
                 }
             }))
         };

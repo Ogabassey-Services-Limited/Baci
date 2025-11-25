@@ -127,7 +127,7 @@ export default function CustomersPage() {
         } catch (error) {
             toast({
                 title: 'Error',
-                description: 'Failed to create customer',
+                description: error instanceof Error ? error.message : 'Failed to create customer',
                 variant: 'destructive',
             });
         }
@@ -218,8 +218,8 @@ export default function CustomersPage() {
                                             const value = typeof val === 'string' ? val : val.target.value;
                                             setNewCustomer({ ...newCustomer, address: value });
                                         }}
-                                        onSelect={(place: any) => {
-                                            setNewCustomer({ ...newCustomer, address: place.formattedAddress });
+                                        onSelect={(place: Record<string, unknown>) => {
+                                            setNewCustomer({ ...newCustomer, address: place.formattedAddress as string });
                                         }}
                                     />
                                 </div>
