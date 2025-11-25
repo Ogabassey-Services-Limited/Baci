@@ -10,7 +10,6 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: false, // This will reduce some warnings from third-party libraries
   images: {
-    unoptimized: true, // Add this line to disable image optimization
     remotePatterns: [
       {
         protocol: 'https',
@@ -35,6 +34,18 @@ const nextConfig: NextConfig = {
         hostname: 'drive.google.com',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.gstatic.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'aivqthbxdshhltbwipbr.supabase.co',
+        port: '',
+        pathname: '/storage/v1/object/public/**',
       },
     ],
   },

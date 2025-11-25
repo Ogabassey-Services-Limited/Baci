@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useMerchant } from '@/hooks/use-merchant';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -97,9 +98,11 @@ export default function IntegrationsPage() {
                                 Sync your products to Google Shopping and run product ads
                             </CardDescription>
                         </div>
-                        <img
+                        <Image
                             src="https://www.gstatic.com/images/branding/product/1x/googleg_32dp.png"
                             alt="Google"
+                            width={32}
+                            height={32}
                             className="h-8 w-8"
                         />
                     </div>

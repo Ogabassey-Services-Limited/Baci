@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -243,10 +244,11 @@ export function SEOPanel({ seoData, onChange, pagePath = '/' }: SEOPanelProps) {
                         <div className="border rounded-lg overflow-hidden bg-white">
                             {data.ogImage && (
                                 <div className="aspect-[1.91/1] bg-muted relative">
-                                    <img
+                                    <Image
                                         src={data.ogImage}
                                         alt="OG Preview"
-                                        className="w-full h-full object-cover"
+                                        fill
+                                        className="object-cover"
                                         onError={(e) => {
                                             e.currentTarget.style.display = 'none';
                                         }}

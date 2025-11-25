@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -321,10 +322,11 @@ export function MediaLibrary({ onSelect, maxSizeMB = 5 }: MediaLibraryProps) {
                             >
                                 {/* Image */}
                                 <div className="aspect-square relative bg-muted">
-                                    <img
+                                    <Image
                                         src={file.url}
                                         alt={file.name}
-                                        className="w-full h-full object-cover"
+                                        fill
+                                        className="object-cover"
                                     />
 
                                     {/* Selection indicator */}

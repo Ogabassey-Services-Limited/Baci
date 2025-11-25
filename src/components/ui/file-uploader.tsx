@@ -136,6 +136,7 @@ export function FileUploader({
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {previews.map((src, index) => (
                         <div key={index} className="relative group aspect-square rounded-md overflow-hidden border bg-muted">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src={src}
                                 alt={`Preview ${index + 1}`}

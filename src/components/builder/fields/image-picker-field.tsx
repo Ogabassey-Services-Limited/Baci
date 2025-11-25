@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,10 +39,11 @@ export function ImagePickerField({ field, onChange, value }: ImagePickerFieldPro
             {/* Image Preview */}
             {value && (
                 <div className="relative w-full aspect-video rounded-lg overflow-hidden border bg-muted">
-                    <img
+                    <Image
                         src={value}
                         alt="Preview"
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
                         onError={(e) => {
                             e.currentTarget.style.display = 'none';
                         }}
