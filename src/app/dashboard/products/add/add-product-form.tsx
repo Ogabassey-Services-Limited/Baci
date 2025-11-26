@@ -979,7 +979,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                     title={form.watch('meta_title') || form.watch('name') || ''}
                     description={form.watch('meta_description') || form.watch('description') || ''}
                     slug={form.watch('slug') || ''}
-                    merchantUrl={merchant?.slug ? `${merchant.slug}.baci.tech` : undefined}
+                    merchantUrl={merchant?.slug ? `${merchant.slug}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}` : undefined}
                   />
                 </div>
               </div>

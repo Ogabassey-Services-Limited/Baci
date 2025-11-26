@@ -84,7 +84,7 @@ export async function middleware(request: NextRequest) {
   // Refresh the auth session to ensure cookies are up to date
   await supabase.auth.getSession();
 
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
 
   // Check if the request is for the main marketing site or a dev environment
   const isMainSite =

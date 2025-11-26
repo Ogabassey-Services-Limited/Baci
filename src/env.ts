@@ -57,7 +57,7 @@ export const getGeminiApiKey = (): string | undefined => {
 };
 
 export const getRootDomain = (): string => {
-  return process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'baci.tech';
+  return process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
 };
 
 export const isProduction = (): boolean => {
