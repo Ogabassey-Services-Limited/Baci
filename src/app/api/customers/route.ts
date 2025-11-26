@@ -1,12 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { sanitizeSearchQuery, sanitizeLikePattern, sanitizeText, sanitizeEmail, sanitizePhone } from '@/lib/sanitize';
 
 export async function GET(request: Request) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get('search');
+    const searchRaw = searchParams.get('search');
+    // Sanitize search input to prevent SQL injection
+    const search = searchRaw ? sanitizeSearchQuery(searchRaw) : null;
 
     const {
         data: { user },
@@ -33,8 +36,9 @@ export async function GET(request: Request) {
         .eq('merchant_id', merchant.id)
         .order('created_at', { ascending: false });
 
-    if (search) {
-        query = query.or(`first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
+    if (search && search.trim()) {
+        const sanitizedPattern = sanitizeLikePattern(search);
+        query = query.or(`first_name.ilike.%${sanitizedPattern}%,last_name.ilike.%${sanitizedPattern}%,email.ilike.%${sanitizedPattern}%,phone.ilike.%${sanitizedPattern}%`);
     }
 
     const { data: customers, error } = await query;
@@ -71,10 +75,29 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
         }
 
+        // Explicitly whitelist allowed fields to prevent mass assignment
+        const {
+            first_name,
+            last_name,
+            email,
+            phone,
+            address,
+            city,
+            state,
+            notes,
+        } = body;
+
         const { data: customer, error } = await supabase
             .from('customers')
             .insert({
-                ...body,
+                first_name: first_name ? sanitizeText(first_name, 100) : null,
+                last_name: last_name ? sanitizeText(last_name, 100) : null,
+                email: email ? sanitizeEmail(email) : null,
+                phone: phone ? sanitizePhone(phone) : null,
+                address: address ? sanitizeText(address, 500) : null,
+                city: city ? sanitizeText(city, 100) : null,
+                state: state ? sanitizeText(state, 100) : null,
+                notes: notes ? sanitizeText(notes, 1000) : null,
                 merchant_id: merchant.id,
             })
             .select()

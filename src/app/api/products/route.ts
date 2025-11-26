@@ -4,6 +4,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { generateSlug, generateProductSchema, generateMetaDescription } from '@/lib/seo-utils';
 import { getCountryByCode } from '@/lib/countries';
 import { Product } from '@/lib/products';
+import { sanitizeSearchQuery, sanitizeLikePattern } from '@/lib/sanitize';
 
 export async function GET(request: NextRequest) {
     try {
@@ -37,7 +38,9 @@ export async function GET(request: NextRequest) {
         const searchParams = request.nextUrl.searchParams;
         const page = parseInt(searchParams.get('page') || '1');
         const limit = parseInt(searchParams.get('limit') || '10');
-        const search = searchParams.get('search') || '';
+        const searchRaw = searchParams.get('search') || '';
+        // Sanitize search input to prevent SQL injection
+        const search = searchRaw ? sanitizeSearchQuery(searchRaw) : '';
         const status = searchParams.get('status') || 'All';
         const stock = searchParams.get('stock') || 'All';
 
@@ -64,8 +67,9 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        if (search) {
-            query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%`);
+        if (search && search.trim()) {
+            const sanitizedPattern = sanitizeLikePattern(search);
+            query = query.or(`name.ilike.%${sanitizedPattern}%,sku.ilike.%${sanitizedPattern}%`);
         }
 
         const { data: products, error, count } = await query;
