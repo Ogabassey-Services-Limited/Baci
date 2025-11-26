@@ -8,7 +8,7 @@ interface SeoPreviewProps {
     merchantUrl?: string;
 }
 
-export function SeoPreview({ title, description, slug, merchantUrl = "baci.tech" }: SeoPreviewProps) {
+export function SeoPreview({ title, description, slug, merchantUrl = "usebaci.com" }: SeoPreviewProps) {
     const displayTitle = title || "Product Title";
     const displayDescription = description || "Product description will appear here...";
     const displayUrl = `https://${merchantUrl}/product/${slug || "product-slug"}`;
