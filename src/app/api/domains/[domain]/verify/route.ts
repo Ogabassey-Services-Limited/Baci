@@ -9,9 +9,10 @@ import { resolveTxt } from 'dns/promises';
  */
 export async function POST(
   request: Request,
-  { params }: { params: { domain: string } }
+  { params }: { params: Promise<{ domain: string }> }
 ) {
   try {
+    const { domain } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
     const {
@@ -21,8 +22,6 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const domain = params.domain;
 
     // Get merchant ID
     const { data: merchant, error: merchantError } = await supabase

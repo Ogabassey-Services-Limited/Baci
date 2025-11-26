@@ -28,6 +28,7 @@ export interface MerchantData {
     legal?: string;
   };
   slug?: string;
+  custom_domain?: string;
   published_config?: Record<string, unknown> | null;
 }
 

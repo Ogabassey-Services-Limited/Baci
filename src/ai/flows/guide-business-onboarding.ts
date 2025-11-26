@@ -18,7 +18,7 @@ const _GuideBusinessOnboardingInputSchema = z.object({
     ),
   task: z.enum(['generate_logos', 'extract_colors']).describe("The specific task for the flow to perform."),
 });
-type GuideBusinessOnboardingInput = z.infer<typeof GuideBusinessOnboardingInputSchema>;
+type GuideBusinessOnboardingInput = z.infer<typeof _GuideBusinessOnboardingInputSchema>;
 
 const BrandColorsSchema = z.object({
   primary: z.string().describe('The primary color, most dominant in the logo.'),
@@ -36,7 +36,7 @@ const _GuideBusinessOnboardingOutputSchema = z.object({
     ),
   brandColors: BrandColorsSchema.optional().describe('A list of 3 brand colors in hex format (e.g., #RRGGBB).'),
 });
-type GuideBusinessOnboardingOutput = z.infer<typeof GuideBusinessOnboardingOutputSchema>;
+type GuideBusinessOnboardingOutput = z.infer<typeof _GuideBusinessOnboardingOutputSchema>;
 
 export async function guideBusinessOnboarding(
   input: GuideBusinessOnboardingInput

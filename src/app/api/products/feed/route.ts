@@ -23,7 +23,7 @@ export async function GET() {
   const storeUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:9002';
 
   const xmlItems = products
-    .filter(p => p.status === 'published') // Only include published products
+    .filter(p => p.status === 'active') // Only include active products
     .map(product => `
       <item>
         <g:id>${escapeXml(product.id)}</g:id>
