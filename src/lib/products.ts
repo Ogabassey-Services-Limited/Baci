@@ -49,6 +49,9 @@ export interface ProductSchemaMarkup {
             valueAddedTaxIncluded?: boolean;
         };
     };
+    // Index signature for compatibility with Record<string, unknown>
+    // Allows additional schema.org properties (sku, gtin, weight, etc.)
+    [key: string]: unknown;
 }
 
 export interface ProductVariant {
