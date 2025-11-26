@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -110,15 +110,13 @@ const defaultSettings: StoreSettings = {
 
 export function StoreSettingsPanel({ settings, onChange }: StoreSettingsPanelProps) {
     const [data, setData] = useState<StoreSettings>(settings || defaultSettings);
+    const [prevSettings, setPrevSettings] = useState(settings);
 
-    useEffect(() => {
-        if (settings) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            setData(settings);
-        } else {
-            setData(defaultSettings);
-        }
-    }, [settings]);
+    // React-recommended pattern: Reset state when prop changes (during render)
+    if (settings !== prevSettings) {
+        setPrevSettings(settings);
+        setData(settings || defaultSettings);
+    }
 
     const handleChange = (section: keyof StoreSettings, field: string, value: unknown) => {
         const updated = {

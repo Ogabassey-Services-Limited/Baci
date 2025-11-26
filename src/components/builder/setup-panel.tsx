@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -105,11 +105,13 @@ const timezones = [
 
 export function SetupPanel({ settings, onChange }: SetupPanelProps) {
     const [data, setData] = useState<SetupSettings>(settings || defaultSettings);
+    const [prevSettings, setPrevSettings] = useState(settings);
 
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+    // React-recommended pattern: Reset state when prop changes (during render)
+    if (settings !== prevSettings) {
+        setPrevSettings(settings);
         setData(settings || defaultSettings);
-    }, [settings]);
+    }
 
     const handleChange = (section: keyof SetupSettings, field: string, value: unknown) => {
         const updated = {
