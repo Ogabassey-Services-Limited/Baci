@@ -17,6 +17,9 @@ function isValidMerchantSlug(slug: string): boolean {
         VALID_SLUG_REGEX.test(slug.toLowerCase());
 }
 
+// Enable ISR with 1 minute revalidation for storefront homepages
+export const revalidate = 60;
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
 
