@@ -62,7 +62,20 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#3F51B5',
+  // Core viewport settings for responsive design
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5, // Allow zoom for accessibility (WCAG 1.4.4)
+  userScalable: true, // Never disable zoom - accessibility requirement
+  // Enable safe area support for notched devices (iPhone, etc.)
+  viewportFit: 'cover',
+  // Theme color for browser chrome
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#3F51B5' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a1f4e' },
+  ],
+  // Color scheme support
+  colorScheme: 'light dark',
 };
 
 import { CsrfInitializer } from '@/components/csrf-initializer';

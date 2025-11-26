@@ -77,7 +77,8 @@ export function StorefrontHeader() {
                         <ThemedButton colorRole="primary">My Dashboard</ThemedButton>
                     </Link>
                     <SheetTrigger asChild>
-                        <Button variant="outline" size="icon" className="relative h-10 w-10">
+                        {/* Touch target meets WCAG 2.5.5 minimum (44px) */}
+                        <Button variant="outline" size="icon" className="relative touch-manipulation">
                             <ShoppingBag
                                 className="w-5 h-5"
                                 style={{ color: 'var(--theme-header-cart-icon, #000000)' }}
