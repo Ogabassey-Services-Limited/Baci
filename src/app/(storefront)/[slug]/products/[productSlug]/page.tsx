@@ -5,6 +5,7 @@ import { Metadata } from 'next';
 import ProductDetailClient from './product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema } from '@/lib/seo-utils';
+import { escapeHtml } from '@/lib/sanitize';
 
 // Force dynamic rendering since we rely on URL params and DB data
 export const dynamic = 'force-dynamic';
@@ -170,12 +171,13 @@ export default async function ProductPage({ params }: PageProps) {
         merchant?.payout_currency || 'USD'
     );
 
-    // Add URL to the schema offers
+    // Add URL to the schema offers (sanitized to prevent XSS)
     if (productSchema.offers) {
-        productSchema.offers.url = `${baseUrl}/products/${product.slug || product.id}`;
+        const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
+        productSchema.offers.url = escapeHtml(productUrl);
     }
 
-    // Generate breadcrumb schema using helper function
+    // Generate breadcrumb schema using helper function (sanitization handled in generateBreadcrumbSchema)
     const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
     const categoryUrl = product.category
         ? `${baseUrl}/products?category=${encodeURIComponent(product.category)}`

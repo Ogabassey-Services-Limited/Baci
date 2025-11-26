@@ -68,6 +68,34 @@ export function sanitizeUrl(url: string): string {
 }
 
 /**
+ * Escape HTML-sensitive characters for safe use in JSON-LD scripts.
+ * Prevents XSS attacks when placing values inside <script type="application/ld+json"> tags.
+ * Uses Unicode escape sequences to prevent breaking out of the script context.
+ */
+export function escapeHtml(str: string): string {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '\\u0026')
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e')
+        .replace(/"/g, '\\u0022')
+        .replace(/'/g, '\\u0027');
+}
+
+/**
+ * Sanitize and escape a URL for use in JSON-LD schemas.
+ * Validates the URL protocol and escapes HTML-sensitive characters.
+ */
+export function sanitizeSchemaUrl(url: string): string {
+    // First validate it's a proper URL with allowed protocol
+    const sanitized = sanitizeUrl(url);
+    if (!sanitized) return '';
+
+    // Then escape for JSON-LD context
+    return escapeHtml(sanitized);
+}
+
+/**
  * Sanitize number input
  */
 export function sanitizeNumber(value: unknown): number {

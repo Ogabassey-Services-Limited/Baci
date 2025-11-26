@@ -1,4 +1,5 @@
 import { Product, ProductSchemaMarkup } from './products';
+import { escapeHtml } from './sanitize';
 
 /**
  * Generates a URL-friendly slug from a string
@@ -46,18 +47,26 @@ const THIRTY_DAYS_MS = 30 * MILLISECONDS_PER_DAY;
 
 /**
  * Generates JSON-LD structured data for a product (2025 Google best practices)
+ * All user-controlled string values are sanitized to prevent XSS attacks.
  * @see https://developers.google.com/search/docs/appearance/structured-data/product
  */
 export function generateProductSchema(product: Product, merchantName: string = 'Baci Store', currency: string = 'USD'): ProductSchemaMarkup {
+    // Sanitize all user-controlled string values to prevent XSS in JSON-LD context
+    const safeName = escapeHtml(product.name);
+    const safeDescription = escapeHtml(product.meta_description || product.description);
+    const safeBrand = escapeHtml(product.brand || merchantName);
+    const safeMerchantName = escapeHtml(merchantName);
+    const safeImages = product.images?.map(img => escapeHtml(img.url)) || (product.imageLarge ? [escapeHtml(product.imageLarge)] : []);
+
     const schema: ProductSchemaMarkup & Record<string, unknown> = {
         '@context': 'https://schema.org',
         '@type': 'Product',
-        name: product.name,
-        description: product.meta_description || product.description,
-        image: product.images?.map(img => img.url) || (product.imageLarge ? [product.imageLarge] : []),
+        name: safeName,
+        description: safeDescription,
+        image: safeImages,
         brand: {
             '@type': 'Brand',
-            name: product.brand || merchantName
+            name: safeBrand
         },
         offers: {
             '@type': 'Offer',
@@ -69,39 +78,40 @@ export function generateProductSchema(product: Product, merchantName: string = '
                 : 'https://schema.org/NewCondition',
             seller: {
                 '@type': 'Organization',
-                name: merchantName
+                name: safeMerchantName
             },
             // Add price valid until (30 days from now for freshness)
             priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS).toISOString().substring(0, 10)
         }
     };
 
-    // Product identifiers (important for Google Merchant Center)
+    // Product identifiers (important for Google Merchant Center) - sanitized
     if (product.sku) {
-        schema.sku = product.sku;
+        schema.sku = escapeHtml(product.sku);
     }
 
     if (product.gtin) {
-        schema.gtin = product.gtin;
+        const safeGtin = escapeHtml(product.gtin);
+        schema.gtin = safeGtin;
         if (product.gtin.length === 13) {
-            schema.gtin13 = product.gtin;
+            schema.gtin13 = safeGtin;
         }
         if (product.gtin.length === 14) {
-            schema.gtin14 = product.gtin;
+            schema.gtin14 = safeGtin;
         }
     }
 
     if (product.mpn) {
-        schema.mpn = product.mpn;
+        schema.mpn = escapeHtml(product.mpn);
     }
 
-    // Category for Google Product Category
+    // Category for Google Product Category - sanitized
     if (product.category) {
-        schema.category = product.category;
+        schema.category = escapeHtml(product.category);
     }
 
     if (product.google_product_category) {
-        schema.google_product_category = product.google_product_category;
+        schema.google_product_category = escapeHtml(product.google_product_category);
     }
 
     // Physical attributes
@@ -133,9 +143,9 @@ export function generateProductSchema(product: Product, merchantName: string = '
         }
     }
 
-    // Color (useful for apparel)
+    // Color (useful for apparel) - sanitized
     if (product.color) {
-        schema.color = product.color;
+        schema.color = escapeHtml(product.color);
     }
 
     // Compare at price (for sales)
@@ -153,6 +163,7 @@ export function generateProductSchema(product: Product, merchantName: string = '
 
 /**
  * Generates breadcrumb JSON-LD schema (2025 best practices)
+ * All user-controlled string values are sanitized to prevent XSS attacks.
  * @see https://developers.google.com/search/docs/appearance/structured-data/breadcrumb
  */
 export interface BreadcrumbItem {
@@ -167,14 +178,15 @@ export function generateBreadcrumbSchema(items: BreadcrumbItem[]): Record<string
         itemListElement: items.map((item, index) => ({
             '@type': 'ListItem',
             position: index + 1,
-            name: item.name,
-            item: item.url
+            name: escapeHtml(item.name),
+            item: escapeHtml(item.url)
         }))
     };
 }
 
 /**
  * Generates FAQ schema for product pages with Q&A
+ * All user-controlled string values are sanitized to prevent XSS attacks.
  * @see https://developers.google.com/search/docs/appearance/structured-data/faqpage
  */
 export interface FAQItem {
@@ -188,10 +200,10 @@ export function generateFAQSchema(faqs: FAQItem[]): Record<string, unknown> {
         '@type': 'FAQPage',
         mainEntity: faqs.map(faq => ({
             '@type': 'Question',
-            name: faq.question,
+            name: escapeHtml(faq.question),
             acceptedAnswer: {
                 '@type': 'Answer',
-                text: faq.answer
+                text: escapeHtml(faq.answer)
             }
         }))
     };
@@ -199,6 +211,7 @@ export function generateFAQSchema(faqs: FAQItem[]): Record<string, unknown> {
 
 /**
  * Generates LocalBusiness schema for merchant storefronts
+ * All user-controlled string values are sanitized to prevent XSS attacks.
  * @see https://developers.google.com/search/docs/appearance/structured-data/local-business
  */
 export interface LocalBusinessData {
@@ -228,35 +241,36 @@ export function generateLocalBusinessSchema(business: LocalBusinessData): Record
     const schema: Record<string, unknown> = {
         '@context': 'https://schema.org',
         '@type': 'Store',
-        name: business.name,
-        url: business.url,
+        name: escapeHtml(business.name),
+        url: escapeHtml(business.url),
     };
 
     if (business.description) {
-        schema.description = business.description;
+        schema.description = escapeHtml(business.description);
     }
 
     if (business.logo) {
-        schema.logo = business.logo;
-        schema.image = business.logo;
+        const safeLogo = escapeHtml(business.logo);
+        schema.logo = safeLogo;
+        schema.image = safeLogo;
     }
 
     if (business.telephone) {
-        schema.telephone = business.telephone;
+        schema.telephone = escapeHtml(business.telephone);
     }
 
     if (business.email) {
-        schema.email = business.email;
+        schema.email = escapeHtml(business.email);
     }
 
     if (business.address) {
         schema.address = {
             '@type': 'PostalAddress',
-            streetAddress: business.address.street,
-            addressLocality: business.address.city,
-            addressRegion: business.address.state,
-            postalCode: business.address.postalCode,
-            addressCountry: business.address.country || 'NG'
+            streetAddress: business.address.street ? escapeHtml(business.address.street) : undefined,
+            addressLocality: business.address.city ? escapeHtml(business.address.city) : undefined,
+            addressRegion: business.address.state ? escapeHtml(business.address.state) : undefined,
+            postalCode: business.address.postalCode ? escapeHtml(business.address.postalCode) : undefined,
+            addressCountry: escapeHtml(business.address.country || 'NG')
         };
     }
 
@@ -269,15 +283,15 @@ export function generateLocalBusinessSchema(business: LocalBusinessData): Record
     }
 
     if (business.openingHours) {
-        schema.openingHours = business.openingHours;
+        schema.openingHours = business.openingHours.map(h => escapeHtml(h));
     }
 
     if (business.priceRange) {
-        schema.priceRange = business.priceRange;
+        schema.priceRange = escapeHtml(business.priceRange);
     }
 
     if (business.socialMedia) {
-        schema.sameAs = Object.values(business.socialMedia).filter(Boolean);
+        schema.sameAs = Object.values(business.socialMedia).filter(Boolean).map(url => escapeHtml(url));
     }
 
     return schema;
