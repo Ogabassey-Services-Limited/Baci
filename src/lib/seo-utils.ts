@@ -72,7 +72,7 @@ export function generateProductSchema(product: Product, merchantName: string = '
                 name: merchantName
             },
             // Add price valid until (30 days from now for freshness)
-            priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS).toISOString().split('T')[0]
+            priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS).toISOString().substring(0, 10)
         }
     };
 
@@ -116,7 +116,10 @@ export function generateProductSchema(product: Product, merchantName: string = '
     // Dimensions
     if (product.dimensions) {
         const dimUnit = DIMENSION_UNIT_CODES[product.dimensions.unit] || 'CMT';
-        // Use product.dimensions.depth if available; fallback to length for backwards compatibility
+        // Use product.dimensions.depth if available; fallback to length for backwards compatibility.
+        // NOTE: Depth and length may represent the same physical dimension depending on historical data models.
+        // This fallback ensures older product definitions using 'length' for depth still populate the schema.
+        // Consider standardizing on 'depth' in future and updating legacy data accordingly.
         if (product.dimensions.depth) {
             schema.depth = { '@type': 'QuantitativeValue', value: product.dimensions.depth, unitCode: dimUnit };
         } else if (product.dimensions.length) {
@@ -285,22 +288,30 @@ export function generateLocalBusinessSchema(business: LocalBusinessData): Record
  */
 const ELLIPSIS = '...';
 const ELLIPSIS_LENGTH = ELLIPSIS.length;
+const DEFAULT_MAX_LENGTH = 160;
+
+/**
+ * Validates and returns a proper maxLength value for meta description truncation.
+ */
+function validateMaxLength(value: number): number {
+    if (typeof value !== 'number' || isNaN(value) || value <= ELLIPSIS_LENGTH) {
+        return DEFAULT_MAX_LENGTH;
+    }
+    return value;
+}
 
 /**
  * Generates a meta description from product description if not provided
  */
-export function generateMetaDescription(description: string, maxLength: number = 160): string {
+export function generateMetaDescription(description: string, maxLength: number = DEFAULT_MAX_LENGTH): string {
     if (!description) return '';
 
-    // Ensure maxLength is a positive number greater than ELLIPSIS_LENGTH to allow for ellipsis
-    if (typeof maxLength !== 'number' || isNaN(maxLength) || maxLength <= ELLIPSIS_LENGTH) {
-        maxLength = 160;
-    }
+    const validMaxLength = validateMaxLength(maxLength);
 
     // Strip HTML tags if any
     const plainText = description.replace(/<[^>]*>?/gm, '');
 
-    if (plainText.length <= maxLength) return plainText;
+    if (plainText.length <= validMaxLength) return plainText;
 
-    return plainText.substring(0, maxLength - ELLIPSIS_LENGTH) + ELLIPSIS;
+    return plainText.substring(0, validMaxLength - ELLIPSIS_LENGTH) + ELLIPSIS;
 }
