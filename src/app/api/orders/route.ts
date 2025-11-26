@@ -334,7 +334,13 @@ export async function POST(request: NextRequest) {
             } else if (stockResult && stockResult.length > 0) {
               const result = stockResult[0];
               if (!result.success) {
-                console.warn(`Stock update failed for product ${item.product_id}: ${result.message}`);
+                // Use structured logging to prevent log injection attacks
+                // User-provided values are passed as separate fields, not interpolated into the message
+                logger.warn({
+                  message: 'Stock update failed for product',
+                  productId: item.product_id,
+                  reason: result.message,
+                });
                 // In production, you might want to handle insufficient stock differently
                 // For now, we log and continue
               }

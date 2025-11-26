@@ -45,7 +45,7 @@ const GenerateProductDescriptionInputSchema = z.object({
   businessType: z.string().max(100).optional(),
 });
 
-type GenerateProductDescriptionInput = z.infer<typeof _GenerateProductDescriptionInputSchema>;
+type GenerateProductDescriptionInput = z.infer<typeof GenerateProductDescriptionInputSchema>;
 
 const _GenerateProductDescriptionOutputSchema = z.object({
   description: z.string(),
