@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { getSupabaseUrl, getSupabaseAnonKey, getRootDomain } from '@/env';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { checkCsrfProtection } from '@/lib/csrf';
 
@@ -46,8 +47,8 @@ export async function middleware(request: NextRequest) {
 
   // Create Supabase client for middleware to manage auth session
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    getSupabaseUrl(),
+    getSupabaseAnonKey(),
     {
       cookies: {
         get(name: string) {
@@ -84,7 +85,7 @@ export async function middleware(request: NextRequest) {
   // Refresh the auth session to ensure cookies are up to date
   await supabase.auth.getSession();
 
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+  const rootDomain = getRootDomain();
 
   // Check if the request is for the main marketing site or a dev environment
   const isMainSite =
