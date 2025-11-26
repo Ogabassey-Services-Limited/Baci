@@ -351,13 +351,11 @@ export default function OrdersPage() {
         const unpaidOrders = allOrders.filter(
           (order) => order.payment_status === 'unpaid'
         ).length;
-        // Urgent orders: unpaid OR (pending shipping AND not canceled/returned)
+        // Urgent orders: unpaid OR pending shipping
         const urgentOrders = allOrders.filter(
           (order) =>
             order.payment_status === 'unpaid' ||
-            (order.shipping_status === 'pending' &&
-             order.shipping_status !== 'canceled' &&
-             order.shipping_status !== 'returned')
+            order.shipping_status === 'pending'
         ).length;
 
         setStats({
