@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import ProductDetailClient from './product-detail-client';
 import { Product } from '@/lib/products';
-import { generateProductSchema } from '@/lib/seo-utils';
+import { generateProductSchema, generateBreadcrumbSchema } from '@/lib/seo-utils';
 
 // Force dynamic rendering since we rely on URL params and DB data
 export const dynamic = 'force-dynamic';
@@ -175,31 +175,19 @@ export default async function ProductPage({ params }: PageProps) {
         productSchema.offers.url = `${baseUrl}/products/${product.slug || product.id}`;
     }
 
-    // Generate breadcrumb schema
-    const breadcrumbSchema = {
-        '@context': 'https://schema.org',
-        '@type': 'BreadcrumbList',
-        itemListElement: [
-            {
-                '@type': 'ListItem',
-                position: 1,
-                name: 'Home',
-                item: baseUrl
-            },
-            {
-                '@type': 'ListItem',
-                position: 2,
-                name: product.category || 'Products',
-                item: `${baseUrl}${product.category ? `?category=${encodeURIComponent(product.category)}` : ''}`
-            },
-            {
-                '@type': 'ListItem',
-                position: 3,
-                name: product.name,
-                item: `${baseUrl}/products/${product.slug || product.id}`
-            }
-        ]
-    };
+    // Generate breadcrumb schema using helper function
+    const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
+    const categoryUrl = product.category
+        ? `${baseUrl}/products?category=${encodeURIComponent(product.category)}`
+        : `${baseUrl}/products`;
+
+    const breadcrumbItems = [
+        { name: merchant?.business_name || 'Home', url: baseUrl },
+        { name: product.category || 'All Products', url: categoryUrl },
+        { name: product.name, url: productUrl }
+    ];
+
+    const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
 
     return (
         <>

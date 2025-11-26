@@ -246,34 +246,38 @@ export default function DashboardClientLayout({
           </div>
           <div className="flex-1 overflow-y-auto">
             <TooltipProvider>
-              <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                      { 'bg-muted text-primary': pathname === item.href },
-                      isCollapsed && 'justify-center'
-                    )}
-                  >
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-3">
-                          <item.icon className="h-4 w-4" />
-                          {!isCollapsed && <span>{item.label}</span>}
-                        </div>
-                      </TooltipTrigger>
-                      {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-                    </Tooltip>
+              <nav className="grid items-start px-2 text-sm font-medium lg:px-4" aria-label="Main navigation">
+                {navItems.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+                        { 'bg-muted text-primary': isActive },
+                        isCollapsed && 'justify-center'
+                      )}
+                    >
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-3">
+                            <item.icon className="h-4 w-4" aria-hidden="true" />
+                            {!isCollapsed && <span>{item.label}</span>}
+                          </div>
+                        </TooltipTrigger>
+                        {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
+                      </Tooltip>
 
-                    {!isCollapsed && item.badge && (
-                      <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </Link>
-                ))}
+                      {!isCollapsed && item.badge && (
+                        <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </Link>
+                  );
+                })}
                 <StoreLink isMobile={false} isCollapsed={isCollapsed} merchantLoading={merchantLoading} storeUrl={storeUrl} />
               </nav>
             </TooltipProvider>
@@ -326,31 +330,35 @@ export default function DashboardClientLayout({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col">
-              <nav className="grid gap-2 text-lg font-medium">
+              <nav className="grid gap-2 text-lg font-medium" aria-label="Mobile navigation">
                 <Link
                   href="/dashboard"
                   className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                   <Logo />
                 </Link>
-                {navItems.map((item) => (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className={cn(
-                      'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground',
-                      { 'bg-muted text-foreground': pathname === item.href }
-                    )}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {item.label}
-                    {item.badge && (
-                      <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
-                        {item.badge}
-                      </Badge>
-                    )}
-                  </Link>
-                ))}
+                {navItems.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={cn(
+                        'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground',
+                        { 'bg-muted text-foreground': isActive }
+                      )}
+                    >
+                      <item.icon className="h-5 w-5" aria-hidden="true" />
+                      {item.label}
+                      {item.badge && (
+                        <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </Link>
+                  );
+                })}
                 <StoreLink isMobile={true} isCollapsed={false} merchantLoading={merchantLoading} storeUrl={storeUrl} />
               </nav>
               <div className="mt-auto">
@@ -418,7 +426,7 @@ export default function DashboardClientLayout({
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-auto">
+        <main id="main-content" className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-auto">
           <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
             {children}
           </Suspense>
