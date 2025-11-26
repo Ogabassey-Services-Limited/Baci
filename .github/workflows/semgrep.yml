@@ -1,7 +1,3 @@
-# Semgrep CI workflow using native Docker container (recommended approach)
-# The returntocorp/semgrep-action is deprecated - using semgrep/semgrep container instead
-# See https://semgrep.dev/docs/semgrep-ci/sample-ci-configs
-
 name: Semgrep
 
 on:
