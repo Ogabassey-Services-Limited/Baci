@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies, headers } from 'next/headers';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { StorefrontWrapper } from './storefront-wrapper';
+import { escapeHtml } from '@/lib/sanitize';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
@@ -93,15 +94,16 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
 
         const schemaType = getSchemaType(merchant.business_type);
 
+        // Sanitize all user-controlled values for JSON-LD to prevent XSS
         jsonLd = {
             '@context': 'https://schema.org',
             '@type': schemaType,
-            name: merchant.business_name,
-            description: description,
-            url: baseUrl,
+            name: escapeHtml(merchant.business_name),
+            description: escapeHtml(description),
+            url: escapeHtml(baseUrl),
             potentialAction: {
                 '@type': 'SearchAction',
-                target: `${baseUrl}/products?q={search_term_string}`,
+                target: escapeHtml(`${baseUrl}/products?q={search_term_string}`),
                 'query-input': 'required name=search_term_string',
             },
         };
