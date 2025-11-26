@@ -130,11 +130,20 @@ export function SearchAutocomplete({
     };
 
     const hasResults = suggestions.length > 0 || popularSearches.length > 0;
+    const listboxId = `search-listbox-${merchantId}`;
+    const resultsCount = suggestions.length + popularSearches.length;
 
     return (
-        <div ref={wrapperRef} className={cn('relative w-full', className)}>
+        <div
+            ref={wrapperRef}
+            className={cn('relative w-full', className)}
+            role="combobox"
+            aria-expanded={isOpen && hasResults}
+            aria-haspopup="listbox"
+            aria-owns={listboxId}
+        >
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
                 <Input
                     type="search"
                     placeholder={placeholder}
@@ -143,21 +152,39 @@ export function SearchAutocomplete({
                     onKeyDown={handleKeyDown}
                     onFocus={() => value.length >= 2 && setIsOpen(true)}
                     className="pl-10"
+                    aria-autocomplete="list"
+                    aria-controls={listboxId}
+                    aria-activedescendant={highlightedIndex >= 0 ? `search-option-${highlightedIndex}` : undefined}
+                    aria-label="Search products"
                 />
             </div>
 
+            {/* Screen reader announcement for results */}
+            <div className="sr-only" aria-live="polite" aria-atomic="true">
+                {isOpen && hasResults && `${resultsCount} ${resultsCount === 1 ? 'result' : 'results'} available`}
+                {isOpen && !hasResults && value.length >= 2 && 'No results found'}
+            </div>
+
             {isOpen && hasResults && (
-                <div className="absolute z-50 mt-2 w-full rounded-md border bg-popover shadow-lg">
+                <div
+                    id={listboxId}
+                    role="listbox"
+                    aria-label="Search suggestions"
+                    className="absolute z-50 mt-2 w-full rounded-md border bg-popover shadow-lg"
+                >
                     <div className="max-h-96 overflow-y-auto p-2">
                         {/* Product suggestions */}
                         {suggestions.length > 0 && (
-                            <div className="mb-2">
-                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                            <div className="mb-2" role="group" aria-labelledby="products-group-label">
+                                <div id="products-group-label" className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                                     Products
                                 </div>
                                 {suggestions.map((product, index) => (
                                     <button
                                         key={product.id}
+                                        id={`search-option-${index}`}
+                                        role="option"
+                                        aria-selected={highlightedIndex === index}
                                         onClick={() => {
                                             onSelectProduct?.(product.id);
                                             setIsOpen(false);
@@ -173,9 +200,10 @@ export function SearchAutocomplete({
                                             <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded">
                                                 <Image
                                                     src={product.image_small}
-                                                    alt={product.name}
+                                                    alt=""
                                                     fill
                                                     className="object-cover"
+                                                    aria-hidden="true"
                                                 />
                                             </div>
                                         )}
@@ -188,7 +216,7 @@ export function SearchAutocomplete({
                                                     </span>
                                                 )}
                                                 <span className="font-semibold">
-                                                    ₦{product.price.toLocaleString()}
+                                                    <span className="sr-only">Price: </span>₦{product.price.toLocaleString()}
                                                 </span>
                                             </div>
                                         </div>
@@ -199,37 +227,43 @@ export function SearchAutocomplete({
 
                         {/* Popular searches */}
                         {popularSearches.length > 0 && (
-                            <div>
-                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                            <div role="group" aria-labelledby="popular-searches-label">
+                                <div id="popular-searches-label" className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                                     Popular searches
                                 </div>
-                                {popularSearches.map((search, index) => (
-                                    <button
-                                        key={search.search_query}
-                                        onClick={() => {
-                                            onChange(search.search_query);
-                                            setIsOpen(false);
-                                        }}
-                                        className={cn(
-                                            'flex w-full items-center gap-2 rounded-md p-2 text-left transition-colors',
-                                            highlightedIndex === suggestions.length + index
-                                                ? 'bg-accent text-accent-foreground'
-                                                : 'hover:bg-accent/50'
-                                        )}
-                                    >
-                                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                                        <span className="flex-1 truncate">{search.search_query}</span>
-                                        <span className="text-xs text-muted-foreground">
-                                            {search.search_count} searches
-                                        </span>
-                                    </button>
-                                ))}
+                                {popularSearches.map((search, index) => {
+                                    const optionIndex = suggestions.length + index;
+                                    return (
+                                        <button
+                                            key={search.search_query}
+                                            id={`search-option-${optionIndex}`}
+                                            role="option"
+                                            aria-selected={highlightedIndex === optionIndex}
+                                            onClick={() => {
+                                                onChange(search.search_query);
+                                                setIsOpen(false);
+                                            }}
+                                            className={cn(
+                                                'flex w-full items-center gap-2 rounded-md p-2 text-left transition-colors',
+                                                highlightedIndex === optionIndex
+                                                    ? 'bg-accent text-accent-foreground'
+                                                    : 'hover:bg-accent/50'
+                                            )}
+                                        >
+                                            <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                                            <span className="flex-1 truncate">{search.search_query}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                <span className="sr-only">Searched </span>{search.search_count} <span className="sr-only">times</span>
+                                            </span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
 
                     {loading && (
-                        <div className="border-t p-2 text-center text-xs text-muted-foreground">
+                        <div className="border-t p-2 text-center text-xs text-muted-foreground" aria-live="polite">
                             Loading...
                         </div>
                     )}

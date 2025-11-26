@@ -96,7 +96,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                     </nav>
                 </header>
 
-                <main className="flex-1 container mx-auto py-12 px-4 md:px-6">
+                <main id="main-content" className="flex-1 container mx-auto py-12 px-4 md:px-6">
                     <div className="grid md:grid-cols-2 gap-8 lg:gap-12 max-w-4xl mx-auto">
                         {/* Image Gallery */}
                         <div className="space-y-4">

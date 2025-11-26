@@ -63,7 +63,7 @@ function BaciLandingPage() {
         </nav>
       </header>
 
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {/* Hero Section */}
         <section className="relative w-full pt-6 pb-20 md:pt-10 md:pb-32 lg:pt-12 lg:pb-40 overflow-hidden bg-gradient-to-br from-[#2D3E68] via-[#3d5a9f] to-[#2D3E68]">
           {/* Geometric Shapes */}

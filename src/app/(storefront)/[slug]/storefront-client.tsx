@@ -237,7 +237,7 @@ function StorefrontContent() {
           </nav>
         </header>
 
-        <main className="flex-1">
+        <main id="main-content" className="flex-1">
           <section className="w-full relative">
             <Carousel
               setApi={setApi}
