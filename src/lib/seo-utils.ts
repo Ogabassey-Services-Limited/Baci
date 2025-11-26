@@ -64,8 +64,12 @@ export function generateProductSchema(product: Product, merchantName: string = '
 
     if (product.gtin) {
         schema.gtin = product.gtin;
-        schema.gtin13 = product.gtin.length === 13 ? product.gtin : undefined;
-        schema.gtin14 = product.gtin.length === 14 ? product.gtin : undefined;
+        if (product.gtin.length === 13) {
+            schema.gtin13 = product.gtin;
+        }
+        if (product.gtin.length === 14) {
+            schema.gtin14 = product.gtin;
+        }
     }
 
     if (product.mpn) {
@@ -78,7 +82,7 @@ export function generateProductSchema(product: Product, merchantName: string = '
     }
 
     if (product.google_product_category) {
-        schema.category = product.google_product_category;
+        schema.google_productCategory = product.google_product_category;
     }
 
     // Physical attributes
@@ -102,13 +106,6 @@ export function generateProductSchema(product: Product, merchantName: string = '
         if (product.dimensions.height) {
             schema.height = { '@type': 'QuantitativeValue', value: product.dimensions.height, unitCode: dimUnit };
         }
-    }
-
-    // Item condition at product level too
-    if (product.condition) {
-        schema.itemCondition = product.condition === 'new'
-            ? 'https://schema.org/NewCondition'
-            : 'https://schema.org/UsedCondition';
     }
 
     // Color (useful for apparel)
