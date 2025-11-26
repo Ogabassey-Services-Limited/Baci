@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { stripHtmlTags } from '@/lib/sanitize';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -138,7 +139,7 @@ function generateGoogleMerchantFeed(products: Product[], merchant: Merchant, bas
         return `    <item>
         <g:id>${escapeXml(product.id)}</g:id>
         <g:title>${escapeXml(product.name)}</g:title>
-        <g:description>${escapeXml(stripHtml(product.description))}</g:description>
+        <g:description>${escapeXml(stripHtmlTags(product.description).trim())}</g:description>
         <g:link>${escapeXml(productUrl)}</g:link>
         <g:image_link>${escapeXml(imageUrl)}</g:image_link>
 ${additionalImages}
@@ -179,10 +180,3 @@ function escapeXml(unsafe: string): string {
         .replace(/'/g, '&apos;');
 }
 
-/**
- * Strip HTML tags from description
- */
-function stripHtml(html: string): string {
-    if (!html) return '';
-    return html.replace(/<[^>]*>/g, '').trim();
-}

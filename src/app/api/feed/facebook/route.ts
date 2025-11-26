@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { stripHtmlTags } from '@/lib/sanitize';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -132,7 +133,7 @@ function generateFacebookFeed(products: Product[], merchant: Merchant, baseUrl: 
         return `    <item>
         <id>${escapeXml(product.id)}</id>
         <title>${escapeXml(truncate(product.name, 150))}</title>
-        <description>${escapeXml(truncate(stripHtml(product.description), 5000))}</description>
+        <description>${escapeXml(truncate(stripHtmlTags(product.description).trim(), 5000))}</description>
         <availability>${availability}</availability>
 ${salePrice}
         <link>${escapeXml(productUrl)}</link>
@@ -171,13 +172,6 @@ function escapeXml(unsafe: string): string {
         .replace(/'/g, '&apos;');
 }
 
-/**
- * Strip HTML tags from description
- */
-function stripHtml(html: string): string {
-    if (!html) return '';
-    return html.replace(/<[^>]*>/g, '').trim();
-}
 
 /**
  * Truncate text to specified length
