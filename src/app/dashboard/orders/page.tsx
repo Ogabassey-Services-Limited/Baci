@@ -254,6 +254,15 @@ export default function OrdersPage() {
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState<string | null>(null);
 
+  // Stats state - calculated from all orders (unfiltered)
+  const [stats, setStats] = useState({
+    totalOrders: 0,
+    completedOrders: 0,
+    unpaidOrders: 0,
+    urgentOrders: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
   // Fetch orders from API
   useEffect(() => {
     const fetchOrders = async () => {
@@ -318,6 +327,55 @@ export default function OrdersPage() {
 
     fetchOrders();
   }, [authLoading, merchantLoading, user, merchant, paymentFilter, shippingFilter, searchTerm, toast]);
+
+  // Fetch all orders (unfiltered) to calculate stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (authLoading || merchantLoading || !user || !merchant) {
+        return;
+      }
+
+      setStatsLoading(true);
+
+      try {
+        // Fetch all orders without any filters
+        const data = await apiGet<{orders: ApiOrder[]}>('/api/orders');
+
+        const allOrders = data.orders || [];
+
+        // Calculate stats
+        const totalOrders = allOrders.length;
+        const completedOrders = allOrders.filter(
+          (order) => order.shipping_status === 'delivered'
+        ).length;
+        const unpaidOrders = allOrders.filter(
+          (order) => order.payment_status === 'unpaid'
+        ).length;
+        // Urgent orders: unpaid OR (pending shipping AND not canceled/returned)
+        const urgentOrders = allOrders.filter(
+          (order) =>
+            order.payment_status === 'unpaid' ||
+            (order.shipping_status === 'pending' &&
+             order.shipping_status !== 'canceled' &&
+             order.shipping_status !== 'returned')
+        ).length;
+
+        setStats({
+          totalOrders,
+          completedOrders,
+          unpaidOrders,
+          urgentOrders,
+        });
+      } catch (error) {
+        console.error('Error fetching order stats:', error);
+        // Keep default values on error
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [authLoading, merchantLoading, user, merchant]);
 
   // Helper function to format status from DB to UI
   const formatStatus = (status: string): string => {
@@ -463,7 +521,13 @@ export default function OrdersPage() {
             <ShoppingCart className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-900">5,957</div>
+            <div className="text-2xl font-bold text-blue-900">
+              {statsLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                stats.totalOrders.toLocaleString()
+              )}
+            </div>
           </CardContent>
         </Card>
         <Card className="bg-yellow-50 border-yellow-200 transition-transform transform hover:scale-105">
@@ -472,7 +536,13 @@ export default function OrdersPage() {
             <PackageCheck className="h-5 w-5 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-900">2,768</div>
+            <div className="text-2xl font-bold text-yellow-900">
+              {statsLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                stats.completedOrders.toLocaleString()
+              )}
+            </div>
           </CardContent>
         </Card>
         <Card className="bg-blue-50 border-blue-200 transition-transform transform hover:scale-105">
@@ -481,7 +551,13 @@ export default function OrdersPage() {
             <FileWarning className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-900">422</div>
+            <div className="text-2xl font-bold text-blue-900">
+              {statsLoading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                stats.unpaidOrders.toLocaleString()
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -498,10 +574,19 @@ export default function OrdersPage() {
         />
       </div>
 
-      {showAlert && (
+      {showAlert && stats.urgentOrders > 0 && (
         <Alert className="bg-yellow-50 border-yellow-200 text-yellow-900 relative">
           <AlertTriangle className="h-4 w-4 text-yellow-600" />
-          <AlertTitle className="font-semibold">1,557 orders require urgent attention. ⚠️</AlertTitle>
+          <AlertTitle className="font-semibold">
+            {statsLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Checking orders...
+              </span>
+            ) : (
+              `${stats.urgentOrders.toLocaleString()} order${stats.urgentOrders !== 1 ? 's' : ''} require${stats.urgentOrders === 1 ? 's' : ''} urgent attention.`
+            )}
+          </AlertTitle>
           <AlertDescription>
             <a href="#" className="font-medium underline">Click to resolve</a>
           </AlertDescription>
