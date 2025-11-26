@@ -33,15 +33,35 @@ export function ThemeEditor({ theme, onChange, onReset }: ThemeEditorProps) {
     };
 
     const updateColor = (path: string[], value: string) => {
+        // Validate path to prevent prototype pollution
+        const dangerousKeys = ['__proto__', 'constructor', 'prototype'];
+        if (path.some(key => dangerousKeys.includes(key))) {
+            console.warn('Invalid theme path detected');
+            return;
+        }
+
         const newTheme = { ...theme };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let current: any = newTheme;
 
         for (let i = 0; i < path.length - 1; i++) {
-            current = current[path[i]];
+            const key = path[i];
+            // Additional safety: ensure we're accessing own properties only
+            if (!Object.prototype.hasOwnProperty.call(current, key)) {
+                console.warn('Invalid theme path: property does not exist');
+                return;
+            }
+            current = current[key];
         }
 
-        current[path[path.length - 1]] = value;
+        const finalKey = path[path.length - 1];
+        // Ensure final key exists on the target object (for updating existing properties)
+        if (!Object.prototype.hasOwnProperty.call(current, finalKey)) {
+            console.warn('Invalid theme path: final property does not exist');
+            return;
+        }
+
+        current[finalKey] = value;
 
         onChange(newTheme);
         applyTheme(newTheme);
