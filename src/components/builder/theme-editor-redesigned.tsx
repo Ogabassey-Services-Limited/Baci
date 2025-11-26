@@ -33,18 +33,53 @@ export function ThemeEditor({ theme, onChange, onReset }: ThemeEditorProps) {
     };
 
     const updateColor = (path: string[], value: string) => {
-        const newTheme = { ...theme };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let current: any = newTheme;
-
-        for (let i = 0; i < path.length - 1; i++) {
-            current = current[path[i]];
+        // Prevent prototype pollution by blocking dangerous property names
+        const dangerousKeys = new Set(['__proto__', 'constructor', 'prototype']);
+        if (path.some(key => dangerousKeys.has(key))) {
+            console.warn('Blocked attempt to access dangerous property in theme path');
+            return;
         }
 
-        current[path[path.length - 1]] = value;
+        // Use a safe deep clone that creates null-prototype objects to prevent prototype pollution
+        const safeDeepClone = (obj: Record<string, unknown>): Record<string, unknown> => {
+            const result = Object.create(null) as Record<string, unknown>;
+            for (const key of Object.keys(obj)) {
+                const val = obj[key];
+                if (val !== null && typeof val === 'object' && !Array.isArray(val)) {
+                    result[key] = safeDeepClone(val as Record<string, unknown>);
+                } else {
+                    result[key] = val;
+                }
+            }
+            return result;
+        };
 
-        onChange(newTheme);
-        applyTheme(newTheme);
+        // Create a safe working copy with null prototypes
+        const safeCopy = safeDeepClone(theme as unknown as Record<string, unknown>);
+        let current: Record<string, unknown> = safeCopy;
+
+        // Traverse to the parent object, validating each step
+        for (let i = 0; i < path.length - 1; i++) {
+            const key = path[i];
+            // Ensure we're only accessing own properties (Object.keys only returns own props)
+            if (!(key in current) || current[key] === null || typeof current[key] !== 'object') {
+                console.warn(`Invalid theme path: property "${key}" does not exist or is not an object`);
+                return;
+            }
+            current = current[key] as Record<string, unknown>;
+        }
+
+        // Set the final property value
+        const finalKey = path[path.length - 1];
+        if (finalKey in current) {
+            current[finalKey] = value;
+            // Convert back to regular object for the theme system
+            const newTheme = JSON.parse(JSON.stringify(safeCopy)) as ThemeConfiguration;
+            onChange(newTheme);
+            applyTheme(newTheme);
+        } else {
+            console.warn(`Invalid theme path: property "${finalKey}" does not exist`);
+        }
     };
 
     return (
