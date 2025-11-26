@@ -15,6 +15,25 @@ export function sanitizeHtml(dirty: string): string {
 }
 
 /**
+ * Strips HTML tags from a string by iteratively applying the regex until no more matches.
+ * This prevents incomplete sanitization from nested patterns like <scr<script>ipt>.
+ */
+export function stripHtmlTags(text: string): string {
+    const htmlTagRegex = /<[^>]*>/g;
+    let result = text;
+    let previous: string;
+
+    // Iteratively remove HTML tags until no more are found
+    // This handles cases like <scr<script>ipt> which become <script> after one pass
+    do {
+        previous = result;
+        result = result.replace(htmlTagRegex, '');
+    } while (result !== previous);
+
+    return result;
+}
+
+/**
  * Sanitize plain text (remove HTML, trim, limit length)
  */
 export function sanitizeText(text: string, maxLength: number = 10000): string {
@@ -23,8 +42,8 @@ export function sanitizeText(text: string, maxLength: number = 10000): string {
     // Remove null bytes
     let sanitized = text.replace(/\0/g, '');
 
-    // Remove HTML tags
-    sanitized = sanitized.replace(/<[^>]*>/g, '');
+    // Remove HTML tags (iteratively to handle nested patterns)
+    sanitized = stripHtmlTags(sanitized);
 
     // Trim whitespace
     sanitized = sanitized.trim();
