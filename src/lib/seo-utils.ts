@@ -1,5 +1,5 @@
 import { Product, ProductSchemaMarkup } from './products';
-import { escapeHtml } from './sanitize';
+import { escapeHtml, stripHtmlTags } from './sanitize';
 
 /**
  * Generates a URL-friendly slug from a string
@@ -322,8 +322,9 @@ export function generateMetaDescription(description: string, maxLength: number =
 
     const validMaxLength = validateMaxLength(maxLength);
 
-    // Strip HTML tags if any
-    const plainText = description.replace(/<[^>]*>?/gm, '');
+    // Strip HTML tags using iterative sanitization to prevent incomplete removal
+    // of nested patterns like <scr<script>ipt>
+    const plainText = stripHtmlTags(description);
 
     if (plainText.length <= validMaxLength) return plainText;
 

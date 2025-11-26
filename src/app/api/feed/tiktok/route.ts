@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { stripHtmlTags } from '@/lib/sanitize';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -134,7 +135,7 @@ function generateTikTokFeed(products: Product[], merchant: Merchant, baseUrl: st
         <id>${escapeXml(product.id)}</id>
         <item_group_id>${escapeXml(itemGroupId)}</item_group_id>
         <title>${escapeXml(product.name)}</title>
-        <description>${escapeXml(stripHtml(product.description))}</description>
+        <description>${escapeXml(stripHtmlTags(product.description).trim())}</description>
         <availability>${availability}</availability>
 ${salePrice}
         <link>${escapeXml(productUrl)}</link>
@@ -173,10 +174,3 @@ function escapeXml(unsafe: string): string {
         .replace(/'/g, '&apos;');
 }
 
-/**
- * Strip HTML tags from description
- */
-function stripHtml(html: string): string {
-    if (!html) return '';
-    return html.replace(/<[^>]*>/g, '').trim();
-}
