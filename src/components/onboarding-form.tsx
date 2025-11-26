@@ -440,7 +440,20 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                 <FormControl>
                   <div className="relative">
                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" {...field} onKeyDown={onKeyDown} className="pl-10 pr-10" id="password" name="password" autoComplete="new-password" />
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Min. 8 characters"
+                      {...field}
+                      onKeyDown={onKeyDown}
+                      className="pl-10 pr-10"
+                      id="password"
+                      name="password"
+                      autoComplete="new-password"
+                      spellCheck="false"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      data-form-type="password"
+                    />
                     <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"}>
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </Button>
@@ -462,7 +475,21 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                   <FormControl>
                     <div className="relative">
                       <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input type={showConfirmPassword ? "text" : "password"} placeholder="Re-enter your password" {...field} value={field.value || ''} onKeyDown={onKeyDown} className="pl-10 pr-10" id="confirmPassword" name="confirmPassword" autoComplete="new-password" />
+                      <Input
+                        type={showConfirmPassword ? "text" : "password"}
+                        placeholder="Re-enter your password"
+                        {...field}
+                        value={field.value || ''}
+                        onKeyDown={onKeyDown}
+                        className="pl-10 pr-10"
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        autoComplete="new-password"
+                        spellCheck="false"
+                        autoCorrect="off"
+                        autoCapitalize="off"
+                        data-form-type="password"
+                      />
                       <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)} aria-label={showConfirmPassword ? "Hide password" : "Show password"}>
                         {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </Button>

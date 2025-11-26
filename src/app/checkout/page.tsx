@@ -129,7 +129,18 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
                 <FormControl>
                   <div className="relative">
                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <ThemedInput type="password" {...field} className="pl-10" id="password" name="password" autoComplete={isLogin ? "current-password" : "new-password"} />
+                    <ThemedInput
+                      type="password"
+                      {...field}
+                      className="pl-10"
+                      id="password"
+                      name="password"
+                      autoComplete={isLogin ? "current-password" : "new-password"}
+                      spellCheck="false"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                      data-form-type="password"
+                    />
                   </div>
                 </FormControl>
                 <FormMessage />
