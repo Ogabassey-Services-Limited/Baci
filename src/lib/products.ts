@@ -38,6 +38,16 @@ export interface ProductSchemaMarkup {
         price: number;
         priceCurrency: string;
         availability: string;
+        itemCondition?: string;
+        seller?: { '@type': 'Organization'; name: string };
+        priceValidUntil?: string;
+        url?: string;
+        priceSpecification?: {
+            '@type': 'PriceSpecification';
+            price: number;
+            priceCurrency: string;
+            valueAddedTaxIncluded?: boolean;
+        };
     };
 }
 

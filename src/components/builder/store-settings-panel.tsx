@@ -28,6 +28,23 @@ import {
 // Default free shipping threshold value
 const DEFAULT_FREE_SHIPPING_THRESHOLD = 50;
 
+// Allowed layouts for product page
+const PRODUCT_PAGE_LAYOUTS = ['standard', 'wide', 'sidebar'] as const;
+type ProductPageLayout = (typeof PRODUCT_PAGE_LAYOUTS)[number];
+
+// Allowed image gallery styles
+const IMAGE_GALLERY_STYLES = ['thumbnails', 'dots', 'slider'] as const;
+type ImageGalleryStyle = (typeof IMAGE_GALLERY_STYLES)[number];
+
+/**
+ * Validates the free shipping threshold value.
+ * Returns the value if it's a number >= 0, otherwise returns the default.
+ */
+function validateFreeShippingThreshold(value: unknown): number {
+    const num = Number(value);
+    return !isNaN(num) && num >= 0 ? num : DEFAULT_FREE_SHIPPING_THRESHOLD;
+}
+
 export interface StoreSettings {
     // Product Page Settings
     productPage: {
@@ -89,6 +106,7 @@ const defaultSettings: StoreSettings = {
         enableCartDrawer: true,
         showShippingEstimate: true,
         showProgressBar: false,
+        freeShippingThreshold: DEFAULT_FREE_SHIPPING_THRESHOLD,
         enableGiftMessage: false,
         enableDiscountCodes: true,
     },
@@ -158,7 +176,11 @@ export function StoreSettingsPanel({ settings, onChange }: StoreSettingsPanelPro
                             <Label htmlFor="product-layout">Page Layout</Label>
                             <Select
                                 value={data.productPage.layout}
-                                onValueChange={(value) => handleChange('productPage', 'layout', value)}
+                                onValueChange={(value) => {
+                                    if (PRODUCT_PAGE_LAYOUTS.includes(value as ProductPageLayout)) {
+                                        handleChange('productPage', 'layout', value as ProductPageLayout);
+                                    }
+                                }}
                             >
                                 <SelectTrigger id="product-layout">
                                     <SelectValue />
@@ -175,7 +197,11 @@ export function StoreSettingsPanel({ settings, onChange }: StoreSettingsPanelPro
                             <Label htmlFor="gallery-style">Image Gallery Style</Label>
                             <Select
                                 value={data.productPage.imageGalleryStyle}
-                                onValueChange={(value) => handleChange('productPage', 'imageGalleryStyle', value)}
+                                onValueChange={(value) => {
+                                    if (IMAGE_GALLERY_STYLES.includes(value as ImageGalleryStyle)) {
+                                        handleChange('productPage', 'imageGalleryStyle', value as ImageGalleryStyle);
+                                    }
+                                }}
                             >
                                 <SelectTrigger id="gallery-style">
                                     <SelectValue />
@@ -341,11 +367,10 @@ export function StoreSettingsPanel({ settings, onChange }: StoreSettingsPanelPro
                                     min="0"
                                     value={data.cart.freeShippingThreshold ?? DEFAULT_FREE_SHIPPING_THRESHOLD}
                                     onChange={(e) => {
-                                        const value = Number(e.target.value);
                                         handleChange(
                                             'cart',
                                             'freeShippingThreshold',
-                                            !isNaN(value) && value >= 0 ? value : DEFAULT_FREE_SHIPPING_THRESHOLD
+                                            validateFreeShippingThreshold(e.target.value)
                                         );
                                     }}
                                     placeholder={String(DEFAULT_FREE_SHIPPING_THRESHOLD)}

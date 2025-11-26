@@ -1,6 +1,6 @@
 'use client';
 
-import { Puck, Data, Drawer } from '@measured/puck';
+import { Puck, Data, Drawer, ComponentData, DefaultComponentProps, Config } from '@measured/puck';
 import '@measured/puck/puck.css';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
@@ -344,12 +344,13 @@ export default function BuilderClient() {
     const handleDataChange = (newData: Data) => {
         // Ensure all components have unique IDs
         if (newData.content) {
-            newData.content = newData.content.map((component: Record<string, unknown>, index: number) => {
-                if (!component.props?.id) {
+            newData.content = newData.content.map((component, index) => {
+                const props = component.props as DefaultComponentProps;
+                if (!props?.id) {
                     return {
                         ...component,
                         props: {
-                            ...component.props,
+                            ...props,
                             id: `${component.type}-${Date.now()}-${index}`
                         }
                     };
@@ -374,9 +375,9 @@ export default function BuilderClient() {
                         products: []
                     }}
                     overrides={{
-                        componentOverlay: ({ children, componentId, componentType, isSelected }: Record<string, unknown>) => {
+                        componentOverlay: ({ children, componentId, componentType, isSelected }: { children: React.ReactNode; componentId: string; componentType: string; isSelected: boolean }) => {
                             // Get component index to determine if it can move up/down
-                            const componentIndex = data.content?.findIndex((c: Record<string, unknown>) => c.props?.id === componentId) ?? -1;
+                            const componentIndex = data.content?.findIndex((c) => (c.props as DefaultComponentProps)?.id === componentId) ?? -1;
                             const canMoveUp = componentIndex > 0;
                             const canMoveDown = componentIndex >= 0 && componentIndex < (data.content?.length ?? 0) - 1;
 
@@ -393,10 +394,9 @@ export default function BuilderClient() {
                                             position={menuPosition}
                                             onEdit={() => {
                                                 setShowFieldsSidebar(true);
-                                                setSelectedComponentId(componentId);
                                             }}
                                             onDuplicate={() => {
-                                                const componentToDuplicate = data.content?.find((c: Record<string, unknown>) => c.props?.id === componentId);
+                                                const componentToDuplicate = data.content?.find((c) => (c.props as DefaultComponentProps)?.id === componentId);
                                                 if (componentToDuplicate) {
                                                     const newComponent = {
                                                         ...componentToDuplicate,
@@ -412,7 +412,7 @@ export default function BuilderClient() {
                                             }}
                                             onDelete={() => {
                                                 if (confirm(`Delete this ${componentType} component?`)) {
-                                                    const newContent = data.content?.filter((c: Record<string, unknown>) => c.props?.id !== componentId) || [];
+                                                    const newContent = data.content?.filter((c) => (c.props as DefaultComponentProps)?.id !== componentId) || [];
                                                     setData({ ...data, content: newContent });
                                                 }
                                             }}
@@ -439,11 +439,14 @@ export default function BuilderClient() {
                                 </div>
                             );
                         },
-                        drawer: ({ children: _children }: Record<string, unknown>) => {
+                        drawer: ({ children: _children }: { children: React.ReactNode }) => {
                             // Get all components from all categories (deduplicated)
                             const allComponents: string[] = [];
-                            Object.values(builderConfig.categories || {}).forEach((category: Record<string, unknown>) => {
-                                allComponents.push(...(category.components || []));
+                            const categories = builderConfig.categories || {};
+                            Object.values(categories).forEach((category) => {
+                                if (category.components && Array.isArray(category.components)) {
+                                    allComponents.push(...category.components);
+                                }
                             });
                             const uniqueComponents = Array.from(new Set(allComponents));
 
@@ -545,13 +548,13 @@ export default function BuilderClient() {
                             <BuilderSidebar
                                 themeEditor={
                                     <ThemeEditor
-                                        theme={(data as Record<string, unknown>)?.theme || defaultTheme}
+                                        theme={(data as Data & { theme?: ThemeConfiguration })?.theme || defaultTheme}
                                         onChange={(newTheme: ThemeConfiguration) => {
-                                            setData(prev => ({ ...prev, theme: newTheme } as Record<string, unknown>));
+                                            setData(prev => ({ ...prev, theme: newTheme } as Data & { theme: ThemeConfiguration }));
                                         }}
                                         onReset={() => {
                                             applyTheme(defaultTheme);
-                                            setData(prev => ({ ...prev, theme: defaultTheme } as Record<string, unknown>));
+                                            setData(prev => ({ ...prev, theme: defaultTheme } as Data & { theme: ThemeConfiguration }));
                                         }}
                                     />
                                 }

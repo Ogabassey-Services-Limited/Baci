@@ -133,7 +133,7 @@ export default function SettingsPage() {
       });
       // @ts-expect-error - hero_slides might not be on the type yet
       setHeroSlides(merchant.hero_slides || []);
-      const merchantData = merchant as Record<string, unknown>;
+      const merchantData = merchant as unknown as Record<string, unknown>;
       const socialMedia = merchantData.social_media as Record<string, unknown> | undefined;
       setSocialMedia({
         twitter: (socialMedia?.twitter as string) || '',

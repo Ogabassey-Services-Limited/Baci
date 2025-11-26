@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Responsive, WidthProvider } from 'react-grid-layout';
+import { Responsive, WidthProvider, Layout } from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { AnalyticsCard } from './analytics-card';
@@ -17,8 +17,57 @@ import type { MerchantData } from '@/hooks/use-merchant';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
+interface MetricData {
+    value: number;
+    change: number;
+}
+
+interface AnalyticsSummary {
+    revenue: MetricData;
+    customers: MetricData;
+    sales: MetricData;
+    activeNow: MetricData;
+    aov?: MetricData;
+    grossMargin?: MetricData;
+    ltv?: MetricData;
+    refundRate?: MetricData;
+}
+
+interface SaleRecord {
+    id: string;
+    name: string;
+    email: string;
+    time: string;
+    amount: number;
+}
+
+interface ProductRecord {
+    id: string;
+    name: string;
+    sku?: string;
+    revenue: number;
+    units?: number;
+    sales?: number;
+}
+
+export interface AnalyticsData {
+    summary?: AnalyticsSummary;
+    chartData?: Array<{ date: string; revenue: number }>;
+    revenueOverTime?: unknown[];
+    salesByChannel?: Array<{ name: string; value: number }>;
+    recentSales?: SaleRecord[];
+    topProducts?: ProductRecord[];
+    paymentMethods?: Array<{ name: string; value: number }>;
+}
+
+interface Layouts {
+    lg: Layout[];
+    md: Layout[];
+    [key: string]: Layout[];
+}
+
 interface DraggableAnalyticsGridProps {
-    data: Record<string, unknown>;
+    data: AnalyticsData;
     loading: boolean;
     activeCategory: AnalyticsCategory;
     merchant: MerchantData | null;
@@ -95,19 +144,18 @@ export function DraggableAnalyticsGrid({ data, loading, activeCategory, merchant
     }, []);
 
     // Save layout change
-    const onLayoutChange = async (currentLayout: unknown, allLayouts: Record<string, unknown>) => {
+    const onLayoutChange = (currentLayout: Layout[], allLayouts: Layouts) => {
         setLayouts(allLayouts);
         if (!isEditMode) return; // Only save if in edit mode (optional, but good for performance)
 
-        try {
-            await fetch('/api/dashboard/preferences', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ layout_config: currentLayout }),
-            });
-        } catch (error) {
+        // Fire-and-forget pattern for saving layout preferences
+        fetch('/api/dashboard/preferences', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ layout_config: currentLayout }),
+        }).catch((error) => {
             console.error('Failed to save layout:', error);
-        }
+        });
     };
 
     if (loading) {
@@ -299,8 +347,8 @@ export function DraggableAnalyticsGrid({ data, loading, activeCategory, merchant
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {data?.recentSales?.map((sale: Record<string, unknown>) => (
-                                        <div key={sale.id as string} className="flex items-center justify-between">
+                                    {data?.recentSales?.map((sale) => (
+                                        <div key={sale.id} className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                                                     {sale.name.charAt(0)}
@@ -338,15 +386,15 @@ export function DraggableAnalyticsGrid({ data, loading, activeCategory, merchant
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {data?.topProducts?.map((product: Record<string, unknown>, index: number) => (
-                                        <div key={product.id as string} className="flex items-center justify-between">
+                                    {data?.topProducts?.map((product, index) => (
+                                        <div key={product.id} className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
                                                     #{index + 1}
                                                 </div>
                                                 <div>
                                                     <p className="text-sm font-medium">{product.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{product.sales} sales</p>
+                                                    <p className="text-xs text-muted-foreground">{product.sales ?? 0} sales</p>
                                                 </div>
                                             </div>
                                             <p className="text-sm font-medium">{formatCurrency(product.revenue)}</p>

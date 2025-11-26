@@ -29,6 +29,16 @@ interface EmailForward {
     forwardto: string;
 }
 
+interface DomainInfo {
+    status?: string;
+    expiryDate?: string;
+}
+
+interface Nameservers {
+    ns1?: string;
+    ns2?: string;
+}
+
 export default function DomainDetailsPage() {
     const params = useParams();
     const router = useRouter();
@@ -36,8 +46,8 @@ export default function DomainDetailsPage() {
     const domain = params.domain as string;
 
     const [loading, setLoading] = useState(true);
-    const [domainInfo, setDomainInfo] = useState<Record<string, unknown> | null>(null);
-    const [nameservers, setNameservers] = useState<Record<string, unknown> | null>(null);
+    const [domainInfo, setDomainInfo] = useState<DomainInfo | null>(null);
+    const [nameservers, setNameservers] = useState<Nameservers | null>(null);
     const [lockStatus, setLockStatus] = useState<boolean>(false);
 
     // DNS State
@@ -315,7 +325,7 @@ export default function DomainDetailsPage() {
                                             <Label className="text-right">Type</Label>
                                             <Select
                                                 value={newRecord.type}
-                                                onValueChange={(v: string) => setNewRecord({ ...newRecord, type: v })}
+                                                onValueChange={(v: string) => setNewRecord({ ...newRecord, type: v as DNSRecord['type'] })}
                                             >
                                                 <SelectTrigger className="col-span-3">
                                                     <SelectValue placeholder="Select type" />

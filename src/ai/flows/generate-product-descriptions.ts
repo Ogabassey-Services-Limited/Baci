@@ -13,13 +13,13 @@ const _GenerateProductDescriptionInputSchema = z.object({
   businessType: z.string().optional(),
 });
 
-type GenerateProductDescriptionInput = z.infer<typeof GenerateProductDescriptionInputSchema>;
+type GenerateProductDescriptionInput = z.infer<typeof _GenerateProductDescriptionInputSchema>;
 
 const _GenerateProductDescriptionOutputSchema = z.object({
   description: z.string(),
 });
 
-type GenerateProductDescriptionOutput = z.infer<typeof GenerateProductDescriptionOutputSchema>;
+type GenerateProductDescriptionOutput = z.infer<typeof _GenerateProductDescriptionOutputSchema>;
 
 export async function generateProductDescription(
   input: GenerateProductDescriptionInput

@@ -22,7 +22,7 @@ import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { getCountryByCode } from '@/lib/countries';
 import { apiPost } from '@/lib/api-client';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { isValidPhoneNumber } from 'react-phone-number-input';
+import { isValidPhoneNumber, type Country as CountryCode } from 'react-phone-number-input';
 
 const DEFAULT_SHIPPING_FEE = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00');
 
@@ -219,7 +219,7 @@ function Step1_Shipping() {
             <FormControl>
               <PhoneInput
                 placeholder="Enter phone number"
-                defaultCountry={(country?.code as string) || 'NG'}
+                defaultCountry={(country?.code as CountryCode) || 'NG'}
                 value={field.value}
                 onChange={field.onChange}
                 id="phone"

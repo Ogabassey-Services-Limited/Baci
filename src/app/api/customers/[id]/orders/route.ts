@@ -1,12 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 export async function GET(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const supabase = await createClient();
+        const { id } = await params;
+        const cookieStore = await cookies();
+        const supabase = createClient(cookieStore);
 
         // Get the current user
         const {
@@ -35,7 +38,7 @@ export async function GET(
         *,
         items:order_items(*)
       `)
-            .eq('customer_id', params.id)
+            .eq('customer_id', id)
             .eq('merchant_id', merchant.id)
             .order('created_at', { ascending: false });
 

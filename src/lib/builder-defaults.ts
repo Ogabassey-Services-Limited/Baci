@@ -7,9 +7,9 @@ import { generateInitialTemplate } from './initial-template-generator';
  */
 export function generateDefaultConfig(merchant: Record<string, unknown>): Data {
     return generateInitialTemplate({
-        businessName: merchant?.business_name || 'Your Store',
-        businessType: merchant?.business_type || 'other',
-        brandColors: merchant?.brand_colors || {
+        businessName: (merchant?.business_name as string) || 'Your Store',
+        businessType: (merchant?.business_type as string) || 'other',
+        brandColors: (merchant?.brand_colors as { primary: string; background: string; accent: string }) || {
             primary: '#3F51B5',
             background: '#FFFFFF',
             accent: '#FF5722'

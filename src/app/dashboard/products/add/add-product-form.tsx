@@ -32,13 +32,14 @@ import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { FileUploader } from '@/components/ui/file-uploader';
 import { TagInput } from '@/components/ui/tag-input';
 
+// Zod 4 + react-hook-form: use z.coerce for form inputs
 const addProductSchema = z.object({
   name: z.string().min(3, 'Product name must be at least 3 characters.'),
   description: z.string().optional(),
   category: z.string().min(1, 'Category is required.'),
   brand: z.string().optional(),
 
-  // Pricing & Inventory
+  // Pricing & Inventory - z.coerce handles string -> number conversion from form inputs
   price: z.coerce.number().min(0, 'Price must be a positive number.'),
   compare_at_price: z.coerce.number().optional(),
   cost_price: z.coerce.number().optional(),
@@ -90,7 +91,9 @@ const addProductSchema = z.object({
   color: z.string().optional(),
 });
 
-type AddProductFormValues = z.infer<typeof addProductSchema>;
+// Zod 4 types for react-hook-form compatibility
+type AddProductFormInput = z.input<typeof addProductSchema>;
+type AddProductFormValues = z.output<typeof addProductSchema>;
 
 interface AddProductFormProps {
   onProductAdded: (product: Product) => void;
@@ -112,7 +115,8 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
   const [enhancingImages, setEnhancingImages] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState('general');
 
-  const form = useForm<AddProductFormValues>({
+  // Zod 4 + react-hook-form: specify input, context, and output types
+  const form = useForm<AddProductFormInput, unknown, AddProductFormValues>({
     resolver: zodResolver(addProductSchema),
     defaultValues: {
       name: initialData?.name || '',
@@ -623,7 +627,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                     <FormControl>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol}</span>
-                        <Input type="number" {...field} className="pl-8" />
+                        <Input type="number" {...field} value={(field.value as number | string) ?? ''} className="pl-8" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -635,7 +639,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                     <FormControl>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol}</span>
-                        <Input type="number" {...field} className="pl-8" />
+                        <Input type="number" {...field} value={(field.value as number | string) ?? ''} className="pl-8" />
                       </div>
                     </FormControl>
                     <FormDescription className="text-xs">Original price (for sales)</FormDescription>
@@ -648,7 +652,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                     <FormControl>
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol}</span>
-                        <Input type="number" {...field} className="pl-8" />
+                        <Input type="number" {...field} value={(field.value as number | string) ?? ''} className="pl-8" />
                       </div>
                     </FormControl>
                     <FormDescription className="text-xs">For profit tracking</FormDescription>
@@ -715,7 +719,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                   <VariantBuilder
                     key={variantBuilderKey}
                     categoryConfig={categoryConfig}
-                    basePrice={form.watch('price')}
+                    basePrice={Number(form.watch('price')) || 0}
                     initialVariants={variants}
                     onVariantsChange={setVariants}
                   />
@@ -738,21 +742,21 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                         <FormField control={form.control} name="stock" render={({ field }) => (
                           <FormItem>
                             <FormLabel>Quantity</FormLabel>
-                            <FormControl><Input type="number" {...field} /></FormControl>
+                            <FormControl><Input type="number" {...field} value={(field.value as number | string) ?? ''} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="low_stock_threshold" render={({ field }) => (
                           <FormItem>
                             <FormLabel>Low Stock Alert</FormLabel>
-                            <FormControl><Input type="number" {...field} /></FormControl>
+                            <FormControl><Input type="number" {...field} value={(field.value as number | string) ?? ''} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )} />
                         <FormField control={form.control} name="minimum_order_quantity" render={({ field }) => (
                           <FormItem>
                             <FormLabel>Min Order Qty</FormLabel>
-                            <FormControl><Input type="number" min="1" {...field} /></FormControl>
+                            <FormControl><Input type="number" min="1" {...field} value={(field.value as number | string) ?? ''} /></FormControl>
                             <FormMessage />
                           </FormItem>
                         )} />
@@ -874,7 +878,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                   <FormItem>
                     <FormLabel>Weight</FormLabel>
                     <div className="flex gap-2">
-                      <FormControl><Input type="number" {...field} /></FormControl>
+                      <FormControl><Input type="number" {...field} value={(field.value as number | string) ?? ''} /></FormControl>
                       <Select value={form.watch('weight_unit')} onValueChange={(val) => form.setValue('weight_unit', val as 'kg' | 'g' | 'lb' | 'oz')}>
                         <SelectTrigger className="w-[80px]">
                           <SelectValue />
@@ -897,19 +901,19 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                 <div className="flex gap-2 items-end">
                   <FormField control={form.control} name="dimensions.length" render={({ field }) => (
                     <FormItem className="flex-1">
-                      <FormControl><Input type="number" placeholder="Length" {...field} /></FormControl>
+                      <FormControl><Input type="number" placeholder="Length" {...field} value={(field.value as number | string) ?? ''} /></FormControl>
                     </FormItem>
                   )} />
                   <span className="pb-2 text-muted-foreground">x</span>
                   <FormField control={form.control} name="dimensions.width" render={({ field }) => (
                     <FormItem className="flex-1">
-                      <FormControl><Input type="number" placeholder="Width" {...field} /></FormControl>
+                      <FormControl><Input type="number" placeholder="Width" {...field} value={(field.value as number | string) ?? ''} /></FormControl>
                     </FormItem>
                   )} />
                   <span className="pb-2 text-muted-foreground">x</span>
                   <FormField control={form.control} name="dimensions.height" render={({ field }) => (
                     <FormItem className="flex-1">
-                      <FormControl><Input type="number" placeholder="Height" {...field} /></FormControl>
+                      <FormControl><Input type="number" placeholder="Height" {...field} value={(field.value as number | string) ?? ''} /></FormControl>
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="dimensions.unit" render={({ field }) => (

@@ -12,9 +12,10 @@ import { validateDNSRecordBatch } from '@/lib/dns-validator';
  */
 export async function GET(
     request: NextRequest,
-    { params }: { params: { domain: string } }
+    { params }: { params: Promise<{ domain: string }> }
 ) {
     try {
+        const { domain } = await params;
         const cookieStore = await cookies();
         const supabase = createClient(cookieStore);
         const {
@@ -33,8 +34,6 @@ export async function GET(
                 { status: 429, headers: { 'Retry-After': '60' } }
             );
         }
-
-        const domain = params.domain;
 
         // Verify the user owns this domain
         const { data: domainData, error: domainError } = await supabase
@@ -70,11 +69,11 @@ export async function GET(
  */
 export async function POST(
     request: NextRequest,
-    { params }: { params: { domain: string } }
+    { params }: { params: Promise<{ domain: string }> }
 ) {
     let user = null;
     let domainData = null;
-    const domain = params.domain;
+    const { domain } = await params;
     let cookieStore;
     let supabase;
 
@@ -138,7 +137,7 @@ export async function POST(
         }
 
         // Get current records for audit log
-        let currentRecords = [];
+        let currentRecords: Record<string, unknown> = {};
         try {
             currentRecords = await getDomainDNSRecords(domain);
         } catch (e) {

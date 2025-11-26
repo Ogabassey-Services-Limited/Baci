@@ -29,7 +29,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { PhoneInput } from '@/components/ui/phone-input';
-import { AddressAutocomplete } from '@/components/address-autocomplete';
+import { AddressAutocomplete, PlaceDetails } from '@/components/address-autocomplete';
 import { Badge } from '@/components/ui/badge';
 
 interface Customer {
@@ -265,8 +265,8 @@ export default function CustomerDetailPage() {
                                             const value = typeof val === 'string' ? val : val.target.value;
                                             setEditData({ ...editData, address: value });
                                         }}
-                                        onSelect={(place: Record<string, unknown>) => {
-                                            setEditData({ ...editData, address: place.formattedAddress as string });
+                                        onSelect={(place: PlaceDetails) => {
+                                            setEditData({ ...editData, address: place.formattedAddress });
                                         }}
                                     />
                                 </div>

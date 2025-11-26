@@ -12,7 +12,7 @@ const _AutofillProductDetailsInputSchema = z.object({
   businessType: z.string().describe("The merchant's business category (e.g., 'fashion', 'electronics')."),
 });
 
-type AutofillProductDetailsInput = z.infer<typeof AutofillProductDetailsInputSchema>;
+type AutofillProductDetailsInput = z.infer<typeof _AutofillProductDetailsInputSchema>;
 
 const VariantSuggestionSchema = z.object({
   attribute: z.string().describe("The name of the variant attribute, e.g., 'Color', 'Size', 'Storage'."),
@@ -31,7 +31,7 @@ const _AutofillProductDetailsOutputSchema = z.object({
   details: ProductDetailsSchema,
 });
 
-type AutofillProductDetailsOutput = z.infer<typeof AutofillProductDetailsOutputSchema>;
+type AutofillProductDetailsOutput = z.infer<typeof _AutofillProductDetailsOutputSchema>;
 
 export async function autofillProductDetails(
   input: AutofillProductDetailsInput

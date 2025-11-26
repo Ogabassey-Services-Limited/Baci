@@ -27,18 +27,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Get merchant data
-    let merchantQuery = supabase
+    const merchantQuery = supabase
         .from('merchants')
-        .select('id, business_name, country, payout_currency, slug')
-        .single();
+        .select('id, business_name, country, payout_currency, slug');
 
-    if (merchantId) {
-        merchantQuery = merchantQuery.eq('id', merchantId);
-    } else {
-        merchantQuery = merchantQuery.eq('slug', merchantSlug);
-    }
-
-    const { data: merchant, error: merchantError } = await merchantQuery;
+    const { data: merchant, error: merchantError } = merchantId
+        ? await merchantQuery.eq('id', merchantId).single()
+        : await merchantQuery.eq('slug', merchantSlug!).single();
 
     if (merchantError || !merchant) {
         return NextResponse.json(

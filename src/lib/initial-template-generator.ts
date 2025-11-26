@@ -391,9 +391,9 @@ export function generateInitialTemplate(params: TemplateParams): Data {
                     },
                     storeName: businessName,
                     // Add logo URL if merchant has one
-                    ...(params.merchant?.logo_url && {
+                    ...(params.merchant?.logo_url ? {
                         logoUrl: params.merchant.logo_url
-                    })
+                    } : {})
                 }
             },
             // Hero Carousel

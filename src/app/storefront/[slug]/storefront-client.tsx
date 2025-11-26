@@ -103,7 +103,7 @@ function StorefrontContent() {
       filtered = filtered.filter(p => (p.category || 'General') === selectedCategory);
     }
 
-    return filtered.filter(p => p.status === 'published');
+    return filtered.filter(p => p.status === 'active');
   }, [searchQuery, fuse, products, selectedCategory]);
 
   if (!merchant) return null; // Should be handled by parent
