@@ -146,10 +146,8 @@ export default function BuilderClient() {
                 }
 
                 const json = await res.json();
-                console.log('BuilderClient: Fetched JSON:', json);
 
                 if (json.config) {
-                    console.log('BuilderClient: Setting data from config:', json.config);
                     setData(json.config);
 
                     // Load SEO data if it exists
@@ -306,7 +304,6 @@ export default function BuilderClient() {
                     description: "Gemini AI has applied your changes successfully!",
                 });
             } else {
-                console.warn('No config in AI response');
                 toast({
                     title: "Warning",
                     description: "AI response was incomplete. Please try again.",
