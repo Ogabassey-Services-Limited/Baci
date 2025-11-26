@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 export function ClientPage({ slug }: { slug: string }) {
     const { merchant, loading } = useMerchant();
@@ -38,7 +39,7 @@ export function ClientPage({ slug }: { slug: string }) {
             </header>
             <main className="container mx-auto max-w-3xl py-12 px-4">
                 <h1 className="text-4xl font-bold mb-8" style={{ color: 'var(--store-primary)' }}>{pageTitle}</h1>
-                <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: pageContent || '' }} />
+                <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(pageContent || '') }} />
             </main>
             <footer
                 className="text-white mt-12"

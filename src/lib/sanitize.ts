@@ -15,6 +15,25 @@ export function sanitizeHtml(dirty: string): string {
 }
 
 /**
+ * Strips HTML tags from a string by iteratively applying the regex until no more matches.
+ * This prevents incomplete sanitization from nested patterns like <scr<script>ipt>.
+ */
+export function stripHtmlTags(text: string): string {
+    const htmlTagRegex = /<[^>]*>/g;
+    let result = text;
+    let previous: string;
+
+    // Iteratively remove HTML tags until no more are found
+    // This handles cases like <scr<script>ipt> which become <script> after one pass
+    do {
+        previous = result;
+        result = result.replace(htmlTagRegex, '');
+    } while (result !== previous);
+
+    return result;
+}
+
+/**
  * Sanitize plain text (remove HTML, trim, limit length)
  */
 export function sanitizeText(text: string, maxLength: number = 10000): string {
@@ -23,8 +42,8 @@ export function sanitizeText(text: string, maxLength: number = 10000): string {
     // Remove null bytes
     let sanitized = text.replace(/\0/g, '');
 
-    // Remove HTML tags
-    sanitized = sanitized.replace(/<[^>]*>/g, '');
+    // Remove HTML tags (iteratively to handle nested patterns)
+    sanitized = stripHtmlTags(sanitized);
 
     // Trim whitespace
     sanitized = sanitized.trim();
@@ -93,6 +112,38 @@ export function sanitizeSchemaUrl(url: string): string {
 
     // Then escape for JSON-LD context
     return escapeHtml(sanitized);
+}
+
+/**
+ * Recursively sanitize all string values in a JSON-LD schema object.
+ * This prevents XSS when rendering schema_markup from the database.
+ * Performance: O(n) where n is total number of values, with minimal memory overhead.
+ */
+export function sanitizeSchemaMarkup<T>(obj: T): T {
+    if (obj === null || obj === undefined) {
+        return obj;
+    }
+
+    if (typeof obj === 'string') {
+        return escapeHtml(obj) as T;
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(item => sanitizeSchemaMarkup(item)) as T;
+    }
+
+    if (typeof obj === 'object') {
+        const result: Record<string, unknown> = {};
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                result[key] = sanitizeSchemaMarkup((obj as Record<string, unknown>)[key]);
+            }
+        }
+        return result as T;
+    }
+
+    // Numbers, booleans, etc. pass through unchanged
+    return obj;
 }
 
 /**
@@ -232,4 +283,36 @@ export function sanitizeJson<T>(input: unknown, schema: z.ZodSchema<T>): T | nul
         console.error('JSON validation failed:', error);
         return null;
     }
+}
+
+/**
+ * Recursively sanitize all string values in an object for use in JSON-LD scripts.
+ * This is useful when using pre-stored schema objects from the database.
+ * Prevents XSS attacks by escaping HTML-sensitive characters in all string values.
+ */
+export function sanitizeSchemaObject<T>(obj: T): T {
+    if (obj === null || obj === undefined) {
+        return obj;
+    }
+
+    if (typeof obj === 'string') {
+        return escapeHtml(obj) as T;
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(item => sanitizeSchemaObject(item)) as T;
+    }
+
+    if (typeof obj === 'object') {
+        const sanitized: Record<string, unknown> = {};
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                sanitized[key] = sanitizeSchemaObject((obj as Record<string, unknown>)[key]);
+            }
+        }
+        return sanitized as T;
+    }
+
+    // Numbers, booleans, etc. pass through unchanged
+    return obj;
 }
