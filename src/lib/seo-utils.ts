@@ -26,6 +26,20 @@ const WEIGHT_UNIT_CODES: Record<string, string> = {
 };
 
 /**
+ * Dimension unit mapping to schema.org unit codes
+ */
+const DIMENSION_UNIT_CODES: Record<string, string> = {
+    'in': 'INH',
+    'm': 'MTR',
+    'cm': 'CMT'
+};
+
+/**
+ * Number of milliseconds in 30 days
+ */
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
  * Generates JSON-LD structured data for a product (2025 Google best practices)
  * @see https://developers.google.com/search/docs/appearance/structured-data/product
  */
@@ -53,7 +67,7 @@ export function generateProductSchema(product: Product, merchantName: string = '
                 name: merchantName
             },
             // Add price valid until (30 days from now for freshness)
-            priceValidUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS).toISOString().split('T')[0]
         }
     };
 
@@ -96,8 +110,11 @@ export function generateProductSchema(product: Product, merchantName: string = '
 
     // Dimensions
     if (product.dimensions) {
-        const dimUnit = product.dimensions.unit === 'in' ? 'INH' : product.dimensions.unit === 'm' ? 'MTR' : 'CMT';
-        if (product.dimensions.length) {
+        const dimUnit = DIMENSION_UNIT_CODES[product.dimensions.unit] || 'CMT';
+        // Use product.dimensions.depth if available; fallback to length for backwards compatibility
+        if (product.dimensions.depth) {
+            schema.depth = { '@type': 'QuantitativeValue', value: product.dimensions.depth, unitCode: dimUnit };
+        } else if (product.dimensions.length) {
             schema.depth = { '@type': 'QuantitativeValue', value: product.dimensions.length, unitCode: dimUnit };
         }
         if (product.dimensions.width) {
@@ -263,6 +280,11 @@ export function generateLocalBusinessSchema(business: LocalBusinessData): Record
  */
 export function generateMetaDescription(description: string, maxLength: number = 160): string {
     if (!description) return '';
+
+    // Ensure maxLength is a positive number greater than 3 to allow for ellipsis
+    if (typeof maxLength !== 'number' || isNaN(maxLength) || maxLength <= 3) {
+        maxLength = 160;
+    }
 
     // Strip HTML tags if any
     const plainText = description.replace(/<[^>]*>?/gm, '');
