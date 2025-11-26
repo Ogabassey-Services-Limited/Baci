@@ -32,9 +32,9 @@ export async function DELETE() {
       return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
     }
 
-    // Delete all cache entries for this merchant
-    cache.deletePattern(`analytics:${merchant.id}`);
-    cache.deletePattern(`ai-insights:${merchant.id}`);
+    // Delete all cache entries for this merchant (using wildcards)
+    cache.deletePattern(`analytics:${merchant.id}*`);
+    cache.deletePattern(`ai-insights:${merchant.id}*`);
 
     return NextResponse.json({
       message: 'Cache invalidated successfully',
