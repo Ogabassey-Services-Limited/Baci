@@ -56,18 +56,6 @@ export const getGeminiApiKey = (): string | undefined => {
   return key;
 };
 
-export const getUpstashRedisUrl = (): string | undefined => {
-  return process.env.UPSTASH_REDIS_REST_URL;
-};
-
-export const getUpstashRedisToken = (): string | undefined => {
-  return process.env.UPSTASH_REDIS_REST_TOKEN;
-};
-
-export const isRedisConfigured = (): boolean => {
-  return !!(process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN);
-};
-
 export const getRootDomain = (): string => {
   return process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
 };
@@ -101,9 +89,6 @@ export const validateEnvironment = (): { valid: boolean; warnings: string[] } =>
   }
   if (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY) {
     warnings.push('GOOGLE_GENAI_API_KEY is missing (AI features disabled)');
-  }
-  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
-    warnings.push('UPSTASH_REDIS_REST_URL/TOKEN is missing (rate limiting uses in-memory fallback)');
   }
 
   if (warnings.length > 0 && typeof window === 'undefined') {

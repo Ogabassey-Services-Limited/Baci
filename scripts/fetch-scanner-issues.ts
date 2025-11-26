@@ -332,7 +332,7 @@ async function displaySecurityAuditSummary(): Promise<void> {
    CSP, HSTS, X-Frame-Options, X-Content-Type-Options in next.config.ts
 
    ${formatSeverity('high')} #4 Rate Limiting - \x1b[32mFIXED\x1b[0m
-   Redis (Upstash) with sliding window + in-memory fallback in rate-limit.ts
+   In-memory rate limiting with configurable limits per endpoint
 
    ${formatSeverity('high')} #5 Mass Assignment - \x1b[32mFIXED\x1b[0m
    Explicit field whitelisting with sanitization in customers/route.ts
@@ -356,17 +356,7 @@ async function displaySecurityAuditSummary(): Promise<void> {
    SENSITIVE_KEYS + token pattern detection in logger.ts
 
    ${formatSeverity('low')} #15 Environment Validation - \x1b[32mFIXED\x1b[0m
-   validateEnvironment() includes Redis check in env.ts
-`);
-
-  console.log('─'.repeat(80));
-  console.log(`\x1b[36mℹ️  DEPLOYMENT NOTES\x1b[0m`);
-  console.log('─'.repeat(80));
-  console.log(`
-   For production, configure these environment variables:
-   - UPSTASH_REDIS_REST_URL    (for distributed rate limiting)
-   - UPSTASH_REDIS_REST_TOKEN  (for distributed rate limiting)
-   Without Redis, rate limiting uses in-memory fallback (single instance).
+   validateEnvironment() function in env.ts
 `);
 
   console.log('📄 Original audit: See SECURITY_AUDIT_2025.md');
