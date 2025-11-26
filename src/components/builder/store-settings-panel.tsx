@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
@@ -24,6 +24,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+
+// Default free shipping threshold value
+const DEFAULT_FREE_SHIPPING_THRESHOLD = 50;
 
 export interface StoreSettings {
     // Product Page Settings
@@ -110,15 +113,17 @@ const defaultSettings: StoreSettings = {
 
 export function StoreSettingsPanel({ settings, onChange }: StoreSettingsPanelProps) {
     const [data, setData] = useState<StoreSettings>(settings || defaultSettings);
-    const [prevSettings, setPrevSettings] = useState(settings);
 
-    // React-recommended pattern: Reset state when prop changes (during render)
-    if (settings !== prevSettings) {
-        setPrevSettings(settings);
+    // Sync local state when settings prop changes from parent
+    useEffect(() => {
         setData(settings || defaultSettings);
-    }
+    }, [settings]);
 
-    const handleChange = (section: keyof StoreSettings, field: string, value: unknown) => {
+    const handleChange = <K extends keyof StoreSettings>(
+        section: K,
+        field: keyof StoreSettings[K],
+        value: StoreSettings[K][keyof StoreSettings[K]]
+    ) => {
         const updated = {
             ...data,
             [section]: {
@@ -334,9 +339,16 @@ export function StoreSettingsPanel({ settings, onChange }: StoreSettingsPanelPro
                                     id="free-shipping"
                                     type="number"
                                     min="0"
-                                    value={data.cart.freeShippingThreshold || 50}
-                                    onChange={(e) => handleChange('cart', 'freeShippingThreshold', parseFloat(e.target.value))}
-                                    placeholder="50"
+                                    value={data.cart.freeShippingThreshold || DEFAULT_FREE_SHIPPING_THRESHOLD}
+                                    onChange={(e) => {
+                                        const value = Number(e.target.value);
+                                        handleChange(
+                                            'cart',
+                                            'freeShippingThreshold',
+                                            Number.isFinite(value) ? value : DEFAULT_FREE_SHIPPING_THRESHOLD
+                                        );
+                                    }}
+                                    placeholder={String(DEFAULT_FREE_SHIPPING_THRESHOLD)}
                                 />
                                 <p className="text-xs text-muted-foreground mt-1">
                                     Show free shipping progress when cart reaches this amount
