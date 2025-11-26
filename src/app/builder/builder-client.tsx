@@ -1,6 +1,6 @@
 'use client';
 
-import { Puck, Data, Drawer, ComponentData, DefaultComponentProps, Config } from '@measured/puck';
+import { Puck, Data, Drawer, DefaultComponentProps } from '@measured/puck';
 import '@measured/puck/puck.css';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
