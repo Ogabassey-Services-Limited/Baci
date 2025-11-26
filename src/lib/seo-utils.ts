@@ -117,7 +117,7 @@ export function generateProductSchema(product: Product, merchantName: string = '
     }
 
     // Compare at price (for sales)
-    if (product.compare_at_price && product.compare_at_price > product.price) {
+    if (product.compare_at_price && product.compare_at_price > product.price && schema.offers) {
         schema.offers.priceSpecification = {
             '@type': 'PriceSpecification',
             price: product.price,

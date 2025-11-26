@@ -4,10 +4,11 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/auth-context';
+import type { Session } from '@supabase/supabase-js';
 
 export default function DebugAuthPage() {
     const { user, loading } = useAuth();
-    const [session, setSession] = useState<Record<string, unknown> | null>(null);
+    const [session, setSession] = useState<Session | null>(null);
     const [cookies, setCookies] = useState<string>('');
     const [logs, setLogs] = useState<string[]>([]);
     const supabase = createClient();

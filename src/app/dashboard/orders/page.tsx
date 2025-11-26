@@ -65,6 +65,8 @@ export const initialOrders = [
     paymentStatus: 'Paid' as PaymentStatus,
     date: 'Nov 12, 2025',
     source: 'whatsapp',
+    tracking_number: undefined as string | undefined,
+    shipping_provider: undefined as string | undefined,
   },
   {
     orderNumber: '#06091',
@@ -74,6 +76,8 @@ export const initialOrders = [
     paymentStatus: 'Paid' as PaymentStatus,
     date: 'Nov 11, 2025',
     source: 'whatsapp',
+    tracking_number: undefined as string | undefined,
+    shipping_provider: undefined as string | undefined,
   },
   {
     orderNumber: '#06090',
@@ -83,6 +87,8 @@ export const initialOrders = [
     paymentStatus: 'Unpaid' as PaymentStatus,
     date: 'Nov 11, 2025',
     source: 'whatsapp',
+    tracking_number: undefined as string | undefined,
+    shipping_provider: undefined as string | undefined,
   },
   {
     orderNumber: '#06089',
@@ -92,6 +98,8 @@ export const initialOrders = [
     paymentStatus: 'Partially Paid' as PaymentStatus,
     date: 'Nov 11, 2025',
     source: 'instagram',
+    tracking_number: undefined as string | undefined,
+    shipping_provider: undefined as string | undefined,
   },
   {
     orderNumber: '#06056',
@@ -101,6 +109,8 @@ export const initialOrders = [
     paymentStatus: 'Paid' as PaymentStatus,
     date: 'Oct 30, 2025',
     source: 'other',
+    tracking_number: 'TRK123456789',
+    shipping_provider: 'DHL',
   },
   {
     orderNumber: '#06055',
@@ -110,6 +120,8 @@ export const initialOrders = [
     paymentStatus: 'Paid' as PaymentStatus,
     date: 'Oct 30, 2025',
     source: 'other',
+    tracking_number: 'TRK987654321',
+    shipping_provider: 'FedEx',
   },
   {
     orderNumber: '#06054',
@@ -119,6 +131,8 @@ export const initialOrders = [
     paymentStatus: 'Refunded' as PaymentStatus,
     date: 'Oct 29, 2025',
     source: 'other',
+    tracking_number: undefined as string | undefined,
+    shipping_provider: undefined as string | undefined,
   },
 ];
 
@@ -134,6 +148,8 @@ interface ApiOrder {
   created_at: string;
   source: string;
   id: string;
+  tracking_number?: string;
+  shipping_provider?: string;
 }
 
 export const StatusBadge = ({ status, type }: { status: string, type: 'payment' | 'shipping' }) => {
@@ -275,6 +291,8 @@ export default function OrdersPage() {
           }),
           source: order.source === 'online_store' ? 'other' : order.source,
           id: order.id,
+          tracking_number: order.tracking_number,
+          shipping_provider: order.shipping_provider,
         }));
 
         setOrders(transformedOrders);

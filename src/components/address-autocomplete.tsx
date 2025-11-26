@@ -9,20 +9,32 @@ import { cn } from '@/lib/utils';
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
+// Type for accessing google maps on window
+interface WindowWithGoogle extends Window {
+  google?: typeof google;
+}
+
+// Helper function to check if Google Maps is loaded
+const isGoogleMapsLoaded = (): boolean => {
+  return typeof window !== 'undefined' &&
+    typeof (window as WindowWithGoogle).google !== 'undefined' &&
+    typeof (window as WindowWithGoogle).google?.maps?.places !== 'undefined';
+};
+
 // Helper to load the Google Maps script
 const loadScript = (url: string, callback: () => void) => {
-  if (typeof window !== 'undefined' && (window as Record<string, unknown>).google?.maps?.places) {
+  if (isGoogleMapsLoaded()) {
     callback();
     return;
   }
 
   if (document.querySelector(`script[src="${url}"]`)) {
     // Script already loading or loaded
-    if ((window as Record<string, unknown>).google?.maps?.places) {
+    if (isGoogleMapsLoaded()) {
       callback();
     } else {
       const interval = setInterval(() => {
-        if ((window as Record<string, unknown>).google?.maps?.places) {
+        if (isGoogleMapsLoaded()) {
           clearInterval(interval);
           callback();
         }

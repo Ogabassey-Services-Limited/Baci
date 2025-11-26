@@ -7,6 +7,13 @@ import { generateHeroSlides, deriveThemeFromColors, generateFeatures } from '@/l
 import type { BrandColors } from '@/types';
 import type { Data } from '@measured/puck';
 
+interface OnboardingPuckPreviewProps {
+    businessName: string;
+    businessType: string;
+    logoDataUri?: string;
+    brandColors?: BrandColors;
+}
+
 /**
  * Error Boundary to catch merchant context errors
  */
@@ -246,7 +253,7 @@ export function OnboardingPuckPreview({
         return generatePreviewTemplate({
             businessName: businessName || 'Your Store',
             businessType: businessType || 'other',
-            logoDataUri,
+            logoDataUri: logoDataUri ?? null,
             brandColors
         });
     }, [businessName, businessType, logoDataUri, brandColors]);

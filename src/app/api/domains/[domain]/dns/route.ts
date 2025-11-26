@@ -137,7 +137,7 @@ export async function POST(
         }
 
         // Get current records for audit log
-        let currentRecords = [];
+        let currentRecords: Record<string, unknown> = {};
         try {
             currentRecords = await getDomainDNSRecords(domain);
         } catch (e) {

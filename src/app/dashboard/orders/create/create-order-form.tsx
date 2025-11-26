@@ -28,7 +28,7 @@ const orderItemSchema = z.object({
     productId: z.string(),
     name: z.string(),
     price: z.number(),
-    quantity: z.coerce.number().min(1, { error: 'Quantity must be at least 1.' }),
+    quantity: z.coerce.number().min(1, { message: 'Quantity must be at least 1.' }),
 });
 
 const createOrderSchema = z.object({
@@ -41,7 +41,9 @@ const createOrderSchema = z.object({
     paymentMethod: z.enum(['Cash', 'Card', 'Bank Transfer']),
 });
 
-type CreateOrderFormValues = z.infer<typeof createOrderSchema>;
+// Zod 4 types for react-hook-form compatibility
+type CreateOrderFormInput = z.input<typeof createOrderSchema>;
+type CreateOrderFormValues = z.output<typeof createOrderSchema>;
 
 export function CreateOrderForm() {
     const router = useRouter();
@@ -53,7 +55,8 @@ export function CreateOrderForm() {
     const [customerSearch, setCustomerSearch] = useState('');
     const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
 
-    const form = useForm<CreateOrderFormValues>({
+    // Zod 4 + react-hook-form: specify input, context, and output types
+    const form = useForm<CreateOrderFormInput, unknown, CreateOrderFormValues>({
         resolver: zodResolver(createOrderSchema),
         defaultValues: {
             customerName: '',
@@ -80,7 +83,7 @@ export function CreateOrderForm() {
 
     const filteredProducts = products.filter(p => p.name.toLowerCase().includes(productSearch.toLowerCase()) && !fields.some(item => item.productId === p.id));
     const filteredCustomers = customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()));
-    const orderTotal = fields.reduce((total, item) => total + (item.price * item.quantity), 0);
+    const orderTotal = fields.reduce((total, item) => total + (item.price * Number(item.quantity)), 0);
 
     const addProductToOrder = (product: Product) => {
         append({
@@ -216,7 +219,7 @@ export function CreateOrderForm() {
                                                 <p className="text-sm text-muted-foreground">{formatCurrency(item.price)}</p>
                                             </div>
                                             <Input type="number" {...form.register(`items.${index}.quantity`)} className="w-20 h-9 text-center" />
-                                            <p className="font-semibold w-24 text-right">{formatCurrency(item.price * item.quantity)}</p>
+                                            <p className="font-semibold w-24 text-right">{formatCurrency(item.price * Number(item.quantity))}</p>
                                             <Button type="button" variant="ghost" size="icon" className="text-red-500 hover:text-red-600 h-8 w-8" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /><span className="sr-only">Remove Item</span></Button>
                                         </div>
                                     ))}

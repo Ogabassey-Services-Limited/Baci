@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { useMerchant } from '@/hooks/use-merchant';
 import { Loader2 } from 'lucide-react';
-import { DraggableAnalyticsGrid } from '@/components/analytics/draggable-analytics-grid';
+import { DraggableAnalyticsGrid, AnalyticsData } from '@/components/analytics/draggable-analytics-grid';
 import { AnalyticsCategoryNav, AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import { AnalyticsFilters } from '@/components/analytics/analytics-filters';
 
@@ -22,7 +22,7 @@ export default function AnalyticsPage() {
     const [activeCategory, setActiveCategory] = useState<AnalyticsCategory>(
         (searchParams.get('category') as AnalyticsCategory) || 'overview'
     );
-    const [analyticsData, setAnalyticsData] = useState<Record<string, unknown> | null>(null);
+    const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
     const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
     // Fetch analytics data
@@ -87,7 +87,7 @@ export default function AnalyticsPage() {
 
             {/* Main Analytics Grid */}
             <DraggableAnalyticsGrid
-                data={analyticsData}
+                data={analyticsData || {}}
                 loading={loadingAnalytics}
                 activeCategory={activeCategory}
                 merchant={merchant}

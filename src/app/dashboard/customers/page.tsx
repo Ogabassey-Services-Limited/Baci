@@ -46,7 +46,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { getCountryByCode } from '@/lib/countries';
 import { apiGet, apiPost } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
-import { AddressAutocomplete } from '@/components/address-autocomplete';
+import { AddressAutocomplete, PlaceDetails } from '@/components/address-autocomplete';
 
 interface Customer {
     id: string;
@@ -218,8 +218,8 @@ export default function CustomersPage() {
                                             const value = typeof val === 'string' ? val : val.target.value;
                                             setNewCustomer({ ...newCustomer, address: value });
                                         }}
-                                        onSelect={(place: Record<string, unknown>) => {
-                                            setNewCustomer({ ...newCustomer, address: place.formattedAddress as string });
+                                        onSelect={(place: PlaceDetails) => {
+                                            setNewCustomer({ ...newCustomer, address: place.formattedAddress });
                                         }}
                                     />
                                 </div>

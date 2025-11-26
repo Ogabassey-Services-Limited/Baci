@@ -63,7 +63,7 @@ export async function sendEmail({
 
     return {
       success: true,
-      messageId: response.messageId,
+      messageId: response.body?.messageId ?? response.response?.headers?.['x-message-id'] ?? 'unknown',
     };
   } catch (error) {
     console.error('Brevo email error:', error);

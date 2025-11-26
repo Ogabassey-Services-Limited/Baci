@@ -60,7 +60,7 @@ export default function DomainsPage() {
   };
 
   const getStatusBadge = (status: Domain['status']) => {
-    const variants: Record<Domain['status'], { variant: string; label: string; icon: React.ComponentType<{ className?: string }> }> = {
+    const variants: Record<Domain['status'], { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string; icon: React.ComponentType<{ className?: string }> }> = {
       active: { variant: 'default', label: 'Active', icon: Check },
       pending: { variant: 'secondary', label: 'Pending', icon: Clock },
       verifying: { variant: 'secondary', label: 'Verifying', icon: Clock },

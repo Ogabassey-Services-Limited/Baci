@@ -140,7 +140,7 @@ export async function POST(
         }
 
         // Get current config for audit log
-        let currentConfig = [];
+        let currentConfig: Record<string, unknown> = {};
         try {
             currentConfig = await getDomainEmailForwarding(domain);
         } catch (e) {
