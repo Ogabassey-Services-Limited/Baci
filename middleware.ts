@@ -111,8 +111,7 @@ export async function middleware(request: NextRequest) {
       .single();
 
     if (domainRecord) {
-      // @ts-expect-error - Supabase typing issue with nested select
-      const merchantSlug = domainRecord.merchants?.slug;
+      const merchantSlug = (domainRecord.merchants as { slug?: string } | null)?.slug;
       if (merchantSlug) {
         url.pathname = `/storefront/${merchantSlug}${url.pathname}`;
         return NextResponse.rewrite(url, {

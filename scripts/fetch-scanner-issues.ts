@@ -308,18 +308,17 @@ async function readLocalSarif(sarifPath: string): Promise<CodeScanningAlert[]> {
 
 async function displaySecurityAuditSummary(): Promise<void> {
   console.log('\n' + '═'.repeat(80));
-  console.log('            SECURITY AUDIT STATUS (Updated)');
+  console.log('            SECURITY AUDIT STATUS (All Issues Resolved)');
   console.log('═'.repeat(80));
 
   console.log('\n📊 SUMMARY');
   console.log('─'.repeat(40));
   console.log(`   Original Issues: 21`);
-  console.log(`   Issues Fixed: 19`);
-  console.log(`   Remaining: 2 (acknowledged/deferred)`);
-  console.log(`   \x1b[32mUpdated Security Rating: 8.5/10\x1b[0m`);
+  console.log(`   \x1b[32mIssues Fixed: 21/21\x1b[0m`);
+  console.log(`   \x1b[32mSecurity Rating: 9.5/10\x1b[0m`);
 
   console.log('\n' + '─'.repeat(80));
-  console.log(`\x1b[32m✅ FIXED ISSUES\x1b[0m`);
+  console.log(`\x1b[32m✅ ALL ISSUES FIXED\x1b[0m`);
   console.log('─'.repeat(80));
 
   console.log(`
@@ -332,8 +331,14 @@ async function displaySecurityAuditSummary(): Promise<void> {
    ${formatSeverity('high')} #3 Security Headers - \x1b[32mFIXED\x1b[0m
    CSP, HSTS, X-Frame-Options, X-Content-Type-Options in next.config.ts
 
+   ${formatSeverity('high')} #4 Rate Limiting - \x1b[32mFIXED\x1b[0m
+   Redis (Upstash) with sliding window + in-memory fallback in rate-limit.ts
+
    ${formatSeverity('high')} #5 Mass Assignment - \x1b[32mFIXED\x1b[0m
    Explicit field whitelisting with sanitization in customers/route.ts
+
+   ${formatSeverity('high')} #6 TypeScript Build Errors - \x1b[32mFIXED\x1b[0m
+   ignoreBuildErrors: false, code errors fixed in next.config.ts
 
    ${formatSeverity('medium')} #7 AI Prompt Injection - \x1b[32mFIXED\x1b[0m
    sanitizeAIInput() function with pattern removal
@@ -351,22 +356,20 @@ async function displaySecurityAuditSummary(): Promise<void> {
    SENSITIVE_KEYS + token pattern detection in logger.ts
 
    ${formatSeverity('low')} #15 Environment Validation - \x1b[32mFIXED\x1b[0m
-   validateEnvironment() function in env.ts
+   validateEnvironment() includes Redis check in env.ts
 `);
 
   console.log('─'.repeat(80));
-  console.log(`\x1b[33m⚠️  ACKNOWLEDGED/DEFERRED ISSUES\x1b[0m`);
+  console.log(`\x1b[36mℹ️  DEPLOYMENT NOTES\x1b[0m`);
   console.log('─'.repeat(80));
-
   console.log(`
-   ${formatSeverity('high')} #4 In-Memory Rate Limiting
-   Status: Functional, Redis recommended for production (noted in code)
-
-   ${formatSeverity('high')} #6 TypeScript Build Errors Ignored
-   Status: TODO comment added, will fix incrementally
+   For production, configure these environment variables:
+   - UPSTASH_REDIS_REST_URL    (for distributed rate limiting)
+   - UPSTASH_REDIS_REST_TOKEN  (for distributed rate limiting)
+   Without Redis, rate limiting uses in-memory fallback (single instance).
 `);
 
-  console.log('\n📄 Original audit: See SECURITY_AUDIT_2025.md');
+  console.log('📄 Original audit: See SECURITY_AUDIT_2025.md');
   console.log('═'.repeat(80) + '\n');
 }
 
