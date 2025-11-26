@@ -31,8 +31,8 @@ const SENSITIVE_KEYS = [
  * Recursively sanitize an object to redact sensitive fields
  */
 function sanitizeForLogging(obj: unknown, depth = 0): unknown {
-  // Prevent infinite recursion
-  if (depth > 10) return '[MAX_DEPTH]';
+  // Prevent infinite recursion - reduced from 10 to 7 for performance
+  if (depth > 7) return '[MAX_DEPTH]';
 
   if (obj === null || obj === undefined) return obj;
 
@@ -61,27 +61,57 @@ function sanitizeForLogging(obj: unknown, depth = 0): unknown {
 
     if (isSensitive) {
       sanitized[key] = '[REDACTED]';
-    } else if (typeof value === 'object' && value !== null) {
-      sanitized[key] = sanitizeForLogging(value, depth + 1);
     } else {
-      sanitized[key] = value;
+      // Always recursively sanitize all values (including primitives for string token detection)
+      sanitized[key] = sanitizeForLogging(value, depth + 1);
     }
   }
 
   return sanitized;
 }
 
+/**
+ * Convert an Error object into a sanitized serializable object for logging
+ */
+function sanitizeErrorForLogging(error: Error): Record<string, unknown> {
+  // Only keep common fields and sanitize any extra (custom) fields
+  const base: Record<string, unknown> = {
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+  };
+
+  // Attach and sanitize custom fields (excluding built-in ones)
+  for (const key of Object.keys(error)) {
+    if (key !== 'name' && key !== 'message' && key !== 'stack') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      base[key] = sanitizeForLogging((error as any)[key]);
+    }
+  }
+
+  return base;
+}
+
 const log = (level: LogLevel, payload: LogPayload | Error) => {
   const timestamp = new Date().toISOString();
   if (payload instanceof Error) {
-    console[level](`[${timestamp}] [${level.toUpperCase()}] ${payload.message}`, payload);
+    // Sanitize Error objects to prevent leaking sensitive data in error properties
+    const sanitizedError = sanitizeErrorForLogging(payload);
+    console[level](
+      `[${timestamp}] [${level.toUpperCase()}] ${sanitizedError.message}`,
+      sanitizedError
+    );
   } else {
     // Sanitize payload to remove sensitive data
     const sanitizedPayload = sanitizeForLogging(payload) as LogPayload;
 
     // Check if there is an error object in the payload to log it correctly
     if (payload.error && payload.error instanceof Error) {
-      console[level](`[${timestamp}] [${level.toUpperCase()}] ${sanitizedPayload.message}`, payload.error);
+      // Use sanitized error from sanitizedPayload to prevent leaking sensitive data
+      console[level](
+        `[${timestamp}] [${level.toUpperCase()}] ${sanitizedPayload.message}`,
+        sanitizeErrorForLogging(payload.error)
+      );
     } else {
       console[level](`[${timestamp}] [${level.toUpperCase()}] ${sanitizedPayload.message}`, {
         ...sanitizedPayload,
