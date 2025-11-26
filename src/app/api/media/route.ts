@@ -4,6 +4,26 @@ import { cookies } from 'next/headers';
 
 const BUCKET_NAME = 'media';
 
+// Security constants for file upload
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB max file size
+const ALLOWED_MIME_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+];
+
+// File extension to MIME type mapping for validation
+const EXTENSION_TO_MIME: Record<string, string> = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp',
+    'svg': 'image/svg+xml',
+};
+
 export async function GET(_request: Request) {
     const cookieStore = await cookies();
 
@@ -113,15 +133,31 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
 
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            return NextResponse.json({ error: 'Only images are allowed' }, { status: 400 });
+        // Validate file size
+        if (file.size > MAX_FILE_SIZE) {
+            return NextResponse.json({
+                error: `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`,
+            }, { status: 400 });
         }
 
-        // Generate unique filename
+        // Validate file type against whitelist
+        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+            return NextResponse.json({
+                error: 'Invalid file type. Allowed types: JPEG, PNG, GIF, WebP, SVG',
+            }, { status: 400 });
+        }
+
+        // Validate file extension matches MIME type (prevents extension spoofing)
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (!ext || !EXTENSION_TO_MIME[ext] || EXTENSION_TO_MIME[ext] !== file.type) {
+            return NextResponse.json({
+                error: 'File extension does not match file type',
+            }, { status: 400 });
+        }
+
+        // Generate unique filename with sanitized extension
         const timestamp = Date.now();
         const randomStr = Math.random().toString(36).substring(7);
-        const ext = file.name.split('.').pop();
         const fileName = `${timestamp}-${randomStr}.${ext}`;
         const filePath = `${merchant.id}/${fileName}`;
 

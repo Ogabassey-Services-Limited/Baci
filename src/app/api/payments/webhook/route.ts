@@ -5,12 +5,65 @@ import { verifyPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/brevo';
 import { generateOrderConfirmationEmail, generateOrderConfirmationText } from '@/lib/email-templates';
+import { createHmac, timingSafeEqual } from 'crypto';
+
+/**
+ * Verify Korapay webhook signature
+ * @param signature - The signature from the x-korapay-signature header
+ * @param payload - The raw request body as string
+ * @returns boolean indicating if signature is valid
+ */
+function verifyWebhookSignature(signature: string | null, payload: string): boolean {
+  if (!signature) {
+    logger.warn({ message: 'Webhook signature missing' });
+    return false;
+  }
+
+  const secretKey = process.env.KORAPAY_SECRET_KEY;
+  if (!secretKey) {
+    logger.error({ message: 'KORAPAY_SECRET_KEY not configured' });
+    return false;
+  }
+
+  try {
+    // Generate expected signature using HMAC-SHA512
+    const expectedSignature = createHmac('sha512', secretKey)
+      .update(payload)
+      .digest('hex');
+
+    // Use timing-safe comparison to prevent timing attacks
+    const signatureBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+    if (signatureBuffer.length !== expectedBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(signatureBuffer, expectedBuffer);
+  } catch (error) {
+    logger.error({ message: 'Webhook signature verification error', error });
+    return false;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Get the signature from headers
+    const signature = request.headers.get('x-korapay-signature');
 
-    logger.info({ message: 'Payment webhook received', payload: body });
+    // Get raw body for signature verification
+    const rawBody = await request.text();
+
+    // Verify webhook signature to prevent forged requests
+    if (!verifyWebhookSignature(signature, rawBody)) {
+      logger.warn({ message: 'Invalid webhook signature', signature: signature?.substring(0, 20) });
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+
+    // Parse the verified payload
+    const body = JSON.parse(rawBody);
+
+    logger.info({ message: 'Payment webhook received (signature verified)', payload: body });
 
     const { reference, status, event } = body;
 
