@@ -32,6 +32,8 @@ import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { FileUploader } from '@/components/ui/file-uploader';
 import { TagInput } from '@/components/ui/tag-input';
 
+import { getRootDomain } from '@/env';
+
 // Zod 4 + react-hook-form: use z.coerce for form inputs
 const addProductSchema = z.object({
   name: z.string().min(3, 'Product name must be at least 3 characters.'),
@@ -186,8 +188,8 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         append({ key: 'S/N', value: '' });
       }
     } else if (currentStock < currentFields) {
-      for (let i = 0; i < currentFields - 1 - i; i++) {
-        remove(currentFields - 1 - i);
+      for (let i = currentFields - 1; i >= currentStock; i--) {
+        remove(i);
       }
     }
   }, [watchStock, watchInfiniteStock, append, remove, fields.length]);
@@ -979,7 +981,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                     title={form.watch('meta_title') || form.watch('name') || ''}
                     description={form.watch('meta_description') || form.watch('description') || ''}
                     slug={form.watch('slug') || ''}
-                    merchantUrl={merchant?.slug ? `${merchant.slug}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}` : undefined}
+                    merchantUrl={merchant?.slug ? `${merchant.slug}.${getRootDomain()}` : undefined}
                   />
                 </div>
               </div>
