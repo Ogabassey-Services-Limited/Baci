@@ -1,8 +1,7 @@
 import type { Config } from 'tailwindcss';
 import tailwindcssAnimate from 'tailwindcss-animate';
 import containerQueries from '@tailwindcss/container-queries';
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const plugin = require('tailwindcss/plugin');
+import plugin from 'tailwindcss/plugin';
 
 export default {
   darkMode: ['class'],
