@@ -339,13 +339,13 @@ export function StoreSettingsPanel({ settings, onChange }: StoreSettingsPanelPro
                                     id="free-shipping"
                                     type="number"
                                     min="0"
-                                    value={data.cart.freeShippingThreshold || DEFAULT_FREE_SHIPPING_THRESHOLD}
+                                    value={data.cart.freeShippingThreshold ?? DEFAULT_FREE_SHIPPING_THRESHOLD}
                                     onChange={(e) => {
                                         const value = Number(e.target.value);
                                         handleChange(
                                             'cart',
                                             'freeShippingThreshold',
-                                            Number.isFinite(value) ? value : DEFAULT_FREE_SHIPPING_THRESHOLD
+                                            !isNaN(value) && value >= 0 ? value : DEFAULT_FREE_SHIPPING_THRESHOLD
                                         );
                                     }}
                                     placeholder={String(DEFAULT_FREE_SHIPPING_THRESHOLD)}
