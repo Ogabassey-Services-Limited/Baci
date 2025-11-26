@@ -152,11 +152,13 @@ export default function DashboardClientLayout({
   const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
 
   const getStoreUrl = () => {
-    if (typeof window === 'undefined' || !merchant?.business_name) return '#';
-    const slug = merchant.business_name.toLowerCase().replace(/\s+/g, '-');
+    if (!merchant?.slug) return '#';
 
-    // Use path-based routing instead of subdomain
-    return `/storefront/${slug}`;
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+    const subdomain = `${merchant.slug}.${rootDomain}`;
+
+    // Use subdomain URL (merchant gets free subdomain on signup)
+    return `https://${subdomain}`;
   };
 
   const storeUrl = getStoreUrl();
