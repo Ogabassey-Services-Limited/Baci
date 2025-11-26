@@ -1,5 +1,8 @@
 import type { Config } from 'tailwindcss';
 import tailwindcssAnimate from 'tailwindcss-animate';
+import containerQueries from '@tailwindcss/container-queries';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const plugin = require('tailwindcss/plugin');
 
 export default {
   darkMode: ['class'],
@@ -70,6 +73,48 @@ export default {
         xl: 'var(--theme-space-xl)',
         '2xl': 'var(--theme-space-2xl)',
         '3xl': 'var(--theme-space-3xl)',
+        // Touch target minimum (44px for WCAG 2.5.5)
+        'touch': '2.75rem',
+        'touch-lg': '3rem',
+      },
+      // Dynamic viewport units (2025 best practice)
+      height: {
+        'screen-dvh': '100dvh',
+        'screen-svh': '100svh',
+        'screen-lvh': '100lvh',
+        'dvh-50': '50dvh',
+        'dvh-75': '75dvh',
+        'dvh-90': '90dvh',
+      },
+      minHeight: {
+        'screen-dvh': '100dvh',
+        'screen-svh': '100svh',
+        'screen-lvh': '100lvh',
+        'dvh-50': '50dvh',
+        'dvh-75': '75dvh',
+      },
+      maxHeight: {
+        'screen-dvh': '100dvh',
+        'screen-svh': '100svh',
+        'screen-lvh': '100lvh',
+      },
+      width: {
+        'screen-dvw': '100dvw',
+        'screen-svw': '100svw',
+        'screen-lvw': '100lvw',
+      },
+      // Fluid typography using clamp() (2025 best practice)
+      fontSize: {
+        'fluid-xs': ['clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem)', { lineHeight: '1.5' }],
+        'fluid-sm': ['clamp(0.875rem, 0.8rem + 0.375vw, 1rem)', { lineHeight: '1.5' }],
+        'fluid-base': ['clamp(1rem, 0.9rem + 0.5vw, 1.125rem)', { lineHeight: '1.6' }],
+        'fluid-lg': ['clamp(1.125rem, 1rem + 0.625vw, 1.25rem)', { lineHeight: '1.5' }],
+        'fluid-xl': ['clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem)', { lineHeight: '1.4' }],
+        'fluid-2xl': ['clamp(1.5rem, 1.25rem + 1.25vw, 2rem)', { lineHeight: '1.3' }],
+        'fluid-3xl': ['clamp(1.875rem, 1.5rem + 1.875vw, 2.5rem)', { lineHeight: '1.2' }],
+        'fluid-4xl': ['clamp(2.25rem, 1.75rem + 2.5vw, 3rem)', { lineHeight: '1.1' }],
+        'fluid-5xl': ['clamp(3rem, 2rem + 5vw, 4rem)', { lineHeight: '1' }],
+        'fluid-6xl': ['clamp(3.75rem, 2.5rem + 6.25vw, 5rem)', { lineHeight: '1' }],
       },
       boxShadow: {
         none: 'var(--theme-shadow-none)',
@@ -107,5 +152,148 @@ export default {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [
+    tailwindcssAnimate,
+    containerQueries,
+    // Custom plugin for 2025 responsive best practices
+    plugin(function({ addUtilities, addComponents }) {
+      // Safe area insets for notched devices (iPhone, etc.)
+      addUtilities({
+        '.safe-top': {
+          'padding-top': 'env(safe-area-inset-top)',
+        },
+        '.safe-bottom': {
+          'padding-bottom': 'env(safe-area-inset-bottom)',
+        },
+        '.safe-left': {
+          'padding-left': 'env(safe-area-inset-left)',
+        },
+        '.safe-right': {
+          'padding-right': 'env(safe-area-inset-right)',
+        },
+        '.safe-x': {
+          'padding-left': 'env(safe-area-inset-left)',
+          'padding-right': 'env(safe-area-inset-right)',
+        },
+        '.safe-y': {
+          'padding-top': 'env(safe-area-inset-top)',
+          'padding-bottom': 'env(safe-area-inset-bottom)',
+        },
+        '.safe-all': {
+          'padding-top': 'env(safe-area-inset-top)',
+          'padding-right': 'env(safe-area-inset-right)',
+          'padding-bottom': 'env(safe-area-inset-bottom)',
+          'padding-left': 'env(safe-area-inset-left)',
+        },
+        // Margin variants
+        '.m-safe-top': {
+          'margin-top': 'env(safe-area-inset-top)',
+        },
+        '.m-safe-bottom': {
+          'margin-bottom': 'env(safe-area-inset-bottom)',
+        },
+        // CSS Logical Properties utilities
+        '.p-inline-4': {
+          'padding-inline': '1rem',
+        },
+        '.p-inline-6': {
+          'padding-inline': '1.5rem',
+        },
+        '.p-inline-8': {
+          'padding-inline': '2rem',
+        },
+        '.p-block-4': {
+          'padding-block': '1rem',
+        },
+        '.p-block-6': {
+          'padding-block': '1.5rem',
+        },
+        '.p-block-8': {
+          'padding-block': '2rem',
+        },
+        '.m-inline-auto': {
+          'margin-inline': 'auto',
+        },
+        '.m-inline-4': {
+          'margin-inline': '1rem',
+        },
+        '.m-block-4': {
+          'margin-block': '1rem',
+        },
+        '.m-block-8': {
+          'margin-block': '2rem',
+        },
+        // Scroll snap utilities
+        '.snap-x-mandatory': {
+          'scroll-snap-type': 'x mandatory',
+        },
+        '.snap-y-mandatory': {
+          'scroll-snap-type': 'y mandatory',
+        },
+        '.snap-x-proximity': {
+          'scroll-snap-type': 'x proximity',
+        },
+        '.snap-center': {
+          'scroll-snap-align': 'center',
+        },
+        '.snap-start': {
+          'scroll-snap-align': 'start',
+        },
+        '.snap-end': {
+          'scroll-snap-align': 'end',
+        },
+        // CSS Containment for performance
+        '.contain-layout': {
+          'contain': 'layout',
+        },
+        '.contain-paint': {
+          'contain': 'paint',
+        },
+        '.contain-strict': {
+          'contain': 'strict',
+        },
+        '.contain-content': {
+          'contain': 'content',
+        },
+        // Content visibility for lazy rendering
+        '.content-auto': {
+          'content-visibility': 'auto',
+        },
+        '.content-hidden': {
+          'content-visibility': 'hidden',
+        },
+        // Touch action utilities
+        '.touch-pan-x': {
+          'touch-action': 'pan-x',
+        },
+        '.touch-pan-y': {
+          'touch-action': 'pan-y',
+        },
+        '.touch-pinch-zoom': {
+          'touch-action': 'pinch-zoom',
+        },
+        '.touch-manipulation': {
+          'touch-action': 'manipulation',
+        },
+      });
+
+      // Touch-friendly component variants
+      addComponents({
+        '.touch-target': {
+          'min-width': '44px',
+          'min-height': '44px',
+          'display': 'inline-flex',
+          'align-items': 'center',
+          'justify-content': 'center',
+        },
+        '.touch-target-lg': {
+          'min-width': '48px',
+          'min-height': '48px',
+          'display': 'inline-flex',
+          'align-items': 'center',
+          'justify-content': 'center',
+        },
+      });
+    }),
+  ],
 } satisfies Config;

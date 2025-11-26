@@ -43,6 +43,7 @@
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.84.0",
+    "@tailwindcss/container-queries": "^0.1.1",
     "@tiptap/extension-link": "^3.11.0",
     "@tiptap/react": "^3.11.0",
     "@tiptap/starter-kit": "^3.11.0",
