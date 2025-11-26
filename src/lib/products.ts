@@ -22,6 +22,7 @@ export interface ProductDimensions {
     length?: number;
     width?: number;
     height?: number;
+    depth?: number;
     unit: 'cm' | 'in' | 'm';
 }
 
