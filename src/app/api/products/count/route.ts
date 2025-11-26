@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -13,7 +14,8 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        const supabase = await createClient();
+        const cookieStore = await cookies();
+        const supabase = createClient(cookieStore);
 
         const { data: count, error } = await supabase
             .rpc('get_merchant_product_count', {
