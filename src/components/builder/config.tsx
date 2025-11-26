@@ -1318,16 +1318,52 @@ export const builderConfig: Config<{
                 controls: true,
             },
             render: ({ url, title, autoplay, controls }) => {
-                // Extract video ID from YouTube/Vimeo URLs
+                // Extract video ID from YouTube/Vimeo URLs with proper hostname validation
                 let embedUrl = '';
-                if (url.includes('youtube.com') || url.includes('youtu.be')) {
+
+                // Helper function to safely check URL hostname
+                const isValidVideoHost = (inputUrl: string, allowedHosts: string[]): boolean => {
+                    try {
+                        const parsedUrl = new URL(inputUrl);
+                        const hostname = parsedUrl.hostname.toLowerCase();
+                        return allowedHosts.some(host =>
+                            hostname === host || hostname.endsWith('.' + host)
+                        );
+                    } catch {
+                        return false;
+                    }
+                };
+
+                // Helper function to extract video ID safely
+                const extractVideoId = (inputUrl: string, pattern: RegExp): string | null => {
+                    try {
+                        const match = inputUrl.match(pattern);
+                        // Validate video ID contains only safe characters (alphanumeric, dash, underscore)
+                        if (match && match[1] && /^[\w-]+$/.test(match[1])) {
+                            return match[1];
+                        }
+                        return null;
+                    } catch {
+                        return null;
+                    }
+                };
+
+                if (isValidVideoHost(url, ['youtube.com', 'www.youtube.com', 'youtu.be'])) {
+                    // YouTube URL patterns:
+                    // - https://www.youtube.com/watch?v=VIDEO_ID
+                    // - https://youtu.be/VIDEO_ID
                     const videoId = url.includes('youtu.be')
-                        ? url.split('youtu.be/')[1]?.split('?')[0]
-                        : url.split('v=')[1]?.split('&')[0];
-                    embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? 1 : 0}&controls=${controls ? 1 : 0}`;
-                } else if (url.includes('vimeo.com')) {
-                    const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
-                    embedUrl = `https://player.vimeo.com/video/${videoId}?autoplay=${autoplay ? 1 : 0}`;
+                        ? extractVideoId(url, /youtu\.be\/([^?&/]+)/)
+                        : extractVideoId(url, /[?&]v=([^?&/]+)/);
+                    if (videoId) {
+                        embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? 1 : 0}&controls=${controls ? 1 : 0}`;
+                    }
+                } else if (isValidVideoHost(url, ['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'])) {
+                    // Vimeo URL pattern: https://vimeo.com/VIDEO_ID
+                    const videoId = extractVideoId(url, /vimeo\.com\/(\d+)/);
+                    if (videoId) {
+                        embedUrl = `https://player.vimeo.com/video/${videoId}?autoplay=${autoplay ? 1 : 0}`;
+                    }
                 }
 
                 return (

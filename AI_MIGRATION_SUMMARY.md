@@ -163,9 +163,11 @@ const { text } = await generateText({
 The application uses the Google AI API key from environment variables:
 
 ```env
-GOOGLE_GENAI_API_KEY=AIzaSyD7zBImwbPBUPaddSzgtKhz4bzMx5Ab9uA
-GEMINI_API_KEY=AIzaSyD7zBImwbPBUPaddSzgtKhz4bzMx5Ab9uA
+GOOGLE_GENAI_API_KEY=your-google-ai-api-key-here
+GEMINI_API_KEY=your-gemini-api-key-here
 ```
+
+> **⚠️ Security Note:** Never commit actual API keys to version control. Use environment variables or secret management tools.
 
 The Vercel AI SDK automatically reads these environment variables when using the `google()` provider.
 

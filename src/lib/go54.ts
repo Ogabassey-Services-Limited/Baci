@@ -120,6 +120,13 @@ function generateToken(): string {
   const dateStr = `${year}-${month}-${day} ${hour}`;
   const message = `${GO54_EMAIL}:${dateStr}`;
 
+  // This is API token generation, NOT password hashing. HMAC-SHA256 is appropriate here because:
+  // 1. This creates short-lived authentication tokens (hour-based expiry)
+  // 2. The API key is a shared secret for request signing, not a user password
+  // 3. This follows the Go54 API specification exactly
+  // 4. Password hashing algorithms (bcrypt/argon2) are for stored passwords, not API signatures
+  // lgtm[js/insufficient-password-hash]
+  // codeql[js/insufficient-password-hash] - False positive: This is HMAC-based API token generation, not password storage
   const hash = crypto.createHmac('sha256', message).update(GO54_API_KEY).digest('hex');
 
   return Buffer.from(hash).toString('base64');

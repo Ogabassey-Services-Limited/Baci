@@ -148,15 +148,43 @@ export async function processPriceList(
 
 export async function fetchGoogleSheet(url: string): Promise<string> {
   try {
-    // Extract Spreadsheet ID and construct export URL if it's a standard edit URL
+    // Validate URL format first
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      throw new Error("Invalid URL format. Please provide a valid Google Sheets URL.");
+    }
+
+    // SSRF Protection: Only allow Google Sheets domains
+    const allowedHosts = ['docs.google.com', 'sheets.google.com'];
+    if (!allowedHosts.includes(parsedUrl.hostname)) {
+      throw new Error("Invalid URL. Only Google Sheets URLs are allowed.");
+    }
+
+    // Ensure HTTPS protocol
+    if (parsedUrl.protocol !== 'https:') {
+      throw new Error("Invalid URL. Only HTTPS URLs are allowed.");
+    }
+
+    // Extract Spreadsheet ID and construct export URL
     // Regex to capture the ID between /d/ and /
     const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-    let exportUrl = url;
 
-    if (match && match[1]) {
-      const spreadsheetId = match[1];
-      exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+    if (!match || !match[1]) {
+      throw new Error("Invalid Google Sheets URL. Could not extract spreadsheet ID.");
     }
+
+    const spreadsheetId = match[1];
+
+    // Validate spreadsheet ID format (alphanumeric, hyphens, underscores only)
+    if (!/^[a-zA-Z0-9-_]+$/.test(spreadsheetId)) {
+      throw new Error("Invalid spreadsheet ID format.");
+    }
+
+    // Always construct the export URL from the validated spreadsheet ID
+    // Never use the user-provided URL directly for the fetch request
+    const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
 
     const response = await fetch(exportUrl);
 
@@ -168,6 +196,9 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
     return text;
   } catch (error) {
     console.error("Error fetching Google Sheet:", error);
+    if (error instanceof Error) {
+      throw error;
+    }
     throw new Error("Failed to fetch Google Sheet content. Please ensure the sheet is published to the web or the link is correct.");
   }
 }

@@ -36,13 +36,74 @@ function getLuminance([r, g, b]) {
 }
 
 
-self.onmessage = (event) => {
-  const { imageDataUri } = event.data;
+/**
+ * List of allowed origins that can communicate with this worker.
+ * This provides defense-in-depth security for the postMessage handler.
+ */
+const ALLOWED_ORIGINS = [
+  self.location.origin,
+  // Add additional trusted origins here if needed
+];
 
-  if (!imageDataUri) {
-    self.postMessage({ success: false, error: 'No image data URI provided.' });
+/**
+ * Validates that a message event comes from an allowed origin.
+ * @param {MessageEvent} event - The message event to validate
+ * @returns {boolean} - True if the origin is allowed
+ */
+function isAllowedOrigin(event) {
+  // For dedicated workers, origin may be empty string (same-origin)
+  // We allow empty string as it indicates same-origin communication
+  if (event.origin === '' || event.origin === null) {
+    return true;
+  }
+  return ALLOWED_ORIGINS.includes(event.origin);
+}
+
+/**
+ * Validates the structure and content of incoming message data.
+ * @param {unknown} data - The data to validate
+ * @returns {boolean} - True if the data structure is valid
+ */
+function isValidMessageData(data) {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+  // Only accept messages with the expected imageDataUri property
+  if (!('imageDataUri' in data)) {
+    return false;
+  }
+  const { imageDataUri } = data;
+  // imageDataUri must be a string starting with a valid data URI scheme
+  if (typeof imageDataUri !== 'string') {
+    return false;
+  }
+  // Validate it's a proper data URI for images
+  if (!imageDataUri.startsWith('data:image/')) {
+    return false;
+  }
+  return true;
+}
+
+self.onmessage = (event) => {
+  // Security: Verify the message origin
+  if (!isAllowedOrigin(event)) {
+    self.postMessage({
+      success: false,
+      error: 'Message rejected: untrusted origin.'
+    });
     return;
   }
+
+  // Security: Validate the message data structure
+  if (!isValidMessageData(event.data)) {
+    self.postMessage({
+      success: false,
+      error: 'Invalid message format. Expected { imageDataUri: "data:image/..." }'
+    });
+    return;
+  }
+
+  const { imageDataUri } = event.data;
   
   const img = new Image();
   img.crossOrigin = 'Anonymous';

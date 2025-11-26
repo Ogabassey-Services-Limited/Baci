@@ -23,8 +23,9 @@ export async function POST(request: Request) {
 
     const { domain, years = 1, contactInfo } = await request.json();
 
-    // Validate domain
-    const domainRegex = /^[a-z0-9]+([-.]?[a-z0-9]+)*\.[a-z]{2,}$/i;
+    // Validate domain - using required separator [.-] instead of optional [-.]?
+    // to prevent ReDoS (exponential backtracking) vulnerability
+    const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
     if (!domainRegex.test(domain)) {
       return NextResponse.json({ error: 'Invalid domain format' }, { status: 400 });
     }

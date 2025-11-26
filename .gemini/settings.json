@@ -4,7 +4,7 @@
       "command": "/home/user/.global_modules/bin/context7-mcp",
       "args": [],
       "env": {
-        "CONTEXT7_API_KEY": "ctx7sk-5ce39907-bdfa-48b8-9291-2fd5d995b002",
+        "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}",
         "CONTEXT7_API_URL": "https://context7.com/api/v1"
       }
     },
@@ -12,9 +12,9 @@
       "command": "/home/user/.global_modules/bin/mcp-server-supabase",
       "args": [],
       "env": {
-        "SUPABASE_ACCESS_TOKEN": "sbp_568f6e823c62586f9927f5ac1175bf6a3b835fa7",
-        "SUPABASE_URL": "https://aivqthbxdshhltbwipbr.supabase.co",
-        "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpdnF0aGJ4ZHNoaGx0YndpcGJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIwNTE0ODMsImV4cCI6MjA3NzYyNzQ4M30.hOyPsBP4mR3Bpga75L3rlgtJtub7r4jzTjkuMe_bwrg"
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}",
+        "SUPABASE_URL": "${SUPABASE_URL}",
+        "SUPABASE_ANON_KEY": "${SUPABASE_ANON_KEY}"
       }
     }
   }

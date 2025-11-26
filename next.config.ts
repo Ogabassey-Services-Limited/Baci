@@ -54,7 +54,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   typescript: {
-    // Code errors have been fixed. Type checking requires `npm install` first.
+    // TypeScript errors are now fixed - enforcing strict type checking
     ignoreBuildErrors: false,
   },
   reactStrictMode: true, // Enabled for better development experience and catching issues
