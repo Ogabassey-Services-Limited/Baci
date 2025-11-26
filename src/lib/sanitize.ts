@@ -96,6 +96,38 @@ export function sanitizeSchemaUrl(url: string): string {
 }
 
 /**
+ * Recursively sanitize all string values in a JSON-LD schema object.
+ * This prevents XSS when rendering schema_markup from the database.
+ * Performance: O(n) where n is total number of values, with minimal memory overhead.
+ */
+export function sanitizeSchemaMarkup<T>(obj: T): T {
+    if (obj === null || obj === undefined) {
+        return obj;
+    }
+
+    if (typeof obj === 'string') {
+        return escapeHtml(obj) as T;
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(item => sanitizeSchemaMarkup(item)) as T;
+    }
+
+    if (typeof obj === 'object') {
+        const result: Record<string, unknown> = {};
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                result[key] = sanitizeSchemaMarkup((obj as Record<string, unknown>)[key]);
+            }
+        }
+        return result as T;
+    }
+
+    // Numbers, booleans, etc. pass through unchanged
+    return obj;
+}
+
+/**
  * Sanitize number input
  */
 export function sanitizeNumber(value: unknown): number {
