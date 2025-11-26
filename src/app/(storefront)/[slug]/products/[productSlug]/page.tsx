@@ -7,8 +7,9 @@ import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { escapeHtml, sanitizeSchemaMarkup } from '@/lib/sanitize';
 
-// Force dynamic rendering since we rely on URL params and DB data
-export const dynamic = 'force-dynamic';
+// Enable ISR (Incremental Static Regeneration) with 5 minute revalidation
+// Pages will be statically generated on-demand and cached for 5 minutes
+export const revalidate = 300; // Revalidate every 5 minutes (300 seconds)
 
 interface PageProps {
     params: Promise<{

@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { DraggableAnalyticsGrid, AnalyticsData } from '@/components/analytics/draggable-analytics-grid';
 import { AnalyticsCategoryNav, AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import { AnalyticsFilters } from '@/components/analytics/analytics-filters';
+import { exportAnalyticsAsCSV, exportAnalyticsAsPDF } from '@/lib/analytics-export';
 
 
 export default function AnalyticsPage() {
@@ -53,6 +54,40 @@ export default function AnalyticsPage() {
         fetchAnalytics();
     }, [merchant, date]);
 
+    const handleExport = (format: 'csv' | 'pdf') => {
+        if (!analyticsData) {
+            toast({
+                title: 'No data to export',
+                description: 'Please wait for analytics data to load.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        try {
+            if (format === 'csv') {
+                exportAnalyticsAsCSV(analyticsData, date, merchant?.business_name);
+                toast({
+                    title: 'CSV Exported',
+                    description: 'Your analytics report has been downloaded as CSV.',
+                });
+            } else {
+                exportAnalyticsAsPDF(analyticsData, date, merchant?.business_name);
+                toast({
+                    title: 'PDF Exported',
+                    description: 'Your analytics report has been downloaded as PDF.',
+                });
+            }
+        } catch (error) {
+            toast({
+                title: 'Export Failed',
+                description: 'There was an error exporting your report. Please try again.',
+                variant: 'destructive',
+            });
+            console.error('Export error:', error);
+        }
+    };
+
     if (merchantLoading) {
         return (
             <div className="flex flex-1 items-center justify-center h-full">
@@ -81,7 +116,7 @@ export default function AnalyticsPage() {
                 <AnalyticsFilters
                     date={date}
                     onDateChange={setDate}
-                    onExport={() => toast({ title: "Exporting Report", description: "Your report will be ready shortly." })}
+                    onExport={handleExport}
                 />
             </div>
 

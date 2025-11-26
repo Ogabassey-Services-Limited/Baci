@@ -1,0 +1,576 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
+import { useMerchant } from '@/hooks/use-merchant';
+import { PlusCircle, Edit, Trash2, Copy, Loader2, Percent, DollarSign, Tag } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+
+interface DiscountCode {
+  id: string;
+  code: string;
+  description: string;
+  discount_type: 'percentage' | 'fixed_amount';
+  discount_value: number;
+  minimum_purchase_amount: number;
+  maximum_discount_amount: number | null;
+  usage_limit: number | null;
+  usage_count: number;
+  usage_limit_per_customer: number;
+  starts_at: string | null;
+  expires_at: string | null;
+  is_active: boolean;
+  applies_to: 'all' | 'specific_products' | 'specific_categories';
+  created_at: string;
+}
+
+export default function DiscountCodesPage() {
+  const { toast } = useToast();
+  const { merchant } = useMerchant();
+  const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingCode, setEditingCode] = useState<DiscountCode | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    code: '',
+    description: '',
+    discount_type: 'percentage' as 'percentage' | 'fixed_amount',
+    discount_value: 0,
+    minimum_purchase_amount: 0,
+    maximum_discount_amount: null as number | null,
+    usage_limit: null as number | null,
+    usage_limit_per_customer: 1,
+    starts_at: '',
+    expires_at: '',
+    is_active: true,
+    applies_to: 'all' as 'all' | 'specific_products' | 'specific_categories',
+  });
+
+  useEffect(() => {
+    fetchDiscountCodes();
+  }, []);
+
+  const fetchDiscountCodes = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/discount-codes');
+      if (response.ok) {
+        const data = await response.json();
+        setDiscountCodes(data.discountCodes || []);
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load discount codes',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const url = editingCode
+        ? `/api/discount-codes/${editingCode.id}`
+        : '/api/discount-codes';
+      const method = editingCode ? 'PATCH' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save discount code');
+      }
+
+      toast({
+        title: editingCode ? 'Updated!' : 'Created!',
+        description: `Discount code ${formData.code} has been ${editingCode ? 'updated' : 'created'}.`,
+      });
+
+      setIsDialogOpen(false);
+      resetForm();
+      fetchDiscountCodes();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string, code: string) => {
+    if (!confirm(`Are you sure you want to delete the discount code "${code}"?`)) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/discount-codes/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete discount code');
+      }
+
+      toast({
+        title: 'Deleted',
+        description: `Discount code ${code} has been deleted.`,
+      });
+
+      fetchDiscountCodes();
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    setEditingCode(null);
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (code: DiscountCode) => {
+    setEditingCode(code);
+    setFormData({
+      code: code.code,
+      description: code.description,
+      discount_type: code.discount_type,
+      discount_value: code.discount_value,
+      minimum_purchase_amount: code.minimum_purchase_amount,
+      maximum_discount_amount: code.maximum_discount_amount,
+      usage_limit: code.usage_limit,
+      usage_limit_per_customer: code.usage_limit_per_customer,
+      starts_at: code.starts_at ? code.starts_at.split('T')[0] : '',
+      expires_at: code.expires_at ? code.expires_at.split('T')[0] : '',
+      is_active: code.is_active,
+      applies_to: code.applies_to,
+    });
+    setIsDialogOpen(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      code: '',
+      description: '',
+      discount_type: 'percentage',
+      discount_value: 0,
+      minimum_purchase_amount: 0,
+      maximum_discount_amount: null,
+      usage_limit: null,
+      usage_limit_per_customer: 1,
+      starts_at: '',
+      expires_at: '',
+      is_active: true,
+      applies_to: 'all',
+    });
+  };
+
+  const copyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    toast({
+      title: 'Copied!',
+      description: `Code "${code}" copied to clipboard.`,
+    });
+  };
+
+  const formatDiscount = (code: DiscountCode) => {
+    if (code.discount_type === 'percentage') {
+      return `${code.discount_value}% off`;
+    }
+    return `$${code.discount_value} off`;
+  };
+
+  const isExpired = (code: DiscountCode) => {
+    if (!code.expires_at) return false;
+    return new Date(code.expires_at) < new Date();
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Discount Codes</h1>
+          <p className="text-muted-foreground">
+            Create and manage promotional discount codes for your store.
+          </p>
+        </div>
+        <Button onClick={openCreateDialog}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Create Code
+        </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Codes</CardTitle>
+            <Tag className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{discountCodes.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Codes</CardTitle>
+            <Percent className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {discountCodes.filter((c) => c.is_active && !isExpired(c)).length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Uses</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {discountCodes.reduce((sum, c) => sum + c.usage_count, 0)}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>All Discount Codes</CardTitle>
+          <CardDescription>
+            Manage your promotional codes and track their performance.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {discountCodes.length === 0 ? (
+            <div className="text-center py-12">
+              <Tag className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold">No discount codes yet</h3>
+              <p className="text-muted-foreground mt-2">
+                Create your first discount code to start offering promotions.
+              </p>
+              <Button onClick={openCreateDialog} className="mt-4">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create Code
+              </Button>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Code</TableHead>
+                  <TableHead>Discount</TableHead>
+                  <TableHead>Usage</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {discountCodes.map((code) => (
+                  <TableRow key={code.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <code className="font-mono font-semibold">{code.code}</code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => copyCode(code.code)}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      {code.description && (
+                        <p className="text-sm text-muted-foreground">{code.description}</p>
+                      )}
+                    </TableCell>
+                    <TableCell>{formatDiscount(code)}</TableCell>
+                    <TableCell>
+                      <span className="text-sm">
+                        {code.usage_count}
+                        {code.usage_limit && ` / ${code.usage_limit}`}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {isExpired(code) ? (
+                        <Badge variant="secondary">Expired</Badge>
+                      ) : code.is_active ? (
+                        <Badge variant="default">Active</Badge>
+                      ) : (
+                        <Badge variant="outline">Inactive</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {code.expires_at ? new Date(code.expires_at).toLocaleDateString() : 'Never'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(code)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(code.id, code.code)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create/Edit Dialog - Content continues in next message due to length */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingCode ? 'Edit' : 'Create'} Discount Code</DialogTitle>
+            <DialogDescription>
+              {editingCode ? 'Update' : 'Create'} a promotional discount code for your customers.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2">
+                <Label htmlFor="code">Code *</Label>
+                <Input
+                  id="code"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                  placeholder="SAVE20"
+                  required
+                />
+              </div>
+
+              <div className="col-span-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="20% off all products"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="discount_type">Discount Type *</Label>
+                <Select
+                  value={formData.discount_type}
+                  onValueChange={(value: 'percentage' | 'fixed_amount') =>
+                    setFormData({ ...formData, discount_type: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">Percentage</SelectItem>
+                    <SelectItem value="fixed_amount">Fixed Amount</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="discount_value">
+                  Discount Value * {formData.discount_type === 'percentage' ? '(%)' : '($)'}
+                </Label>
+                <Input
+                  id="discount_value"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.discount_value}
+                  onChange={(e) =>
+                    setFormData({ ...formData, discount_value: parseFloat(e.target.value) })
+                  }
+                  required
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="minimum_purchase">Minimum Purchase ($)</Label>
+                <Input
+                  id="minimum_purchase"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.minimum_purchase_amount}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      minimum_purchase_amount: parseFloat(e.target.value),
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="maximum_discount">Maximum Discount ($)</Label>
+                <Input
+                  id="maximum_discount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.maximum_discount_amount || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      maximum_discount_amount: e.target.value ? parseFloat(e.target.value) : null,
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="usage_limit">Total Usage Limit</Label>
+                <Input
+                  id="usage_limit"
+                  type="number"
+                  min="0"
+                  value={formData.usage_limit || ''}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      usage_limit: e.target.value ? parseInt(e.target.value) : null,
+                    })
+                  }
+                  placeholder="Unlimited"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="usage_limit_per_customer">Uses per Customer</Label>
+                <Input
+                  id="usage_limit_per_customer"
+                  type="number"
+                  min="1"
+                  value={formData.usage_limit_per_customer}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      usage_limit_per_customer: parseInt(e.target.value),
+                    })
+                  }
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="starts_at">Start Date</Label>
+                <Input
+                  id="starts_at"
+                  type="date"
+                  value={formData.starts_at}
+                  onChange={(e) => setFormData({ ...formData, starts_at: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="expires_at">Expiration Date</Label>
+                <Input
+                  id="expires_at"
+                  type="date"
+                  value={formData.expires_at}
+                  onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+                />
+              </div>
+
+              <div className="col-span-2 flex items-center space-x-2">
+                <Switch
+                  id="is_active"
+                  checked={formData.is_active}
+                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                />
+                <Label htmlFor="is_active">Active</Label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>{editingCode ? 'Update' : 'Create'} Code</>
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

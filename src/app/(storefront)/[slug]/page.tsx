@@ -7,6 +7,9 @@ import { MerchantProvider } from '@/hooks/use-merchant';
 import { StorefrontWrapper } from './storefront-wrapper';
 import { escapeHtml } from '@/lib/sanitize';
 
+// Enable ISR with 1 minute revalidation for storefront homepages
+export const revalidate = 60;
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
     const cookieStore = await cookies();

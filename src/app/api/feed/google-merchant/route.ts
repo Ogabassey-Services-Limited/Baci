@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { stripHtmlTags } from '@/lib/sanitize';
+import { CACHE_HEADERS } from '@/lib/cache-headers';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -70,7 +71,7 @@ export async function GET(request: NextRequest) {
         status: 200,
         headers: {
             'Content-Type': 'application/xml; charset=utf-8',
-            'Cache-Control': 'public, max-age=3600, s-maxage=3600', // Cache for 1 hour
+            ...CACHE_HEADERS.LONG, // Cache for 1 hour with stale-while-revalidate
         },
     });
 }

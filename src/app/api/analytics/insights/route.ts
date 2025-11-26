@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { geminiPro } from '@/ai/provider';
+import { cache, generateCacheKey } from '@/lib/cache';
 
 // Schema for AI insights
 const InsightSchema = z.object({
@@ -38,6 +39,15 @@ export async function POST(_request: Request) {
 
         if (merchantError || !merchant) {
             return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+        }
+
+        // Generate cache key for AI insights (cached for 1 hour)
+        const cacheKey = generateCacheKey('ai-insights', merchant.id);
+
+        // Try to get cached insights
+        const cachedInsights = cache.get<{ insights: Array<{ title: string; description: string; type: string; priority: string; action?: string }> }>(cacheKey);
+        if (cachedInsights) {
+            return NextResponse.json(cachedInsights);
         }
 
         // Fetch aggregated data for context
@@ -80,18 +90,21 @@ export async function POST(_request: Request) {
             prompt: `
         Analyze the following e-commerce data for a merchant and provide 3-5 actionable insights.
         Focus on trends, opportunities for growth, and potential issues.
-        
+
         Data Context:
         ${JSON.stringify(context, null, 2)}
-        
+
         Provide insights in the following categories:
         - Revenue trends (growth, decline, stability)
         - Product performance (bestsellers, underperformers)
         - Channel effectiveness
-        
+
         Be specific and constructive.
       `,
         });
+
+        // Cache the insights for 1 hour (3600 seconds)
+        cache.set(cacheKey, object, 3600);
 
         return NextResponse.json(object);
     } catch (error) {

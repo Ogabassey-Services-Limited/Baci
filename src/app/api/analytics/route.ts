@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { cache, generateCacheKey } from '@/lib/cache';
 
 /**
 /**
@@ -43,6 +44,20 @@ export async function GET(request: Request) {
 
     if (merchantError || !merchant) {
       return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    }
+
+    // Generate cache key based on merchant ID and date range
+    const cacheKey = generateCacheKey(
+      'analytics',
+      merchant.id,
+      currentPeriodStart.toISOString(),
+      currentPeriodEnd.toISOString()
+    );
+
+    // Try to get cached data (5 minute TTL)
+    const cachedData = cache.get<Record<string, unknown>>(cacheKey);
+    if (cachedData) {
+      return NextResponse.json(cachedData);
     }
 
     // Parallelize all independent queries
@@ -181,7 +196,7 @@ export async function GET(request: Request) {
     const previousRefundRate = 2.5;
     const refundRateChange = refundRate - previousRefundRate;
 
-    return NextResponse.json({
+    const responseData = {
       summary: {
         revenue: { value: currentRevenue, change: revenueChange },
         customers: { value: totalCustomers || 0, change: customersChange },
@@ -196,7 +211,12 @@ export async function GET(request: Request) {
       recentSales,
       topProducts: [],
       salesByChannel: [],
-    });
+    };
+
+    // Cache the response for 5 minutes (300 seconds)
+    cache.set(cacheKey, responseData, 300);
+
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Error fetching analytics:', error);
     return NextResponse.json(
