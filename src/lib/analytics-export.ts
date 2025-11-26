@@ -77,16 +77,10 @@ export function exportAnalyticsAsCSV(
   // Chart Data Section
   if (chartData && chartData.length > 0) {
     csvRows.push('REVENUE OVER TIME');
-    const hasMonthData = 'month' in chartData[0];
-    const headerRow = hasMonthData ? 'Month,Desktop,Mobile,Total' : 'Day,Desktop,Mobile,Total';
-    csvRows.push(headerRow);
+    csvRows.push('Date,Revenue');
 
     chartData.forEach((item) => {
-      const period = 'month' in item ? item.month : 'day' in item ? item.day : '';
-      const desktop = item.desktop || 0;
-      const mobile = item.mobile || 0;
-      const total = desktop + mobile;
-      csvRows.push(`"${period}",${formatCurrency(desktop)},${formatCurrency(mobile)},${formatCurrency(total)}`);
+      csvRows.push(`"${item.date}",${formatCurrency(item.revenue)}`);
     });
   }
 
@@ -203,23 +197,16 @@ export function exportAnalyticsAsPDF(
     doc.text('Revenue Over Time', 14, yPosition);
     yPosition += 5;
 
-    const hasMonthData = 'month' in chartData[0];
     const chartDataFormatted = chartData.map((item) => {
-      const period = 'month' in item ? item.month : 'day' in item ? item.day : '';
-      const desktop = item.desktop || 0;
-      const mobile = item.mobile || 0;
-      const total = desktop + mobile;
       return [
-        period,
-        formatCurrency(desktop),
-        formatCurrency(mobile),
-        formatCurrency(total),
+        item.date,
+        formatCurrency(item.revenue),
       ];
     });
 
     autoTable(doc, {
       startY: yPosition,
-      head: [[hasMonthData ? 'Month' : 'Day', 'Desktop', 'Mobile', 'Total']],
+      head: [['Date', 'Revenue']],
       body: chartDataFormatted,
       theme: 'grid',
       styles: { fontSize: 8 },
