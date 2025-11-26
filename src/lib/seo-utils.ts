@@ -35,9 +35,14 @@ const DIMENSION_UNIT_CODES: Record<string, string> = {
 };
 
 /**
+ * Number of milliseconds in a day
+ */
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
  * Number of milliseconds in 30 days
  */
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const THIRTY_DAYS_MS = 30 * MILLISECONDS_PER_DAY;
 
 /**
  * Generates JSON-LD structured data for a product (2025 Google best practices)
@@ -96,7 +101,7 @@ export function generateProductSchema(product: Product, merchantName: string = '
     }
 
     if (product.google_product_category) {
-        schema.google_productCategory = product.google_product_category;
+        schema.google_product_category = product.google_product_category;
     }
 
     // Physical attributes
@@ -276,13 +281,19 @@ export function generateLocalBusinessSchema(business: LocalBusinessData): Record
 }
 
 /**
+ * Ellipsis string and length for meta description truncation
+ */
+const ELLIPSIS = '...';
+const ELLIPSIS_LENGTH = ELLIPSIS.length;
+
+/**
  * Generates a meta description from product description if not provided
  */
 export function generateMetaDescription(description: string, maxLength: number = 160): string {
     if (!description) return '';
 
-    // Ensure maxLength is a positive number greater than 3 to allow for ellipsis
-    if (typeof maxLength !== 'number' || isNaN(maxLength) || maxLength <= 3) {
+    // Ensure maxLength is a positive number greater than ELLIPSIS_LENGTH to allow for ellipsis
+    if (typeof maxLength !== 'number' || isNaN(maxLength) || maxLength <= ELLIPSIS_LENGTH) {
         maxLength = 160;
     }
 
@@ -291,5 +302,5 @@ export function generateMetaDescription(description: string, maxLength: number =
 
     if (plainText.length <= maxLength) return plainText;
 
-    return plainText.substring(0, maxLength - 3) + '...';
+    return plainText.substring(0, maxLength - ELLIPSIS_LENGTH) + ELLIPSIS;
 }
