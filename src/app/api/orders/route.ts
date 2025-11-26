@@ -334,7 +334,7 @@ export async function POST(request: NextRequest) {
             } else if (stockResult && stockResult.length > 0) {
               const result = stockResult[0];
               if (!result.success) {
-                console.warn(`Stock update failed for product ${item.product_id}: ${result.message}`);
+                console.warn('Stock update failed for product:', item.product_id, result.message);
                 // In production, you might want to handle insufficient stock differently
                 // For now, we log and continue
               }

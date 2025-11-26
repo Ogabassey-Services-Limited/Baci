@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
 
                 results.push({ id: job.id, status: 'completed' });
             } catch (error) {
-                console.error(`Error processing job ${job.id}:`, error);
+                console.error('Error processing job:', job.id, error);
 
                 // Mark as failed
                 await supabase
