@@ -4,6 +4,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { generateSlug, generateProductSchema, generateMetaDescription } from '@/lib/seo-utils';
 import { getCountryByCode } from '@/lib/countries';
 import { Product } from '@/lib/products';
+import { sanitizeSchemaMarkup } from '@/lib/sanitize';
 
 export async function GET(
     request: NextRequest,
@@ -196,7 +197,10 @@ export async function PUT(
 
         const country = merchant.country ? getCountryByCode(merchant.country) : undefined;
         const currency = country ? country.currency : 'USD';
-        const schema_markup = body.schema_markup || generateProductSchema(productForSchema, merchant.business_name, currency);
+        // Sanitize user-provided schema_markup to prevent XSS (defense in depth)
+        const schema_markup = body.schema_markup
+            ? sanitizeSchemaMarkup(body.schema_markup)
+            : generateProductSchema(productForSchema, merchant.business_name, currency);
 
         // Update product
         const updates = {
