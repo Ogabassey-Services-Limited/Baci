@@ -6,6 +6,7 @@ import { cookies, headers } from 'next/headers';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { StorefrontWrapper } from './storefront-wrapper';
 import { escapeHtml } from '@/lib/sanitize';
+import { SafeJsonLd } from '@/components/seo/SafeJsonLd';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
@@ -112,10 +113,7 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
     return (
         <>
             {jsonLd && (
-                <script
-                    type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-                />
+                <SafeJsonLd schema={jsonLd} testId="store-schema" />
             )}
             <MerchantProvider slug={slug}>
                 <StorefrontWrapper />

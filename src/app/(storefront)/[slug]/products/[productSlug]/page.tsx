@@ -6,6 +6,7 @@ import ProductDetailClient from './product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema } from '@/lib/seo-utils';
 import { escapeHtml } from '@/lib/sanitize';
+import { SafeJsonLd } from '@/components/seo/SafeJsonLd';
 
 // Force dynamic rendering since we rely on URL params and DB data
 export const dynamic = 'force-dynamic';
@@ -193,17 +194,11 @@ export default async function ProductPage({ params }: PageProps) {
 
     return (
         <>
-            {/* Product Schema.org JSON-LD */}
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
-            />
+            {/* Product Schema.org JSON-LD - using SafeJsonLd for XSS protection */}
+            <SafeJsonLd schema={productSchema} testId="product-schema" />
 
-            {/* Breadcrumb Schema.org JSON-LD */}
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-            />
+            {/* Breadcrumb Schema.org JSON-LD - using SafeJsonLd for XSS protection */}
+            <SafeJsonLd schema={breadcrumbSchema} testId="breadcrumb-schema" />
 
             <ProductDetailClient product={product} />
         </>

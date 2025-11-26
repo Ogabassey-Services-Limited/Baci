@@ -5,6 +5,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
 import { Providers } from '@/contexts/providers';
+import { SafeJsonLd } from '@/components/seo/SafeJsonLd';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -130,18 +131,9 @@ export default async function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta httpEquiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://vercel.live https://assets.vercel.com https://va.vercel-scripts.com; object-src 'none'; base-uri 'self';" />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
-        />
+        <SafeJsonLd schema={organizationSchema} testId="organization-schema" />
+        <SafeJsonLd schema={websiteSchema} testId="website-schema" />
+        <SafeJsonLd schema={softwareApplicationSchema} testId="software-application-schema" />
       </head>
       <body className={inter.variable} suppressHydrationWarning>
         {/* Skip link for accessibility - allows keyboard users to bypass navigation */}
