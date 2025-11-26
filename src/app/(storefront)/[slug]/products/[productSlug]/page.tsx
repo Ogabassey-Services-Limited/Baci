@@ -5,7 +5,7 @@ import { Metadata } from 'next';
 import ProductDetailClient from './product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema } from '@/lib/seo-utils';
-import { escapeHtml } from '@/lib/sanitize';
+import { escapeHtml, sanitizeSchemaObject } from '@/lib/sanitize';
 
 // Force dynamic rendering since we rely on URL params and DB data
 export const dynamic = 'force-dynamic';
@@ -165,11 +165,15 @@ export default async function ProductPage({ params }: PageProps) {
     const baseUrl = `${protocol}://${host}`;
 
     // Generate or use existing product schema
-    const productSchema = product.schema_markup || generateProductSchema(
-        product,
-        merchant?.business_name || 'Baci Store',
-        merchant?.payout_currency || 'USD'
-    );
+    // If using pre-stored schema_markup from database, sanitize all string values
+    // to prevent XSS attacks in the JSON-LD script context
+    const productSchema = product.schema_markup
+        ? sanitizeSchemaObject(product.schema_markup)
+        : generateProductSchema(
+            product,
+            merchant?.business_name || 'Baci Store',
+            merchant?.payout_currency || 'USD'
+        );
 
     // Add URL to the schema offers (sanitized to prevent XSS)
     if (productSchema.offers) {
