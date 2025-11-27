@@ -196,14 +196,14 @@ export default async function CategoryProductPage({ params }: PageProps) {
 
     return (
         <>
-            {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
             <script
                 type="application/ld+json"
+                // nosemgrep: react-dangerouslysetinnerhtml
                 dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }}
             />
-            {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
             <script
                 type="application/ld+json"
+                // nosemgrep: react-dangerouslysetinnerhtml
                 dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }}
             />
             <ProductDetailClient product={product} />
