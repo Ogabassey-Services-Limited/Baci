@@ -24,25 +24,68 @@ const MAIN_APP_ROUTES = [
   '/manifest.webmanifest',
 ];
 
+/**
+ * Safely check if hostname is a subdomain of our root domain
+ * This prevents attacks like "evilusebaci.com" matching "usebaci.com"
+ */
+function isSubdomainOfRoot(hostname: string, rootDomain: string): boolean {
+  // Remove port if present
+  const hostWithoutPort = hostname.split(':')[0];
+  const expectedSuffix = `.${rootDomain}`;
+
+  // Must end with .rootdomain exactly
+  if (!hostWithoutPort.endsWith(expectedSuffix)) {
+    return false;
+  }
+
+  // Extract subdomain part and validate it's not empty and doesn't contain dots
+  // (to prevent ..usebaci.com or nested subdomains being mishandled)
+  const subdomain = hostWithoutPort.slice(0, -expectedSuffix.length);
+  return subdomain.length > 0 && !subdomain.includes('.');
+}
+
+/**
+ * Check if hostname exactly matches our root domain or is a known platform domain
+ */
+function isRootOrPlatformDomain(hostname: string, rootDomain: string): boolean {
+  const hostWithoutPort = hostname.split(':')[0];
+
+  // Exact match with root domain
+  if (hostWithoutPort === rootDomain) return true;
+  if (hostWithoutPort === `www.${rootDomain}`) return true;
+
+  // Vercel preview deployments (exact suffix match)
+  if (hostWithoutPort.endsWith('.vercel.app')) return true;
+
+  return false;
+}
+
+/**
+ * Check if this is localhost/development environment
+ */
+function isLocalhostRequest(hostname: string): boolean {
+  const hostWithoutPort = hostname.split(':')[0];
+  return hostWithoutPort === 'localhost' || hostWithoutPort === '127.0.0.1';
+}
+
 export function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const pathname = request.nextUrl.pathname;
   const userAgent = request.headers.get('user-agent') || '';
 
-  // Check if this is a subdomain request
-  const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
-
-  // Extract subdomain
+  // Extract subdomain with proper validation
   let subdomain: string | null = null;
 
-  if (isLocalhost) {
+  if (isLocalhostRequest(hostname)) {
     // In development, use path-based routing: localhost:3000/ogabassey/...
     // The (storefront)/[slug] routes handle this
     subdomain = null;
-  } else if (hostname.endsWith(`.${ROOT_DOMAIN}`)) {
+  } else if (isSubdomainOfRoot(hostname, ROOT_DOMAIN)) {
     // Production subdomain: ogabassey.usebaci.com
-    subdomain = hostname.replace(`.${ROOT_DOMAIN}`, '');
-  } else if (!hostname.includes(ROOT_DOMAIN) && !hostname.includes('vercel.app')) {
+    // Extract subdomain safely (already validated by isSubdomainOfRoot)
+    const hostWithoutPort = hostname.split(':')[0];
+    subdomain = hostWithoutPort.slice(0, -(`.${ROOT_DOMAIN}`.length));
+  } else if (!isRootOrPlatformDomain(hostname, ROOT_DOMAIN)) {
     // Custom domain: ogabassey.com - need to look up merchant by domain
     // For now, we'll handle this via a header and let the page resolve it
     const response = NextResponse.next();
