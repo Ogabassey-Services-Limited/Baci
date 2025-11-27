@@ -13,11 +13,12 @@ interface EnhanceProductImageOutput {
 }
 
 /**
- * AI-powered product image enhancement
- * Takes a regular photo and transforms it into a professional e-commerce product image
- * - Removes/cleans background
- * - Adjusts lighting to studio quality
- * - Makes the product look professional and appealing
+ * Enhance a product photo into a professional e-commerce image.
+ *
+ * @param input - Object containing the source product photo. `input.photoDataUri` must be a data URI (base64-encoded image).
+ * @returns The enhanced product image as a data URI (including media type and base64 payload) in `enhancedPhotoDataUri`.
+ * @throws Error if `input.photoDataUri` is missing.
+ * @throws Error if the AI fails to produce an enhanced image or the enhancement process fails.
  */
 export async function enhanceProductImage(
   input: EnhanceProductImageInput

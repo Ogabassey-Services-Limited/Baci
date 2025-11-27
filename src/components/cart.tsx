@@ -17,6 +17,13 @@ import { Button } from './ui/button';
 import Link from 'next/link';
 import { Minus, Plus, ShoppingBag } from 'lucide-react';
 
+/**
+ * Render the shopping cart sheet with items, quantity controls, removal actions, and checkout.
+ *
+ * Shows an empty-state message when the cart is empty and displays a subtotal and checkout action when items are present.
+ *
+ * @returns A React element representing the cart sheet UI
+ */
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
   const { merchant } = useMerchant();

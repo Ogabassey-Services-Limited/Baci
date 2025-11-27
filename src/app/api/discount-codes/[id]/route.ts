@@ -3,8 +3,11 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 /**
- * PATCH /api/discount-codes/[id]
- * Update a discount code
+ * Update a discount code by id for the authenticated user.
+ *
+ * @param request - Incoming request whose JSON body contains fields to update; if `code` is provided it will be converted to uppercase.
+ * @param params - A promise resolving to an object with `id`, the discount code's identifier.
+ * @returns JSON response: the updated `discountCode` on success; an `error` message with status `401`, `404`, or `500` on failure.
  */
 export async function PATCH(
   request: NextRequest,
@@ -57,8 +60,11 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/discount-codes/[id]
- * Delete a discount code
+ * Deletes the discount code identified by the route `id` for the authenticated user.
+ *
+ * Requires an authenticated Supabase user; ownership is enforced by Row-Level Security so only the merchant owning the code will have it deleted.
+ *
+ * @returns On success, a JSON object with `message: 'Discount code deleted successfully'`. If the request is unauthorized, a JSON error message is returned with HTTP status 401. On internal errors, a JSON error message is returned with HTTP status 500.
  */
 export async function DELETE(
   request: NextRequest,

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -20,6 +19,15 @@ interface AnalyticsFiltersProps {
     className?: string;
 }
 
+/**
+ * Render the analytics filters UI with a date range picker and an export dropdown.
+ *
+ * @param date - Current date range with `from` and `to` (each may be `Date` or `undefined`)
+ * @param onDateChange - Callback invoked with an updated date range when the picker changes
+ * @param onExport - Optional callback invoked with the chosen export format: `'csv'` or `'pdf'`
+ * @param className - Optional additional CSS class names applied to the root container
+ * @returns The React element containing the animated filters toolbar
+ */
 export function AnalyticsFilters({
     date,
     onDateChange,

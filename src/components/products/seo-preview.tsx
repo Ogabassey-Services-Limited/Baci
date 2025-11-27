@@ -9,6 +9,19 @@ interface SeoPreviewProps {
     merchantUrl?: string;
 }
 
+/**
+ * Render a search-engine-style preview card for a product.
+ *
+ * Displays a simulated search result with merchant domain, computed product URL,
+ * title, and description using sensible defaults when props are missing.
+ *
+ * @param title - The product title to display; falls back to "Product Title" when empty
+ * @param description - The product description to display; falls back to a placeholder when empty
+ * @param slug - The product slug used in the preview URL; falls back to "product-slug" when empty
+ * @param category - Optional category used to generate a category segment in the URL when provided
+ * @param merchantUrl - Merchant domain shown in the preview and used to build the URL (default: "store.usebaci.com")
+ * @returns The rendered preview card as JSX
+ */
 export function SeoPreview({ title, description, slug, category, merchantUrl = "store.usebaci.com" }: SeoPreviewProps) {
     const displayTitle = title || "Product Title";
     const displayDescription = description || "Product description will appear here...";

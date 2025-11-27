@@ -53,6 +53,16 @@ interface DiscountCode {
   created_at: string;
 }
 
+/**
+ * Render the Discount Codes management page with a dashboard, list, and create/edit dialog.
+ *
+ * Displays summary cards (total, active, total uses), a table of discount codes with actions
+ * (copy, edit, delete), and a modal form to create or update codes. The component loads
+ * discount codes from the API on mount, derives currency from the merchant's country,
+ * and shows toast notifications for success and error events.
+ *
+ * @returns The Discount Codes management page UI as a React element.
+ */
 export default function DiscountCodesPage() {
   const { toast } = useToast();
   const { merchant } = useMerchant();

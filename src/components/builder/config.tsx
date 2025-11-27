@@ -318,6 +318,27 @@ function HeroCarouselComponent({ slides, autoplayDelay = 5000 }: HeroCarouselPro
     );
 }
 
+/**
+ * Render the site header with configurable logo, navigation, search, and action controls.
+ *
+ * @param showLogo - Whether to render the logo area.
+ * @param showSearch - Whether to render the search input (desktop) and search toggle (mobile).
+ * @param showCart - Whether to render the cart button.
+ * @param showMenu - Whether to render navigation links (desktop) and the mobile menu toggle.
+ * @param navigationLinks - Array of navigation link objects with `{ label, url }` used to build the primary nav.
+ * @param ctaButton - CTA configuration with `{ show, text, url }` used to render an optional action button.
+ * @param backgroundColor - CSS color used for the header background; when omitted and glassEffect is true a translucent white is used.
+ * @param textColor - CSS color used for header text and link color fallback.
+ * @param sticky - If true, the header is positioned sticky at the top of the page.
+ * @param logoUrl - URL for the header logo image; when omitted a fallback initial tile and store name are shown.
+ * @param storeName - Store display name used for logo fallback and accessible labeling.
+ * @param layout - Layout preset determining ordering and alignment of logo and nav. Supported values include 'logo-left-nav-center', 'logo-left-nav-right', and 'logo-center'.
+ * @param searchStyle - Visual style for the search input. Supported values: 'outline', 'filled', 'minimal'.
+ * @param searchRadius - Border radius preset for the search input. Supported values: 'none', 'sm', 'md', 'full'.
+ * @param paddingY - Vertical size preset for the header. Supported values: 'sm', 'md', 'lg'.
+ * @param glassEffect - When true, applies backdrop blur and translucent background to create a glass-like header.
+ * @returns The header JSX element configured with the provided props.
+ */
 function CustomHeader({
     showLogo,
     showSearch,

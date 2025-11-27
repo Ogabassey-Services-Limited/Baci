@@ -12,6 +12,17 @@ type Props = {
     params: Promise<{ slug: string }>
 }
 
+/**
+ * Build a sitemap for a merchant store: includes the store root, one entry per unique product category, and one entry per active product.
+ *
+ * @param params - A promise resolving to an object with the store `slug` used to look up the merchant
+ * @returns An array of sitemap entries where:
+ *  - The first entry is the store root URL (priority 1, daily).
+ *  - Category entries map each unique, non-empty product category to `/{category-slug}` (priority 0.7, daily).
+ *  - Product entries map each active product to `/{category-slug}/{product-slug}` when the product has a category, otherwise `/products/{product-slug}` (priority 0.8, weekly). Each entry includes `lastModified`.
+ * 
+ * Note: URLs are constructed using the request `Host` header when available (falling back to `{slug}.localhost:3000`), and use `http` in development or `https` otherwise.
+ */
 export default async function sitemap({ params }: Props): Promise<MetadataRoute.Sitemap> {
     const { slug } = await params;
 

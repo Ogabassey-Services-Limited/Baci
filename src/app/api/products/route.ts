@@ -190,6 +190,14 @@ export async function GET(request: NextRequest) {
     }
 }
 
+/**
+ * Create a new product for the authenticated merchant and persist optional variants.
+ *
+ * Processes the JSON body to insert a product record (and product_variants when provided) into the database for the authenticated merchant. Generates or sanitizes derived fields (slug, sku, SEO schema) when not supplied, and computes legacy-compatible image and status fields. Side effects: inserts product and, if present, its variants.
+ *
+ * @param request - Incoming NextRequest whose JSON body must include `name` and `price`. Optional fields include `slug`, `sku`, `description`, `stock`, `images`, `brand`, `gtin`, `mpn`, `weight_value`, `weight_unit`, `condition`, `condition_detail`, `compare_at_price`, `cost_price`, `low_stock_threshold`, `taxable`, `tax_code`, `meta_title`, `meta_description`, `keywords`, `canonical_url`, `schema_markup`, `google_product_category`, `fulfillment_details`, `has_variants`, `variants` (array of variant objects), `category`, and `color`.
+ * @returns The HTTP response containing the created product object (`product`) with status 201 on success; on failure returns a JSON error payload with an appropriate status (400, 401, 404, or 500).
+ */
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies();

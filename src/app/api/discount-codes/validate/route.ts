@@ -12,8 +12,17 @@ interface ValidationRequest {
 }
 
 /**
- * POST /api/discount-codes/validate
- * Validate a discount code and calculate discount amount
+ * Validate a discount code payload and compute the discount applied to an order.
+ *
+ * Processes the request body to verify code eligibility (active window, usage limits,
+ * per-customer usage, minimum purchase, product/category applicability) and calculates
+ * the discount amount (percentage or fixed, clamped by maximum and order total).
+ *
+ * @param request - Incoming NextRequest containing a ValidationRequest JSON payload:
+ *   `{ code, merchantId, customerEmail?, orderTotal, productIds?, categoryIds? }`
+ * @returns A NextResponse whose JSON body is:
+ *   - on success: `{ valid: true, discountCode: { id, code, description, discount_type, discount_value }, discountAmount, finalTotal }`
+ *   - on failure: `{ valid: false, error }` (with an appropriate HTTP status)
  */
 export async function POST(request: NextRequest) {
   try {

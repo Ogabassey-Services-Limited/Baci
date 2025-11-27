@@ -1,4 +1,3 @@
-
 'use client';
 
 import { ThemedButton, ThemedCard, ThemedBadge, ThemedLink } from '@/components/themed';
@@ -49,6 +48,13 @@ function ThemedStorefrontLayout({ children }: { children: React.ReactNode }) {
 }
 
 
+/**
+ * Render the main storefront UI including header, hero carousel, product grid with search, filters, and cart interactions.
+ *
+ * Displays merchant branding and a centered search input, loads products for the current merchant, and exposes filtering by category or brand. Provides fuzzy search, togglable filter options, product listing with price formatting, add-to-cart and quantity controls, and a responsive hero carousel. Also renders footer links based on merchant pages and a floating cart sheet.
+ *
+ * @returns The storefront content React element
+ */
 function StorefrontContent() {
   const { merchant } = useMerchant();
   const [searchQuery, setSearchQuery] = useState('');

@@ -113,6 +113,15 @@ The configuration includes a powerful theme system that controls ALL visual styl
 
 Remember: You're helping merchants create beautiful, functional storefronts. Be creative but professional.`;
 
+/**
+ * Handle POST requests to generate or update a Puck configuration using AI based on a user prompt.
+ *
+ * Processes authentication and per-user rate limits, sanitizes the incoming prompt, invokes the AI to produce
+ * a complete updated configuration, deep-merges theme colors (preserving header/footer fields), ensures each
+ * content component has a unique `id` prop, and fills missing `root` and `zones` from the current configuration.
+ *
+ * @returns A JSON NextResponse containing `{ config: updatedConfig }` on success (includes `X-RateLimit-Remaining` header). On error, returns a JSON error payload with an appropriate HTTP status code.
+ */
 export async function POST(req: Request) {
     try {
         // Auth check

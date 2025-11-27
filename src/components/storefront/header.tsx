@@ -15,9 +15,9 @@ import { SearchAutocomplete } from './search-autocomplete';
 import { useRouter } from 'next/navigation';
 
 /**
- * StorefrontHeader - Now fully themeable via CSS variables
- * 
- * All visual properties are controlled by the theme system:
+ * Render the storefront header with brand link, centered product search, dashboard link, and cart trigger.
+ *
+ * The header is fully themeable via CSS variables:
  * - --theme-header-bg: Background color
  * - --theme-header-text: Text color
  * - --theme-header-icon: Icon color
@@ -27,6 +27,8 @@ import { useRouter } from 'next/navigation';
  * - --theme-header-height: Header height
  * - --theme-header-px: Horizontal padding
  * - --theme-radius-md: Border radius for search
+ *
+ * @returns The header and associated cart sheet when a merchant is present; `null` otherwise.
  */
 export function StorefrontHeader() {
     const { merchant } = useMerchant();

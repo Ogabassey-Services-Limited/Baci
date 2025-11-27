@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useCallback } from 'react';
@@ -12,6 +11,13 @@ interface ColorPickerProps {
   onChange: (color: string) => void;
 }
 
+/**
+ * An interactive color picker with a saturation/lightness box, hue slider, and hex input.
+ *
+ * @param color - The current color used to initialize and keep the control in sync when the user is not dragging; accepts any CSS color string but `onChange` is called with a hex string.
+ * @param onChange - Callback invoked with the new color as a hex string whenever the user picks a color (via dragging or entering a valid hex).
+ * @returns A JSX element rendering the color picker UI.
+ */
 export function ColorPicker({ color, onChange }: ColorPickerProps) {
   // Parse the incoming color prop
   const parsedColor = colord(color);

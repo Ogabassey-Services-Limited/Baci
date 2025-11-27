@@ -28,6 +28,13 @@ interface WishListItem {
   };
 }
 
+/**
+ * Render a wishlist page gated by customer email that lets a user view and remove saved products.
+ *
+ * The component reads and writes the customer's email to localStorage under the key `customerEmail`, fetches wishlist items from `/api/wishlist?email=...`, and removes items via `DELETE /api/wishlist?id=...`. It displays per-item loading states, toast notifications for success and error cases, and navigation to product pages and the merchant storefront.
+ *
+ * @returns The React element for the wish list page UI.
+ */
 export default function WishListPage() {
   const params = useParams();
   const router = useRouter();

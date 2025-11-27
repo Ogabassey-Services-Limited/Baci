@@ -12,7 +12,10 @@ export type CacheStrategy =
   | 'immutable';         // 1 year cache (versioned assets)
 
 /**
- * Get cache control header value for a strategy
+ * Map a cache strategy name to its corresponding `Cache-Control` header value.
+ *
+ * @param strategy - One of: 'no-cache', 'short', 'medium', 'long', 'static', 'immutable'
+ * @returns The `Cache-Control` header string associated with `strategy`
  */
 export function getCacheControl(strategy: CacheStrategy): string {
   switch (strategy) {
@@ -80,7 +83,11 @@ export const CACHE_HEADERS = {
 } as const;
 
 /**
- * Add cache headers to a Response
+ * Clone a Response and apply a Cache-Control header for the given caching strategy.
+ *
+ * @param response - The original Response to clone
+ * @param strategy - Cache strategy to determine the `Cache-Control` header; defaults to `'medium'`
+ * @returns A new Response with the same body, status, and statusText as `response`, and its `Cache-Control` header set according to `strategy`
  */
 export function withCacheHeaders(
   response: Response,

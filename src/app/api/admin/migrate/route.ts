@@ -1,6 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+/**
+ * Check whether the database migration that adds `merchants.social_media` has been applied and return status or manual instructions.
+ *
+ * @returns A JSON response describing the migration state:
+ * - When the migration is not applied: an object with `status: 'not_applied'`, a human-readable `message`, and `instructions` containing SQL-editor steps to apply the migration.
+ * - When the migration is applied: an object with `status: 'applied'`, a `message`, and `details` containing `social_media_column_exists: true` and `old_columns_dropped: boolean`.
+ * - On configuration or runtime failure: an object with `error` and optional `details` describing the failure (HTTP 500).
+ */
 export async function POST(request: Request) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -68,6 +76,11 @@ This migration will:
   }
 }
 
+/**
+ * Informational GET handler that instructs callers to use POST for migration checks.
+ *
+ * @returns JSON response containing a `message`: `'Use POST to check migration status'`.
+ */
 export async function GET() {
   return NextResponse.json({
     message: 'Use POST to check migration status',

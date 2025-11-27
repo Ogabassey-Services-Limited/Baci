@@ -127,6 +127,12 @@ export async function GET(
     }
 }
 
+/**
+ * Update a merchant-owned product identified by the route `id` using the JSON body.
+ *
+ * @param params - An object whose `params` promise resolves to route parameters; `id` is the product identifier (UUID or slug) to update.
+ * @returns An object with a `product` property containing the updated product record, or an error object with an `error` message when the request fails.
+ */
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }

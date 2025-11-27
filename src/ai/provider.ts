@@ -42,6 +42,18 @@ export const AI_RATE_LIMITS = {
  */
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
+/**
+ * Checks and updates an in-memory sliding-window rate limit bucket for the given identifier.
+ *
+ * @param identifier - Unique key for the rate limit bucket (e.g., user ID, API key, or IP)
+ * @param limitConfig - Rate limit configuration containing:
+ *   - `requests`: maximum allowed requests per window
+ *   - `windowMs`: window length in milliseconds
+ * @returns An object describing the rate limit result:
+ *   - `allowed`: `true` if the request is permitted, `false` if the limit has been reached
+ *   - `remaining`: number of requests left in the current window
+ *   - `resetIn`: milliseconds until the current window resets
+ */
 export function checkRateLimit(
     identifier: string,
     limitConfig: { requests: number; windowMs: number }
@@ -98,7 +110,17 @@ export const AI_RETRY_CONFIG = {
 };
 
 /**
- * Wrapper for AI calls with retry logic
+ * Execute an asynchronous operation with configurable retries and exponential backoff.
+ *
+ * Retries the provided operation up to `config.maxRetries` times, waiting `config.initialDelayMs`
+ * and increasing the wait by `config.backoffMultiplier` (capped at `config.maxDelayMs`) between attempts.
+ * If the operation throws an error whose message contains "invalid", "unauthorized", "forbidden",
+ * or "not found", the error is rethrown immediately without further retries.
+ *
+ * @param operation - A function that performs the asynchronous work and returns a Promise of the result.
+ * @param config - Retry parameters: `maxRetries`, `initialDelayMs`, `maxDelayMs`, and `backoffMultiplier`.
+ * @returns The value resolved by `operation`.
+ * @throws The last encountered error if all retries are exhausted or a non-retryable error is raised.
  */
 export async function withRetry<T>(
     operation: () => Promise<T>,
@@ -135,7 +157,13 @@ export async function withRetry<T>(
 }
 
 /**
- * Sanitize user input for AI prompts to prevent prompt injection
+ * Sanitizes user-provided prompt text to reduce prompt-injection risk.
+ *
+ * Removes common prompt-injection phrases and simple system/role markers, strips code blocks and inline code markers, collapses whitespace, and truncates the result to `maxLength`.
+ *
+ * @param input - The raw user input to sanitize
+ * @param maxLength - Maximum allowed length of the sanitized string (default: 500)
+ * @returns The sanitized prompt string, truncated to `maxLength` if needed
  */
 export function sanitizePromptInput(input: string, maxLength: number = 500): string {
     if (!input) return '';

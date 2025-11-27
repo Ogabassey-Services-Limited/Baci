@@ -1,14 +1,13 @@
 /**
- * Check if a password has been compromised in a data breach
- * Uses HaveIBeenPwned Pwned Passwords API with k-Anonymity
+ * Check whether a plaintext password appears in known breaches using the Have I Been Pwned Pwned Passwords API with k-Anonymity.
  *
- * How it works:
- * 1. Hash the password with SHA-1
- * 2. Send only the first 5 characters of the hash to the API
- * 3. API returns all hash suffixes that match that prefix
- * 4. Check locally if our full hash is in the returned list
+ * Uses k-Anonymity so the full password or full hash is never sent to the API.
  *
- * This means the actual password (or even its full hash) never leaves the client.
+ * @param password - The plaintext password to verify against breach data
+ * @returns An object with:
+ *  - `isBreached`: `true` if the password was found in breach data, `false` otherwise.
+ *  - `count` (optional): the number of times the password appears in breach records when `isBreached` is `true`.
+ *  - `error` (optional): an error message when the verification could not be completed (check fails open, `isBreached` will be `false` in that case).
  */
 export async function checkPasswordBreach(password: string): Promise<{
     isBreached: boolean;

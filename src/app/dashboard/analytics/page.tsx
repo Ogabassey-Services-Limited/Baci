@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -12,6 +11,14 @@ import { AnalyticsFilters } from '@/components/analytics/analytics-filters';
 import { exportAnalyticsAsCSV, exportAnalyticsAsPDF } from '@/lib/analytics-export';
 
 
+/**
+ * Render the Analytics page, including date/category controls, data fetching, export actions, and the analytics grid.
+ *
+ * Fetches analytics for the current merchant and selected date range, shows a loading state while fetching,
+ * and exposes CSV/PDF export actions that trigger file downloads and user-facing toasts.
+ *
+ * @returns The Analytics page React element.
+ */
 export default function AnalyticsPage() {
     const { toast } = useToast();
     const { merchant, loading: merchantLoading } = useMerchant();

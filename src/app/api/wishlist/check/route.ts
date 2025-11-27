@@ -3,8 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 /**
- * GET /api/wishlist/check?email=customer@example.com&productId=uuid
- * Check if a product is in customer's wish list
+ * Determine whether the specified product is in the given customer's wish list.
+ *
+ * @param request - The incoming request whose URL query must include `email` (customer email) and `productId` (product UUID)
+ * @returns A JSON object with `inWishList`: `true` if a matching wish list item exists, `false` otherwise, and `itemId`: the item's `id` when present or `null`
  */
 export async function GET(request: NextRequest) {
   try {

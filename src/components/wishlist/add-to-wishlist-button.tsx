@@ -16,6 +16,20 @@ interface AddToWishListButtonProps {
   className?: string;
 }
 
+/**
+ * Render a wish-list toggle button for a product.
+ *
+ * Renders a button that checks initial wish-list membership, shows loading states, and allows adding or removing the product from the user's wish list via API calls. Displays toast feedback for success, errors, and when an email is required.
+ *
+ * @param productId - The identifier of the product to check or modify in the wish list
+ * @param merchantId - The identifier of the product's merchant (sent when adding to the wish list)
+ * @param customerEmail - The user's email used to look up and modify the wish list; if absent the component prompts via toast
+ * @param variant - Button visual variant (`default` | `outline` | `ghost`), defaults to `'ghost'`
+ * @param size - Button size (`default` | `sm` | `lg` | `icon`), defaults to `'icon'`
+ * @param showText - When true, shows text next to the icon ("Save" or "Saved"), defaults to `false`
+ * @param className - Optional additional className(s) applied to the button
+ * @returns The rendered button element that toggles the product's presence in the user's wish list
+ */
 export function AddToWishListButton({
   productId,
   merchantId,

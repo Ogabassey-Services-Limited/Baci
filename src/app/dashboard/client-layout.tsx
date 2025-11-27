@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -110,6 +109,14 @@ const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }:
   );
 };
 
+/**
+ * Render the admin dashboard layout with a responsive collapsible sidebar, header controls, and main content area.
+ *
+ * The layout enforces authentication and onboarding guards: unauthenticated users are redirected to `/login`; authenticated users without a complete merchant profile are shown a destructive onboarding toast and redirected to `/onboarding`. It provides navigation, a development/production storefront link, a country selector that updates the merchant's country, a user menu with sign-out, and a mobile navigation sheet. While authentication or merchant data is loading, a full-page spinner is shown; during redirects the layout renders nothing.
+ *
+ * @param children - React nodes rendered inside the layout's main content area.
+ * @returns The dashboard layout element containing navigation, header, and the provided children.
+ */
 export default function DashboardClientLayout({
   children,
 }: {

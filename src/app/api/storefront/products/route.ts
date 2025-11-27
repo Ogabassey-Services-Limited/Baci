@@ -38,6 +38,13 @@ const getCachedProducts = unstable_cache(
     }
 );
 
+/**
+ * Handle GET requests for storefront products and return products for a specified merchant.
+ *
+ * Fetches active products for the merchant identified by the `merchant_id` query parameter and returns them as JSON with caching headers. If `merchant_id` is missing, responds with a 400 error. On unexpected failures, responds with a 500 error.
+ *
+ * @returns A NextResponse containing `{ products: Product[] }` on success; a JSON error object with status 400 when `merchant_id` is missing; a JSON error object with status 500 on unexpected errors.
+ */
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;

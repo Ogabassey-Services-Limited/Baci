@@ -4,9 +4,16 @@ import { NextResponse } from 'next/server';
 import { cache, generateCacheKey } from '@/lib/cache';
 
 /**
-/**
- * GET /api/analytics?startDate=ISO&endDate=ISO
- * Get real-time analytics for merchant dashboard
+ * Handle GET /api/analytics and produce analytics for a merchant over a date range.
+ *
+ * Parses optional `startDate` and `endDate` query parameters (defaults to the last 7 days),
+ * authenticates the requesting user, loads the merchant's data, computes metrics and chart
+ * series, caches the result for 5 minutes, and returns the assembled analytics payload.
+ *
+ * The JSON payload includes `summary` (revenue, customers, sales, activeNow, aov, grossMargin, ltv, refundRate),
+ * `chartData`, `recentSales`, `topProducts`, and `salesByChannel`.
+ *
+ * @returns A JSON object containing the analytics payload; responds with 401 when unauthorized, 404 when no merchant is found, or 500 on server error.
  */
 export async function GET(request: Request) {
   try {

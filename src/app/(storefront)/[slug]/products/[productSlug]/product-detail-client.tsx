@@ -19,6 +19,14 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
+/**
+ * Render the product detail UI including image gallery, pricing, stock status, quantity controls, and cart interactions.
+ *
+ * Enforces the product's minimum order quantity, formats prices using the merchant's country when available, and navigates to a 404 page if the product is missing or archived.
+ *
+ * @param product - The product to display and interact with
+ * @returns The React element for the product detail page
+ */
 export default function ProductDetailClient({ product }: { product: Product }) {
     const { merchant } = useMerchant();
     const { cart, cartCount, addToCart, updateQuantity } = useCart();

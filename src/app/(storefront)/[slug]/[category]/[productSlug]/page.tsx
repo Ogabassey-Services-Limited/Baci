@@ -18,6 +18,14 @@ interface PageProps {
     }>;
 }
 
+/**
+ * Retrieve a product for a merchant using the store slug, supplied category slug, and a product identifier.
+ *
+ * @param storeSlug - The merchant's store slug
+ * @param categorySlug - The category slug from the URL (used to detect mismatches)
+ * @param productSlug - The product slug or UUID used to locate the product
+ * @returns An object containing `product` and `categoryMismatch` when found; `null` if the merchant or product cannot be found. `categoryMismatch` is `true` when the product's actual category slug differs from `categorySlug`.
+ */
 async function getProduct(storeSlug: string, categorySlug: string, productSlug: string) {
     const supabase = createServerComponentClient({ cookies });
 
@@ -76,6 +84,14 @@ async function getProduct(storeSlug: string, categorySlug: string, productSlug: 
     return { product: product as Product, categoryMismatch };
 }
 
+/**
+ * Builds SEO metadata for a storefront product page using the provided route parameters and fetched product and merchant data.
+ *
+ * Fetches the product (by slug or id) and merchant information, constructs canonical and Open Graph data, and includes Twitter card fields and keywords. If the product is not found, returns minimal metadata indicating the product was not found.
+ *
+ * @param params - PageProps containing a promise that resolves to route parameters: `slug` (store/merchant), `category` (category slug), and `productSlug` (product slug or id)
+ * @returns A Metadata object with title, description, keywords, alternates.canonical, openGraph, and twitter fields populated for the product (or minimal not-found metadata when no product is available)
+ */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
     const { slug, category, productSlug } = await params;
     const result = await getProduct(slug, category, productSlug);
@@ -142,6 +158,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
 }
 
+/**
+ * Render the product detail page for a store, including product JSON-LD, breadcrumb JSON-LD, and the client-side product detail component.
+ *
+ * Calls notFound() to trigger a 404 when the requested product or merchant cannot be resolved.
+ *
+ * @param params - An object containing `slug` (store/merchant slug), `category` (category slug), and `productSlug` (product slug or UUID)
+ * @returns The React element for the product detail page
+ */
 export default async function CategoryProductPage({ params }: PageProps) {
     const { slug, category, productSlug } = await params;
     const result = await getProduct(slug, category, productSlug);

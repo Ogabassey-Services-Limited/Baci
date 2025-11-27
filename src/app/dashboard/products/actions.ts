@@ -68,6 +68,15 @@ export interface AIResponse {
     };
 }
 
+/**
+ * Analyze a vendor price list against the current product catalog and produce a structured AIResponse describing suggested changes.
+ *
+ * @param currentProducts - The current product catalog to compare against.
+ * @param priceListData - Raw text content of the vendor's price list (file contents).
+ * @param vendor - Vendor name (will be sanitized before use in the prompt).
+ * @param fileType - Descriptive file type or format (e.g., "csv", "xlsx"); will be sanitized before use.
+ * @returns An AIResponse containing an array of change records and a concise summary. If AI processing fails, returns an AIResponse with an empty `changes` array and a summary explaining the failure.
+ */
 export async function processPriceList(
     currentProducts: Product[],
     priceListData: string,
@@ -121,6 +130,17 @@ Instructions:
     }
 }
 
+/**
+ * Fetches and returns the CSV export content of a Google Sheet identified by the provided URL.
+ *
+ * Validates the URL format, enforces HTTPS and allowed Google Sheets hosts, extracts and validates
+ * the spreadsheet ID from a `/d/{id}` path segment, and constructs a sanitized export URL used for fetching.
+ *
+ * @param url - A Google Sheets URL containing the spreadsheet ID in the `/d/{id}` path segment
+ * @returns The sheet content as CSV text
+ * @throws Error if the URL is invalid or not HTTPS, if the host is not docs.google.com or sheets.google.com,
+ *         if a spreadsheet ID cannot be extracted or has an invalid format, or if fetching the export fails
+ */
 export async function fetchGoogleSheet(url: string): Promise<string> {
     try {
         // Validate URL format first

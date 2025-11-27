@@ -13,7 +13,12 @@ interface CSVRow {
 }
 
 /**
- * Parse CSV text into rows
+ * Parse CSV content into an array of row objects keyed by header names.
+ *
+ * Handles quoted fields (commas inside quotes are preserved), trims surrounding quotes and whitespace, ignores empty lines, and returns an empty array when no data rows are present.
+ *
+ * @param csvText - Raw CSV text to parse
+ * @returns An array of `CSVRow` objects where each object's keys come from the CSV header row and values are the corresponding cell values
  */
 function parseCSV(csvText: string): CSVRow[] {
   const lines = csvText.split('\n').filter(line => line.trim());
@@ -51,7 +56,11 @@ function parseCSV(csvText: string): CSVRow[] {
 }
 
 /**
- * Generate a unique slug from a name
+ * Create a URL-friendly unique slug for a product name.
+ *
+ * @param name - The source name to convert into a slug
+ * @param index - A numeric suffix used to help ensure uniqueness when generating multiple slugs for the same name
+ * @returns A URL-friendly slug string with appended uniqueness components
  */
 function generateSlug(name: string, index: number): string {
   const baseSlug = name
@@ -65,8 +74,18 @@ function generateSlug(name: string, index: number): string {
 }
 
 /**
- * POST /api/products/bulk-import
- * Bulk import products from CSV file
+ * Handle a CSV file upload and bulk-import products for the authenticated user's merchant.
+ *
+ * Reads a multipart form `file` (CSV), parses rows, validates required fields, creates product
+ * records linked to the authenticated merchant, and returns an import summary.
+ *
+ * Returns JSON with import results and may respond with appropriate HTTP status codes for
+ * authentication, missing merchant, missing file, invalid CSV rows, or server errors.
+ *
+ * @returns An object with `success` (number of inserted products), `failed` (number of rows that failed),
+ * and `errors` (array of row-specific error messages). HTTP error responses use standard status codes:
+ * 401 for unauthorized, 404 for merchant not found, 400 for bad input (e.g., no file or no valid rows),
+ * and 500 for internal server errors.
  */
 export async function POST(request: NextRequest) {
   try {

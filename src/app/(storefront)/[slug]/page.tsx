@@ -8,6 +8,16 @@ import { escapeHtml } from '@/lib/sanitize';
 // Enable ISR with 1 minute revalidation for storefront homepages
 export const revalidate = 60;
 
+/**
+ * Generate SEO, Open Graph, and Twitter metadata for a storefront identified by its slug.
+ *
+ * Accepts routing params containing a `slug` and returns metadata appropriate for the store:
+ * - When the merchant exists: includes title, description, alternates.canonical, openGraph (title, description, url, type, siteName, optional image) and twitter (card, title, description, optional image and site).
+ * - When the merchant is not found: returns a minimal metadata object with title "Store Not Found" and a descriptive message.
+ *
+ * @param params - A promise that resolves to an object with a `slug` property used to identify the merchant
+ * @returns The page Metadata object describing title, description, alternates, openGraph, and twitter fields
+ */
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
     const cookieStore = await cookies();
@@ -62,6 +72,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
 }
 
+/**
+ * Renders the storefront page for a given store slug, including SEO JSON-LD when merchant data is available.
+ *
+ * @param params - A promise that resolves to route parameters containing `slug`
+ * @returns The storefront page element for the specified store slug; if the slug is invalid, a centered "Invalid store URL." message is rendered
+ */
 export default async function StorefrontPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
 

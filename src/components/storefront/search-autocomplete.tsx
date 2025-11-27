@@ -32,6 +32,20 @@ interface SearchAutocompleteProps {
     className?: string;
 }
 
+/**
+ * A controlled search autocomplete component that displays product suggestions and popular searches as the user types.
+ *
+ * Fetches suggestions for the given merchant, debounces requests, supports keyboard navigation (arrow keys, Enter, Escape),
+ * and exposes callbacks for selection and input changes.
+ *
+ * @param merchantId - Merchant identifier used when requesting autocomplete suggestions
+ * @param value - Current input value (controlled)
+ * @param onChange - Called with the updated input value or when a popular search is selected
+ * @param onSelectProduct - Called with the selected product's URL when a product suggestion is chosen
+ * @param placeholder - Optional input placeholder text
+ * @param className - Optional class name applied to the component wrapper
+ * @returns The rendered SearchAutocomplete UI element
+ */
 export function SearchAutocomplete({
     merchantId,
     value,

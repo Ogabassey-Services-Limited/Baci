@@ -21,6 +21,18 @@ const _GenerateProductDescriptionOutputSchema = z.object({
 
 type GenerateProductDescriptionOutput = z.infer<typeof _GenerateProductDescriptionOutputSchema>;
 
+/**
+ * Generate a concise product description tailored to the provided product details.
+ *
+ * @param input - Input values used to construct the prompt:
+ *   - productName: product name (1–200 characters)
+ *   - keywords: optional array of up to 10 keywords (each up to 50 characters)
+ *   - brandVoice: optional voice/style guidance (up to 200 characters)
+ *   - targetAudience: optional audience guidance (up to 200 characters)
+ *   - businessType: optional business context (up to 100 characters)
+ * @returns An object with a single `description` string containing the generated product description.
+ * @throws Error if input validation fails or if the AI fails to produce a description.
+ */
 export async function generateProductDescription(
   input: GenerateProductDescriptionInput
 ): Promise<GenerateProductDescriptionOutput> {

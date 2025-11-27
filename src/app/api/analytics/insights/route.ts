@@ -22,6 +22,18 @@ const InsightSchema = z.object({
     })),
 });
 
+/**
+ * Generate AI-driven insights for a merchant, applying rate limits and caching.
+ *
+ * Uses recent merchant data to produce 3–5 actionable insights (revenue trends, product performance, and channel effectiveness). Enforces per-user rate limits and returns a cached result when available.
+ *
+ * @param supabase - Supabase client instance for querying merchant data
+ * @param merchantId - ID of the merchant to generate insights for
+ * @param userId - ID of the requesting user (used for rate limiting)
+ * @returns An object containing either:
+ * - `data`: the generated insights matching `InsightSchema` (insights array), or
+ * - `error`, `details`, and `status`: an error object when rate-limited or when generation fails
+ */
 async function generateInsights(supabase: ReturnType<typeof createClient>, merchantId: string, userId: string) {
     // Rate limiting
     const rateLimit = checkRateLimit(`insights:${userId}`, AI_RATE_LIMITS.insights);
@@ -103,6 +115,13 @@ Be specific and constructive.
     return { data: object };
 }
 
+/**
+ * Handle GET requests by authenticating the user, locating their merchant, and returning AI-generated insights for that merchant.
+ *
+ * Attempts to authenticate via Supabase cookies, queries the merchant record for the authenticated user, invokes the internal insights generation flow, and responds with the generated insights or a structured error.
+ *
+ * @returns JSON response: on success the generated insights object; on failure an error object with an `error` message and optional `details`, returned with an appropriate HTTP status (e.g., 401 for unauthorized, 404 for merchant not found, 429 for rate limiting from the insights generator, 500 for internal errors).
+ */
 export async function GET() {
     try {
         const cookieStore = await cookies();
@@ -146,6 +165,14 @@ export async function GET() {
     }
 }
 
+/**
+ * Responds with AI-generated insights for the authenticated merchant.
+ *
+ * Checks the current user session, resolves the merchant associated with the user,
+ * invokes insights generation, and returns the resulting JSON payload or a structured error response.
+ *
+ * @returns A JSON response containing the generated insights on success; on failure returns a JSON error object with `error` (and optionally `details`) and an appropriate HTTP status (e.g., 401, 404, 429, 500).
+ */
 export async function POST(_request: Request) {
     try {
         const cookieStore = await cookies();
