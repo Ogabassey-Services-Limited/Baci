@@ -54,7 +54,7 @@ interface DiscountCode {
 
 export default function DiscountCodesPage() {
   const { toast } = useToast();
-  const { merchant } = useMerchant();
+  useMerchant(); // Hook called for side effects (context initialization)
   const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);

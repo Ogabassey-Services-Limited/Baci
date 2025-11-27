@@ -5,7 +5,7 @@ import { Metadata } from 'next';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema, generateSlug, getProductUrl } from '@/lib/seo-utils';
-import { escapeHtml, sanitizeSchemaMarkup } from '@/lib/sanitize';
+import { escapeHtml, sanitizeSchemaMarkup, safeJsonLdStringify } from '@/lib/sanitize';
 
 // Enable ISR with 5 minute revalidation
 export const revalidate = 300;
@@ -198,11 +198,11 @@ export default async function CategoryProductPage({ params }: PageProps) {
         <>
             <script
                 type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }}
             />
             <script
                 type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }}
             />
             <ProductDetailClient product={product} />
         </>

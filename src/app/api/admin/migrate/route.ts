@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Check if migration has been applied by querying for social_media column
-    const { data: checkData, error: checkError } = await supabase
+    const { error: checkError } = await supabase
       .from('merchants')
       .select('social_media')
       .limit(1);

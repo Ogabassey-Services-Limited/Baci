@@ -61,29 +61,24 @@ class InMemoryCache {
   /**
    * Delete cache entries matching a pattern
    * Supports wildcards: * (matches any characters)
-   * Safe against ReDoS attacks - no regex backtracking
+   * Uses simple string matching instead of regex to avoid ReDoS
    */
   deletePattern(pattern: string): void {
-    // Escape special regex characters and convert * to .*
-    const escapedPattern = pattern
-      .replace(/[.+?^${}()|[\]\\]/g, '\\$&') // Escape special chars
-      .replace(/\*/g, '.*'); // Convert * wildcard to regex
-
-    // Create regex with start/end anchors and timeout protection
-    const regex = new RegExp(`^${escapedPattern}$`);
+    // Simple wildcard matching without regex
+    // Supports only trailing wildcards like "prefix*" or exact matches
+    const isWildcard = pattern.endsWith('*');
+    const prefix = isWildcard ? pattern.slice(0, -1) : pattern;
 
     for (const key of this.cache.keys()) {
-      // Additional safety: limit key length to prevent catastrophic backtracking
+      // Safety: skip extremely long keys
       if (key.length > 1000) continue;
 
-      try {
-        if (regex.test(key)) {
-          this.cache.delete(key);
-        }
-      } catch (error) {
-        // Skip on regex error (safety measure)
-        console.warn('Cache deletePattern: regex error on key', key, error);
-        continue;
+      const shouldDelete = isWildcard
+        ? key.startsWith(prefix)  // Wildcard: match prefix
+        : key === pattern;         // Exact match
+
+      if (shouldDelete) {
+        this.cache.delete(key);
       }
     }
   }

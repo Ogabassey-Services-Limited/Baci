@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
-import { cache, generateCacheKey } from '@/lib/cache';
+import { cache } from '@/lib/cache';
 
 /**
  * DELETE /api/analytics/cache

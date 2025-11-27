@@ -20,7 +20,7 @@ async function checkAndApplyMigration() {
     console.log('Checking if migration has been applied...');
 
     // Try to query for social_media column
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('merchants')
       .select('social_media')
       .limit(1);
