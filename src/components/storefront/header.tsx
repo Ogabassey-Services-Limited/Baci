@@ -36,8 +36,8 @@ export function StorefrontHeader() {
 
     if (!merchant) return null;
 
-    const handleProductSelect = (productId: string) => {
-        router.push(`/product/${productId}`);
+    const handleProductSelect = (url: string) => {
+        router.push(url);
     };
 
     return (
@@ -52,14 +52,23 @@ export function StorefrontHeader() {
                     color: 'var(--theme-header-text, #000000)',
                 }}
             >
-                <div className="flex items-center gap-2 font-semibold">
+                <Link href={`/${merchant.slug}`} className="flex items-center gap-3 font-semibold shrink-0">
                     {merchant.logo_url ? (
-                        <Image src={merchant.logo_url} alt={`${merchant.business_name} logo`} width={32} height={32} className="rounded-sm object-contain" />
+                        <Image
+                            src={merchant.logo_url}
+                            alt={`${merchant.business_name} logo`}
+                            width={160}
+                            height={48}
+                            className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-[160px] object-contain"
+                            priority
+                        />
                     ) : (
                         <Logo />
                     )}
-                    <span className="hidden sm:inline-block">{merchant.business_name}</span>
-                </div>
+                    {!merchant.logo_url && (
+                        <span className="hidden sm:inline-block">{merchant.business_name}</span>
+                    )}
+                </Link>
 
                 <div className="flex-1 flex justify-center px-4">
                     <SearchAutocomplete

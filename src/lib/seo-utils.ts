@@ -17,6 +17,78 @@ export function generateSlug(text: string): string {
 }
 
 /**
+ * Generates a full product slug including condition
+ * Examples:
+ *   - "iPhone 12" (new) → "iphone-12-new"
+ *   - "iPhone 12" (used) → "iphone-12-used"
+ *   - "iPhone 12" (refurbished) → "iphone-12-refurbished"
+ *   - "iPhone 12" (no condition) → "iphone-12"
+ */
+export function generateProductSlug(
+    name: string,
+    condition?: 'new' | 'used' | string,
+    conditionDetail?: string
+): string {
+    const baseSlug = generateSlug(name);
+
+    // If no condition specified, just use base slug
+    if (!condition) {
+        return baseSlug;
+    }
+
+    // Use condition detail if available (e.g., "refurbished", "premium-used")
+    // Otherwise use the condition itself (e.g., "new", "used")
+    const conditionSlug = conditionDetail
+        ? generateSlug(conditionDetail)
+        : generateSlug(condition);
+
+    return `${baseSlug}-${conditionSlug}`;
+}
+
+/**
+ * Builds the product URL path based on available data
+ * Priority:
+ *   1. /{category}/{product-slug} (if category exists)
+ *   2. /products/{product-slug} (fallback)
+ *
+ * Examples:
+ *   - smartphones, "iphone-12-used" → "/smartphones/iphone-12-used"
+ *   - null, "generic-item" → "/products/generic-item"
+ */
+export function buildProductUrl(
+    productSlug: string,
+    category?: string | null
+): string {
+    if (category) {
+        const categorySlug = generateSlug(category);
+        return `/${categorySlug}/${productSlug}`;
+    }
+    return `/products/${productSlug}`;
+}
+
+/**
+ * Generates the full product URL path from product data
+ * Convenience function combining slug generation and URL building
+ */
+export function getProductUrl(product: {
+    slug?: string;
+    name: string;
+    category?: string | null;
+    condition?: 'new' | 'used' | string;
+    condition_detail?: string;
+    id: string;
+}): string {
+    // Use existing slug or generate one
+    const productSlug = product.slug || generateProductSlug(
+        product.name,
+        product.condition,
+        product.condition_detail
+    ) || product.id;
+
+    return buildProductUrl(productSlug, product.category);
+}
+
+/**
  * Weight unit mapping to schema.org unit codes
  */
 const WEIGHT_UNIT_CODES: Record<string, string> = {

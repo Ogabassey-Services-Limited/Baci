@@ -1,7 +1,7 @@
 'use server';
 
-import { generateObject } from 'ai';
-import { geminiFlash } from '@/ai/provider';
+import { generateObject, experimental_generateImage } from 'ai';
+import { geminiFlash, imagen3, withRetry, sanitizePromptInput } from '@/ai/provider';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
@@ -48,13 +48,14 @@ export async function guideBusinessOnboarding(
     logger.info({ message: 'Extracting colors from logo.', flow: 'guideBusinessOnboarding' });
 
     try {
-      const { object } = await generateObject({
-        model: geminiFlash,
-        schema: BrandColorsSchema,
-        messages: [
-          {
-            role: 'system',
-            content: `You are a professional brand designer analyzing a logo image.
+      const { object } = await withRetry(async () => {
+        return await generateObject({
+          model: geminiFlash,
+          schema: BrandColorsSchema,
+          messages: [
+            {
+              role: 'system',
+              content: `You are a professional brand designer analyzing a logo image.
 TASK: Extract exactly 3 brand colors from this logo in hex format.
 INSTRUCTIONS:
 1. Primary color = The MOST DOMINANT color in the logo (usually the main brand color).
@@ -64,14 +65,15 @@ IMPORTANT:
 - Look at the actual colors IN THE LOGO IMAGE.
 - Return colors as they appear in the logo, unless a background color must be generated.
 - Ensure the background color is very light for good readability.`
-          },
-          {
-            role: 'user',
-            content: [
-              { type: 'image', image: input.logoDataUri }
-            ]
-          }
-        ]
+            },
+            {
+              role: 'user',
+              content: [
+                { type: 'image', image: input.logoDataUri! }
+              ]
+            }
+          ]
+        });
       });
 
       logger.info({ message: 'Colors extracted successfully', colors: object });
@@ -84,13 +86,46 @@ IMPORTANT:
   }
 
   if (input.task === 'generate_logos') {
-    logger.warn({ message: 'Logo generation requested but currently disabled/placeholder.', flow: 'guideBusinessOnboarding' });
+    logger.info({ message: 'Generating logo with Imagen 3', flow: 'guideBusinessOnboarding' });
 
-    // Placeholder: Return empty array or throw. 
-    // Since we can't generate images with Gemini 1.5 Flash text model, we return empty to avoid errors.
-    // The UI should handle empty logos gracefully or we can throw a specific error.
+    // Sanitize user inputs
+    const businessName = sanitizePromptInput(input.businessName, 100);
+    const businessType = sanitizePromptInput(input.businessType, 50);
+    const brandPreferences = sanitizePromptInput(input.brandPreferences, 50);
 
-    return { logos: [] };
+    try {
+      const prompt = `Design a professional, modern, and minimalist logo for a business named "${businessName}".
+      Business Type: ${businessType}.
+      Color Preferences: ${brandPreferences}.
+      Style: Clean, vector-like, suitable for a website header and app icon.
+      Ensure high contrast and simple shapes. White background.`;
+
+      // Note: imagen3 is an image generation model from @ai-sdk/google
+      // Using type assertion due to experimental API
+      const { image } = await withRetry(async () => {
+        return await experimental_generateImage({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          model: imagen3 as any,
+          prompt: prompt,
+          n: 1,
+          size: '1024x1024',
+          aspectRatio: '1:1',
+        });
+      });
+
+      if (!image) {
+        throw new Error('No image generated.');
+      }
+
+      const logoDataUri = `data:image/png;base64,${image.base64}`;
+
+      return { logos: [logoDataUri] };
+
+    } catch (error) {
+      logger.error({ message: 'Logo generation failed', error });
+      // Return empty array to handle gracefully in UI, or throw if preferred
+      throw new Error('Failed to generate logo.');
+    }
   }
 
   throw new Error('Invalid task provided to guideBusinessOnboarding.');

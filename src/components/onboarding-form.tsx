@@ -37,6 +37,7 @@ import type { BrandColors } from '@/types';
 import { createClient } from '@/lib/supabase/client';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/onboarding/actions';
+import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import ColorThief from 'colorthief';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { OnboardingFormValues, onboardingSchema, step3Schema } from '@/schemas/onboarding';
@@ -133,7 +134,7 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
 function Step2_Branding() {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
-  const { watch, setValue } = form;
+  const { watch, setValue, control } = form;
 
   const businessName = watch('businessName');
   const businessType = watch('businessType');
@@ -202,12 +203,56 @@ function Step2_Branding() {
     }
   };
 
-  const handleGenerateClick = () => {
-    toast({
-      title: 'AI Generation Coming Soon!',
-      description: 'For now, please upload your own logo.',
-      variant: 'default',
-    });
+  const handleGenerateClick = async () => {
+    const isValid = await form.trigger(['businessName', 'businessType', 'brandPreferences']);
+    if (!isValid) {
+      toast({ title: 'Missing Information', description: 'Please enter your business name and brand preferences first.', variant: 'destructive' });
+      return;
+    }
+
+    const values = form.getValues();
+    // Use otherBusinessType if businessType is 'other'
+    const finalBusinessType = values.businessType === 'other' ? values.otherBusinessType : values.businessType;
+
+    if (!finalBusinessType) {
+      toast({ title: 'Missing Information', description: 'Please select a business type.', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      toast({ title: 'Generating Logo...', description: 'This may take a few seconds.' });
+      // setIsGenerating(true); // We need to expose this state setter or use a transition
+
+      const result = await guideBusinessOnboarding({
+        businessName: values.businessName,
+        businessType: finalBusinessType,
+        brandPreferences: values.brandPreferences || 'Modern and professional',
+        task: 'generate_logos',
+      });
+
+      if (result.logos && result.logos.length > 0) {
+        const logoUri = result.logos[0];
+        setValue('logoDataUri', logoUri, { shouldValidate: true });
+
+        // Extract colors from the generated logo
+        setIsExtracting(true);
+        try {
+          const colors = await extractColorsFromImage(logoUri);
+          setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
+          toast({ title: 'Logo Generated!', description: 'We also extracted brand colors for you.' });
+        } catch (e) {
+          console.error(e);
+          toast({ title: 'Logo Generated', description: 'But we could not extract colors automatically.' });
+        } finally {
+          setIsExtracting(false);
+        }
+      } else {
+        toast({ title: 'Generation Failed', description: 'No logo was returned.', variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error(error);
+      toast({ title: 'Generation Failed', description: (error as Error).message, variant: 'destructive' });
+    }
   };
 
   const handleColorChange = (role: keyof BrandColors, newColor: string) => {
@@ -249,6 +294,21 @@ function Step2_Branding() {
         <div className="flex flex-col items-center justify-center h-48 space-y-4">
           <Button type="button" variant="outline" onClick={handleGenerateClick} className="w-full"><Sparkles className="mr-2 h-4 w-4" />Generate with AI</Button>
         </div>
+      </div>
+      <div className="mt-4">
+        <FormField
+          control={control}
+          name="brandPreferences"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Brand Color Preferences (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Blue and Gold, Modern, Minimalist..." {...field} value={field.value || ''} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
       </div>
       {brandColors && (
         <div className='mt-6 animate-fade-in space-y-4'>

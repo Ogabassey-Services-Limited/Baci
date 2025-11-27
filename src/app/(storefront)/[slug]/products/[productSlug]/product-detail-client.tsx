@@ -119,7 +119,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                                             selectedImage === (product.imageLarge || product.image) ? "border-primary" : "border-transparent"
                                         )}
                                     >
-                                        <Image src={product.imageLarge || product.image} alt="Main" fill className="object-cover" />
+                                        <Image src={product.imageLarge || product.image} alt={`${product.name} - Main image`} fill className="object-cover" />
                                     </button>
                                     {product.images.map((img, idx) => (
                                         <button
@@ -217,8 +217,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                                 {cartItem ? (
                                     <div className="flex flex-col gap-2">
                                         <div className="flex items-center gap-2">
-                                            <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-10 w-10" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}>
-                                                <Minus className="h-4 w-4" />
+                                            <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-10 w-10" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)} aria-label={`Decrease quantity of ${product.name}`}>
+                                                <Minus className="h-4 w-4" aria-hidden="true" />
                                             </ThemedButton>
                                             <Input
                                                 type="number"
@@ -226,9 +226,10 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                                                 onChange={(e) => updateQuantity(product.id, parseInt(e.target.value, 10) || 0)}
                                                 className="h-10 w-16 text-center text-base remove-arrow"
                                                 min="0"
+                                                aria-label={`Quantity for ${product.name}`}
                                             />
-                                            <ThemedButton colorRole="accent" size="icon" variant="default" className="h-10 w-10" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
-                                                <Plus className="h-4 w-4" />
+                                            <ThemedButton colorRole="accent" size="icon" variant="default" className="h-10 w-10" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)} aria-label={`Increase quantity of ${product.name}`}>
+                                                <Plus className="h-4 w-4" aria-hidden="true" />
                                             </ThemedButton>
                                         </div>
                                         <Link href="/checkout">
@@ -244,8 +245,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                                 ) : (
                                     <div className="flex items-start gap-3">
                                         <div className="flex items-center gap-1">
-                                            <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-10 w-10" onClick={() => handleQuantityChange(quantity - 1)}>
-                                                <Minus className="h-4 w-4" />
+                                            <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-10 w-10" onClick={() => handleQuantityChange(quantity - 1)} aria-label={`Decrease quantity of ${product.name}`}>
+                                                <Minus className="h-4 w-4" aria-hidden="true" />
                                             </ThemedButton>
                                             <Input
                                                 type="number"
@@ -253,9 +254,10 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                                                 onChange={(e) => handleQuantityChange(parseInt(e.target.value, 10) || 0)}
                                                 className="h-10 w-16 text-center text-base remove-arrow"
                                                 min={product.minimum_order_quantity || 1}
+                                                aria-label={`Quantity for ${product.name}`}
                                             />
-                                            <ThemedButton colorRole="accent" size="icon" variant="default" className="h-10 w-10" onClick={() => handleQuantityChange(quantity + 1)}>
-                                                <Plus className="h-4 w-4" />
+                                            <ThemedButton colorRole="accent" size="icon" variant="default" className="h-10 w-10" onClick={() => handleQuantityChange(quantity + 1)} aria-label={`Increase quantity of ${product.name}`}>
+                                                <Plus className="h-4 w-4" aria-hidden="true" />
                                             </ThemedButton>
                                         </div>
                                         <ThemedButton

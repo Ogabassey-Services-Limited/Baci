@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { checkPasswordStrength } from '@/lib/utils';
+import { checkPasswordStrength, isCommonPassword } from '@/lib/utils';
 
 /**
  * Base schema for Step 1. Contains only field definitions.
@@ -48,7 +48,7 @@ const step3BaseSchema = z.object({
  */
 export const step3Schema = step3BaseSchema
   .refine(data => {
-    if (data.password && checkPasswordStrength(data.password || '') >= 3) {
+    if (data.password && checkPasswordStrength(data.password || '') >= 2) {
       return data.password === data.confirmPassword;
     }
     return true;
@@ -57,8 +57,18 @@ export const step3Schema = step3BaseSchema
     path: ["confirmPassword"]
   })
   .superRefine(async (data, ctx) => {
-    // Check for breached passwords
     if (data.password && data.password.length >= 8) {
+      // Check for common passwords first (instant, no network)
+      if (isCommonPassword(data.password)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['password'],
+          message: 'This password is too common. Please choose a more unique password.'
+        });
+        return; // Don't bother with breach check if it's common
+      }
+
+      // Check for breached passwords
       try {
         const { checkPasswordBreach } = await import('@/lib/password-breach');
         const { isBreached } = await checkPasswordBreach(data.password);

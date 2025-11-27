@@ -5,11 +5,15 @@ import { Search, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { getProductUrl } from '@/lib/seo-utils';
 
 interface Product {
     id: string;
     name: string;
-    category: string;
+    slug?: string;
+    category?: string;
+    condition?: 'new' | 'used' | string;
+    condition_detail?: string;
     price: number;
     image_small: string;
 }
@@ -23,7 +27,7 @@ interface SearchAutocompleteProps {
     merchantId: string;
     value: string;
     onChange: (value: string) => void;
-    onSelectProduct?: (productId: string) => void;
+    onSelectProduct?: (url: string) => void;
     placeholder?: string;
     className?: string;
 }
@@ -116,7 +120,7 @@ export function SearchAutocomplete({
             e.preventDefault();
             if (highlightedIndex < suggestions.length) {
                 const product = suggestions[highlightedIndex];
-                onSelectProduct?.(product.id);
+                onSelectProduct?.(getProductUrl(product));
                 setIsOpen(false);
             } else {
                 const searchIndex = highlightedIndex - suggestions.length;
@@ -186,7 +190,7 @@ export function SearchAutocomplete({
                                         role="option"
                                         aria-selected={highlightedIndex === index}
                                         onClick={() => {
-                                            onSelectProduct?.(product.id);
+                                            onSelectProduct?.(getProductUrl(product));
                                             setIsOpen(false);
                                         }}
                                         className={cn(

@@ -6,6 +6,7 @@ import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { Product, sampleProductsByCategory } from '@/lib/products';
+import { getProductUrl } from '@/lib/seo-utils';
 import { apiGet } from '@/lib/api-client';
 import Fuse from 'fuse.js';
 import { Loader2, Minus, Plus } from 'lucide-react';
@@ -315,7 +316,7 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
 
                             return (
                                 <ThemedCard key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col" accentPosition="top">
-                                    <Link href={`/product/${product.id}`} className="block relative group">
+                                    <Link href={getProductUrl(product)} className="block relative group">
                                         <Image
                                             src={product.imageLarge}
                                             alt={product.name}
@@ -349,8 +350,8 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                                             <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
                                             {cartItem ? (
                                                 <div className="flex items-center gap-1">
-                                                    <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}>
-                                                        <Minus className="h-4 w-4" />
+                                                    <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)} aria-label={`Decrease quantity of ${product.name}`}>
+                                                        <Minus className="h-4 w-4" aria-hidden="true" />
                                                     </ThemedButton>
                                                     <Input
                                                         type="number"
@@ -358,9 +359,10 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                                                         onChange={(e) => updateQuantity(product.id, parseInt(e.target.value, 10) || 0)}
                                                         className="h-8 w-12 text-center remove-arrow"
                                                         min="0"
+                                                        aria-label={`Quantity for ${product.name}`}
                                                     />
-                                                    <ThemedButton colorRole="accent" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
-                                                        <Plus className="h-4 w-4" />
+                                                    <ThemedButton colorRole="accent" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)} aria-label={`Increase quantity of ${product.name}`}>
+                                                        <Plus className="h-4 w-4" aria-hidden="true" />
                                                     </ThemedButton>
                                                 </div>
                                             ) : (

@@ -1,10 +1,9 @@
-
 'use server';
 
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
-import { geminiPro } from '../provider';
+import { geminiFlashImage, withRetry } from '../provider';
 
 const _EnhanceProductImageInputSchema = z.object({
   photoDataUri: z.string().describe('The product image as a data URI'),
@@ -36,10 +35,12 @@ export async function enhanceProductImage(
   }
 
   try {
-    const { object: enhancedImage } = await generateObject({
-      model: geminiPro,
-      schema: EnhanceProductImageOutputSchema,
-      prompt: ENHANCE_PRODUCT_IMAGE_PROMPT,
+    const { object: enhancedImage } = await withRetry(async () => {
+      return await generateObject({
+        model: geminiFlashImage,
+        schema: EnhanceProductImageOutputSchema,
+        prompt: ENHANCE_PRODUCT_IMAGE_PROMPT,
+      });
     });
 
     if (!enhancedImage.enhancedPhotoDataUri) {

@@ -379,16 +379,18 @@ function CustomHeader({
                         <Image
                             src={logoUrl}
                             alt="Store Logo"
-                            width={32}
-                            height={32}
-                            className="w-8 h-8 object-contain rounded-md"
+                            width={160}
+                            height={48}
+                            className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-[160px] object-contain"
                         />
                     ) : (
-                        <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-sm font-bold">
-                            L
-                        </div>
+                        <>
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-lg font-bold">
+                                {storeName?.charAt(0)?.toUpperCase() || 'S'}
+                            </div>
+                            <span className="hidden sm:inline-block">{storeName || 'Your Store'}</span>
+                        </>
                     )}
-                    <span className="hidden sm:inline-block">{storeName || 'Your Store'}</span>
                 </div>
             )}
 

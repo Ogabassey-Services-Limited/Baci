@@ -14,7 +14,7 @@
  * @see /docs/adr/001-business-type-journey-architecture.md for architecture decisions
  */
 
-import { LucideIcon, Shirt, Laptop, Home, Sparkles, Palette, Coffee } from 'lucide-react';
+import { LucideIcon, Shirt, Laptop, Home, Sparkles, Palette, Coffee, Scissors } from 'lucide-react';
 import { ModernTemplate } from '@/templates/modern';
 import { ArtisanTemplate } from '@/templates/artisan';
 import { TechTemplate } from '@/templates/tech';
@@ -209,6 +209,28 @@ export const BUSINESS_TYPES = {
         requiredFields: ['ingredients', 'allergens', 'expiration-info', 'storage-instructions'],
         aiDescriptionStyle: 'sensory-focused, emphasizes taste and quality, ingredients and origin',
         imageRequirements: 'Appetizing shots, ingredient close-ups, serving suggestions, packaging',
+      },
+    },
+  },
+
+  HAIR_EXTENSIONS: {
+    id: 'hair-extensions',
+    label: 'Hair & Extensions',
+    description: 'Wigs, weaves, bundles, closures, frontals, and hair care products',
+    aiPromptContext: 'hair and beauty with focus on quality, texture, origin, and styling versatility',
+    recommendedFeatures: ['texture-guide', 'length-charts', 'care-instructions', 'styling-tutorials'],
+    template: ModernTemplate,
+    icon: Scissors,
+    journey: {
+      onboarding: {
+        logoStyle: 'glamorous, sleek, beauty-focused',
+        colorScheme: 'luxurious, elegant, black and gold or rose gold accents',
+        additionalSteps: ['hair-sourcing', 'texture-specialization'],
+      },
+      productCreation: {
+        requiredFields: ['texture', 'length', 'origin', 'density', 'color'],
+        aiDescriptionStyle: 'luxurious and aspirational, emphasizes quality, texture, versatility, and styling options',
+        imageRequirements: 'High-quality shots showing texture, multiple angles, styled and unstyled, color accuracy',
       },
     },
   },

@@ -43,3 +43,6 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+# MCP config (contains secrets)
+.mcp.json
+.idx/mcp.json

@@ -61,8 +61,9 @@ export function Cart() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        aria-label={`Decrease quantity of ${item.name}`}
                       >
-                        <Minus className="h-4 w-4" />
+                        <Minus className="h-4 w-4" aria-hidden="true" />
                       </Button>
                       <Input
                         type="number"
@@ -77,8 +78,9 @@ export function Cart() {
                         size="icon"
                         className="h-8 w-8"
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        aria-label={`Increase quantity of ${item.name}`}
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </div>
                   </div>
@@ -89,6 +91,7 @@ export function Cart() {
                       size="sm"
                       className="text-xs h-auto p-0 text-red-500 hover:text-red-600"
                       onClick={() => removeFromCart(item.id)}
+                      aria-label={`Remove ${item.name} from cart`}
                     >
                       Remove
                     </Button>

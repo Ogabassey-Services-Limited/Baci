@@ -154,11 +154,16 @@ export default function DashboardClientLayout({
   const getStoreUrl = () => {
     if (!merchant?.slug) return '#';
 
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-    const subdomain = `${merchant.slug}.${rootDomain}`;
+    const isDevelopment = process.env.NODE_ENV === 'development';
 
-    // Use subdomain URL (merchant gets free subdomain on signup)
-    return `https://${subdomain}`;
+    if (isDevelopment) {
+      // In development, use localhost with the storefront path
+      return `http://localhost:3000/storefront/${merchant.slug}`;
+    }
+
+    // In production, use subdomain URL
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+    return `https://${merchant.slug}.${rootDomain}`;
   };
 
   const storeUrl = getStoreUrl();
@@ -207,7 +212,7 @@ export default function DashboardClientLayout({
       href: '/builder',
     },
     {
-      href: `/merchant/${merchant?.slug}/integrations`,
+      href: '/dashboard/integrations',
       icon: Plug,
       label: 'Integrations',
     },

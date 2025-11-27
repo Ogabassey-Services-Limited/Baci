@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
     const { data: merchant } = await supabase
         .from('merchants')
-        .select('business_name, site_title, site_tagline, site_description, business_type')
+        .select('business_name, site_title, site_tagline, site_description, business_type, logo_url, social_media')
         .eq('slug', slug)
         .single();
 
@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
     const baseUrl = `${protocol}://${host}`;
 
-
+    const socialMedia = merchant.social_media as Record<string, string> | null;
 
     return {
         title: title,
@@ -47,6 +47,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
             description: description,
             url: baseUrl,
             type: 'website',
+            siteName: merchant.business_name,
+            ...(merchant.logo_url && { images: [{ url: merchant.logo_url, alt: `${merchant.business_name} logo` }] }),
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: title,
+            description: description,
+            ...(merchant.logo_url && { images: [merchant.logo_url] }),
+            ...(socialMedia?.twitter && {
+                site: socialMedia.twitter.startsWith('@') ? socialMedia.twitter : `@${socialMedia.twitter}`,
+            }),
         },
     };
 }
@@ -67,7 +78,7 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
 
     const { data: merchant } = await supabase
         .from('merchants')
-        .select('business_name, site_title, site_tagline, site_description, business_type')
+        .select('business_name, site_title, site_tagline, site_description, business_type, logo_url, phone, social_media')
         .eq('slug', slug)
         .single();
 
@@ -94,6 +105,18 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
         };
 
         const schemaType = getSchemaType(merchant.business_type);
+        const socialMedia = merchant.social_media as Record<string, string> | null;
+
+        // Build sameAs array from social media links
+        const sameAs: string[] = [];
+        if (socialMedia) {
+            if (socialMedia.facebook) sameAs.push(`https://facebook.com/${socialMedia.facebook}`);
+            if (socialMedia.instagram) sameAs.push(`https://instagram.com/${socialMedia.instagram.replace('@', '')}`);
+            if (socialMedia.twitter) sameAs.push(`https://twitter.com/${socialMedia.twitter.replace('@', '')}`);
+            if (socialMedia.tiktok) sameAs.push(`https://tiktok.com/${socialMedia.tiktok.replace('@', '')}`);
+            if (socialMedia.youtube) sameAs.push(`https://youtube.com/${socialMedia.youtube}`);
+            if (socialMedia.linkedin) sameAs.push(`https://linkedin.com/company/${socialMedia.linkedin}`);
+        }
 
         // Sanitize all user-controlled values for JSON-LD to prevent XSS
         jsonLd = {
@@ -102,6 +125,9 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
             name: escapeHtml(merchant.business_name),
             description: escapeHtml(description),
             url: escapeHtml(baseUrl),
+            ...(merchant.logo_url && { logo: escapeHtml(merchant.logo_url), image: escapeHtml(merchant.logo_url) }),
+            ...(merchant.phone && { telephone: escapeHtml(merchant.phone) }),
+            ...(sameAs.length > 0 && { sameAs: sameAs.map(url => escapeHtml(url)) }),
             potentialAction: {
                 '@type': 'SearchAction',
                 target: escapeHtml(`${baseUrl}/products?q={search_term_string}`),

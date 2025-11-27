@@ -19,16 +19,27 @@ import { checkPasswordStrength } from '@/lib/utils';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 
 const resetPasswordSchema = z.object({
-    password: z.string().refine(password => checkPasswordStrength(password) >= 3, {
-        message: 'Password is not strong enough.',
+    password: z.string().refine(password => checkPasswordStrength(password) >= 2, {
+        message: 'Password is not strong enough. Use at least 10 characters.',
     }),
     confirmPassword: z.string(),
 }).refine(data => data.password === data.confirmPassword, {
     message: "Passwords do not match.",
     path: ["confirmPassword"],
 }).superRefine(async (data, ctx) => {
-    // Check for breached passwords
     if (data.password && data.password.length >= 8) {
+        // Check for common passwords first (instant, no network)
+        const { isCommonPassword } = await import('@/lib/utils');
+        if (isCommonPassword(data.password)) {
+            ctx.addIssue({
+                code: 'custom',
+                path: ['password'],
+                message: 'This password is too common. Please choose a more unique password.'
+            });
+            return;
+        }
+
+        // Check for breached passwords
         try {
             const { checkPasswordBreach } = await import('@/lib/password-breach');
             const { isBreached } = await checkPasswordBreach(data.password);

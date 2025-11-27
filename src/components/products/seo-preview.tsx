@@ -1,17 +1,23 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { generateSlug } from "@/lib/seo-utils";
 
 interface SeoPreviewProps {
     title: string;
     description: string;
     slug: string;
+    category?: string;
     merchantUrl?: string;
 }
 
-export function SeoPreview({ title, description, slug, merchantUrl = "usebaci.com" }: SeoPreviewProps) {
+export function SeoPreview({ title, description, slug, category, merchantUrl = "store.usebaci.com" }: SeoPreviewProps) {
     const displayTitle = title || "Product Title";
     const displayDescription = description || "Product description will appear here...";
-    const displayUrl = `https://${merchantUrl}/product/${slug || "product-slug"}`;
+    const productSlug = slug || "product-slug";
+
+    // Build URL based on category availability
+    const displayUrl = category
+        ? `https://${merchantUrl}/${generateSlug(category)}/${productSlug}`
+        : `https://${merchantUrl}/products/${productSlug}`;
 
     return (
         <Card className="bg-muted/20">

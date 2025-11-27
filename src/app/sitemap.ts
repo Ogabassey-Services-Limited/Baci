@@ -1,41 +1,37 @@
 import { MetadataRoute } from 'next'
 
-// Mock product data - in a real app, this would come from your database
-const products = [
-    { id: 'p1' },
-    { id: 'p2' },
-    { id: 'p5' },
-];
- 
+/**
+ * Main site sitemap for usebaci.com
+ *
+ * This sitemap covers the platform's own pages.
+ * Each merchant storefront has its own dynamic sitemap at:
+ * - ogabassey.usebaci.com/sitemap.xml
+ * - Or via path: usebaci.com/ogabassey/sitemap.xml
+ */
+
+// Define your site pages - update this when you add new pages
+const SITE_PAGES = [
+  { path: '/', changeFreq: 'weekly' as const, priority: 1.0 },
+  { path: '/onboarding', changeFreq: 'monthly' as const, priority: 0.8 },
+  { path: '/login', changeFreq: 'monthly' as const, priority: 0.5 },
+  // Add more pages as you create them:
+  // { path: '/pricing', changeFreq: 'weekly' as const, priority: 0.9 },
+  // { path: '/features', changeFreq: 'monthly' as const, priority: 0.8 },
+  // { path: '/blog', changeFreq: 'daily' as const, priority: 0.7 },
+  // { path: '/help', changeFreq: 'weekly' as const, priority: 0.6 },
+  // { path: '/terms', changeFreq: 'yearly' as const, priority: 0.3 },
+  // { path: '/privacy', changeFreq: 'yearly' as const, priority: 0.3 },
+]
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const storeUrl = process.env.NEXT_PUBLIC_ROOT_DOMAIN ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` : 'http://localhost:3000';
+  const siteUrl = process.env.NEXT_PUBLIC_ROOT_DOMAIN
+    ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
+    : 'http://localhost:3000';
 
-  const productEntries: MetadataRoute.Sitemap = products.map((product) => ({
-    url: `${storeUrl}/product/${product.id}`,
+  return SITE_PAGES.map(page => ({
+    url: `${siteUrl}${page.path}`,
     lastModified: new Date(),
-    changeFrequency: 'weekly',
-    priority: 0.8,
+    changeFrequency: page.changeFreq,
+    priority: page.priority,
   }));
-
-  return [
-    {
-      url: storeUrl,
-      lastModified: new Date(),
-      changeFrequency: 'yearly',
-      priority: 1,
-    },
-    {
-      url: `${storeUrl}/onboarding`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
-    },
-    {
-      url: `${storeUrl}/dashboard`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.5,
-    },
-    ...productEntries,
-  ]
 }

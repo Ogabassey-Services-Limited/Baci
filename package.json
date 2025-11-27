@@ -13,7 +13,6 @@
   "dependencies": {
     "@ai-sdk/google": "^2.0.40",
     "@getbrevo/brevo": "^3.0.1",
-    "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.2",
     "@imgly/background-removal": "^1.7.0",
     "@measured/puck": "^0.20.2",

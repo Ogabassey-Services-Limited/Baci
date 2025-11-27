@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { generateSlug, generateProductSchema, generateMetaDescription } from '@/lib/seo-utils';
+import { generateSlug, generateProductSlug, generateProductSchema, generateMetaDescription } from '@/lib/seo-utils';
 import { getCountryByCode } from '@/lib/countries';
 import { Product } from '@/lib/products';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize';
@@ -167,7 +167,8 @@ export async function PUT(
         }
 
         // Prepare updates
-        const slug = body.slug || generateSlug(body.name);
+        // Generate slug with condition if not 'new'
+        const slug = body.slug || generateProductSlug(body.name, body.condition, body.condition_detail);
         const sku = body.sku || (body.name ? generateSlug(body.name).toUpperCase().substring(0, 20) : undefined);
 
         const meta_description = body.meta_description || generateMetaDescription(body.description);
