@@ -5,7 +5,10 @@ import type { NextRequest } from 'next/server';
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
 
 // Reserved subdomains that should not be treated as merchant stores
-const RESERVED_SUBDOMAINS = ['www', 'app', 'api', 'admin', 'dashboard', 'mail', 'smtp'];
+const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'api', 'admin', 'dashboard', 'mail', 'smtp']);
+
+// Valid subdomain pattern: alphanumeric and hyphens, 1-63 chars, no leading/trailing hyphens
+const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
 // Routes that should not be rewritten (main app routes)
 const MAIN_APP_ROUTES = [
@@ -25,47 +28,109 @@ const MAIN_APP_ROUTES = [
 ];
 
 /**
- * Safely check if hostname is a subdomain of our root domain
- * This prevents attacks like "evilusebaci.com" matching "usebaci.com"
+ * Normalize hostname: remove port and convert to lowercase
  */
-function isSubdomainOfRoot(hostname: string, rootDomain: string): boolean {
-  // Remove port if present
-  const hostWithoutPort = hostname.split(':')[0];
-  const expectedSuffix = `.${rootDomain}`;
-
-  // Must end with .rootdomain exactly
-  if (!hostWithoutPort.endsWith(expectedSuffix)) {
-    return false;
-  }
-
-  // Extract subdomain part and validate it's not empty and doesn't contain dots
-  // (to prevent ..usebaci.com or nested subdomains being mishandled)
-  const subdomain = hostWithoutPort.slice(0, -expectedSuffix.length);
-  return subdomain.length > 0 && !subdomain.includes('.');
+function normalizeHostname(hostname: string): string {
+  return hostname.split(':')[0].toLowerCase();
 }
 
 /**
- * Check if hostname exactly matches our root domain or is a known platform domain
+ * Validate subdomain follows DNS standards
+ * - Only lowercase alphanumeric and hyphens
+ * - 1-63 characters
+ * - Cannot start or end with hyphen
  */
-function isRootOrPlatformDomain(hostname: string, rootDomain: string): boolean {
-  const hostWithoutPort = hostname.split(':')[0];
+function isValidSubdomain(subdomain: string): boolean {
+  return VALID_SUBDOMAIN_REGEX.test(subdomain);
+}
 
-  // Exact match with root domain
-  if (hostWithoutPort === rootDomain) return true;
-  if (hostWithoutPort === `www.${rootDomain}`) return true;
+/**
+ * Safely check if hostname is a subdomain of a given parent domain
+ * This prevents attacks like "evilusebaci.com" matching "usebaci.com"
+ */
+function extractSubdomain(hostname: string, parentDomain: string): string | null {
+  const normalizedHost = normalizeHostname(hostname);
+  const normalizedParent = parentDomain.toLowerCase();
+  const expectedSuffix = `.${normalizedParent}`;
 
-  // Vercel preview deployments (exact suffix match)
-  if (hostWithoutPort.endsWith('.vercel.app')) return true;
+  // Must end with .parentdomain exactly
+  if (!normalizedHost.endsWith(expectedSuffix)) {
+    return null;
+  }
 
-  return false;
+  // Extract subdomain part
+  const subdomain = normalizedHost.slice(0, -expectedSuffix.length);
+
+  // Validate: not empty, no dots (no nested subdomains), valid DNS characters
+  if (!subdomain || subdomain.includes('.') || !isValidSubdomain(subdomain)) {
+    return null;
+  }
+
+  return subdomain;
+}
+
+/**
+ * Check if hostname exactly matches our root domain (with optional www)
+ */
+function isRootDomain(hostname: string, rootDomain: string): boolean {
+  const normalizedHost = normalizeHostname(hostname);
+  const normalizedRoot = rootDomain.toLowerCase();
+
+  return normalizedHost === normalizedRoot || normalizedHost === `www.${normalizedRoot}`;
+}
+
+/**
+ * Check if hostname is a Vercel preview deployment
+ * Validates exact structure: {hash}-{project}-{team}.vercel.app
+ */
+function isVercelPreview(hostname: string): boolean {
+  const normalizedHost = normalizeHostname(hostname);
+
+  // Must end with exactly .vercel.app
+  if (!normalizedHost.endsWith('.vercel.app')) {
+    return false;
+  }
+
+  // Extract the subdomain part before .vercel.app
+  const vercelSubdomain = normalizedHost.slice(0, -'.vercel.app'.length);
+
+  // Vercel subdomains are alphanumeric with hyphens, typically contain project identifiers
+  // Reject if empty or contains dots (nested subdomains)
+  if (!vercelSubdomain || vercelSubdomain.includes('.')) {
+    return false;
+  }
+
+  return isValidSubdomain(vercelSubdomain);
 }
 
 /**
  * Check if this is localhost/development environment
  */
-function isLocalhostRequest(hostname: string): boolean {
-  const hostWithoutPort = hostname.split(':')[0];
-  return hostWithoutPort === 'localhost' || hostWithoutPort === '127.0.0.1';
+function isLocalhost(hostname: string): boolean {
+  const normalizedHost = normalizeHostname(hostname);
+  return normalizedHost === 'localhost' || normalizedHost === '127.0.0.1';
+}
+
+/**
+ * Validate custom domain format (basic validation)
+ * Must be a valid-looking domain, not an IP, not containing suspicious patterns
+ */
+function isValidCustomDomain(hostname: string): boolean {
+  const normalizedHost = normalizeHostname(hostname);
+
+  // Must have at least one dot (domain.tld)
+  if (!normalizedHost.includes('.')) return false;
+
+  // No IP addresses
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(normalizedHost)) return false;
+
+  // Basic domain validation: alphanumeric, hyphens, dots
+  if (!/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/.test(normalizedHost)) return false;
+
+  // No consecutive dots
+  if (normalizedHost.includes('..')) return false;
+
+  return true;
 }
 
 export function middleware(request: NextRequest) {
@@ -76,25 +141,29 @@ export function middleware(request: NextRequest) {
   // Extract subdomain with proper validation
   let subdomain: string | null = null;
 
-  if (isLocalhostRequest(hostname)) {
+  if (isLocalhost(hostname)) {
     // In development, use path-based routing: localhost:3000/ogabassey/...
     // The (storefront)/[slug] routes handle this
     subdomain = null;
-  } else if (isSubdomainOfRoot(hostname, ROOT_DOMAIN)) {
+  } else if ((subdomain = extractSubdomain(hostname, ROOT_DOMAIN)) !== null) {
     // Production subdomain: ogabassey.usebaci.com
-    // Extract subdomain safely (already validated by isSubdomainOfRoot)
-    const hostWithoutPort = hostname.split(':')[0];
-    subdomain = hostWithoutPort.slice(0, -(`.${ROOT_DOMAIN}`.length));
-  } else if (!isRootOrPlatformDomain(hostname, ROOT_DOMAIN)) {
-    // Custom domain: ogabassey.com - need to look up merchant by domain
-    // For now, we'll handle this via a header and let the page resolve it
+    // subdomain already extracted and validated by extractSubdomain
+  } else if (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname)) {
+    // Root domain or Vercel preview - no subdomain, standard routing
+    subdomain = null;
+  } else if (isValidCustomDomain(hostname)) {
+    // Custom domain: ogabassey.com - validated format
+    // Let the page resolve merchant by domain lookup
     const response = NextResponse.next();
-    response.headers.set('x-custom-domain', hostname);
+    response.headers.set('x-custom-domain', normalizeHostname(hostname));
     return applySecurityHeaders(response, pathname, userAgent);
+  } else {
+    // Invalid/suspicious hostname - reject
+    return new NextResponse('Bad Request', { status: 400 });
   }
 
   // If we have a valid subdomain (not reserved), rewrite to storefront routes
-  if (subdomain && !RESERVED_SUBDOMAINS.includes(subdomain)) {
+  if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
     // Check if trying to access main app routes from subdomain - redirect to main domain
     if (MAIN_APP_ROUTES.some(route => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL(pathname, `https://${ROOT_DOMAIN}`));
