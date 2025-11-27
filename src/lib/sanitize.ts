@@ -286,9 +286,13 @@ export function sanitizeJson<T>(input: unknown, schema: z.ZodSchema<T>): T | nul
 }
 
 /**
- * Recursively sanitize all string values in an object for use in JSON-LD scripts.
- * This is useful when using pre-stored schema objects from the database.
- * Prevents XSS attacks by escaping HTML-sensitive characters in all string values.
+ * Recursively sanitize all string values within a JSON-LD schema object by escaping HTML-sensitive characters.
+ *
+ * Preserves the original structure: arrays and objects are traversed and non-string primitive values are returned unchanged.
+ * Returns `null` or `undefined` unchanged.
+ *
+ * @param obj - The value or object tree to sanitize
+ * @returns The input value with every string replaced by an escaped version where HTML-sensitive characters are encoded
  */
 export function sanitizeSchemaObject<T>(obj: T): T {
     if (obj === null || obj === undefined) {
@@ -318,13 +322,13 @@ export function sanitizeSchemaObject<T>(obj: T): T {
 }
 
 /**
- * Safely stringify a JSON-LD schema object for use in dangerouslySetInnerHTML.
- * This function sanitizes all string values and returns a safe JSON string.
+ * Produce a JSON string of a JSON-LD schema with all string values sanitized for safe embedding in HTML.
  *
- * Usage:
- *   <script type="application/ld+json"
- *     dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(schema) }}
- *   />
+ * Sanitizes every string value in `schema` and returns the resulting JSON text suitable for insertion into
+ * HTML contexts (for example inside a <script type="application/ld+json">).
+ *
+ * @param schema - The JSON-LD object whose string values will be sanitized and then stringified
+ * @returns The JSON string of `schema` with all string values sanitized for safe embedding in HTML
  */
 export function safeJsonLdStringify<T extends Record<string, unknown>>(schema: T): string {
     // Sanitize all string values in the schema

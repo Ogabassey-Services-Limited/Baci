@@ -53,6 +53,15 @@ interface DiscountCode {
   created_at: string;
 }
 
+/**
+ * Renders the Discount Codes management page for creating, editing, listing, and deleting promotional codes.
+ *
+ * The page fetches and displays discount codes, shows summary metrics (total, active, total uses),
+ * provides a modal form for creating and editing codes (including start/expire dates, limits, and discount type),
+ * supports copy-to-clipboard for codes, and performs CRUD requests against the `/api/discount-codes` endpoints.
+ *
+ * @returns The React element for the Discount Codes management UI.
+ */
 export default function DiscountCodesPage() {
   const { toast } = useToast();
   const { merchant } = useMerchant();

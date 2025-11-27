@@ -1,4 +1,3 @@
-
 'use client';
 
 import { ProductProvider, useProductContext } from '@/contexts/product-context';
@@ -34,6 +33,15 @@ const GoogleSheetIcon = () => (
 
 import type { Product } from '@/lib/products';
 
+/**
+ * Render the products management page with controls for viewing, filtering, importing, and AI-driven processing.
+ *
+ * The component consumes product and merchant contexts to display summary cards, a searchable textarea (which can trigger AI processing
+ * for pasted price lists), status and stock filters, import dialogs (Google Sheets and CSV bulk), and the add/edit product dialog.
+ * It also manages AI job lifecycle (creation, polling, timeout) and coordinates workflow steps: `view`, `upload`, `processing`, and `review`.
+ *
+ * @returns The page's React element containing the product catalog UI, filter controls, import dialogs, and AI processing workflow.
+ */
 function ProductsPageContent() {
     const {
         products,

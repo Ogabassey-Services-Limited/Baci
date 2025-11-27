@@ -38,6 +38,15 @@ const getCachedProducts = unstable_cache(
     }
 );
 
+/**
+ * Handle GET requests for storefront products and return the mapped products for a given merchant.
+ *
+ * @param request - Incoming request whose URL must include a `merchant_id` query parameter.
+ * @returns JSON response:
+ * - On success (200): `{ products: Array< { id, name, description, price, image, imageLarge, imageHint, category, status, has_variants } > }`. The successful response includes a `Cache-Control` header (`public, s-maxage=300, stale-while-revalidate=3600`).
+ * - On client error (400): `{ error: 'Merchant ID is required' }` when `merchant_id` is missing.
+ * - On server error (500): `{ error: 'Internal server error' }` for unexpected failures.
+ */
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;

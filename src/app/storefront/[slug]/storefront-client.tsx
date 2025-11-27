@@ -1,4 +1,3 @@
-
 'use client';
 
 import { ThemedButton, ThemedCard, ThemedBadge, ThemedLink } from '@/components/themed';
@@ -41,6 +40,11 @@ function ThemedStorefrontLayout({ children }: { children: React.ReactNode }) {
 }
 
 
+/**
+ * Render the storefront UI: hero carousel, searchable product grid with category filters, header, footer, and cart sheet.
+ *
+ * @returns The storefront page JSX; `null` if no merchant is available.
+ */
 function StorefrontContent() {
   const { merchant } = useMerchant();
   const [searchQuery, setSearchQuery] = useState('');

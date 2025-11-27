@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect, useActionState, useTransition } from 'react';
@@ -131,6 +130,18 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
 }
 
 
+/**
+ * Renders the branding step of the onboarding form allowing users to upload or generate a logo,
+ * extract and customize brand colors, and preview branding changes.
+ *
+ * This component integrates with the surrounding form context: it updates `logoDataUri` and `brandColors`
+ * form fields when a logo is uploaded or an AI-generated logo is selected, validates required inputs
+ * before requesting AI generation, and surfaces success/error feedback via toasts. It exposes controls
+ * to manually edit each brand color and to shuffle color roles, and it displays a live preview of the
+ * current branding (business name, type, logo, and colors).
+ *
+ * @returns The JSX element for the branding step UI.
+ */
 function Step2_Branding() {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();

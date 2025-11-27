@@ -22,6 +22,20 @@ const InsightSchema = z.object({
     })),
 });
 
+/**
+ * Generate AI-driven merchant insights using cached results, rate limiting, and recent sales context.
+ *
+ * Gathers recent daily sales (last 30 days), top product performance (top 10 by revenue), and sales-by-channel
+ * data for the specified merchant, sends that context to the AI model to produce 3–5 actionable insights,
+ * caches the generated insights for 1 hour, and enforces per-user rate limits.
+ *
+ * @param supabase - Authenticated Supabase client used to query merchant data
+ * @param merchantId - ID of the merchant to generate insights for
+ * @param userId - ID of the requesting user used for rate limiting
+ * @returns An object with either:
+ *  - `data`: the generated insights object (shape validated by `InsightSchema`), or
+ *  - `error`, `details`, and `status` when generation is blocked (e.g., rate limit exceeded)
+ */
 async function generateInsights(supabase: ReturnType<typeof createClient>, merchantId: string, userId: string) {
     // Rate limiting
     const rateLimit = checkRateLimit(`insights:${userId}`, AI_RATE_LIMITS.insights);
@@ -103,6 +117,13 @@ Be specific and constructive.
     return { data: object };
 }
 
+/**
+ * Handle GET requests to produce AI-generated insights for the authenticated user's merchant.
+ *
+ * Requires an authenticated user and a corresponding merchant record; enforces per-user rate limits and uses cached results when available.
+ *
+ * @returns A NextResponse with JSON: on success the generated insights object under the response body; on failure an error object with `error` and optional `details` and an appropriate HTTP status (e.g., 401, 404, 429, 500).
+ */
 export async function GET() {
     try {
         const cookieStore = await cookies();
@@ -146,6 +167,12 @@ export async function GET() {
     }
 }
 
+/**
+ * Handle POST requests to generate AI-driven merchant insights for the authenticated user.
+ *
+ * @param _request - The incoming request (unused; request body is ignored).
+ * @returns JSON response containing generated insights on success; on failure returns a JSON error object with an appropriate HTTP status (401 for unauthenticated, 404 for missing merchant, status propagated from insights generation such as 429 for rate limits, or 500 for internal server errors).
+ */
 export async function POST(_request: Request) {
     try {
         const cookieStore = await cookies();

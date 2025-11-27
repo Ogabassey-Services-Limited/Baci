@@ -318,6 +318,32 @@ function HeroCarouselComponent({ slides, autoplayDelay = 5000 }: HeroCarouselPro
     );
 }
 
+/**
+ * Render a customizable site header with logo, navigation, search, and action controls.
+ *
+ * The header supports optional logo display, navigation links, search input, cart and CTA actions,
+ * sticky positioning, and a glass (backdrop blur) visual effect. Layout, search appearance,
+ * corner radius, and vertical padding are configurable.
+ *
+ * @param showLogo - Whether to display the store logo or fallback branding.
+ * @param showSearch - Whether to show the search input (desktop) and a search button on mobile.
+ * @param showCart - Whether to show a cart button with a simple indicator.
+ * @param showMenu - Whether to expose navigation links (desktop) and a menu button on mobile.
+ * @param navigationLinks - Array of navigation link objects rendered when `showMenu` is true.
+ * @param ctaButton - Optional call-to-action button settings (visibility, text, url).
+ * @param backgroundColor - CSS color for the header background; falls back to theme or glass default.
+ * @param textColor - CSS color for header text and controls; falls back to theme default.
+ * @param sticky - When true, the header is positioned sticky at the top of the viewport.
+ * @param logoUrl - Optional URL for the logo image; when omitted a fallback initial and store name are shown.
+ * @param storeName - Store name used for the fallback branding when `logoUrl` is not provided.
+ * @param layout - Layout variant controlling logo/navigation ordering; e.g., 'logo-left-nav-center', 'logo-left-nav-right', or 'logo-center'.
+ * @param searchStyle - Visual style for the search input: 'outline', 'filled', or 'minimal'.
+ * @param searchRadius - Corner radius for the search input: 'none', 'sm', 'md', or 'full'.
+ * @param paddingY - Vertical padding size: 'sm', 'md', or 'lg'.
+ * @param glassEffect - When true, applies a backdrop blur and semi-transparent background for a glass look.
+ *
+ * @returns The rendered header element.
+ */
 function CustomHeader({
     showLogo,
     showSearch,

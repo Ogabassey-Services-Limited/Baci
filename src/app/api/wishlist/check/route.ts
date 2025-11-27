@@ -3,8 +3,10 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 /**
- * GET /api/wishlist/check?email=customer@example.com&productId=uuid
- * Check if a product is in customer's wish list
+ * Determine whether a product is present in a customer's wish list.
+ *
+ * @param request - NextRequest whose URL query must include `email` (customer email) and `productId` (product UUID)
+ * @returns A JSON response: on success, `{ inWishList: boolean, itemId: string | null }`; on error, `{ error: string }` with status 400 for missing parameters or 500 for server errors.
  */
 export async function GET(request: NextRequest) {
   try {

@@ -17,6 +17,13 @@ import { Button } from './ui/button';
 import Link from 'next/link';
 import { Minus, Plus, ShoppingBag } from 'lucide-react';
 
+/**
+ * Renders the cart drawer UI with item list, quantity controls, remove actions, and checkout flow.
+ *
+ * Displays each cart item with image, name, quantity controls, per-item total, and a remove action; when the cart is empty it shows an empty-state message. If items exist, a footer shows the subtotal and a Proceed to Checkout action. Currency formatting uses the merchant's country when available and falls back to sensible defaults.
+ *
+ * @returns The cart sheet element containing the list or empty state, subtotal, and checkout action when applicable.
+ */
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
   const { merchant } = useMerchant();

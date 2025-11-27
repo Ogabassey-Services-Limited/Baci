@@ -104,6 +104,16 @@ interface AddProductFormProps {
   initialData?: Product | null;
 }
 
+/**
+ * Form component for creating or editing a product with AI-assisted autofill, description generation, image enhancement, and variant support.
+ *
+ * Manages form state and validation, image uploads and per-color image processing (background removal and AI enhancement), variant building, inventory, shipping, and SEO fields. Persists the assembled Product to the caller via the `onProductAdded` callback and exposes a cancel action via `onCancel`.
+ *
+ * @param props.onProductAdded - Callback invoked with the constructed `Product` when the form is saved.
+ * @param props.onCancel - Callback invoked when the user cancels the form.
+ * @param props.initialData - Optional existing `Product` used to populate the form for editing.
+ * @returns The product creation/editing form UI as a React element.
+ */
 export default function AddProductForm({ onProductAdded, onCancel, initialData }: AddProductFormProps) {
   const { toast } = useToast();
   const { merchant } = useMerchant();

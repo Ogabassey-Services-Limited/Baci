@@ -16,6 +16,17 @@ interface CSVBulkImportDialogProps {
     onImportComplete: () => void;
 }
 
+/**
+ * Render a dialog UI for bulk importing products from a CSV file.
+ *
+ * Provides controls to download a CSV template, select and upload a filled CSV, display upload progress,
+ * and show import results including counts and error messages.
+ *
+ * @param open - Whether the dialog is open
+ * @param onOpenChange - Callback invoked with the new open state when the dialog is closed or toggled
+ * @param onImportComplete - Callback invoked when an import completes with at least one successful product import
+ * @returns The CSVBulkImportDialog React element
+ */
 export function CSVBulkImportDialog({ open, onOpenChange, onImportComplete }: CSVBulkImportDialogProps) {
     const [file, setFile] = useState<File | null>(null);
     const [isUploading, setIsUploading] = useState(false);

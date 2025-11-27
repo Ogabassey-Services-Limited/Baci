@@ -3,9 +3,17 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 /**
- * GET /api/admin/db-health
- * Returns database health metrics and index recommendations
- * Only accessible to authenticated users (you can add admin check if needed)
+ * Provide database health metrics, index recommendations, and missing index suggestions for authenticated users.
+ *
+ * Calls database RPCs and a recommendations table and returns their results along with a timestamp.
+ *
+ * @returns A NextResponse whose JSON body contains:
+ * - `health`: an array of health metrics (or an empty array if unavailable)
+ * - `indexRecommendations`: an array of index recommendation rows (or an empty array if unavailable)
+ * - `missingIndexes`: an array of missing index suggestions (or an empty array if unavailable)
+ * - `checkedAt`: the current ISO timestamp string
+ *
+ * Responds with status 401 and `{ error: 'Unauthorized' }` when there is no authenticated user, or with status 500 and `{ error: 'Failed to check database health' }` on unexpected failures.
  */
 export async function GET() {
     try {

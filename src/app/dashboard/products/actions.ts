@@ -68,6 +68,14 @@ export interface AIResponse {
     };
 }
 
+/**
+ * Generate a structured AI comparison between a vendor price list and the current product catalog.
+ *
+ * @param currentProducts - The current product catalog as an array of Product objects.
+ * @param priceListData - Raw contents of the vendor price list (text/CSV/other) to be analyzed.
+ * @param vendor - Vendor name; will be sanitized before inclusion in the AI prompt.
+ * @param fileType - Original file format or descriptor for the provided price list (e.g., "csv", "xlsx").
+ * @returns An AIResponse describing suggested changes: a `changes` array of detected updates/new/removals, a human-readable `summary`, and optional `clarificationRequest` or `missingParameterRequest` when additional input is needed.
 export async function processPriceList(
     currentProducts: Product[],
     priceListData: string,
@@ -121,6 +129,13 @@ Instructions:
     }
 }
 
+/**
+ * Fetches the CSV export of a Google Sheets spreadsheet and returns its text content.
+ *
+ * @param url - A publicly accessible Google Sheets URL containing the spreadsheet ID in the `/d/{id}/` path.
+ * @returns The CSV text content of the spreadsheet.
+ * @throws Error if the URL is invalid, not an allowed Google Sheets host, not HTTPS, if the spreadsheet ID cannot be extracted or is invalid, or if the fetch request fails.
+ */
 export async function fetchGoogleSheet(url: string): Promise<string> {
     try {
         // Validate URL format first

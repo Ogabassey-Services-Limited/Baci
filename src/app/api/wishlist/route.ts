@@ -3,8 +3,9 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 /**
- * GET /api/wishlist?email=customer@example.com
- * Get wish list items for a customer
+ * Retrieve wish list items (including related product details) for the specified customer email.
+ *
+ * @returns On success, an object with an `items` array of wish list entries where each entry includes embedded product fields; if the `email` query parameter is missing, an error object with status 400; on internal failure, an error object with status 500.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -58,8 +59,11 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST /api/wishlist
- * Add item to wish list
+ * Create a new wish list item for a customer.
+ *
+ * Attempts to insert a wish_list_items row for the provided `customerEmail`, `productId`, and `merchantId`.
+ *
+ * @returns JSON with the created item on success (status 201). Returns a 400 JSON error when required fields are missing, 409 when the item already exists (unique violation), or 500 for internal server errors.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -108,8 +112,11 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * DELETE /api/wishlist?id=uuid
- * Remove item from wish list
+ * Remove a wish list item by its ID.
+ *
+ * @returns A JSON response: on success `{ message: 'Item removed from wish list' }`;
+ * on missing `id` returns status 400 with `{ error: 'Item ID is required' }`;
+ * on server error returns status 500 with `{ error: 'Internal server error' }`.
  */
 export async function DELETE(request: NextRequest) {
   try {

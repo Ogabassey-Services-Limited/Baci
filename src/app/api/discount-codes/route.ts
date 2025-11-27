@@ -3,8 +3,14 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 /**
- * GET /api/discount-codes
- * Get all discount codes for the merchant
+ * Retrieve all discount codes for the authenticated merchant.
+ *
+ * Authenticates the request using cookies, resolves the merchant for the authenticated user,
+ * and returns the merchant's discount codes ordered by `created_at` descending.
+ * Responds with 401 if the user is not authenticated, 404 if the merchant is not found,
+ * and 500 for internal server errors.
+ *
+ * @returns A JSON response containing `discountCodes` on success; on error returns a JSON object with an `error` message and an appropriate HTTP status (401, 404, or 500).
  */
 export async function GET() {
   try {
@@ -52,8 +58,19 @@ export async function GET() {
 }
 
 /**
- * POST /api/discount-codes
- * Create a new discount code
+ * Create a new discount code for the authenticated merchant.
+ *
+ * Validates required fields from the request JSON, builds a discount code record
+ * with sensible defaults, inserts it into `discount_codes`, and returns the created record.
+ *
+ * @param request - The incoming request whose JSON body contains the discount code payload.
+ * @returns On success, a JSON response containing `discountCode` with HTTP status 201.
+ *          On error, a JSON response containing `error` with one of:
+ *            - 400: Missing required fields
+ *            - 401: Unauthorized
+ *            - 404: Merchant not found
+ *            - 409: Discount code already exists
+ *            - 500: Internal server error
  */
 export async function POST(request: NextRequest) {
   try {

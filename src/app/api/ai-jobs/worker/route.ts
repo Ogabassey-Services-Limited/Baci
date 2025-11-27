@@ -11,7 +11,11 @@ const DEFAULT_JOB_PROCESS_LIMIT = (() => {
     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : 5;
 })();
 
-// Initialize clients lazily at runtime to avoid build-time errors
+/**
+ * Create and return a Supabase client configured from environment variables at runtime.
+ *
+ * @returns A Supabase client initialized with `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
+ */
 function getSupabaseClient() {
     const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -49,7 +53,14 @@ const PriceListResponseSchema = z.object({
     }).optional(),
 });
 
-// POST /api/ai-jobs/worker - Process pending AI jobs (called by cron or manually)
+/**
+ * Processes pending AI jobs from the database and updates their status lifecycle.
+ *
+ * Processes up to the configured job limit: marks each job as `processing`, executes the job (currently supports `price_list_processing`), then marks it `completed` with output or `failed` with an error. Authentication requires an `Authorization: Bearer <AI_WORKER_SECRET>` header.
+ *
+ * @param request - Incoming NextRequest; must include an `Authorization` header with the worker secret.
+ * @returns A JSON response describing the operation outcome. On success the object contains `message`, `processed` (number of jobs handled), and `results` (array of `{ id, status, error? }`). On failure returns an error message and appropriate HTTP status.
+ */
 export async function POST(request: NextRequest) {
     try {
         const supabase = getSupabaseClient();
@@ -168,6 +179,20 @@ interface ProcessPriceListInput {
     fileType: string;
 }
 
+/**
+ * Analyze a vendor price list against the current catalog and produce a structured set of suggested changes.
+ *
+ * @param input - Processing input containing current catalog and the vendor price list:
+ *   - `currentProducts`: array of product records representing the current catalog
+ *   - `priceListData`: raw vendor price list content (e.g., CSV or JSON)
+ *   - `vendor`: vendor identifier
+ *   - `fileType`: format description of `priceListData` (for example, "CSV" or "JSON")
+ * @returns An object conforming to `PriceListResponseSchema` describing the result:
+ *   - `changes`: array of change objects (each with `type`, optional `productId`, optional `newPrice`, and `details`)
+ *   - `summary`: concise summary of detected changes
+ *   - optional `clarificationRequest`: `{ question, options }` when the AI needs disambiguation
+ *   - optional `missingParameterRequest`: `{ productName, missingFields[] }` when required fields are absent
+ */
 async function processPriceList(input: ProcessPriceListInput) {
     const { currentProducts, priceListData, vendor, fileType } = input;
 

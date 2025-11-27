@@ -28,6 +28,13 @@ interface WishListItem {
   };
 }
 
+/**
+ * Render a customer-gated wish list page that loads, displays, and lets the user remove saved products tied to an email stored in localStorage.
+ *
+ * The component prompts for an email (if none is stored), fetches the wish list from /api/wishlist, shows loading and empty states, and provides per-item actions (view product, remove). It also supports changing the stored email.
+ *
+ * @returns The rendered React element for the wish list page.
+ */
 export default function WishListPage() {
   const params = useParams();
   const router = useRouter();

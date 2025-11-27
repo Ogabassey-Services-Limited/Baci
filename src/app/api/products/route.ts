@@ -190,6 +190,18 @@ export async function GET(request: NextRequest) {
     }
 }
 
+/**
+ * Create a new product (and optional variants) for the authenticated merchant.
+ *
+ * Validates required fields, generates SEO and schema data when missing, inserts the product into the database, and optionally inserts product variants.
+ * Responds with standard HTTP error statuses for authentication issues, missing merchant, validation failures, or server errors:
+ *  - 401 when the user is not authenticated
+ *  - 404 when the merchant record is not found
+ *  - 400 when required fields (name or price) are missing
+ *  - 500 for unexpected or insertion errors
+ *
+ * @returns The created product object in JSON when successful (HTTP 201); on error returns a JSON error payload with an appropriate HTTP status.
+ */
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies();

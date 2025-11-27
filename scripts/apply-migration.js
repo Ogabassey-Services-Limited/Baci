@@ -15,6 +15,13 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+/**
+ * Check whether the migration that adds the `merchants.social_media` column has been applied; if not, print the migration SQL and manual application instructions.
+ *
+ * If the column exists the function logs confirmation. If the column is missing it reads the migration SQL file and writes the SQL plus step-by-step instructions for applying the migration via the Supabase SQL editor. On unexpected runtime errors the function logs the error and exits the process with code 1.
+ *
+ * @returns {Promise<boolean>} `true` if the `social_media` column exists (migration applied), `false` if the migration is not applied and the SQL/instructions were printed.
+ */
 async function checkAndApplyMigration() {
   try {
     console.log('Checking if migration has been applied...');

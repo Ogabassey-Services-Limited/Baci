@@ -38,6 +38,16 @@ const _GuideBusinessOnboardingOutputSchema = z.object({
 });
 type GuideBusinessOnboardingOutput = z.infer<typeof _GuideBusinessOnboardingOutputSchema>;
 
+/**
+ * Orchestrates business onboarding tasks by either extracting three brand colors from a provided logo or generating logo image(s).
+ *
+ * @param input - Payload specifying the task and related fields. For `task: 'extract_colors'`, `logoDataUri` must be provided; for `task: 'generate_logos'`, provide `businessName`, `businessType`, and optional `brandPreferences`.
+ * @returns An object containing `brandColors` (with `primary`, `background`, `accent`) when extracting colors, or `logos` (array of image data URIs) when generating logos.
+ * @throws Error - If `logoDataUri` is missing when `task` is `extract_colors`.
+ * @throws Error - If brand color extraction fails.
+ * @throws Error - If logo generation fails or no image is produced.
+ * @throws Error - If `input.task` is not `'extract_colors'` or `'generate_logos'`.
+ */
 export async function guideBusinessOnboarding(
   input: GuideBusinessOnboardingInput
 ): Promise<GuideBusinessOnboardingOutput> {

@@ -4,9 +4,25 @@ import { NextResponse } from 'next/server';
 import { cache, generateCacheKey } from '@/lib/cache';
 
 /**
-/**
- * GET /api/analytics?startDate=ISO&endDate=ISO
- * Get real-time analytics for merchant dashboard
+ * Provide real-time analytics for a merchant dashboard filtered by an optional date range.
+ *
+ * Returns a JSON payload with aggregated metrics, chart series, recent sales, and related lists for the authenticated merchant.
+ *
+ * @param request - Incoming Request whose URL may include optional `startDate` and `endDate` ISO query parameters; defaults to the last 7 days when omitted.
+ * @returns An object with the following shape:
+ *  - `summary`: aggregated KPI objects:
+ *      - `revenue`: { value: total revenue for the period, change: percentage change vs previous period }
+ *      - `customers`: { value: total customers, change: percentage change vs previous period }
+ *      - `sales`: { value: number of orders, change: percentage change vs previous period }
+ *      - `activeNow`: { value: number of orders in the last hour, change: always 0 }
+ *      - `aov`: { value: average order value, change: percentage change vs previous period }
+ *      - `grossMargin`: { value: gross margin (mocked), change: absolute change vs previous period }
+ *      - `ltv`: { value: lifetime value per customer, change: percentage change vs previous period }
+ *      - `refundRate`: { value: percentage of refunded orders, change: absolute change vs previous period }
+ *  - `chartData`: array of daily or monthly revenue points (each entry includes `desktop` and `mobile` revenue splits)
+ *  - `recentSales`: array of up to 5 recent orders with `{ id, name, email, amount, avatar }`
+ *  - `topProducts`: array (currently empty)
+ *  - `salesByChannel`: array (currently empty)
  */
 export async function GET(request: Request) {
   try {

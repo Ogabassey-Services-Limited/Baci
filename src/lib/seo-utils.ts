@@ -2,7 +2,9 @@ import { Product, ProductSchemaMarkup } from './products';
 import { escapeHtml, stripHtmlTags } from './sanitize';
 
 /**
- * Generates a URL-friendly slug from a string
+ * Generates a URL-friendly slug from the provided text.
+ *
+ * @returns The input converted to a lowercase, trimmed slug suitable for URLs — spaces replaced by dashes, non-word characters removed, and consecutive dashes collapsed.
  */
 export function generateSlug(text: string): string {
     return text
@@ -17,12 +19,12 @@ export function generateSlug(text: string): string {
 }
 
 /**
- * Generates a full product slug including condition
- * Examples:
- *   - "iPhone 12" (new) → "iphone-12-new"
- *   - "iPhone 12" (used) → "iphone-12-used"
- *   - "iPhone 12" (refurbished) → "iphone-12-refurbished"
- *   - "iPhone 12" (no condition) → "iphone-12"
+ * Create a URL-friendly product slug that appends a condition suffix when provided.
+ *
+ * @param name - Product name used as the base for the slug
+ * @param condition - Optional condition label (e.g., 'new', 'used'); if omitted the base slug is returned
+ * @param conditionDetail - Optional more specific condition (e.g., 'refurbished') that takes precedence over `condition` when present
+ * @returns The URL-friendly product slug, with `-<condition>` appended when `condition` or `conditionDetail` is provided
  */
 export function generateProductSlug(
     name: string,
@@ -46,14 +48,9 @@ export function generateProductSlug(
 }
 
 /**
- * Builds the product URL path based on available data
- * Priority:
- *   1. /{category}/{product-slug} (if category exists)
- *   2. /products/{product-slug} (fallback)
+ * Build a product URL path preferring a category prefix when provided.
  *
- * Examples:
- *   - smartphones, "iphone-12-used" → "/smartphones/iphone-12-used"
- *   - null, "generic-item" → "/products/generic-item"
+ * @returns The URL path: `"/{categorySlug}/{productSlug}"` when `category` is present, otherwise `"/products/{productSlug}"`
  */
 export function buildProductUrl(
     productSlug: string,
@@ -67,8 +64,10 @@ export function buildProductUrl(
 }
 
 /**
- * Generates the full product URL path from product data
- * Convenience function combining slug generation and URL building
+ * Build a URL path for the given product by using its slug if present or generating one from its name and condition, falling back to the product id when necessary.
+ *
+ * @param product - Product data. Uses `slug` if provided; otherwise generates a slug from `name` and optional `condition`/`condition_detail`; falls back to `id`. `category` is used to prefix the path when present.
+ * @returns The product URL path (for example, `/category-slug/product-slug` or `/products/product-slug`).
  */
 export function getProductUrl(product: {
     slug?: string;

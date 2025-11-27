@@ -13,7 +13,13 @@ interface CSVRow {
 }
 
 /**
- * Parse CSV text into rows
+ * Parse CSV text into an array of rows mapped by header names.
+ *
+ * Supports a header row, strips surrounding quotes from headers and field values,
+ * and preserves field values that contain commas when they are quoted.
+ *
+ * @param csvText - The raw CSV content as a string (first non-empty line is treated as headers)
+ * @returns An array of `CSVRow` objects mapping each header to its corresponding field value. Returns an empty array if the input has fewer than two non-empty lines.
  */
 function parseCSV(csvText: string): CSVRow[] {
   const lines = csvText.split('\n').filter(line => line.trim());
@@ -51,7 +57,11 @@ function parseCSV(csvText: string): CSVRow[] {
 }
 
 /**
- * Generate a unique slug from a name
+ * Create a URL-safe slug from a product name with appended uniqueness metadata.
+ *
+ * @param name - The product name to base the slug on
+ * @param index - An index appended to guarantee uniqueness among multiple slugs generated at the same time
+ * @returns The resulting slug in the form `base-slug-{timestamp}-{index}`
  */
 function generateSlug(name: string, index: number): string {
   const baseSlug = name
@@ -65,8 +75,12 @@ function generateSlug(name: string, index: number): string {
 }
 
 /**
- * POST /api/products/bulk-import
- * Bulk import products from CSV file
+ * Imports products from an uploaded CSV and creates product records for the authenticated merchant.
+ *
+ * Processes an uploaded CSV file from the request's multipart form-data, validates required fields and numeric values per row, attempts to insert each valid product into the database, and aggregates per-row errors.
+ *
+ * @param request - NextRequest containing multipart form-data with a `file` field (CSV).
+ * @returns A JSON payload with `success` (number of inserted products), `failed` (number of rows that failed), and `errors` (array of row-specific error messages), or an error object with `error` and optional `details` fields on failure.
  */
 export async function POST(request: NextRequest) {
   try {

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useRef, useCallback } from 'react';
@@ -12,6 +11,13 @@ interface ColorPickerProps {
   onChange: (color: string) => void;
 }
 
+/**
+ * Renders a color picker UI that lets users choose a color via hue and saturation/lightness controls or enter a hex value.
+ *
+ * @param color - The initial color value accepted by colord (e.g., hex or CSS color string) used to initialize the picker.
+ * @param onChange - Callback invoked when the selected color changes; receives the new color as a hex string (e.g., `#rrggbb`).
+ * @returns A React element representing the color picker.
+ */
 export function ColorPicker({ color, onChange }: ColorPickerProps) {
   // Parse the incoming color prop
   const parsedColor = colord(color);

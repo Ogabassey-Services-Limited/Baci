@@ -4,9 +4,16 @@ import { cookies } from 'next/headers';
 import { cache } from '@/lib/cache';
 
 /**
- * DELETE /api/analytics/cache
- * Invalidate analytics cache for the current merchant
- * Useful after creating orders, updating products, etc.
+ * Invalidate analytics and AI-insights cache for the authenticated merchant.
+ *
+ * Returns a JSON response indicating success or an error status when authorization
+ * or merchant lookup fails, or when an internal error occurs.
+ *
+ * @returns On success: an object with `message` and `merchantId`.
+ * On failure: an error object and one of the HTTP statuses:
+ * - `401` when the request is unauthorized (`{ error: 'Unauthorized' }`),
+ * - `404` when the merchant is not found (`{ error: 'Merchant not found' }`),
+ * - `500` for internal server errors (`{ error: 'Internal server error' }`).
  */
 export async function DELETE() {
   try {
@@ -50,8 +57,9 @@ export async function DELETE() {
 }
 
 /**
- * GET /api/analytics/cache
- * Get cache stats (for debugging)
+ * Return basic cache statistics for debugging.
+ *
+ * @returns A JSON object with `size` (number of cached entries) and `message` (string). On failure returns a JSON error object `{ error: string }` with HTTP status 500.
  */
 export async function GET() {
   try {

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -20,6 +19,15 @@ interface AnalyticsFiltersProps {
     className?: string;
 }
 
+/**
+ * Render a filter bar with a date range picker and an export menu.
+ *
+ * @param date - Current date range with `from` and `to` (each may be `Date` or `undefined`).
+ * @param onDateChange - Callback invoked with an updated `{ from, to }` date range when the selection changes.
+ * @param onExport - Optional callback invoked with `'csv'` or `'pdf'` when the corresponding export option is selected.
+ * @param className - Optional additional CSS class names applied to the container.
+ * @returns The filter bar JSX element containing the date range picker and export dropdown.
+ */
 export function AnalyticsFilters({
     date,
     onDateChange,

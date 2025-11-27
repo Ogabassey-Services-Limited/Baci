@@ -3,8 +3,13 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 /**
- * PATCH /api/discount-codes/[id]
- * Update a discount code
+ * Update a discount code by id and return the updated record.
+ *
+ * Updates the discount_codes row identified by `params` -> `id`. Requires an authenticated user; the request body fields are merged into the updated row and, if `code` is provided, it is converted to uppercase before saving. Uses row-level security to restrict updates to the owner.
+ *
+ * @param request - Incoming NextRequest with the update payload as JSON
+ * @param params - A promise resolving to an object with the `id` of the discount code to update
+ * @returns A NextResponse containing `{ discountCode }` on success; on failure returns a JSON error message with one of: `401` (unauthorized), `404` (discount code not found), or `500` (internal server error)
  */
 export async function PATCH(
   request: NextRequest,
@@ -57,8 +62,10 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/discount-codes/[id]
- * Delete a discount code
+ * Handle DELETE requests to remove a discount code by id.
+ *
+ * @param params - Route parameters object; `params.id` is the discount code identifier to delete
+ * @returns `{ message: 'Discount code deleted successfully' }` on success; `{ error: 'Unauthorized' }` with status 401 if the request is unauthenticated; `{ error: 'Internal server error' }` with status 500 on unexpected failures
  */
 export async function DELETE(
   request: NextRequest,

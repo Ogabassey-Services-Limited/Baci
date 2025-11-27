@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -27,6 +26,17 @@ interface StorefrontProductGridProps {
     showFilters?: boolean;
 }
 
+/**
+ * Renders a responsive storefront product grid with optional filtering and search-aware results.
+ *
+ * Displays products from the current merchant (or sample products in preview mode), chooses between client- and server-side search based on merchant product count, and allows filtering by category, brand, or price. Each product card shows image, labels (sale / low stock / out of stock), price formatted for the merchant's locale, and inline add-to-cart or quantity controls that update the cart and surface a toast.
+ *
+ * @param title - Header title shown above the grid (defaults to "Shop By")
+ * @param columns - Number of columns for large screens (defaults to 4)
+ * @param limit - Maximum number of products to show (defaults to 12)
+ * @param showFilters - When true, renders a filter panel (category/brand/price); when false, renders a simple title and category buttons (defaults to false)
+ * @returns The StorefrontProductGrid React element
+ */
 export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 12, showFilters = false }: StorefrontProductGridProps) {
     const merchantContext = useMerchantSafe();
     const merchant = merchantContext?.merchant || null;

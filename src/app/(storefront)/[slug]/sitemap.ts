@@ -12,6 +12,12 @@ type Props = {
     params: Promise<{ slug: string }>
 }
 
+/**
+ * Generate sitemap entries for a merchant store including root, category, and product pages.
+ *
+ * @param params - A promise-resolving object containing the `slug` that identifies the merchant store
+ * @returns Sitemap entries for the store: the root URL followed by category pages and product pages
+ */
 export default async function sitemap({ params }: Props): Promise<MetadataRoute.Sitemap> {
     const { slug } = await params;
 

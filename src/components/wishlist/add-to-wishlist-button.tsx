@@ -16,6 +16,22 @@ interface AddToWishListButtonProps {
   className?: string;
 }
 
+/**
+ * Renders a button that toggles a product in the user's wish list.
+ *
+ * Checks the current wish-list status for the given customer and product on mount,
+ * shows a loading state while checking or updating, calls the wishlist API to add or remove the item,
+ * and displays success or error toasts for user feedback.
+ *
+ * @param productId - The identifier of the product to add or remove from the wish list.
+ * @param merchantId - The identifier of the product's merchant (included when adding to the wish list).
+ * @param customerEmail - The customer's email used to look up and modify their wish list; if not provided, actions are blocked and a toast prompts for an email.
+ * @param variant - Button visual variant (overrides default).
+ * @param size - Button size (overrides default).
+ * @param showText - When true, displays a text label ("Save" / "Saved") next to the icon.
+ * @param className - Additional CSS class names applied to the button.
+ * @returns A React element for a wish-list toggle button that reflects current state and handles add/remove interactions.
+ */
 export function AddToWishListButton({
   productId,
   merchantId,

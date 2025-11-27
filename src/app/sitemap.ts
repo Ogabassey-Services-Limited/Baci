@@ -23,6 +23,13 @@ const SITE_PAGES = [
   // { path: '/privacy', changeFreq: 'yearly' as const, priority: 0.3 },
 ]
 
+/**
+ * Generates sitemap entries for the site's static pages.
+ *
+ * The base URL is taken from NEXT_PUBLIC_ROOT_DOMAIN when set, otherwise defaults to http://localhost:3000.
+ *
+ * @returns An array of sitemap entries where each entry contains `url`, `lastModified`, `changeFrequency`, and `priority`.
+ */
 export default function sitemap(): MetadataRoute.Sitemap {
   const siteUrl = process.env.NEXT_PUBLIC_ROOT_DOMAIN
     ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`

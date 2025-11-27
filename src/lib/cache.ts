@@ -122,14 +122,22 @@ const cache = new InMemoryCache();
 export { cache };
 
 /**
- * Generate a cache key from multiple parts
+ * Create a colon-delimited cache key from the provided parts, skipping falsy parts.
+ *
+ * @param parts - Segments to include in the key; `undefined`, empty strings, `0`, or other falsy values are ignored
+ * @returns The resulting key string with remaining parts joined by `:`
  */
 export function generateCacheKey(...parts: (string | number | undefined)[]): string {
   return parts.filter(Boolean).join(':');
 }
 
 /**
- * Cached function wrapper with automatic key generation
+ * Return a value from the cache for `key`, or invoke `fetchFn`, cache its result, and return it.
+ *
+ * @param key - Cache key that identifies the entry
+ * @param ttlSeconds - Time-to-live for the cached entry, in seconds
+ * @param fetchFn - Function called to obtain and return the value when the cache does not contain `key`
+ * @returns The cached value if present; otherwise the freshly fetched value that is stored in the cache
  */
 export async function withCache<T>(
   key: string,

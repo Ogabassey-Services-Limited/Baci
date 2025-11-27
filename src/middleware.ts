@@ -35,18 +35,18 @@ function normalizeHostname(hostname: string): string {
 }
 
 /**
- * Validate subdomain follows DNS standards
- * - Only lowercase alphanumeric and hyphens
- * - 1-63 characters
- * - Cannot start or end with hyphen
+ * Checks whether a subdomain conforms to DNS label rules.
+ *
+ * @returns `true` if `subdomain` contains only lowercase letters, digits, or hyphens, is 1–63 characters long, and does not start or end with a hyphen, `false` otherwise.
  */
 function isValidSubdomain(subdomain: string): boolean {
   return VALID_SUBDOMAIN_REGEX.test(subdomain);
 }
 
 /**
- * Safely check if hostname is a subdomain of a given parent domain
- * This prevents attacks like "evilusebaci.com" matching "usebaci.com"
+ * Determine whether a hostname is a direct subdomain of the specified parent domain and return that subdomain.
+ *
+ * @returns The subdomain string when `hostname` is an immediate child of `parentDomain`, `null` otherwise.
  */
 function extractSubdomain(hostname: string, parentDomain: string): string | null {
   const normalizedHost = normalizeHostname(hostname);
@@ -70,7 +70,11 @@ function extractSubdomain(hostname: string, parentDomain: string): string | null
 }
 
 /**
- * Check if hostname exactly matches our root domain (with optional www)
+ * Determines whether `hostname` refers to the given `rootDomain` or its `www` subdomain.
+ *
+ * Comparison is case-insensitive and ignores port numbers.
+ *
+ * @returns `true` if `hostname` equals `rootDomain` or `www.<rootDomain>`, `false` otherwise.
  */
 function isRootDomain(hostname: string, rootDomain: string): boolean {
   const normalizedHost = normalizeHostname(hostname);
@@ -80,8 +84,9 @@ function isRootDomain(hostname: string, rootDomain: string): boolean {
 }
 
 /**
- * Check if hostname is a Vercel preview deployment
- * Validates exact structure: {hash}-{project}-{team}.vercel.app
+ * Determines whether a hostname represents a Vercel preview deployment on vercel.app.
+ *
+ * @returns `true` if the hostname ends with `.vercel.app` and its left-most label is a single valid subdomain (no dots and matches subdomain rules), `false` otherwise.
  */
 function isVercelPreview(hostname: string): boolean {
   const normalizedHost = normalizeHostname(hostname);
@@ -104,7 +109,10 @@ function isVercelPreview(hostname: string): boolean {
 }
 
 /**
- * Check if this is localhost/development environment
+ * Determine whether a hostname refers to a localhost development environment.
+ *
+ * @param hostname - The host portion of a request (may include a port); it will be normalized before checking.
+ * @returns `true` if the hostname is `localhost` or `127.0.0.1`, `false` otherwise.
  */
 function isLocalhost(hostname: string): boolean {
   const normalizedHost = normalizeHostname(hostname);
@@ -112,8 +120,10 @@ function isLocalhost(hostname: string): boolean {
 }
 
 /**
- * Validate custom domain format (basic validation)
- * Must be a valid-looking domain, not an IP, not containing suspicious patterns
+ * Determines whether a hostname is a plausible custom domain (not an IP and matches basic domain character rules).
+ *
+ * @param hostname - The hostname to validate.
+ * @returns `true` if `hostname` contains at least one dot, is not an IPv4 address, and consists only of lowercase letters, numbers, hyphens, and dots with no consecutive dots or leading/trailing hyphens; `false` otherwise.
  */
 function isValidCustomDomain(hostname: string): boolean {
   const normalizedHost = normalizeHostname(hostname);
@@ -133,6 +143,19 @@ function isValidCustomDomain(hostname: string): boolean {
   return true;
 }
 
+/**
+ * Route requests by hostname to support merchant subdomains, custom domains, and the main application.
+ *
+ * Examines the incoming request's host and path and returns a NextResponse that:
+ * - rewrites valid non-reserved merchant subdomains to the corresponding storefront path and sets `x-merchant-slug`,
+ * - redirects requests from merchant subdomains that target main application routes to the root domain,
+ * - marks valid custom domains via `x-custom-domain` and lets the page resolve the merchant by domain,
+ * - returns HTTP 400 for invalid or suspicious hostnames,
+ * - or proceeds with a standard NextResponse enriched with security and caching headers.
+ *
+ * @param request - The Next.js incoming request used to determine hostname, pathname, and user agent.
+ * @returns A NextResponse configured according to the hostname routing rules described above.
+ */
 export function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const pathname = request.nextUrl.pathname;
@@ -184,6 +207,14 @@ export function middleware(request: NextRequest) {
   return applySecurityHeaders(response, pathname, userAgent);
 }
 
+/**
+ * Apply cache-related security headers to a NextResponse based on the request path and user agent.
+ *
+ * @param response - The NextResponse to modify
+ * @param pathname - The request pathname (e.g., from URL) used to determine cache rules
+ * @param userAgent - The request User-Agent string used to detect bots/crawlers
+ * @returns The modified NextResponse with `Cache-Control` headers set according to route type and bot detection
+ */
 function applySecurityHeaders(response: NextResponse, pathname: string, userAgent: string): NextResponse {
   // Detect bots/crawlers for optimized SEO caching
   const isBot = /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i.test(userAgent);

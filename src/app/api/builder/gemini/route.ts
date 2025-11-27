@@ -113,6 +113,17 @@ The configuration includes a powerful theme system that controls ALL visual styl
 
 Remember: You're helping merchants create beautiful, functional storefronts. Be creative but professional.`;
 
+/**
+ * Handle POST requests to generate or update a Puck site configuration using an AI model.
+ *
+ * Authenticates the caller, enforces per-user rate limits, sanitizes the provided prompt,
+ * requests a fully-formed configuration object from the AI, merges theme color updates with
+ * the existing configuration, ensures each content component has a unique `id`, and applies
+ * sensible defaults for `root` and `zones`. Returns the updated configuration and rate-limit
+ * metadata or an error payload for invalid input, unauthorized access, rate-limited requests,
+ * or processing failures.
+ *
+ * @returns A NextResponse containing `{ config: updatedConfig }` on success. On failure returns a JSON error payload with an appropriate HTTP status (400 for invalid input, 401 for unauthorized, 429 for rate-limited requests, or 500 for processing errors).
 export async function POST(req: Request) {
     try {
         // Auth check

@@ -127,6 +127,13 @@ export async function GET(
     }
 }
 
+/**
+ * Update an existing product and its variants for the authenticated merchant.
+ *
+ * @param request - The incoming HTTP request containing the product payload in JSON.
+ * @param params - Route parameters object; `params.id` is the product identifier to update.
+ * @returns A JSON response containing the updated product under the `product` key on success, or an error object on failure.
+ */
 export async function PUT(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }

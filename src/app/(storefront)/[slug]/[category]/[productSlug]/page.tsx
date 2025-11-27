@@ -18,6 +18,16 @@ interface PageProps {
     }>;
 }
 
+/**
+ * Fetches a merchant's product and reports whether the provided category slug differs from the product's category.
+ *
+ * Retrieves the merchant by `storeSlug`, then finds the product belonging to that merchant by `productSlug` (matches slug or UUID). If the product has variants, they are loaded and attached to the returned product object. The function also computes `categoryMismatch` when the product has a category and its slug does not match `categorySlug`.
+ *
+ * @param storeSlug - Merchant/store slug to identify the merchant
+ * @param categorySlug - Category slug supplied in the URL (may be empty or different from the product's category)
+ * @param productSlug - Product identifier from the URL; may be a slug or a UUID
+ * @returns An object `{ product, categoryMismatch }` where `product` is the fetched Product (including `variants` when present) and `categoryMismatch` is `true` if the provided `categorySlug` differs from the product's category slug; returns `null` if the merchant or product could not be found.
+ */
 async function getProduct(storeSlug: string, categorySlug: string, productSlug: string) {
     const supabase = createServerComponentClient({ cookies });
 
@@ -76,6 +86,12 @@ async function getProduct(storeSlug: string, categorySlug: string, productSlug: 
     return { product: product as Product, categoryMismatch };
 }
 
+/**
+ * Generate SEO metadata for a product page based on route params and product/merchant data.
+ *
+ * @param params - Route parameters containing `slug` (merchant store slug), `category` (category slug), and `productSlug` (product slug or id)
+ * @returns A Metadata object for the product page. When the product exists this includes title, description, keywords, canonical alternate URL, Open Graph data (title, description, images, url, type, siteName) and Twitter card data; when the product is not found returns minimal metadata with title "Product Not Found" and a descriptive message.
+ */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
     const { slug, category, productSlug } = await params;
     const result = await getProduct(slug, category, productSlug);
@@ -142,6 +158,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
 }
 
+/**
+ * Render the storefront product detail page for a merchant's category and product.
+ *
+ * Fetches the product (and merchant) data, triggers a 404 when the product is not found,
+ * generates product and breadcrumb JSON-LD, and renders the client-side product detail component.
+ *
+ * @param params - An object with `slug` (merchant store slug), `category` (category slug), and `productSlug` (product slug or id)
+ * @returns The page JSX containing product and breadcrumb `application/ld+json` scripts and the product detail client component
+ */
 export default async function CategoryProductPage({ params }: PageProps) {
     const { slug, category, productSlug } = await params;
     const result = await getProduct(slug, category, productSlug);

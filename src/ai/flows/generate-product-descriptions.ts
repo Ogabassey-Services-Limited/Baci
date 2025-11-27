@@ -21,6 +21,15 @@ const _GenerateProductDescriptionOutputSchema = z.object({
 
 type GenerateProductDescriptionOutput = z.infer<typeof _GenerateProductDescriptionOutputSchema>;
 
+/**
+ * Generate an e-commerce product description from the provided product details.
+ *
+ * The input is validated against the expected schema and user-provided fields are sanitized/truncated before being sent to the AI. The function returns the generated description text only.
+ *
+ * @param input - Product details: `productName` (required) and optional `keywords`, `brandVoice`, `targetAudience`, `businessType`. Fields are validated and sanitized/truncated to their maximum allowed lengths.
+ * @returns An object containing `description` — the generated product description text.
+ * @throws Validation errors if `input` fails schema validation. May throw a generic error when generation fails or when the product name is missing after sanitization.
+ */
 export async function generateProductDescription(
   input: GenerateProductDescriptionInput
 ): Promise<GenerateProductDescriptionOutput> {

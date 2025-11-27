@@ -32,6 +32,20 @@ const _AutofillProductDetailsOutputSchema = z.object({
 
 type AutofillProductDetailsOutput = z.infer<typeof _AutofillProductDetailsOutputSchema>;
 
+/**
+ * Autofills product metadata for a given product name and business type using the AI object generator.
+ *
+ * @param input - Input object containing:
+ *   - productName: the product title to base suggestions on
+ *   - businessType: the business category used to select available categories and variant attributes
+ * @returns An object with a `details` field conforming to ProductDetailsSchema containing:
+ *   - suggestedName
+ *   - description
+ *   - category
+ *   - brand
+ *   - suggestedVariants (optional array of variant suggestions)
+ * @throws Error if the AI generation fails
+ */
 export async function autofillProductDetails(
   input: AutofillProductDetailsInput
 ): Promise<AutofillProductDetailsOutput> {

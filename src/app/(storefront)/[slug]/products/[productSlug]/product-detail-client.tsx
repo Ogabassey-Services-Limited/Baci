@@ -19,6 +19,15 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
+/**
+ * Render a detailed product page with image gallery, pricing, stock information, and order controls.
+ *
+ * Renders product media and thumbnails, displays pricing (including compare-at price), stock and fulfillment info,
+ * minimum-order alerts, quantity controls, add-to-cart or in-cart controls, footer links, and an embedded cart.
+ *
+ * @param product - The product to display, including images, pricing, stock, fulfillment fields, and metadata.
+ * @returns The ProductDetail UI component for the given product.
+ */
 export default function ProductDetailClient({ product }: { product: Product }) {
     const { merchant } = useMerchant();
     const { cart, cartCount, addToCart, updateQuantity } = useCart();

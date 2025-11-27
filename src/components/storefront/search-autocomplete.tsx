@@ -32,6 +32,20 @@ interface SearchAutocompleteProps {
     className?: string;
 }
 
+/**
+ * Render a searchable autocomplete input that suggests products and popular searches for a merchant.
+ *
+ * Renders an accessible search input with debounced server-side suggestions, keyboard navigation (Arrow keys, Enter, Escape),
+ * grouping for product suggestions and popular searches, and outside-click handling to close the dropdown.
+ *
+ * @param merchantId - Merchant identifier used when requesting autocomplete suggestions
+ * @param value - Current input value
+ * @param onChange - Called with the updated input string when the user types or selects a popular search
+ * @param onSelectProduct - Optional callback invoked with a product URL when a product suggestion is selected
+ * @param placeholder - Optional input placeholder text (defaults to "Search products...")
+ * @param className - Optional additional class names applied to the component wrapper
+ * @returns The search autocomplete React element including input, result listbox, and associated accessibility features
+ */
 export function SearchAutocomplete({
     merchantId,
     value,

@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -110,6 +109,14 @@ const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }:
   );
 };
 
+/**
+ * Renders the dashboard client layout with a collapsible sidebar, top header, mobile navigation sheet, country selector, and user menu.
+ *
+ * The component enforces authentication and onboarding flow: it redirects unauthenticated users to `/login` and users without a completed merchant profile to `/onboarding`. While authentication or merchant data is loading it shows a full-screen loader (or renders nothing during redirect to avoid flashes).
+ *
+ * @param children - Page content to display in the layout's main content area.
+ * @returns The dashboard layout element containing navigation, store link, controls, and the provided children.
+ */
 export default function DashboardClientLayout({
   children,
 }: {

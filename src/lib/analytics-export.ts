@@ -3,7 +3,10 @@ import autoTable from 'jspdf-autotable';
 import type { AnalyticsData } from '@/components/analytics/draggable-analytics-grid';
 
 /**
- * Format currency for display
+ * Formats a numeric amount as US dollar currency using the en-US locale.
+ *
+ * @param value - The amount in dollars to format
+ * @returns The formatted currency string, e.g. "$1,234.56"
  */
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('en-US', {
@@ -13,14 +16,21 @@ function formatCurrency(value: number): string {
 }
 
 /**
- * Format percentage for display
+ * Formats a value as a percentage string with one decimal place and a leading '+' for non-negative values.
+ *
+ * @param value - The percentage value to format (e.g., 12.3 represents 12.3%).
+ * @returns The formatted percentage string (for example, `+12.3%` or `-4.5%`).
  */
 function formatPercentage(value: number): string {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 }
 
 /**
- * Format date range for display
+ * Formats a date range as "Mon D, YYYY - Mon D, YYYY", or returns "All Time" when either date is missing.
+ *
+ * @param from - Start date of the range; if omitted the function returns `"All Time"`.
+ * @param to - End date of the range; if omitted the function returns `"All Time"`.
+ * @returns The formatted date range using the en-US short-month format (e.g., "Nov 27, 2025 - Dec 31, 2025"), or `"All Time"`.
  */
 function formatDateRange(from?: Date, to?: Date): string {
   if (!from || !to) return 'All Time';
@@ -29,7 +39,11 @@ function formatDateRange(from?: Date, to?: Date): string {
 }
 
 /**
- * Export analytics data as CSV
+ * Generate and download a CSV file containing analytics sections: summary metrics, recent sales, and revenue over time.
+ *
+ * @param data - AnalyticsData containing `summary`, `recentSales`, and `chartData` used to populate the CSV sections
+ * @param dateRange - Optional object with `from` and `to` Dates used to label the report period; when omitted the report is labeled as "All Time"
+ * @param merchantName - Optional merchant/store name included in the report header; defaults to "Your Store" when not provided
  */
 export function exportAnalyticsAsCSV(
   data: AnalyticsData,
@@ -99,7 +113,11 @@ export function exportAnalyticsAsCSV(
 }
 
 /**
- * Export analytics data as PDF
+ * Generate a formatted PDF analytics report and save it to the user's device.
+ *
+ * @param data - Analytics payload containing summary metrics, recent sales, and chart data
+ * @param dateRange - Optional date range `{ from, to }` to display as the report period; when omitted, "All Time" is used
+ * @param merchantName - Optional merchant/store name to display in the report header; defaults to "Your Store"
  */
 export function exportAnalyticsAsPDF(
   data: AnalyticsData,
