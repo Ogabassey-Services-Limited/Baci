@@ -1,56 +1,85 @@
 'use server';
 
-import { generateObject } from 'ai';
-import { z } from 'zod';
+import { generateText } from 'ai';
 import { logger } from '@/lib/logger';
-import { geminiFlashImage, withRetry } from '../provider';
+import { gemini25FlashImage, withRetry } from '../provider';
 
-const _EnhanceProductImageInputSchema = z.object({
-  photoDataUri: z.string().describe('The product image as a data URI'),
-});
+interface EnhanceProductImageInput {
+  photoDataUri: string;
+}
 
-type EnhanceProductImageInput = z.infer<typeof _EnhanceProductImageInputSchema>;
+interface EnhanceProductImageOutput {
+  enhancedPhotoDataUri: string;
+}
 
-const EnhanceProductImageOutputSchema = z.object({
-  enhancedPhotoDataUri: z.string(),
-});
-
-type EnhanceProductImageOutput = z.infer<typeof EnhanceProductImageOutputSchema>;
-
-const ENHANCE_PRODUCT_IMAGE_PROMPT = `
-The user has uploaded an image of a product for their e-commerce store.
-Your task is to professionally enhance this image.
-Isolate the main product by removing the background and making it transparent.
-Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out.
-Return only the enhanced image.
-`;
-
+/**
+ * AI-powered product image enhancement
+ * Takes a regular photo and transforms it into a professional e-commerce product image
+ * - Removes/cleans background
+ * - Adjusts lighting to studio quality
+ * - Makes the product look professional and appealing
+ */
 export async function enhanceProductImage(
   input: EnhanceProductImageInput
 ): Promise<EnhanceProductImageOutput> {
-  logger.info({ message: 'Image enhancement requested.' });
+  logger.info({ message: 'AI product image enhancement requested.' });
 
   if (!input.photoDataUri) {
     throw new Error('No image provided for enhancement.');
   }
 
   try {
-    const { object: enhancedImage } = await withRetry(async () => {
-      return await generateObject({
-        model: geminiFlashImage,
-        schema: EnhanceProductImageOutputSchema,
-        prompt: ENHANCE_PRODUCT_IMAGE_PROMPT,
+    const result = await withRetry(async () => {
+      return await generateText({
+        model: gemini25FlashImage,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: `Transform this product photo into a professional e-commerce product image.
+
+Requirements:
+1. Remove or replace the background with a clean, pure white background
+2. Adjust the lighting to be bright, even, and studio-quality
+3. Make the product the clear focal point
+4. Ensure colors are accurate and vibrant
+5. The result should look like a professional product photo you'd see on Amazon or a high-end online store
+
+Generate the enhanced product image.`,
+              },
+              {
+                type: 'image',
+                image: input.photoDataUri,
+              },
+            ],
+          },
+        ],
+        providerOptions: {
+          google: {
+            responseModalities: ['TEXT', 'IMAGE'],
+          },
+        },
       });
     });
 
-    if (!enhancedImage.enhancedPhotoDataUri) {
+    // Extract enhanced image from response
+    const imageFile = result.files?.find(f => f.mediaType?.startsWith('image/'));
+
+    if (!imageFile || !imageFile.base64) {
+      logger.error({ message: 'No enhanced image returned from AI', files: result.files });
       throw new Error('AI did not return an enhanced image.');
     }
 
-    return { enhancedPhotoDataUri: enhancedImage.enhancedPhotoDataUri };
+    const mediaType = imageFile.mediaType || 'image/png';
+    const enhancedDataUri = `data:${mediaType};base64,${imageFile.base64}`;
+
+    logger.info({ message: 'Product image enhancement successful' });
+    return { enhancedPhotoDataUri: enhancedDataUri };
+
   } catch (error) {
-    logger.error({ message: 'Image enhancement failed', error });
-    // As a fallback, return the original image so the UI doesn't break.
-    return { enhancedPhotoDataUri: input.photoDataUri };
+    logger.error({ message: 'Product image enhancement failed', error });
+    throw new Error('Failed to enhance product image. Please try again.');
   }
 }

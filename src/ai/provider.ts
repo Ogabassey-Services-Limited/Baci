@@ -11,15 +11,17 @@ const google = createGoogleGenerativeAI({
  * Model Selection Guide:
  * - geminiFlash: Fast, cost-effective. Use for simple tasks (descriptions, autofill)
  * - geminiPro: More capable. Use for complex reasoning (analytics insights, builder)
- * - geminiFlashImage: For image understanding tasks
- * - imagen3: For image generation (logos, product images)
+ * - gemini25FlashImage: Multimodal model for text, image understanding, AND image generation
+ *   Use with providerOptions: { google: { responseModalities: ['TEXT', 'IMAGE'] } }
  */
 
-// Primary models - using stable versions
+// Primary models
 export const geminiFlash = google('gemini-2.0-flash'); // Fast, cheap - for simple tasks
-export const geminiPro = google('gemini-2.0-flash'); // Using flash for cost efficiency, upgrade to 'gemini-1.5-pro' if needed
-export const geminiFlashImage = google('gemini-2.0-flash'); // For image understanding
-export const imagen3 = google('imagen-3.0-generate-001'); // For image generation
+export const geminiPro = google('gemini-2.0-flash'); // Alias for flash (upgrade to gemini-2.0-pro if needed)
+
+// Multimodal model - handles text, image understanding, and image generation
+// Free tier: 500 images/day with gemini-2.5-flash-preview-image
+export const gemini25FlashImage = google('gemini-2.5-flash-preview-image');
 
 /**
  * Rate Limiting Configuration

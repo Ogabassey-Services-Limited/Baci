@@ -1,7 +1,7 @@
 'use server';
 
-import { generateObject, experimental_generateImage } from 'ai';
-import { geminiFlash, imagen3, withRetry, sanitizePromptInput } from '@/ai/provider';
+import { generateObject, generateText } from 'ai';
+import { geminiFlash, gemini25FlashImage, withRetry, sanitizePromptInput } from '@/ai/provider';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
@@ -86,7 +86,7 @@ IMPORTANT:
   }
 
   if (input.task === 'generate_logos') {
-    logger.info({ message: 'Generating logo with Imagen 3', flow: 'guideBusinessOnboarding' });
+    logger.info({ message: 'Generating logo with Gemini 2.5 Flash Image', flow: 'guideBusinessOnboarding' });
 
     // Sanitize user inputs
     const businessName = sanitizePromptInput(input.businessName, 100);
@@ -94,37 +94,53 @@ IMPORTANT:
     const brandPreferences = sanitizePromptInput(input.brandPreferences, 50);
 
     try {
-      const prompt = `Design a professional, modern, and minimalist logo for a business named "${businessName}".
-      Business Type: ${businessType}.
-      Color Preferences: ${brandPreferences}.
-      Style: Clean, vector-like, suitable for a website header and app icon.
-      Ensure high contrast and simple shapes. White background.`;
+      const prompt = `Generate a professional, modern, and minimalist logo image for a business.
 
-      // Note: imagen3 is an image generation model from @ai-sdk/google
-      // Using type assertion due to experimental API
-      const { image } = await withRetry(async () => {
-        return await experimental_generateImage({
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          model: imagen3 as any,
+Business Name: "${businessName}"
+Business Type: ${businessType}
+Color Preferences: ${brandPreferences}
+
+Requirements:
+- Clean, vector-like design suitable for a website header and app icon
+- High contrast with simple, recognizable shapes
+- White or transparent background
+- Professional and memorable
+- The logo should work well at both large and small sizes
+
+Please generate the logo image now.`;
+
+      // Use Gemini 2.5 Flash Image with native image generation
+      const result = await withRetry(async () => {
+        return await generateText({
+          model: gemini25FlashImage,
           prompt: prompt,
-          n: 1,
-          size: '1024x1024',
-          aspectRatio: '1:1',
+          providerOptions: {
+            google: {
+              responseModalities: ['TEXT', 'IMAGE'],
+            },
+          },
         });
       });
 
-      if (!image) {
+      // Extract image from response files
+      const imageFile = result.files?.find(f => f.mediaType?.startsWith('image/'));
+
+      if (!imageFile || !imageFile.base64) {
+        logger.error({ message: 'No image in response', files: result.files });
         throw new Error('No image generated.');
       }
 
-      const logoDataUri = `data:image/png;base64,${image.base64}`;
+      const mediaType = imageFile.mediaType || 'image/png';
+      const logoDataUri = `data:${mediaType};base64,${imageFile.base64}`;
 
+      logger.info({ message: 'Logo generated successfully with Gemini 2.5 Flash Image' });
       return { logos: [logoDataUri] };
 
     } catch (error) {
-      logger.error({ message: 'Logo generation failed', error });
-      // Return empty array to handle gracefully in UI, or throw if preferred
-      throw new Error('Failed to generate logo.');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error({ message: 'Logo generation failed', error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
+      console.error('Logo generation error details:', error);
+      throw new Error(`Failed to generate logo: ${errorMessage}`);
     }
   }
 

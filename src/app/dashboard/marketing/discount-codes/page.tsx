@@ -31,6 +31,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { useMerchant } from '@/hooks/use-merchant';
+import { getCountryByCode } from '@/lib/countries';
 import { PlusCircle, Edit, Trash2, Copy, Loader2, Percent, DollarSign, Tag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
@@ -54,7 +55,9 @@ interface DiscountCode {
 
 export default function DiscountCodesPage() {
   const { toast } = useToast();
-  useMerchant(); // Hook called for side effects (context initialization)
+  const { merchant } = useMerchant();
+  const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+  const currencySymbol = country?.currencySymbol || '$';
   const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -222,7 +225,7 @@ export default function DiscountCodesPage() {
     if (code.discount_type === 'percentage') {
       return `${code.discount_value}% off`;
     }
-    return `$${code.discount_value} off`;
+    return `${currencySymbol}${code.discount_value} off`;
   };
 
   const isExpired = (code: DiscountCode) => {
@@ -436,7 +439,7 @@ export default function DiscountCodesPage() {
 
               <div>
                 <Label htmlFor="discount_value">
-                  Discount Value * {formData.discount_type === 'percentage' ? '(%)' : '($)'}
+                  Discount Value * {formData.discount_type === 'percentage' ? '(%)' : `(${currencySymbol})`}
                 </Label>
                 <Input
                   id="discount_value"
@@ -452,7 +455,7 @@ export default function DiscountCodesPage() {
               </div>
 
               <div>
-                <Label htmlFor="minimum_purchase">Minimum Purchase ($)</Label>
+                <Label htmlFor="minimum_purchase">Minimum Purchase ({currencySymbol})</Label>
                 <Input
                   id="minimum_purchase"
                   type="number"
@@ -469,7 +472,7 @@ export default function DiscountCodesPage() {
               </div>
 
               <div>
-                <Label htmlFor="maximum_discount">Maximum Discount ($)</Label>
+                <Label htmlFor="maximum_discount">Maximum Discount ({currencySymbol})</Label>
                 <Input
                   id="maximum_discount"
                   type="number"

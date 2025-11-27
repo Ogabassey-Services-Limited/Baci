@@ -17,6 +17,7 @@ import { Card } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { generateProductDescription } from '@/ai/flows/generate-product-descriptions';
 import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
+import { enhanceProductImage } from '@/ai/flows/enhance-product-images';
 import { useMerchant } from '@/hooks/use-merchant';
 import { removeBackground } from '@imgly/background-removal';
 
@@ -318,7 +319,8 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
     }
   };
 
-  const handleEnhanceImage = async (color: string) => {
+  // Quick background removal (client-side, fast)
+  const handleRemoveBackground = async (color: string) => {
     const imageToEnhance = colorImages[color];
     if (!imageToEnhance) {
       toast({ title: 'No image to enhance', description: 'Please upload an image first.', variant: 'destructive' });
@@ -327,11 +329,11 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
 
     setEnhancingImages(prev => ({ ...prev, [color]: true }));
     try {
-      toast({ title: "Enhancing Image", description: "Removing background and adjusting lighting..." });
+      toast({ title: "Removing Background", description: "This may take a moment..." });
       const blob = await removeBackground(imageToEnhance);
       const noBgUrl = URL.createObjectURL(blob);
 
-      // Simple enhancement logic (same as before)
+      // Convert blob URL to data URL for storage
       const img = new window.Image();
       img.src = noBgUrl;
       await new Promise((resolve) => { img.onload = resolve; });
@@ -342,31 +344,48 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
+      // Add white background
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imageData.data;
-      const contrast = 1.1;
-      const brightness = 10;
-      const intercept = 128 * (1 - contrast);
 
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] > 0) {
-          data[i] = data[i] * contrast + intercept + brightness;
-          data[i + 1] = data[i + 1] * contrast + intercept + brightness;
-          data[i + 2] = data[i + 2] * contrast + intercept + brightness;
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0);
       const enhancedUrl = canvas.toDataURL('image/png');
       setColorImages(prev => ({ ...prev, [color]: enhancedUrl }));
       if (colorTags.length > 0 && colorTags[0] === color) {
         form.setValue('image', enhancedUrl);
       }
-      toast({ title: "Image Enhanced", description: "Background removed and lighting adjusted." });
+      URL.revokeObjectURL(noBgUrl);
+      toast({ title: "Background Removed", description: "Image background has been removed." });
     } catch (e) {
       console.error(e);
-      toast({ title: "Enhancement Failed", description: "Could not enhance image.", variant: "destructive" });
+      toast({ title: "Background Removal Failed", description: "Could not remove background.", variant: "destructive" });
+    } finally {
+      setEnhancingImages(prev => ({ ...prev, [color]: false }));
+    }
+  };
+
+  // AI-powered professional product image enhancement
+  const handleEnhanceImage = async (color: string) => {
+    const imageToEnhance = colorImages[color];
+    if (!imageToEnhance) {
+      toast({ title: 'No image to enhance', description: 'Please upload an image first.', variant: 'destructive' });
+      return;
+    }
+
+    setEnhancingImages(prev => ({ ...prev, [color]: true }));
+    try {
+      toast({ title: "Enhancing with AI", description: "Transforming into professional product photo..." });
+
+      const result = await enhanceProductImage({ photoDataUri: imageToEnhance });
+
+      setColorImages(prev => ({ ...prev, [color]: result.enhancedPhotoDataUri }));
+      if (colorTags.length > 0 && colorTags[0] === color) {
+        form.setValue('image', result.enhancedPhotoDataUri);
+      }
+      toast({ title: "Image Enhanced", description: "Your product image now looks professional!" });
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Enhancement Failed", description: "Could not enhance image. Try again or use background removal.", variant: "destructive" });
     } finally {
       setEnhancingImages(prev => ({ ...prev, [color]: false }));
     }
@@ -824,20 +843,33 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                                       fill
                                       className="object-cover"
                                     />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1.5">
                                       <Button
                                         type="button"
                                         variant="secondary"
                                         size="sm"
-                                        className="h-8 text-xs"
+                                        className="h-7 text-xs"
                                         onClick={() => handleEnhanceImage(color)}
                                         disabled={enhancingImages[color]}
+                                        title="AI transforms your photo into a professional product image"
+                                      >
+                                        <Sparkles className="h-3 w-3 mr-1" />
+                                        AI Enhance
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="secondary"
+                                        size="sm"
+                                        className="h-7 text-xs"
+                                        onClick={() => handleRemoveBackground(color)}
+                                        disabled={enhancingImages[color]}
+                                        title="Quick background removal"
                                       >
                                         <Wand2 className="h-3 w-3 mr-1" />
-                                        Enhance
+                                        Remove BG
                                       </Button>
                                       <label className="cursor-pointer">
-                                        <Button type="button" variant="secondary" size="sm" className="h-8 text-xs pointer-events-none">
+                                        <Button type="button" variant="secondary" size="sm" className="h-7 text-xs pointer-events-none">
                                           Change
                                         </Button>
                                         <input
