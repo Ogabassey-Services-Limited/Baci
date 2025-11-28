@@ -9,6 +9,9 @@ interface PlatformSummary {
   totalMerchants: number;
   totalOrders: number;
   avgGmvPerMerchant: number;
+  platformRevenue: number;
+  processorFees: number;
+  netToMerchants: number;
 }
 
 interface MerchantHealthBreakdown {
@@ -98,6 +101,7 @@ export async function GET(request: NextRequest) {
       growthResult,
       topMerchantsResult,
       totalMerchantsResult,
+      platformRevenueResult,
     ] = await Promise.all([
       // Current period daily summary
       supabase
@@ -137,6 +141,12 @@ export async function GET(request: NextRequest) {
         .from('merchants')
         .select('id', { count: 'exact', head: true })
         .or('is_platform_admin.eq.false,is_platform_admin.is.null'),
+
+      // Platform revenue from fees
+      supabase
+        .from('platform_revenue')
+        .select('*')
+        .gte('date', startDateStr),
     ]);
 
     // Process daily summary for current period
@@ -187,6 +197,21 @@ export async function GET(request: NextRequest) {
       merchants: Number(d.active_merchants) || 0,
     }));
 
+    // Process platform revenue from fees
+    const revenueData = platformRevenueResult.data || [];
+    const platformRevenue = revenueData.reduce(
+      (sum, d) => sum + (Number(d.platform_fees) || 0),
+      0
+    );
+    const processorFees = revenueData.reduce(
+      (sum, d) => sum + (Number(d.processor_fees) || 0),
+      0
+    );
+    const netToMerchants = revenueData.reduce(
+      (sum, d) => sum + (Number(d.net_to_merchants) || 0),
+      0
+    );
+
     const response: PlatformAnalyticsResponse = {
       summary: {
         totalGmv,
@@ -195,6 +220,9 @@ export async function GET(request: NextRequest) {
         totalMerchants: totalMerchantsResult.count || 0,
         totalOrders,
         avgGmvPerMerchant,
+        platformRevenue,
+        processorFees,
+        netToMerchants,
       },
       merchantHealth,
       growth: {
