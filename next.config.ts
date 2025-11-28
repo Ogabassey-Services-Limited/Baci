@@ -30,6 +30,11 @@ const nextConfig: NextConfig = {
         hostname: 'loremflickr.com',
       },
       {
+        // Placeholder images for development/previews
+        protocol: 'https',
+        hostname: 'picsum.photos',
+      },
+      {
         protocol: 'https',
         hostname: 'avatars.githubusercontent.com',
       },
