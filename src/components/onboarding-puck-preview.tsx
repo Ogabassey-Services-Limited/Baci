@@ -265,10 +265,10 @@ export function OnboardingPuckPreview({
         }
     }, [brandColors]);
 
-    if (!brandColors || !puckData) {
+    if (!puckData) {
         return (
             <div className="p-6 rounded-lg border border-dashed flex items-center justify-center h-full text-muted-foreground">
-                Your store preview will appear here once colors are selected.
+                Loading preview...
             </div>
         );
     }

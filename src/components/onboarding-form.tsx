@@ -135,6 +135,13 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
 }
 
 
+// Default brand colors for initial preview
+const DEFAULT_BRAND_COLORS: BrandColors = {
+  primary: '#3B82F6',
+  background: '#FFFFFF',
+  accent: '#F59E0B',
+};
+
 function Step2_Branding() {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
@@ -144,7 +151,7 @@ function Step2_Branding() {
   const businessType = watch('businessType');
   const logoUrl = watch('logoUrl'); // Now watching for the uploaded URL
   const brandColorsString = watch('brandColors');
-  const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
+  const brandColors: BrandColors = brandColorsString ? JSON.parse(brandColorsString) : DEFAULT_BRAND_COLORS;
 
   const [isGenerating] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -152,6 +159,13 @@ function Step2_Branding() {
   const [currentLogoDataUri, setCurrentLogoDataUri] = useState<string | null>(null); // To store data URI for client-side ops
 
   const isLoading = isGenerating || isExtracting || isUploading;
+
+  // Set default brand colors on mount if not already set
+  useEffect(() => {
+    if (!brandColorsString) {
+      setValue('brandColors', JSON.stringify(DEFAULT_BRAND_COLORS), { shouldValidate: true });
+    }
+  }, [brandColorsString, setValue]);
 
   // Effect to keep currentLogoDataUri updated for client-side operations
   useEffect(() => {
@@ -341,15 +355,20 @@ function Step2_Branding() {
       <FormLabel className="text-lg">Do you have a logo?</FormLabel>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
         <div className="space-y-2">
-          <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", logoUrl ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
-            {logoUrl ? (
+          <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", (logoUrl || currentLogoDataUri) ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
+            {(currentLogoDataUri || logoUrl) ? (
               <>
-                {/* Display logo from URL, but use currentLogoDataUri for preview if available and it's a data URI */}
+                {/* Show logo preview immediately using data URI, fall back to uploaded URL */}
                 <Image src={currentLogoDataUri || logoUrl} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
-                <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
+                {logoUrl && !isUploading && (
+                  <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
+                )}
+                {isUploading && (
+                  <div className="absolute top-2 right-2 bg-blue-500 rounded-full p-1.5 shadow-md"><Loader2 className="w-4 h-4 text-white animate-spin" /></div>
+                )}
               </>
             ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p></>)}
-            {isLoading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 motion-safe:animate-spin text-primary" /></div>}
+            {(isGenerating || isExtracting) && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 motion-safe:animate-spin text-primary" /></div>}
             <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isLoading} />
           </div>
         </div>
