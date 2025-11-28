@@ -2,14 +2,19 @@
 
 'use client';
 
-import Link, { LinkProps } from 'next/link';
+import Link from 'next/link';
+import type { Route } from 'next';
 import { cn } from '@/lib/utils';
 import React from 'react';
 
-interface ThemedLinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'>, LinkProps {
+interface ThemedLinkProps extends Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'href'> {
+  href: Route | URL;
   colorRole?: 'primary' | 'secondary' | 'accent';
   children: React.ReactNode;
   underline?: boolean;
+  prefetch?: boolean;
+  replace?: boolean;
+  scroll?: boolean;
 }
 
 /**

@@ -117,8 +117,7 @@ export function OptimizedImage({
       placeholder={blur ? 'blur' : 'empty'}
       blurDataURL={blur}
       onError={handleError}
-      // @ts-expect-error - fetchpriority is a valid HTML attribute but not in Next.js types yet
-      fetchpriority={finalFetchPriority}
+      fetchPriority={finalFetchPriority}
     />
   );
 }

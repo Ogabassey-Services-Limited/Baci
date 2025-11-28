@@ -1,5 +1,6 @@
 import { Product, ProductSchemaMarkup } from './products';
 import { escapeHtml, stripHtmlTags, sanitizeSchemaMarkup } from './sanitize';
+import type { Route } from 'next';
 
 /**
  * Generates a URL-friendly slug from a string
@@ -58,12 +59,12 @@ export function generateProductSlug(
 export function buildProductUrl(
     productSlug: string,
     category?: string | null
-): string {
+): Route {
     if (category) {
         const categorySlug = generateSlug(category);
-        return `/${categorySlug}/${productSlug}`;
+        return `/${categorySlug}/${productSlug}` as Route;
     }
-    return `/products/${productSlug}`;
+    return `/products/${productSlug}` as Route;
 }
 
 /**
@@ -77,7 +78,7 @@ export function getProductUrl(product: {
     condition?: 'new' | 'used' | string;
     condition_detail?: string;
     id: string;
-}): string {
+}): Route {
     // Use existing slug or generate one
     const productSlug = product.slug || generateProductSlug(
         product.name,
@@ -616,4 +617,170 @@ export function generateWebSiteSchema(
     }
 
     return schema;
+}
+
+/**
+ * Generates AggregateRating schema for products with reviews
+ * Returns the aggregateRating object to be merged into Product schema
+ * @see https://schema.org/AggregateRating
+ */
+export interface ReviewStats {
+    averageRating: number;
+    reviewCount: number;
+}
+
+export interface AggregateRatingSchema {
+    '@type': 'AggregateRating';
+    ratingValue: number;
+    reviewCount: number;
+    bestRating?: number;
+    worstRating?: number;
+}
+
+export function generateAggregateRating(stats: ReviewStats): AggregateRatingSchema | null {
+    if (!stats.reviewCount || stats.reviewCount === 0) {
+        return null;
+    }
+
+    return {
+        '@type': 'AggregateRating',
+        ratingValue: Math.round(stats.averageRating * 10) / 10, // Round to 1 decimal
+        reviewCount: stats.reviewCount,
+        bestRating: 5,
+        worstRating: 1
+    };
+}
+
+/**
+ * Generates SoftwareApplication schema for SaaS platforms (2025 best practices)
+ * Uses AggregateOffer and UnitPriceSpecification for subscription pricing.
+ * @see https://schema.org/SoftwareApplication
+ */
+export interface SoftwarePricingPlan {
+    name: string;
+    price: number;
+    currency: string;
+    billingDuration: 'P1M' | 'P1Y'; // ISO 8601 duration (1 Month, 1 Year)
+    description?: string;
+}
+
+export interface SoftwareApplicationData {
+    name: string;
+    applicationCategory: string; // e.g., "BusinessApplication", "ECommerceApplication"
+    operatingSystem: string; // e.g., "Web", "iOS", "Android"
+    description: string;
+    url: string;
+    image?: string;
+    softwareVersion?: string;
+    rating?: ReviewStats; // Only use if reviews are from a 3rd party source or strictly vetted
+    priceRange?: string; // e.g., "Free - $29/mo"
+    offers?: SoftwarePricingPlan[];
+    featureList?: string[];
+}
+
+export function generateSoftwareApplicationSchema(data: SoftwareApplicationData): Record<string, unknown> {
+    const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: escapeHtml(data.name),
+        applicationCategory: escapeHtml(data.applicationCategory),
+        operatingSystem: escapeHtml(data.operatingSystem),
+        description: escapeHtml(data.description),
+        url: escapeHtml(data.url),
+    };
+
+    if (data.image) {
+        schema.image = escapeHtml(data.image);
+        schema.screenshot = escapeHtml(data.image); // Use main image as screenshot too
+    }
+
+    if (data.softwareVersion) {
+        schema.softwareVersion = escapeHtml(data.softwareVersion);
+    }
+
+    if (data.featureList && data.featureList.length > 0) {
+        schema.featureList = data.featureList.map(f => escapeHtml(f)); // URL to feature page or plain text
+    }
+
+    // Rating (CAUTION: Only use if compliant with "Self-referencing" rules)
+    if (data.rating && data.rating.reviewCount > 0) {
+        schema.aggregateRating = {
+            '@type': 'AggregateRating',
+            ratingValue: data.rating.averageRating,
+            reviewCount: data.rating.reviewCount,
+            bestRating: 5,
+            worstRating: 1
+        };
+    }
+
+    // Offers / Pricing
+    if (data.offers && data.offers.length > 0) {
+        // Find min and max price for AggregateOffer
+        const prices = data.offers.map(o => o.price);
+        const lowPrice = Math.min(...prices);
+        const highPrice = Math.max(...prices);
+        const currency = data.offers[0].currency; // Assume same currency
+
+        schema.offers = {
+            '@type': 'AggregateOffer',
+            priceCurrency: escapeHtml(currency),
+            lowPrice: lowPrice,
+            highPrice: highPrice,
+            offerCount: data.offers.length,
+            offers: data.offers.map(offer => ({
+                '@type': 'Offer',
+                name: escapeHtml(offer.name),
+                description: offer.description ? escapeHtml(offer.description) : undefined,
+                price: offer.price,
+                priceCurrency: escapeHtml(offer.currency),
+                priceSpecification: {
+                    '@type': 'UnitPriceSpecification',
+                    price: offer.price,
+                    priceCurrency: escapeHtml(offer.currency),
+                    billingIncrement: 1,
+                    unitCode: 'MON', // Standard unit code for "Month" logic usually implied or explicit duration
+                    billingDuration: offer.billingDuration // e.g., P1M
+                }
+            }))
+        };
+    }
+
+    return schema;
+}
+
+/**
+ * Constructs a clean canonical URL by removing noisy query parameters.
+ * Best practice for 2025: Point to the "clean" version of the URL (without tracking/sorting).
+ *
+ * @param baseUrl - The absolute base URL (e.g., "https://store.com/products")
+ * @param searchParams - The current search parameters object
+ * @param allowedParams - List of parameters to KEEP (e.g., ['page', 'q']). All others are stripped.
+ */
+export function constructCanonicalUrl(
+    baseUrl: string,
+    searchParams: URLSearchParams | { entries(): IterableIterator<[string, string]> } | Record<string, string | string[] | undefined>,
+    allowedParams: string[] = ['page']
+): string {
+    // Normalize searchParams to URLSearchParams
+    const params = new URLSearchParams();
+
+    if (searchParams) {
+        const entries = searchParams instanceof URLSearchParams
+            ? searchParams.entries()
+            : Object.entries(searchParams);
+
+        for (const [key, value] of entries) {
+            // Only keep allowed parameters
+            if (allowedParams.includes(key)) {
+                if (Array.isArray(value)) {
+                    value.forEach(v => params.append(key, v));
+                } else if (value !== undefined) {
+                    params.append(key, value as string);
+                }
+            }
+        }
+    }
+
+    const queryString = params.toString();
+    return queryString ? `${baseUrl}?${queryString}` : baseUrl;
 }

@@ -44,6 +44,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createClient } from '@/lib/supabase/client';
+import { generateSlug } from '@/lib/seo-utils';
 
 interface MerchantHealth {
   merchant_id: string;
@@ -360,11 +361,16 @@ export default function MerchantsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
-                                // TODO: Link to merchant's storefront
-                                toast({
-                                  title: 'Coming Soon',
-                                  description: 'View store feature is not yet implemented.',
-                                });
+                                const slug = generateSlug(merchant.business_name || '');
+                                if (slug) {
+                                  window.open(`/s/${slug}`, '_blank');
+                                } else {
+                                  toast({
+                                    title: 'Error',
+                                    description: 'Could not generate a valid storefront URL.',
+                                    variant: 'destructive',
+                                  });
+                                }
                               }}
                             >
                               <ExternalLink className="h-4 w-4 mr-2" />

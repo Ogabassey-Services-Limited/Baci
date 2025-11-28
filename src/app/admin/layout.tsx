@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { Route } from 'next';
 import { Suspense, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -98,31 +99,36 @@ export default function AdminLayout({
     router.push('/login');
   };
 
-  const navItems = [
+  const navItems: { href: Route; icon: typeof LayoutDashboard; label: string }[] = [
     {
-      href: '/admin',
+      href: '/admin' as Route,
       icon: LayoutDashboard,
       label: 'Overview',
     },
     {
-      href: '/admin/merchants',
+      href: '/admin/merchants' as Route,
       icon: Building2,
       label: 'Merchants',
     },
     {
-      href: '/admin/analytics',
+      href: '/admin/analytics' as Route,
       icon: BarChart3,
       label: 'Analytics',
     },
     {
-      href: '/admin/system',
+      href: '/admin/system' as Route,
       icon: Database,
       label: 'System Health',
     },
     {
-      href: '/admin/notifications',
+      href: '/admin/notifications' as Route,
       icon: Bell,
       label: 'Notifications',
+    },
+    {
+      href: '/admin/settings' as Route,
+      icon: Settings,
+      label: 'Platform Settings',
     },
   ];
 

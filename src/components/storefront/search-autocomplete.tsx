@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { getProductUrl } from '@/lib/seo-utils';
+import { trackEvent } from '@/lib/event-tracking';
 
 interface Product {
     id: string;
@@ -80,6 +81,10 @@ export function SearchAutocomplete({
             setPopularSearches(data.popularSearches || []);
             setIsOpen(true);
             setHighlightedIndex(-1);
+
+            // Track search event for merchant analytics
+            const resultsCount = (data.suggestions?.length || 0) + (data.popularSearches?.length || 0);
+            trackEvent.search(merchantId, query, resultsCount);
         } catch (error) {
             console.error('Autocomplete error:', error);
             setSuggestions([]);

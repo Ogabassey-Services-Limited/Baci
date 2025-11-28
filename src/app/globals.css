@@ -25,6 +25,13 @@
     --input: 240 5.9% 90%;
     --ring: 239 45% 30%;
     --radius: 0.5rem;
+    --theme-radius-none: 0px;
+    --theme-radius-sm: calc(var(--radius) - 2px);
+    --theme-radius-md: var(--radius);
+    --theme-radius-lg: calc(var(--radius) + 2px);
+    --theme-radius-xl: calc(var(--radius) + 4px);
+    --theme-radius-2xl: calc(var(--radius) + 8px);
+    --theme-radius-full: 9999px;
 
     /* 2025 Responsive Design Variables */
     --safe-area-top: env(safe-area-inset-top, 0px);
@@ -95,10 +102,13 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
-  input, textarea {
+
+  input,
+  textarea {
     @apply caret-primary;
   }
 
@@ -161,6 +171,7 @@
       opacity: 0;
       transform: translateY(10px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -176,6 +187,7 @@
     0% {
       transform: translateX(-100%);
     }
+
     100% {
       transform: translateX(100%);
     }
@@ -183,6 +195,7 @@
 
   /* Respect user motion preferences - WCAG 2.1 SC 2.3.3 */
   @media (prefers-reduced-motion: reduce) {
+
     *,
     *::before,
     *::after {
@@ -199,11 +212,13 @@
 }
 
 @layer utilities {
+
   .remove-arrow::-webkit-inner-spin-button,
   .remove-arrow::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
+
   .remove-arrow {
     -moz-appearance: textfield;
   }
@@ -273,18 +288,21 @@
    */
   .hover-lift {
     @apply transition-transform duration-200;
-    will-change: auto; /* Don't pre-allocate GPU memory */
+    will-change: auto;
+    /* Don't pre-allocate GPU memory */
   }
 
   /* Only apply hover effects on non-touch devices */
   @media (hover: hover) {
     .hover-lift:hover {
       @apply -translate-y-1;
-      will-change: transform; /* Hint to browser during interaction */
+      will-change: transform;
+      /* Hint to browser during interaction */
     }
 
     .hover-lift:not(:hover) {
-      will-change: auto; /* Release GPU memory when not hovering */
+      will-change: auto;
+      /* Release GPU memory when not hovering */
     }
   }
 
@@ -316,14 +334,37 @@
   }
 
   /* Staggered animation delays for lists - use with animate-fade-in-up */
-  .stagger-1 { --stagger-delay: 0ms; }
-  .stagger-2 { --stagger-delay: 50ms; }
-  .stagger-3 { --stagger-delay: 100ms; }
-  .stagger-4 { --stagger-delay: 150ms; }
-  .stagger-5 { --stagger-delay: 200ms; }
-  .stagger-6 { --stagger-delay: 250ms; }
-  .stagger-7 { --stagger-delay: 300ms; }
-  .stagger-8 { --stagger-delay: 350ms; }
+  .stagger-1 {
+    --stagger-delay: 0ms;
+  }
+
+  .stagger-2 {
+    --stagger-delay: 50ms;
+  }
+
+  .stagger-3 {
+    --stagger-delay: 100ms;
+  }
+
+  .stagger-4 {
+    --stagger-delay: 150ms;
+  }
+
+  .stagger-5 {
+    --stagger-delay: 200ms;
+  }
+
+  .stagger-6 {
+    --stagger-delay: 250ms;
+  }
+
+  .stagger-7 {
+    --stagger-delay: 300ms;
+  }
+
+  .stagger-8 {
+    --stagger-delay: 350ms;
+  }
 
   /* Fade in up - for list items, cards */
   @keyframes fade-in-up {
@@ -331,6 +372,7 @@
       opacity: 0;
       transform: translateY(16px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -340,7 +382,8 @@
   .animate-fade-in-up {
     animation: fade-in-up var(--duration-normal) var(--ease-out) forwards;
     animation-delay: var(--stagger-delay, 0ms);
-    opacity: 0; /* Start invisible */
+    opacity: 0;
+    /* Start invisible */
   }
 
   /* Fade in scale - for modals, dialogs */
@@ -349,6 +392,7 @@
       opacity: 0;
       transform: scale(0.95);
     }
+
     to {
       opacity: 1;
       transform: scale(1);
@@ -364,6 +408,7 @@
     from {
       transform: translateX(100%);
     }
+
     to {
       transform: translateX(0);
     }
@@ -378,6 +423,7 @@
     from {
       transform: translateY(100%);
     }
+
     to {
       transform: translateY(0);
     }
@@ -392,27 +438,29 @@
     0% {
       background-position: -200% 0;
     }
+
     100% {
       background-position: 200% 0;
     }
   }
 
   .skeleton-shimmer {
-    background: linear-gradient(
-      90deg,
-      hsl(var(--muted)) 0%,
-      hsl(var(--muted) / 0.5) 50%,
-      hsl(var(--muted)) 100%
-    );
+    background: linear-gradient(90deg,
+        hsl(var(--muted)) 0%,
+        hsl(var(--muted) / 0.5) 50%,
+        hsl(var(--muted)) 100%);
     background-size: 200% 100%;
     animation: skeleton-shimmer 1.5s ease-in-out infinite;
   }
 
   /* Pulse subtle - for notifications, badges */
   @keyframes pulse-subtle {
-    0%, 100% {
+
+    0%,
+    100% {
       opacity: 1;
     }
+
     50% {
       opacity: 0.7;
     }
@@ -456,6 +504,7 @@
     0% {
       stroke-dashoffset: 100;
     }
+
     100% {
       stroke-dashoffset: 0;
     }
@@ -472,6 +521,7 @@
     0% {
       background-color: hsl(var(--primary) / 0.2);
     }
+
     100% {
       background-color: transparent;
     }
@@ -483,6 +533,7 @@
 
   /* Reduced motion: Disable all custom animations */
   @media (prefers-reduced-motion: reduce) {
+
     .animate-fade-in-up,
     .animate-fade-in-scale,
     .animate-slide-in-right,
@@ -620,7 +671,8 @@
     @apply mb-4;
   }
 
-  .prose-baci ul, .prose-baci ol {
+  .prose-baci ul,
+  .prose-baci ol {
     @apply mb-4 pl-6;
   }
 
@@ -661,65 +713,58 @@
 
   /* Subtle background gradient for hero sections */
   .gradient-hero {
-    background: linear-gradient(
-      135deg,
-      hsl(var(--background)) 0%,
-      hsl(var(--muted)) 50%,
-      hsl(var(--background)) 100%
-    );
+    background: linear-gradient(135deg,
+        hsl(var(--background)) 0%,
+        hsl(var(--muted)) 50%,
+        hsl(var(--background)) 100%);
   }
 
   /* Primary gradient for buttons/CTAs */
   .gradient-primary {
-    background: linear-gradient(
-      135deg,
-      hsl(var(--primary)) 0%,
-      hsl(var(--primary) / 0.85) 100%
-    );
+    background: linear-gradient(135deg,
+        hsl(var(--primary)) 0%,
+        hsl(var(--primary) / 0.85) 100%);
   }
 
   /* Accent gradient for highlights */
   .gradient-accent {
-    background: linear-gradient(
-      90deg,
-      hsl(var(--accent)) 0%,
-      hsl(var(--accent) / 0.7) 100%
-    );
+    background: linear-gradient(90deg,
+        hsl(var(--accent)) 0%,
+        hsl(var(--accent) / 0.7) 100%);
   }
 
   /* Glass gradient overlay */
   .gradient-glass {
-    background: linear-gradient(
-      180deg,
-      hsl(var(--background) / 0.8) 0%,
-      hsl(var(--background) / 0.6) 100%
-    );
+    background: linear-gradient(180deg,
+        hsl(var(--background) / 0.8) 0%,
+        hsl(var(--background) / 0.6) 100%);
   }
 
   /* Shimmer effect for loading states - more elegant than skeleton */
   .gradient-shimmer {
-    background: linear-gradient(
-      90deg,
-      hsl(var(--muted)) 0%,
-      hsl(var(--muted) / 0.5) 50%,
-      hsl(var(--muted)) 100%
-    );
+    background: linear-gradient(90deg,
+        hsl(var(--muted)) 0%,
+        hsl(var(--muted) / 0.5) 50%,
+        hsl(var(--muted)) 100%);
     background-size: 200% 100%;
     animation: shimmer-move 1.5s ease-in-out infinite;
   }
 
   @keyframes shimmer-move {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+    0% {
+      background-position: 200% 0;
+    }
+
+    100% {
+      background-position: -200% 0;
+    }
   }
 
   /* Text gradient for special headings */
   .gradient-text {
-    background: linear-gradient(
-      135deg,
-      hsl(var(--primary)) 0%,
-      hsl(var(--accent)) 100%
-    );
+    background: linear-gradient(135deg,
+        hsl(var(--primary)) 0%,
+        hsl(var(--accent)) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -795,6 +840,7 @@
 
   /* Print styles */
   @media print {
+
     .glass,
     .glass-themed {
       background: white !important;

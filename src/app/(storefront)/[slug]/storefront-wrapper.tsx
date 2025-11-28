@@ -1,10 +1,15 @@
 'use client';
 
-import { PuckStorefront } from '@/components/storefront/puck-storefront';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
+import dynamic from 'next/dynamic';
+
+const DynamicPuckStorefront = dynamic(
+  () => import('@/components/storefront/puck-storefront').then((mod) => mod.PuckStorefront),
+  { ssr: false } // Client-side only rendering
+);
 
 /**
  * Wrapper that renders Puck storefront.
@@ -41,7 +46,7 @@ export function StorefrontWrapper() {
     return (
         <>
             <AnalyticsProvider />
-            <PuckStorefront onNoConfig={() => setShowError(true)} />
+            <DynamicPuckStorefront onNoConfig={() => setShowError(true)} />
         </>
     );
 }

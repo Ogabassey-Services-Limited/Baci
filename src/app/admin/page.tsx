@@ -16,6 +16,8 @@ import {
   RefreshCw,
   ArrowRight,
   Activity,
+  Banknote,
+  Wallet,
 } from 'lucide-react';
 import {
   Area,
@@ -42,6 +44,9 @@ interface PlatformAnalytics {
     totalMerchants: number;
     totalOrders: number;
     avgGmvPerMerchant: number;
+    platformRevenue: number;
+    processorFees: number;
+    netToMerchants: number;
   };
   merchantHealth: {
     healthy: number;
@@ -249,6 +254,66 @@ export default function AdminDashboardPage() {
         ) : null}
       </div>
 
+      {/* Platform Revenue Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {loading ? (
+          <>
+            {[...Array(3)].map((_, i) => (
+              <Card key={i} className="p-6">
+                <Skeleton className="h-4 w-24 mb-4" />
+                <Skeleton className="h-8 w-32 mb-2" />
+                <Skeleton className="h-4 w-20" />
+              </Card>
+            ))}
+          </>
+        ) : analytics ? (
+          <>
+            <Card className="border-emerald-500/20 bg-emerald-500/5">
+              <CardContent className="flex items-center gap-4 p-6">
+                <div className="p-3 rounded-full bg-emerald-500/10">
+                  <Banknote className="h-6 w-6 text-emerald-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground font-medium">Platform Revenue</p>
+                  <p className="text-2xl font-bold text-emerald-600">
+                    {formatCurrency(analytics.summary.platformRevenue)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Fees collected from GMV</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-orange-500/20 bg-orange-500/5">
+              <CardContent className="flex items-center gap-4 p-6">
+                <div className="p-3 rounded-full bg-orange-500/10">
+                  <DollarSign className="h-6 w-6 text-orange-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground font-medium">Processor Fees</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {formatCurrency(analytics.summary.processorFees)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Payment processor costs</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-blue-500/20 bg-blue-500/5">
+              <CardContent className="flex items-center gap-4 p-6">
+                <div className="p-3 rounded-full bg-blue-500/10">
+                  <Wallet className="h-6 w-6 text-blue-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground font-medium">Net to Merchants</p>
+                  <p className="text-2xl font-bold text-blue-600">
+                    {formatCurrency(analytics.summary.netToMerchants)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">After platform & processor fees</p>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        ) : null}
+      </div>
+
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-3">
         {/* GMV Chart */}
@@ -262,7 +327,7 @@ export default function AdminDashboardPage() {
               <Skeleton className="h-[300px] w-full" />
             ) : (
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" debounce={100}>
                   <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorGmv" x1="0" y1="0" x2="0" y2="1">
@@ -326,7 +391,7 @@ export default function AdminDashboardPage() {
               <Skeleton className="h-[300px] w-full" />
             ) : healthData.length > 0 ? (
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" debounce={100}>
                   <PieChart>
                     <Pie
                       data={healthData}

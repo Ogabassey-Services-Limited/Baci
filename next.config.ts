@@ -1,137 +1,122 @@
+import type { NextConfig } from "next";
+import bundleAnalyzer from '@next/bundle-analyzer';
 
-import type { NextConfig } from 'next';
-import dotenv from 'dotenv';
-
-dotenv.config({ path: '.env.local' });
-
-// Security headers configuration
-const securityHeaders = [
-  {
-    key: 'X-DNS-Prefetch-Control',
-    value: 'on',
-  },
-  {
-    key: 'Strict-Transport-Security',
-    value: 'max-age=63072000; includeSubDomains; preload',
-  },
-  {
-    key: 'X-Frame-Options',
-    value: 'SAMEORIGIN',
-  },
-  {
-    key: 'X-Content-Type-Options',
-    value: 'nosniff',
-  },
-  {
-    key: 'X-XSS-Protection',
-    value: '1; mode=block',
-  },
-  {
-    key: 'Referrer-Policy',
-    value: 'strict-origin-when-cross-origin',
-  },
-  {
-    key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
-  },
-  {
-    key: 'Cross-Origin-Opener-Policy',
-    value: 'same-origin',
-  },
-  // Note: Content-Security-Policy is now handled in middleware.ts for route-specific policies
-];
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+  openAnalyzer: false,
+});
 
 const nextConfig: NextConfig = {
-  typescript: {
-    // TypeScript errors are now fixed - enforcing strict type checking
-    ignoreBuildErrors: false,
-  },
-  reactStrictMode: true, // Enabled for better development experience and catching issues
-
-  // Compiler optimizations
-  compiler: {
-    // Remove console.log in production for smaller bundle size
-    removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'],
-    } : false,
-  },
-
-  // Modern JavaScript output - eliminates unnecessary polyfills
-  // Next.js 16 targets modern browsers by default, respecting .browserslistrc
-
-  // Performance optimizations
-  experimental: {
-    // Optimize CSS loading
-    optimizeCss: true,
-    // Optimize package imports to reduce bundle size
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
-  },
+  // Enable React Compiler for automatic memoization (Next.js 16 stable)
+  // Reduces unnecessary re-renders without manual useMemo/useCallback
+  reactCompiler: true,
 
   images: {
-    // Prioritize AVIF over WebP for better compression (30-50% smaller)
-    // AVIF is supported by 92%+ of browsers (Chrome, Firefox, Safari 16+, Edge)
-    formats: ['image/avif', 'image/webp'],
-    // Device sizes for responsive images
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    // Image sizes for layout="responsive" and layout="fill"
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    // Minimum cache TTL in seconds (24 hours)
-    minimumCacheTTL: 86400,
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
+        hostname: 'api.dicebear.com',
       },
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
+        hostname: 'plus.unsplash.com',
       },
       {
         protocol: 'https',
-        hostname: 'drive.google.com',
-        port: '',
-        pathname: '/**',
+        hostname: 'loremflickr.com',
       },
       {
         protocol: 'https',
-        hostname: 'www.gstatic.com',
-        port: '',
-        pathname: '/**',
+        hostname: 'avatars.githubusercontent.com',
       },
       {
         protocol: 'https',
-        hostname: 'aivqthbxdshhltbwipbr.supabase.co',
-        port: '',
-        pathname: '/storage/v1/object/public/**',
+        hostname: 'cloudflare-ipfs.com',
       },
-      // Via placeholder for fallback images
       {
         protocol: 'https',
-        hostname: 'via.placeholder.com',
-        port: '',
-        pathname: '/**',
+        hostname: 'd1csarkz8obe9u.cloudfront.net',
       },
+      {
+        protocol: 'https',
+        hostname: 'ogabassey.com',
+      },
+      {
+        // Supabase storage for merchant images
+        protocol: 'https',
+        hostname: '*.supabase.co',
+      }
     ],
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    // Optimize image formats - AVIF is 20% smaller than WebP
+    formats: ['image/avif', 'image/webp'],
+    // Cache optimized images (Next.js 16 default is 4 hours / 14400s)
+    minimumCacheTTL: 60 * 60 * 24 * 365,
   },
+
+  experimental: {
+    // Enable optimized CSS bundling
+    optimizeCss: false,
+
+    // Server Actions configuration
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
+
+    // Enable View Transitions API (React 19.2 feature)
+    viewTransition: true,
+
+    // Note: 'use cache' directive (cacheComponents) is not enabled because it's
+    // incompatible with existing route segment configs (revalidate, dynamic).
+    // Using unstable_cache from next/cache for granular caching instead.
+    // Enable cacheComponents once all routes are migrated.
+    // cacheComponents: true,
+
+    // Bundle optimization - tree-shake large libraries
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      'date-fns',
+      'framer-motion',
+      '@radix-ui/react-icons',
+      'lodash-es',
+      '@supabase/supabase-js',
+    ],
+
+    // Enable Turbopack file system caching for faster dev rebuilds (Next.js 16 beta)
+    turbopackFileSystemCacheForDev: true,
+  },
+
+  // Enable typed routes for compile-time validation of Link hrefs
+  typedRoutes: true,
+
+  // Security headers
   async headers() {
     return [
       {
-        // Apply security headers to all routes
         source: '/(.*)',
-        headers: securityHeaders,
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+        ],
       },
     ];
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

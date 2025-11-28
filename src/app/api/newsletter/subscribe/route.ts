@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { sendEmail } from '@/lib/zeptomail';
 
 const subscribeSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -90,12 +91,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Send welcome email with discount code via email service
-    // await sendWelcomeEmail(normalizedEmail, merchantId);
+    // Get merchant info for personalized email
+    let merchantName = 'Baci';
+    if (merchantId) {
+      const { data: merchant } = await supabase
+        .from('merchants')
+        .select('business_name')
+        .eq('id', merchantId)
+        .single();
+      if (merchant?.business_name) {
+        merchantName = merchant.business_name;
+      }
+    }
+
+    // Send welcome email (fire and forget)
+    sendEmail({
+      to: normalizedEmail,
+      subject: `Welcome to ${merchantName}!`,
+      htmlContent: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #6366f1; margin: 0;">Welcome!</h1>
+          </div>
+          <p>Thanks for subscribing to <strong>${merchantName}</strong>'s newsletter!</p>
+          <p>You'll be the first to know about:</p>
+          <ul style="padding-left: 20px;">
+            <li>New product launches</li>
+            <li>Exclusive discounts and offers</li>
+            <li>Special promotions</li>
+          </ul>
+          <p>Stay tuned for exciting updates!</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="font-size: 12px; color: #666; text-align: center;">
+            You received this email because you subscribed to ${merchantName}'s newsletter.
+          </p>
+        </body>
+        </html>
+      `,
+      textContent: `Welcome to ${merchantName}!\n\nThanks for subscribing to our newsletter. You'll be the first to know about new product launches, exclusive discounts, and special promotions.\n\nStay tuned for exciting updates!`,
+      emailType: 'newsletter',
+      fromName: merchantName,
+    }).catch((err) => console.error('Newsletter welcome email error:', err));
 
     return NextResponse.json({
       success: true,
-      message: 'Successfully subscribed! Check your email for your discount code.',
+      message: 'Successfully subscribed! Check your email for a welcome message.',
     });
   } catch (error) {
     console.error('Newsletter subscription error:', error);

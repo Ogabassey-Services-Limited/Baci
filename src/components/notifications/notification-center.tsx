@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Bell, CheckCheck, Loader2, ExternalLink } from 'lucide-react';
+import { CheckCheck, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { NotificationBell, LoadingSpinner } from '@/components/ui/animated-icons';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -80,18 +81,10 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         <Button
           variant="outline"
           size="icon"
-          className={cn('relative', className)}
+          className={cn('relative h-11 w-11 min-w-[44px] min-h-[44px]', className)}
           aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
         >
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-            >
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </Badge>
-          )}
+          <NotificationBell hasNotification={unreadCount > 0} size={20} />
         </Button>
       </DropdownMenuTrigger>
 
@@ -116,11 +109,11 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         <ScrollArea className="h-[300px]">
           {isLoading ? (
             <div className="flex items-center justify-center h-full py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <LoadingSpinner size={24} className="text-muted-foreground" />
             </div>
           ) : recentNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-8 text-muted-foreground">
-              <Bell className="h-8 w-8 mb-2 opacity-50" />
+              <NotificationBell size={32} className="mb-2 opacity-50" />
               <p className="text-sm">No notifications</p>
             </div>
           ) : (

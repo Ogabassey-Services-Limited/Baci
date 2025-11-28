@@ -10,11 +10,12 @@ const _GuideBusinessOnboardingInputSchema = z.object({
   businessName: z.string().describe("The user's business name."),
   businessType: z.string().describe('The type of business the user is onboarding.'),
   brandPreferences: z.string().describe("The user's favorite color to influence branding."),
-  logoDataUri: z
+  logoUrl: z
     .string()
+    .url()
     .optional()
     .describe(
-      "A photo of a company logo, as a data URI that must include a MIME type and use Base64 encoding. Expected format: 'data:<mimetype>;base64,<encoded_data>'."
+      "A URL to a company logo, which will be used for color extraction."
     ),
   task: z.enum(['generate_logos', 'extract_colors']).describe("The specific task for the flow to perform."),
 });
@@ -42,8 +43,8 @@ export async function guideBusinessOnboarding(
   input: GuideBusinessOnboardingInput
 ): Promise<GuideBusinessOnboardingOutput> {
   if (input.task === 'extract_colors') {
-    if (!input.logoDataUri) {
-      throw new Error('logoDataUri is required for color extraction.');
+    if (!input.logoUrl) {
+      throw new Error('logoUrl is required for color extraction.');
     }
     logger.info({ message: 'Extracting colors from logo.', flow: 'guideBusinessOnboarding' });
 
@@ -69,7 +70,7 @@ IMPORTANT:
             {
               role: 'user',
               content: [
-                { type: 'image', image: input.logoDataUri! }
+                { type: 'image', image: input.logoUrl! }
               ]
             }
           ]

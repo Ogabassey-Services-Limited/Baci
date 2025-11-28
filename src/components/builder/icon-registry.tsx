@@ -47,6 +47,9 @@ import {
   // Art & Creativity
   Palette, PenTool, Camera, Music,
 
+  // Electronics & Gaming (New)
+  Gamepad2, Printer,
+
   // General Purpose
   Info, AlertCircle, Eye, Search, Settings, Globe,
   ArrowRight, ChevronRight, Plus, Minus, X, Check,
@@ -158,6 +161,10 @@ export const iconRegistry: Record<string, LucideIcon> = {
   'pen-tool': PenTool,
   'camera': Camera,
   'music': Music,
+
+  // Electronics & Gaming
+  'gamepad': Gamepad2,
+  'printer': Printer,
 
   // General Purpose
   'info': Info,

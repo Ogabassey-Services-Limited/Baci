@@ -40,12 +40,12 @@ export const getKorapayPublicKey = (): string | undefined => {
   return key;
 };
 
-export const getBrevoApiKey = (): string | undefined => {
-  const key = process.env.BREVO_API_KEY;
-  if (!key && typeof window === 'undefined') {
-    console.warn('BREVO_API_KEY is not defined. Email sending will not work.');
+export const getZeptoMailToken = (): string | undefined => {
+  const token = process.env.ZEPTOMAIL_TOKEN;
+  if (!token && typeof window === 'undefined') {
+    console.warn('ZEPTOMAIL_TOKEN is not defined. Email sending will not work.');
   }
-  return key;
+  return token;
 };
 
 export const getGeminiApiKey = (): string | undefined => {
@@ -84,8 +84,8 @@ export const validateEnvironment = (): { valid: boolean; warnings: string[] } =>
   if (!process.env.KORAPAY_SECRET_KEY) {
     warnings.push('KORAPAY_SECRET_KEY is missing (payments disabled)');
   }
-  if (!process.env.BREVO_API_KEY) {
-    warnings.push('BREVO_API_KEY is missing (emails disabled)');
+  if (!process.env.ZEPTOMAIL_TOKEN) {
+    warnings.push('ZEPTOMAIL_TOKEN is missing (emails disabled)');
   }
   if (!process.env.GOOGLE_GENAI_API_KEY && !process.env.GEMINI_API_KEY) {
     warnings.push('GOOGLE_GENAI_API_KEY is missing (AI features disabled)');

@@ -6,8 +6,9 @@ import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { Product } from '@/lib/products';
 import { ThemedButton } from '@/components/themed';
-import { ShoppingCart, Plus, Minus, ChevronUp } from 'lucide-react';
+import { ShoppingCart, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { QuantityButton } from '@/components/ui/animated-icons';
 
 interface StickyAddToCartProps {
   /** Product to add to cart */
@@ -136,42 +137,35 @@ export function StickyAddToCart({
             {/* Cart Controls */}
             {cartItem ? (
               <div className="flex items-center gap-2">
-                <button
+                <QuantityButton
+                  type="minus"
                   onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}
-                  className="w-9 h-9 rounded-full border flex items-center justify-center hover:bg-muted transition-colors"
-                  aria-label="Decrease quantity"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
+                  disabled={cartItem.quantity <= 1}
+                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
+                />
                 <span className="w-8 text-center font-medium">{cartItem.quantity}</span>
-                <button
+                <QuantityButton
+                  type="plus"
                   onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}
-                  className="w-9 h-9 rounded-full border flex items-center justify-center hover:bg-muted transition-colors"
-                  aria-label="Increase quantity"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
+                  className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
+                />
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 {/* Quantity selector */}
-                <div className="flex items-center border rounded-full overflow-hidden">
-                  <button
+                <div className="flex items-center gap-1">
+                  <QuantityButton
+                    type="minus"
                     onClick={() => handleQuantityChange(quantity - 1)}
                     disabled={quantity <= (product.minimum_order_quantity || 1)}
-                    className="w-8 h-8 flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-50"
-                    aria-label="Decrease quantity"
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
+                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
+                  />
                   <span className="w-6 text-center text-sm font-medium">{quantity}</span>
-                  <button
+                  <QuantityButton
+                    type="plus"
                     onClick={() => handleQuantityChange(quantity + 1)}
-                    className="w-8 h-8 flex items-center justify-center hover:bg-muted transition-colors"
-                    aria-label="Increase quantity"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
+                    className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
+                  />
                 </div>
 
                 {/* Add to Cart button */}

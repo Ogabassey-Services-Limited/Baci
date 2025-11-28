@@ -46,6 +46,10 @@ import { ColorPicker } from './color-picker';
 import { extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
 import { uploadImage } from '@/lib/storage';
+import {
+  trackMerchantSignupStarted,
+  trackMerchantSignupCompleted,
+} from '@/components/analytics/platform-analytics-provider';
 
 extend([a11yPlugin]);
 
@@ -138,14 +142,34 @@ function Step2_Branding() {
 
   const businessName = watch('businessName');
   const businessType = watch('businessType');
-  const logoDataUri = watch('logoDataUri');
+  const logoUrl = watch('logoUrl'); // Now watching for the uploaded URL
   const brandColorsString = watch('brandColors');
   const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
 
   const [isGenerating] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false); // New state for tracking upload
+  const [currentLogoDataUri, setCurrentLogoDataUri] = useState<string | null>(null); // To store data URI for client-side ops
 
-  const isLoading = isGenerating || isExtracting;
+  const isLoading = isGenerating || isExtracting || isUploading;
+
+  // Effect to keep currentLogoDataUri updated for client-side operations
+  useEffect(() => {
+    // When logoUrl changes, we might need to fetch it to convert to data URI
+    // for ColorThief or just update if it's already a data URI
+    if (logoUrl && logoUrl.startsWith('data:')) {
+      setCurrentLogoDataUri(logoUrl);
+    } else if (logoUrl) {
+      // If it's a URL, we might need to fetch it to get a data URI for client-side tools
+      // For now, we'll assume logoUrl is only used for display and server-side processing
+      // and currentLogoDataUri comes directly from client upload or AI generation before upload
+      // This is a simplification and might need refinement for complex scenarios where
+      // color extraction needs to happen *after* a logo is loaded from a URL.
+      setCurrentLogoDataUri(null); // Clear data URI if it's a URL and we haven't fetched it
+    } else {
+      setCurrentLogoDataUri(null);
+    }
+  }, [logoUrl]);
 
   const extractColorsFromImage = (imageDataUri: string): Promise<BrandColors> => {
     return new Promise((resolve, reject) => {
@@ -185,12 +209,32 @@ function Step2_Branding() {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const dataUri = reader.result as string;
-        setValue('logoDataUri', dataUri, { shouldValidate: true });
+        setCurrentLogoDataUri(dataUri); // Keep data URI for client-side color extraction
+
+        setIsUploading(true);
+        try {
+          toast({ title: 'Uploading logo...', description: 'This may take a moment.' });
+          const uploadedUrl = await uploadImage(dataUri); // Upload immediately
+          if (uploadedUrl) {
+            setValue('logoUrl', uploadedUrl, { shouldValidate: true }); // Store URL in form state
+            toast({ title: 'Logo uploaded successfully!' });
+          } else {
+            throw new Error('Upload failed: No URL returned.');
+          }
+        } catch (e) {
+          logger.error({ error: e as Error, message: 'Logo upload failed.' });
+          toast({ title: 'Upload failed', description: (e as Error).message, variant: 'destructive' });
+          setValue('logoUrl', '', { shouldValidate: true });
+        } finally {
+          setIsUploading(false);
+        }
+
         setIsExtracting(true);
         try {
+          // Use the dataUri for client-side color extraction
           const colors = await extractColorsFromImage(dataUri);
           setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
-          toast({ title: 'Brand colors extracted!', description: 'You can now customize them or preview your store.' });
+          toast({ title: 'Brand colors extracted!' });
         } catch (e) {
           logger.error({ error: e as Error, message: 'Color extraction failed.' });
           toast({ title: 'Color extraction failed', description: (e as Error).message, variant: 'destructive' });
@@ -204,9 +248,9 @@ function Step2_Branding() {
   };
 
   const handleGenerateClick = async () => {
-    const isValid = await form.trigger(['businessName', 'businessType', 'brandPreferences']);
+    const isValid = await form.trigger(['businessName', 'businessType']); // Only trigger these two
     if (!isValid) {
-      toast({ title: 'Missing Information', description: 'Please enter your business name and brand preferences first.', variant: 'destructive' });
+      toast({ title: 'Missing Information', description: 'Please enter your business name and business type first.', variant: 'destructive' });
       return;
     }
 
@@ -228,21 +272,39 @@ function Step2_Branding() {
         businessType: finalBusinessType,
         brandPreferences: values.brandPreferences || 'Modern and professional',
         task: 'generate_logos',
+        // The AI flow currently expects logoDataUri if a logo is passed for color extraction
+        // but for generation, it just takes parameters. This needs review with AI flow changes.
       });
 
       if (result.logos && result.logos.length > 0) {
-        const logoUri = result.logos[0];
-        setValue('logoDataUri', logoUri, { shouldValidate: true });
+        const generatedLogoDataUri = result.logos[0];
+        setCurrentLogoDataUri(generatedLogoDataUri); // For client-side preview and color extraction
 
-        // Extract colors from the generated logo
+        // Upload generated logo immediately
+        setIsUploading(true);
+        try {
+          const uploadedUrl = await uploadImage(generatedLogoDataUri);
+          if (uploadedUrl) {
+            setValue('logoUrl', uploadedUrl, { shouldValidate: true });
+            toast({ title: 'AI Logo Generated and Uploaded!', description: 'We also extracted brand colors for you.' });
+          } else {
+            throw new Error('Generated logo upload failed: No URL returned.');
+          }
+        } catch (e) {
+          logger.error({ error: e as Error, message: 'Generated logo upload failed.' });
+          toast({ title: 'Generated logo upload failed', description: (e as Error).message, variant: 'destructive' });
+          setValue('logoUrl', '', { shouldValidate: true });
+        } finally {
+          setIsUploading(false);
+        }
+
         setIsExtracting(true);
         try {
-          const colors = await extractColorsFromImage(logoUri);
+          const colors = await extractColorsFromImage(generatedLogoDataUri); // Use data URI for client-side color extraction
           setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
-          toast({ title: 'Logo Generated!', description: 'We also extracted brand colors for you.' });
         } catch (e) {
           console.error(e);
-          toast({ title: 'Logo Generated', description: 'But we could not extract colors automatically.' });
+          toast({ title: 'Logo Generated', description: 'But we could not extract colors automatically.', variant: 'default' });
         } finally {
           setIsExtracting(false);
         }
@@ -279,20 +341,21 @@ function Step2_Branding() {
       <FormLabel className="text-lg">Do you have a logo?</FormLabel>
       <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
         <div className="space-y-2">
-          <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", logoDataUri ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
-            {logoDataUri ? (
+          <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", logoUrl ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
+            {logoUrl ? (
               <>
-                <Image src={logoDataUri} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
+                {/* Display logo from URL, but use currentLogoDataUri for preview if available and it's a data URI */}
+                <Image src={currentLogoDataUri || logoUrl} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
                 <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
               </>
             ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p></>)}
-            {isExtracting && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 motion-safe:animate-spin text-primary" /></div>}
+            {isLoading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 motion-safe:animate-spin text-primary" /></div>}
             <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isLoading} />
           </div>
         </div>
         <div className="relative flex items-center justify-center md:hidden"><div className="absolute inset-0 flex items-center" aria-hidden="true"><div className="w-full border-t border-muted-foreground/30"></div></div><span className="relative bg-background px-2 text-sm text-muted-foreground">or</span></div>
         <div className="flex flex-col items-center justify-center h-48 space-y-4">
-          <Button type="button" variant="outline" onClick={handleGenerateClick} className="w-full"><Sparkles className="mr-2 h-4 w-4" />Generate with AI</Button>
+          <Button type="button" variant="outline" onClick={handleGenerateClick} className="w-full" disabled={isLoading}><Sparkles className="mr-2 h-4 w-4" />Generate with AI</Button>
         </div>
       </div>
       <div className="mt-4">
@@ -353,12 +416,12 @@ function Step2_Branding() {
           <OnboardingPuckPreview
             businessName={businessName}
             businessType={businessType}
-            logoDataUri={logoDataUri}
+            logoDataUri={currentLogoDataUri || undefined} // Use the data URI for the preview
             brandColors={brandColors}
           />
         </div>
       )}
-      <FormField control={form.control} name="logoDataUri" render={() => <FormItem><FormMessage /></FormItem>} />
+      <FormField control={form.control} name="logoUrl" render={() => <FormItem><FormMessage /></FormItem>} />
       <FormField control={form.control} name="brandColors" render={() => <FormItem><FormMessage /></FormItem>} />
     </div>
   );
@@ -599,7 +662,7 @@ export default function OnboardingForm() {
     mode: 'onBlur',
     reValidateMode: 'onBlur',
     shouldUnregister: false,
-    defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '', logoDataUri: '', brandColors: '' },
+    defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '', logoUrl: '', brandColors: '' },
   });
 
   const { formState: { errors } } = form;
@@ -620,7 +683,7 @@ export default function OnboardingForm() {
       if (savedData) {
         const parsedData = JSON.parse(savedData);
         form.reset(parsedData.values);
-        form.setValue('logoDataUri', parsedData.logoDataUri);
+        form.setValue('logoUrl', parsedData.logoDataUri);
         form.setValue('brandColors', parsedData.brandColors);
         // Defer state update to avoid cascading renders
         queueMicrotask(() => {
@@ -635,6 +698,13 @@ export default function OnboardingForm() {
     if (submissionState.success) {
       localStorage.removeItem('onboardingForm');
       toast({ title: 'Store Created!', description: 'Your e-commerce store is ready. Redirecting you to the dashboard...' });
+
+      // Track merchant signup completed for platform analytics
+      if (submissionState.merchantId) {
+        trackMerchantSignupCompleted(submissionState.merchantId, {
+          business_name: submissionState.businessName,
+        });
+      }
 
       // Refresh the client session to sync with server-side auth, then redirect
       const supabase = createClient();
@@ -676,13 +746,21 @@ export default function OnboardingForm() {
     if (step === 1) {
       isValidStep = await form.trigger(['businessName', 'businessType', 'otherBusinessType']);
     } else if (step === 2) {
-      isValidStep = await form.trigger(['logoDataUri', 'brandColors']);
+      isValidStep = await form.trigger(['logoUrl', 'brandColors']);
       if (!isValidStep) {
         toast({ title: 'Branding Incomplete', description: 'Please upload a logo to extract brand colors.', variant: 'destructive' });
       }
     }
 
     if (isValidStep) {
+      // Track signup started when entering final step (step 3)
+      if (step === 2) {
+        const values = form.getValues();
+        trackMerchantSignupStarted({
+          business_name: values.businessName,
+          business_type: values.businessType,
+        });
+      }
       setStep(s => s + 1);
     }
   };
@@ -710,7 +788,7 @@ export default function OnboardingForm() {
         brandPreferences: values.brandPreferences,
         email: values.email
       },
-      logoDataUri: values.logoDataUri,
+      logoDataUri: values.logoUrl,
       brandColors: values.brandColors,
     };
     localStorage.setItem('onboardingForm', JSON.stringify(dataToSave));
@@ -721,23 +799,8 @@ export default function OnboardingForm() {
     e.preventDefault();
 
     const values = form.getValues();
-    let logoUrl = values.logoDataUri;
-
-    if (logoUrl && logoUrl.startsWith('data:')) {
-      try {
-        toast({ title: 'Uploading logo...', description: 'Please wait while we process your image.' });
-        const uploadedUrl = await uploadImage(logoUrl);
-        if (uploadedUrl) {
-          logoUrl = uploadedUrl;
-        } else {
-          toast({ title: 'Upload failed', description: 'Could not upload logo. Please try again.', variant: 'destructive' });
-          return;
-        }
-      } catch (_error) {
-        toast({ title: 'Upload failed', description: 'Could not upload logo. Please try again.', variant: 'destructive' });
-        return;
-      }
-    }
+    // logoUrl should already be uploaded by Step2_Branding
+    const logoUrl = values.logoUrl;
 
     const formData = new FormData();
     formData.append('email', values.email || '');
@@ -747,7 +810,7 @@ export default function OnboardingForm() {
     formData.append('businessType', values.businessType || '');
     formData.append('otherBusinessType', values.otherBusinessType || '');
     formData.append('brandPreferences', values.brandPreferences || '');
-    formData.append('logoDataUri', logoUrl || '');
+    formData.append('logoUrl', logoUrl || '');
     formData.append('brandColors', values.brandColors || '');
 
     startTransition(() => {
@@ -769,7 +832,7 @@ export default function OnboardingForm() {
 
   const isCurrentStepValid = useMemo(() => {
     if (step === 1) return !errors.businessName && !errors.businessType && !errors.otherBusinessType;
-    if (step === 2) return !errors.logoDataUri && !errors.brandColors;
+    if (step === 2) return !errors.logoUrl && !errors.brandColors; // Updated to logoUrl
     if (step === 3) return isStep3Valid;
     return false;
   }, [step, errors, isStep3Valid]);
@@ -783,7 +846,7 @@ export default function OnboardingForm() {
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
         <form onSubmit={handleFormSubmit} aria-label="Store onboarding form" noValidate>
-          <input type="hidden" {...form.register('logoDataUri')} />
+          <input type="hidden" {...form.register('logoUrl')} />
           <input type="hidden" {...form.register('brandColors')} />
           <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
             {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}

@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
-import { sendEmail } from '@/lib/brevo';
+import { sendEmail } from '@/lib/zeptomail';
 import { generateOrderConfirmationEmail, generateOrderConfirmationText } from '@/lib/email-templates';
 import { createHmac, timingSafeEqual } from 'crypto';
 
@@ -183,6 +183,7 @@ export async function POST(request: NextRequest) {
               subject: `Order Confirmation - #${emailData.orderNumber}`,
               htmlContent,
               textContent,
+              emailType: 'orders',
             });
 
             logger.info({ message: 'Order confirmation email sent', orderId: order.id });

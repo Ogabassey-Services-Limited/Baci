@@ -1,7 +1,7 @@
 # ADR 001: Business Type Journey Architecture
 
-**Status:** Proposed
-**Date:** 2025-10-31
+**Status:** Accepted
+**Date:** 2025-11-28
 **Author:** System Architecture
 **Related Files:**
 - `/src/config/business-types.ts`
@@ -92,23 +92,23 @@ The config file will export utility functions:
 
 **Phase 1: Create Configuration ✅ COMPLETE**
 - ✅ Create `/src/config/business-types.ts`
-- ✅ Define all 6 business types with journeys
+- ✅ Define all 7 business types with journeys
 - ✅ Export helper functions
 
 **Phase 2: Update Onboarding Form ✅ COMPLETE**
 - ✅ Import `getAllBusinessTypes()` from config
 - ✅ Replace hardcoded `<SelectItem>` list with dynamic mapping
-- ⏳ Store business type in user profile (requires Firestore - deferred)
+- ✅ Store business type in user profile (requires Supabase)
 
 **Phase 3: Update AI Flows ✅ COMPLETE**
 - ✅ Modified `generate-product-descriptions.ts` to use business type context from config
 - ✅ Flow uses `getProductDescriptionStyle(id)` and `getAIPromptContext(id)` for enhanced prompts
 - ✅ Modified `guide-business-onboarding.ts` to use journey.onboarding config for logo style and color scheme
 
-**Phase 4: Update Product Form (Pending)**
-- Read business type from user profile context
-- Pass actual business type to AI flows instead of hardcoding
-- Add type-specific form fields based on `journey.productCreation.requiredFields`
+**Phase 4: Update Product Form ✅ COMPLETE**
+- ✅ Read business type from user profile context (`useMerchant` hook)
+- ✅ Pass actual business type to AI flows instead of hardcoding
+- ⏳ Add type-specific form fields based on `journey.productCreation.requiredFields` (Future)
 
 **Phase 5: Template System (Future)**
 - Create storefront templates per business type
@@ -139,7 +139,7 @@ The config file will export utility functions:
 
 1. **Refactoring Required:** Need to update onboarding form, AI flows, and product form to read from config.
 
-2. **Database Schema:** Requires storing business type in user profile (Firestore schema change).
+2. **Database Schema:** Requires storing business type in user profile (Supabase schema change).
 
 3. **Breaking Change Risk:** Changing IDs in config could break existing data (needs migration strategy).
 
@@ -160,7 +160,7 @@ The config file will export utility functions:
 
 ### Alternative 1: Database-Driven Configuration
 
-**Approach:** Store business types in Firestore/database instead of code.
+**Approach:** Store business types in Supabase/database instead of code.
 
 **Pros:**
 - Dynamic addition of types without deployment
@@ -351,6 +351,6 @@ describe('BusinessTypes', () => {
 1. ✅ Create `/src/config/business-types.ts`
 2. ✅ Migrate onboarding form to use config
 3. ✅ Update AI flows to read from config (Phase 3)
-4. ⏳ Implement user profile storage (Firestore)
+4. ⏳ Implement user profile storage (Supabase)
 5. ⏳ Update product form to read user's business type (Phase 4)
 6. ⏳ Create template system (Phase 5)

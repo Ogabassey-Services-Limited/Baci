@@ -1,84 +1,97 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Metadata } from 'next';
+import { Metadata, ResolvingMetadata } from 'next';
+import { Suspense } from 'react';
 import ProductDetailClient from './product-detail-client';
 import { Product } from '@/lib/products';
-import { generateProductSchema, generateBreadcrumbSchema } from '@/lib/seo-utils';
+import { generateProductSchema, generateBreadcrumbSchema, generateAggregateRating, constructCanonicalUrl } from '@/lib/seo-utils';
 import { escapeHtml } from '@/lib/sanitize';
-
-// Enable ISR (Incremental Static Regeneration) with 5 minute revalidation
-// Pages will be statically generated on-demand and cached for 5 minutes
-export const revalidate = 300; // Revalidate every 5 minutes (300 seconds)
+import { ProductDetailSkeleton } from '@/components/ui/skeletons';
+import { getCachedMerchant, getCachedProduct, getCachedProductRatingStats } from '@/lib/cached-data';
 
 interface PageProps {
     params: Promise<{
         slug: string; // Store slug
         productSlug: string; // Product slug or ID
     }>;
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-async function getProduct(storeSlug: string, productSlug: string) {
-    const supabase = createServerComponentClient({ cookies });
+/**
+ * Get product using cached data functions
+ * Falls back to cached product lookup for better performance
+ */
+async function getProductCached(storeSlug: string, productSlug: string): Promise<Product | null> {
+    // Get merchant first to get the merchant ID
+    const merchant = await getCachedMerchant(storeSlug);
 
-    // 1. Get Merchant ID from store slug
-    const { data: merchant, error: merchantError } = await supabase
-        .from('merchants')
-        .select('id, business_name')
-        .eq('slug', storeSlug)
-        .single();
-
-    if (merchantError || !merchant) {
-        console.error('Merchant not found:', merchantError);
+    if (!merchant) {
+        console.error('Merchant not found for slug:', storeSlug);
         return null;
     }
 
-    // 2. Get Product by slug (or ID) and merchant_id
-    // We try to match by slug first, then by ID if it looks like a UUID
-    let query = supabase
-        .from('products')
-        .select('*')
-        .eq('merchant_id', merchant.id);
+    // Get product using cached function
+    const cachedProduct = await getCachedProduct(merchant.id, productSlug);
 
-    // Check if productSlug is a UUID (simple regex check)
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productSlug);
-
-    if (isUuid) {
-        query = query.or(`slug.eq.${productSlug},id.eq.${productSlug}`);
-    } else {
-        query = query.eq('slug', productSlug);
-    }
-
-    const { data: product, error: productError } = await query.single();
-
-    if (productError || !product) {
-        console.error('Product not found:', productError);
+    if (!cachedProduct) {
+        console.error('Product not found:', productSlug);
         return null;
     }
 
-    // Fetch variants if needed (though product table might have them jsonb or separate table)
-    // For now, assuming basic product data is enough or variants are fetched client-side or joined
-    // If variants are in a separate table, we might need to fetch them.
-    // The current `Product` interface has `variants?: ProductVariant[]`.
-    // Let's fetch variants if has_variants is true.
+    // Transform cached product to match Product interface
+    // Map database fields to Product interface expected fields
+    const productImages = cachedProduct.images as Array<{ url: string; alt?: string; order?: number }> | null;
+    const firstImage = productImages?.[0]?.url || '';
 
-    if (product.has_variants) {
-        const { data: variants } = await supabase
-            .from('product_variants')
-            .select('*')
-            .eq('product_id', product.id);
+    const product: Product = {
+        id: cachedProduct.id,
+        name: cachedProduct.name,
+        description: cachedProduct.description || '',
+        status: cachedProduct.status as 'draft' | 'active' | 'archived',
+        slug: cachedProduct.slug,
+        // Map base_price to price
+        price: cachedProduct.sale_price || cachedProduct.base_price,
+        compare_at_price: cachedProduct.sale_price ? cachedProduct.base_price : undefined,
+        // Stock fields
+        manage_stock: cachedProduct.track_quantity ?? false,
+        stock: cachedProduct.quantity ?? 0,
+        // Image fields
+        image: firstImage,
+        imageLarge: firstImage,
+        imageHint: cachedProduct.name,
+        images: productImages?.map((img, idx) => ({
+            url: img.url,
+            alt: img.alt || cachedProduct.name,
+            order: img.order ?? idx,
+        })),
+        // Brand/identifiers (defaults for missing fields)
+        brand: '',
+        gtin: '',
+        mpn: '',
+        // Category from nested join (cast through unknown for Supabase type compatibility)
+        category: ((cachedProduct.product_categories?.[0]?.categories as unknown) as { id: string; name: string; slug: string } | null)?.name || undefined,
+        // Variants
+        has_variants: (cachedProduct.product_variants?.length ?? 0) > 0,
+        variants: cachedProduct.product_variants?.map(v => ({
+            id: v.id,
+            product_id: cachedProduct.id,
+            merchant_id: merchant.id,
+            attributes: v.options || {},
+            stock_quantity: v.stock ?? 0,
+            price_override: v.price_modifier,
+        })) || [],
+    };
 
-        if (variants) {
-            product.variants = variants;
-        }
-    }
-
-    return product as Product;
+    return product;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata(
+    { params, searchParams }: PageProps,
+    parent: ResolvingMetadata
+): Promise<Metadata> {
     const { slug, productSlug } = await params;
-    const product = await getProduct(slug, productSlug);
+    const resolvedSearchParams = await searchParams;
+    const product = await getProductCached(slug, productSlug);
 
     if (!product) {
         return {
@@ -87,24 +100,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         };
     }
 
-    const supabase = createServerComponentClient({ cookies });
-
-    // Get merchant social media handles
-    const { data: merchant } = await supabase
-        .from('merchants')
-        .select('business_name, social_media')
-        .eq('slug', slug)
-        .single();
+    // Get cached merchant data
+    const merchant = await getCachedMerchant(slug);
 
     const headersList = await headers();
     const host = headersList.get('host') || 'baci.app';
     const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
     const baseUrl = `${protocol}://${host}`;
 
-    // If we are on a custom domain or subdomain, the path is just /products/slug
-    // If we were on the main site path-based (e.g. baci.app/store/slug), it would be different
-    // But middleware rewrites suggest we are at root of the store domain/subdomain
-    const canonicalUrl = product.canonical_url || `${baseUrl}/products/${product.slug || product.id}`;
+    // Construct canonical URL:
+    // 1. Use explicit canonical from product data if available
+    // 2. OR build the base path and strip noisy params using constructCanonicalUrl
+    let canonicalUrl = product.canonical_url;
+    
+    if (!canonicalUrl) {
+        const basePath = `${baseUrl}/products/${product.slug || product.id}`;
+        // For product pages, we generally want to strip ALL query params to consolidate authority
+        // unless specific params change the content significantly (e.g. variant=123)
+        // passing ['variant'] to allowedParams if your variants have unique URLs
+        canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, ['variant']); 
+    }
 
     const socialMedia = merchant?.social_media as Record<string, string> | undefined;
 
@@ -145,20 +160,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function ProductPage({ params }: PageProps) {
     const { slug, productSlug } = await params;
-    const product = await getProduct(slug, productSlug);
+    const product = await getProductCached(slug, productSlug);
 
     if (!product) {
         notFound();
     }
 
-    const supabase = createServerComponentClient({ cookies });
+    // Get cached merchant data for schema
+    const merchant = await getCachedMerchant(slug);
 
-    // Get merchant data for schema
-    const { data: merchant } = await supabase
-        .from('merchants')
-        .select('business_name, payout_currency, category')
-        .eq('slug', slug)
-        .single();
+    // Fetch cached review stats for AggregateRating schema
+    const reviewStats = await getCachedProductRatingStats(product.id);
 
     const headersList = await headers();
     const host = headersList.get('host') || 'baci.app';
@@ -176,6 +188,17 @@ export default async function ProductPage({ params }: PageProps) {
     if (productSchema.offers) {
         const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
         productSchema.offers.url = escapeHtml(productUrl);
+    }
+
+    // Add AggregateRating if reviews exist
+    if (reviewStats && reviewStats.totalReviews > 0) {
+        const aggregateRating = generateAggregateRating({
+            averageRating: reviewStats.averageRating,
+            reviewCount: reviewStats.totalReviews
+        });
+        if (aggregateRating) {
+            productSchema.aggregateRating = aggregateRating;
+        }
     }
 
     // Generate breadcrumb schema using helper function (sanitization handled in generateBreadcrumbSchema)
@@ -206,7 +229,9 @@ export default async function ProductPage({ params }: PageProps) {
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
             />
 
-            <ProductDetailClient product={product} />
+            <Suspense fallback={<ProductDetailSkeleton />}>
+                <ProductDetailClient product={product} />
+            </Suspense>
         </>
     );
 }

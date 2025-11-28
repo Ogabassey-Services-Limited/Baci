@@ -1,12 +1,11 @@
 import { Metadata } from 'next';
-import { createClient } from '@/lib/supabase/server';
-import { cookies, headers } from 'next/headers';
+import { Suspense } from 'react';
+import { headers } from 'next/headers';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { StorefrontWrapper } from './storefront-wrapper';
 import { escapeHtml } from '@/lib/sanitize';
-
-// Enable ISR with 1 minute revalidation for storefront homepages
-export const revalidate = 60;
+import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
+import { getCachedMerchant } from '@/lib/cached-data';
 
 // Valid slug pattern: alphanumeric and hyphens, no file extensions
 const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
@@ -29,14 +28,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         };
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    const { data: merchant } = await supabase
-        .from('merchants')
-        .select('business_name, site_title, site_tagline, site_description, business_type, logo_url, social_media')
-        .eq('slug', slug)
-        .single();
+    // Use cached merchant data for better performance
+    const merchant = await getCachedMerchant(slug);
 
     if (!merchant) {
         return {
@@ -93,14 +86,8 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
         );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    const { data: merchant } = await supabase
-        .from('merchants')
-        .select('business_name, site_title, site_tagline, site_description, business_type, logo_url, phone, social_media')
-        .eq('slug', slug)
-        .single();
+    // Use cached merchant data for better performance
+    const merchant = await getCachedMerchant(slug);
 
     let jsonLd = null;
 
@@ -165,7 +152,9 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
                 />
             )}
             <MerchantProvider slug={slug}>
-                <StorefrontWrapper />
+                <Suspense fallback={<StorefrontPageSkeleton />}>
+                    <StorefrontWrapper />
+                </Suspense>
             </MerchantProvider>
         </>
     );

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ChevronRight, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { asRoute } from '@/lib/routes';
 
 export interface BreadcrumbItem {
     label: string;
@@ -51,7 +52,7 @@ export function Breadcrumbs({
                                 </span>
                             ) : item.href ? (
                                 <Link
-                                    href={item.href}
+                                    href={asRoute(item.href)}
                                     className={cn(
                                         'text-foreground hover:text-[var(--store-primary)] transition-colors',
                                         isHome && 'flex items-center gap-1'

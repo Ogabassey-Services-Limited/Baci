@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Heart, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { HeartIcon, LoadingSpinner } from '@/components/ui/animated-icons';
 
 interface AddToWishListButtonProps {
   productId: string;
@@ -131,7 +131,7 @@ export function AddToWishListButton({
   if (isChecking) {
     return (
       <Button variant={variant} size={size} disabled className={className}>
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <LoadingSpinner size={16} />
         {showText && <span className="ml-2">Loading...</span>}
       </Button>
     );
@@ -147,10 +147,12 @@ export function AddToWishListButton({
       aria-label={inWishList ? 'Remove from wish list' : 'Add to wish list'}
     >
       {isLoading ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
+        <LoadingSpinner size={16} />
       ) : (
-        <Heart
-          className={cn('h-4 w-4', inWishList && 'fill-current text-red-500')}
+        <HeartIcon
+          liked={inWishList}
+          size={16}
+          onToggle={undefined}
         />
       )}
       {showText && (

@@ -24,6 +24,9 @@ import { apiPost } from '@/lib/api-client';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { isValidPhoneNumber, type Country as CountryCode } from 'react-phone-number-input';
 import { getCountryByCode } from '@/lib/countries';
+import { trackEvent } from '@/lib/event-tracking';
+import { trackServerSidePurchase, trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
+import { trackPlatformPurchase } from '@/components/analytics/platform-analytics-provider';
 
 const DEFAULT_SHIPPING_FEE = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00');
 
@@ -285,7 +288,7 @@ function Step1_Shipping() {
 }
 
 function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency, currencyCode } = useCurrency();
 
   return (
     <div className="space-y-4">
@@ -330,6 +333,7 @@ function CheckoutPageContent() {
   const { toast } = useToast();
   const { clearCart, cart, cartCount, cartTotal } = useCart();
   const { merchant } = useMerchant();
+  const { currencyCode } = useCurrency();
   const [step, setStep] = useState(0); // 0: Auth, 1: Shipping, 2: Payment
   const [pageLoading, setPageLoading] = useState(true);
   const [formIsLoading, setFormIsLoading] = useState(false);
@@ -441,6 +445,33 @@ function CheckoutPageContent() {
   const handleNext = async () => {
     const isValid = await shippingForm.trigger();
     if (isValid && step < totalSteps) {
+      // Track begin_checkout when moving to payment step
+      if (step === 1 && merchant?.id) {
+        // Client-side tracking
+        trackEvent.beginCheckout(
+          merchant.id,
+          cart.map(item => ({ product: item, quantity: item.quantity })),
+          'NGN' // Default currency for Nigeria
+        );
+
+        // Server-side tracking for GA4, Facebook, TikTok, Snapchat
+        trackServerSideBeginCheckout(
+          merchant.id,
+          cartTotal,
+          'NGN',
+          cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            category: item.category,
+          })),
+          undefined,
+          { eventSourceUrl: window.location.href }
+        ).catch(err => {
+          console.warn('Server-side analytics error:', err);
+        });
+      }
       setStep(step + 1);
     }
   };
@@ -517,6 +548,55 @@ function CheckoutPageContent() {
         total: order.total,
       };
       sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
+
+      // Track purchase event for merchant analytics (client-side + internal)
+      if (merchant?.id) {
+        trackEvent.purchase(
+          merchant.id,
+          order.order_number as string,
+          cart.map(item => ({ product: item, quantity: item.quantity })),
+          order.total as number,
+          'NGN', // Default currency for Nigeria
+          finalShippingFee,
+          0 // No tax in this system
+        );
+
+        // Server-side tracking for GA4, Facebook, TikTok, Snapchat
+        // This bypasses ad blockers and provides more accurate attribution
+        trackServerSidePurchase(
+          merchant.id,
+          order.order_number as string,
+          order.total as number,
+          'NGN',
+          cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            category: item.category,
+          })),
+          {
+            email: data.email,
+            phone: data.phone,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            city: data.city,
+            state: data.state,
+          },
+          { eventSourceUrl: window.location.href }
+        ).catch(err => {
+          // Don't block checkout on analytics errors
+          console.warn('Server-side analytics error:', err);
+        });
+
+        // Track platform-level purchase (for platform owner's analytics)
+        trackPlatformPurchase(
+          merchant.id,
+          order.total as number,
+          currencyCode,
+          order.order_number as string
+        );
+      }
 
       toast({
         title: 'Payment Successful!',

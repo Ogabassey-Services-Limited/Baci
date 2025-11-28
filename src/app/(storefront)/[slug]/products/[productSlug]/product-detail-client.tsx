@@ -25,6 +25,7 @@ import { RelatedProducts } from '@/components/storefront/related-products';
 import { StickyAddToCart } from '@/components/storefront/sticky-add-to-cart';
 import { Breadcrumbs } from '@/components/storefront/breadcrumbs';
 import { ReviewsSection } from '@/components/storefront/reviews-section';
+import { trackEvent } from '@/lib/event-tracking';
 
 /**
  * Extract unique attribute types and their values from variants
@@ -68,7 +69,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
     const { merchant } = useMerchant();
     const { cart, cartCount, addToCart, updateQuantity } = useCart();
     const { toast } = useToast();
-    const { formatCurrency } = useCurrency();
+    const { formatCurrency, currencyCode } = useCurrency();
     const { addToRecentlyViewed } = useRecentlyViewed();
     const [quantity, setQuantity] = useState(product.minimum_order_quantity || 1);
     const [selectedImage, setSelectedImage] = useState(product.imageLarge || product.image);
@@ -89,12 +90,16 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         }
     }, [product]);
 
-    // Track product view for recently viewed
+    // Track product view for recently viewed and analytics
     useEffect(() => {
         if (product?.id) {
             addToRecentlyViewed(product.id);
+            // Track product view for merchant analytics
+            if (merchant?.id) {
+                trackEvent.productView(merchant.id, product, currencyCode);
+            }
         }
-    }, [product?.id, addToRecentlyViewed]);
+    }, [product, merchant?.id, currencyCode, addToRecentlyViewed]);
 
     if (!product || product.status === 'archived') {
         notFound();
@@ -138,6 +143,11 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             variantId: selectedVariant.id,
             variantAttributes: selectedAttributes
         } : undefined);
+
+        // Track add to cart for merchant analytics
+        if (merchant?.id) {
+            trackEvent.addToCart(merchant.id, productToAdd, quantity, currencyCode);
+        }
 
         const variantInfo = selectedVariant
             ? ` (${Object.values(selectedAttributes).join(', ')})`

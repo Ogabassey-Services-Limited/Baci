@@ -93,6 +93,28 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       let access: StaffAccess = { ...defaultStaffAccess };
 
       if (slug) {
+        // Mock data for Ogabassey demo
+        if (slug === 'ogabassey1' || slug === 'ogabassey3') {
+          merchantData = {
+            id: 'demo-ogabassey',
+            user_id: 'demo-user',
+            business_name: 'Ogabassey',
+            business_type: 'FASHION',
+            logo_url: 'https://ogabassey.com/wp-content/uploads/2023/06/Ogabassey-Logo-1.png',
+            brand_colors: {
+              primary: '#EF4444',
+              background: '#FFFFFF',
+              accent: '#000000'
+            },
+            country: 'NG',
+            slug: slug,
+            published_config: null
+          };
+          setMerchant(merchantData);
+          setLoading(false);
+          return;
+        }
+
         // Storefront mode - load by slug
         const businessNameFromSlug = slug.replace(/-/g, ' ');
         const { data, error } = await supabase

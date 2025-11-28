@@ -18,6 +18,7 @@ import { LucideIcon, Shirt, Laptop, Home, Sparkles, Palette, Coffee, Scissors } 
 import { ModernTemplate } from '@/templates/modern';
 import { ArtisanTemplate } from '@/templates/artisan';
 import { TechTemplate } from '@/templates/tech';
+import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
 
 /**
  * Business type journey configuration
@@ -87,7 +88,7 @@ export const BUSINESS_TYPES = {
     description: 'Clothing, accessories, and fashion items',
     aiPromptContext: 'fashion and style-focused',
     recommendedFeatures: ['size-charts', 'color-variants', 'lookbooks', 'style-guides'],
-    template: ModernTemplate,
+    template: PremiumDefaultTemplate,
     icon: Shirt,
     journey: {
       onboarding: {
@@ -219,7 +220,7 @@ export const BUSINESS_TYPES = {
     description: 'Wigs, weaves, bundles, closures, frontals, and hair care products',
     aiPromptContext: 'hair and beauty with focus on quality, texture, origin, and styling versatility',
     recommendedFeatures: ['texture-guide', 'length-charts', 'care-instructions', 'styling-tutorials'],
-    template: ModernTemplate,
+    template: PremiumDefaultTemplate,
     icon: Scissors,
     journey: {
       onboarding: {

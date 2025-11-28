@@ -9,6 +9,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { getBusinessTypeById } from '@/config/business-types';
 import { type Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
+import { dynamicRoutes } from '@/lib/routes';
 import { Loader2, ShoppingBag, Search, Plus, Minus } from 'lucide-react';
 import { CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
@@ -134,7 +135,7 @@ function StorefrontContent() {
 
   const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.background, merchant.brand_colors.accent].filter(Boolean) : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
-  
+
   const heroSlides = PlaceHolderImages.slice(0, 3).map((img, i) => ({
     ...img,
     headline: `Elevate Your Style, Slide ${i + 1}`,
@@ -184,7 +185,7 @@ function StorefrontContent() {
 
         <main className="flex-1">
           <section className="w-full relative">
-            <Carousel 
+            <Carousel
               className="w-full"
               plugins={[plugin.current]}
               onMouseEnter={plugin.current.stop}
@@ -193,34 +194,34 @@ function StorefrontContent() {
             >
               <CarouselContent>
                 {heroSlides.map((slide, index) => {
-                    const heroImage = PlaceHolderImages.find(p => p.id === slide.id) || { imageUrl: slide.imageUrl, description: slide.headline, imageHint: 'store hero' };
-                    return (
-                      <CarouselItem key={index}>
-                        <div className="w-full h-[60vh] md:h-[70vh] relative">
-                          <Image
-                            src={heroImage.imageUrl}
-                            alt={heroImage.description}
-                            fill
-                            className="object-cover"
-                            data-ai-hint={heroImage.imageHint}
-                            priority={index === 0}
-                          />
-                          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-center text-white p-4">
-                            <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
-                              {slide.headline}
-                            </h1>
-                            <p className="mt-4 max-w-2xl text-lg md:text-xl">
-                              {slide.description}
-                            </p>
-                             <ThemedButton asChild size="lg" className="mt-6" colorRole="accent">
-                                <Link href="#products">
-                                  {slide.cta}
-                                </Link>
-                            </ThemedButton>
-                          </div>
+                  const heroImage = PlaceHolderImages.find(p => p.id === slide.id) || { imageUrl: slide.imageUrl, description: slide.headline, imageHint: 'store hero' };
+                  return (
+                    <CarouselItem key={index}>
+                      <div className="w-full h-[60vh] md:h-[70vh] relative">
+                        <Image
+                          src={heroImage.imageUrl}
+                          alt={heroImage.description}
+                          fill
+                          className="object-cover"
+                          data-ai-hint={heroImage.imageHint}
+                          priority={index === 0}
+                        />
+                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-center text-white p-4">
+                          <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
+                            {slide.headline}
+                          </h1>
+                          <p className="mt-4 max-w-2xl text-lg md:text-xl">
+                            {slide.description}
+                          </p>
+                          <ThemedButton asChild size="lg" className="mt-6" colorRole="accent">
+                            <Link href="#products">
+                              {slide.cta}
+                            </Link>
+                          </ThemedButton>
                         </div>
-                      </CarouselItem>
-                    )
+                      </div>
+                    </CarouselItem>
+                  )
                 })}
               </CarouselContent>
               <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" />
@@ -314,7 +315,7 @@ function StorefrontContent() {
           </section>
         </main>
 
-        <footer 
+        <footer
           className="text-white"
           style={{ backgroundColor: darkestColor, color: getContrastingTextColor(darkestColor) }}
         >
@@ -329,7 +330,7 @@ function StorefrontContent() {
                   <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
                   <nav className="grid grid-cols-2 gap-2">
                     {availableFooterLinks.map((link) => (
-                      <ThemedLink key={link.key} className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100" href={`/pages/${link.key}`}>
+                      <ThemedLink key={link.key} className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100" href={dynamicRoutes.page(link.key)}>
                         {link.label}
                       </ThemedLink>
                     ))}
@@ -352,7 +353,11 @@ function StorefrontContent() {
 }
 
 
-export function Storefront() {
+import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
+import { OgabasseyTemplate } from '@/components/storefront/templates/ogabassey-template';
+import { OgabasseyTemplate3 } from '@/components/storefront/templates/ogabassey-template-3';
+
+export function Storefront({ slug }: { slug?: string }) {
   const { merchant, loading } = useMerchant();
 
   if (loading) {
@@ -377,18 +382,34 @@ export function Storefront() {
     );
   }
 
-  const businessTypeConfig = getBusinessTypeById(merchant.business_type);
-  const StoreTemplate = businessTypeConfig?.template;
+  // For demo/preview purposes, check for specific slug
+  if (slug === 'ogabassey1') {
+    return (
+      <ThemedStorefrontLayout>
+        <OgabasseyTemplate />
+      </ThemedStorefrontLayout>
+    );
+  }
 
-  if (!StoreTemplate) {
+  if (slug === 'ogabassey3') {
+    return (
+      <ThemedStorefrontLayout>
+        <OgabasseyTemplate3 />
+      </ThemedStorefrontLayout>
+    );
+  }
+
+  const businessTypeConfig = getBusinessTypeById(merchant.business_type);
+  // Default to Premium template if no specific business type template found
+  const TemplateComponent = (businessTypeConfig?.template || PremiumDefaultTemplate) as React.ComponentType<any>;
+
+  if (!TemplateComponent) {
     return <div>Error: Store template not found for business type '{merchant.business_type}'.</div>
   }
 
   return (
     <ThemedStorefrontLayout>
-        <StoreTemplate>
-            <StorefrontContent />
-        </StoreTemplate>
+      <TemplateComponent />
     </ThemedStorefrontLayout>
   );
 }

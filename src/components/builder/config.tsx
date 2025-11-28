@@ -3,6 +3,7 @@ import React from 'react';
 import { ThemedButton } from '@/components/themed/themed-button';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { asRoute } from '@/lib/routes';
 import {
     Star, Mail, Quote,
     Search as SearchIcon, Facebook, Instagram, Twitter, Linkedin, Youtube,
@@ -18,6 +19,11 @@ import {
     CarouselPrevious,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { OgabasseyHeader, OgabasseyHeaderProps } from '@/components/storefront/blocks/ogabassey-header';
+import { OgabasseyHero, OgabasseyHeroProps } from '@/components/storefront/blocks/ogabassey-hero';
+import { OgabasseyNav, OgabasseyNavProps } from '@/components/storefront/blocks/ogabassey-nav';
+import { OgabasseyCategories, OgabasseyCategoriesProps } from '@/components/storefront/blocks/ogabassey-categories';
+import { OgabasseyUtilities, OgabasseyUtilitiesProps } from '@/components/storefront/blocks/ogabassey-utilities';
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import Image from 'next/image';
 import { ImagePickerField } from './fields/image-picker-field';
@@ -93,6 +99,8 @@ type HeroProps = {
     animationDuration?: string;
     animationDelay?: number;
     animationTrigger?: string;
+    // New SEO Prop
+    headingLevel?: 'h1' | 'h2' | 'div';
 };
 
 type HeroCarouselProps = {
@@ -355,19 +363,13 @@ type RootProps = {
     title: string;
 };
 
-type _MetadataType = {
-    merchantId?: string;
-    merchant?: Record<string, unknown>;
-    products?: Record<string, unknown>[];
-};
-
 // ==================== HELPER COMPONENTS ====================
 
 function HeroCarouselComponent({ slides, autoplayDelay = 5000 }: HeroCarouselProps) {
     const plugin = Autoplay({ delay: autoplayDelay, stopOnInteraction: true });
 
     return (
-        <section className="w-full relative">
+        <section className="w-full relative" aria-label="Hero Carousel">
             <Carousel
                 className="w-full"
                 plugins={[plugin]}
@@ -385,14 +387,14 @@ function HeroCarouselComponent({ slides, autoplayDelay = 5000 }: HeroCarouselPro
                                     priority={index === 0}
                                 />
                                 <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center text-white p-4">
-                                    <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">
+                                    <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">
                                         {slide.title}
-                                    </h1>
+                                    </h2>
                                     <p className="text-lg md:text-xl max-w-2xl mb-8">
                                         {slide.subtitle}
                                     </p>
                                     <ThemedButton asChild size="lg" colorRole="accent">
-                                        <Link href={slide.ctaLink}>
+                                        <Link href={asRoute(slide.ctaLink)}>
                                             {slide.ctaText}
                                         </Link>
                                     </ThemedButton>
@@ -401,8 +403,8 @@ function HeroCarouselComponent({ slides, autoplayDelay = 5000 }: HeroCarouselPro
                         </CarouselItem>
                     ))}
                 </CarouselContent>
-                <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" />
-                <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" />
+                <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" aria-label="Previous Slide" />
+                <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" aria-label="Next Slide" />
             </Carousel>
         </section>
     );
@@ -475,7 +477,7 @@ function CustomHeader({
                         />
                     ) : (
                         <>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-lg font-bold">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-lg font-bold" aria-hidden="true">
                                 {storeName?.charAt(0)?.toUpperCase() || 'S'}
                             </div>
                             <span className="hidden sm:inline-block">{storeName || 'Your Store'}</span>
@@ -486,21 +488,27 @@ function CustomHeader({
 
             {/* Navigation Section */}
             {showMenu && navigationLinks.length > 0 && (
-                <nav className={cn("hidden md:flex items-center gap-6", {
-                    "order-2 mx-auto": layout === 'logo-left-nav-center',
-                    "order-2 ml-auto mr-4": layout === 'logo-left-nav-right',
-                    "order-1 mr-auto": layout === 'logo-center',
-                })}>
-                    {navigationLinks.map((link, index) => (
-                        <Link
-                            key={index}
-                            href={link.url}
-                            className="text-sm font-medium hover:text-primary transition-colors relative group"
-                        >
-                            {link.label}
-                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
-                        </Link>
-                    ))}
+                <nav
+                    className={cn("hidden md:flex items-center gap-6", {
+                        "order-2 mx-auto": layout === 'logo-left-nav-center',
+                        "order-2 ml-auto mr-4": layout === 'logo-left-nav-right',
+                        "order-1 mr-auto": layout === 'logo-center',
+                    })}
+                    aria-label="Main Navigation"
+                >
+                    <ul className="flex items-center gap-6 m-0 p-0 list-none">
+                        {navigationLinks.map((link, index) => (
+                            <li key={index}>
+                                <Link
+                                    href={asRoute(link.url)}
+                                    className="text-sm font-medium hover:text-primary transition-colors relative group"
+                                >
+                                    {link.label}
+                                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
+                                </Link>
+                            </li>
+                        ))}
+                    </ul>
                 </nav>
             )}
 
@@ -514,10 +522,11 @@ function CustomHeader({
                     "ml-auto": layout === 'logo-left-nav-center',
                 })}>
                     <div className="relative">
-                        <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
                         <Input
                             type="search"
                             placeholder="Search..."
+                            aria-label="Search products"
                             className={cn(
                                 "w-full pl-9 transition-all focus-visible:ring-1",
                                 searchClasses[searchStyle as keyof typeof searchClasses],
@@ -534,25 +543,25 @@ function CustomHeader({
             })}>
                 {ctaButton?.show && ctaButton.text && (
                     <ThemedButton asChild colorRole="primary" size="sm" className="hidden sm:inline-flex">
-                        <Link href={ctaButton.url || '#'}>{ctaButton.text}</Link>
+                        <Link href={asRoute(ctaButton.url || '#')}>{ctaButton.text}</Link>
                     </ThemedButton>
                 )}
 
                 {showSearch && (
-                    <Button variant="ghost" size="icon" className="md:hidden">
+                    <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open search">
                         <SearchIcon className="w-5 h-5" />
                     </Button>
                 )}
 
                 {showCart && (
-                    <Button variant="ghost" size="icon" className="relative">
+                    <Button variant="ghost" size="icon" className="relative" aria-label="View cart">
                         <ShoppingBag className="w-5 h-5" />
                         <span className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full" />
                     </Button>
                 )}
 
                 {showMenu && (
-                    <Button variant="ghost" size="icon" className="md:hidden">
+                    <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
                         <Menu className="w-5 h-5" />
                     </Button>
                 )}
@@ -598,16 +607,19 @@ function CustomFooter({
                     {showQuickLinks && quickLinks.length > 0 && (
                         <div>
                             <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
-                            <nav className="flex flex-col gap-2">
-                                {quickLinks.map((link, index) => (
-                                    <Link
-                                        key={index}
-                                        href={link.url}
-                                        className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
-                                    >
-                                        {link.label}
-                                    </Link>
-                                ))}
+                            <nav aria-label="Footer Navigation">
+                                <ul className="flex flex-col gap-2 list-none p-0 m-0">
+                                    {quickLinks.map((link, index) => (
+                                        <li key={index}>
+                                            <Link
+                                                href={asRoute(link.url)}
+                                                className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
+                                            >
+                                                {link.label}
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
                             </nav>
                         </div>
                     )}
@@ -621,10 +633,11 @@ function CustomFooter({
                                 return (
                                     <Link
                                         key={platform}
-                                        href={url}
+                                        href={asRoute(url)}
                                         className="opacity-80 hover:opacity-100 transition-opacity"
                                         target="_blank"
                                         rel="noopener noreferrer"
+                                        aria-label={`Follow us on ${platform}`}
                                     >
                                         <Icon className="w-5 h-5" />
                                     </Link>
@@ -641,6 +654,7 @@ function CustomFooter({
                                     type="email"
                                     placeholder="Your email"
                                     className="flex-1"
+                                    aria-label="Email address for newsletter"
                                 />
                                 <Button size="sm">Subscribe</Button>
                             </div>
@@ -655,6 +669,11 @@ function CustomFooter({
 // ==================== PUCK CONFIGURATION ====================
 
 export const builderConfig: Config<{
+    OgabasseyHeader: OgabasseyHeaderProps;
+    OgabasseyHero: OgabasseyHeroProps;
+    OgabasseyNav: OgabasseyNavProps;
+    OgabasseyCategories: OgabasseyCategoriesProps;
+    OgabasseyUtilities: OgabasseyUtilitiesProps;
     Header: HeaderProps;
     Hero: HeroProps;
     HeroCarousel: HeroCarouselProps;
@@ -847,6 +866,16 @@ export const builderConfig: Config<{
                         { label: 'Large', value: 'large' }
                     ]
                 },
+                // New SEO Field
+                headingLevel: {
+                    type: 'select',
+                    label: 'Heading Level (SEO)',
+                    options: [
+                        { label: 'H1 (Main Title)', value: 'h1' },
+                        { label: 'H2 (Section Title)', value: 'h2' },
+                        { label: 'Div (Decoration)', value: 'div' },
+                    ]
+                },
                 ...animationFields
             },
             defaultProps: {
@@ -857,17 +886,21 @@ export const builderConfig: Config<{
                 align: 'center',
                 padding: 'medium',
                 overlay: false,
+                headingLevel: 'h1',
                 animationType: 'fade-in',
                 animationDuration: 'normal',
                 animationDelay: 0,
                 animationTrigger: 'scroll',
             },
-            render: ({ title, subtitle, ctaText, ctaLink, align, padding, backgroundImage, overlay, animationType, animationDuration, animationDelay, animationTrigger }) => {
+            render: ({ title, subtitle, ctaText, ctaLink, align, padding, backgroundImage, overlay, headingLevel, animationType, animationDuration, animationDelay, animationTrigger }) => {
                 const paddingClass = {
                     small: 'py-12',
                     medium: 'py-24',
                     large: 'py-32'
                 }[padding];
+
+                // Dynamic Heading Tag
+                const HeadingTag = (headingLevel || 'h1') as 'h1' | 'h2' | 'div';
 
                 return (
                     <AnimatedWrapper
@@ -878,13 +911,17 @@ export const builderConfig: Config<{
                             trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
                         }}
                     >
-                        <section className={cn("relative", paddingClass)} style={backgroundImage ? {
-                            backgroundImage: `url(${backgroundImage})`,
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                        } : {}}>
+                        <section
+                            className={cn("relative", paddingClass)}
+                            style={backgroundImage ? {
+                                backgroundImage: `url(${backgroundImage})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                            } : {}}
+                            aria-label="Hero Banner"
+                        >
                             {overlay && backgroundImage && (
-                                <div className="absolute inset-0 bg-black/40" />
+                                <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
                             )}
                             <div className={cn("container px-4 md:px-6 flex flex-col gap-4 relative z-10", {
                                 'items-start text-left': align === 'left',
@@ -893,16 +930,170 @@ export const builderConfig: Config<{
                             }, {
                                 'text-white': backgroundImage && overlay
                             })}>
-                                <h1 className="text-4xl md:text-6xl font-bold tracking-tighter">{title}</h1>
+                                <HeadingTag className="text-4xl md:text-6xl font-bold tracking-tighter">
+                                    {title}
+                                </HeadingTag>
                                 <p className="text-xl max-w-[700px] opacity-90">{subtitle}</p>
                                 <ThemedButton colorRole="primary" size="lg" asChild>
-                                    <Link href={ctaLink}>{ctaText}</Link>
+                                    <Link href={asRoute(ctaLink)}>{ctaText}</Link>
                                 </ThemedButton>
                             </div>
                         </section>
                     </AnimatedWrapper>
                 );
             }
+        },
+        OgabasseyHeader: {
+            label: 'Ogabassey Header',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                logoText: { type: 'text', label: 'Logo Text' },
+                showSearch: { type: 'radio', label: 'Show Search', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                showCart: { type: 'radio', label: 'Show Cart', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                showUser: { type: 'radio', label: 'Show User', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                showBell: { type: 'radio', label: 'Show Bell', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+            },
+            defaultProps: {
+                logoText: 'ogabassey',
+                showSearch: true,
+                showCart: true,
+                showUser: true,
+                showBell: true,
+            },
+            render: (props) => <OgabasseyHeader {...props} />
+        },
+        OgabasseyHero: {
+            label: 'Ogabassey Hero',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                slides: {
+                    type: 'array',
+                    getItemSummary: (item) => item.title || 'Slide',
+                    arrayFields: {
+                        image: { type: 'text', label: 'Image URL' },
+                        title: { type: 'text', label: 'Title' },
+                        link: { type: 'text', label: 'Link URL' },
+                    }
+                },
+                staticBanner1: { type: 'text', label: 'Static Banner 1 URL' },
+                staticBanner2: { type: 'text', label: 'Static Banner 2 URL' },
+                autoplayDelay: { type: 'number', label: 'Autoplay Delay (ms)' },
+            },
+            defaultProps: {
+                slides: [
+                    {
+                        image: 'https://images.unsplash.com/photo-1696429175928-793a1cdef1d3?q=80&w=2070&auto=format&fit=crop',
+                        title: 'iPhone 15 Pro Max',
+                        link: '/category/phones',
+                    },
+                    {
+                        image: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=2072&auto=format&fit=crop',
+                        title: 'PlayStation 5',
+                        link: '/category/gaming',
+                    },
+                ],
+                staticBanner1: 'https://images.unsplash.com/photo-1616348436168-de43ad0db179?q=80&w=1981&auto=format&fit=crop',
+                staticBanner2: 'https://images.unsplash.com/photo-1593640408182-31c70c8268f5?q=80&w=2042&auto=format&fit=crop',
+                autoplayDelay: 5000,
+            },
+            render: (props) => <OgabasseyHero {...props} />
+        },
+        OgabasseyNav: {
+            label: 'Ogabassey Nav',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                links: {
+                    type: 'array',
+                    getItemSummary: (item) => item.label || 'Link',
+                    arrayFields: {
+                        label: { type: 'text', label: 'Label' },
+                        url: { type: 'text', label: 'URL' },
+                    }
+                },
+                activeColor: { type: 'text', label: 'Active Color (Hex)' },
+            },
+            defaultProps: {
+                links: [
+                    { label: 'Home', url: '/' },
+                    { label: 'Smart phones', url: '/category/smart-phones' },
+                    { label: 'Laptops', url: '/category/laptops' },
+                    { label: 'Accessories', url: '/category/accessories' },
+                    { label: 'Gaming', url: '/category/gaming' },
+                ],
+                activeColor: '#D62027',
+            },
+            render: (props) => <OgabasseyNav {...props} />
+        },
+        OgabasseyCategories: {
+            label: 'Ogabassey Categories',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                categories: {
+                    type: 'array',
+                    getItemSummary: (item) => item.label || 'Category',
+                    arrayFields: {
+                        label: { type: 'text', label: 'Label' },
+                        icon: {
+                            type: 'select',
+                            label: 'Icon',
+                            options: getIconOptions(),
+                        },
+                        link: { type: 'text', label: 'Link URL' },
+                    }
+                },
+                backgroundColor: { type: 'text', label: 'Background Color (Hex)' },
+                iconColor: { type: 'text', label: 'Icon Color (Hex)' },
+            },
+            defaultProps: {
+                categories: [
+                    { label: 'Phones', icon: 'smartphone', link: '/category/phones' },
+                    { label: 'Gaming', icon: 'gamepad', link: '/category/gaming' },
+                    { label: 'Accessories', icon: 'headphones', link: '/category/accessories' },
+                    { label: 'Printers', icon: 'printer', link: '/category/printers' },
+                    { label: 'Laptop', icon: 'laptop', link: '/category/laptops' },
+                ],
+                backgroundColor: '#FEF2F2',
+                iconColor: '#DC2626',
+            },
+            render: (props) => <OgabasseyCategories {...props} />
+        },
+        OgabasseyUtilities: {
+            label: 'Ogabassey Utilities',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                services: {
+                    type: 'array',
+                    getItemSummary: (item) => item.label || 'Service',
+                    arrayFields: {
+                        label: { type: 'text', label: 'Label' },
+                        icon: {
+                            type: 'select',
+                            label: 'Icon',
+                            options: getIconOptions(),
+                        },
+                    }
+                },
+                startText: { type: 'text', label: 'Start Text' },
+                highlightText: { type: 'text', label: 'Highlight Text' },
+                middleText: { type: 'text', label: 'Middle Text' },
+                endText: { type: 'text', label: 'End Text' },
+                endHighlightText: { type: 'text', label: 'End Highlight Text' },
+            },
+            defaultProps: {
+                services: [
+                    { label: 'Phones', icon: 'smartphone' },
+                    { label: 'Gaming', icon: 'gamepad' },
+                    { label: 'Accessories', icon: 'headphones' },
+                    { label: 'Printers', icon: 'printer' },
+                    { label: 'Laptop', icon: 'laptop' },
+                ],
+                startText: "We Pay",
+                highlightText: "YOU",
+                middleText: "When",
+                endText: "You Buy",
+                endHighlightText: "Airtime!",
+            },
+            render: (props) => <OgabasseyUtilities {...props} />
         },
         HeroCarousel: {
             label: 'Hero Carousel',
@@ -1055,7 +1246,7 @@ export const builderConfig: Config<{
                     >
                         <section className="py-8 container px-4 md:px-6">
                             {link ? (
-                                <Link href={link} className="block hover:opacity-90 transition-opacity">
+                                <Link href={asRoute(link)} className="block hover:opacity-90 transition-opacity">
                                     {imageElement}
                                 </Link>
                             ) : imageElement}
@@ -1113,7 +1304,7 @@ export const builderConfig: Config<{
                     })}
                 >
                     <ThemedButton colorRole={variant} size={size} asChild>
-                        <Link href={link}>{text}</Link>
+                        <Link href={asRoute(link)}>{text}</Link>
                     </ThemedButton>
                 </div>
             )
@@ -1236,13 +1427,14 @@ export const builderConfig: Config<{
                                 <div className="font-semibold">{author}</div>
                                 <div className="text-sm text-muted-foreground">{role}</div>
                             </div>
-                            <div className="flex gap-1 text-yellow-400">
+                            <div className="flex gap-1 text-yellow-400" aria-label={`Rating: ${rating} out of 5 stars`}>
                                 {[...Array(5)].map((_, i) => (
                                     <Star
                                         key={i}
                                         className={cn("w-4 h-4", {
                                             "fill-current": i < rating
                                         })}
+                                        aria-hidden="true"
                                     />
                                 ))}
                             </div>
@@ -1311,7 +1503,7 @@ export const builderConfig: Config<{
                             <div className={`grid grid-cols-1 md:grid-cols-${columns} gap-8`}>
                                 {features.map((feature, i) => (
                                     <div key={i} className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm">
-                                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary">
+                                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary" aria-hidden="true">
                                             {renderIcon(feature.icon as string || 'check', { className: 'w-6 h-6' })}
                                         </div>
                                         <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
@@ -1342,7 +1534,7 @@ export const builderConfig: Config<{
             render: ({ title, description, buttonText, placeholder }) => (
                 <section className="py-16 container px-4 md:px-6">
                     <div className="bg-primary text-primary-foreground rounded-2xl p-8 md:p-12 text-center max-w-4xl mx-auto">
-                        <Mail className="w-12 h-12 mx-auto mb-6 opacity-80" />
+                        <Mail className="w-12 h-12 mx-auto mb-6 opacity-80" aria-hidden="true" />
                         <h2 className="text-3xl font-bold mb-4">{title}</h2>
                         <p className="text-lg opacity-90 mb-8 max-w-2xl mx-auto">{description}</p>
                         <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
@@ -1350,6 +1542,7 @@ export const builderConfig: Config<{
                                 type="email"
                                 placeholder={placeholder}
                                 className="bg-background text-foreground border-0"
+                                aria-label="Email address for newsletter"
                             />
                             <Button variant="secondary" size="lg">
                                 {buttonText}
@@ -1383,7 +1576,7 @@ export const builderConfig: Config<{
                     large: 'h-32',
                     xlarge: 'h-48'
                 }[height] || 'h-16';
-                return <div className={heightClass} />;
+                return <div className={heightClass} aria-hidden="true" />;
             }
         },
         Video: {
@@ -1422,7 +1615,7 @@ export const builderConfig: Config<{
                     try {
                         const match = inputUrl.match(pattern);
                         // Validate video ID contains only safe characters (alphanumeric, dash, underscore)
-                        if (match && match[1] && /^[\w-]+$/.test(match[1])) {
+                        if (match && match[1] && /^[\\w-]+$/.test(match[1])) {
                             return match[1];
                         }
                         return null;
@@ -1530,7 +1723,7 @@ export const builderConfig: Config<{
             render: ({ username, postsCount }) => (
                 <section className="py-8 container px-4 md:px-6">
                     <div className="p-8 bg-muted text-center rounded-lg border">
-                        <Instagram className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                        <Instagram className="w-12 h-12 mx-auto mb-4 text-muted-foreground" aria-hidden="true" />
                         <h3 className="text-lg font-semibold mb-2">Instagram Feed</h3>
                         <p className="text-muted-foreground mb-4">@{username} - {postsCount} recent posts</p>
                         <p className="text-sm text-muted-foreground">
@@ -1627,7 +1820,7 @@ export const builderConfig: Config<{
                                     fields={formFields}
                                     submitButtonText={submitButtonText}
                                     successMessage={successMessage}
-                                    merchantId={''} // Placeholder as we can't access puck context here easily
+                                    merchantId={''} // Placeholder as we can\'t access puck context here easily
                                 />
                             </div>
                         </section>
@@ -1674,11 +1867,11 @@ export const builderConfig: Config<{
                 };
 
                 const socialIcons = [
-                    { Icon: Facebook, url: facebook },
-                    { Icon: Instagram, url: instagram },
-                    { Icon: Twitter, url: twitter },
-                    { Icon: Linkedin, url: linkedin },
-                    { Icon: Youtube, url: youtube },
+                    { Icon: Facebook, url: facebook, name: 'Facebook' },
+                    { Icon: Instagram, url: instagram, name: 'Instagram' },
+                    { Icon: Twitter, url: twitter, name: 'Twitter' },
+                    { Icon: Linkedin, url: linkedin, name: 'LinkedIn' },
+                    { Icon: Youtube, url: youtube, name: 'YouTube' },
                 ].filter(({ url }) => url);
 
                 return (
@@ -1690,13 +1883,14 @@ export const builderConfig: Config<{
                             'justify-end': alignment === 'right',
                         })}
                     >
-                        {socialIcons.map(({ Icon, url }, index) => (
+                        {socialIcons.map(({ Icon, url, name }, index) => (
                             <Link
                                 key={index}
-                                href={url!}
+                                href={asRoute(url!)}
                                 className="text-muted-foreground hover:text-primary transition-colors"
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                aria-label={`Follow us on ${name}`}
                             >
                                 <Icon className={sizeMap[size ?? 'md']} />
                             </Link>
@@ -2064,7 +2258,7 @@ export const builderConfig: Config<{
                                             <div>
                                                 <p className="font-medium">{info.label}</p>
                                                 {info.link ? (
-                                                    <Link href={info.link} className="text-muted-foreground hover:text-[var(--store-primary)] transition-colors">
+                                                    <Link href={asRoute(info.link)} className="text-muted-foreground hover:text-[var(--store-primary)] transition-colors">
                                                         {info.value}
                                                     </Link>
                                                 ) : (
@@ -2481,7 +2675,7 @@ export const builderConfig: Config<{
                                 <span>{message}</span>
                                 {linkText && linkUrl && (
                                     <Link
-                                        href={linkUrl}
+                                        href={asRoute(linkUrl)}
                                         className="font-semibold underline underline-offset-2 hover:no-underline"
                                     >
                                         {linkText}

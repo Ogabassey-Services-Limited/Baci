@@ -89,7 +89,7 @@ AI features are orchestrated using Google Genkit. All flows are defined in `/src
     *   **File:** `guide-business-onboarding.ts`
     *   **Purpose:** Generates a logo and/or extracts a 5-color brand palette from an uploaded logo.
     *   **Input:** `businessName`, `businessType`, `brandPreferences`, optional `logoDataUri`.
-    *   **Output:** `logoDataUri` (if generated), `brandColors` (array of 5 hex codes).
+- **Output:** `logoDataUri` (if generated), `brandColors` (array of 3 hex codes).
 
 2.  **`generateProductDescription`**
     *   **File:** `generate-product-descriptions.ts`
@@ -124,7 +124,7 @@ The storefront's look and feel is determined by a combination of the merchant's 
 *   **Theming Guide:** `/docs/THEMING_ARCHITECTURE.md`
 *   **Template Creation Guide:** `/docs/CREATE_TEMPLATE_GUIDE.md`
 
-1.  **Color Extraction:** A web worker extracts 5 key colors from the merchant's logo.
+1.  **Color Extraction:** A web worker extracts 3 key colors from the merchant's logo.
 2.  **CSS Variables:** These colors are injected as CSS variables (e.g., `--store-primary`).
 3.  **Themed Components:** Components in `/src/components/themed/` use these variables.
 4.  **Templates:** Components in `/src/templates/` provide the overall page structure and layout, using the themed components.

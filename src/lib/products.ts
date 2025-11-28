@@ -116,6 +116,12 @@ export interface Product {
     condition?: 'new' | 'used';
     condition_detail?: string; // "Brand New", "Premium Used", etc.
 
+    // Additional attributes
+    material?: string;
+    size_attribute?: string;
+    specs?: string;
+    warranty?: string;
+
     // SEO
     meta_title?: string;
     meta_description?: string;

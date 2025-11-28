@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createStaticClient } from '@supabase/supabase-js';
+import { getSupabaseUrl, getSupabaseAnonKey } from '@/env';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
@@ -31,8 +33,7 @@ function mapProduct(p: Record<string, unknown>) {
 function createCachedProductsFetcher(merchantId: string) {
     return unstable_cache(
         async () => {
-            const cookieStore = await cookies();
-            const supabase = createClient(cookieStore);
+            const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
 
             const { data: products, error } = await supabase
                 .from('products')
