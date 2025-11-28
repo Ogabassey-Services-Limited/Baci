@@ -6,6 +6,7 @@ import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { updateConsentMode } from '@/lib/consent-mode';
 
 const COOKIE_CONSENT_KEY = 'baci-cookie-consent';
 
@@ -45,6 +46,13 @@ export function CookieConsent() {
     }));
     setIsVisible(false);
 
+    // Update Google Consent Mode v2
+    updateConsentMode({
+      analytics: prefs.analytics,
+      marketing: prefs.marketing,
+      functional: prefs.functional,
+    });
+
     // Dispatch event for analytics to pick up
     window.dispatchEvent(new CustomEvent('cookie-consent-updated', {
       detail: prefs,
@@ -76,8 +84,12 @@ export function CookieConsent() {
     <div
       className={cn(
         'fixed bottom-4 left-4 right-4 z-50 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-5xl w-full',
-        'animate-in slide-in-from-bottom-4 duration-500'
+        'animate-in slide-in-from-bottom-4 duration-500',
+        'will-change-transform'
       )}
+      style={{
+        contain: 'layout style paint',
+      }}
       role="dialog"
       aria-label="Cookie consent"
     >

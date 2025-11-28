@@ -4,15 +4,16 @@ import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchant } from '@/hooks/use-merchant';
-import { ShoppingBag } from 'lucide-react';
 import { useCart } from '@/hooks/use-cart';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
 import { Button } from '@/components/ui/button';
-import { ThemedButton, ThemedBadge } from '@/components/themed';
+import { ThemedButton } from '@/components/themed';
 import { useStorefront } from '@/contexts/storefront-context';
 import { SearchAutocomplete } from './search-autocomplete';
 import { useRouter } from 'next/navigation';
+import { CartIcon } from '@/components/ui/animated-icons';
+import { routes, asRoute } from '@/lib/routes';
 
 /**
  * StorefrontHeader - Now fully themeable via CSS variables
@@ -37,7 +38,7 @@ export function StorefrontHeader() {
     if (!merchant) return null;
 
     const handleProductSelect = (url: string) => {
-        router.push(url);
+        router.push(asRoute(url));
     };
 
     return (
@@ -46,13 +47,15 @@ export function StorefrontHeader() {
                 className="px-4 lg:px-6 flex items-center gap-4 shadow-sm sticky top-0 z-50 transition-colors"
                 style={{
                     backgroundColor: 'var(--theme-header-bg, #FFFFFF)',
-                    height: 'var(--theme-header-height, 4rem)',
+                    height: '4rem',
+                    minHeight: '4rem',
+                    maxHeight: '4rem',
                     paddingLeft: 'var(--theme-header-px, 1rem)',
                     paddingRight: 'var(--theme-header-px, 1rem)',
                     color: 'var(--theme-header-text, #000000)',
                 }}
             >
-                <Link href={`/${merchant.slug}`} className="flex items-center gap-3 font-semibold shrink-0">
+                <Link href={routes.storefront(merchant.slug || '')} className="flex items-center gap-3 font-semibold shrink-0">
                     {merchant.logo_url ? (
                         <Image
                             src={merchant.logo_url}
@@ -82,18 +85,19 @@ export function StorefrontHeader() {
                 </div>
 
                 <nav className="flex items-center gap-2 sm:gap-4">
-                    <Link href="/dashboard/orders">
+                    <Link href={routes.dashboardOrders}>
                         <ThemedButton colorRole="primary">My Dashboard</ThemedButton>
                     </Link>
                     <SheetTrigger asChild>
                         {/* Touch target meets WCAG 2.5.5 minimum (44px) */}
-                        <Button variant="outline" size="icon" className="relative touch-manipulation">
-                            <ShoppingBag
-                                className="w-5 h-5"
-                                style={{ color: 'var(--theme-header-cart-icon, #000000)' }}
-                            />
-                            {cartCount > 0 && <ThemedBadge colorRole="accent" variant="default" className="absolute -top-1 -right-1 h-5 w-5 text-xs justify-center rounded-full p-0">{cartCount}</ThemedBadge>}
-                            <span className="sr-only">Cart</span>
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            className="relative touch-manipulation h-11 w-11 min-w-[44px] min-h-[44px]"
+                            style={{ color: 'var(--theme-header-cart-icon, #000000)' }}
+                        >
+                            <CartIcon count={cartCount} size={20} />
+                            <span className="sr-only">Cart ({cartCount} items)</span>
                         </Button>
                     </SheetTrigger>
                 </nav>

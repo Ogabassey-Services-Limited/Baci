@@ -2,10 +2,12 @@ import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
+import { Suspense } from 'react';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema, generateSlug, getProductUrl } from '@/lib/seo-utils';
 import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize';
+import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 
 // Enable ISR with 5 minute revalidation
 export const revalidate = 300;
@@ -204,7 +206,9 @@ export default async function CategoryProductPage({ params }: PageProps) {
                 // nosemgrep: react-dangerouslysetinnerhtml
                 dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }}
             />
-            <ProductDetailClient product={product} />
+            <Suspense fallback={<ProductDetailSkeleton />}>
+                <ProductDetailClient product={product} />
+            </Suspense>
         </>
     );
 }

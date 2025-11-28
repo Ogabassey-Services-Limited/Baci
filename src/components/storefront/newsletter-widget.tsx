@@ -134,8 +134,8 @@ export function NewsletterWidget({
   if (!isVisible || isSubscribed) return null;
 
   const positionClasses = {
-    'bottom-left': 'left-4 bottom-20',
-    'bottom-right': 'right-4 bottom-20',
+    'bottom-left': 'left-4 bottom-32',
+    'bottom-right': 'right-4 bottom-32',
   };
 
   // Minimized state - small floating button
@@ -149,11 +149,13 @@ export function NewsletterWidget({
           'flex items-center justify-center',
           'animate-in fade-in slide-in-from-bottom-4 duration-300',
           'hover:scale-110 transition-transform',
+          'will-change-transform',
           positionClasses[position]
         )}
         style={{
           backgroundColor: 'var(--store-primary, hsl(var(--primary)))',
           color: 'var(--store-primary-text, hsl(var(--primary-foreground)))',
+          contain: 'layout style paint',
         }}
         aria-label="Open newsletter signup"
       >
@@ -169,8 +171,12 @@ export function NewsletterWidget({
         'fixed z-40 w-80 max-w-[calc(100vw-2rem)]',
         'bg-background border border-border rounded-xl shadow-xl',
         'animate-in fade-in slide-in-from-bottom-4 duration-300',
+        'will-change-transform',
         positionClasses[position]
       )}
+      style={{
+        contain: 'layout style paint',
+      }}
       role="complementary"
       aria-label="Newsletter signup"
     >

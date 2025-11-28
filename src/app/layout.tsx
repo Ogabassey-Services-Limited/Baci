@@ -1,10 +1,12 @@
 
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
 import { Providers } from '@/contexts/providers';
+import { CsrfInitializer } from '@/components/csrf-initializer';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -83,8 +85,8 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-import { CsrfInitializer } from '@/components/csrf-initializer';
-import { headers } from 'next/headers';
+import { generateSoftwareApplicationSchema } from '@/lib/seo-utils';
+import { PLATFORM_PRICING } from '@/config/platform';
 
 export default async function RootLayout({
   children,
@@ -138,31 +140,7 @@ export default async function RootLayout({
     },
   };
 
-  const softwareApplicationSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    name: VENDOR_NAME,
-    applicationCategory: 'BusinessApplication',
-    operatingSystem: 'Web',
-    offers: {
-      '@type': 'Offer',
-      price: '0',
-      priceCurrency: 'USD',
-    },
-    description: 'AI-powered e-commerce platform for building online stores.',
-    // Advanced fields for SGE and Rich Results
-    softwareVersion: '2.0.0',
-    screenshot: `${VENDOR_URL}/og-image.png`, // AI uses this to visualize the app
-    featureList: [
-      'AI Store Builder',
-      'Inventory Management',
-      'Payment Processing',
-      'SEO Optimization',
-      'Analytics Dashboard'
-    ],
-    isAccessibleForFree: true,
-    applicationSubCategory: 'E-commerce Platform'
-  };
+  const softwareApplicationSchema = generateSoftwareApplicationSchema(PLATFORM_PRICING);
 
 
   return (
@@ -172,6 +150,16 @@ export default async function RootLayout({
           Font loading is handled automatically by next/font/google (Inter).
           No manual preconnect/preload needed - Next.js optimizes this.
         */}
+
+        {/* Preconnect hints for critical third-party origins */}
+        {/* Supabase - database and auth */}
+        <link rel="preconnect" href="https://dtbqucrqfbycfpmfwtie.supabase.co" />
+        <link rel="dns-prefetch" href="https://dtbqucrqfbycfpmfwtie.supabase.co" />
+        {/* Vercel Analytics */}
+        <link rel="preconnect" href="https://vitals.vercel-insights.com" />
+        {/* Common image CDNs */}
+        <link rel="dns-prefetch" href="https://images.unsplash.com" />
+        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
 
         <script
           type="application/ld+json"
