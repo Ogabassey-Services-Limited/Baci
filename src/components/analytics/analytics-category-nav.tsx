@@ -3,9 +3,9 @@
 
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
-import { DollarSign, Package, Users, Megaphone, LayoutGrid } from 'lucide-react';
+import { DollarSign, Package, Users, Megaphone, LayoutGrid, TrendingUp, Target } from 'lucide-react';
 
-export type AnalyticsCategory = 'overview' | 'finance' | 'products' | 'customers' | 'marketing';
+export type AnalyticsCategory = 'overview' | 'finance' | 'products' | 'customers' | 'marketing' | 'inventory' | 'segments';
 
 interface AnalyticsCategoryNavProps {
     activeCategory: AnalyticsCategory;
@@ -22,7 +22,9 @@ export function AnalyticsCategoryNav({
         { id: 'overview', label: 'Overview 📊', icon: LayoutGrid },
         { id: 'finance', label: 'Finance 💰', icon: DollarSign },
         { id: 'products', label: 'Products 📦', icon: Package },
+        { id: 'inventory', label: 'Inventory 📈', icon: TrendingUp },
         { id: 'customers', label: 'Customers 👥', icon: Users },
+        { id: 'segments', label: 'Segments 🎯', icon: Target },
         { id: 'marketing', label: 'Marketing 📣', icon: Megaphone },
     ];
 

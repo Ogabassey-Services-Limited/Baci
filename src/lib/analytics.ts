@@ -34,14 +34,7 @@ interface PurchaseParams {
     items: EcommerceItem[];
 }
 
-// Extend window for gtag and fbq
-declare global {
-    interface Window {
-        gtag?: (...args: unknown[]) => void;
-        fbq?: (...args: unknown[]) => void;
-        dataLayer?: unknown[];
-    }
-}
+// Window type extension for gtag and fbq is in consent-mode.ts
 
 // Check if analytics cookies are allowed
 export function isAnalyticsAllowed(): boolean {

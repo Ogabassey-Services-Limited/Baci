@@ -97,8 +97,8 @@ Be specific and constructive.
         });
     });
 
-    // Cache the insights for 1 hour (3600 seconds)
-    cache.set(cacheKey, object, 3600);
+    // Cache the insights for 24 hours (86400 seconds)
+    cache.set(cacheKey, object, 86400);
 
     return { data: object };
 }

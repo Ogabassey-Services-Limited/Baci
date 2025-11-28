@@ -60,18 +60,20 @@ export async function GET(request: Request) {
       return NextResponse.json(cachedData);
     }
 
-    // Parallelize all independent queries
+    // Parallelize all independent queries for maximum performance
     const [
       { data: currentOrders },
       { data: previousOrders },
       { count: totalCustomers },
       { count: previousCustomers },
-      { count: recentActivity }
+      { count: recentActivity },
+      { data: topProducts },
+      { data: salesByChannel }
     ] = await Promise.all([
       // 1. Current Orders (Expanded for multiple uses)
       supabase
         .from('orders')
-        .select('total, created_at, payment_status, id, customer_name, customer_email')
+        .select('total, created_at, payment_status, id, customer_name, customer_email, source')
         .eq('merchant_id', merchant.id)
         .gte('created_at', currentPeriodStart.toISOString())
         .lte('created_at', currentPeriodEnd.toISOString())
@@ -99,12 +101,28 @@ export async function GET(request: Request) {
         .lt('created_at', previousPeriodEnd.toISOString()),
 
       // 5. Recent Activity (Active Now)
-      // Keep this separate as it's always "last hour" regardless of selected date range
       supabase
         .from('orders')
         .select('*', { count: 'exact', head: true })
         .eq('merchant_id', merchant.id)
         .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()),
+
+      // 6. Top Products (by revenue in period)
+      supabase
+        .from('order_items')
+        .select('product_id, product_name, quantity, unit_price, orders!inner(merchant_id, created_at)')
+        .eq('orders.merchant_id', merchant.id)
+        .gte('orders.created_at', currentPeriodStart.toISOString())
+        .lte('orders.created_at', currentPeriodEnd.toISOString())
+        .limit(100),
+
+      // 7. Sales by Channel (aggregate from orders)
+      supabase
+        .from('orders')
+        .select('source, total')
+        .eq('merchant_id', merchant.id)
+        .gte('created_at', currentPeriodStart.toISOString())
+        .lte('created_at', currentPeriodEnd.toISOString()),
     ]);
 
     // Calculate metrics
@@ -196,6 +214,29 @@ export async function GET(request: Request) {
     const previousRefundRate = 2.5;
     const refundRateChange = refundRate - previousRefundRate;
 
+    // Aggregate top products by revenue
+    const productRevenue = new Map<string, { name: string; revenue: number; units: number }>();
+    topProducts?.forEach((item) => {
+      const existing = productRevenue.get(item.product_id) || { name: item.product_name, revenue: 0, units: 0 };
+      existing.revenue += (item.quantity || 1) * (item.unit_price || 0);
+      existing.units += item.quantity || 1;
+      productRevenue.set(item.product_id, existing);
+    });
+    const topProductsAggregated = Array.from(productRevenue.entries())
+      .map(([id, data]) => ({ id, name: data.name, revenue: data.revenue, units: data.units }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10);
+
+    // Aggregate sales by channel
+    const channelRevenue = new Map<string, number>();
+    salesByChannel?.forEach((order) => {
+      const channel = order.source || 'Direct';
+      channelRevenue.set(channel, (channelRevenue.get(channel) || 0) + (order.total || 0));
+    });
+    const salesByChannelAggregated = Array.from(channelRevenue.entries())
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+
     const responseData = {
       summary: {
         revenue: { value: currentRevenue, change: revenueChange },
@@ -209,8 +250,8 @@ export async function GET(request: Request) {
       },
       chartData,
       recentSales,
-      topProducts: [],
-      salesByChannel: [],
+      topProducts: topProductsAggregated,
+      salesByChannel: salesByChannelAggregated,
     };
 
     // Cache the response for 5 minutes (300 seconds)
