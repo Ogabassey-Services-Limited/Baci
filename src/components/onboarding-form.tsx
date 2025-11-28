@@ -135,13 +135,6 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
 }
 
 
-// Default brand colors for initial preview
-const DEFAULT_BRAND_COLORS: BrandColors = {
-  primary: '#3B82F6',
-  background: '#FFFFFF',
-  accent: '#F59E0B',
-};
-
 function Step2_Branding() {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
@@ -151,7 +144,7 @@ function Step2_Branding() {
   const businessType = watch('businessType');
   const logoUrl = watch('logoUrl'); // Now watching for the uploaded URL
   const brandColorsString = watch('brandColors');
-  const brandColors: BrandColors = brandColorsString ? JSON.parse(brandColorsString) : DEFAULT_BRAND_COLORS;
+  const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
 
   const [isGenerating] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
@@ -159,13 +152,6 @@ function Step2_Branding() {
   const [currentLogoDataUri, setCurrentLogoDataUri] = useState<string | null>(null); // To store data URI for client-side ops
 
   const isLoading = isGenerating || isExtracting || isUploading;
-
-  // Set default brand colors on mount if not already set
-  useEffect(() => {
-    if (!brandColorsString) {
-      setValue('brandColors', JSON.stringify(DEFAULT_BRAND_COLORS), { shouldValidate: true });
-    }
-  }, [brandColorsString, setValue]);
 
   // Effect to keep currentLogoDataUri updated for client-side operations
   useEffect(() => {
