@@ -197,7 +197,9 @@ export default function DomainsPage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Domains</h1>
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+            Domains 🌐
+          </h1>
           <p className="text-muted-foreground">Manage your store domains and custom URLs</p>
         </div>
         <Button onClick={() => setActiveTab('search')}>

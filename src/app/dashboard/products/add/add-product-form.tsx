@@ -92,6 +92,11 @@ const addProductSchema = z.object({
     value: z.string()
   })).optional(),
   color: z.string().optional(),
+  // Dynamic fields based on business type
+  material: z.string().optional(),
+  size_attribute: z.string().optional(), // Using size_attribute to avoid conflict with `size` prop in shadcn/ui
+  specs: z.string().optional(),
+  warranty: z.string().optional(),
 });
 
 // Zod 4 types for react-hook-form compatibility
@@ -153,6 +158,10 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       status: (initialData?.status as "draft" | "active" | "archived") || 'active',
       fulfillment_details: initialData?.fulfillment_details || [],
       color: initialData?.color || '',
+      material: initialData?.material || '',
+      size_attribute: initialData?.size_attribute || '',
+      specs: initialData?.specs || '',
+      warranty: initialData?.warranty || '',
     },
   });
 
@@ -210,7 +219,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
   const categoryConfig = useMemo(() => {
     if (!merchant?.business_type) return getCategoryConfigFromBusinessType('general');
     return getCategoryConfigFromBusinessType(merchant.business_type);
-  }, [merchant?.business_type]);
+  }, [merchant?.business_type, merchant]);
 
   const handleColorImageUpload = (color: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -495,6 +504,10 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       has_variants: hasVariants,
       variants: hasVariants ? variants : [],
       color: data.color,
+      material: data.material,
+      size_attribute: data.size_attribute,
+      specs: data.specs,
+      warranty: data.warranty,
     };
 
     onProductAdded(productData);
@@ -584,6 +597,39 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                   </FormItem>
                 )} />
               </div>
+
+              {categoryConfig.journey?.productCreation?.requiredFields?.map((fieldKey) => {
+                // 'color' is already handled explicitly further down in the form
+                if (fieldKey === 'color') return null;
+
+                // Map 'size' to 'size_attribute' to match the schema
+                const formFieldName = fieldKey === 'size' ? 'size_attribute' : fieldKey;
+                // Format label for display
+                const label = fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1).replace(/[-_]/g, ' ');
+
+                // Check if the field exists in the form's schema to avoid errors
+                // Zod 4: Use Object.keys on the shape to get field names
+                const schemaKeys = Object.keys(addProductSchema.shape);
+                if (!schemaKeys.includes(formFieldName)) {
+                  console.warn(`Dynamic field "${fieldKey}" for business type "${merchant?.business_type || 'general'}" is not defined in addProductSchema. Skipping rendering.`);
+                  return null;
+                }
+
+                return (
+                  <FormField
+                    key={fieldKey}
+                    control={form.control}
+                    name={formFieldName as any} // Cast as any due to dynamic field names
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{label}</FormLabel>
+                        <FormControl><Input {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                );
+              })}
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="condition" render={({ field }) => (

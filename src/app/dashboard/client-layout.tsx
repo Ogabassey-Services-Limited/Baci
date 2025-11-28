@@ -2,7 +2,9 @@
 'use client';
 
 import Link from 'next/link';
+import type { Route } from 'next';
 import { Suspense, useEffect, useState } from 'react';
+import { asRoute } from '@/lib/routes';
 
 import {
   User,
@@ -21,18 +23,13 @@ import {
   ChevronDown,
   Paintbrush,
   BarChart3,
-  Plug
+  Plug,
+  Gift,
+  Search,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +49,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useToast } from '@/hooks/use-toast';
 import { NotificationCenter } from '@/components/notifications/notification-center';
 import { NotificationBanner } from '@/components/notifications/notification-banner';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 // The original layout is now a client component to prevent hydration errors.
 
@@ -93,7 +91,7 @@ const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }:
 
   return (
     <Link
-      href={storeUrl}
+      href={asRoute(storeUrl)}
       className={cn(baseClassName, 'transition-all hover:text-primary')}
     >
       {isCollapsed && !isMobile ? (
@@ -175,51 +173,60 @@ export default function DashboardClientLayout({
     router.push('/login');
   };
 
-  const navItems = [
+  const navItems: { href: Route; icon: typeof LayoutDashboard; label: string; badge?: number }[] = [
     {
-      href: '/dashboard',
+      href: '/dashboard' as Route,
       icon: LayoutDashboard,
       label: 'Dashboard',
     },
     {
-      href: '/dashboard/analytics',
+      href: '/dashboard/analytics' as Route,
       icon: BarChart3,
       label: 'Analytics',
     },
     {
-      href: '/dashboard/orders',
+      href: '/dashboard/orders' as Route,
       icon: ShoppingCart,
       label: 'Orders',
       badge: 6,
     },
     {
-      href: '/dashboard/products',
+      href: '/dashboard/products' as Route,
       icon: Package,
       label: 'Products',
     },
-
     {
-      href: '/dashboard/customers',
+      href: '/dashboard/customers' as Route,
       icon: Users,
       label: 'Customers',
     },
     {
-      href: '/dashboard/pages',
+      href: '/dashboard/loyalty' as Route,
+      icon: Gift,
+      label: 'Loyalty',
+    },
+    {
+      href: '/dashboard/seo' as Route,
+      icon: Search,
+      label: 'SEO',
+    },
+    {
+      href: '/dashboard/pages' as Route,
       icon: FileText,
       label: 'Pages',
     },
     {
       icon: Paintbrush,
       label: 'Customize Website',
-      href: '/builder',
+      href: '/builder' as Route,
     },
     {
-      href: '/dashboard/integrations',
+      href: '/dashboard/integrations' as Route,
       icon: Plug,
       label: 'Integrations',
     },
     {
-      href: '/dashboard/settings',
+      href: '/dashboard/settings' as Route,
       icon: Settings,
       label: 'Settings',
     },
@@ -253,213 +260,225 @@ export default function DashboardClientLayout({
         Skip to main content
       </a>
       <div
-        className={cn("grid min-h-screen w-full transition-all", isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]")}
+        className={cn("grid min-h-screen w-full transition-all", isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[260px_1fr]")}
         style={{
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)',
         }}
       >
-      <div className="hidden border-r bg-card md:block">
-        <div className="flex h-full max-h-screen flex-col">
-          <div className={cn("flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6", isCollapsed && "justify-center")}>
-            <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-              {isCollapsed ? <Logo /> : <Logo />}
-              {!isCollapsed && <span className="sr-only">Baci</span>}
-            </Link>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <TooltipProvider>
-              <nav className="grid items-start px-2 text-sm font-medium lg:px-4" aria-label="Main navigation">
-                {navItems.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      aria-current={isActive ? 'page' : undefined}
-                      className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                        { 'bg-muted text-primary': isActive },
-                        isCollapsed && 'justify-center'
-                      )}
-                    >
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-3">
-                            <item.icon className="h-4 w-4" aria-hidden="true" />
-                            {!isCollapsed && <span>{item.label}</span>}
-                          </div>
-                        </TooltipTrigger>
-                        {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-                      </Tooltip>
+        {/* Sidebar - Glassmorphic & Floating */}
+        <div className="hidden md:block relative z-20">
+          <div className={cn(
+            "fixed top-4 bottom-4 left-4 rounded-3xl border border-white/20 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl transition-all duration-300 flex flex-col overflow-hidden",
+            isCollapsed ? "w-[80px]" : "w-[260px]"
+          )}>
+            {/* Sidebar Header */}
+            <div className={cn("flex h-20 items-center px-6", isCollapsed && "justify-center px-2")}>
+              <Link href="/dashboard" className="flex items-center gap-2 font-semibold transition-transform hover:scale-105">
+                <Logo />
+                {!isCollapsed && <span className="sr-only">Baci</span>}
+              </Link>
+            </div>
 
-                      {!isCollapsed && item.badge && (
-                        <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </Link>
-                  );
-                })}
-                <StoreLink isMobile={false} isCollapsed={isCollapsed} merchantLoading={merchantLoading} storeUrl={storeUrl} />
-              </nav>
-            </TooltipProvider>
-          </div>
-          <div className="mt-auto p-4">
-            {!isCollapsed && (
-              <Card className="border-primary/20">
-                <CardHeader className="p-2 pt-0 md:p-4">
-                  <CardTitle>Upgrade to Pro</CardTitle>
-                  <CardDescription>
-                    Unlock all features and get unlimited access to our support
-                    team.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="p-2 pt-0 md:p-4 md:pt-0">
-                  <Button size="sm" className="w-full">
+            {/* Navigation */}
+            <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
+              <TooltipProvider>
+                <nav className="grid gap-2 text-sm font-medium" aria-label="Main navigation">
+                  {navItems.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        aria-current={isActive ? 'page' : undefined}
+                        className={cn(
+                          'flex items-center gap-3 rounded-full px-4 py-3 transition-all duration-200 group relative overflow-hidden',
+                          isActive
+                            ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25'
+                            : 'text-muted-foreground hover:bg-white/50 dark:hover:bg-white/10 hover:text-foreground',
+                          isCollapsed && 'justify-center px-2'
+                        )}
+                      >
+                        {/* Hover Glow Effect */}
+                        {!isActive && <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />}
+
+                        <item.icon className={cn("h-5 w-5 shrink-0 transition-transform group-hover:scale-110", isActive && "animate-pulse-subtle")} aria-hidden="true" />
+
+                        {!isCollapsed && (
+                          <span className="truncate">{item.label}</span>
+                        )}
+
+                        {!isCollapsed && item.badge && (
+                          <Badge className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent text-accent-foreground px-1.5 text-[10px]">
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </Link>
+                    );
+                  })}
+                  <div className="my-4 h-[1px] bg-gradient-to-r from-transparent via-border to-transparent" />
+                  <StoreLink isMobile={false} isCollapsed={isCollapsed} merchantLoading={merchantLoading} storeUrl={storeUrl} />
+                </nav>
+              </TooltipProvider>
+            </div>
+
+            {/* Sidebar Footer (Upgrade Card) */}
+            <div className="p-4 mt-auto">
+              {!isCollapsed && (
+                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-lg">
+                  <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+                  <h4 className="font-semibold relative z-10">Upgrade to Pro</h4>
+                  <p className="text-xs text-primary-foreground/80 mt-1 mb-3 relative z-10">Unlock AI superpowers & unlimited support.</p>
+                  <Button size="sm" variant="secondary" className="w-full shadow-sm relative z-10 text-primary font-semibold">
                     Upgrade
                   </Button>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-      </div>
-      <div className="flex flex-col relative">
-        <Button
-          variant="default"
-          size="icon"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className={cn(
-            "fixed top-1/2 -translate-y-1/2 z-20 hidden md:flex rounded-full",
-            isCollapsed ? "left-[68px]" : "left-[208px] lg:left-[268px]",
-            "bg-blue-600 hover:bg-blue-700 text-white transition-all"
-          )}
-        >
-          {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-          <span className="sr-only">{isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
-        </Button>
-        <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6 sticky top-0 z-10">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0 md:hidden"
-              >
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle navigation menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col">
-              <nav className="grid gap-2 text-lg font-medium" aria-label="Mobile navigation">
-                <Link
-                  href="/dashboard"
-                  className="flex items-center gap-2 text-lg font-semibold mb-4"
+        {/* Main Content Area */}
+        <div className="flex flex-col relative min-h-screen">
+          {/* Collapse Button - Floating */}
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className={cn(
+              "fixed top-8 z-30 hidden md:flex rounded-full shadow-lg border border-white/20 bg-white/80 backdrop-blur-md transition-all duration-300 hover:scale-110",
+              isCollapsed ? "left-[70px]" : "left-[250px]"
+            )}
+          >
+            {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            <span className="sr-only">{isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
+          </Button>
+
+          {/* Mobile Header */}
+          <header className="flex h-16 items-center gap-4 border-b bg-white/50 dark:bg-black/50 backdrop-blur-md px-4 md:hidden sticky top-0 z-20">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0 md:hidden"
                 >
-                  <Logo />
-                </Link>
-                {navItems.map((item) => {
-                  const isActive = pathname === item.href;
-                  return (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      aria-current={isActive ? 'page' : undefined}
-                      className={cn(
-                        'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground',
-                        { 'bg-muted text-foreground': isActive }
-                      )}
-                    >
-                      <item.icon className="h-5 w-5" aria-hidden="true" />
-                      {item.label}
-                      {item.badge && (
-                        <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
-                          {item.badge}
-                        </Badge>
-                      )}
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle navigation menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="flex flex-col w-[280px] p-0 border-r-0 bg-transparent shadow-none">
+                {/* Mobile Sheet Content - Reusing Glass Style */}
+                <div className="h-full w-full rounded-r-3xl border-r border-y border-white/20 bg-white/90 dark:bg-black/90 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden">
+                  <div className="flex h-20 items-center px-6 border-b border-white/10">
+                    <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+                      <Logo />
                     </Link>
-                  );
-                })}
-                <StoreLink isMobile={true} isCollapsed={false} merchantLoading={merchantLoading} storeUrl={storeUrl} />
-              </nav>
-              <div className="mt-auto">
-                <Card className="border-primary/20">
-                  <CardHeader>
-                    <CardTitle>Upgrade to Pro</CardTitle>
-                    <CardDescription>
-                      Unlock all features and get unlimited access to our
-                      support team.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <Button size="sm" className="w-full">
-                      Upgrade
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            </SheetContent>
-          </Sheet>
-          <div className="w-full flex-1">
-            {/* Search bar removed from here */}
+                  </div>
+                  <nav className="grid gap-2 p-4 overflow-y-auto">
+                    {navItems.map((item) => {
+                      const isActive = pathname === item.href;
+                      return (
+                        <Link
+                          key={item.label}
+                          href={item.href}
+                          className={cn(
+                            'flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all',
+                            isActive
+                              ? 'bg-primary text-primary-foreground shadow-md'
+                              : 'text-muted-foreground hover:bg-muted'
+                          )}
+                        >
+                          <item.icon className="h-5 w-5" />
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <div className="flex-1 flex justify-end items-center gap-2">
+              <ThemeToggle />
+              <NotificationCenter />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </header>
+
+          {/* Desktop Header Actions (Floating) */}
+          <div className="hidden md:flex absolute top-6 right-8 z-20 items-center gap-3">
+            <div className="flex items-center gap-2 p-1.5 rounded-full bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/20 shadow-sm">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 rounded-full px-3 gap-2 hover:bg-white/50">
+                    {merchantLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : selectedCountry ? (
+                      <span className="text-lg leading-none">{selectedCountry.flag}</span>
+                    ) : (
+                      '🌐'
+                    )}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[200px]">
+                  <DropdownMenuLabel>Select Country</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {COUNTRIES.map(country => (
+                    <DropdownMenuItem key={country.code} onSelect={() => updateMerchant({ country: country.code })}>
+                      <span className="mr-2 text-lg">{country.flag}</span>
+                      <span>{country.name}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="w-[1px] h-4 bg-border/50" />
+
+              <ThemeToggle />
+              <NotificationCenter />
+
+              <div className="w-[1px] h-4 bg-border/50" />
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-white/50">
+                    <User className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>Settings</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-500">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                {merchantLoading ? (
-                  <Loader2 className="h-5 w-5 motion-safe:animate-spin" />
-                ) : selectedCountry ? (
-                  <span className="text-2xl">{selectedCountry.flag}</span>
-                ) : (
-                  '🌐'
-                )}
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Select Country</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {COUNTRIES.map(country => (
-                <DropdownMenuItem key={country.code} onSelect={() => updateMerchant({ country: country.code })}>
-                  <span className="mr-2 text-lg">{country.flag}</span>
-                  <span>{country.name}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {/* Notification Center */}
-          <NotificationCenter />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="default" size="icon" className="rounded-full">
-                <User className="h-5 w-5" />
-                <span className="sr-only">Toggle user menu</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{user?.email || 'My Account'}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Support</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="text-red-500 focus:bg-red-100 focus:text-red-700">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Logout</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </header>
-        <main id="main-content" className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-auto">
-          {/* Notification Banner - shows at top of content area */}
-          <NotificationBanner />
-          <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 motion-safe:animate-spin" aria-label="Loading" /></div>}>
-            {children}
-          </Suspense>
-        </main>
+
+          <main id="main-content" className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-8 pt-20 md:pt-24 lg:pt-24 overflow-y-auto">
+            <NotificationBanner />
+            <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 motion-safe:animate-spin" aria-label="Loading" /></div>}>
+              {children}
+            </Suspense>
+          </main>
+        </div>
       </div>
-    </div>
     </>
   );
 }

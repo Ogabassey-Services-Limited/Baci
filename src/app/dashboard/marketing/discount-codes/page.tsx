@@ -245,7 +245,9 @@ export default function DiscountCodesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Discount Codes</h1>
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+            Discount Codes 🏷️
+          </h1>
           <p className="text-muted-foreground">
             Create and manage promotional discount codes for your store.
           </p>

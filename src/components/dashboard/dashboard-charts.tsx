@@ -1,0 +1,84 @@
+'use client';
+
+import {
+  Bar,
+  BarChart,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart';
+import type { ChartConfig } from '@/components/ui/chart';
+
+interface ChartDataPoint {
+  month: string;
+  revenue: number;
+  orders: number;
+}
+
+interface DashboardChartsProps {
+  data: ChartDataPoint[];
+  config: ChartConfig;
+}
+
+export function RevenueSparkline({ data, config }: DashboardChartsProps) {
+  return (
+    <ChartContainer config={config} className="h-full w-full">
+      <AreaChart data={data}>
+        <defs>
+          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <Area
+          type="monotone"
+          dataKey="revenue"
+          stroke="hsl(var(--primary))"
+          fillOpacity={1}
+          fill="url(#revenueGradient)"
+          strokeWidth={2}
+        />
+      </AreaChart>
+    </ChartContainer>
+  );
+}
+
+export function RevenueBarChart({ data, config }: DashboardChartsProps) {
+  return (
+    <ChartContainer config={config} className="h-full w-full">
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+        <XAxis
+          dataKey="month"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={10}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+        />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          tickFormatter={(value) => `$${value}`}
+          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+        />
+        <ChartTooltip
+          cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+          content={<ChartTooltipContent indicator="dot" />}
+        />
+        <Bar
+          dataKey="revenue"
+          fill="hsl(var(--primary))"
+          radius={[4, 4, 0, 0]}
+          maxBarSize={50}
+        />
+      </BarChart>
+    </ChartContainer>
+  );
+}

@@ -285,8 +285,8 @@ export default function OrdersPage() {
           params.append('search', searchTerm);
         }
 
-        const data = await apiGet<{orders: ApiOrder[]}>(`/api/orders?${params.toString()}`);
-        
+        const data = await apiGet<{ orders: ApiOrder[] }>(`/api/orders?${params.toString()}`);
+
         const transformedOrders = data.orders.map((order: ApiOrder) => ({
           orderNumber: order.order_number,
           customerName: order.customer_name,
@@ -315,9 +315,9 @@ export default function OrdersPage() {
           console.error('Error fetching orders:', errorMessage);
           setOrdersError(errorMessage);
           toast({
-              title: 'Error Fetching Orders',
-              description: errorMessage,
-              variant: 'destructive',
+            title: 'Error Fetching Orders',
+            description: errorMessage,
+            variant: 'destructive',
           });
         }
       } finally {
@@ -339,7 +339,7 @@ export default function OrdersPage() {
 
       try {
         // Fetch all orders without any filters
-        const data = await apiGet<{orders: ApiOrder[]}>('/api/orders');
+        const data = await apiGet<{ orders: ApiOrder[] }>('/api/orders');
 
         const allOrders = data.orders || [];
 
@@ -493,7 +493,9 @@ export default function OrdersPage() {
   return (
     <div className="flex flex-col h-full gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-page-title">Orders 📦</h1>
+        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+          Orders 📦
+        </h1>
         <div className="flex items-center gap-2">
           <Button size="icon" variant="outline" className="h-11 w-11 min-w-[44px] min-h-[44px]">
             <File className="h-4 w-4" />

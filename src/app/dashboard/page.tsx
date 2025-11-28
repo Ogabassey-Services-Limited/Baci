@@ -1,482 +1,293 @@
-
 'use client';
 
+import dynamic from 'next/dynamic';
 import {
   Activity,
   CreditCard,
   DollarSign,
   Users,
-  Copy,
-  ExternalLink,
-  PlusCircle,
-  Wrench,
-  FlaskConical,
-  RefreshCw,
-  Loader2,
   ArrowUp,
-  ArrowDown,
+  Sparkles,
+  TrendingUp,
+  ShoppingBag,
+  Clock,
+  ArrowRight
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { BentoCard } from '@/components/ui/bento-card';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { ChartConfig } from '@/components/ui/chart';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useMerchant } from '@/hooks/use-merchant';
-import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import { getCountryByCode } from '@/lib/countries';
-import { useRouter } from 'next/navigation';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { useProductContext } from '@/contexts/product-context';
+
+// Dynamically import chart wrapper components (correct pattern)
+const RevenueSparkline = dynamic(
+  () => import('@/components/dashboard/dashboard-charts').then((mod) => mod.RevenueSparkline),
+  { ssr: false, loading: () => <Skeleton className="h-full w-full" /> }
+);
+
+const RevenueBarChart = dynamic(
+  () => import('@/components/dashboard/dashboard-charts').then((mod) => mod.RevenueBarChart),
+  { ssr: false, loading: () => <Skeleton className="h-full w-full" /> }
+);
 
 // --- Mock Data ---
 
 const monthlyChartData = [
-  { month: 'January', desktop: 18600, mobile: 8000 },
-  { month: 'February', desktop: 30500, mobile: 20000 },
-  { month: 'March', desktop: 23700, mobile: 12000 },
-  { month: 'April', desktop: 7300, mobile: 19000 },
-  { month: 'May', desktop: 20900, mobile: 13000 },
-  { month: 'June', desktop: 21400, mobile: 14000 },
+  { month: 'Jan', revenue: 18600, orders: 80 },
+  { month: 'Feb', revenue: 30500, orders: 120 },
+  { month: 'Mar', revenue: 23700, orders: 95 },
+  { month: 'Apr', revenue: 7300, orders: 45 },
+  { month: 'May', revenue: 20900, orders: 110 },
+  { month: 'Jun', revenue: 21400, orders: 140 },
 ];
-
-const weeklyChartData = [
-  { day: 'Sun', desktop: 2200, mobile: 1100 },
-  { day: 'Mon', desktop: 3100, mobile: 1900 },
-  { day: 'Tue', desktop: 2500, mobile: 1300 },
-  { day: 'Wed', desktop: 4200, mobile: 2100 },
-  { day: 'Thu', desktop: 1800, mobile: 900 },
-  { day: 'Fri', desktop: 3800, mobile: 2400 },
-  { day: 'Sat', desktop: 5100, mobile: 3200 },
-];
-
 
 const summaryData = {
-  monthly: {
-    revenue: { value: 45231.89, change: 20.1 },
-    customers: { value: 2350, change: 180.1 },
-    sales: { value: 12234, change: 19 },
-    activeNow: { value: 573, change: 201 },
-  },
-  weekly: {
-    revenue: { value: 11489.21, change: -5.2 },
-    customers: { value: 412, change: 12.3 },
-    sales: { value: 2891, change: -2.1 },
-    activeNow: { value: 573, change: 201 }, // Active now doesn't change with filter
-  },
+  revenue: { value: 45231.89, change: 20.1 },
+  customers: { value: 2350, change: 180.1 },
+  orders: { value: 12234, change: 19 },
+  activeNow: { value: 573, change: 201 },
 };
 
 const chartConfig = {
-  desktop: {
-    label: 'Desktop',
+  revenue: {
+    label: 'Revenue',
     color: 'hsl(var(--primary))',
   },
-  mobile: {
-    label: 'Mobile',
+  orders: {
+    label: 'Orders',
     color: 'hsl(var(--accent))',
   },
 } satisfies ChartConfig;
 
 const recentSales = [
-  { id: 'p1', name: 'Olivia Martin', email: 'olivia.martin@email.com', amount: 1999.00, avatar: 'avatar-1' },
-  { id: 'p2', name: 'Jackson Lee', email: 'jackson.lee@email.com', amount: 39.00, avatar: 'avatar-2' },
-  { id: 'p3', name: 'Isabella Nguyen', email: 'isabella.nguyen@email.com', amount: 299.00, avatar: 'avatar-3' },
-  { id: 'p4', name: 'William Kim', email: 'will@email.com', amount: 99.00, avatar: 'avatar-4' },
-  { id: 'p5', name: 'Sofia Davis', email: 'sofia.davis@email.com', amount: 39.00, avatar: 'avatar-5' },
+  { id: '1', name: 'Olivia Martin', email: 'olivia.martin@email.com', amount: 1999.00, status: 'Completed' },
+  { id: '2', name: 'Jackson Lee', email: 'jackson.lee@email.com', amount: 39.00, status: 'Processing' },
+  { id: '3', name: 'Isabella Nguyen', email: 'isabella.nguyen@email.com', amount: 299.00, status: 'Completed' },
+  { id: '4', name: 'William Kim', email: 'will@email.com', amount: 99.00, status: 'Failed' },
 ];
 
-const yAxisFormatter = (value: number) => {
-  if (value >= 1000) {
-    return `${value / 1000}k`;
-  }
-  return value.toString();
-};
-
-// --- Helper Component ---
-
-function PercentageChange({ value, timeFrame }: { value: number; timeFrame: 'weekly' | 'monthly' }) {
-  const isPositive = value >= 0;
-  const Icon = isPositive ? ArrowUp : ArrowDown;
-  return (
-    <p className={cn("text-xs flex items-center", isPositive ? "text-green-600" : "text-red-600")}>
-      <Icon className="h-3 w-3 mr-1" />
-      {isPositive ? '+' : ''}{value.toFixed(1)}% from last {timeFrame === 'weekly' ? 'week' : 'month'}
-    </p>
-  );
-}
-
-// --- Main Component ---
-
-interface ChartDatum {
-  day?: string;
-  month?: string;
-  desktop: number;
-  mobile: number;
-}
-
-interface AnalyticsData {
-  summary: {
-    revenue: { value: number; change: number };
-    customers: { value: number; change: number };
-    sales: { value: number; change: number };
-    activeNow: { value: number; change: number };
-  };
-  chartData: ChartDatum[];
-  recentSales: Array<{
-    id: string;
-    name: string;
-    email: string;
-    amount: number;
-    avatar: string;
-  }>;
-}
-
 export default function DashboardPage() {
-  const { merchant, loading: merchantLoading } = useMerchant();
-  const { toast } = useToast();
-  const router = useRouter();
-  const [timeFrame, setTimeFrame] = useState<'monthly' | 'weekly'>('weekly');
-  const { openAddProductDialog } = useProductContext();
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const { merchant } = useMerchant();
+  const [mounted, setMounted] = useState(false);
 
-  // Fetch analytics data
   useEffect(() => {
-    async function fetchAnalytics() {
-      if (!merchant) return;
+    setMounted(true);
+  }, []);
 
-      try {
-        const response = await fetch(`/api/analytics?timeFrame=${timeFrame}`);
-        if (response.ok) {
-          const data = await response.json();
-          setAnalytics(data);
-        } else {
-          console.error('Failed to fetch analytics:', response.status, response.statusText);
-        }
-      } catch (error) {
-        console.error('Error fetching analytics:', error);
-      }
-    }
-
-    fetchAnalytics();
-  }, [merchant, timeFrame]);
-
-  const currentSummary = analytics?.summary || summaryData[timeFrame];
-  const currentChartData = analytics?.chartData || (timeFrame === 'monthly' ? monthlyChartData : weeklyChartData);
-  const currentRecentSales = analytics?.recentSales || recentSales;
-
-  const getStoreUrl = () => {
-    if (!merchant?.slug) return { displayUrl: '', fullUrl: '' };
-
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-    const subdomain = `${merchant.slug}.${rootDomain}`;
-
-    // Use subdomain URL (merchant gets free subdomain on signup)
-    return {
-      displayUrl: subdomain,
-      fullUrl: `https://${subdomain}`
-    };
-  };
-
-  const { displayUrl, fullUrl } = getStoreUrl();
-
-  const handleShare = async (url: string) => {
-    try {
-      await navigator.clipboard.writeText(url);
-      toast({
-        title: "Copied to clipboard! 📋",
-        description: "Your store URL is ready to be shared.",
-      });
-    } catch (err) {
-      console.error("Error copying URL to clipboard:", err);
-      toast({
-        title: "Copy Failed",
-        description: "Could not copy URL to clipboard. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleReset = () => {
-    // This function will need to be updated to clear Supabase data if needed
-    // For now, it will clear local session and redirect
-    toast({
-      title: "Reset Not Implemented",
-      description: "This feature is coming soon.",
-    });
-    // router.push('/onboarding');
-  };
-
-  const formatCurrency = (amount: number) => {
-    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
-    const locale = country ? `en-${country.code}` : 'en-US';
-    const currency = country ? country.currency : 'USD';
-
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currency,
-      currencyDisplay: 'symbol',
-    }).format(amount);
-  };
-
-  const setupTasks = [
-    {
-      icon: PlusCircle,
-      title: 'Add your first product',
-      description: 'List items to start selling.',
-      action: () => openAddProductDialog(),
-      buttonText: 'Add Product',
-    },
-    {
-      icon: Wrench,
-      title: 'Customize your store',
-      description: 'Choose colors and a layout that matches your brand.',
-      action: () => router.push('/dashboard/settings'),
-      buttonText: 'Customize',
-    },
-    {
-      icon: CreditCard,
-      title: 'Set up payments',
-      description: 'Connect a payment provider to start accepting money.',
-      action: () => router.push('/dashboard/settings'),
-      buttonText: 'Set Up',
-    },
-    {
-      icon: FlaskConical,
-      title: 'Run a test order',
-      description: 'Make sure your checkout process is smooth for customers.',
-      action: () => window.open(fullUrl || '/', '_blank'),
-      buttonText: 'Visit Store',
-    },
-  ];
-
-  if (merchantLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
-      </div>
-    );
-  }
+  if (!mounted) return null;
 
   return (
-    <main id="main-content">
-      <header className="flex items-center justify-between mb-4">
-        <h1 className="text-page-title">Welcome, {merchant?.business_name || 'Merchant'}! 👋</h1>
-        {merchant && displayUrl && (
-          <div className="flex items-center justify-between p-2 border rounded-lg bg-muted text-sm">
-            <Link href={fullUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm">
-              {displayUrl}
-            </Link>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" onClick={() => handleShare(fullUrl)} className="h-8 w-8">
-                <Copy className="w-4 h-4" aria-hidden="true" />
-                <span className="sr-only">Copy URL</span>
-              </Button>
-              <Link href={fullUrl} target="_blank" rel="noopener noreferrer">
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <ExternalLink className="w-4 h-4" aria-hidden="true" />
-                  <span className="sr-only">Open in new tab</span>
-                </Button>
-              </Link>
-            </div>
-          </div>
-        )}
-      </header>
-
-      <section aria-labelledby="setup-checklist">
-        <Card className="glass mb-8 border border-primary/20">
-          <CardHeader>
-            <CardTitle id="setup-checklist">Setup Checklist ✅</CardTitle>
-            <CardDescription>Follow these steps to get your store ready for customers.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {setupTasks.map((task, index) => (
-                <li key={task.title} className={`flex items-center gap-4 p-4 rounded-lg border border-primary/20 bg-background hover-lift animate-fade-in-up stagger-${index + 1}`}>
-                  <task.icon className="w-8 h-8 text-primary" aria-hidden="true" />
-                  <div className="flex-1">
-                    <p className="font-semibold">{task.title}</p>
-                    <p className="text-sm text-muted-foreground">{task.description}</p>
-                  </div>
-                  <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary" onClick={task.action}>{task.buttonText}</Button>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </section>
-
-      <div className="flex items-center mb-4">
-        <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as 'monthly' | 'weekly')}>
-          <TabsList>
-            <TabsTrigger value="weekly">Weekly</TabsTrigger>
-            <TabsTrigger value="monthly">Monthly</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      <section aria-labelledby="metrics-heading">
-        <h2 id="metrics-heading" className="sr-only">Key Metrics</h2>
-        <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-          <Card className="glass border border-primary/20 hover-lift animate-fade-in-up stagger-1">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue 💰</CardTitle>
-              <DollarSign className="h-4 w-4 text-primary" aria-hidden="true" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-stat">{formatCurrency(currentSummary.revenue.value)}</div>
-              <PercentageChange value={currentSummary.revenue.change} timeFrame={timeFrame} />
-            </CardContent>
-          </Card>
-          <Card className="glass border border-primary/20 hover-lift animate-fade-in-up stagger-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Customers 👥</CardTitle>
-              <Users className="h-4 w-4 text-blue-500" aria-hidden="true" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-stat">+{currentSummary.customers.value}</div>
-              <PercentageChange value={currentSummary.customers.change} timeFrame={timeFrame} />
-            </CardContent>
-          </Card>
-          <Card className="glass border border-primary/20 hover-lift animate-fade-in-up stagger-3">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Sales 📈</CardTitle>
-              <CreditCard className="h-4 w-4 text-yellow-500" aria-hidden="true" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-stat">+{currentSummary.sales.value}</div>
-              <PercentageChange value={currentSummary.sales.change} timeFrame={timeFrame} />
-            </CardContent>
-          </Card>
-          <Card className="glass border border-primary/20 hover-lift animate-fade-in-up stagger-4">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Now 🟢</CardTitle>
-              <Activity className="h-4 w-4 text-red-500" aria-hidden="true" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-stat">+{currentSummary.activeNow.value}</div>
-              <p className="text-xs text-muted-foreground">
-                +{currentSummary.activeNow.change} since last hour
-              </p>
-            </CardContent>
-          </Card>
+    <div className="space-y-6 p-6 pb-20">
+      {/* Header Section */}
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+            Dashboard 🚀
+          </h1>
+          <p className="text-muted-foreground">
+            Overview of your store's performance
+          </p>
         </div>
-      </section>
-      <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3 mt-8">
-        <Card className="glass xl:col-span-2 border border-primary/20">
-          <CardHeader>
-            <CardTitle>Overview</CardTitle>
-            <CardDescription>
-              A summary of sales activity for this {timeFrame === 'weekly' ? 'week' : 'month'}.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <ChartContainer config={chartConfig} className="h-[300px] w-full">
-              <BarChart accessibilityLayer data={currentChartData}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey={timeFrame === 'monthly' ? "month" : "day"}
-                  tickLine={false}
-                  tickMargin={10}
-                  axisLine={false}
-                  tickFormatter={(value) => value.slice(0, 3)}
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={10}
-                  tickFormatter={yAxisFormatter}
-                />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent indicator="dot" />}
-                />
-                <Bar
-                  dataKey="desktop"
-                  fill="var(--color-desktop)"
-                  radius={4}
-                />
-                <Bar
-                  dataKey="mobile"
-                  fill="var(--color-mobile)"
-                  radius={4}
-                />
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-        <Card className="glass border border-primary/20">
-          <CardHeader>
-            <CardTitle>Recent Sales</CardTitle>
-            <CardDescription>
-              {analytics ? `You made ${currentSummary.sales.value} sales this ${timeFrame === 'weekly' ? 'week' : 'month'}.` : 'Loading sales...'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {currentRecentSales.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">No sales yet</p>
-              ) : (
-                (() => {
-                  const avatarMap = new Map(PlaceHolderImages.map(img => [img.id, img]));
-                  return currentRecentSales.map((sale) => {
-                    const avatar = avatarMap.get(sale.avatar);
-                    return (
-                      <Link href={`/dashboard/orders/${sale.id}`} key={sale.id} className="flex items-center hover:bg-muted/50 p-2 rounded-lg -m-2">
-                        <Avatar className="h-9 w-9">
-                          {avatar && (
-                            <AvatarImage
-                              src={avatar.imageUrl}
-                              alt={avatar.description}
-                              data-ai-hint={avatar.imageHint}
-                            />
-                          )}
-                          <AvatarFallback>{sale.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="ml-4 space-y-1">
-                          <p className="text-sm font-medium leading-none">
-                            {sale.name}
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {sale.email}
-                          </p>
-                        </div>
-                        <div className="ml-auto font-medium">{formatCurrency(sale.amount)}</div>
-                      </Link>
-                    );
-                  });
-                })()
-              )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="glass xl:col-span-3 border border-primary/20">
-          <CardHeader>
-            <CardTitle>Danger Zone ☢️</CardTitle>
-            <CardDescription>These actions are irreversible. Please be certain.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button variant="destructive" onClick={handleReset}>
-              <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-              Reset and Start Over
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2">
+          <Button className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/25">
+            <Sparkles className="mr-2 h-4 w-4" />
+            Ask AI Assistant
+          </Button>
+        </div>
       </div>
-    </main>
+
+      {/* AI Insight Hero */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <BentoCard
+          className="bg-gradient-to-br from-primary/10 via-background to-accent/5 border-primary/20"
+          noPadding
+        >
+          <div className="p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-6">
+            <div className="p-3 rounded-2xl bg-primary/10 text-primary">
+              <Sparkles className="h-8 w-8" />
+            </div>
+            <div className="space-y-2 flex-1">
+              <h3 className="text-xl font-semibold">Good morning, {merchant?.business_name || 'Merchant'}! 🚀</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Your store is performing exceptionally well today. Revenue is up <span className="text-green-500 font-medium">+20.1%</span> compared to last week, driven by a surge in mobile traffic. Consider restocking your top-selling items to maintain momentum.
+              </p>
+            </div>
+            <Button variant="outline" className="shrink-0">View Insights</Button>
+          </div>
+        </BentoCard>
+      </motion.div>
+
+      {/* Main Bento Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metrics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+          className="col-span-1"
+        >
+          <BentoCard title="Total Revenue" icon={DollarSign}>
+            <div className="mt-2 space-y-1">
+              <div className="text-3xl font-bold tracking-tight">
+                ${summaryData.revenue.value.toLocaleString()}
+              </div>
+              <div className="flex items-center text-xs text-green-500 font-medium">
+                <ArrowUp className="mr-1 h-3 w-3" />
+                {summaryData.revenue.change}% from last month
+              </div>
+            </div>
+            <div className="h-[60px] mt-4 -mx-2">
+              <RevenueSparkline data={monthlyChartData} config={chartConfig} />
+            </div>
+          </BentoCard>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="col-span-1"
+        >
+          <BentoCard title="Active Orders" icon={ShoppingBag}>
+            <div className="mt-2 space-y-1">
+              <div className="text-3xl font-bold tracking-tight">
+                +{summaryData.orders.value.toLocaleString()}
+              </div>
+              <div className="flex items-center text-xs text-green-500 font-medium">
+                <ArrowUp className="mr-1 h-3 w-3" />
+                {summaryData.orders.change}% from last month
+              </div>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <div className="h-2 flex-1 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 w-[65%]" />
+              </div>
+              <span className="text-xs text-muted-foreground">65% fulfilled</span>
+            </div>
+          </BentoCard>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+          className="col-span-1"
+        >
+          <BentoCard title="Customers" icon={Users}>
+            <div className="mt-2 space-y-1">
+              <div className="text-3xl font-bold tracking-tight">
+                +{summaryData.customers.value.toLocaleString()}
+              </div>
+              <div className="flex items-center text-xs text-green-500 font-medium">
+                <ArrowUp className="mr-1 h-3 w-3" />
+                {summaryData.customers.change}% from last month
+              </div>
+            </div>
+            <div className="mt-4 flex -space-x-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium">
+                  {String.fromCharCode(64 + i)}
+                </div>
+              ))}
+              <div className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
+                +4k
+              </div>
+            </div>
+          </BentoCard>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="col-span-1"
+        >
+          <BentoCard title="Active Now" icon={Activity}>
+            <div className="mt-2 space-y-1">
+              <div className="text-3xl font-bold tracking-tight">
+                {summaryData.activeNow.value}
+              </div>
+              <div className="flex items-center text-xs text-muted-foreground">
+                <Clock className="mr-1 h-3 w-3" />
+                Real-time updates
+              </div>
+            </div>
+            <div className="h-[60px] mt-4 flex items-end justify-between gap-1">
+              {[40, 25, 60, 30, 70, 45, 20, 55, 35, 65].map((h, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ height: 0 }}
+                  animate={{ height: `${h}%` }}
+                  transition={{ duration: 1, repeat: Infinity, repeatType: "reverse", delay: i * 0.1 }}
+                  className="w-full bg-primary/20 rounded-t-sm"
+                />
+              ))}
+            </div>
+          </BentoCard>
+        </motion.div>
+
+        {/* Big Chart */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="col-span-1 md:col-span-2 lg:col-span-3 row-span-2"
+        >
+          <BentoCard title="Revenue Overview" icon={TrendingUp} className="h-full min-h-[400px]">
+            <div className="h-full w-full pt-4">
+              <RevenueBarChart data={monthlyChartData} config={chartConfig} />
+            </div>
+          </BentoCard>
+        </motion.div>
+
+        {/* Recent Sales List */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+          className="col-span-1 md:col-span-2 lg:col-span-1 row-span-2"
+        >
+          <BentoCard title="Recent Sales" icon={CreditCard} className="h-full">
+            <div className="space-y-4 mt-2">
+              {recentSales.map((sale) => (
+                <div key={sale.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
+                      {sale.name.charAt(0)}
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium leading-none">{sale.name}</p>
+                      <p className="text-xs text-muted-foreground">{sale.email}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-medium">+${sale.amount}</p>
+                    <p className={cn(
+                      "text-[10px] font-medium",
+                      sale.status === 'Completed' ? "text-green-500" :
+                        sale.status === 'Processing' ? "text-blue-500" : "text-red-500"
+                    )}>
+                      {sale.status}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-foreground">
+                View All Transactions <ArrowRight className="ml-1 h-3 w-3" />
+              </Button>
+            </div>
+          </BentoCard>
+        </motion.div>
+      </div>
+    </div>
   );
 }
