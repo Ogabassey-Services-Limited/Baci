@@ -1,9 +1,10 @@
 import { Config } from '@measured/puck';
+import React from 'react';
 import { ThemedButton } from '@/components/themed/themed-button';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import {
-    Star, Mail, Check, Quote, Truck, Shield, Clock, Zap, Heart, Award,
+    Star, Mail, Quote,
     Search as SearchIcon, Facebook, Instagram, Twitter, Linkedin, Youtube,
     ShoppingBag, Menu
 } from 'lucide-react';
@@ -21,6 +22,7 @@ import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import Image from 'next/image';
 import { ImagePickerField } from './fields/image-picker-field';
 import { AnimatedWrapper, AnimationType } from './animated-wrapper';
+import { getIconOptions, renderIcon } from './icon-registry';
 
 // Helper to map config animation values to AnimationType
 const mapAnimationType = (type: string | undefined): AnimationType => {
@@ -259,6 +261,94 @@ type CodeEmbedProps = {
 type SearchProps = {
     placeholder: string;
     showFilters?: boolean;
+};
+
+type FAQProps = {
+    title: string;
+    subtitle?: string;
+    items: { question: string; answer: string }[];
+    style: 'accordion' | 'grid' | 'list';
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
+};
+
+type AboutSectionProps = {
+    title: string;
+    content: string;
+    image?: string;
+    imagePosition: 'left' | 'right' | 'top' | 'bottom';
+    showStats?: boolean;
+    stats?: { value: string; label: string }[];
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
+};
+
+type ContactSectionProps = {
+    title: string;
+    subtitle?: string;
+    showMap?: boolean;
+    mapAddress?: string;
+    contactInfo?: { icon: string; label: string; value: string; link?: string }[];
+    showForm?: boolean;
+    formTitle?: string;
+    layout: 'side-by-side' | 'stacked';
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
+};
+
+type LegalSectionProps = {
+    title: string;
+    lastUpdated?: string;
+    sections?: { heading: string; content: string }[];
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
+};
+
+type CountdownTimerProps = {
+    endDate: string;
+    title?: string;
+    subtitle?: string;
+    expiredMessage?: string;
+    style: 'boxes' | 'inline' | 'minimal';
+    showDays?: boolean;
+    showHours?: boolean;
+    showMinutes?: boolean;
+    showSeconds?: boolean;
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
+};
+
+type TrustBadgesProps = {
+    badges: { icon: string; title: string; description?: string }[];
+    layout: 'horizontal' | 'grid';
+    style: 'cards' | 'minimal' | 'icons-only';
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
+};
+
+type AnnouncementBarProps = {
+    message: string;
+    linkText?: string;
+    linkUrl?: string;
+    backgroundColor?: string;
+    textColor?: string;
+    dismissible?: boolean;
+    animationType?: string;
+    animationDuration?: string;
+    animationDelay?: number;
+    animationTrigger?: string;
 };
 
 type RootProps = {
@@ -584,11 +674,22 @@ export const builderConfig: Config<{
     SocialIcons: SocialIconsProps;
     CodeEmbed: CodeEmbedProps;
     Search: SearchProps;
+    FAQ: FAQProps;
+    AboutSection: AboutSectionProps;
+    ContactSection: ContactSectionProps;
+    LegalSection: LegalSectionProps;
+    CountdownTimer: CountdownTimerProps;
+    TrustBadges: TrustBadgesProps;
+    AnnouncementBar: AnnouncementBarProps;
 }, RootProps> = {
     categories: {
         layout: {
             title: 'Layout',
-            components: ['Header', 'Hero', 'HeroCarousel', 'Text', 'Spacer', 'Features', 'Footer'],
+            components: ['Header', 'Hero', 'HeroCarousel', 'Text', 'Spacer', 'Features', 'Footer', 'AnnouncementBar'],
+        },
+        content: {
+            title: 'Content',
+            components: ['AboutSection', 'FAQ', 'LegalSection', 'ContactSection'],
         },
         media: {
             title: 'Media',
@@ -596,7 +697,7 @@ export const builderConfig: Config<{
         },
         commerce: {
             title: 'Commerce',
-            components: ['ProductGrid', 'Button', 'Newsletter', 'ContactForm', 'Search'],
+            components: ['ProductGrid', 'Button', 'Newsletter', 'ContactForm', 'Search', 'CountdownTimer', 'TrustBadges'],
         },
         advanced: {
             title: 'Advanced',
@@ -829,16 +930,16 @@ export const builderConfig: Config<{
                 autoplayDelay: 5000,
                 slides: [
                     {
-                        image: '/placeholder-hero.jpg',
-                        title: 'Welcome to Our Store',
-                        subtitle: 'Discover our amazing collection.',
+                        image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80',
+                        title: 'Welcome to Your Store',
+                        subtitle: 'Customize this slide with your own images and text to showcase your products.',
                         ctaText: 'Shop Now',
                         ctaLink: '#products'
                     },
                     {
-                        image: '/placeholder-hero-2.jpg',
-                        title: 'New Arrivals',
-                        subtitle: 'Check out the latest trends.',
+                        image: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80',
+                        title: 'Featured Collection',
+                        subtitle: 'Add your seasonal promotions or highlight bestselling products here.',
                         ctaText: 'View Collection',
                         ctaLink: '#products'
                     }
@@ -1172,15 +1273,8 @@ export const builderConfig: Config<{
                         description: { type: 'textarea' },
                         icon: {
                             type: 'select',
-                            options: [
-                                { label: 'Check', value: 'check' },
-                                { label: 'Truck', value: 'truck' },
-                                { label: 'Shield', value: 'shield' },
-                                { label: 'Clock', value: 'clock' },
-                                { label: 'Zap', value: 'zap' },
-                                { label: 'Heart', value: 'heart' },
-                                { label: 'Award', value: 'award' }
-                            ]
+                            label: 'Icon',
+                            options: getIconOptions()
                         }
                     }
                 },
@@ -1192,7 +1286,7 @@ export const builderConfig: Config<{
                 features: [
                     { title: 'Premium Quality', description: 'We use only the finest materials.', icon: 'award' },
                     { title: 'Fast Shipping', description: 'Get your order in 2-3 business days.', icon: 'truck' },
-                    { title: '24/7 Support', description: 'We are here to help anytime.', icon: 'clock' }
+                    { title: '24/7 Support', description: 'We are here to help anytime.', icon: 'headphones' }
                 ],
                 animationType: 'slide-up',
                 animationDuration: 'normal',
@@ -1200,16 +1294,6 @@ export const builderConfig: Config<{
                 animationTrigger: 'scroll',
             },
             render: ({ title, subtitle, features, columns = 3, animationType, animationDuration, animationDelay, animationTrigger }) => {
-                const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-                    check: Check,
-                    truck: Truck,
-                    shield: Shield,
-                    clock: Clock,
-                    zap: Zap,
-                    heart: Heart,
-                    award: Award
-                };
-
                 return (
                     <AnimatedWrapper
                         animation={{
@@ -1225,18 +1309,15 @@ export const builderConfig: Config<{
                                 {subtitle && <p className="text-lg text-muted-foreground max-w-2xl mx-auto">{subtitle}</p>}
                             </div>
                             <div className={`grid grid-cols-1 md:grid-cols-${columns} gap-8`}>
-                                {features.map((feature, i) => {
-                                    const IconComponent = iconMap[feature.icon as string] || Check;
-                                    return (
-                                        <div key={i} className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm">
-                                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary">
-                                                <IconComponent className="w-6 h-6" />
-                                            </div>
-                                            <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                                            <p className="text-muted-foreground">{feature.description}</p>
+                                {features.map((feature, i) => (
+                                    <div key={i} className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm">
+                                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary">
+                                            {renderIcon(feature.icon as string || 'check', { className: 'w-6 h-6' })}
                                         </div>
-                                    );
-                                })}
+                                        <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                                        <p className="text-muted-foreground">{feature.description}</p>
+                                    </div>
+                                ))}
                             </div>
                         </section>
                     </AnimatedWrapper>
@@ -1378,6 +1459,7 @@ export const builderConfig: Config<{
                                     className="w-full h-full"
                                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                     allowFullScreen
+                                    title={title || "Embedded video"}
                                 />
                             ) : (
                                 <p className="text-muted-foreground">Invalid video URL</p>
@@ -1422,6 +1504,7 @@ export const builderConfig: Config<{
                                 allowFullScreen
                                 loading="lazy"
                                 referrerPolicy="no-referrer-when-downgrade"
+                                title="Store location map"
                             />
                         </div>
                     </section>
@@ -1681,6 +1764,745 @@ export const builderConfig: Config<{
                     </div>
                 </section>
             )
+        },
+        FAQ: {
+            label: 'FAQ Section',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                title: { type: 'text', label: 'Section Title' },
+                subtitle: { type: 'textarea', label: 'Subtitle (optional)' },
+                items: {
+                    type: 'array',
+                    label: 'FAQ Items',
+                    getItemSummary: (item) => item.question || 'Question',
+                    arrayFields: {
+                        question: { type: 'text', label: 'Question' },
+                        answer: { type: 'textarea', label: 'Answer' },
+                    }
+                },
+                style: {
+                    type: 'select',
+                    label: 'Style',
+                    options: [
+                        { label: 'Accordion', value: 'accordion' },
+                        { label: 'Grid', value: 'grid' },
+                        { label: 'Simple List', value: 'list' },
+                    ]
+                },
+                ...animationFields
+            },
+            defaultProps: {
+                title: 'Frequently Asked Questions',
+                subtitle: 'Find answers to common questions about our products and services.',
+                style: 'accordion',
+                items: [
+                    { question: 'What payment methods do you accept?', answer: 'We accept all major credit cards, PayPal, and bank transfers. All payments are processed securely.' },
+                    { question: 'How long does shipping take?', answer: 'Standard shipping takes 3-5 business days. Express shipping is available for 1-2 day delivery.' },
+                    { question: 'What is your return policy?', answer: 'We offer a 30-day return policy for all unused items in original packaging. Contact us to initiate a return.' },
+                    { question: 'Do you ship internationally?', answer: 'Yes, we ship to most countries worldwide. International shipping times vary by location.' },
+                ],
+                animationType: 'fade-in',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
+            },
+            render: ({ title, subtitle, items, style, animationType, animationDuration, animationDelay, animationTrigger }) => {
+                return (
+                    <AnimatedWrapper
+                        animation={{
+                            type: mapAnimationType(animationType),
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
+                            delay: animationDelay,
+                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
+                        }}
+                    >
+                        <section className="py-12 md:py-16 container px-4 md:px-6">
+                            <div className="max-w-3xl mx-auto text-center mb-10">
+                                <h2 className="text-3xl font-bold mb-4">{title}</h2>
+                                {subtitle && <p className="text-muted-foreground text-lg">{subtitle}</p>}
+                            </div>
+                            {style === 'accordion' && (
+                                <div className="max-w-2xl mx-auto space-y-3">
+                                    {items.map((item: { question: string; answer: string }, index: number) => (
+                                        <details key={index} className="group border rounded-lg">
+                                            <summary className="flex justify-between items-center cursor-pointer p-4 font-medium hover:bg-muted/50 transition-colors">
+                                                {item.question}
+                                                <span className="ml-2 transform group-open:rotate-180 transition-transform">▼</span>
+                                            </summary>
+                                            <div className="p-4 pt-0 text-muted-foreground">
+                                                {item.answer}
+                                            </div>
+                                        </details>
+                                    ))}
+                                </div>
+                            )}
+                            {style === 'grid' && (
+                                <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                                    {items.map((item: { question: string; answer: string }, index: number) => (
+                                        <div key={index} className="p-6 border rounded-lg bg-card">
+                                            <h3 className="font-semibold text-lg mb-2">{item.question}</h3>
+                                            <p className="text-muted-foreground">{item.answer}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {style === 'list' && (
+                                <div className="max-w-2xl mx-auto space-y-6">
+                                    {items.map((item: { question: string; answer: string }, index: number) => (
+                                        <div key={index} className="border-b pb-6 last:border-0">
+                                            <h3 className="font-semibold text-lg mb-2">{item.question}</h3>
+                                            <p className="text-muted-foreground">{item.answer}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    </AnimatedWrapper>
+                );
+            }
+        },
+        AboutSection: {
+            label: 'About Section',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                title: { type: 'text', label: 'Section Title' },
+                content: { type: 'textarea', label: 'Main Content' },
+                image: {
+                    type: 'custom',
+                    label: 'Image',
+                    render: ({ field, onChange, value }) => {
+                        return <ImagePickerField field={field} onChange={(v) => onChange(v)} value={value || ''} />;
+                    }
+                },
+                imagePosition: {
+                    type: 'select',
+                    label: 'Image Position',
+                    options: [
+                        { label: 'Left', value: 'left' },
+                        { label: 'Right', value: 'right' },
+                        { label: 'Top', value: 'top' },
+                        { label: 'Bottom', value: 'bottom' },
+                    ]
+                },
+                showStats: { type: 'radio', label: 'Show Statistics', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                stats: {
+                    type: 'array',
+                    label: 'Statistics',
+                    getItemSummary: (item) => item.label || 'Stat',
+                    arrayFields: {
+                        value: { type: 'text', label: 'Value (e.g., 10K+)' },
+                        label: { type: 'text', label: 'Label' },
+                    }
+                },
+                ...animationFields
+            },
+            defaultProps: {
+                title: 'About Our Store',
+                content: 'We are passionate about bringing you the best products at competitive prices. Our journey began with a simple idea: make quality accessible to everyone.\n\nWith years of experience in the industry, we have built strong relationships with suppliers and manufacturers to ensure that every product meets our high standards.',
+                image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
+                imagePosition: 'right',
+                showStats: true,
+                stats: [
+                    { value: '10K+', label: 'Happy Customers' },
+                    { value: '500+', label: 'Products' },
+                    { value: '5', label: 'Years Experience' },
+                    { value: '24/7', label: 'Support' },
+                ],
+                animationType: 'fade-in',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
+            },
+            render: ({ title, content, image, imagePosition, showStats, stats, animationType, animationDuration, animationDelay, animationTrigger }) => {
+                const isHorizontal = imagePosition === 'left' || imagePosition === 'right';
+                const imageFirst = imagePosition === 'left' || imagePosition === 'top';
+
+                return (
+                    <AnimatedWrapper
+                        animation={{
+                            type: mapAnimationType(animationType),
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
+                            delay: animationDelay,
+                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
+                        }}
+                    >
+                        <section className="py-12 md:py-16 container px-4 md:px-6">
+                            <div className={cn(
+                                'flex gap-8 md:gap-12',
+                                isHorizontal ? 'flex-col md:flex-row items-center' : 'flex-col',
+                                imageFirst && isHorizontal && 'md:flex-row-reverse'
+                            )}>
+                                {/* Content */}
+                                <div className={cn('flex-1', isHorizontal ? '' : 'text-center')}>
+                                    <h2 className="text-3xl font-bold mb-6">{title}</h2>
+                                    <div className="prose dark:prose-invert max-w-none">
+                                        <p className="text-lg text-muted-foreground whitespace-pre-wrap">{content}</p>
+                                    </div>
+                                    {showStats && stats && stats.length > 0 && (
+                                        <div className={cn(
+                                            'grid grid-cols-2 md:grid-cols-4 gap-6 mt-8',
+                                            !isHorizontal && 'max-w-2xl mx-auto'
+                                        )}>
+                                            {stats.map((stat: { value: string; label: string }, index: number) => (
+                                                <div key={index} className="text-center">
+                                                    <p className="text-3xl font-bold" style={{ color: 'var(--store-primary)' }}>{stat.value}</p>
+                                                    <p className="text-sm text-muted-foreground">{stat.label}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                {/* Image */}
+                                {image && (
+                                    <div className={cn(
+                                        'flex-1',
+                                        !isHorizontal && 'max-w-2xl mx-auto w-full',
+                                        imageFirst && !isHorizontal && 'order-first'
+                                    )}>
+                                        <div className="relative aspect-video md:aspect-square rounded-lg overflow-hidden">
+                                            <Image src={image} alt={title} fill className="object-cover" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                    </AnimatedWrapper>
+                );
+            }
+        },
+        ContactSection: {
+            label: 'Contact Section',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                title: { type: 'text', label: 'Section Title' },
+                subtitle: { type: 'textarea', label: 'Subtitle (optional)' },
+                showMap: { type: 'radio', label: 'Show Map', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                mapAddress: { type: 'text', label: 'Map Address' },
+                contactInfo: {
+                    type: 'array',
+                    label: 'Contact Information',
+                    getItemSummary: (item) => item.label || 'Contact',
+                    arrayFields: {
+                        icon: {
+                            type: 'select',
+                            label: 'Icon',
+                            options: getIconOptions()
+                        },
+                        label: { type: 'text', label: 'Label' },
+                        value: { type: 'text', label: 'Value' },
+                        link: { type: 'text', label: 'Link (optional)' },
+                    }
+                },
+                showForm: { type: 'radio', label: 'Show Contact Form', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                formTitle: { type: 'text', label: 'Form Title' },
+                layout: {
+                    type: 'select',
+                    label: 'Layout',
+                    options: [
+                        { label: 'Side by Side', value: 'side-by-side' },
+                        { label: 'Stacked', value: 'stacked' },
+                    ]
+                },
+                ...animationFields
+            },
+            defaultProps: {
+                title: 'Get In Touch',
+                subtitle: 'Have questions? We would love to hear from you. Send us a message and we will respond as soon as possible.',
+                showMap: false,
+                mapAddress: '',
+                contactInfo: [
+                    { icon: 'mail', label: 'Email', value: 'hello@example.com', link: 'mailto:hello@example.com' },
+                    { icon: 'phone', label: 'Phone', value: '+1 (555) 123-4567', link: 'tel:+15551234567' },
+                    { icon: 'map-pin', label: 'Address', value: '123 Business St, City, Country', link: '' },
+                    { icon: 'clock', label: 'Hours', value: 'Mon-Fri: 9AM - 6PM', link: '' },
+                ],
+                showForm: true,
+                formTitle: 'Send us a Message',
+                layout: 'side-by-side',
+                animationType: 'fade-in',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
+            },
+            render: ({ title, subtitle, showMap, mapAddress, contactInfo, showForm, formTitle, layout, animationType, animationDuration, animationDelay, animationTrigger }) => {
+                const formFields: FormField[] = [
+                    { id: 'name', type: 'text', label: 'Your Name', placeholder: 'John Doe', required: true },
+                    { id: 'email', type: 'email', label: 'Email Address', placeholder: 'john@example.com', required: true },
+                    { id: 'subject', type: 'text', label: 'Subject', placeholder: 'How can we help?', required: false },
+                    { id: 'message', type: 'textarea', label: 'Message', placeholder: 'Your message here...', required: true },
+                ];
+
+                return (
+                    <AnimatedWrapper
+                        animation={{
+                            type: mapAnimationType(animationType),
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
+                            delay: animationDelay,
+                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
+                        }}
+                    >
+                        <section className="py-12 md:py-16 container px-4 md:px-6">
+                            <div className="max-w-4xl mx-auto text-center mb-10">
+                                <h2 className="text-3xl font-bold mb-4">{title}</h2>
+                                {subtitle && <p className="text-muted-foreground text-lg">{subtitle}</p>}
+                            </div>
+
+                            <div className={cn(
+                                'max-w-5xl mx-auto',
+                                layout === 'side-by-side' ? 'grid md:grid-cols-2 gap-8' : 'space-y-8'
+                            )}>
+                                {/* Contact Info */}
+                                <div className={cn(
+                                    'space-y-6',
+                                    layout === 'stacked' && 'grid md:grid-cols-2 gap-6 space-y-0'
+                                )}>
+                                    {contactInfo && contactInfo.map((info: { icon: string; label: string; value: string; link?: string }, index: number) => (
+                                        <div key={index} className="flex items-start gap-4">
+                                            <div className="p-3 rounded-lg bg-[var(--store-primary)]/10">
+                                                {renderIcon(info.icon, { className: 'w-5 h-5', style: { color: 'var(--store-primary)' } })}
+                                            </div>
+                                            <div>
+                                                <p className="font-medium">{info.label}</p>
+                                                {info.link ? (
+                                                    <Link href={info.link} className="text-muted-foreground hover:text-[var(--store-primary)] transition-colors">
+                                                        {info.value}
+                                                    </Link>
+                                                ) : (
+                                                    <p className="text-muted-foreground">{info.value}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {showMap && mapAddress && (
+                                        <div className="mt-6 rounded-lg overflow-hidden border">
+                                            <iframe
+                                                title="Business location map"
+                                                width="100%"
+                                                height="200"
+                                                style={{ border: 0 }}
+                                                loading="lazy"
+                                                allowFullScreen
+                                                referrerPolicy="no-referrer-when-downgrade"
+                                                src={`https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${encodeURIComponent(mapAddress)}`}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Contact Form */}
+                                {showForm && (
+                                    <div className="p-6 md:p-8 border rounded-lg bg-card">
+                                        <h3 className="text-xl font-bold mb-6">{formTitle}</h3>
+                                        <StorefrontForm
+                                            formName="contact"
+                                            fields={formFields}
+                                            submitButtonText="Send Message"
+                                            successMessage="Thank you for your message! We will get back to you soon."
+                                            merchantId=""
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                    </AnimatedWrapper>
+                );
+            }
+        },
+        LegalSection: {
+            label: 'Legal / Policy Section',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                title: { type: 'text', label: 'Page Title' },
+                lastUpdated: { type: 'text', label: 'Last Updated Date' },
+                sections: {
+                    type: 'array',
+                    label: 'Content Sections',
+                    getItemSummary: (item) => item.heading || 'Section',
+                    arrayFields: {
+                        heading: { type: 'text', label: 'Section Heading' },
+                        content: { type: 'textarea', label: 'Content' },
+                    }
+                },
+                ...animationFields
+            },
+            defaultProps: {
+                title: 'Privacy Policy',
+                lastUpdated: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+                sections: [
+                    { heading: 'Introduction', content: 'This Privacy Policy describes how we collect, use, and protect your personal information when you use our services.' },
+                    { heading: 'Information We Collect', content: 'We collect information you provide directly to us, such as when you create an account, make a purchase, or contact us for support.' },
+                    { heading: 'How We Use Your Information', content: 'We use the information we collect to provide, maintain, and improve our services, process transactions, and communicate with you.' },
+                    { heading: 'Contact Us', content: 'If you have any questions about this Privacy Policy, please contact us at privacy@example.com.' },
+                ],
+                animationType: 'fade-in',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
+            },
+            render: ({ title, lastUpdated, sections, animationType, animationDuration, animationDelay, animationTrigger }) => {
+                return (
+                    <AnimatedWrapper
+                        animation={{
+                            type: mapAnimationType(animationType),
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
+                            delay: animationDelay,
+                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
+                        }}
+                    >
+                        <section className="py-12 md:py-16 container px-4 md:px-6">
+                            <div className="max-w-3xl mx-auto">
+                                <h1 className="text-4xl font-bold mb-4">{title}</h1>
+                                {lastUpdated && (
+                                    <p className="text-muted-foreground mb-8">Last updated: {lastUpdated}</p>
+                                )}
+                                <div className="prose dark:prose-invert max-w-none space-y-8">
+                                    {sections && sections.map((section: { heading: string; content: string }, index: number) => (
+                                        <div key={index}>
+                                            <h2 className="text-2xl font-semibold mb-3">{section.heading}</h2>
+                                            <p className="text-muted-foreground whitespace-pre-wrap">{section.content}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
+                    </AnimatedWrapper>
+                );
+            }
+        },
+        CountdownTimer: {
+            label: 'Countdown Timer',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                endDate: { type: 'text', label: 'End Date (YYYY-MM-DD HH:MM)' },
+                title: { type: 'text', label: 'Title (optional)' },
+                subtitle: { type: 'text', label: 'Subtitle (optional)' },
+                expiredMessage: { type: 'text', label: 'Expired Message' },
+                style: {
+                    type: 'select',
+                    label: 'Style',
+                    options: [
+                        { label: 'Boxes', value: 'boxes' },
+                        { label: 'Inline', value: 'inline' },
+                        { label: 'Minimal', value: 'minimal' },
+                    ]
+                },
+                showDays: { type: 'radio', label: 'Show Days', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                showHours: { type: 'radio', label: 'Show Hours', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                showMinutes: { type: 'radio', label: 'Show Minutes', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                showSeconds: { type: 'radio', label: 'Show Seconds', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                ...animationFields
+            },
+            defaultProps: {
+                endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16).replace('T', ' '),
+                title: 'Limited Time Offer',
+                subtitle: 'Sale ends in:',
+                expiredMessage: 'This offer has expired',
+                style: 'boxes',
+                showDays: true,
+                showHours: true,
+                showMinutes: true,
+                showSeconds: true,
+                animationType: 'fade-in',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
+            },
+            render: function CountdownTimerRender({ endDate, title, subtitle, expiredMessage, style, showDays, showHours, showMinutes, showSeconds, animationType, animationDuration, animationDelay, animationTrigger }) {
+                const [timeLeft, setTimeLeft] = React.useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+                const [isExpired, setIsExpired] = React.useState(false);
+
+                React.useEffect(() => {
+                    const calculateTimeLeft = () => {
+                        const end = new Date(endDate).getTime();
+                        const now = Date.now();
+                        const diff = end - now;
+
+                        if (diff <= 0) {
+                            setIsExpired(true);
+                            return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+                        }
+
+                        return {
+                            days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+                            hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+                            minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+                            seconds: Math.floor((diff % (1000 * 60)) / 1000),
+                        };
+                    };
+
+                    setTimeLeft(calculateTimeLeft());
+                    const timer = setInterval(() => {
+                        setTimeLeft(calculateTimeLeft());
+                    }, 1000);
+
+                    return () => clearInterval(timer);
+                }, [endDate]);
+
+                const TimeUnit = ({ value, label }: { value: number; label: string }) => {
+                    if (style === 'boxes') {
+                        return (
+                            <div className="flex flex-col items-center">
+                                <div className="bg-[var(--store-primary)] text-[var(--store-primary-text)] rounded-lg p-3 md:p-4 min-w-[60px] md:min-w-[80px]">
+                                    <span className="text-2xl md:text-4xl font-bold">{String(value).padStart(2, '0')}</span>
+                                </div>
+                                <span className="text-xs md:text-sm text-muted-foreground mt-2 uppercase tracking-wide">{label}</span>
+                            </div>
+                        );
+                    }
+                    if (style === 'minimal') {
+                        return (
+                            <span className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--store-primary)' }}>
+                                {String(value).padStart(2, '0')}
+                                <span className="text-sm text-muted-foreground ml-1">{label.charAt(0)}</span>
+                            </span>
+                        );
+                    }
+                    return (
+                        <span className="text-xl md:text-2xl font-semibold">
+                            {value} <span className="text-sm text-muted-foreground">{label}</span>
+                        </span>
+                    );
+                };
+
+                return (
+                    <AnimatedWrapper
+                        animation={{
+                            type: mapAnimationType(animationType),
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
+                            delay: animationDelay,
+                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
+                        }}
+                    >
+                        <section className="py-8 md:py-12 container px-4 md:px-6">
+                            <div className="text-center max-w-2xl mx-auto">
+                                {title && <h2 className="text-2xl md:text-3xl font-bold mb-2">{title}</h2>}
+                                {subtitle && !isExpired && <p className="text-muted-foreground mb-6">{subtitle}</p>}
+
+                                {isExpired ? (
+                                    <p className="text-xl text-muted-foreground">{expiredMessage}</p>
+                                ) : (
+                                    <div className={cn(
+                                        'flex justify-center items-center',
+                                        style === 'boxes' ? 'gap-3 md:gap-4' : 'gap-2 md:gap-4'
+                                    )}>
+                                        {showDays && <TimeUnit value={timeLeft.days} label="Days" />}
+                                        {style === 'inline' && showDays && showHours && <span className="text-2xl">:</span>}
+                                        {showHours && <TimeUnit value={timeLeft.hours} label="Hours" />}
+                                        {style === 'inline' && showHours && showMinutes && <span className="text-2xl">:</span>}
+                                        {showMinutes && <TimeUnit value={timeLeft.minutes} label="Minutes" />}
+                                        {style === 'inline' && showMinutes && showSeconds && <span className="text-2xl">:</span>}
+                                        {showSeconds && <TimeUnit value={timeLeft.seconds} label="Seconds" />}
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+                    </AnimatedWrapper>
+                );
+            }
+        },
+        TrustBadges: {
+            label: 'Trust Badges',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                badges: {
+                    type: 'array',
+                    label: 'Badges',
+                    getItemSummary: (item) => item.title || 'Badge',
+                    arrayFields: {
+                        icon: {
+                            type: 'select',
+                            label: 'Icon',
+                            options: getIconOptions()
+                        },
+                        title: { type: 'text', label: 'Title' },
+                        description: { type: 'text', label: 'Description (optional)' },
+                    }
+                },
+                layout: {
+                    type: 'select',
+                    label: 'Layout',
+                    options: [
+                        { label: 'Horizontal', value: 'horizontal' },
+                        { label: 'Grid', value: 'grid' },
+                    ]
+                },
+                style: {
+                    type: 'select',
+                    label: 'Style',
+                    options: [
+                        { label: 'Cards', value: 'cards' },
+                        { label: 'Minimal', value: 'minimal' },
+                        { label: 'Icons Only', value: 'icons-only' },
+                    ]
+                },
+                ...animationFields
+            },
+            defaultProps: {
+                badges: [
+                    { icon: 'shield-check', title: 'Secure Payment', description: '256-bit SSL encryption' },
+                    { icon: 'truck', title: 'Free Shipping', description: 'On orders over $50' },
+                    { icon: 'refresh-cw', title: '30-Day Returns', description: 'Money-back guarantee' },
+                    { icon: 'headphones', title: '24/7 Support', description: 'We are here to help' },
+                ],
+                layout: 'horizontal',
+                style: 'cards',
+                animationType: 'fade-in',
+                animationDuration: 'normal',
+                animationDelay: 0,
+                animationTrigger: 'scroll',
+            },
+            render: ({ badges, layout, style, animationType, animationDuration, animationDelay, animationTrigger }) => {
+                return (
+                    <AnimatedWrapper
+                        animation={{
+                            type: mapAnimationType(animationType),
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
+                            delay: animationDelay,
+                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
+                        }}
+                    >
+                        <section className="py-8 md:py-12 container px-4 md:px-6">
+                            <div className={cn(
+                                layout === 'horizontal'
+                                    ? 'flex flex-wrap justify-center gap-6 md:gap-8'
+                                    : 'grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6'
+                            )}>
+                                {badges && badges.map((badge: { icon: string; title: string; description?: string }, index: number) => (
+                                    <div
+                                        key={index}
+                                        className={cn(
+                                            'flex items-center',
+                                            style === 'cards' && 'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
+                                            style === 'minimal' && 'gap-3',
+                                            style === 'icons-only' && 'flex-col text-center'
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            'rounded-full flex items-center justify-center',
+                                            style === 'cards' && 'w-12 h-12 md:w-14 md:h-14 bg-[var(--store-primary)]/10 mb-3',
+                                            style === 'minimal' && 'w-10 h-10 bg-[var(--store-primary)]/10',
+                                            style === 'icons-only' && 'w-14 h-14 md:w-16 md:h-16 bg-[var(--store-primary)]/10'
+                                        )}>
+                                            {renderIcon(badge.icon, {
+                                                className: cn(
+                                                    style === 'cards' && 'w-6 h-6 md:w-7 md:h-7',
+                                                    style === 'minimal' && 'w-5 h-5',
+                                                    style === 'icons-only' && 'w-7 h-7 md:w-8 md:h-8'
+                                                ),
+                                                style: { color: 'var(--store-primary)' }
+                                            })}
+                                        </div>
+                                        {style !== 'icons-only' && (
+                                            <div className={style === 'minimal' ? '' : ''}>
+                                                <p className={cn(
+                                                    'font-semibold',
+                                                    style === 'cards' && 'text-sm md:text-base',
+                                                    style === 'minimal' && 'text-sm'
+                                                )}>{badge.title}</p>
+                                                {badge.description && style === 'cards' && (
+                                                    <p className="text-xs md:text-sm text-muted-foreground mt-1">{badge.description}</p>
+                                                )}
+                                            </div>
+                                        )}
+                                        {style === 'icons-only' && (
+                                            <p className="text-xs font-medium mt-2">{badge.title}</p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    </AnimatedWrapper>
+                );
+            }
+        },
+        AnnouncementBar: {
+            label: 'Announcement Bar',
+            permissions: { delete: true, duplicate: true },
+            fields: {
+                message: { type: 'text', label: 'Message' },
+                linkText: { type: 'text', label: 'Link Text (optional)' },
+                linkUrl: { type: 'text', label: 'Link URL (optional)' },
+                backgroundColor: { type: 'text', label: 'Background Color (hex or CSS variable)' },
+                textColor: { type: 'text', label: 'Text Color (hex or CSS variable)' },
+                dismissible: { type: 'radio', label: 'Dismissible', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
+                ...animationFields
+            },
+            defaultProps: {
+                message: 'Free shipping on all orders over $50!',
+                linkText: 'Shop Now',
+                linkUrl: '#products',
+                backgroundColor: 'var(--store-primary)',
+                textColor: 'var(--store-primary-text)',
+                dismissible: true,
+                animationType: 'slide-down',
+                animationDuration: 'fast',
+                animationDelay: 0,
+                animationTrigger: 'onload',
+            },
+            render: function AnnouncementBarRender({ message, linkText, linkUrl, backgroundColor, textColor, dismissible, animationType, animationDuration, animationDelay, animationTrigger }) {
+                const [isDismissed, setIsDismissed] = React.useState(false);
+
+                React.useEffect(() => {
+                    if (typeof window !== 'undefined') {
+                        const dismissed = localStorage.getItem('baci-announcement-dismissed');
+                        if (dismissed === 'true') {
+                            setIsDismissed(true);
+                        }
+                    }
+                }, []);
+
+                const handleDismiss = () => {
+                    setIsDismissed(true);
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem('baci-announcement-dismissed', 'true');
+                    }
+                };
+
+                if (isDismissed) return <></>;
+
+                return (
+                    <AnimatedWrapper
+                        animation={{
+                            type: mapAnimationType(animationType),
+                            duration: animationDuration as 'fast' | 'normal' | 'slow',
+                            delay: animationDelay,
+                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
+                        }}
+                    >
+                        <div
+                            className="relative py-2 px-4 text-center text-sm"
+                            style={{
+                                backgroundColor: backgroundColor || 'var(--store-primary)',
+                                color: textColor || 'var(--store-primary-text)',
+                            }}
+                        >
+                            <div className="container mx-auto flex items-center justify-center gap-2">
+                                <span>{message}</span>
+                                {linkText && linkUrl && (
+                                    <Link
+                                        href={linkUrl}
+                                        className="font-semibold underline underline-offset-2 hover:no-underline"
+                                    >
+                                        {linkText}
+                                    </Link>
+                                )}
+                            </div>
+                            {dismissible && (
+                                <button
+                                    onClick={handleDismiss}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:opacity-70 transition-opacity"
+                                    aria-label="Dismiss announcement"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            )}
+                        </div>
+                    </AnimatedWrapper>
+                );
+            }
         }
     }
 };

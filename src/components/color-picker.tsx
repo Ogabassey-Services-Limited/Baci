@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { colord } from 'colord';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -26,30 +26,35 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   const [hexInput, setHexInput] = useState(parsedColor.toHex());
   const hexInputRef = useRef(parsedColor.toHex());
 
-  // Track if we're currently dragging to use internal state vs prop
-  const isDraggingSatLightRef = useRef(false);
-  const isDraggingHueRef = useRef(false);
+  // Track if we're currently dragging - using state so it's available during render
+  const [isDraggingSatLight, setIsDraggingSatLight] = useState(false);
+  const [isDraggingHue, setIsDraggingHue] = useState(false);
   const lastPropColorRef = useRef(color);
 
   const satLightBoxRef = useRef<HTMLDivElement>(null);
   const hueSliderRef = useRef<HTMLDivElement>(null);
 
   // Sync internal state when prop changes externally (not from our own onChange)
-  if (lastPropColorRef.current !== color && !isDraggingSatLightRef.current && !isDraggingHueRef.current) {
-    const newHsl = parsedColor.toHsl();
-    setInternalHue(newHsl.h);
-    setInternalSaturation(newHsl.s);
-    setInternalLightness(newHsl.l);
-    lastPropColorRef.current = color;
-    // Also update hex input if it wasn't the source of the change
-    if (hexInputRef.current !== parsedColor.toHex()) {
-      setHexInput(parsedColor.toHex());
-      hexInputRef.current = parsedColor.toHex();
+  // This is an intentional controlled component pattern for prop-to-state sync
+  useEffect(() => {
+    if (lastPropColorRef.current !== color && !isDraggingSatLight && !isDraggingHue) {
+      const newParsedColor = colord(color);
+      const newHsl = newParsedColor.toHsl();
+      setInternalHue(newHsl.h);
+      setInternalSaturation(newHsl.s);
+      setInternalLightness(newHsl.l);
+      lastPropColorRef.current = color;
+      // Also update hex input if it wasn't the source of the change
+      const newHex = newParsedColor.toHex();
+      if (hexInputRef.current !== newHex) {
+        setHexInput(newHex);
+        hexInputRef.current = newHex;
+      }
     }
-  }
+  }, [color, isDraggingSatLight, isDraggingHue]);
 
   // Use internal state when dragging, otherwise derive from prop
-  const isDragging = isDraggingSatLightRef.current || isDraggingHueRef.current;
+  const isDragging = isDraggingSatLight || isDraggingHue;
   const hue = isDragging ? internalHue : incomingHsl.h;
   const saturation = isDragging ? internalSaturation : incomingHsl.s;
   const lightness = isDragging ? internalLightness : incomingHsl.l;
@@ -94,12 +99,12 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   };
 
   const handleMouseUp = () => {
-    isDraggingSatLightRef.current = false;
-    isDraggingHueRef.current = false;
+    setIsDraggingSatLight(false);
+    setIsDraggingHue(false);
   };
 
   const handleMouseDownSatLight = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-    isDraggingSatLightRef.current = true;
+    setIsDraggingSatLight(true);
     // Initialize internal state from current values
     setInternalHue(hue);
     setInternalSaturation(saturation);
@@ -122,7 +127,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   };
 
   const handleMouseDownHue = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-    isDraggingHueRef.current = true;
+    setIsDraggingHue(true);
     // Initialize internal state from current values
     setInternalHue(hue);
     setInternalSaturation(saturation);
@@ -148,10 +153,23 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
     <div className="space-y-4 w-64">
       <div
         ref={satLightBoxRef}
-        className="w-full h-36 rounded-md cursor-pointer relative"
+        role="slider"
+        tabIndex={0}
+        aria-label="Saturation and lightness"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(saturation)}
+        className="w-full h-36 rounded-md cursor-pointer relative focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
         style={{ backgroundColor: `hsl(${hue}, 100%, 50%)` }}
         onMouseDown={handleMouseDownSatLight}
         onTouchStart={handleMouseDownSatLight}
+        onKeyDown={(e) => {
+          const step = e.shiftKey ? 10 : 1;
+          if (e.key === 'ArrowRight') { updateColor(hue, Math.min(100, saturation + step), lightness); e.preventDefault(); }
+          if (e.key === 'ArrowLeft') { updateColor(hue, Math.max(0, saturation - step), lightness); e.preventDefault(); }
+          if (e.key === 'ArrowUp') { updateColor(hue, saturation, Math.min(100, lightness + step)); e.preventDefault(); }
+          if (e.key === 'ArrowDown') { updateColor(hue, saturation, Math.max(0, lightness - step)); e.preventDefault(); }
+        }}
       >
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, white, transparent)' }} />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, black, transparent)' }} />
@@ -167,13 +185,24 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
       </div>
 
       <div className="space-y-2">
-        <Label>Hue</Label>
+        <Label id="hue-label">Hue</Label>
         <div
           ref={hueSliderRef}
-          className="relative h-4 w-full cursor-pointer rounded-full"
+          role="slider"
+          tabIndex={0}
+          aria-labelledby="hue-label"
+          aria-valuemin={0}
+          aria-valuemax={360}
+          aria-valuenow={Math.round(hue)}
+          className="relative h-4 w-full cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           style={{ background: 'linear-gradient(to right, rgb(255, 0, 0) 0%, rgb(255, 255, 0) 17%, rgb(0, 255, 0) 33%, rgb(0, 255, 255) 50%, rgb(0, 0, 255) 67%, rgb(255, 0, 255) 83%, rgb(255, 0, 0) 100%)' }}
           onMouseDown={handleMouseDownHue}
           onTouchStart={handleMouseDownHue}
+          onKeyDown={(e) => {
+            const step = e.shiftKey ? 30 : 5;
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { updateColor((hue + step) % 360, saturation, lightness); e.preventDefault(); }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { updateColor((hue - step + 360) % 360, saturation, lightness); e.preventDefault(); }
+          }}
         >
           <div
             className="absolute h-5 w-5 -top-0.5 rounded-full border-2 border-white bg-transparent shadow-md pointer-events-none"

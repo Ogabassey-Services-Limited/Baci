@@ -9,16 +9,18 @@ import { Product, sampleProductsByCategory } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 import { apiGet } from '@/lib/api-client';
 import Fuse from 'fuse.js';
-import { Loader2, Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Eye } from 'lucide-react';
 import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
-import Image from 'next/image';
-import { getCountryByCode } from '@/lib/countries';
+import { ProductCardImage } from '@/components/optimized-image';
+import { ProductGridSkeleton } from '@/components/ui/skeletons';
+import { useCurrency } from '@/hooks/use-currency';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
 import { findDarkestColor } from '@/lib/color-utils';
 import { DidYouMeanBanner } from './did-you-mean-banner';
+import { QuickViewModal, useQuickView } from './quick-view-modal';
 
 interface StorefrontProductGridProps {
     title?: string;
@@ -32,6 +34,7 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
     const merchant = merchantContext?.merchant || null;
     const { cart, addToCart, updateQuantity } = useCart();
     const { toast } = useToast();
+    const { formatCurrency } = useCurrency();
 
     const storefrontContext = useStorefrontSafe();
     const searchQuery = storefrontContext?.searchQuery || '';
@@ -214,20 +217,12 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
         });
     };
 
-    const formatCurrency = (amount: number) => {
-        const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
-        const locale = country ? `en-${country.code}` : 'en-US';
-        const currency = country ? country.currency : 'USD';
-
-        return new Intl.NumberFormat(locale, {
-            style: 'currency',
-            currency: currency,
-            currencyDisplay: 'symbol',
-        }).format(amount);
-    };
 
     const brandColors = merchant?.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.background, merchant.brand_colors.accent].filter(Boolean) : ['#3F51B5'];
     const darkestColor = findDarkestColor(brandColors as string[]);
+
+    // Quick view modal state
+    const { product: quickViewProduct, isOpen: isQuickViewOpen, openQuickView, closeQuickView } = useQuickView();
 
     return (
         <section className="w-full py-12 md:py-24 lg:py-32" id="products">
@@ -237,7 +232,7 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                         <div className="bg-card border rounded-xl p-6 shadow-sm">
                             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                                 <div className="flex items-center gap-3">
-                                    <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                                     </svg>
                                     <select
@@ -306,24 +301,25 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                 )}
 
                 {isLoading || isSearching ? (
-                    <div className="flex justify-center py-12">
-                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </div>
+                    <ProductGridSkeleton count={limit} columns={columns as 2 | 3 | 4 | 5 | 6} />
                 ) : searchResults.length > 0 ? (
                     <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-${columns} gap-6`}>
-                        {searchResults.map((product) => {
+                        {searchResults.map((product, index) => {
                             const cartItem = cart.find(item => item.id === product.id);
+                            // Stagger animation class (1-8, then loops)
+                            const staggerClass = `stagger-${(index % 8) + 1}`;
 
                             return (
-                                <ThemedCard key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col" accentPosition="top">
+                                <ThemedCard key={product.id} className={`glass-themed overflow-hidden hover-lift flex flex-col group/card animate-fade-in-up ${staggerClass}`} accentPosition="top">
                                     <Link href={getProductUrl(product)} className="block relative group">
-                                        <Image
+                                        <ProductCardImage
                                             src={product.imageLarge}
                                             alt={product.name}
                                             data-ai-hint={product.imageHint}
                                             width={600}
                                             height={400}
                                             className="object-cover w-full h-auto aspect-video"
+                                            category={product.category}
                                         />
                                         <div className="absolute top-2 left-2 flex flex-col gap-1">
                                             {product.compare_at_price && product.compare_at_price > product.price && (
@@ -342,6 +338,19 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                                                 </span>
                                             )}
                                         </div>
+                                        {/* Quick View Button - Desktop Only */}
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                openQuickView(product);
+                                            }}
+                                            className="absolute bottom-3 left-1/2 -translate-x-1/2 hidden md:flex items-center gap-1.5 bg-white/95 backdrop-blur-sm text-gray-900 px-4 py-2 rounded-full text-sm font-medium shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-white hover:scale-105"
+                                            aria-label={`Quick view ${product.name}`}
+                                        >
+                                            <Eye className="w-4 h-4" />
+                                            Quick View
+                                        </button>
                                     </Link>
                                     <CardContent className="p-4 flex flex-col flex-1">
                                         <h3 className="font-semibold text-lg">{product.name}</h3>
@@ -350,18 +359,18 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                                             <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
                                             {cartItem ? (
                                                 <div className="flex items-center gap-1">
-                                                    <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)} aria-label={`Decrease quantity of ${product.name}`}>
+                                                    <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-10 w-10 min-w-[44px] min-h-[44px]" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)} aria-label={`Decrease quantity of ${product.name}`}>
                                                         <Minus className="h-4 w-4" aria-hidden="true" />
                                                     </ThemedButton>
                                                     <Input
                                                         type="number"
                                                         value={cartItem.quantity}
                                                         onChange={(e) => updateQuantity(product.id, parseInt(e.target.value, 10) || 0)}
-                                                        className="h-8 w-12 text-center remove-arrow"
+                                                        className="h-10 w-12 text-center remove-arrow"
                                                         min="0"
                                                         aria-label={`Quantity for ${product.name}`}
                                                     />
-                                                    <ThemedButton colorRole="accent" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)} aria-label={`Increase quantity of ${product.name}`}>
+                                                    <ThemedButton colorRole="accent" size="icon" className="h-10 w-10 min-w-[44px] min-h-[44px]" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)} aria-label={`Increase quantity of ${product.name}`}>
                                                         <Plus className="h-4 w-4" aria-hidden="true" />
                                                     </ThemedButton>
                                                 </div>
@@ -379,10 +388,17 @@ export function StorefrontProductGrid({ title = 'Shop By', columns = 4, limit = 
                 ) : (
                     <div className="text-center text-muted-foreground py-16">
                         <h3 className="text-xl font-semibold">No products found</h3>
-                        <p>Your search for "{searchQuery}" did not match any products.</p>
+                        <p>Your search for &quot;{searchQuery}&quot; did not match any products.</p>
                     </div>
                 )}
             </div>
+
+            {/* Quick View Modal */}
+            <QuickViewModal
+                product={quickViewProduct}
+                isOpen={isQuickViewOpen}
+                onClose={closeQuickView}
+            />
         </section>
     );
 }

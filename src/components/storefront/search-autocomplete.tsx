@@ -144,6 +144,7 @@ export function SearchAutocomplete({
             role="combobox"
             aria-expanded={isOpen && hasResults}
             aria-haspopup="listbox"
+            aria-controls={listboxId}
             aria-owns={listboxId}
         >
             <div className="relative">
@@ -174,7 +175,7 @@ export function SearchAutocomplete({
                     id={listboxId}
                     role="listbox"
                     aria-label="Search suggestions"
-                    className="absolute z-50 mt-2 w-full rounded-md border bg-popover shadow-lg"
+                    className="absolute z-50 mt-2 w-full rounded-md border glass-themed shadow-lg"
                 >
                     <div className="max-h-96 overflow-y-auto p-2">
                         {/* Product suggestions */}

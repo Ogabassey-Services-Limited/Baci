@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Heart, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -31,12 +31,7 @@ export function AddToWishListButton({
   const [isLoading, setIsLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(true);
 
-  // Check if product is already in wish list on mount
-  useEffect(() => {
-    checkWishListStatus();
-  }, [productId, customerEmail]);
-
-  const checkWishListStatus = async () => {
+  const checkWishListStatus = useCallback(async () => {
     if (!customerEmail) {
       setIsChecking(false);
       return;
@@ -56,7 +51,12 @@ export function AddToWishListButton({
     } finally {
       setIsChecking(false);
     }
-  };
+  }, [customerEmail, productId]);
+
+  // Check if product is already in wish list on mount
+  useEffect(() => {
+    checkWishListStatus();
+  }, [checkWishListStatus]);
 
   const handleToggleWishList = async () => {
     if (!customerEmail) {

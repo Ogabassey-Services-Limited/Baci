@@ -19,10 +19,11 @@ import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
-import { getCountryByCode } from '@/lib/countries';
+import { useCurrency } from '@/hooks/use-currency';
 import { apiPost } from '@/lib/api-client';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { isValidPhoneNumber, type Country as CountryCode } from 'react-phone-number-input';
+import { getCountryByCode } from '@/lib/countries';
 
 const DEFAULT_SHIPPING_FEE = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00');
 
@@ -159,7 +160,7 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
             )}
           />
           <ThemedButton type="submit" colorRole="primary" className="w-full" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
             {isLogin ? 'Sign In' : 'Sign Up'}
           </ThemedButton>
         </form>
@@ -284,19 +285,7 @@ function Step1_Shipping() {
 }
 
 function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
-  const { merchant } = useMerchant();
-
-  const formatCurrency = (value: number) => {
-    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
-    const locale = country ? `en-${country.code}` : 'en-US';
-    const currency = country ? country.currency : 'USD';
-
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currency,
-      currencyDisplay: 'symbol',
-    }).format(value);
-  };
+  const { formatCurrency } = useCurrency();
 
   return (
     <div className="space-y-4">
@@ -311,7 +300,7 @@ function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
             </div>
           </div>
           {shippingFee === null ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 motion-safe:animate-spin" />
           ) : (
             <p className="font-semibold">{formatCurrency(shippingFee)}</p>
           )}
@@ -555,14 +544,29 @@ function CheckoutPageContent() {
   };
 
   return (
-    <div className="container mx-auto max-w-4xl py-12 px-4">
-      <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8">
+    <>
+      {/* Skip link for keyboard navigation */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Skip to main content
+      </a>
+      <main
+        id="main-content"
+        className="container mx-auto max-w-4xl py-12 px-4"
+        style={{
+          paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+          paddingRight: 'max(1rem, env(safe-area-inset-right))',
+        }}
+      >
+        <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8">
         <ArrowLeft className="w-4 h-4" />
         Back to Store
       </Link>
 
       <div className="grid md:grid-cols-[1fr_350px] gap-12 items-start">
-        <Card>
+        <Card className="glass">
           <CardContent className="p-8">
             <h2 className="text-2xl font-bold mb-6">
               {getStepTitle()}
@@ -591,7 +595,7 @@ function CheckoutPageContent() {
                     Previous
                   </Button>
                   <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading || shippingFee === null}>
-                    {(formIsLoading || shippingFee === null) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {(formIsLoading || shippingFee === null) && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />}
                     Place Order
                   </ThemedButton>
                 </div>
@@ -601,7 +605,8 @@ function CheckoutPageContent() {
         </Card>
         <OrderSummary />
       </div>
-    </div>
+    </main>
+    </>
   );
 }
 

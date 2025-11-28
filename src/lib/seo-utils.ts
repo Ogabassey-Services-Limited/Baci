@@ -1,5 +1,5 @@
 import { Product, ProductSchemaMarkup } from './products';
-import { escapeHtml, stripHtmlTags } from './sanitize';
+import { escapeHtml, stripHtmlTags, sanitizeSchemaMarkup } from './sanitize';
 
 /**
  * Generates a URL-friendly slug from a string
@@ -230,6 +230,15 @@ export function generateProductSchema(product: Product, merchantName: string = '
         };
     }
 
+    // Merge custom schema markup if provided (e.g. aggregateRating)
+    // This allows merchants to extend the auto-generated schema with their own data
+    if (product.schema_markup) {
+        const sanitizedCustomSchema = sanitizeSchemaMarkup(product.schema_markup);
+        // We merge sanitizedCustomSchema into schema
+        // Using Object.assign to override/extend existing fields
+        Object.assign(schema, sanitizedCustomSchema);
+    }
+
     return schema;
 }
 
@@ -401,4 +410,210 @@ export function generateMetaDescription(description: string, maxLength: number =
     if (plainText.length <= validMaxLength) return plainText;
 
     return plainText.substring(0, validMaxLength - ELLIPSIS_LENGTH) + ELLIPSIS;
+}
+
+/**
+ * Generates CollectionPage schema for product listing pages (categories, collections)
+ * @see https://schema.org/CollectionPage
+ */
+export interface CollectionPageData {
+    name: string;
+    description?: string;
+    url: string;
+    products: Product[];
+    merchantName: string;
+    currency?: string;
+}
+
+export function generateCollectionPageSchema(data: CollectionPageData): Record<string, unknown> {
+    const safeProducts = data.products.slice(0, 20); // Limit to 20 for performance
+
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: escapeHtml(data.name),
+        description: data.description ? escapeHtml(data.description) : undefined,
+        url: escapeHtml(data.url),
+        mainEntity: {
+            '@type': 'ItemList',
+            itemListElement: safeProducts.map((product, index) => ({
+                '@type': 'ListItem',
+                position: index + 1,
+                item: {
+                    '@type': 'Product',
+                    name: escapeHtml(product.name),
+                    description: product.description ? escapeHtml(generateMetaDescription(product.description, 100)) : undefined,
+                    image: product.imageLarge ? escapeHtml(product.imageLarge) : undefined,
+                    url: escapeHtml(getProductUrl(product)),
+                    offers: {
+                        '@type': 'Offer',
+                        price: product.price,
+                        priceCurrency: data.currency || 'NGN',
+                        availability: product.stock > 0
+                            ? 'https://schema.org/InStock'
+                            : 'https://schema.org/OutOfStock'
+                    }
+                }
+            }))
+        },
+        numberOfItems: data.products.length
+    };
+}
+
+/**
+ * Generates ProductGroup schema for products with variants (colors, sizes, etc.)
+ * @see https://schema.org/ProductGroup
+ */
+export interface ProductGroupData {
+    name: string;
+    description?: string;
+    url: string;
+    variants: Product[];
+    merchantName: string;
+    currency?: string;
+    variesBy?: ('color' | 'size' | 'material' | 'pattern')[];
+}
+
+export function generateProductGroupSchema(data: ProductGroupData): Record<string, unknown> {
+    const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'ProductGroup',
+        name: escapeHtml(data.name),
+        description: data.description ? escapeHtml(data.description) : undefined,
+        url: escapeHtml(data.url),
+        productGroupID: escapeHtml(data.name.toLowerCase().replace(/\s+/g, '-')),
+        hasVariant: data.variants.map(variant => ({
+            '@type': 'Product',
+            name: escapeHtml(variant.name),
+            description: variant.description ? escapeHtml(generateMetaDescription(variant.description, 100)) : undefined,
+            image: variant.imageLarge ? escapeHtml(variant.imageLarge) : undefined,
+            sku: variant.sku ? escapeHtml(variant.sku) : undefined,
+            color: variant.color ? escapeHtml(variant.color) : undefined,
+            offers: {
+                '@type': 'Offer',
+                price: variant.price,
+                priceCurrency: data.currency || 'NGN',
+                availability: variant.stock > 0
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock',
+                seller: {
+                    '@type': 'Organization',
+                    name: escapeHtml(data.merchantName)
+                }
+            }
+        }))
+    };
+
+    // Add variesBy property if specified
+    if (data.variesBy && data.variesBy.length > 0) {
+        schema.variesBy = data.variesBy.map(v =>
+            `https://schema.org/${v.charAt(0).toUpperCase() + v.slice(1)}`
+        );
+    }
+
+    return schema;
+}
+
+/**
+ * Generates Organization schema for the merchant/store
+ * @see https://schema.org/Organization
+ */
+export interface OrganizationData {
+    name: string;
+    url: string;
+    logo?: string;
+    description?: string;
+    email?: string;
+    telephone?: string;
+    socialMedia?: {
+        facebook?: string;
+        instagram?: string;
+        twitter?: string;
+        linkedin?: string;
+        youtube?: string;
+    };
+    foundingDate?: string;
+}
+
+export function generateOrganizationSchema(data: OrganizationData): Record<string, unknown> {
+    const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: escapeHtml(data.name),
+        url: escapeHtml(data.url),
+    };
+
+    if (data.logo) {
+        const safeLogo = escapeHtml(data.logo);
+        schema.logo = {
+            '@type': 'ImageObject',
+            url: safeLogo,
+            width: 600,
+            height: 60
+        };
+        schema.image = safeLogo;
+    }
+
+    if (data.description) {
+        schema.description = escapeHtml(data.description);
+    }
+
+    if (data.email) {
+        schema.email = escapeHtml(data.email);
+    }
+
+    if (data.telephone) {
+        schema.telephone = escapeHtml(data.telephone);
+    }
+
+    if (data.foundingDate) {
+        schema.foundingDate = escapeHtml(data.foundingDate);
+    }
+
+    // Collect social media profiles
+    const sameAs: string[] = [];
+    if (data.socialMedia) {
+        if (data.socialMedia.facebook) sameAs.push(escapeHtml(data.socialMedia.facebook));
+        if (data.socialMedia.instagram) sameAs.push(escapeHtml(data.socialMedia.instagram));
+        if (data.socialMedia.twitter) sameAs.push(escapeHtml(data.socialMedia.twitter));
+        if (data.socialMedia.linkedin) sameAs.push(escapeHtml(data.socialMedia.linkedin));
+        if (data.socialMedia.youtube) sameAs.push(escapeHtml(data.socialMedia.youtube));
+    }
+
+    if (sameAs.length > 0) {
+        schema.sameAs = sameAs;
+    }
+
+    return schema;
+}
+
+/**
+ * Generates WebSite schema with SearchAction for sitelinks search box
+ * @see https://developers.google.com/search/docs/appearance/structured-data/sitelinks-searchbox
+ */
+export function generateWebSiteSchema(
+    name: string,
+    url: string,
+    searchUrlTemplate?: string
+): Record<string, unknown> {
+    const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: escapeHtml(name),
+        url: escapeHtml(url),
+    };
+
+    // Add search action for sitelinks search box
+    if (searchUrlTemplate) {
+        schema.potentialAction = {
+            '@type': 'SearchAction',
+            target: {
+                '@type': 'EntryPoint',
+                urlTemplate: escapeHtml(searchUrlTemplate)
+            },
+            'query-input': 'required name=search_term_string'
+        };
+    }
+
+    return schema;
 }

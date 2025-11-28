@@ -25,13 +25,41 @@ export async function PATCH(
 
     const body = await request.json();
 
+    // Allowlist of fields that can be updated (prevents mass assignment)
+    const allowedFields = [
+      'code',
+      'description',
+      'discount_type',
+      'discount_value',
+      'minimum_purchase_amount',
+      'maximum_discount_amount',
+      'usage_limit',
+      'usage_limit_per_customer',
+      'starts_at',
+      'expires_at',
+      'is_active',
+      'applies_to',
+      'product_ids',
+      'category_ids',
+    ];
+
+    // Build update object only with allowed fields
+    const updateData: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (field in body && body[field] !== undefined) {
+        updateData[field] = body[field];
+      }
+    }
+
+    // Uppercase the code if provided
+    if (updateData.code) {
+      updateData.code = (updateData.code as string).toUpperCase();
+    }
+
     // Update discount code (RLS will ensure it belongs to the merchant)
     const { data: discountCode, error } = await supabase
       .from('discount_codes')
-      .update({
-        ...body,
-        code: body.code ? body.code.toUpperCase() : undefined,
-      })
+      .update(updateData)
       .eq('id', id)
       .select()
       .single();

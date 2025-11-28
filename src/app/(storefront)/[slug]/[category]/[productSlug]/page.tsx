@@ -5,7 +5,7 @@ import { Metadata } from 'next';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema, generateSlug, getProductUrl } from '@/lib/seo-utils';
-import { escapeHtml, sanitizeSchemaMarkup, safeJsonLdStringify } from '@/lib/sanitize';
+import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize';
 
 // Enable ISR with 5 minute revalidation
 export const revalidate = 300;
@@ -164,14 +164,12 @@ export default async function CategoryProductPage({ params }: PageProps) {
     const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
     const baseUrl = `${protocol}://${host}`;
 
-    // Generate product schema
-    const productSchema = product.schema_markup
-        ? sanitizeSchemaMarkup(product.schema_markup)
-        : generateProductSchema(
-            product,
-            merchant?.business_name || 'Baci Store',
-            merchant?.payout_currency || 'USD'
-        );
+    // Generate product schema (now handles merging custom schema_markup internally)
+    const productSchema = generateProductSchema(
+        product,
+        merchant?.business_name || 'Baci Store',
+        merchant?.payout_currency || 'USD'
+    );
 
     // Build proper URL for schema
     const productPath = getProductUrl(product);

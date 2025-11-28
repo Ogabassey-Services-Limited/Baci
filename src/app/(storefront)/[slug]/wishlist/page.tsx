@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Heart, Trash2, ShoppingCart, Loader2, Package } from 'lucide-react';
+import { Heart, Trash2, ShoppingCart, Loader2, Package, Share2, Check } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { useCurrencyWithCountry } from '@/hooks/use-currency';
+import { useCart } from '@/hooks/use-cart';
+import { Product } from '@/lib/products';
 
 interface WishListItem {
   id: string;
@@ -30,8 +33,8 @@ interface WishListItem {
 
 export default function WishListPage() {
   const params = useParams();
-  const router = useRouter();
   const { toast } = useToast();
+  const { addToCart } = useCart();
   const merchantSlug = params.slug as string;
 
   const [customerEmail, setCustomerEmail] = useState('');
@@ -39,18 +42,32 @@ export default function WishListPage() {
   const [wishListItems, setWishListItems] = useState<WishListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
+  const [merchantCountry, setMerchantCountry] = useState<string | null>(null);
+  const [movingToCartId, setMovingToCartId] = useState<string | null>(null);
+  const [shareUrlCopied, setShareUrlCopied] = useState(false);
 
-  // Check if email is stored in localStorage
+  // Use dynamic currency based on merchant's country
+  const { formatCurrency } = useCurrencyWithCountry(merchantCountry);
+
+  // Fetch merchant country for currency formatting
   useEffect(() => {
-    const storedEmail = localStorage.getItem('customerEmail');
-    if (storedEmail) {
-      setCustomerEmail(storedEmail);
-      setIsEmailSubmitted(true);
-      fetchWishList(storedEmail);
-    }
-  }, []);
+    const fetchMerchantCountry = async () => {
+      try {
+        const response = await fetch(`/api/storefront/products?merchant_slug=${merchantSlug}&limit=1`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.merchant?.country) {
+            setMerchantCountry(data.merchant.country);
+          }
+        }
+      } catch {
+        // Silently fail - will use default USD
+      }
+    };
+    fetchMerchantCountry();
+  }, [merchantSlug]);
 
-  const fetchWishList = async (email: string) => {
+  const fetchWishList = useCallback(async (email: string) => {
     setIsLoading(true);
     try {
       const response = await fetch(`/api/wishlist?email=${encodeURIComponent(email)}`);
@@ -60,7 +77,7 @@ export default function WishListPage() {
       } else {
         throw new Error('Failed to fetch wish list');
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Error',
         description: 'Failed to load your wish list.',
@@ -69,7 +86,17 @@ export default function WishListPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Check if email is stored in localStorage
+  useEffect(() => {
+    const storedEmail = localStorage.getItem('customerEmail');
+    if (storedEmail) {
+      setCustomerEmail(storedEmail);
+      setIsEmailSubmitted(true);
+      fetchWishList(storedEmail);
+    }
+  }, [fetchWishList]);
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +131,7 @@ export default function WishListPage() {
         title: 'Removed',
         description: `${productName} has been removed from your wish list.`,
       });
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Error',
         description: 'Failed to remove item from wish list.',
@@ -115,17 +142,78 @@ export default function WishListPage() {
     }
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(price);
+  const handleMoveToCart = async (item: WishListItem) => {
+    setMovingToCartId(item.id);
+    try {
+      // Convert wishlist item to product format for cart
+      const product = {
+        id: item.products.id,
+        name: item.products.name,
+        slug: item.products.slug,
+        description: item.products.description,
+        price: item.products.price,
+        image: item.products.images?.[0] || '',
+        imageLarge: item.products.images?.[0] || '',
+        imageHint: item.products.name,
+        stock: item.products.stock_quantity ?? 0,
+        category: item.products.category || '',
+        status: item.products.status as 'active' | 'draft' | 'archived',
+        manage_stock: false,
+        brand: '',
+        gtin: '',
+        mpn: '',
+      } as Product;
+
+      addToCart(product, 1);
+
+      // Remove from wishlist
+      const response = await fetch(`/api/wishlist?id=${item.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setWishListItems((prev) => prev.filter((i) => i.id !== item.id));
+      }
+
+      toast({
+        title: 'Added to Cart',
+        description: `${item.products.name} has been added to your cart.`,
+      });
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Failed to move item to cart.',
+        variant: 'destructive',
+      });
+    } finally {
+      setMovingToCartId(null);
+    }
+  };
+
+  const handleShareWishlist = async () => {
+    const shareUrl = `${window.location.origin}/${merchantSlug}/wishlist?email=${encodeURIComponent(customerEmail)}`;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareUrlCopied(true);
+      toast({
+        title: 'Link Copied!',
+        description: 'Share this link with friends and family.',
+      });
+      setTimeout(() => setShareUrlCopied(false), 2000);
+    } catch {
+      // Fallback for browsers that don't support clipboard API
+      toast({
+        title: 'Share Link',
+        description: shareUrl,
+      });
+    }
   };
 
   if (!isEmailSubmitted) {
     return (
       <div className="container mx-auto px-4 py-12 max-w-md">
-        <Card>
+        <Card className="glass-themed">
           <CardContent className="pt-6">
             <div className="text-center mb-6">
               <Heart className="mx-auto h-12 w-12 text-red-500 mb-4" />
@@ -167,25 +255,40 @@ export default function WishListPage() {
               {customerEmail} • {wishListItems.length} item{wishListItems.length !== 1 ? 's' : ''}
             </p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              localStorage.removeItem('customerEmail');
-              setIsEmailSubmitted(false);
-              setWishListItems([]);
-            }}
-          >
-            Change Email
-          </Button>
+          <div className="flex gap-2">
+            {wishListItems.length > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleShareWishlist}
+              >
+                {shareUrlCopied ? (
+                  <Check className="mr-2 h-4 w-4" />
+                ) : (
+                  <Share2 className="mr-2 h-4 w-4" />
+                )}
+                {shareUrlCopied ? 'Copied!' : 'Share'}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => {
+                localStorage.removeItem('customerEmail');
+                setIsEmailSubmitted(false);
+                setWishListItems([]);
+              }}
+            >
+              Change Email
+            </Button>
+          </div>
         </div>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin" />
+          <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
         </div>
       ) : wishListItems.length === 0 ? (
-        <Card>
+        <Card className="glass-themed">
           <CardContent className="py-12">
             <div className="text-center">
               <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -202,7 +305,7 @@ export default function WishListPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {wishListItems.map((item) => (
-            <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+            <Card key={item.id} className="glass-themed overflow-hidden hover-lift">
               <div className="relative aspect-square">
                 {item.products.images && item.products.images.length > 0 ? (
                   <Image
@@ -227,30 +330,42 @@ export default function WishListPage() {
                   </p>
                 )}
                 <p className="text-2xl font-bold mb-4">
-                  {formatPrice(item.products.price)}
+                  {formatCurrency(item.products.price)}
                 </p>
 
                 {item.products.status === 'active' ? (
                   <div className="space-y-2">
-                    <Button asChild className="w-full">
-                      <Link href={`/${merchantSlug}/products/${item.products.slug}`}>
-                        <ShoppingCart className="mr-2 h-4 w-4" />
-                        View Product
-                      </Link>
-                    </Button>
                     <Button
-                      variant="outline"
                       className="w-full"
-                      onClick={() => handleRemoveItem(item.id, item.products.name)}
-                      disabled={removingItemId === item.id}
+                      onClick={() => handleMoveToCart(item)}
+                      disabled={movingToCartId === item.id}
                     >
-                      {removingItemId === item.id ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {movingToCartId === item.id ? (
+                        <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
                       ) : (
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <ShoppingCart className="mr-2 h-4 w-4" />
                       )}
-                      Remove
+                      Move to Cart
                     </Button>
+                    <div className="flex gap-2">
+                      <Button asChild variant="outline" className="flex-1">
+                        <Link href={`/${merchantSlug}/products/${item.products.slug}`}>
+                          View
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleRemoveItem(item.id, item.products.name)}
+                        disabled={removingItemId === item.id}
+                      >
+                        {removingItemId === item.id ? (
+                          <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -264,7 +379,7 @@ export default function WishListPage() {
                       disabled={removingItemId === item.id}
                     >
                       {removingItemId === item.id ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
                       ) : (
                         <Trash2 className="mr-2 h-4 w-4" />
                       )}

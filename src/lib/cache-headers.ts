@@ -17,7 +17,7 @@ export type CacheStrategy =
 export function getCacheControl(strategy: CacheStrategy): string {
   switch (strategy) {
     case 'no-cache':
-      return 'no-store, no-cache, must-revalidate, max-age=0';
+      return 'no-cache, must-revalidate, max-age=0';
 
     case 'short':
       // Cache for 1 minute, serve stale for 5 minutes while revalidating

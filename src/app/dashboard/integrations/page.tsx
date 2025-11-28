@@ -81,7 +81,7 @@ export default function IntegrationsPage() {
             </div>
 
             {/* Google Merchant Center */}
-            <Card>
+            <Card className="glass">
                 <CardHeader>
                     <div className="flex items-start justify-between">
                         <div className="space-y-1">
@@ -148,7 +148,7 @@ export default function IntegrationsPage() {
                                 onClick={() => validateFeed('google')}
                                 disabled={feedValidating}
                             >
-                                <RefreshCw className={`h-4 w-4 ${feedValidating ? 'animate-spin' : ''}`} />
+                                <RefreshCw className={`h-4 w-4 ${feedValidating ? 'motion-safe:animate-spin' : ''}`} />
                             </Button>
                         </div>
                     </div>
@@ -224,7 +224,7 @@ export default function IntegrationsPage() {
             </Card>
 
             {/* Facebook & Instagram */}
-            <Card>
+            <Card className="glass">
                 <CardHeader>
                     <div className="flex items-start justify-between">
                         <div className="space-y-1">
@@ -276,7 +276,7 @@ export default function IntegrationsPage() {
                                 onClick={() => validateFeed('facebook')}
                                 disabled={feedValidating}
                             >
-                                <RefreshCw className={`h-4 w-4 ${feedValidating ? 'animate-spin' : ''}`} />
+                                <RefreshCw className={`h-4 w-4 ${feedValidating ? 'motion-safe:animate-spin' : ''}`} />
                             </Button>
                         </div>
                     </div>
@@ -308,7 +308,7 @@ export default function IntegrationsPage() {
             </Card>
 
             {/* TikTok Shopping */}
-            <Card>
+            <Card className="glass">
                 <CardHeader>
                     <div className="flex items-start justify-between">
                         <div className="space-y-1">
@@ -360,7 +360,7 @@ export default function IntegrationsPage() {
                                 onClick={() => validateFeed('tiktok')}
                                 disabled={feedValidating}
                             >
-                                <RefreshCw className={`h-4 w-4 ${feedValidating ? 'animate-spin' : ''}`} />
+                                <RefreshCw className={`h-4 w-4 ${feedValidating ? 'motion-safe:animate-spin' : ''}`} />
                             </Button>
                         </div>
                     </div>

@@ -149,7 +149,7 @@ export async function POST(req: Request) {
         }
 
         // Sanitize the user prompt
-        const sanitizedPrompt = sanitizePromptInput(prompt, 1000);
+        const sanitizedPrompt = sanitizePromptInput(prompt, 1000).value;
 
         if (!sanitizedPrompt) {
             return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
@@ -235,15 +235,17 @@ Please return the complete updated configuration as valid JSON. Make intelligent
             }
         );
     } catch (error) {
+        // Log full error details server-side for debugging
         console.error('Gemini AI Builder Error:', error);
         console.error('Error details:', {
             message: error instanceof Error ? error.message : 'Unknown error',
             stack: error instanceof Error ? error.stack : undefined,
         });
+        // Return generic error message to client to avoid exposing internal details
         return NextResponse.json(
             {
                 error: 'Failed to process AI request',
-                details: error instanceof Error ? error.message : 'Unknown error'
+                details: 'An unexpected error occurred. Please try again later.'
             },
             { status: 500 }
         );

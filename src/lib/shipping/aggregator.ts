@@ -1,0 +1,285 @@
+/**
+ * Quote Aggregator
+ * Fetches quotes from all providers and ranks them for display
+ */
+
+import type {
+  ShippingQuote,
+  QuoteRequest,
+  QuoteResponse,
+  DeliveryTier,
+} from './types';
+import { mapToDeliveryTier, TIER_DISPLAY_NAMES } from './types';
+import { ShippingProviderRegistry } from './providers/base';
+
+// =============================================================================
+// CONFIGURATION
+// =============================================================================
+
+const DEFAULT_SHIPPING_FEE = Number(process.env.DEFAULT_SHIPPING_FEE) || 1500;
+const QUOTE_TTL_SECONDS = Number(process.env.SHIPPING_QUOTE_TTL_SECONDS) || 3600;
+
+// =============================================================================
+// FALLBACK QUOTE
+// =============================================================================
+
+function createFallbackQuote(): ShippingQuote {
+  return {
+    id: crypto.randomUUID(),
+    provider: 'GIGL', // We'll mark this as fallback in the UI
+    serviceTier: 'Standard',
+    carrierName: 'Standard Delivery',
+    displayName: 'Standard Delivery',
+    estimatedDays: 5,
+    minDays: 3,
+    maxDays: 7,
+    price: DEFAULT_SHIPPING_FEE,
+    currency: 'NGN',
+    pickupIncluded: false,
+    insuranceIncluded: true,
+    expiresAt: new Date(Date.now() + QUOTE_TTL_SECONDS * 1000),
+  };
+}
+
+// =============================================================================
+// QUOTE RANKING
+// =============================================================================
+
+interface RankedQuote extends ShippingQuote {
+  score: number;
+  tier: DeliveryTier;
+}
+
+/**
+ * Calculate a score for ranking quotes
+ * Lower score = better (shown first)
+ */
+function calculateQuoteScore(quote: ShippingQuote): number {
+  let score = 0;
+
+  // Price factor (normalized to 0-50 range)
+  // Lower price = lower score
+  score += Math.min(quote.price / 200, 50);
+
+  // Speed factor (0-30 range)
+  // Faster = lower score
+  score += quote.estimatedDays * 5;
+
+  // Reliability bonus (carriers we trust)
+  const trustedCarriers = ['DHL', 'FedEx', 'UPS', 'GIG Logistics'];
+  if (trustedCarriers.some(c => quote.carrierName.includes(c))) {
+    score -= 10;
+  }
+
+  // Station pickup penalty (customers prefer home delivery)
+  if (quote.isStationPickup) {
+    score += 20;
+  }
+
+  return score;
+}
+
+/**
+ * Rank and categorize quotes
+ */
+function rankQuotes(quotes: ShippingQuote[]): RankedQuote[] {
+  return quotes
+    .map(quote => ({
+      ...quote,
+      score: calculateQuoteScore(quote),
+      tier: mapToDeliveryTier(quote.serviceTier, quote.estimatedDays),
+    }))
+    .sort((a, b) => a.score - b.score);
+}
+
+/**
+ * Select featured quotes (top 3: cheapest, fastest, recommended)
+ */
+function selectFeaturedQuotes(rankedQuotes: RankedQuote[]): ShippingQuote[] {
+  if (rankedQuotes.length === 0) {
+    return [];
+  }
+
+  const featured: ShippingQuote[] = [];
+  const usedIds = new Set<string>();
+
+  // 1. Cheapest option
+  const cheapest = rankedQuotes
+    .filter(q => !q.isStationPickup) // Prefer home delivery
+    .sort((a, b) => a.price - b.price)[0];
+  if (cheapest && !usedIds.has(cheapest.id)) {
+    featured.push({ ...cheapest, displayName: `${TIER_DISPLAY_NAMES.economy.icon} Economy Delivery` });
+    usedIds.add(cheapest.id);
+  }
+
+  // 2. Fastest option
+  const fastest = rankedQuotes
+    .filter(q => !usedIds.has(q.id) && !q.isStationPickup)
+    .sort((a, b) => a.estimatedDays - b.estimatedDays)[0];
+  if (fastest && !usedIds.has(fastest.id)) {
+    featured.push({ ...fastest, displayName: `${TIER_DISPLAY_NAMES.express.icon} Express Delivery` });
+    usedIds.add(fastest.id);
+  }
+
+  // 3. Recommended (best value - balance of price and speed)
+  const recommended = rankedQuotes
+    .filter(q => !usedIds.has(q.id) && !q.isStationPickup)
+    .sort((a, b) => a.score - b.score)[0];
+  if (recommended && !usedIds.has(recommended.id)) {
+    featured.push({ ...recommended, displayName: `${TIER_DISPLAY_NAMES.standard.icon} Standard Delivery` });
+    usedIds.add(recommended.id);
+  }
+
+  // If we still have less than 3 and there are station pickup options, add one
+  if (featured.length < 3) {
+    const stationPickup = rankedQuotes
+      .filter(q => !usedIds.has(q.id) && q.isStationPickup)[0];
+    if (stationPickup) {
+      featured.push(stationPickup);
+    }
+  }
+
+  return featured;
+}
+
+// =============================================================================
+// AGGREGATOR CLASS
+// =============================================================================
+
+export class QuoteAggregator {
+  constructor(private registry: ShippingProviderRegistry) {}
+
+  /**
+   * Get aggregated quotes from all enabled providers
+   */
+  async getQuotes(request: QuoteRequest): Promise<QuoteResponse> {
+    const providers = request.shipmentType === 'international'
+      ? this.registry.getInternational()
+      : this.registry.getDomestic();
+
+    if (providers.length === 0) {
+      return this.createFallbackResponse(request.sessionId);
+    }
+
+    // Fetch from all providers in parallel
+    const results = await Promise.allSettled(
+      providers.map(provider => provider.getQuotes(request))
+    );
+
+    const allQuotes: ShippingQuote[] = [];
+    const warnings: string[] = [];
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        allQuotes.push(...result.value);
+      } else {
+        warnings.push(`${providers[index].name}: ${result.reason?.message || 'Unknown error'}`);
+        console.error(`[QuoteAggregator] Provider ${providers[index].name} failed:`, result.reason);
+      }
+    });
+
+    // If all providers failed, return fallback
+    if (allQuotes.length === 0) {
+      console.warn('[QuoteAggregator] All providers failed, using fallback quote');
+      return this.createFallbackResponse(request.sessionId, warnings);
+    }
+
+    // Rank and categorize quotes
+    const rankedQuotes = rankQuotes(allQuotes);
+    const featuredQuotes = selectFeaturedQuotes(rankedQuotes);
+
+    // Calculate expiry (use the earliest expiry from all quotes)
+    const earliestExpiry = allQuotes.reduce(
+      (min, q) => (q.expiresAt < min ? q.expiresAt : min),
+      allQuotes[0].expiresAt
+    );
+
+    return {
+      quotes: {
+        featured: featuredQuotes,
+        all: rankedQuotes,
+      },
+      sessionId: request.sessionId,
+      expiresAt: earliestExpiry.toISOString(),
+      warnings: warnings.length > 0 ? warnings : undefined,
+    };
+  }
+
+  /**
+   * Create a fallback response when no providers are available
+   */
+  private createFallbackResponse(sessionId: string, warnings?: string[]): QuoteResponse {
+    const fallbackQuote = createFallbackQuote();
+    return {
+      quotes: {
+        featured: [fallbackQuote],
+        all: [fallbackQuote],
+      },
+      sessionId,
+      expiresAt: fallbackQuote.expiresAt.toISOString(),
+      warnings,
+    };
+  }
+}
+
+// =============================================================================
+// QUOTE UTILITIES
+// =============================================================================
+
+/**
+ * Format price for display
+ */
+export function formatShippingPrice(price: number, currency: string = 'NGN'): string {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(price);
+}
+
+/**
+ * Format delivery estimate for display
+ */
+export function formatDeliveryEstimate(
+  estimatedDays: number,
+  minDays?: number,
+  maxDays?: number
+): string {
+  if (minDays !== undefined && maxDays !== undefined && minDays !== maxDays) {
+    return `${minDays}-${maxDays} business days`;
+  }
+  return `${estimatedDays} business day${estimatedDays > 1 ? 's' : ''}`;
+}
+
+/**
+ * Group quotes by tier for display
+ */
+export function groupQuotesByTier(quotes: ShippingQuote[]): Record<DeliveryTier, ShippingQuote[]> {
+  const grouped: Record<DeliveryTier, ShippingQuote[]> = {
+    express: [],
+    premium: [],
+    standard: [],
+    economy: [],
+  };
+
+  quotes.forEach(quote => {
+    const tier = mapToDeliveryTier(quote.serviceTier, quote.estimatedDays);
+    grouped[tier].push(quote);
+  });
+
+  // Sort each group by price
+  Object.keys(grouped).forEach(tier => {
+    grouped[tier as DeliveryTier].sort((a, b) => a.price - b.price);
+  });
+
+  return grouped;
+}
+
+/**
+ * Check if quotes have expired
+ */
+export function hasQuotesExpired(expiresAt: string | Date): boolean {
+  const expiry = typeof expiresAt === 'string' ? new Date(expiresAt) : expiresAt;
+  return Date.now() > expiry.getTime();
+}

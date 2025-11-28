@@ -32,11 +32,30 @@ export interface MerchantData {
   published_config?: Record<string, unknown> | null;
 }
 
+export type StaffRole =
+  | 'admin'
+  | 'manager'
+  | 'sales_rep'
+  | 'inventory'
+  | 'accountant'
+  | 'customer_service'
+  | 'marketing'
+  | 'fulfillment';
+
+export interface StaffAccess {
+  isStaff: boolean;
+  isOwner: boolean;
+  role: StaffRole | null;
+  permissions: Record<string, Record<string, boolean>>;
+}
+
 interface MerchantContextType {
   merchant: MerchantData | null;
   loading: boolean;
   updateMerchant: (data: Partial<MerchantData>) => Promise<void>;
   reloadMerchant: () => void;
+  staffAccess: StaffAccess;
+  hasPermission: (resource: string, action: string) => boolean;
 }
 
 const MerchantContext = createContext<MerchantContextType | undefined>(undefined);
@@ -46,10 +65,18 @@ interface MerchantProviderProps {
   slug?: string; // Optional slug for storefronts
 }
 
+const defaultStaffAccess: StaffAccess = {
+  isStaff: false,
+  isOwner: false,
+  role: null,
+  permissions: {},
+};
+
 export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
   const { user, loading: authLoading } = useAuth();
   const [merchant, setMerchant] = useState<MerchantData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [staffAccess, setStaffAccess] = useState<StaffAccess>(defaultStaffAccess);
   const supabase = createClient();
 
   const loadData = useCallback(async () => {
@@ -62,35 +89,101 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
     setLoading(true);
 
     try {
-      let query = supabase.from('merchants').select('*');
+      let merchantData: MerchantData | null = null;
+      let access: StaffAccess = { ...defaultStaffAccess };
 
       if (slug) {
-        // Convert slug back to space-separated, case-insensitive format for searching
+        // Storefront mode - load by slug
         const businessNameFromSlug = slug.replace(/-/g, ' ');
-        query = query.ilike('business_name', businessNameFromSlug);
+        const { data, error } = await supabase
+          .from('merchants')
+          .select('*')
+          .ilike('business_name', businessNameFromSlug)
+          .single();
+
+        if (error && error.code !== 'PGRST116') {
+          throw error;
+        }
+        merchantData = data as MerchantData;
       } else {
+        // Dashboard mode - check ownership first, then staff membership
         if (!user) {
           setMerchant(null);
+          setStaffAccess(defaultStaffAccess);
           setLoading(false);
           return;
         }
-        query = query.eq('user_id', user.id);
+
+        // First, try to find merchant where user is owner
+        const { data: ownedMerchant, error: ownerError } = await supabase
+          .from('merchants')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (ownedMerchant && !ownerError) {
+          merchantData = ownedMerchant as MerchantData;
+          access = {
+            isStaff: false,
+            isOwner: true,
+            role: null,
+            permissions: { full_access: { all: true } },
+          };
+        } else if (ownerError && ownerError.code === 'PGRST116') {
+          // User is not a merchant owner, check if they're staff
+          const { data: staffMember, error: staffError } = await supabase
+            .from('staff_members')
+            .select(`
+              id,
+              role,
+              permissions,
+              status,
+              merchant_id,
+              merchants (*)
+            `)
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .single();
+
+          if (staffMember && !staffError) {
+            // User is an active staff member
+            const merchantInfo = staffMember.merchants as unknown as MerchantData;
+            merchantData = merchantInfo;
+
+            // Get effective permissions (role defaults + custom overrides)
+            const { data: rolePerms } = await supabase
+              .from('role_permissions')
+              .select('permissions')
+              .eq('role', staffMember.role)
+              .single();
+
+            const defaultPerms = (rolePerms?.permissions || {}) as Record<string, Record<string, boolean>>;
+            const customPerms = (staffMember.permissions || {}) as Record<string, Record<string, boolean>>;
+
+            // Merge permissions: custom overrides defaults
+            const mergedPermissions: Record<string, Record<string, boolean>> = { ...defaultPerms };
+            for (const [resource, actions] of Object.entries(customPerms)) {
+              mergedPermissions[resource] = { ...mergedPermissions[resource], ...actions };
+            }
+
+            access = {
+              isStaff: true,
+              isOwner: false,
+              role: staffMember.role as StaffRole,
+              permissions: mergedPermissions,
+            };
+          }
+        } else if (ownerError) {
+          throw ownerError;
+        }
       }
 
-      const { data, error } = await query.single();
-
-      if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is not an error here
-        throw error;
-      }
-
-      if (data) {
-        setMerchant(data as MerchantData);
-      } else {
-        setMerchant(null);
-      }
+      setMerchant(merchantData);
+      setStaffAccess(access);
     } catch (error) {
       logger.error({ message: `Failed to load merchant data. Slug: ${slug}, Error: ${(error as Error).message}` });
       setMerchant(null);
+      setStaffAccess(defaultStaffAccess);
     } finally {
       setLoading(false);
     }
@@ -112,11 +205,21 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
       throw new Error(errorMsg);
     }
 
+    // Check if user has permission to update merchant settings
+    if (staffAccess.isStaff && !staffAccess.permissions.settings?.edit) {
+      const errorMsg = "You don't have permission to update store settings.";
+      logger.error({ message: errorMsg });
+      throw new Error(errorMsg);
+    }
+
     logger.info({ message: 'Updating merchant data in Supabase...', data });
-    const { error } = await supabase
-      .from('merchants')
-      .update(data)
-      .eq('user_id', user.id);
+
+    // For staff, update by merchant_id instead of user_id
+    const query = staffAccess.isOwner
+      ? supabase.from('merchants').update(data).eq('user_id', user.id)
+      : supabase.from('merchants').update(data).eq('id', merchant?.id);
+
+    const { error } = await query;
 
     if (error) {
       logger.error({ message: "Failed to update merchant data", error: error as Error });
@@ -125,9 +228,22 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
 
     logger.info({ message: 'Merchant data updated, reloading.' });
     reloadMerchant();
-  }, [user, supabase, reloadMerchant]);
+  }, [user, supabase, reloadMerchant, staffAccess, merchant?.id]);
 
-  const value = { merchant, loading, updateMerchant, reloadMerchant };
+  // Helper function to check permissions
+  const hasPermission = useCallback((resource: string, action: string): boolean => {
+    // Owners have full access
+    if (staffAccess.isOwner) return true;
+
+    // Check staff permissions
+    if (staffAccess.isStaff) {
+      return staffAccess.permissions[resource]?.[action] === true;
+    }
+
+    return false;
+  }, [staffAccess]);
+
+  const value = { merchant, loading, updateMerchant, reloadMerchant, staffAccess, hasPermission };
 
   return (
     <MerchantContext.Provider value={value}>

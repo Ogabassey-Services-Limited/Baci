@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -79,11 +79,7 @@ export default function DiscountCodesPage() {
     applies_to: 'all' as 'all' | 'specific_products' | 'specific_categories',
   });
 
-  useEffect(() => {
-    fetchDiscountCodes();
-  }, []);
-
-  const fetchDiscountCodes = async () => {
+  const fetchDiscountCodes = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch('/api/discount-codes');
@@ -91,7 +87,7 @@ export default function DiscountCodesPage() {
         const data = await response.json();
         setDiscountCodes(data.discountCodes || []);
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Error',
         description: 'Failed to load discount codes',
@@ -100,7 +96,11 @@ export default function DiscountCodesPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    fetchDiscountCodes();
+  }, [fetchDiscountCodes]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,7 +236,7 @@ export default function DiscountCodesPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
       </div>
     );
   }
@@ -257,7 +257,7 @@ export default function DiscountCodesPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="glass hover-lift">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Codes</CardTitle>
             <Tag className="h-4 w-4 text-muted-foreground" />
@@ -266,7 +266,7 @@ export default function DiscountCodesPage() {
             <div className="text-2xl font-bold">{discountCodes.length}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass hover-lift">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Codes</CardTitle>
             <Percent className="h-4 w-4 text-muted-foreground" />
@@ -277,7 +277,7 @@ export default function DiscountCodesPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass hover-lift">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Uses</CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -290,7 +290,7 @@ export default function DiscountCodesPage() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="glass">
         <CardHeader>
           <CardTitle>All Discount Codes</CardTitle>
           <CardDescription>
@@ -448,7 +448,7 @@ export default function DiscountCodesPage() {
                   step="0.01"
                   value={formData.discount_value}
                   onChange={(e) =>
-                    setFormData({ ...formData, discount_value: parseFloat(e.target.value) })
+                    setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })
                   }
                   required
                 />
@@ -465,7 +465,7 @@ export default function DiscountCodesPage() {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      minimum_purchase_amount: parseFloat(e.target.value),
+                      minimum_purchase_amount: parseFloat(e.target.value) || 0,
                     })
                   }
                 />
@@ -515,7 +515,7 @@ export default function DiscountCodesPage() {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      usage_limit_per_customer: parseInt(e.target.value),
+                      usage_limit_per_customer: parseInt(e.target.value) || 1,
                     })
                   }
                 />
@@ -563,7 +563,7 @@ export default function DiscountCodesPage() {
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
                     Saving...
                   </>
                 ) : (

@@ -28,6 +28,12 @@ const ProductDetailsSchema = z.object({
 
 const _AutofillProductDetailsOutputSchema = z.object({
   details: ProductDetailsSchema,
+  metadata: z.object({
+    inputTruncation: z.object({
+      productName: z.boolean(),
+      businessType: z.boolean(),
+    }).optional(),
+  }).optional(),
 });
 
 type AutofillProductDetailsOutput = z.infer<typeof _AutofillProductDetailsOutputSchema>;
@@ -35,9 +41,29 @@ type AutofillProductDetailsOutput = z.infer<typeof _AutofillProductDetailsOutput
 export async function autofillProductDetails(
   input: AutofillProductDetailsInput
 ): Promise<AutofillProductDetailsOutput> {
-  // Sanitize inputs
-  const productName = sanitizePromptInput(input.productName, 200);
-  const businessType = sanitizePromptInput(input.businessType, 100);
+  // Sanitize inputs and collect truncation metadata
+  const productNameResult = sanitizePromptInput(input.productName, 200);
+  const businessTypeResult = sanitizePromptInput(input.businessType, 100);
+
+  const productName = productNameResult.value;
+  const businessType = businessTypeResult.value;
+
+  const truncationInfo = {
+    productName: productNameResult.metadata.wasTruncated,
+    businessType: businessTypeResult.metadata.wasTruncated,
+  };
+
+  // Log truncation warnings for observability
+  if (truncationInfo.productName || truncationInfo.businessType) {
+    logger.warn({
+      message: 'Input truncation occurred during product autofill',
+      truncationInfo,
+      details: {
+        productName: productNameResult.metadata,
+        businessType: businessTypeResult.metadata,
+      },
+    });
+  }
 
   const categoryConfig = getCategoryConfigFromBusinessType(businessType);
 
@@ -89,7 +115,12 @@ export async function autofillProductDetails(
       });
     }
 
-    return { details: object };
+    return {
+      details: object,
+      metadata: {
+        inputTruncation: truncationInfo,
+      },
+    };
 
   } catch (error) {
     logger.error({ message: 'Product autofill generation failed', error });

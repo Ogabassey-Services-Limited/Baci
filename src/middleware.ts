@@ -133,6 +133,89 @@ function isValidCustomDomain(hostname: string): boolean {
   return true;
 }
 
+/**
+ * Classify route type for selective security policies
+ * - Admin routes: Dashboard, builder, onboarding (strict CSP with nonce)
+ * - Auth routes: Login, signup, password reset (strict CSP with nonce)
+ * - Storefront routes: Public merchant pages (relaxed CSP for ISR/SSG)
+ * - API routes: Backend endpoints (basic CSP)
+ */
+function getRouteType(pathname: string): 'admin' | 'auth' | 'storefront' | 'api' {
+  if (
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/builder') ||
+    pathname.startsWith('/onboarding')
+  ) {
+    return 'admin';
+  }
+
+  if (
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/reset-password')
+  ) {
+    return 'auth';
+  }
+
+  if (pathname.startsWith('/api')) {
+    return 'api';
+  }
+
+  return 'storefront';
+}
+
+/**
+ * Generate Content Security Policy based on route type
+ * Multi-tenant strategy:
+ * - Admin/Auth: Nonce-based CSP (strict, requires SSR)
+ * - Storefront: Relaxed CSP (allows ISR/SSG caching)
+ */
+function generateCSP(routeType: 'admin' | 'auth' | 'storefront' | 'api', nonce?: string): string {
+  const baseDirectives = {
+    'default-src': "'self'",
+    'img-src': "'self' blob: data: https:",
+    'font-src': "'self' data: https://fonts.gstatic.com",
+    'object-src': "'none'",
+    'base-uri': "'self'",
+    'upgrade-insecure-requests': '',
+  };
+
+  if (routeType === 'admin' || routeType === 'auth') {
+    // Strict nonce-based CSP for admin and authentication routes
+    return Object.entries({
+      ...baseDirectives,
+      'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://maps.googleapis.com https://vercel.live https://va.vercel-scripts.com`,
+      'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
+      'connect-src': "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
+      'frame-src': "'self' https://checkout.korapay.com",
+      'form-action': "'self'",
+      'frame-ancestors': "'self'",
+    })
+      .map(([key, value]) => `${key} ${value}`.trim())
+      .join('; ');
+  }
+
+  if (routeType === 'storefront') {
+    // Relaxed CSP for merchant storefronts (allows ISR/SSG)
+    return Object.entries({
+      ...baseDirectives,
+      'script-src': "'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com",
+      'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
+      'connect-src': "'self' https://*.supabase.co https://vitals.vercel-insights.com",
+    })
+      .map(([key, value]) => `${key} ${value}`.trim())
+      .join('; ');
+  }
+
+  // Basic CSP for API routes
+  return Object.entries({
+    'default-src': "'self'",
+    'object-src': "'none'",
+  })
+    .map(([key, value]) => `${key} ${value}`.trim())
+    .join('; ');
+}
+
 export function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const pathname = request.nextUrl.pathname;
@@ -156,7 +239,12 @@ export function middleware(request: NextRequest) {
     // Let the page resolve merchant by domain lookup
     const response = NextResponse.next();
     response.headers.set('x-custom-domain', normalizeHostname(hostname));
-    return applySecurityHeaders(response, pathname, userAgent);
+
+    // Generate route-specific CSP
+    const routeType = getRouteType(pathname);
+    const nonce = (routeType === 'admin' || routeType === 'auth') ? crypto.randomUUID() : undefined;
+
+    return applySecurityHeaders(response, pathname, userAgent, routeType, nonce);
   } else {
     // Invalid/suspicious hostname - reject
     return new NextResponse('Bad Request', { status: 400 });
@@ -176,15 +264,38 @@ export function middleware(request: NextRequest) {
 
     const response = NextResponse.rewrite(url);
     response.headers.set('x-merchant-slug', subdomain);
-    return applySecurityHeaders(response, pathname, userAgent);
+
+    // Generate route-specific CSP
+    const routeType = getRouteType(pathname);
+    const nonce = (routeType === 'admin' || routeType === 'auth') ? crypto.randomUUID() : undefined;
+
+    return applySecurityHeaders(response, pathname, userAgent, routeType, nonce);
   }
 
-  // Standard request - apply caching headers
+  // Standard request - generate route-specific CSP
   const response = NextResponse.next();
-  return applySecurityHeaders(response, pathname, userAgent);
+  const routeType = getRouteType(pathname);
+  const nonce = (routeType === 'admin' || routeType === 'auth') ? crypto.randomUUID() : undefined;
+
+  return applySecurityHeaders(response, pathname, userAgent, routeType, nonce);
 }
 
-function applySecurityHeaders(response: NextResponse, pathname: string, userAgent: string): NextResponse {
+function applySecurityHeaders(
+  response: NextResponse,
+  pathname: string,
+  userAgent: string,
+  routeType: 'admin' | 'auth' | 'storefront' | 'api',
+  nonce?: string
+): NextResponse {
+  // Apply Content Security Policy
+  const csp = generateCSP(routeType, nonce);
+  response.headers.set('Content-Security-Policy', csp);
+
+  // Set nonce in request header for server components (admin/auth routes only)
+  if (nonce) {
+    response.headers.set('x-nonce', nonce);
+  }
+
   // Detect bots/crawlers for optimized SEO caching
   const isBot = /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i.test(userAgent);
 
@@ -240,7 +351,7 @@ function applySecurityHeaders(response: NextResponse, pathname: string, userAgen
 
   // No cache for authenticated routes
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/api')) {
-    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    response.headers.set('Cache-Control', 'no-cache, must-revalidate, max-age=0');
     return response;
   }
 
@@ -260,7 +371,8 @@ export const config = {
      * - manifest.webmanifest (PWA manifest)
      * - robots.txt (SEO file)
      * - sitemap.xml (SEO file)
+     * - Static files with extensions (.svg, .png, .jpg, etc.)
      */
-    '/((?!_next/image|_next/static|favicon.ico|api/auth|api/webhook|api/payments/webhook|manifest.webmanifest|robots.txt|sitemap.xml).*)',
+    '/((?!_next/image|_next/static|favicon.ico|api/auth|api/webhook|api/payments/webhook|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
   ],
 };

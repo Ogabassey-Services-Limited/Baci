@@ -80,7 +80,7 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
           <FormItem>
             <FormLabel className="text-lg">What is your business name?</FormLabel>
             <FormControl>
-              <Input placeholder="e.g., Amara's Fashion" {...field} onKeyDown={onKeyDown} id="businessName" name="businessName" autoComplete="organization" />
+              <Input placeholder="e.g., Amara's Fashion" {...field} onKeyDown={onKeyDown} name="businessName" autoComplete="organization" />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -94,7 +94,7 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
             <FormLabel className="text-lg">What's the nature of your business?</FormLabel>
             <Select onValueChange={field.onChange} defaultValue={field.value} name="businessType" >
               <FormControl>
-                <SelectTrigger onKeyDown={onKeyDown} id="businessType" >
+                <SelectTrigger onKeyDown={onKeyDown}>
                   <SelectValue placeholder="e.g., Fashion, Electronics, Art..." />
                 </SelectTrigger>
               </FormControl>
@@ -119,7 +119,7 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
             <FormItem>
               <FormLabel>Please specify</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Pet Services" {...field} value={field.value || ''} onKeyDown={onKeyDown} id="otherBusinessType" name="otherBusinessType" />
+                <Input placeholder="e.g., Pet Services" {...field} value={field.value || ''} onKeyDown={onKeyDown} name="otherBusinessType" />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -286,7 +286,7 @@ function Step2_Branding() {
                 <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
               </>
             ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p></>)}
-            {isExtracting && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
+            {isExtracting && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 motion-safe:animate-spin text-primary" /></div>}
             <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isLoading} />
           </div>
         </div>
@@ -454,7 +454,7 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
             <FormControl>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="email" placeholder="you@example.com" {...field} className="pl-10" id="email" name="email" autoComplete="email" />
+                <Input type="email" placeholder="you@example.com" {...field} className="pl-10" name="email" autoComplete="email" />
               </div>
             </FormControl>
             <FormMessage />
@@ -473,11 +473,11 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
 
           <div className="grid grid-cols-2 gap-4">
             <Button type="button" variant="outline" onClick={handleMagicLinkClick} className="w-full" disabled={isMagicLinkLoading || isGoogleLoading}>
-              {isMagicLinkLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
+              {isMagicLinkLoading ? <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
               Magic Link
             </Button>
             <Button type="button" variant="outline" onClick={handleGoogleSignIn} className="w-full" disabled={isMagicLinkLoading || isGoogleLoading}>
-              {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (
+              {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> : (
                 <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4">
                   <title>Google</title>
                   <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.05 1.05-2.36 1.67-4.04 1.67-3.27 0-5.93-2.66-5.93-5.93s2.66-5.93 5.93-5.93c1.73 0 3.23.68 4.17 1.57l2.48-2.48C18.47 2.44 15.82 1 12.48 1 7.23 1 3.06 4.93 3.06 10s4.17 9 9.42 9c2.8 0 4.93-1.07 6.57-2.62 1.73-1.62 2.36-3.88 2.36-6.09 0-.6-.05-1.18-.15-1.73H12.48z" />
@@ -506,7 +506,6 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                       {...field}
                       onKeyDown={onKeyDown}
                       className="pl-10 pr-10"
-                      id="password"
                       name="password"
                       autoComplete="new-password"
                       spellCheck="false"
@@ -542,7 +541,6 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                         value={field.value || ''}
                         onKeyDown={onKeyDown}
                         className="pl-10 pr-10"
-                        id="confirmPassword"
                         name="confirmPassword"
                         autoComplete="new-password"
                         spellCheck="false"
@@ -579,7 +577,7 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
   return (
     <div className="flex justify-between pt-4">
       {currentStep > 1 ? (<Button type="button" variant="outline" onClick={onPrev} disabled={isLoading}>Previous</Button>) : <div />}
-      {isLastStep ? (<Button type="submit" disabled={isLoading || !isStepValid} id="submit-button">{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create My Store</Button>) : (<Button type="button" onClick={onNext} disabled={isLoading}>Next</Button>)}
+      {isLastStep ? (<Button type="submit" disabled={isLoading || !isStepValid} id="submit-button">{isLoading && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />} Create My Store</Button>) : (<Button type="button" onClick={onNext} disabled={isLoading}>Next</Button>)}
     </div>
   );
 }

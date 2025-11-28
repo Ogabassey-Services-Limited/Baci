@@ -324,7 +324,7 @@ function ProductsPageContent() {
                                     rows={1}
                                 />
                                 <Button type="submit" size="icon" className="absolute right-2 top-1.5 h-8 w-8" disabled={isLoading || !searchTerm.trim()}>
-                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                    {isLoading ? <Loader2 className="h-4 w-4 motion-safe:animate-spin" /> : <Send className="h-4 w-4" />}
                                     <span className="sr-only">Submit</span>
                                 </Button>
                             </div>

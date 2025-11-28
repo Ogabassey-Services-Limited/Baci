@@ -1,0 +1,144 @@
+/**
+ * Image Utilities for Blur Placeholders and Optimization
+ *
+ * Provides blur placeholder generation for smooth image loading UX.
+ * Works with Next.js Image component across all merchant storefronts.
+ */
+
+/**
+ * Default blur placeholder - a small, neutral gray blur
+ * Used when no custom placeholder is available
+ */
+export const DEFAULT_BLUR_DATA_URL =
+  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBEQCEAwEPwAB//9k=';
+
+/**
+ * Color-based blur placeholders for different product categories
+ * These provide contextually appropriate loading states
+ */
+export const CATEGORY_BLUR_COLORS: Record<string, string> = {
+  fashion: '#f5f0eb',      // Warm beige
+  electronics: '#e8eef4',  // Cool blue-gray
+  food: '#f0ebe5',         // Warm cream
+  beauty: '#fdf2f8',       // Soft pink
+  home: '#f5f5f4',         // Neutral stone
+  sports: '#ecfdf5',       // Fresh green
+  default: '#f4f4f5',      // Neutral gray
+};
+
+/**
+ * Generate a solid color blur data URL
+ * Faster than image-based blur, good for product cards
+ */
+export function generateColorBlur(color: string = '#f4f4f5'): string {
+  // Create a 1x1 pixel SVG and encode as data URL
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect fill="${color}" width="1" height="1"/></svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
+}
+
+/**
+ * Generate blur placeholder based on dominant color extraction
+ * For server-side use - extracts average color from image URL
+ */
+export async function generateBlurFromImage(_imageUrl: string): Promise<string> {
+  try {
+    // For external images, we can't process them server-side easily
+    // Return a default blur placeholder
+    // In production, you'd use a service like Cloudinary or imgix
+    return DEFAULT_BLUR_DATA_URL;
+  } catch {
+    return DEFAULT_BLUR_DATA_URL;
+  }
+}
+
+/**
+ * Get blur placeholder for a product based on its category
+ */
+export function getProductBlurPlaceholder(category?: string): string {
+  const normalizedCategory = category?.toLowerCase() || 'default';
+  const color = CATEGORY_BLUR_COLORS[normalizedCategory] || CATEGORY_BLUR_COLORS.default;
+  return generateColorBlur(color);
+}
+
+/**
+ * Image loader configuration for different image sources
+ * Helps Next.js optimize images from various CDNs
+ */
+export function getImageLoader(src: string) {
+  // Supabase storage
+  if (src.includes('supabase.co')) {
+    return {
+      loader: 'default' as const,
+      quality: 80,
+    };
+  }
+
+  // Placeholder services
+  if (src.includes('placehold.co') || src.includes('via.placeholder.com')) {
+    return {
+      loader: 'default' as const,
+      quality: 75,
+    };
+  }
+
+  // Default
+  return {
+    loader: 'default' as const,
+    quality: 85,
+  };
+}
+
+/**
+ * Calculate responsive image sizes based on layout
+ * Helps browser load appropriately sized images
+ */
+export function getResponsiveSizes(layout: 'grid' | 'full' | 'thumbnail' | 'hero'): string {
+  switch (layout) {
+    case 'grid':
+      // Product grid: 2 cols on mobile, 3 on tablet, 4 on desktop
+      return '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw';
+    case 'full':
+      // Full width product image
+      return '(max-width: 768px) 100vw, 50vw';
+    case 'thumbnail':
+      // Small thumbnails (cart, gallery)
+      return '80px';
+    case 'hero':
+      // Hero/banner images
+      return '100vw';
+    default:
+      return '100vw';
+  }
+}
+
+/**
+ * Check if an image URL is valid and accessible
+ */
+export function isValidImageUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Get fallback image URL based on product category
+ */
+export function getFallbackImage(category?: string): string {
+  // Using placehold.co for consistent, styled placeholders
+  const categoryColors: Record<string, string> = {
+    fashion: 'f5f0eb/999999',
+    electronics: 'e8eef4/666666',
+    food: 'f0ebe5/8b7355',
+    beauty: 'fdf2f8/d4859e',
+    home: 'f5f5f4/737373',
+    sports: 'ecfdf5/059669',
+    default: 'f4f4f5/a1a1aa',
+  };
+
+  const colors = categoryColors[category?.toLowerCase() || 'default'] || categoryColors.default;
+  return `https://placehold.co/600x600/${colors}?text=No+Image`;
+}

@@ -8,34 +8,22 @@ import {
 } from '@/components/ui/sheet';
 import { ThemedButton, ThemedSheetContent } from '@/components/themed';
 import { useCart } from '@/hooks/use-cart';
-import { useMerchant } from '@/hooks/use-merchant';
 import Image from 'next/image';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { getCountryByCode } from '@/lib/countries';
 import { Input } from './ui/input';
-import { Button } from './ui/button';
 import Link from 'next/link';
-import { Minus, Plus, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
+import { useCurrency } from '@/hooks/use-currency';
+import { QuantityButton } from './ui/animated-icons';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } = useCart();
-  const { merchant } = useMerchant();
-
-  const formatCurrency = (amount: number) => {
-    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
-    const locale = country ? `en-${country.code}` : 'en-US';
-    const currency = country ? country.currency : 'USD';
-
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currency,
-      currencyDisplay: 'symbol',
-    }).format(amount);
-  };
+  const { formatCurrency } = useCurrency();
 
   return (
     <ThemedSheetContent
-      className="flex w-full flex-col pr-0 sm:max-w-lg"
+      className="glass-themed flex w-full flex-col pr-0 sm:max-w-lg"
     >
       <SheetHeader className="px-6">
         <SheetTitle>Cart {cartCount > 0 && `(${cartCount})`}</SheetTitle>
@@ -44,8 +32,17 @@ export function Cart() {
         <ScrollArea className="h-full">
           {cart.length > 0 ? (
             <div className="px-6">
+              <AnimatePresence mode="popLayout">
               {cart.map((item) => (
-                <div key={item.id} className="flex items-start gap-4 py-4 border-b">
+                <motion.div
+                  key={item.id}
+                  className="flex items-start gap-4 py-4 border-b"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  layout
+                >
                   <Image
                     src={item.image}
                     alt={item.name}
@@ -56,48 +53,51 @@ export function Cart() {
                   <div className="flex-1 space-y-2">
                     <p className="font-semibold">{item.name}</p>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
+                      <QuantityButton
+                        type="minus"
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                        aria-label={`Decrease quantity of ${item.name}`}
-                      >
-                        <Minus className="h-4 w-4" aria-hidden="true" />
-                      </Button>
+                        disabled={item.quantity <= 1}
+                        className="h-11 w-11 min-w-[44px] min-h-[44px]"
+                      />
                       <Input
                         type="number"
                         min="1"
                         value={item.quantity}
                         onChange={(e) => updateQuantity(item.id, parseInt(e.target.value, 10))}
-                        className="w-12 h-8 text-center remove-arrow"
+                        className="w-14 h-11 text-center remove-arrow"
                         aria-label={`Quantity for ${item.name}`}
                       />
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
+                      <QuantityButton
+                        type="plus"
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                        aria-label={`Increase quantity of ${item.name}`}
-                      >
-                        <Plus className="h-4 w-4" aria-hidden="true" />
-                      </Button>
+                        className="h-11 w-11 min-w-[44px] min-h-[44px]"
+                      />
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold">{formatCurrency(item.price * item.quantity)}</p>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-xs h-auto p-0 text-red-500 hover:text-red-600"
+                    <motion.p
+                      key={item.price * item.quantity}
+                      className="font-semibold"
+                      initial={{ scale: 1.1 }}
+                      animate={{ scale: 1 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {formatCurrency(item.price * item.quantity)}
+                    </motion.p>
+                    <motion.button
+                      type="button"
+                      className="text-xs min-h-[44px] px-2 text-red-500 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
                       onClick={() => removeFromCart(item.id)}
                       aria-label={`Remove ${item.name} from cart`}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
                       Remove
-                    </Button>
+                    </motion.button>
                   </div>
-                </div>
+                </motion.div>
               ))}
+              </AnimatePresence>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center px-6">

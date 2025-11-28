@@ -1,5 +1,5 @@
 
-import type {NextConfig} from 'next';
+import type { NextConfig } from 'next';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });
@@ -12,7 +12,7 @@ const securityHeaders = [
   },
   {
     key: 'Strict-Transport-Security',
-    value: 'max-age=31536000; includeSubDomains',
+    value: 'max-age=63072000; includeSubDomains; preload',
   },
   {
     key: 'X-Frame-Options',
@@ -35,21 +35,10 @@ const securityHeaders = [
     value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
   },
   {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https: http:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live",
-      "frame-src 'self' https://checkout.korapay.com",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-      "frame-ancestors 'self'",
-    ].join('; '),
+    key: 'Cross-Origin-Opener-Policy',
+    value: 'same-origin',
   },
+  // Note: Content-Security-Policy is now handled in middleware.ts for route-specific policies
 ];
 
 const nextConfig: NextConfig = {
@@ -58,7 +47,36 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   reactStrictMode: true, // Enabled for better development experience and catching issues
+
+  // Compiler optimizations
+  compiler: {
+    // Remove console.log in production for smaller bundle size
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'],
+    } : false,
+  },
+
+  // Modern JavaScript output - eliminates unnecessary polyfills
+  // Next.js 16 targets modern browsers by default, respecting .browserslistrc
+
+  // Performance optimizations
+  experimental: {
+    // Optimize CSS loading
+    optimizeCss: true,
+    // Optimize package imports to reduce bundle size
+    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+  },
+
   images: {
+    // Prioritize AVIF over WebP for better compression (30-50% smaller)
+    // AVIF is supported by 92%+ of browsers (Chrome, Firefox, Safari 16+, Edge)
+    formats: ['image/avif', 'image/webp'],
+    // Device sizes for responsive images
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    // Image sizes for layout="responsive" and layout="fill"
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    // Minimum cache TTL in seconds (24 hours)
+    minimumCacheTTL: 86400,
     remotePatterns: [
       {
         protocol: 'https',
@@ -95,6 +113,13 @@ const nextConfig: NextConfig = {
         hostname: 'aivqthbxdshhltbwipbr.supabase.co',
         port: '',
         pathname: '/storage/v1/object/public/**',
+      },
+      // Via placeholder for fallback images
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+        port: '',
+        pathname: '/**',
       },
     ],
   },

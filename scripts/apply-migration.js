@@ -38,8 +38,15 @@ async function checkAndApplyMigration() {
         console.log('You may need to run this migration directly in the Supabase SQL Editor.');
         console.log('\nMigration SQL:\n');
         console.log(migrationSQL);
+
+        // Extract project ref from Supabase URL for dashboard link
+        const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
+        const dashboardUrl = projectRef
+          ? `https://supabase.com/dashboard/project/${projectRef}/sql/new`
+          : 'https://supabase.com/dashboard (find your project)';
+
         console.log('\n--- To apply this migration ---');
-        console.log('1. Go to https://aivqthbxdshhltbwipbr.supabase.co/project/aivqthbxdshhltbwipbr/sql/new');
+        console.log(`1. Go to ${dashboardUrl}`);
         console.log('2. Copy and paste the SQL above');
         console.log('3. Click "Run"');
 

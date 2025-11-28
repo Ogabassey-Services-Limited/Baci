@@ -89,9 +89,9 @@ IMPORTANT:
     logger.info({ message: 'Generating logo with Gemini 2.5 Flash Image', flow: 'guideBusinessOnboarding' });
 
     // Sanitize user inputs
-    const businessName = sanitizePromptInput(input.businessName, 100);
-    const businessType = sanitizePromptInput(input.businessType, 50);
-    const brandPreferences = sanitizePromptInput(input.brandPreferences, 50);
+    const businessName = sanitizePromptInput(input.businessName, 100).value;
+    const businessType = sanitizePromptInput(input.businessType, 50).value;
+    const brandPreferences = sanitizePromptInput(input.brandPreferences, 50).value;
 
     try {
       const prompt = `Generate a professional, modern, and minimalist logo image for a business.

@@ -5,7 +5,7 @@ import { Metadata } from 'next';
 import ProductDetailClient from './product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema } from '@/lib/seo-utils';
-import { escapeHtml, sanitizeSchemaMarkup } from '@/lib/sanitize';
+import { escapeHtml } from '@/lib/sanitize';
 
 // Enable ISR (Incremental Static Regeneration) with 5 minute revalidation
 // Pages will be statically generated on-demand and cached for 5 minutes
@@ -165,15 +165,12 @@ export default async function ProductPage({ params }: PageProps) {
     const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
     const baseUrl = `${protocol}://${host}`;
 
-    // Generate or use existing product schema
-    // If schema_markup exists in DB, sanitize it to prevent XSS; otherwise generate fresh (already sanitized)
-    const productSchema = product.schema_markup
-        ? sanitizeSchemaMarkup(product.schema_markup)
-        : generateProductSchema(
-            product,
-            merchant?.business_name || 'Baci Store',
-            merchant?.payout_currency || 'USD'
-        );
+    // Generate product schema (now handles merging custom schema_markup internally)
+    const productSchema = generateProductSchema(
+        product,
+        merchant?.business_name || 'Baci Store',
+        merchant?.payout_currency || 'USD'
+    );
 
     // Add URL to the schema offers (sanitized to prevent XSS)
     if (productSchema.offers) {

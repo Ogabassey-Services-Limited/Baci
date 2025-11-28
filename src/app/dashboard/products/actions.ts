@@ -74,9 +74,10 @@ export async function processPriceList(
     vendor: string,
     fileType: string,
 ): Promise<AIResponse> {
+    performance.mark('processPriceList-start');
     // Sanitize user-provided inputs
-    const safeVendor = sanitizePromptInput(vendor, 100);
-    const safeFileType = sanitizePromptInput(fileType, 50);
+    const safeVendor = sanitizePromptInput(vendor, 100).value;
+    const safeFileType = sanitizePromptInput(fileType, 50).value;
 
     const prompt = `
 You are an AI assistant for an e-commerce platform. Your task is to analyze a new price list and compare it to the current product catalog.
@@ -110,7 +111,10 @@ Instructions:
             });
         });
 
-        return object as AIResponse;
+        const result = object as AIResponse;
+        performance.mark('processPriceList-end');
+        performance.measure('processPriceList', 'processPriceList-start', 'processPriceList-end');
+        return result;
     } catch (error) {
         console.error("Error processing price list with AI:", error);
         // Return a structured error response
@@ -122,6 +126,7 @@ Instructions:
 }
 
 export async function fetchGoogleSheet(url: string): Promise<string> {
+    performance.mark('fetchGoogleSheet-start');
     try {
         // Validate URL format first
         let parsedUrl: URL;
@@ -168,6 +173,8 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
         }
 
         const text = await response.text();
+        performance.mark('fetchGoogleSheet-end');
+        performance.measure('fetchGoogleSheet', 'fetchGoogleSheet-start', 'fetchGoogleSheet-end');
         return text;
     } catch (error) {
         console.error("Error fetching Google Sheet:", error);

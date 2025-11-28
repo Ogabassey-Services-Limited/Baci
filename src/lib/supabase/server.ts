@@ -5,9 +5,16 @@ import { getSupabaseUrl, getSupabaseAnonKey } from '@/env';
 
 // Creates a Supabase client for Server Components, API Routes, and Server Actions.
 export function createClient(cookieStore: ReadonlyRequestCookies) {
+  const url = getSupabaseUrl();
+  const key = getSupabaseAnonKey();
+
+  if (!url || !key) {
+    throw new Error('Supabase configuration is missing. Please check your environment variables.');
+  }
+
   return createServerClient(
-    getSupabaseUrl(),
-    getSupabaseAnonKey(),
+    url,
+    key,
     {
       cookies: {
         get(name: string) {

@@ -10,7 +10,7 @@ const google = createGoogleGenerativeAI({
  *
  * Model Selection Guide:
  * - geminiFlash: Fast, cost-effective. Use for simple tasks (descriptions, autofill)
- * - geminiPro: More capable. Use for complex reasoning (analytics insights, builder)
+ * - geminiPro: Currently aliased to geminiFlash. Upgrade to gemini-2.0-pro when needed.
  * - gemini25FlashImage: Multimodal model for text, image understanding, AND image generation
  *   Use with providerOptions: { google: { responseModalities: ['TEXT', 'IMAGE'] } }
  */
@@ -135,10 +135,36 @@ export async function withRetry<T>(
 }
 
 /**
- * Sanitize user input for AI prompts to prevent prompt injection
+ * Result of sanitizing prompt input
  */
-export function sanitizePromptInput(input: string, maxLength: number = 500): string {
-    if (!input) return '';
+export interface SanitizeResult {
+    value: string;
+    metadata: {
+        wasTruncated: boolean;
+        originalLength: number;
+        finalLength: number;
+        limit: number;
+    };
+}
+
+/**
+ * Sanitize user input for AI prompts to prevent prompt injection
+ * @returns Object with sanitized value and metadata about truncation
+ */
+export function sanitizePromptInput(input: string, maxLength: number = 500): SanitizeResult {
+    if (!input) {
+        return {
+            value: '',
+            metadata: {
+                wasTruncated: false,
+                originalLength: 0,
+                finalLength: 0,
+                limit: maxLength,
+            },
+        };
+    }
+
+    const originalLength = input.length;
 
     let sanitized = input
         // Remove common prompt injection patterns
@@ -157,9 +183,18 @@ export function sanitizePromptInput(input: string, maxLength: number = 500): str
         .trim();
 
     // Limit length
-    if (sanitized.length > maxLength) {
+    const wasTruncated = sanitized.length > maxLength;
+    if (wasTruncated) {
         sanitized = sanitized.substring(0, maxLength);
     }
 
-    return sanitized;
+    return {
+        value: sanitized,
+        metadata: {
+            wasTruncated,
+            originalLength,
+            finalLength: sanitized.length,
+            limit: maxLength,
+        },
+    };
 }

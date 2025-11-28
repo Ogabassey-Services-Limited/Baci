@@ -6,7 +6,7 @@ import { StorefrontProvider } from '@/contexts/storefront-context';
 
 
 export const metadata: Metadata = {
-    title: 'Website Builder - Baci',
+    title: 'Your AI-Powered Builder - Baci',
     description: 'Customize your storefront',
 };
 

@@ -50,6 +50,8 @@ import { getCountryByCode, COUNTRIES } from '@/lib/countries';
 import { useAuth } from '@/contexts/auth-context';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
+import { NotificationCenter } from '@/components/notifications/notification-center';
+import { NotificationBanner } from '@/components/notifications/notification-banner';
 
 // The original layout is now a client component to prevent hydration errors.
 
@@ -63,7 +65,7 @@ const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }:
   if (!isReady) {
     const loadingContent = (
       <div className={cn(baseClassName, 'opacity-50 cursor-not-allowed')}>
-        <Loader2 className={cn('h-4 w-4 animate-spin', isMobile && 'h-5 w-5')} />
+        <Loader2 className={cn('h-4 w-4 motion-safe:animate-spin', isMobile && 'h-5 w-5')} />
         {!isCollapsed && !isMobile && 'Visit Store'}
         {isMobile && 'Visit Store'}
       </div>
@@ -230,7 +232,7 @@ export default function DashboardClientLayout({
   if (authLoading || (user && merchantLoading)) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
       </div>
     );
   }
@@ -242,7 +244,21 @@ export default function DashboardClientLayout({
   }
 
   return (
-    <div className={cn("grid min-h-screen w-full transition-all", isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]")}>
+    <>
+      {/* Skip link for keyboard navigation */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Skip to main content
+      </a>
+      <div
+        className={cn("grid min-h-screen w-full transition-all", isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]")}
+        style={{
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)',
+        }}
+      >
       <div className="hidden border-r bg-card md:block">
         <div className="flex h-full max-h-screen flex-col">
           <div className={cn("flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6", isCollapsed && "justify-center")}>
@@ -393,7 +409,7 @@ export default function DashboardClientLayout({
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="flex items-center gap-2">
                 {merchantLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <Loader2 className="h-5 w-5 motion-safe:animate-spin" />
                 ) : selectedCountry ? (
                   <span className="text-2xl">{selectedCountry.flag}</span>
                 ) : (
@@ -413,6 +429,8 @@ export default function DashboardClientLayout({
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
+          {/* Notification Center */}
+          <NotificationCenter />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="default" size="icon" className="rounded-full">
@@ -434,11 +452,14 @@ export default function DashboardClientLayout({
           </DropdownMenu>
         </header>
         <main id="main-content" className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-auto">
-          <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+          {/* Notification Banner - shows at top of content area */}
+          <NotificationBanner />
+          <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 motion-safe:animate-spin" aria-label="Loading" /></div>}>
             {children}
           </Suspense>
         </main>
       </div>
     </div>
+    </>
   );
 }

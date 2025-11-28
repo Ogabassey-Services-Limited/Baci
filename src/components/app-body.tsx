@@ -4,8 +4,18 @@
 import { cn } from '@/lib/utils';
 import { getContrastingTextColor } from '@/lib/color-utils';
 import type { MerchantData } from '@/hooks/use-merchant';
+import { CookieConsent } from '@/components/storefront/cookie-consent';
+import { NewsletterWidget } from '@/components/storefront/newsletter-widget';
 
-export default function AppBody({ children, merchant }: { children: React.ReactNode, merchant?: MerchantData | null }) {
+export default function AppBody({
+  children,
+  merchant,
+  showNewsletterWidget = true
+}: {
+  children: React.ReactNode,
+  merchant?: MerchantData | null,
+  showNewsletterWidget?: boolean
+}) {
   // Define CSS variables for the merchant's theme
   const themeStyle = merchant?.brand_colors ? {
     '--store-primary': merchant.brand_colors.primary,
@@ -24,6 +34,8 @@ export default function AppBody({ children, merchant }: { children: React.ReactN
       style={themeStyle as React.CSSProperties}
     >
       {children}
+      {showNewsletterWidget && <NewsletterWidget position="bottom-left" showDelay={5000} />}
+      <CookieConsent />
     </div>
   );
 }

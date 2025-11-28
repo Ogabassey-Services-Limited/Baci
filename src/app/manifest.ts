@@ -1,8 +1,8 @@
 import { MetadataRoute } from 'next'
- 
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Baci - AI E-commerce Builder',
+    name: 'Baci - Your AI-Powered E-commerce Builder',
     short_name: 'Baci',
     description: 'Create your e-commerce store in seconds with AI.',
     start_url: '/',

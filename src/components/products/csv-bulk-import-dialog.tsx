@@ -24,10 +24,12 @@ export function CSVBulkImportDialog({ open, onOpenChange, onImportComplete }: CS
     const { toast } = useToast();
 
     const downloadTemplate = () => {
+        // Professional sample data to help merchants understand the format
         const csvContent = `name,description,price,stock_quantity,category,sku,status
-"Sample Product 1","This is a sample product description",29.99,100,"Electronics","SKU001","active"
-"Sample Product 2","Another sample product",49.99,50,"Clothing","SKU002","active"
-"Sample Product 3","Third sample product",19.99,0,"Books","SKU003","draft"`;
+"Classic Cotton T-Shirt","Soft, breathable cotton t-shirt perfect for everyday wear. Available in multiple colors.",24.99,150,"Apparel","TEE-001","active"
+"Wireless Bluetooth Earbuds","Premium sound quality with noise cancellation. Up to 8 hours battery life.",79.99,45,"Electronics","AUDIO-001","active"
+"Organic Hand Cream","Nourishing hand cream with shea butter and essential oils. 100ml bottle.",12.99,200,"Beauty","BEAUTY-001","active"
+"Leather Laptop Sleeve","Genuine leather sleeve fits 13-15 inch laptops. Protective padding inside.",59.99,0,"Accessories","BAG-001","draft"`;
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
@@ -39,6 +41,8 @@ export function CSVBulkImportDialog({ open, onOpenChange, onImportComplete }: CS
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        // Clean up object URL to prevent memory leak
+        URL.revokeObjectURL(url);
 
         toast({
             title: 'Template Downloaded',

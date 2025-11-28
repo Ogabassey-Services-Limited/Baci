@@ -17,10 +17,11 @@ interface TemplateParams {
  * Generate hero carousel slides based on business type
  */
 export function generateHeroSlides(businessName: string, businessType: string) {
+    // High-quality ecommerce hero images from Unsplash
     const fallbackImages = [
-        { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+1' },
-        { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+2' },
-        { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+3' }
+        { imageUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80' },
+        { imageUrl: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80' },
+        { imageUrl: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1920&q=80' }
     ];
 
     const imagesForSlides = [

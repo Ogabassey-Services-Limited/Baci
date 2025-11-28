@@ -3,8 +3,6 @@
 
 import { useState, useEffect } from 'react';
 import { Responsive, WidthProvider, Layout } from 'react-grid-layout';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
 import { AnalyticsCard } from './analytics-card';
 import { RevenueChart, SalesByChannelChart } from './chart-components';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -75,6 +73,12 @@ interface DraggableAnalyticsGridProps {
 
 export function DraggableAnalyticsGrid({ data, loading, activeCategory, merchant }: DraggableAnalyticsGridProps) {
     const [isEditMode, setIsEditMode] = useState(false);
+
+    // Dynamically load grid layout CSS to avoid render-blocking
+    useEffect(() => {
+        import('react-grid-layout/css/styles.css');
+        import('react-resizable/css/styles.css');
+    }, []);
 
     const [layouts, setLayouts] = useState({
         lg: [

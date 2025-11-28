@@ -15,7 +15,8 @@
     --secondary: 38 92% 55%;
     --secondary-foreground: 0 0% 0%;
     --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    /* WCAG 2.1 AA: muted-foreground adjusted from 46.1% to 40% for 4.5:1 contrast */
+    --muted-foreground: 240 3.8% 40%;
     --accent: 38 92% 55%;
     --accent-foreground: 0 0% 0%;
     --destructive: 0 84.2% 60.2%;
@@ -60,7 +61,8 @@
     --secondary: 239 45% 30%;
     --secondary-foreground: 0 0% 98%;
     --muted: 239 30% 25%;
-    --muted-foreground: 240 5% 64.9%;
+    /* WCAG 2.1 AA: muted-foreground adjusted for 4.5:1 contrast on dark backgrounds */
+    --muted-foreground: 240 5% 70%;
     --accent: 38 92% 55%;
     --accent-foreground: 0 0% 0%;
     --destructive: 0 62.8% 30.6%;
@@ -169,6 +171,16 @@
     animation: fade-in 0.5s ease-out;
   }
 
+  /* Shimmer animation for skeleton loaders */
+  @keyframes shimmer {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
   /* Respect user motion preferences - WCAG 2.1 SC 2.3.3 */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -194,5 +206,607 @@
   }
   .remove-arrow {
     -moz-appearance: textfield;
+  }
+
+  /*
+   * 2025 Glass Morphism - Performance Optimized
+   * - Uses will-change sparingly (only on hover/focus)
+   * - Reduces backdrop-blur on mobile for battery/performance
+   * - Uses contain: layout for paint optimization
+   */
+
+  /* Standard glass for Baci-owned pages (landing, dashboard, checkout) */
+  .glass {
+    @apply bg-white/80 border border-white/20 shadow-lg;
+    contain: layout;
+  }
+
+  /* Only apply blur on devices that can handle it (non-touch, larger screens) */
+  @media (hover: hover) and (min-width: 768px) {
+    .glass {
+      @apply backdrop-blur-md bg-white/70;
+    }
+  }
+
+  .dark .glass {
+    @apply bg-black/80 border-white/10;
+  }
+
+  @media (hover: hover) and (min-width: 768px) {
+    .dark .glass {
+      @apply backdrop-blur-md bg-black/70;
+    }
+  }
+
+  /* Themed glass that respects merchant brand colors for storefronts */
+  .glass-themed {
+    @apply border shadow-lg;
+    background: color-mix(in srgb, var(--store-background, white) 80%, transparent);
+    border-color: color-mix(in srgb, var(--store-primary, white) 20%, transparent);
+    contain: layout;
+  }
+
+  /* Only apply blur on capable devices */
+  @media (hover: hover) and (min-width: 768px) {
+    .glass-themed {
+      @apply backdrop-blur-md;
+      background: color-mix(in srgb, var(--store-background, white) 70%, transparent);
+    }
+  }
+
+  .dark .glass-themed {
+    background: color-mix(in srgb, var(--store-background, black) 80%, transparent);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  @media (hover: hover) and (min-width: 768px) {
+    .dark .glass-themed {
+      @apply backdrop-blur-md;
+      background: color-mix(in srgb, var(--store-background, black) 70%, transparent);
+    }
+  }
+
+  /*
+   * Hover lift effect - Desktop only
+   * Uses GPU-accelerated transform instead of box-shadow animation
+   * Only triggers on devices with hover capability (not touch)
+   */
+  .hover-lift {
+    @apply transition-transform duration-200;
+    will-change: auto; /* Don't pre-allocate GPU memory */
+  }
+
+  /* Only apply hover effects on non-touch devices */
+  @media (hover: hover) {
+    .hover-lift:hover {
+      @apply -translate-y-1;
+      will-change: transform; /* Hint to browser during interaction */
+    }
+
+    .hover-lift:not(:hover) {
+      will-change: auto; /* Release GPU memory when not hovering */
+    }
+  }
+
+  /* Group hover scale for icons - Desktop only */
+  .group-hover-scale {
+    @apply transition-transform duration-200;
+  }
+
+  @media (hover: hover) {
+    .group:hover .group-hover-scale {
+      @apply scale-110;
+    }
+  }
+
+  /*
+   * 2025 Animation System - Performance First
+   * All animations respect prefers-reduced-motion via motion-safe:
+   * Uses CSS custom properties for easy theming
+   */
+
+  /* Animation timing tokens */
+  :root {
+    --duration-fast: 150ms;
+    --duration-normal: 250ms;
+    --duration-slow: 400ms;
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Staggered animation delays for lists - use with animate-fade-in-up */
+  .stagger-1 { --stagger-delay: 0ms; }
+  .stagger-2 { --stagger-delay: 50ms; }
+  .stagger-3 { --stagger-delay: 100ms; }
+  .stagger-4 { --stagger-delay: 150ms; }
+  .stagger-5 { --stagger-delay: 200ms; }
+  .stagger-6 { --stagger-delay: 250ms; }
+  .stagger-7 { --stagger-delay: 300ms; }
+  .stagger-8 { --stagger-delay: 350ms; }
+
+  /* Fade in up - for list items, cards */
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up var(--duration-normal) var(--ease-out) forwards;
+    animation-delay: var(--stagger-delay, 0ms);
+    opacity: 0; /* Start invisible */
+  }
+
+  /* Fade in scale - for modals, dialogs */
+  @keyframes fade-in-scale {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-fade-in-scale {
+    animation: fade-in-scale var(--duration-normal) var(--ease-spring) forwards;
+  }
+
+  /* Slide in from right - for drawers, sidebars */
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right var(--duration-normal) var(--ease-out) forwards;
+  }
+
+  /* Slide in from bottom - for mobile sheets */
+  @keyframes slide-in-bottom {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  .animate-slide-in-bottom {
+    animation: slide-in-bottom var(--duration-normal) var(--ease-out) forwards;
+  }
+
+  /* Skeleton shimmer - optimized with GPU layer */
+  @keyframes skeleton-shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted) / 0.5) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+
+  /* Pulse subtle - for notifications, badges */
+  @keyframes pulse-subtle {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s ease-in-out infinite;
+  }
+
+  /* Count up animation helper - use with JS */
+  .animate-count-up {
+    transition: all var(--duration-slow) var(--ease-out);
+  }
+
+  /* Press effect for buttons - Desktop only */
+  @media (hover: hover) {
+    .press-effect {
+      @apply transition-transform;
+      transition-duration: var(--duration-fast);
+    }
+
+    .press-effect:active {
+      transform: scale(0.97);
+    }
+  }
+
+  /* Spinner optimization - uses GPU layer */
+  @keyframes spin-optimized {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-spin-optimized {
+    animation: spin-optimized 1s linear infinite;
+    will-change: transform;
+  }
+
+  /* Success checkmark animation */
+  @keyframes checkmark-draw {
+    0% {
+      stroke-dashoffset: 100;
+    }
+    100% {
+      stroke-dashoffset: 0;
+    }
+  }
+
+  .animate-checkmark {
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    animation: checkmark-draw 0.5s var(--ease-out) forwards;
+  }
+
+  /* Number/text highlight on change */
+  @keyframes highlight-change {
+    0% {
+      background-color: hsl(var(--primary) / 0.2);
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+
+  .animate-highlight {
+    animation: highlight-change 1s var(--ease-out) forwards;
+  }
+
+  /* Reduced motion: Disable all custom animations */
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in-up,
+    .animate-fade-in-scale,
+    .animate-slide-in-right,
+    .animate-slide-in-bottom,
+    .animate-pulse-subtle,
+    .animate-spin-optimized,
+    .animate-checkmark,
+    .animate-highlight {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+
+    .skeleton-shimmer {
+      animation: none;
+      background: hsl(var(--muted));
+    }
+  }
+
+  /* Enhanced focus styles for WCAG 2.2 Focus Appearance */
+  .focus-enhanced:focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2;
+    outline: 3px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+
+  /* Focus within for card interactions */
+  .focus-within-ring:focus-within {
+    @apply ring-2 ring-primary ring-offset-2;
+  }
+
+  /*
+   * 2025 Typography System - Semantic & Responsive
+   * Uses fluid typography from Tailwind config
+   * Provides semantic classes for consistent styling
+   */
+
+  /* Page titles - largest, used once per page */
+  .text-page-title {
+    @apply text-fluid-4xl font-bold tracking-tight;
+  }
+
+  /* Section headings */
+  .text-section-title {
+    @apply text-fluid-2xl font-semibold tracking-tight;
+  }
+
+  /* Card titles */
+  .text-card-title {
+    @apply text-fluid-lg font-semibold;
+  }
+
+  /* Subsection or widget titles */
+  .text-subtitle {
+    @apply text-fluid-base font-medium;
+  }
+
+  /* Body text - default readable size */
+  .text-body {
+    @apply text-fluid-base leading-relaxed;
+  }
+
+  /* Body text small - secondary content */
+  .text-body-sm {
+    @apply text-fluid-sm leading-relaxed text-muted-foreground;
+  }
+
+  /* Labels - form fields, metadata */
+  .text-label {
+    @apply text-sm font-medium leading-none;
+  }
+
+  /* Captions - smallest readable text */
+  .text-caption {
+    @apply text-fluid-xs text-muted-foreground;
+  }
+
+  /* Price display - prominent numbers */
+  .text-price {
+    @apply text-fluid-xl font-bold tabular-nums;
+  }
+
+  /* Price small - in cards */
+  .text-price-sm {
+    @apply text-fluid-lg font-semibold tabular-nums;
+  }
+
+  /* Stat/metric numbers */
+  .text-stat {
+    @apply text-fluid-3xl font-bold tabular-nums tracking-tight;
+  }
+
+  /* Badge/tag text */
+  .text-badge {
+    @apply text-xs font-medium uppercase tracking-wide;
+  }
+
+  /* Navigation links */
+  .text-nav {
+    @apply text-sm font-medium;
+  }
+
+  /* Button text - matches button sizing */
+  .text-button {
+    @apply text-sm font-medium;
+  }
+
+  /* Hero text - landing pages */
+  .text-hero {
+    @apply text-fluid-5xl font-bold tracking-tight;
+  }
+
+  .text-hero-sub {
+    @apply text-fluid-xl text-muted-foreground;
+  }
+
+  /* Prose - long-form content */
+  .prose-baci {
+    @apply text-body;
+  }
+
+  .prose-baci h1 {
+    @apply text-page-title mb-6 mt-8;
+  }
+
+  .prose-baci h2 {
+    @apply text-section-title mb-4 mt-6;
+  }
+
+  .prose-baci h3 {
+    @apply text-card-title mb-3 mt-4;
+  }
+
+  .prose-baci p {
+    @apply mb-4;
+  }
+
+  .prose-baci ul, .prose-baci ol {
+    @apply mb-4 pl-6;
+  }
+
+  .prose-baci li {
+    @apply mb-2;
+  }
+
+  .prose-baci a {
+    @apply text-primary underline underline-offset-4 hover:text-primary/80;
+  }
+
+  /* Truncation utilities */
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /*
+   * 2025 Gradient System - Subtle, Modern
+   * Performance optimized with GPU-accelerated gradients
+   */
+
+  /* Subtle background gradient for hero sections */
+  .gradient-hero {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--background)) 0%,
+      hsl(var(--muted)) 50%,
+      hsl(var(--background)) 100%
+    );
+  }
+
+  /* Primary gradient for buttons/CTAs */
+  .gradient-primary {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--primary) / 0.85) 100%
+    );
+  }
+
+  /* Accent gradient for highlights */
+  .gradient-accent {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--accent)) 0%,
+      hsl(var(--accent) / 0.7) 100%
+    );
+  }
+
+  /* Glass gradient overlay */
+  .gradient-glass {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--background) / 0.8) 0%,
+      hsl(var(--background) / 0.6) 100%
+    );
+  }
+
+  /* Shimmer effect for loading states - more elegant than skeleton */
+  .gradient-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted) / 0.5) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer-move 1.5s ease-in-out infinite;
+  }
+
+  @keyframes shimmer-move {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Text gradient for special headings */
+  .gradient-text {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--accent)) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /*
+   * Final Polish - Micro Details
+   */
+
+  /* Smooth image loading */
+  img[loading="lazy"] {
+    opacity: 0;
+    transition: opacity 0.3s ease-in;
+  }
+
+  img[loading="lazy"].loaded,
+  img[loading="lazy"]:not([data-src]) {
+    opacity: 1;
+  }
+
+  /* Selection styling */
+  ::selection {
+    background: hsl(var(--primary) / 0.2);
+    color: hsl(var(--foreground));
+  }
+
+  /* Focus ring for keyboard navigation - WCAG 2.2 compliant */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  /* Scrollbar styling for webkit browsers */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.3);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) hsl(var(--muted) / 0.3);
+  }
+
+  /* Smooth page transitions */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    .gradient-shimmer {
+      animation: none;
+    }
+  }
+
+  /* Print styles */
+  @media print {
+    .glass,
+    .glass-themed {
+      background: white !important;
+      backdrop-filter: none !important;
+      box-shadow: none !important;
+    }
+
+    .animate-fade-in-up,
+    .animate-fade-in-scale,
+    .hover-lift {
+      animation: none !important;
+      transform: none !important;
+    }
   }
 }

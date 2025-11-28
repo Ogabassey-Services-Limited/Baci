@@ -8,8 +8,27 @@ import { escapeHtml } from '@/lib/sanitize';
 // Enable ISR with 1 minute revalidation for storefront homepages
 export const revalidate = 60;
 
+// Valid slug pattern: alphanumeric and hyphens, no file extensions
+const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+
+function isValidMerchantSlug(slug: string): boolean {
+    return typeof slug === 'string' &&
+        !!slug.trim() &&
+        !slug.includes('.') && // No file extensions
+        VALID_SLUG_REGEX.test(slug.toLowerCase());
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
+
+    // Skip database query for invalid slugs (like static asset requests)
+    if (!isValidMerchantSlug(slug)) {
+        return {
+            title: 'Not Found',
+            description: 'The page you are looking for does not exist.',
+        };
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -65,7 +84,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function StorefrontPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
 
-    if (typeof slug !== 'string' || !slug.trim()) {
+    // Validate slug format to prevent database queries for static assets
+    if (!isValidMerchantSlug(slug)) {
         return (
             <div className="flex h-screen w-full items-center justify-center">
                 <p>Invalid store URL.</p>

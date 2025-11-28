@@ -66,8 +66,14 @@ export function PuckStorefront({ onNoConfig }: PuckStorefrontProps) {
 
     if (loading) {
         return (
-            <div className="flex h-screen w-full items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin" />
+            <div
+                className="flex h-screen w-full items-center justify-center"
+                style={{
+                    paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+                    paddingRight: 'max(1rem, env(safe-area-inset-right))',
+                }}
+            >
+                <Loader2 className="h-8 w-8 motion-safe:animate-spin" aria-label="Loading store" />
             </div>
         );
     }

@@ -5,17 +5,28 @@ import { NextResponse } from 'next/server';
 /**
  * GET /api/admin/db-health
  * Returns database health metrics and index recommendations
- * Only accessible to authenticated users (you can add admin check if needed)
+ * Only accessible to platform administrators
  */
 export async function GET() {
     try {
         const cookieStore = await cookies();
         const supabase = createClient(cookieStore);
 
+        // Step 1: Authentication check
         const { data: { user } } = await supabase.auth.getUser();
-
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Step 2: Admin role check
+        const { data: merchant } = await supabase
+            .from('merchants')
+            .select('is_platform_admin')
+            .eq('user_id', user.id)
+            .single();
+
+        if (!merchant?.is_platform_admin) {
+            return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
         }
 
         // Get health check summary

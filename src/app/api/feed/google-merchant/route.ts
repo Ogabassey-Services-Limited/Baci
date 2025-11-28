@@ -8,40 +8,43 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Cached function to fetch merchant and products for feed
-const getCachedFeedData = unstable_cache(
-    async (merchantIdentifier: string, isBySlug: boolean) => {
-        const merchantQuery = supabase
-            .from('merchants')
-            .select('id, business_name, country, payout_currency, slug');
+// Factory function that creates a cached fetcher for each merchant
+// This ensures each merchant gets their own cache entry
+function createCachedFeedDataFetcher(merchantIdentifier: string, isBySlug: boolean) {
+    return unstable_cache(
+        async () => {
+            const merchantQuery = supabase
+                .from('merchants')
+                .select('id, business_name, country, payout_currency, slug');
 
-        const { data: merchant, error: merchantError } = isBySlug
-            ? await merchantQuery.eq('slug', merchantIdentifier).single()
-            : await merchantQuery.eq('id', merchantIdentifier).single();
+            const { data: merchant, error: merchantError } = isBySlug
+                ? await merchantQuery.eq('slug', merchantIdentifier).single()
+                : await merchantQuery.eq('id', merchantIdentifier).single();
 
-        if (merchantError || !merchant) {
-            throw new Error('Merchant not found');
+            if (merchantError || !merchant) {
+                throw new Error('Merchant not found');
+            }
+
+            const { data: products, error: productsError } = await supabase
+                .from('products')
+                .select('*')
+                .eq('merchant_id', merchant.id)
+                .eq('status', 'active')
+                .order('created_at', { ascending: false });
+
+            if (productsError) {
+                throw new Error('Failed to fetch products');
+            }
+
+            return { merchant, products: products || [] };
+        },
+        ['google-merchant-feed', merchantIdentifier], // Include merchant identifier in cache key
+        {
+            revalidate: 3600, // Revalidate every 1 hour
+            tags: ['google-merchant-feed', 'products', `merchant-feed-${merchantIdentifier}`],
         }
-
-        const { data: products, error: productsError } = await supabase
-            .from('products')
-            .select('*')
-            .eq('merchant_id', merchant.id)
-            .eq('status', 'active')
-            .order('created_at', { ascending: false });
-
-        if (productsError) {
-            throw new Error('Failed to fetch products');
-        }
-
-        return { merchant, products: products || [] };
-    },
-    ['google-merchant-feed'],
-    {
-        revalidate: 3600, // Revalidate every 1 hour
-        tags: ['google-merchant-feed', 'products'],
-    }
-);
+    );
+}
 
 /**
  * Google Merchant Center Product Feed API
@@ -66,7 +69,8 @@ export async function GET(request: NextRequest) {
 
     try {
         const identifier = merchantId || merchantSlug!;
-        const { merchant, products } = await getCachedFeedData(identifier, !!merchantSlug);
+        const getCachedFeedData = createCachedFeedDataFetcher(identifier, !!merchantSlug);
+        const { merchant, products } = await getCachedFeedData();
 
         // Determine base URL from request headers
         const host = request.headers.get('host') || `${merchant.slug}.baci.app`;

@@ -487,24 +487,24 @@ export default function OrdersPage() {
 
 
   if (authLoading || merchantLoading) {
-    return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 motion-safe:animate-spin" aria-label="Loading orders" /></div>;
   }
 
   return (
     <div className="flex flex-col h-full gap-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Orders 📦</h1>
+        <h1 className="text-page-title">Orders 📦</h1>
         <div className="flex items-center gap-2">
-          <Button size="icon" variant="outline" className="h-9 w-9">
+          <Button size="icon" variant="outline" className="h-11 w-11 min-w-[44px] min-h-[44px]">
             <File className="h-4 w-4" />
             <span className="sr-only">Export</span>
           </Button>
-          <Button size="icon" variant="outline" className="h-9 w-9">
+          <Button size="icon" variant="outline" className="h-11 w-11 min-w-[44px] min-h-[44px]">
             <RefreshCw className="h-4 w-4" />
             <span className="sr-only">Refresh</span>
           </Button>
           <Link href="/dashboard/orders/create">
-            <Button size="sm" className="h-9 gap-1">
+            <Button size="sm" className="h-11 min-h-[44px] gap-1">
               <PlusCircle className="h-4 w-4" />
               <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Create Order</span>
             </Button>
@@ -519,9 +519,9 @@ export default function OrdersPage() {
             <ShoppingCart className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-900">
+            <div className="text-stat text-blue-900">
               {statsLoading ? (
-                <Loader2 className="h-6 w-6 animate-spin" />
+                <Loader2 className="h-6 w-6 motion-safe:animate-spin" />
               ) : (
                 stats.totalOrders.toLocaleString()
               )}
@@ -534,9 +534,9 @@ export default function OrdersPage() {
             <PackageCheck className="h-5 w-5 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-900">
+            <div className="text-stat text-yellow-900">
               {statsLoading ? (
-                <Loader2 className="h-6 w-6 animate-spin" />
+                <Loader2 className="h-6 w-6 motion-safe:animate-spin" />
               ) : (
                 stats.completedOrders.toLocaleString()
               )}
@@ -549,9 +549,9 @@ export default function OrdersPage() {
             <FileWarning className="h-5 w-5 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-900">
+            <div className="text-stat text-blue-900">
               {statsLoading ? (
-                <Loader2 className="h-6 w-6 animate-spin" />
+                <Loader2 className="h-6 w-6 motion-safe:animate-spin" />
               ) : (
                 stats.unpaidOrders.toLocaleString()
               )}
@@ -578,7 +578,7 @@ export default function OrdersPage() {
           <AlertTitle className="font-semibold">
             {statsLoading ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
                 Checking orders...
               </span>
             ) : (
@@ -586,7 +586,7 @@ export default function OrdersPage() {
             )}
           </AlertTitle>
           <AlertDescription>
-            <a href="#" className="font-medium underline">Click to resolve</a>
+            <button type="button" className="font-medium underline bg-transparent border-none p-0 cursor-pointer text-inherit">Click to resolve</button>
           </AlertDescription>
           <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => setShowAlert(false)}>
             <X className="h-4 w-4 text-yellow-700" />
@@ -645,7 +645,7 @@ export default function OrdersPage() {
         </DropdownMenu>
       </div>
 
-      <Card>
+      <Card className="glass">
         <CardHeader className="px-4 pt-4 pb-0 border-b border-blue-200">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold">Recent Orders</h3>
@@ -684,7 +684,7 @@ export default function OrdersPage() {
           <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-4">
             {ordersLoading ? (
               <div className="flex justify-center items-center h-64">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Loader2 className="h-8 w-8 motion-safe:animate-spin text-primary" />
               </div>
             ) : ordersError ? (
               <Alert variant="destructive" className="m-4">

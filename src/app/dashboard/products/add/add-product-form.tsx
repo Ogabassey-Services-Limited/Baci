@@ -271,7 +271,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         businessType: merchant.business_type,
       });
 
-      const { details } = result;
+      const { details, metadata } = result;
       if (details.suggestedName) form.setValue('name', details.suggestedName, { shouldValidate: true });
       if (details.description) form.setValue('description', details.description, { shouldValidate: true });
       if (details.category && categoryConfig.productCategories?.includes(details.category)) {
@@ -283,6 +283,23 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
         setHasVariants(true);
         sessionStorage.setItem('ai_variant_suggestions', JSON.stringify(details.suggestedVariants));
         setVariantBuilderKey(Date.now());
+      }
+
+      // Check for input truncation and notify user
+      if (metadata?.inputTruncation) {
+        const { productName: productNameTruncated, businessType: businessTypeTruncated } = metadata.inputTruncation;
+
+        if (productNameTruncated || businessTypeTruncated) {
+          const truncatedFields = [];
+          if (productNameTruncated) truncatedFields.push('Product name (200 chars)');
+          if (businessTypeTruncated) truncatedFields.push('Business type (100 chars)');
+
+          toast({
+            title: "Input Truncated",
+            description: `${truncatedFields.join(' and ')} ${truncatedFields.length > 1 ? 'were' : 'was'} shortened for AI processing.`,
+            variant: "default",
+          });
+        }
       }
 
       toast({

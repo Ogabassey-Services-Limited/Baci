@@ -1,25 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import crypto from 'crypto';
 
 /**
- * GET /api/wishlist?email=customer@example.com
- * Get wish list items for a customer
+ * Hash a session token for privacy (don't store raw tokens)
+ */
+function hashSessionToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Validate UUID format
+ */
+function isValidUUID(str: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
+/**
+ * GET /api/wishlist?session=xxx OR authenticated user
+ * Get wish list items for authenticated user or guest session
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const customerEmail = searchParams.get('email');
-
-    if (!customerEmail) {
-      return NextResponse.json(
-        { error: 'Customer email is required' },
-        { status: 400 }
-      );
-    }
+    const sessionToken = searchParams.get('session');
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+
+    // Check for authenticated user first
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let customerIdentifier: string;
+
+    if (user?.email) {
+      // Authenticated user - use their email
+      customerIdentifier = user.email;
+    } else if (sessionToken && sessionToken.length >= 16) {
+      // Guest user - use hashed session token as identifier
+      customerIdentifier = `guest:${hashSessionToken(sessionToken)}`;
+    } else {
+      return NextResponse.json(
+        { error: 'Authentication required. Please login or provide a session token.' },
+        { status: 401 }
+      );
+    }
 
     // Get wish list items with product details
     const { data: wishListItems, error } = await supabase
@@ -40,7 +67,7 @@ export async function GET(request: NextRequest) {
           category
         )
       `)
-      .eq('customer_email', customerEmail)
+      .eq('customer_email', customerIdentifier)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -59,16 +86,31 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/wishlist
- * Add item to wish list
+ * Add item to wish list (authenticated user or guest session)
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { customerEmail, productId, merchantId } = body;
+    const { productId, merchantId, sessionToken } = body;
 
-    if (!customerEmail || !productId || !merchantId) {
+    if (!productId || !merchantId) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Product ID and Merchant ID are required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate UUID formats
+    if (!isValidUUID(productId)) {
+      return NextResponse.json(
+        { error: 'Invalid product ID format' },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidUUID(merchantId)) {
+      return NextResponse.json(
+        { error: 'Invalid merchant ID format' },
         { status: 400 }
       );
     }
@@ -76,11 +118,29 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
+    // Check for authenticated user first
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let customerIdentifier: string;
+
+    if (user?.email) {
+      // Authenticated user - use their email
+      customerIdentifier = user.email;
+    } else if (sessionToken && sessionToken.length >= 16) {
+      // Guest user - use hashed session token as identifier
+      customerIdentifier = `guest:${hashSessionToken(sessionToken)}`;
+    } else {
+      return NextResponse.json(
+        { error: 'Authentication required. Please login or provide a session token.' },
+        { status: 401 }
+      );
+    }
+
     // Add to wish list
     const { data: wishListItem, error } = await supabase
       .from('wish_list_items')
       .insert({
-        customer_email: customerEmail,
+        customer_email: customerIdentifier,
         product_id: productId,
         merchant_id: merchantId,
       })
@@ -108,13 +168,14 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * DELETE /api/wishlist?id=uuid
- * Remove item from wish list
+ * DELETE /api/wishlist?id=uuid&session=xxx
+ * Remove item from wish list (with ownership verification)
  */
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('id');
+    const sessionToken = searchParams.get('session');
 
     if (!itemId) {
       return NextResponse.json(
@@ -123,9 +184,55 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    if (!isValidUUID(itemId)) {
+      return NextResponse.json(
+        { error: 'Invalid item ID format' },
+        { status: 400 }
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
+    // Check for authenticated user first
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let customerIdentifier: string;
+
+    if (user?.email) {
+      customerIdentifier = user.email;
+    } else if (sessionToken && sessionToken.length >= 16) {
+      customerIdentifier = `guest:${hashSessionToken(sessionToken)}`;
+    } else {
+      return NextResponse.json(
+        { error: 'Authentication required. Please login or provide a session token.' },
+        { status: 401 }
+      );
+    }
+
+    // Verify ownership before deletion
+    const { data: item, error: fetchError } = await supabase
+      .from('wish_list_items')
+      .select('id, customer_email')
+      .eq('id', itemId)
+      .single();
+
+    if (fetchError || !item) {
+      return NextResponse.json(
+        { error: 'Item not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check ownership
+    if (item.customer_email !== customerIdentifier) {
+      return NextResponse.json(
+        { error: 'Not authorized to delete this item' },
+        { status: 403 }
+      );
+    }
+
+    // Delete the item
     const { error } = await supabase
       .from('wish_list_items')
       .delete()

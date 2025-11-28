@@ -124,16 +124,22 @@ export default function LoginForm() {
     }
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
+        <div
+            className="flex min-h-screen items-center justify-center bg-muted/20 p-4"
+            style={{
+                paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+                paddingRight: 'max(1rem, env(safe-area-inset-right))',
+            }}
+        >
             <div className="w-full max-w-sm">
-                <Card>
+                <Card className="glass">
                     <CardHeader className="text-center p-4">
                         <div className="flex justify-center">
                             <Link href="/">
                                 <Logo />
                             </Link>
                         </div>
-                        <CardTitle className="pt-2">{getTitle()}</CardTitle>
+                        <CardTitle className="pt-2 text-section-title">{getTitle()}</CardTitle>
                         <CardDescription>
                             {getDescription()}
                         </CardDescription>
@@ -159,7 +165,7 @@ export default function LoginForm() {
                                         )}
                                     />
                                     <Button type="submit" className="w-full" disabled={isLoading}>
-                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
                                         Send Reset Link
                                     </Button>
                                 </form>
@@ -220,7 +226,7 @@ export default function LoginForm() {
                                         )}
                                     />
                                     <Button type="submit" className="w-full" disabled={isLoading}>
-                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                        {isLoading && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
                                         Sign In
                                     </Button>
                                 </form>
@@ -236,7 +242,7 @@ export default function LoginForm() {
                         </div>
 
                         <Button variant="outline" className="w-full" onClick={handleGoogleSignIn} disabled={isGoogleLoading}>
-                            {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GoogleIcon />}
+                            {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> : <GoogleIcon />}
                             Google
                         </Button>
 

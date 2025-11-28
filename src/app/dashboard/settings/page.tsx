@@ -39,7 +39,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMerchant } from '@/hooks/use-merchant';
 import { COUNTRIES } from '@/lib/countries';
 import { useEffect, useState } from 'react';
-import { Loader2, Upload, CheckCircle, Pencil, Shuffle, Trash2, Plus, Twitter, Facebook, Instagram } from 'lucide-react';
+import { Loader2, Upload, CheckCircle, Pencil, Shuffle, Trash2, Plus, Twitter, Facebook, Instagram, Users, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
 import { logger } from '@/lib/logger';
 import ColorThief from 'colorthief';
@@ -49,6 +49,7 @@ import { ColorPicker } from '@/components/color-picker';
 import type { BrandColors } from '@/types';
 import { cn } from '@/lib/utils';
 import { uploadImage } from '@/lib/storage';
+import Link from 'next/link';
 
 extend([a11yPlugin]);
 
@@ -116,6 +117,10 @@ export default function SettingsPage() {
     pinterest: '',
     linkedin: '',
   });
+  const [analyticsSettings, setAnalyticsSettings] = useState({
+    google_analytics_id: '',
+    facebook_pixel_id: '',
+  });
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
@@ -143,6 +148,10 @@ export default function SettingsPage() {
         youtube: (socialMedia?.youtube as string) || '',
         pinterest: (socialMedia?.pinterest as string) || '',
         linkedin: (socialMedia?.linkedin as string) || '',
+      });
+      setAnalyticsSettings({
+        google_analytics_id: (merchantData.google_analytics_id as string) || '',
+        facebook_pixel_id: (merchantData.facebook_pixel_id as string) || '',
       });
     }
   }, [merchant, form]);
@@ -225,8 +234,13 @@ export default function SettingsPage() {
   async function onSubmit(data: SettingsFormValues) {
     setIsSaving(true);
     try {
-      // @ts-expect-error - missing type definition
-      await updateMerchant({ ...data, hero_slides: heroSlides, social_media: socialMedia });
+      await updateMerchant({
+        ...data,
+        hero_slides: heroSlides,
+        social_media: socialMedia,
+        google_analytics_id: analyticsSettings.google_analytics_id || null,
+        facebook_pixel_id: analyticsSettings.facebook_pixel_id || null,
+      } as Parameters<typeof updateMerchant>[0]);
       toast({
         title: 'Settings Saved!',
         description: 'Your store settings have been updated.',
@@ -243,7 +257,7 @@ export default function SettingsPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 motion-safe:animate-spin" /></div>;
   }
 
   const brandColors = merchant?.brand_colors;
@@ -252,7 +266,7 @@ export default function SettingsPage() {
     <div className="grid gap-6">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-6">
-          <Card>
+          <Card className="glass">
             <CardHeader>
               <CardTitle>Branding</CardTitle>
               <CardDescription>
@@ -269,7 +283,7 @@ export default function SettingsPage() {
                       <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
                     </>
                   ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Click to upload new logo</p></>)}
-                  {isUploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}
+                  {isUploading && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 motion-safe:animate-spin text-primary" /></div>}
                   <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isUploading} />
                 </div>
               </div>
@@ -317,7 +331,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass">
             <CardHeader>
               <CardTitle>Hero Section Carousel</CardTitle>
               <CardDescription>
@@ -353,7 +367,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass">
             <CardHeader>
               <CardTitle>Social Media</CardTitle>
               <CardDescription>
@@ -461,7 +475,56 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle>Analytics & Tracking</CardTitle>
+              <CardDescription>
+                Connect your analytics accounts to track visitor behavior and conversions.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="google_analytics_id" className="flex items-center gap-2">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.84 2.998a2.157 2.157 0 0 0-2.157-2.16 2.157 2.157 0 1 0 0 4.314 2.157 2.157 0 0 0 2.157-2.154zm-2.157 6.312a2.157 2.157 0 0 0-2.157 2.157v10.376a2.157 2.157 0 0 0 4.314 0V11.467a2.157 2.157 0 0 0-2.157-2.157zM7.157 0A7.157 7.157 0 0 0 0 7.157v9.686a7.157 7.157 0 0 0 14.314 0V7.157A7.157 7.157 0 0 0 7.157 0zm2.843 16.843a2.843 2.843 0 1 1-5.686 0V7.157a2.843 2.843 0 0 1 5.686 0v9.686z"/>
+                    </svg>
+                    Google Analytics 4
+                  </Label>
+                  <Input
+                    id="google_analytics_id"
+                    placeholder="G-XXXXXXXXXX"
+                    value={analyticsSettings.google_analytics_id}
+                    onChange={(e) => setAnalyticsSettings({ ...analyticsSettings, google_analytics_id: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter your GA4 Measurement ID (starts with G-)
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="facebook_pixel_id" className="flex items-center gap-2">
+                    <Facebook className="w-4 h-4" />
+                    Facebook Pixel
+                  </Label>
+                  <Input
+                    id="facebook_pixel_id"
+                    placeholder="1234567890"
+                    value={analyticsSettings.facebook_pixel_id}
+                    onChange={(e) => setAnalyticsSettings({ ...analyticsSettings, facebook_pixel_id: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter your Facebook Pixel ID
+                  </p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Analytics scripts will only load when visitors accept analytics cookies.
+                Make sure cookie consent is enabled on your store.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass">
             <CardHeader>
               <CardTitle>Store Details</CardTitle>
               <CardDescription>
@@ -516,12 +579,33 @@ export default function SettingsPage() {
           </Card>
           <div className="flex justify-end">
             <Button type="submit" disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
               Save Changes
             </Button>
           </div>
         </form>
       </Form>
+
+      {/* Team Management Card - Outside the form */}
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Team Management
+          </CardTitle>
+          <CardDescription>
+            Invite team members to help manage your store with role-based permissions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/dashboard/settings/team">
+            <Button variant="outline" className="w-full justify-between">
+              <span>Manage Team Members</span>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
     </div>
   );
 }

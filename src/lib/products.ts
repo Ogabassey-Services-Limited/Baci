@@ -33,6 +33,11 @@ export interface ProductSchemaMarkup {
     description?: string;
     image?: string[];
     brand?: { '@type': 'Brand'; name: string };
+    aggregateRating?: {
+        '@type': 'AggregateRating';
+        ratingValue: number;
+        reviewCount: number;
+    };
     offers?: {
         '@type': 'Offer';
         price: number;

@@ -1,0 +1,296 @@
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import { X, Cookie, Shield, Settings2 } from 'lucide-react';
+import { ThemedButton } from '@/components/themed';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
+
+const COOKIE_CONSENT_KEY = 'baci-cookie-consent';
+
+interface CookiePreferences {
+  necessary: boolean; // Always true, required for site functionality
+  analytics: boolean; // Google Analytics, etc.
+  marketing: boolean; // Ad tracking, retargeting
+  functional: boolean; // Preferences, language settings
+}
+
+const defaultPreferences: CookiePreferences = {
+  necessary: true,
+  analytics: false,
+  marketing: false,
+  functional: true,
+};
+
+export function CookieConsent() {
+  const [isVisible, setIsVisible] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
+  const [preferences, setPreferences] = useState<CookiePreferences>(defaultPreferences);
+
+  useEffect(() => {
+    // Check if consent has already been given
+    const savedConsent = localStorage.getItem(COOKIE_CONSENT_KEY);
+    if (!savedConsent) {
+      // Small delay to prevent flash on page load
+      const timer = setTimeout(() => setIsVisible(true), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const saveConsent = useCallback((prefs: CookiePreferences) => {
+    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({
+      ...prefs,
+      timestamp: new Date().toISOString(),
+    }));
+    setIsVisible(false);
+
+    // Dispatch event for analytics to pick up
+    window.dispatchEvent(new CustomEvent('cookie-consent-updated', {
+      detail: prefs,
+    }));
+  }, []);
+
+  const acceptAll = useCallback(() => {
+    const allAccepted: CookiePreferences = {
+      necessary: true,
+      analytics: true,
+      marketing: true,
+      functional: true,
+    };
+    setPreferences(allAccepted);
+    saveConsent(allAccepted);
+  }, [saveConsent]);
+
+  const acceptNecessary = useCallback(() => {
+    saveConsent(defaultPreferences);
+  }, [saveConsent]);
+
+  const savePreferences = useCallback(() => {
+    saveConsent(preferences);
+  }, [preferences, saveConsent]);
+
+  if (!isVisible) return null;
+
+  return (
+    <div
+      className={cn(
+        'fixed bottom-4 left-4 right-4 z-50 md:left-1/2 md:right-auto md:-translate-x-1/2 md:max-w-5xl w-full',
+        'animate-in slide-in-from-bottom-4 duration-500'
+      )}
+      role="dialog"
+      aria-label="Cookie consent"
+    >
+      <div className={cn(
+        "bg-background/95 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl p-4",
+        "transition-all duration-300 ease-in-out"
+      )}>
+        {!showDetails ? (
+          // Simple View - Horizontal Floating Bar
+          <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
+            <div className="flex items-center gap-4 flex-1 w-full md:w-auto">
+              <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 flex-shrink-0">
+                <Cookie className="w-5 h-5 text-primary" />
+              </div>
+
+              <div className="flex-1 space-y-1">
+                <h3 className="font-semibold text-sm">We value your privacy</h3>
+                <p className="text-sm text-muted-foreground leading-snug">
+                  We use cookies to enhance your experience and analyze traffic.
+                  <Link href="/pages/privacy" className="underline underline-offset-2 hover:text-foreground ml-1">
+                    Read our policy
+                  </Link>
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDetails(true)}
+                className="text-muted-foreground hover:text-foreground h-9"
+              >
+                Customize
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={acceptNecessary}
+                className="h-9"
+              >
+                Necessary Only
+              </Button>
+              <ThemedButton
+                colorRole="primary"
+                size="sm"
+                onClick={acceptAll}
+                className="h-9 px-6 shadow-sm"
+              >
+                Accept All
+              </ThemedButton>
+            </div>
+          </div>
+        ) : (
+          // Detailed View - Expanded
+          <div className="space-y-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 flex-shrink-0">
+                  <Settings2 className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg">Cookie Preferences</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Manage your cookie settings below. Necessary cookies are always enabled.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDetails(false)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
+                aria-label="Close details"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 max-h-[60vh] overflow-y-auto pr-2">
+              {/* Necessary Cookies */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border/50">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-green-500/10 flex-shrink-0">
+                  <Shield className="w-4 h-4 text-green-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm">Necessary</span>
+                    <span className="text-xs text-green-600 font-medium bg-green-500/10 px-2 py-0.5 rounded-full">Required</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Essential for the website to function properly. Cannot be disabled.
+                  </p>
+                </div>
+              </div>
+
+              {/* Functional Cookies */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border/50">
+                <input
+                  type="checkbox"
+                  id="functional"
+                  checked={preferences.functional}
+                  onChange={(e) => setPreferences(p => ({ ...p, functional: e.target.checked }))}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="functional" className="flex-1 cursor-pointer select-none">
+                  <span className="font-medium text-sm">Functional</span>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Remember your preferences and settings for a better experience.
+                  </p>
+                </label>
+              </div>
+
+              {/* Analytics Cookies */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border/50">
+                <input
+                  type="checkbox"
+                  id="analytics"
+                  checked={preferences.analytics}
+                  onChange={(e) => setPreferences(p => ({ ...p, analytics: e.target.checked }))}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="analytics" className="flex-1 cursor-pointer select-none">
+                  <span className="font-medium text-sm">Analytics</span>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Help us improve our site by understanding how you use it.
+                  </p>
+                </label>
+              </div>
+
+              {/* Marketing Cookies */}
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border/50">
+                <input
+                  type="checkbox"
+                  id="marketing"
+                  checked={preferences.marketing}
+                  onChange={(e) => setPreferences(p => ({ ...p, marketing: e.target.checked }))}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="marketing" className="flex-1 cursor-pointer select-none">
+                  <span className="font-medium text-sm">Marketing</span>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    Allow us to show you relevant content and promotions.
+                  </p>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border/50 mt-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDetails(false)}
+                className="text-muted-foreground h-9"
+              >
+                Cancel
+              </Button>
+              <ThemedButton
+                colorRole="primary"
+                size="sm"
+                onClick={savePreferences}
+                className="h-9 px-6"
+              >
+                Save Preferences
+              </ThemedButton>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Hook to check cookie consent status
+ */
+export function useCookieConsent() {
+  const [consent, setConsent] = useState<CookiePreferences | null>(null);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(COOKIE_CONSENT_KEY);
+    if (saved) {
+      try {
+        setConsent(JSON.parse(saved));
+      } catch {
+        setConsent(null);
+      }
+    }
+
+    // Listen for consent updates
+    const handleUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent<CookiePreferences>;
+      setConsent(customEvent.detail);
+    };
+
+    window.addEventListener('cookie-consent-updated', handleUpdate);
+    return () => window.removeEventListener('cookie-consent-updated', handleUpdate);
+  }, []);
+
+  return consent;
+}
+
+/**
+ * Check if a specific cookie category is allowed
+ */
+export function isCookieAllowed(category: keyof CookiePreferences): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const saved = localStorage.getItem(COOKIE_CONSENT_KEY);
+  if (!saved) return false;
+
+  try {
+    const consent = JSON.parse(saved) as CookiePreferences;
+    return consent[category] ?? false;
+  } catch {
+    return false;
+  }
+}

@@ -5,11 +5,67 @@ import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import AppBody from '@/components/app-body';
-import { CheckCircle2, Sparkles, Zap, Store, Palette, ShoppingBag, TrendingUp, BarChart } from 'lucide-react';
+import { CheckCircle2, Sparkles, Zap, Store, Palette, ShoppingBag, BarChart, ArrowRight, Star, DollarSign, ChevronDown } from 'lucide-react';
+import { TypingAnimation } from '@/components/landing/typing-animation';
+import { MetricCard } from '@/components/landing/metric-card';
+import { getLandingMetrics } from './actions';
+import { useEffect, useState } from 'react';
+
+// Interface for metrics
+interface LandingMetrics {
+  merchants: number;
+  orders: number;
+  sales: string | number;
+  rating: number;
+}
+
+// Interactive FAQ Item Component
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="group">
+      <dt className="mb-3">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          aria-expanded={isOpen}
+          className="flex w-full items-start justify-between text-left glass p-6 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-accent/50 transition-all"
+        >
+          <span className="text-lg font-semibold text-primary dark:text-white pr-4">
+            {question}
+          </span>
+          <ChevronDown
+            className={`w-5 h-5 text-accent flex-shrink-0 mt-1 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''
+              }`}
+          />
+        </button>
+      </dt>
+      <dd
+        className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 opacity-100 px-6 pb-4' : 'max-h-0 opacity-0'
+          }`}
+      >
+        <p className="text-muted-foreground leading-relaxed pt-2">
+          {answer}
+        </p>
+      </dd>
+    </div>
+  );
+}
 
 function BaciLandingPage() {
+  const [metrics, setMetrics] = useState<LandingMetrics>({
+    merchants: 10000,
+    orders: 50000,
+    sales: '5M+',
+    rating: 4.9,
+  });
+
+  useEffect(() => {
+    getLandingMetrics().then(setMetrics).catch(console.error);
+  }, []);
+
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-background font-sans selection:bg-accent/30">
       {/* Header */}
       <script
         type="application/ld+json"
@@ -42,450 +98,470 @@ function BaciLandingPage() {
           }),
         }}
       />
-      <header className="px-4 lg:px-6 h-16 flex items-center shadow-sm sticky top-0 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 z-50 border-b">
-        <Link href="/" className="flex items-center">
-          <Logo />
-          <span className="sr-only">Baci</span>
-        </Link>
-        <nav className="ml-auto flex gap-4 sm:gap-6 items-center">
-          <Button asChild variant="ghost" className="hidden sm:inline-flex">
-            <Link href="#features">Features</Link>
-          </Button>
-          <Button asChild variant="ghost" className="hidden sm:inline-flex">
-            <Link href="#how-it-works">How It Works</Link>
-          </Button>
-          <Button asChild variant="outline" className="border-[#2D3E68] text-[#2D3E68] hover:bg-[#2D3E68] hover:text-white">
-            <Link href="/login">Login</Link>
-          </Button>
-          <Button asChild className="bg-[#FF9F43] hover:bg-[#ff8c1a] text-white">
-            <Link href="/onboarding">Sign Up</Link>
-          </Button>
-        </nav>
+      <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-white/10 glass">
+        <div className="container h-16 flex items-center justify-between" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+          <Link href="/" className="flex items-center gap-2 group">
+            <Logo className="transition-transform group-hover:scale-105" />
+            <span className="sr-only">Baci</span>
+          </Link>
+          <nav className="hidden md:flex items-center gap-8">
+            <Link href="#features" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Features</Link>
+            <Link href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">How It Works</Link>
+            <Link href="/pricing" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Pricing</Link>
+          </nav>
+          <div className="flex items-center gap-4">
+            <Button asChild variant="ghost" className="hidden sm:inline-flex hover:bg-primary/10 hover:text-primary">
+              <Link href="/login">Login</Link>
+            </Button>
+            <Button asChild className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40 hover:-translate-y-0.5">
+              <Link href="/onboarding">Get Started</Link>
+            </Button>
+          </div>
+        </div>
       </header>
 
-      <main id="main-content" className="flex-1">
+      <main id="main-content" className="flex-1 pt-16">
         {/* Hero Section */}
-        <section className="relative w-full pt-6 pb-20 md:pt-10 md:pb-32 lg:pt-12 lg:pb-40 overflow-hidden bg-gradient-to-br from-[#2D3E68] via-[#3d5a9f] to-[#2D3E68]">
-          {/* Geometric Shapes */}
-          <div className="absolute top-10 right-10 w-24 h-24 bg-[#FF9F43] rounded-2xl transform rotate-12 opacity-20" />
-          <div className="absolute bottom-20 left-20 w-32 h-32 bg-[#FF9F43] rounded-2xl transform -rotate-6 opacity-20" />
-          <div className="absolute top-1/2 right-1/3 w-16 h-16 bg-[#ffb366] rounded-full opacity-10" />
-          <div className="absolute bottom-1/3 left-1/2 w-20 h-20 bg-[#FF9F43] opacity-10" />
+        <section className="relative w-full pt-3 pb-7 md:pb-10 lg:pb-14 overflow-hidden bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-background min-h-[85vh] flex items-center">
+          {/* Background Elements */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-accent/5 rounded-full blur-[100px] -z-10" />
+          <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-primary/5 rounded-full blur-[100px] -z-10" />
 
-          <div className="container px-4 md:px-6 relative z-10">
-            <div className="flex flex-col items-center space-y-8 text-center">
-              <div className="space-y-6 max-w-4xl">
-                <div className="inline-block px-4 py-2 bg-[#FF9F43]/20 rounded-full text-[#ffb366] text-sm font-semibold mb-4">
-                  ✨ AI-Powered E-commerce Platform
-                </div>
-                <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl text-white leading-tight">
-                  Build your online store in minutes. It's{' '}
-                  <span className="bg-gradient-to-r from-[#FF9F43] to-[#ffb366] text-transparent bg-clip-text">
-                    easier than you think
-                  </span>{' '}
-                  with AI.
-                </h1>
-                <p className="mx-auto max-w-[700px] text-blue-100 text-lg md:text-xl">
-                  Launch a professional e-commerce store powered by AI. No coding required.
-                  Perfect for retail businesses ready to sell online.
-                </p>
+          <div className="container relative z-10" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+            <div className="flex flex-col items-center space-y-8 text-center max-w-5xl mx-auto">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-white/10 border border-accent/60 rounded-full text-accent text-sm font-medium shadow-sm backdrop-blur-sm animate-fade-in">
+                <Sparkles className="w-4 h-4" />
+                <span>AI-Powered E-commerce Platform</span>
               </div>
-              <div className="flex flex-col gap-4 min-[400px]:flex-row">
-                <Button asChild size="lg" className="bg-[#FF9F43] hover:bg-[#ff8c1a] text-white text-lg px-8 py-6 h-auto font-semibold shadow-lg">
-                  <Link href="/onboarding">Get Started Free →</Link>
+
+              <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight text-primary dark:text-white leading-[1.3] text-center">
+                <span className="block whitespace-nowrap overflow-visible">Build Your <TypingAnimation /> Store</span>
+                <span className="block whitespace-nowrap mt-2">
+                  with Bac<span className="relative inline-block">
+                    ı
+                    <span className="absolute -top-[0.005em] left-[52%] -translate-x-1/2 w-[0.16em] h-[0.16em] bg-accent rounded-full" aria-hidden="true" />
+                  </span>
+                </span>
+              </h1>
+
+              <p className="mx-auto max-w-[700px] text-muted-foreground text-base md:text-lg leading-relaxed">
+                Launch a professional e-commerce store powered by AI in seconds.
+                No coding required. Perfect for retail businesses ready to scale.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto pt-4">
+                <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white text-lg px-8 h-14 rounded-full shadow-xl shadow-primary/20 transition-all hover:shadow-primary/40 hover:-translate-y-1">
+                  <Link href="/onboarding">
+                    Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
                 </Button>
-                <Button asChild size="lg" variant="outline" className="text-white border-white bg-white/10 hover:bg-white/20 text-lg px-8 py-6 h-auto">
+                <Button asChild size="lg" variant="outline" className="border-2 h-14 px-8 rounded-full text-lg hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all">
                   <Link href="#how-it-works">See How It Works</Link>
                 </Button>
               </div>
-              <div className="flex items-center gap-8 pt-8 text-white/80 text-sm flex-wrap justify-center">
+
+              {/* Metrics Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-4xl mt-6 pt-4 border-t border-slate-200/60 dark:border-slate-800/60">
+                <dl className="contents">
+                  <MetricCard
+                    icon={<Store className="w-5 h-5 text-accent" />}
+                    label="Active Merchants"
+                    value={metrics.merchants.toLocaleString() + "+"}
+                    delay={0.1}
+                  />
+                  <MetricCard
+                    icon={<DollarSign className="w-5 h-5 text-green-500" />}
+                    label="Sales Processed"
+                    value={"$" + metrics.sales}
+                    delay={0.2}
+                  />
+                  <MetricCard
+                    icon={<Star className="w-5 h-5 text-yellow-500" />}
+                    label="Average Rating"
+                    value={metrics.rating + "/5.0"}
+                    delay={0.3}
+                  />
+                </dl>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="py-24 relative overflow-hidden">
+          <div className="absolute inset-0 bg-primary dark:bg-slate-950">
+            <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-accent/20 rounded-full blur-[120px]" />
+            <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px]" />
+          </div>
+
+          <div className="container relative z-10" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+            <div className="max-w-4xl mx-auto text-center space-y-8">
+              <h2 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl text-white">
+                Ready to launch your empire?
+              </h2>
+              <p className="text-xl text-white/80 max-w-2xl mx-auto">
+                Join thousands of merchants growing their business with Baci.
+                Start your 14-day free trial today.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+                <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90 text-lg px-8 h-14 rounded-full shadow-xl transition-all hover:scale-105">
+                  <Link href="/onboarding">Get Started Now</Link>
+                </Button>
+              </div>
+              <div className="flex items-center justify-center gap-8 pt-8 text-white/60 text-sm">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-[#FF9F43]" />
+                  <CheckCircle2 className="w-4 h-4 text-accent" />
                   <span>No credit card required</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-[#FF9F43]" />
-                  <span>Setup in 5 minutes</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-[#FF9F43]" />
-                  <span>10,000+ stores created</span>
+                  <CheckCircle2 className="w-4 h-4 text-accent" />
+                  <span>Cancel anytime</span>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Social Proof Section */}
-        <section className="w-full py-12 bg-[#fef7ed]">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-12">
-              <div className="text-center">
-                <div className="flex gap-1 justify-center mb-2">
-                  {[...Array(5)].map((_, i) => (
-                    <svg key={i} className="w-6 h-6 fill-[#FF9F43]" viewBox="0 0 20 20" aria-hidden="true">
-                      <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                    </svg>
-                  ))}
-                </div>
-                <p className="text-2xl font-bold text-[#2D3E68]">4.9/5</p>
-                <p className="text-sm text-gray-600">From 1,000+ merchants</p>
-              </div>
-              <div className="h-12 w-px bg-gray-300 hidden md:block" />
-              <div className="text-center">
-                <p className="text-3xl font-bold text-[#2D3E68]">10,000+</p>
-                <p className="text-sm text-gray-600">Active stores created</p>
-              </div>
-              <div className="h-12 w-px bg-gray-300 hidden md:block" />
-              <div className="text-center">
-                <p className="text-3xl font-bold text-[#2D3E68]">$5M+</p>
-                <p className="text-sm text-gray-600">In sales processed</p>
-              </div>
+        {/* Features Grid */}
+        <section id="features" className="py-24 bg-slate-50 dark:bg-slate-900/50">
+          <div className="container" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-4 text-primary dark:text-white">
+                Everything you need to scale
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Powerful features built for modern commerce, simplified by AI.
+              </p>
             </div>
+
+            <ul className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {[
+                {
+                  icon: <Palette className="w-6 h-6 text-purple-500" />,
+                  title: "Custom Branding",
+                  description: "Upload your logo and let our AI automatically generate a matching color palette and theme."
+                },
+                {
+                  icon: <Sparkles className="w-6 h-6 text-accent" />,
+                  title: "AI-Powered Design",
+                  description: "Generate your entire store layout, branding, and copy in seconds with advanced AI."
+                },
+                {
+                  icon: <ShoppingBag className="w-6 h-6 text-blue-500" />,
+                  title: "Smart Inventory",
+                  description: "Track stock levels, manage variants, and get low-stock alerts automatically."
+                },
+                {
+                  icon: <Store className="w-6 h-6 text-green-500" />,
+                  title: "Multi-Channel",
+                  description: "Sell everywhere - online, social media, and in-person with unified inventory."
+                },
+                {
+                  icon: <Zap className="w-6 h-6 text-yellow-500" />,
+                  title: "Lightning Fast",
+                  description: "Built on modern edge infrastructure for sub-second load times globally."
+                },
+                {
+                  icon: <BarChart className="w-6 h-6 text-red-500" />,
+                  title: "Real-time Analytics",
+                  description: "Get actionable insights on sales, visitors, and conversion rates instantly."
+                }
+              ].map((feature, i) => (
+                <li key={i}>
+                  <article className="h-full p-8 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                    <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                      {feature.icon}
+                    </div>
+                    <h3 className="text-xl font-bold mb-3 text-primary dark:text-white">{feature.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {feature.description}
+                    </p>
+                  </article>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
         {/* How It Works Section */}
-        <section id="how-it-works" className="w-full py-20 md:py-32 bg-white">
-          <div className="container px-4 md:px-6">
-            <div className="grid gap-12 lg:grid-cols-2 lg:gap-24 items-center">
-              <div>
-                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl mb-8 text-[#2D3E68]">
-                  How to create your store
-                </h2>
-                <div className="space-y-8">
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#2D3E68] flex items-center justify-center text-white font-bold text-lg">
-                      1
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold mb-2 text-[#2D3E68]">Choose your business type</h3>
-                      <p className="text-gray-600">
-                        Tell us about your business and let our AI generate a customized store in seconds.
-                        We'll create everything from your logo to product categories.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#2D3E68] flex items-center justify-center text-white font-bold text-lg">
-                      2
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold mb-2 text-[#2D3E68]">Customize your store</h3>
-                      <p className="text-gray-600">
-                        Add products, adjust colors, upload your logo. Our AI helps you create professional
-                        product descriptions and optimize your store for sales.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-[#2D3E68] flex items-center justify-center text-white font-bold text-lg">
-                      3
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-semibold mb-2 text-[#2D3E68]">Go live and start selling</h3>
-                      <p className="text-gray-600">
-                        Launch your store with a custom domain or subdomain. Start selling immediately
-                        with built-in payments, inventory management, and order processing.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <Button asChild size="lg" className="mt-8 bg-[#2D3E68] hover:bg-[#1a2332] text-white">
-                  <Link href="/onboarding">Create Your Store →</Link>
-                </Button>
-              </div>
-
-              {/* Preview Visual */}
-              <div className="relative">
-                <div className="absolute -top-8 -right-8 w-24 h-24 bg-[#FF9F43] rounded-2xl transform rotate-12 opacity-20" />
-                <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-[#2D3E68] rounded-2xl transform -rotate-6 opacity-20" />
-                <div className="relative bg-gradient-to-br from-[#f0f4ff] to-[#fef7ed] rounded-3xl p-8 shadow-2xl">
-                  <div className="bg-white rounded-2xl p-6 shadow-lg">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="text-sm font-semibold text-gray-600">Welcome to AI Store Builder</div>
-                      <Sparkles className="h-5 w-5 text-[#FF9F43]" />
-                    </div>
-                    <h3 className="text-2xl font-bold mb-4 text-[#2D3E68]">Let AI create your store in minutes</h3>
-                    <Button className="w-full bg-gradient-to-r from-[#2D3E68] to-[#3d5a9f] hover:from-[#1a2332] hover:to-[#2D3E68] text-white">
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Get Started
-                    </Button>
-                    <div className="mt-4 space-y-2">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CheckCircle2 className="h-4 w-4 text-[#FF9F43]" />
-                        <span>AI-powered product descriptions</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CheckCircle2 className="h-4 w-4 text-[#FF9F43]" />
-                        <span>Automatic inventory management</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <CheckCircle2 className="h-4 w-4 text-[#FF9F43]" />
-                        <span>Built-in payment processing</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section id="features" className="w-full py-20 md:py-32 bg-[#fef7ed]">
-          <div className="container px-4 md:px-6">
+        <section id="how-it-works" className="py-24 bg-white dark:bg-slate-950">
+          <div className="container" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
             <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl mb-4 text-[#2D3E68]">
-                One app that has all the features your business needs
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-4 text-primary dark:text-white">
+                How It Works
               </h2>
-              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                Everything you need to build, manage, and grow your online store
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Launch your store in three simple steps. No technical knowledge required.
               </p>
             </div>
 
-            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-              <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
-                <div className="w-12 h-12 bg-[#f0f4ff] rounded-xl flex items-center justify-center mb-4">
-                  <Sparkles className="h-6 w-6 text-[#2D3E68]" />
-                </div>
-                <h3 className="text-xl font-semibold mb-3 text-[#2D3E68]">AI-Powered Design</h3>
-                <p className="text-gray-600">
-                  Let AI generate your entire store, from layout to product descriptions. Professional results in seconds.
-                </p>
-              </div>
+            <ol className="grid gap-8 md:grid-cols-3 max-w-6xl mx-auto">
+              {[
+                {
+                  step: "1",
+                  title: "Sign Up & Tell Us About Your Business",
+                  description: "Answer a few quick questions about your products, brand, and target audience. Our AI will understand your vision.",
+                  icon: <Sparkles className="w-8 h-8 text-accent" />
+                },
+                {
+                  step: "2",
+                  title: "AI Generates Your Store",
+                  description: "Watch as our AI creates your complete store: product pages, branding, copy, and layout—all optimized for conversions.",
+                  icon: <Zap className="w-8 h-8 text-accent" />
+                },
+                {
+                  step: "3",
+                  title: "Customize & Launch",
+                  description: "Fine-tune any details you'd like, connect your payment processor, and go live. Start selling in minutes, not months.",
+                  icon: <CheckCircle2 className="w-8 h-8 text-accent" />
+                }
+              ].map((step, i) => (
+                <li key={i} className="relative">
+                  <article className="h-full p-8 rounded-2xl glass border border-slate-200 dark:border-slate-800 transition-all duration-300 group">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        {step.icon}
+                      </div>
+                      <span className="text-6xl font-bold text-accent/20">{step.step}</span>
+                    </div>
+                    <h3 className="text-xl font-bold mb-3 text-primary dark:text-white">{step.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {step.description}
+                    </p>
+                  </article>
+                  {i < 2 && (
+                    <div className="hidden md:flex absolute top-1/2 -right-4 w-12 items-center justify-center transform translate-x-1/2 -translate-y-1/2 z-10">
+                      <div className="absolute w-full h-[2px] bg-slate-200 dark:bg-slate-800" />
+                      <div className="relative bg-white dark:bg-slate-950 p-1 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <ArrowRight className="w-4 h-4 text-accent" />
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ol>
 
-              <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
-                <div className="w-12 h-12 bg-[#fff5eb] rounded-xl flex items-center justify-center mb-4">
-                  <Palette className="h-6 w-6 text-[#FF9F43]" />
-                </div>
-                <h3 className="text-xl font-semibold mb-3 text-[#2D3E68]">Custom Branding</h3>
-                <p className="text-gray-600">
-                  Upload your logo, choose your colors, and make your store uniquely yours. No design skills required.
-                </p>
-              </div>
-
-              <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
-                <div className="w-12 h-12 bg-[#f0f4ff] rounded-xl flex items-center justify-center mb-4">
-                  <ShoppingBag className="h-6 w-6 text-[#2D3E68]" />
-                </div>
-                <h3 className="text-xl font-semibold mb-3 text-[#2D3E68]">Product Management</h3>
-                <p className="text-gray-600">
-                  Easy inventory tracking, variant management, and bulk operations. Scale effortlessly as you grow.
-                </p>
-              </div>
-
-              <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
-                <div className="w-12 h-12 bg-[#fff5eb] rounded-xl flex items-center justify-center mb-4">
-                  <Zap className="h-6 w-6 text-[#FF9F43]" />
-                </div>
-                <h3 className="text-xl font-semibold mb-3 text-[#2D3E68]">Lightning Fast</h3>
-                <p className="text-gray-600">
-                  Built on modern technology for blazing-fast load times. Better performance means more sales.
-                </p>
-              </div>
-
-              <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
-                <div className="w-12 h-12 bg-[#f0f4ff] rounded-xl flex items-center justify-center mb-4">
-                  <Store className="h-6 w-6 text-[#2D3E68]" />
-                </div>
-                <h3 className="text-xl font-semibold mb-3 text-[#2D3E68]">Multi-Channel Ready</h3>
-                <p className="text-gray-600">
-                  Manage your online store, physical sales, and inventory all in one dashboard.
-                </p>
-              </div>
-
-              <div className="bg-white p-8 rounded-2xl shadow-sm hover:shadow-lg transition-shadow">
-                <div className="w-12 h-12 bg-[#fff5eb] rounded-xl flex items-center justify-center mb-4">
-                  <BarChart className="h-6 w-6 text-[#FF9F43]" />
-                </div>
-                <h3 className="text-xl font-semibold mb-3 text-[#2D3E68]">Business Analytics</h3>
-                <p className="text-gray-600">
-                  Track sales, monitor inventory, and get insights to make better business decisions.
-                </p>
-              </div>
-            </div>
+            {/* HowTo Schema */}
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  "@context": "https://schema.org",
+                  "@type": "HowTo",
+                  name: "How to Create an E-commerce Store with Baci",
+                  description: "Launch your professional e-commerce store in three simple steps using AI-powered tools.",
+                  step: [
+                    {
+                      "@type": "HowToStep",
+                      position: 1,
+                      name: "Sign Up & Tell Us About Your Business",
+                      text: "Answer a few quick questions about your products, brand, and target audience. Our AI will understand your vision.",
+                      url: "https://baci.app#how-it-works"
+                    },
+                    {
+                      "@type": "HowToStep",
+                      position: 2,
+                      name: "AI Generates Your Store",
+                      text: "Watch as our AI creates your complete store: product pages, branding, copy, and layout—all optimized for conversions.",
+                      url: "https://baci.app#how-it-works"
+                    },
+                    {
+                      "@type": "HowToStep",
+                      position: 3,
+                      name: "Customize & Launch",
+                      text: "Fine-tune any details you'd like, connect your payment processor, and go live. Start selling in minutes, not months.",
+                      url: "https://baci.app#how-it-works"
+                    }
+                  ],
+                  totalTime: "PT10M"
+                })
+              }}
+            />
           </div>
         </section>
 
-        {/* Two-Column Features */}
-        <section className="w-full py-20 md:py-32 bg-[#f0f4ff]">
-          <div className="container px-4 md:px-6">
-            <div className="grid gap-12 lg:grid-cols-2 items-center">
-              <div>
-                <h2 className="text-3xl font-bold mb-4 text-[#2D3E68]">
-                  Turn your physical store into a smart store
-                </h2>
-                <p className="text-lg text-gray-600 mb-6">
-                  Generate barcodes for your products for better inventory management and set up checkout
-                  software on your device for faster sales in your physical store.
-                </p>
-                <Button asChild className="bg-[#2D3E68] hover:bg-[#1a2332] text-white">
-                  <Link href="/onboarding">
-                    Learn More →
-                  </Link>
-                </Button>
-              </div>
-              <div className="relative h-[400px] bg-white rounded-2xl shadow-lg p-6 flex items-center justify-center">
-                <div className="text-center text-gray-400">
-                  <ShoppingBag className="h-24 w-24 mx-auto mb-4" />
-                  <p>Point of Sale Preview</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="w-full py-20 md:py-32 bg-white">
-          <div className="container px-4 md:px-6">
-            <div className="grid gap-12 lg:grid-cols-2 items-center">
-              <div className="order-2 lg:order-1 relative h-[400px] bg-[#fef7ed] rounded-2xl shadow-lg p-6 flex items-center justify-center">
-                <div className="text-center text-gray-400">
-                  <TrendingUp className="h-24 w-24 mx-auto mb-4 text-[#FF9F43]" />
-                  <p>Analytics Dashboard Preview</p>
-                </div>
-              </div>
-              <div className="order-1 lg:order-2">
-                <h2 className="text-3xl font-bold mb-4 text-[#2D3E68]">
-                  Have visibility on your business operations
-                </h2>
-                <p className="text-lg text-gray-600 mb-6">
-                  Don't do business blindly. View your staff actions, sales, inventory and analytics across
-                  numerous store locations with one dashboard.
-                </p>
-                <Button asChild className="bg-[#FF9F43] hover:bg-[#ff8c1a] text-white">
-                  <Link href="/onboarding">
-                    Get Started →
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Testimonials Section */}
-        <section className="w-full py-20 md:py-32 bg-[#2D3E68]">
-          <div className="container px-4 md:px-6">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-white mb-4">
-                Trusted by over 10,000 SMEs
+        {/* FAQs Section */}
+        <section id="faqs" className="py-24 bg-slate-50 dark:bg-slate-900/50">
+          <div className="container" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-4 text-primary dark:text-white">
+                Frequently Asked Questions
               </h2>
-              <p className="text-xl text-blue-100">
-                See what business owners like yourself are saying about Baci
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Everything you need to know about building your store with Baci.
               </p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-3">
-              <div className="bg-white p-6 rounded-2xl shadow-lg">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-[#FF9F43] flex items-center justify-center text-white font-bold">
-                    AN
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[#2D3E68]">Amara Nwosu</p>
-                    <p className="text-sm text-gray-600">Fashion Boutique Owner</p>
-                  </div>
-                </div>
-                <p className="text-gray-700">
-                  "Baci transformed my business! I went from a small physical shop to having customers
-                  nationwide. The AI setup was incredibly easy."
-                </p>
-              </div>
+            <dl className="max-w-4xl mx-auto space-y-6">
+              {[
+                {
+                  question: "Do I need coding skills to use Baci?",
+                  answer: "Not at all! Baci is designed for everyone. Our AI handles all the technical work—you just answer a few questions about your business, and we create your entire store automatically."
+                },
+                {
+                  question: "How long does it take to launch my store?",
+                  answer: "Most merchants go live in under 10 minutes. The AI generates your store in seconds, and you can customize and launch immediately. No waiting for developers or designers."
+                },
+                {
+                  question: "Can I use my own domain name?",
+                  answer: "Yes! You can connect your custom domain or use a free Baci subdomain. We provide step-by-step instructions to connect your domain from providers like GoDaddy, Namecheap, or Google Domains."
+                },
+                {
+                  question: "What payment methods can I accept?",
+                  answer: "Baci integrates with major payment processors including Stripe, PayPal, and local payment methods. Accept credit cards, debit cards, digital wallets, and more—all with secure, PCI-compliant checkout."
+                },
+                {
+                  question: "Is there a free trial?",
+                  answer: "Yes! Start with our 14-day free trial. No credit card required. Test all features, build your store, and only pay when you're ready to go live."
+                },
+                {
+                  question: "Can I migrate from another platform?",
+                  answer: "Absolutely. We offer free migration assistance for stores moving from Shopify, WooCommerce, or other platforms. Our team will help you import your products, customers, and orders seamlessly."
+                },
+                {
+                  question: "Do you offer customer support?",
+                  answer: "Yes! We provide 24/7 email support for all plans, plus live chat and priority support for premium customers. Our comprehensive knowledge base and video tutorials are also available anytime."
+                },
+                {
+                  question: "Can I sell physical and digital products?",
+                  answer: "Yes! Baci supports both physical products (with inventory tracking and shipping) and digital products (instant delivery via secure download links). You can sell both types in the same store."
+                }
+              ].map((faq, i) => (
+                <FAQItem key={i} question={faq.question} answer={faq.answer} />
+              ))}
+            </dl>
 
-              <div className="bg-white p-6 rounded-2xl shadow-lg">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-[#2D3E68] flex items-center justify-center text-white font-bold">
-                    TK
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[#2D3E68]">Tunde Kayode</p>
-                    <p className="text-sm text-gray-600">Electronics Store</p>
-                  </div>
-                </div>
-                <p className="text-gray-700">
-                  "The inventory management features have saved me countless hours. I can finally focus
-                  on growing my business instead of paperwork."
-                </p>
-              </div>
-
-              <div className="bg-white p-6 rounded-2xl shadow-lg">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-[#FF9F43] flex items-center justify-center text-white font-bold">
-                    CO
-                  </div>
-                  <div>
-                    <p className="font-semibold text-[#2D3E68]">Chioma Okafor</p>
-                    <p className="text-sm text-gray-600">Beauty Products</p>
-                  </div>
-                </div>
-                <p className="text-gray-700">
-                  "My sales tripled after launching my Baci store. The platform is so easy to use,
-                  and my customers love the professional look."
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Final CTA Section */}
-        <section className="w-full py-20 md:py-32 bg-gradient-to-br from-[#FF9F43] via-[#ff8c1a] to-[#2D3E68] relative overflow-hidden">
-          <div className="absolute top-20 left-20 w-32 h-32 bg-white rounded-2xl transform rotate-12 opacity-10" />
-          <div className="absolute bottom-20 right-20 w-40 h-40 bg-white rounded-2xl transform -rotate-6 opacity-10" />
-
-          <div className="container px-4 md:px-6 relative z-10">
-            <div className="flex flex-col items-center space-y-8 text-center">
-              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl text-white max-w-3xl">
-                Ready to start selling? Create your store now.
-              </h2>
-              <p className="text-xl text-white/90 max-w-2xl">
-                Join thousands of merchants who have already launched their online stores with Baci.
-                No credit card required to get started.
+            <div className="mt-12 text-center animate-fade-in">
+              <p className="text-muted-foreground mb-4">
+                Still have questions? We're here to help.
               </p>
-              <div className="flex flex-col gap-4 min-[400px]:flex-row">
-                <Button asChild size="lg" className="bg-white text-[#2D3E68] hover:bg-gray-100 text-lg px-8 py-6 h-auto font-semibold shadow-lg">
-                  <Link href="/onboarding">Get Started Free →</Link>
-                </Button>
-              </div>
+              <Button asChild variant="outline" className="rounded-full border-2 hover:bg-accent/5 hover:text-accent hover:border-accent/50 transition-all">
+                <Link href="/contact">Contact Support</Link>
+              </Button>
             </div>
+
+            {/* FAQ Schema */}
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  "@context": "https://schema.org",
+                  "@type": "FAQPage",
+                  mainEntity: [
+                    {
+                      "@type": "Question",
+                      name: "Do I need coding skills to use Baci?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Not at all! Baci is designed for everyone. Our AI handles all the technical work—you just answer a few questions about your business, and we create your entire store automatically."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "How long does it take to launch my store?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Most merchants go live in under 10 minutes. The AI generates your store in seconds, and you can customize and launch immediately. No waiting for developers or designers."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Can I use my own domain name?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Yes! You can connect your custom domain or use a free Baci subdomain. We provide step-by-step instructions to connect your domain from providers like GoDaddy, Namecheap, or Google Domains."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "What payment methods can I accept?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Baci integrates with major payment processors including Stripe, PayPal, and local payment methods. Accept credit cards, debit cards, digital wallets, and more—all with secure, PCI-compliant checkout."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Is there a free trial?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Yes! Start with our 14-day free trial. No credit card required. Test all features, build your store, and only pay when you're ready to go live."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Can I migrate from another platform?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Absolutely. We offer free migration assistance for stores moving from Shopify, WooCommerce, or other platforms. Our team will help you import your products, customers, and orders seamlessly."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Do you offer customer support?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Yes! We provide 24/7 email support for all plans, plus live chat and priority support for premium customers. Our comprehensive knowledge base and video tutorials are also available anytime."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Can I sell physical and digital products?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Yes! Baci supports both physical products (with inventory tracking and shipping) and digital products (instant delivery via secure download links). You can sell both types in the same store."
+                      }
+                    }
+                  ]
+                })
+              }}
+            />
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="w-full py-12 bg-[#1a2332] text-white">
-        <div className="container px-4 md:px-6">
-          <div className="grid gap-8 md:grid-cols-4">
-            <div>
-              <Logo className="mb-4" />
-              <p className="text-sm text-gray-400">
-                Build your e-commerce empire with AI-powered tools.
+      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
+        <div className="container py-12 md:py-16" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-4">
+              <Logo />
+              <p className="text-sm text-muted-foreground max-w-xs">
+                Empowering businesses with AI-driven e-commerce tools. Build, scale, and succeed with Baci.
               </p>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Product</h3>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="#features" className="hover:text-white">Features</Link></li>
-                <li><Link href="#how-it-works" className="hover:text-white">How It Works</Link></li>
-                <li><Link href="/pricing" className="hover:text-white">Pricing</Link></li>
+              <h3 className="font-semibold mb-4 text-primary dark:text-white">Product</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link href="#features" className="hover:text-accent transition-colors">Features</Link></li>
+                <li><Link href="#how-it-works" className="hover:text-accent transition-colors">How It Works</Link></li>
+                <li><Link href="/pricing" className="hover:text-accent transition-colors">Pricing</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="/about" className="hover:text-white">About</Link></li>
-                <li><Link href="/contact" className="hover:text-white">Contact</Link></li>
+              <h3 className="font-semibold mb-4 text-primary dark:text-white">Company</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link href="/about" className="hover:text-accent transition-colors">About</Link></li>
+                <li><Link href="/contact" className="hover:text-accent transition-colors">Contact</Link></li>
+                <li><Link href="/blog" className="hover:text-accent transition-colors">Blog</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="font-semibold mb-4">Legal</h3>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link href="/privacy" className="hover:text-white">Privacy</Link></li>
-                <li><Link href="/terms" className="hover:text-white">Terms</Link></li>
+              <h3 className="font-semibold mb-4 text-primary dark:text-white">Legal</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li><Link href="/privacy" className="hover:text-accent transition-colors">Privacy</Link></li>
+                <li><Link href="/terms" className="hover:text-accent transition-colors">Terms</Link></li>
               </ul>
             </div>
           </div>
-          <div className="mt-12 pt-8 border-t border-gray-800 text-center text-sm text-gray-400">
+          <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
             <p>&copy; {new Date().getFullYear()} Baci. All rights reserved.</p>
+            <div className="flex gap-6">
+              <Link href="#" className="hover:text-accent transition-colors">Twitter</Link>
+              <Link href="#" className="hover:text-accent transition-colors">LinkedIn</Link>
+              <Link href="#" className="hover:text-accent transition-colors">Instagram</Link>
+            </div>
           </div>
         </div>
       </footer>

@@ -1,26 +1,21 @@
-
 'use client';
 
 import { useCart } from '@/hooks/use-cart';
-import { useMerchant } from '@/hooks/use-merchant';
-import { getCountryByCode } from '@/lib/countries';
+import { useCurrency } from '@/hooks/use-currency';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Loader2 } from 'lucide-react';
 
-export function OrderSummary() {
+interface OrderSummaryProps {
+  shippingFee?: number;
+}
+
+export function OrderSummary({ shippingFee }: OrderSummaryProps) {
   const { cart, cartTotal } = useCart();
-  const { merchant } = useMerchant();
-  const shippingFee = 10.00; // Mock shipping fee
+  const { formatCurrency } = useCurrency();
 
-  const formatCurrency = (amount: number) => {
-    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
-    const locale = country ? `en-${country.code}` : 'en-US';
-    const currency = country ? country.currency : 'USD';
-    return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'symbol' }).format(amount);
-  };
-  
-  const total = cartTotal + shippingFee;
+  const total = cartTotal + (shippingFee || 0);
 
   return (
     <Card>
@@ -48,7 +43,14 @@ export function OrderSummary() {
             </div>
             <div className="flex justify-between">
                 <span className="text-muted-foreground">Shipping</span>
-                <span>{formatCurrency(shippingFee)}</span>
+                {shippingFee !== undefined ? (
+                  <span>{formatCurrency(shippingFee)}</span>
+                ) : (
+                  <span className="text-muted-foreground text-sm flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 motion-safe:animate-spin" />
+                    Calculating...
+                  </span>
+                )}
             </div>
         </div>
         <Separator />

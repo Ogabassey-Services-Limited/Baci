@@ -267,56 +267,58 @@ export default function DashboardPage() {
   if (merchantLoading) {
     return (
       <div className="flex flex-1 items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
       </div>
     );
   }
 
   return (
-    <>
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold">Welcome, {merchant?.business_name || 'Merchant'}! 👋</h1>
+    <main id="main-content">
+      <header className="flex items-center justify-between mb-4">
+        <h1 className="text-page-title">Welcome, {merchant?.business_name || 'Merchant'}! 👋</h1>
         {merchant && displayUrl && (
           <div className="flex items-center justify-between p-2 border rounded-lg bg-muted text-sm">
-            <Link href={fullUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline px-2">
+            <Link href={fullUrl} target="_blank" rel="noopener noreferrer" className="font-mono text-sm truncate hover:underline px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm">
               {displayUrl}
             </Link>
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="icon" onClick={() => handleShare(fullUrl)} className="h-8 w-8">
-                <Copy className="w-4 h-4" />
+                <Copy className="w-4 h-4" aria-hidden="true" />
                 <span className="sr-only">Copy URL</span>
               </Button>
               <Link href={fullUrl} target="_blank" rel="noopener noreferrer">
                 <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <ExternalLink className="w-4 h-4" />
+                  <ExternalLink className="w-4 h-4" aria-hidden="true" />
                   <span className="sr-only">Open in new tab</span>
                 </Button>
               </Link>
             </div>
           </div>
         )}
-      </div>
+      </header>
 
-      <Card className="mb-8 border border-primary/20">
-        <CardHeader>
-          <CardTitle>Setup Checklist ✅</CardTitle>
-          <CardDescription>Follow these steps to get your store ready for customers.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {setupTasks.map((task) => (
-              <div key={task.title} className="flex items-center gap-4 p-4 rounded-lg border border-primary/20 bg-background">
-                <task.icon className="w-8 h-8 text-primary" />
-                <div className="flex-1">
-                  <p className="font-semibold">{task.title}</p>
-                  <p className="text-sm text-muted-foreground">{task.description}</p>
-                </div>
-                <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary" onClick={task.action}>{task.buttonText}</Button>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      <section aria-labelledby="setup-checklist">
+        <Card className="glass mb-8 border border-primary/20">
+          <CardHeader>
+            <CardTitle id="setup-checklist">Setup Checklist ✅</CardTitle>
+            <CardDescription>Follow these steps to get your store ready for customers.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {setupTasks.map((task, index) => (
+                <li key={task.title} className={`flex items-center gap-4 p-4 rounded-lg border border-primary/20 bg-background hover-lift animate-fade-in-up stagger-${index + 1}`}>
+                  <task.icon className="w-8 h-8 text-primary" aria-hidden="true" />
+                  <div className="flex-1">
+                    <p className="font-semibold">{task.title}</p>
+                    <p className="text-sm text-muted-foreground">{task.description}</p>
+                  </div>
+                  <Button variant="outline" className="border-primary text-primary hover:bg-primary/10 hover:text-primary" onClick={task.action}>{task.buttonText}</Button>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      </section>
 
       <div className="flex items-center mb-4">
         <Tabs value={timeFrame} onValueChange={(value) => setTimeFrame(value as 'monthly' | 'weekly')}>
@@ -327,52 +329,55 @@ export default function DashboardPage() {
         </Tabs>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-        <Card className="border border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue 💰</CardTitle>
-            <DollarSign className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(currentSummary.revenue.value)}</div>
-            <PercentageChange value={currentSummary.revenue.change} timeFrame={timeFrame} />
-          </CardContent>
-        </Card>
-        <Card className="border border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customers 👥</CardTitle>
-            <Users className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+{currentSummary.customers.value}</div>
-            <PercentageChange value={currentSummary.customers.change} timeFrame={timeFrame} />
-          </CardContent>
-        </Card>
-        <Card className="border border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Sales 📈</CardTitle>
-            <CreditCard className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+{currentSummary.sales.value}</div>
-            <PercentageChange value={currentSummary.sales.change} timeFrame={timeFrame} />
-          </CardContent>
-        </Card>
-        <Card className="border border-primary/20">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Now 🟢</CardTitle>
-            <Activity className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+{currentSummary.activeNow.value}</div>
-            <p className="text-xs text-muted-foreground">
-              +{currentSummary.activeNow.change} since last hour
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <section aria-labelledby="metrics-heading">
+        <h2 id="metrics-heading" className="sr-only">Key Metrics</h2>
+        <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+          <Card className="glass border border-primary/20 hover-lift animate-fade-in-up stagger-1">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Revenue 💰</CardTitle>
+              <DollarSign className="h-4 w-4 text-primary" aria-hidden="true" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-stat">{formatCurrency(currentSummary.revenue.value)}</div>
+              <PercentageChange value={currentSummary.revenue.change} timeFrame={timeFrame} />
+            </CardContent>
+          </Card>
+          <Card className="glass border border-primary/20 hover-lift animate-fade-in-up stagger-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Customers 👥</CardTitle>
+              <Users className="h-4 w-4 text-blue-500" aria-hidden="true" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-stat">+{currentSummary.customers.value}</div>
+              <PercentageChange value={currentSummary.customers.change} timeFrame={timeFrame} />
+            </CardContent>
+          </Card>
+          <Card className="glass border border-primary/20 hover-lift animate-fade-in-up stagger-3">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Sales 📈</CardTitle>
+              <CreditCard className="h-4 w-4 text-yellow-500" aria-hidden="true" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-stat">+{currentSummary.sales.value}</div>
+              <PercentageChange value={currentSummary.sales.change} timeFrame={timeFrame} />
+            </CardContent>
+          </Card>
+          <Card className="glass border border-primary/20 hover-lift animate-fade-in-up stagger-4">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Now 🟢</CardTitle>
+              <Activity className="h-4 w-4 text-red-500" aria-hidden="true" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-stat">+{currentSummary.activeNow.value}</div>
+              <p className="text-xs text-muted-foreground">
+                +{currentSummary.activeNow.change} since last hour
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
       <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3 mt-8">
-        <Card className="xl:col-span-2 border border-primary/20">
+        <Card className="glass xl:col-span-2 border border-primary/20">
           <CardHeader>
             <CardTitle>Overview</CardTitle>
             <CardDescription>
@@ -414,7 +419,7 @@ export default function DashboardPage() {
             </ChartContainer>
           </CardContent>
         </Card>
-        <Card className="border border-primary/20">
+        <Card className="glass border border-primary/20">
           <CardHeader>
             <CardTitle>Recent Sales</CardTitle>
             <CardDescription>
@@ -459,19 +464,19 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="xl:col-span-3 border border-primary/20">
+        <Card className="glass xl:col-span-3 border border-primary/20">
           <CardHeader>
             <CardTitle>Danger Zone ☢️</CardTitle>
             <CardDescription>These actions are irreversible. Please be certain.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button variant="destructive" onClick={handleReset}>
-              <RefreshCw className="mr-2 h-4 w-4" />
+              <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
               Reset and Start Over
             </Button>
           </CardContent>
         </Card>
       </div>
-    </>
+    </main>
   );
 }

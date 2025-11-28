@@ -27,7 +27,7 @@ function parseCSV(csvText: string): CSVRow[] {
     let currentValue = '';
     let insideQuotes = false;
 
-    for (let char of lines[i]) {
+    for (const char of lines[i]) {
       if (char === '"') {
         insideQuotes = !insideQuotes;
       } else if (char === ',' && !insideQuotes) {

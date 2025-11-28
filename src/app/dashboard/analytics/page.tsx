@@ -91,7 +91,7 @@ export default function AnalyticsPage() {
     if (merchantLoading) {
         return (
             <div className="flex flex-1 items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin" />
+                <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
             </div>
         );
     }

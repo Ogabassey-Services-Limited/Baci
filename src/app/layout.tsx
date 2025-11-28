@@ -6,7 +6,12 @@ import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
 import { Providers } from '@/contexts/providers';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap', // Prevents FOIT (Flash of Invisible Text)
+  preload: true, // Preloads font for faster initial render
+});
 
 const VENDOR_NAME = 'Baci';
 const VENDOR_LEGAL_NAME = 'Baci AI E-commerce';
@@ -15,7 +20,7 @@ const VENDOR_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` 
 
 export const metadata: Metadata = {
   title: {
-    default: `${VENDOR_NAME} - AI E-commerce Builder`,
+    default: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
     template: `%s | ${VENDOR_NAME}`,
   },
   description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
@@ -34,7 +39,7 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: `${VENDOR_NAME} - AI E-commerce Builder`,
+    title: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
     description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
     url: VENDOR_URL,
     siteName: VENDOR_NAME,
@@ -43,7 +48,7 @@ export const metadata: Metadata = {
         url: `${VENDOR_URL}/og-image.png`, // Ensure this image exists or use a placeholder
         width: 1200,
         height: 630,
-        alt: `${VENDOR_NAME} - AI E-commerce Builder`,
+        alt: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
       },
     ],
     locale: 'en_US',
@@ -51,7 +56,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${VENDOR_NAME} - AI E-commerce Builder`,
+    title: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
     description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
     creator: `@${VENDOR_NAME}`, // Update if you have a specific handle
     images: [`${VENDOR_URL}/og-image.png`],
@@ -79,24 +84,46 @@ export const viewport: Viewport = {
 };
 
 import { CsrfInitializer } from '@/components/csrf-initializer';
+import { headers } from 'next/headers';
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Get nonce from middleware (will be null for storefront routes)
+  const headersList = await headers();
+  const nonce = headersList.get('x-nonce') || undefined;
+  // const nonce = undefined;
 
   const organizationSchema = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: VENDOR_NAME,
+    alternateName: 'Baci - Your AI-Powered E-commerce Builder',
     legalName: VENDOR_LEGAL_NAME,
     url: VENDOR_URL,
-    logo: `${VENDOR_URL}/logo.svg`, // Assuming you have a logo file
+    logo: `${VENDOR_URL}/logo.svg`,
     sameAs: [
-      // Add links to your social media profiles here
-      // e.g., "https://twitter.com/your-brand"
+      'https://twitter.com/usebaci',
+      'https://linkedin.com/company/usebaci',
+      'https://instagram.com/usebaci'
     ],
+    contactPoint: {
+      '@type': 'ContactPoint',
+      telephone: '+1-555-555-5555',
+      contactType: 'customer service',
+      areaServed: 'US',
+      availableLanguage: 'en'
+    },
+    // Entity Salience: Connect Baci to AI and E-commerce concepts
+    knowsAbout: [
+      'Artificial Intelligence',
+      'E-commerce',
+      'Web Development',
+      'Online Store Builder',
+      'SaaS'
+    ]
   };
 
   const websiteSchema = {
@@ -123,23 +150,42 @@ export default async function RootLayout({
       priceCurrency: 'USD',
     },
     description: 'AI-powered e-commerce platform for building online stores.',
+    // Advanced fields for SGE and Rich Results
+    softwareVersion: '2.0.0',
+    screenshot: `${VENDOR_URL}/og-image.png`, // AI uses this to visualize the app
+    featureList: [
+      'AI Store Builder',
+      'Inventory Management',
+      'Payment Processing',
+      'SEO Optimization',
+      'Analytics Dashboard'
+    ],
+    isAccessibleForFree: true,
+    applicationSubCategory: 'E-commerce Platform'
   };
 
 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta httpEquiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://vercel.live https://assets.vercel.com https://va.vercel-scripts.com; object-src 'none'; base-uri 'self';" />
+        {/*
+          Font loading is handled automatically by next/font/google (Inter).
+          No manual preconnect/preload needed - Next.js optimizes this.
+        */}
+
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
         />
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
         />
       </head>

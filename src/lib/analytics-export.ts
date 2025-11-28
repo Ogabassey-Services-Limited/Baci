@@ -2,6 +2,13 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { AnalyticsData } from '@/components/analytics/draggable-analytics-grid';
 
+// Extended jsPDF type with autotable properties
+interface JsPDFWithAutoTable extends jsPDF {
+  lastAutoTable?: {
+    finalY: number;
+  };
+}
+
 /**
  * Format currency for display
  */
@@ -26,6 +33,30 @@ function formatDateRange(from?: Date, to?: Date): string {
   if (!from || !to) return 'All Time';
   const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
   return `${from.toLocaleDateString('en-US', options)} - ${to.toLocaleDateString('en-US', options)}`;
+}
+
+/**
+ * Escape a CSV field to prevent CSV injection and handle special characters
+ * - Escapes double quotes by doubling them
+ * - Wraps in quotes if contains special characters
+ * - Prevents formula injection by prefixing dangerous characters with single quote
+ */
+function escapeCSVField(field: string): string {
+  if (!field) return '""';
+
+  // Convert to string and trim
+  let escaped = String(field).trim();
+
+  // Prevent formula injection: prefix with single quote if starts with =, +, -, @, tab, or CR
+  if (/^[=+\-@\t\r]/.test(escaped)) {
+    escaped = "'" + escaped;
+  }
+
+  // Escape existing double quotes by doubling them
+  escaped = escaped.replace(/"/g, '""');
+
+  // Always wrap in quotes for safety
+  return `"${escaped}"`;
 }
 
 /**
@@ -69,7 +100,7 @@ export function exportAnalyticsAsCSV(
     csvRows.push('RECENT SALES');
     csvRows.push('Customer,Email,Amount');
     recentSales.forEach((sale) => {
-      csvRows.push(`"${sale.name}","${sale.email}",${formatCurrency(sale.amount)}`);
+      csvRows.push(`${escapeCSVField(sale.name)},${escapeCSVField(sale.email)},${formatCurrency(sale.amount)}`);
     });
     csvRows.push(''); // Empty line
   }
@@ -80,7 +111,7 @@ export function exportAnalyticsAsCSV(
     csvRows.push('Date,Revenue');
 
     chartData.forEach((item) => {
-      csvRows.push(`"${item.date}",${formatCurrency(item.revenue)}`);
+      csvRows.push(`${escapeCSVField(item.date)},${formatCurrency(item.revenue)}`);
     });
   }
 
@@ -96,6 +127,8 @@ export function exportAnalyticsAsCSV(
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  // Clean up object URL to prevent memory leak
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -156,7 +189,7 @@ export function exportAnalyticsAsPDF(
       headStyles: { fillColor: [59, 130, 246] },
     });
 
-    yPosition = (doc as any).lastAutoTable.finalY + 15;
+    yPosition = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? yPosition) + 15;
   }
 
   // Recent Sales Table
@@ -181,7 +214,7 @@ export function exportAnalyticsAsPDF(
       headStyles: { fillColor: [59, 130, 246] },
     });
 
-    yPosition = (doc as any).lastAutoTable.finalY + 15;
+    yPosition = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? yPosition) + 15;
   }
 
   // Add new page if needed
