@@ -1,0 +1,34 @@
+name: Link Checker
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * 1" # Runs every Monday at midnight
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  link-checker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore lychee cache
+        uses: actions/cache@v4
+        with:
+          path: .lycheecache
+          key: cache-lychee-${{ github.sha }}
+          restore-keys: cache-lychee-
+
+      - name: Link Checker
+        uses: lycheeverse/lychee-action@v1.9.0
+        with:
+          # Check all markdown, html, and ts/tsx files
+          args: --verbose --no-progress './**/*.md' './**/*.html' './**/*.tsx' './**/*.ts' --exclude-mail
+          # Fail action if broken links are found
+          fail: true
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
