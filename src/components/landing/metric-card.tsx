@@ -60,7 +60,7 @@ export function MetricCard({
 }: MetricCardProps) {
     const [displayValue, setDisplayValue] = useState('0');
     const [hasAnimated, setHasAnimated] = useState(false);
-    const cardRef = useRef<HTMLDivElement>(null);
+    const cardRef = useRef<HTMLLIElement>(null);
     const { prefix, number: targetNumber, suffix, decimals } = parseValue(value);
 
     const startAnimation = useCallback(() => {
@@ -111,19 +111,19 @@ export function MetricCard({
     }, [hasAnimated, startAnimation]);
 
     return (
-        <div
+        <li
             ref={cardRef}
-            className={cn("glass p-6 rounded-2xl flex flex-col items-center text-center", className)}
+            className={cn("glass p-6 rounded-2xl flex flex-col items-center text-center list-none", className)}
         >
             <div className="w-12 h-12 bg-accent/10 rounded-full flex items-center justify-center mb-4">
                 {icon}
             </div>
-            <dl>
-                <dt className="text-sm text-muted-foreground mb-1">{label}</dt>
-                <dd className="text-3xl font-bold text-primary tabular-nums">
+            <div>
+                <p className="text-sm text-muted-foreground mb-1">{label}</p>
+                <p className="text-3xl font-bold text-primary tabular-nums">
                     {prefix}{displayValue}{suffix}
-                </dd>
-            </dl>
-        </div>
+                </p>
+            </div>
+        </li>
     );
 }

@@ -10,6 +10,10 @@ import { TypingAnimation } from '@/components/landing/typing-animation';
 import { MetricCard } from '@/components/landing/metric-card';
 import { getLandingMetrics } from './actions';
 import { useEffect, useState } from 'react';
+import { PlatformAnalyticsProvider } from '@/components/analytics/platform-analytics-provider';
+
+import { PlatformHeader } from '@/components/platform/header';
+import { PlatformFooter } from '@/components/platform/footer';
 
 // Interface for metrics
 interface LandingMetrics {
@@ -98,27 +102,7 @@ function BaciLandingPage() {
           }),
         }}
       />
-      <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-white/10 glass">
-        <div className="container h-16 flex items-center justify-between" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
-          <Link href="/" className="flex items-center gap-2 group">
-            <Logo className="transition-transform group-hover:scale-105" />
-            <span className="sr-only">Baci</span>
-          </Link>
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="#features" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Features</Link>
-            <Link href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">How It Works</Link>
-            <Link href="/pricing" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">Pricing</Link>
-          </nav>
-          <div className="flex items-center gap-4">
-            <Button asChild variant="ghost" className="hidden sm:inline-flex hover:bg-primary/10 hover:text-primary">
-              <Link href="/login">Login</Link>
-            </Button>
-            <Button asChild className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40 hover:-translate-y-0.5">
-              <Link href="/onboarding">Get Started</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <PlatformHeader />
 
       <main id="main-content" className="flex-1 pt-16">
         {/* Hero Section */}
@@ -129,8 +113,8 @@ function BaciLandingPage() {
 
           <div className="container relative z-10" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
             <div className="flex flex-col items-center space-y-8 text-center max-w-5xl mx-auto">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-white/10 border border-accent/60 rounded-full text-accent text-sm font-medium shadow-sm backdrop-blur-sm animate-fade-in">
-                <Sparkles className="w-4 h-4" />
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-white/10 border border-accent/60 rounded-full text-indigo-900 dark:text-indigo-100 text-sm font-medium shadow-sm backdrop-blur-sm animate-fade-in">
+                <Sparkles className="w-4 h-4 text-accent" />
                 <span>AI-Powered E-commerce Platform</span>
               </div>
 
@@ -161,8 +145,8 @@ function BaciLandingPage() {
               </div>
 
               {/* Metrics Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-4xl mt-6 pt-4 border-t border-slate-200/60 dark:border-slate-800/60">
-                <dl className="contents">
+              <div className="w-full max-w-4xl mt-6 pt-4 border-t border-slate-200/60 dark:border-slate-800/60">
+                <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <MetricCard
                     icon={<Store className="w-5 h-5 text-accent" />}
                     label="Active Merchants"
@@ -181,7 +165,7 @@ function BaciLandingPage() {
                     value={metrics.rating + "/5.0"}
                     delay={0.3}
                   />
-                </dl>
+                </ul>
               </div>
             </div>
           </div>
@@ -522,49 +506,7 @@ function BaciLandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950">
-        <div className="container py-12 md:py-16" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-4">
-              <Logo />
-              <p className="text-sm text-muted-foreground max-w-xs">
-                Empowering businesses with AI-driven e-commerce tools. Build, scale, and succeed with Baci.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4 text-primary dark:text-white">Product</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="#features" className="hover:text-accent transition-colors">Features</Link></li>
-                <li><Link href="#how-it-works" className="hover:text-accent transition-colors">How It Works</Link></li>
-                <li><Link href="/pricing" className="hover:text-accent transition-colors">Pricing</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4 text-primary dark:text-white">Company</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/about" className="hover:text-accent transition-colors">About</Link></li>
-                <li><Link href="/contact" className="hover:text-accent transition-colors">Contact</Link></li>
-                <li><Link href="/blog" className="hover:text-accent transition-colors">Blog</Link></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4 text-primary dark:text-white">Legal</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><Link href="/privacy" className="hover:text-accent transition-colors">Privacy</Link></li>
-                <li><Link href="/terms" className="hover:text-accent transition-colors">Terms</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} Baci. All rights reserved.</p>
-            <div className="flex gap-6">
-              <Link href="#" className="hover:text-accent transition-colors">Twitter</Link>
-              <Link href="#" className="hover:text-accent transition-colors">LinkedIn</Link>
-              <Link href="#" className="hover:text-accent transition-colors">Instagram</Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <PlatformFooter />
     </div>
   );
 }
@@ -572,6 +514,7 @@ function BaciLandingPage() {
 export default function HomePage() {
   return (
     <AppBody>
+      <PlatformAnalyticsProvider />
       <BaciLandingPage />
     </AppBody>
   );

@@ -61,9 +61,11 @@ export function TypingAnimation() {
 
     return (
         <span className="inline-flex justify-start min-w-[1ch] relative z-10">
+            <span className="sr-only">E-commerce</span>
             <AnimatePresence mode="wait">
                 <motion.span
                     key={words[index]}
+                    aria-hidden="true"
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     exit={{ y: -20, opacity: 0 }}
