@@ -2,7 +2,7 @@ import { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { safeJsonLdStringify } from '@/lib/sanitize';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { TermsPageClient } from './terms-page-client';
 
 interface PageProps {

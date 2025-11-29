@@ -1,5 +1,6 @@
 import { Product, ProductSchemaMarkup } from './products';
-import { escapeHtml, stripHtmlTags, sanitizeSchemaMarkup } from './sanitize';
+// Import from sanitize-core to avoid loading jsdom on server components
+import { escapeHtml, stripHtmlTags, sanitizeSchemaMarkup } from './sanitize-core';
 import type { Route } from 'next';
 
 /**

@@ -4,7 +4,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { sanitizeSearchQuery, sanitizeLikePattern, isValidUuid } from '@/lib/sanitize';
+import { sanitizeSearchQuery, sanitizeLikePattern, isValidUuid } from '@/lib/sanitize-core';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/zeptomail';

@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { sanitizeSearchQuery, sanitizeLikePattern, sanitizeText, sanitizeEmail, sanitizePhone } from '@/lib/sanitize';
+import { sanitizeSearchQuery, sanitizeLikePattern, sanitizeText, sanitizeEmail, sanitizePhone } from '@/lib/sanitize-core';
 
 export async function GET(request: Request) {
     const cookieStore = await cookies();
