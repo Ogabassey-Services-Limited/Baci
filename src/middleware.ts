@@ -217,11 +217,10 @@ function generateCSP(routeType: 'admin' | 'auth' | 'storefront' | 'api', nonce?:
 }
 
 /**
- * Next.js 16 Proxy Function
- * Replaces middleware.ts - runs on Node.js runtime with full API access
+ * Next.js Middleware Function
  * Handles multi-tenant routing, security headers, and caching
  */
-export default function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const pathname = request.nextUrl.pathname;
   const userAgent = request.headers.get('user-agent') || '';
