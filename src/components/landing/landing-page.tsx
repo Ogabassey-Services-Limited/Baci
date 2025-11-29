@@ -1,0 +1,530 @@
+
+'use client';
+
+import dynamic from 'next/dynamic';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import AppBody from '@/components/app-body';
+import { CheckCircle2, Sparkles, Zap, Store, Palette, ShoppingBag, BarChart, ArrowRight, Star, DollarSign, ChevronDown } from 'lucide-react';
+import { MetricCard } from '@/components/landing/metric-card';
+import { getLandingMetrics } from '@/app/actions';
+import { useEffect, useState } from 'react';
+
+import { PlatformHeader } from '@/components/platform/header';
+import { PlatformFooter } from '@/components/platform/footer';
+
+// Lazy-load non-critical components to reduce initial JS bundle
+const TypingAnimation = dynamic(
+  () => import('@/components/landing/typing-animation').then(mod => ({ default: mod.TypingAnimation })),
+  { ssr: false, loading: () => <span>Dream</span> }
+);
+
+const PlatformAnalyticsProvider = dynamic(
+  () => import('@/components/analytics/platform-analytics-provider').then(mod => ({ default: mod.PlatformAnalyticsProvider })),
+  { ssr: false }
+);
+
+// Interface for metrics
+interface LandingMetrics {
+  merchants: number;
+  orders: number;
+  sales: string | number;
+  rating: number;
+}
+
+// Interactive FAQ Item Component
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="group">
+      <dt className="mb-3">
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          aria-expanded={isOpen}
+          className="flex w-full items-start justify-between text-left glass p-6 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-accent/50 transition-all"
+        >
+          <span className="text-lg font-semibold text-primary dark:text-white pr-4">
+            {question}
+          </span>
+          <ChevronDown
+            className={`w-5 h-5 text-accent flex-shrink-0 mt-1 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''
+              }`}
+          />
+        </button>
+      </dt>
+      <dd
+        className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 opacity-100 px-6 pb-4' : 'max-h-0 opacity-0'
+          }`}
+      >
+        <p className="text-muted-foreground leading-relaxed pt-2">
+          {answer}
+        </p>
+      </dd>
+    </div>
+  );
+}
+
+function BaciLandingPage() {
+  const [metrics, setMetrics] = useState<LandingMetrics>({
+    merchants: 10000,
+    orders: 50000,
+    sales: '5M+',
+    rating: 4.9,
+  });
+
+  useEffect(() => {
+    getLandingMetrics().then(setMetrics).catch(console.error);
+  }, []);
+
+  return (
+    <div className="flex flex-col min-h-screen bg-background font-sans selection:bg-accent/30">
+      {/* Header */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'HowTo',
+            name: 'How to create your online store with Baci',
+            description: 'Create a professional online store in minutes using AI-powered tools.',
+            step: [
+              {
+                '@type': 'HowToStep',
+                name: 'Choose your business type',
+                text: 'Tell us about your business and let our AI generate a customized store in seconds. We\'ll create everything from your logo to product categories.',
+                position: 1,
+              },
+              {
+                '@type': 'HowToStep',
+                name: 'Customize your store',
+                text: 'Add products, adjust colors, upload your logo. Our AI helps you create professional product descriptions and optimize your store for sales.',
+                position: 2,
+              },
+              {
+                '@type': 'HowToStep',
+                name: 'Go live and start selling',
+                text: 'Launch your store with a custom domain or subdomain. Start selling immediately with built-in payments, inventory management, and order processing.',
+                position: 3,
+              },
+            ],
+          }),
+        }}
+      />
+      <PlatformHeader />
+
+      <main id="main-content" className="flex-1 pt-16">
+        {/* Hero Section */}
+        <section className="relative w-full pt-3 pb-7 md:pb-10 lg:pb-14 overflow-hidden bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-background min-h-[85vh] flex items-center">
+          {/* Background Elements */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-accent/5 rounded-full blur-[100px] -z-10" />
+          <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-primary/5 rounded-full blur-[100px] -z-10" />
+
+          <div className="container relative z-10" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+            <div className="flex flex-col items-center space-y-8 text-center max-w-5xl mx-auto">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-white/10 border border-accent/60 rounded-full text-indigo-900 dark:text-indigo-100 text-sm font-medium shadow-sm backdrop-blur-sm animate-fade-in">
+                <Sparkles className="w-4 h-4 text-accent" />
+                <span>AI-Powered E-commerce Platform</span>
+              </div>
+
+              <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold tracking-tight text-primary dark:text-white leading-[1.3] text-center">
+                <span className="block whitespace-nowrap overflow-visible">Build Your <TypingAnimation /> Store</span>
+                <span className="block whitespace-nowrap mt-2">
+                  with Bac<span className="relative inline-block">
+                    ı
+                    <span className="absolute -top-[0.005em] left-[52%] -translate-x-1/2 w-[0.16em] h-[0.16em] bg-accent rounded-full" aria-hidden="true" />
+                  </span>
+                </span>
+              </h1>
+
+              <p className="mx-auto max-w-[700px] text-muted-foreground text-base md:text-lg leading-relaxed">
+                Launch a professional e-commerce store powered by AI in seconds.
+                No coding required. Perfect for retail businesses ready to scale.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto pt-4">
+                <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white text-lg px-8 h-14 rounded-full shadow-xl shadow-primary/20 transition-all hover:shadow-primary/40 hover:-translate-y-1">
+                  <Link href="/onboarding">
+                    Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </Button>
+                <Button asChild size="lg" variant="outline" className="border-2 h-14 px-8 rounded-full text-lg hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all">
+                  <Link href="#how-it-works">See How It Works</Link>
+                </Button>
+              </div>
+
+              {/* Metrics Cards */}
+              <div className="w-full max-w-4xl mt-6 pt-4 border-t border-slate-200/60 dark:border-slate-800/60">
+                <ul className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <MetricCard
+                    icon={<Store className="w-5 h-5 text-accent" />}
+                    label="Active Merchants"
+                    value={metrics.merchants.toLocaleString() + "+"}
+                    delay={0.1}
+                  />
+                  <MetricCard
+                    icon={<DollarSign className="w-5 h-5 text-green-500" />}
+                    label="Sales Processed"
+                    value={"$" + metrics.sales}
+                    delay={0.2}
+                  />
+                  <MetricCard
+                    icon={<Star className="w-5 h-5 text-yellow-500" />}
+                    label="Average Rating"
+                    value={metrics.rating + "/5.0"}
+                    delay={0.3}
+                  />
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="py-24 relative overflow-hidden">
+          <div className="absolute inset-0 bg-primary dark:bg-slate-950">
+            <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-accent/20 rounded-full blur-[120px]" />
+            <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px]" />
+          </div>
+
+          <div className="container relative z-10" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+            <div className="max-w-4xl mx-auto text-center space-y-8">
+              <h2 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl text-white">
+                Ready to launch your empire?
+              </h2>
+              <p className="text-xl text-white/80 max-w-2xl mx-auto">
+                Join thousands of merchants growing their business with Baci.
+                Start your 14-day free trial today.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+                <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90 text-lg px-8 h-14 rounded-full shadow-xl transition-all hover:scale-105">
+                  <Link href="/onboarding">Get Started Now</Link>
+                </Button>
+              </div>
+              <div className="flex items-center justify-center gap-8 pt-8 text-white/60 text-sm">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-accent" />
+                  <span>No credit card required</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-accent" />
+                  <span>Cancel anytime</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Features Grid */}
+        <section id="features" className="py-24 bg-slate-50 dark:bg-slate-900/50">
+          <div className="container" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-4 text-primary dark:text-white">
+                Everything you need to scale
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Powerful features built for modern commerce, simplified by AI.
+              </p>
+            </div>
+
+            <ul className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+              {[
+                {
+                  icon: <Palette className="w-6 h-6 text-purple-500" />,
+                  title: "Custom Branding",
+                  description: "Upload your logo and let our AI automatically generate a matching color palette and theme."
+                },
+                {
+                  icon: <Sparkles className="w-6 h-6 text-accent" />,
+                  title: "AI-Powered Design",
+                  description: "Generate your entire store layout, branding, and copy in seconds with advanced AI."
+                },
+                {
+                  icon: <ShoppingBag className="w-6 h-6 text-blue-500" />,
+                  title: "Smart Inventory",
+                  description: "Track stock levels, manage variants, and get low-stock alerts automatically."
+                },
+                {
+                  icon: <Store className="w-6 h-6 text-green-500" />,
+                  title: "Multi-Channel",
+                  description: "Sell everywhere - online, social media, and in-person with unified inventory."
+                },
+                {
+                  icon: <Zap className="w-6 h-6 text-yellow-500" />,
+                  title: "Lightning Fast",
+                  description: "Built on modern edge infrastructure for sub-second load times globally."
+                },
+                {
+                  icon: <BarChart className="w-6 h-6 text-red-500" />,
+                  title: "Real-time Analytics",
+                  description: "Get actionable insights on sales, visitors, and conversion rates instantly."
+                }
+              ].map((feature, i) => (
+                <li key={i}>
+                  <article className="h-full p-8 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
+                    <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                      {feature.icon}
+                    </div>
+                    <h3 className="text-xl font-bold mb-3 text-primary dark:text-white">{feature.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {feature.description}
+                    </p>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        {/* How It Works Section */}
+        <section id="how-it-works" className="py-24 bg-white dark:bg-slate-950">
+          <div className="container" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-4 text-primary dark:text-white">
+                How It Works
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Launch your store in three simple steps. No technical knowledge required.
+              </p>
+            </div>
+
+            <ol className="grid gap-8 md:grid-cols-3 max-w-6xl mx-auto">
+              {[
+                {
+                  step: "1",
+                  title: "Sign Up & Tell Us About Your Business",
+                  description: "Answer a few quick questions about your products, brand, and target audience. Our AI will understand your vision.",
+                  icon: <Sparkles className="w-8 h-8 text-accent" />
+                },
+                {
+                  step: "2",
+                  title: "AI Generates Your Store",
+                  description: "Watch as our AI creates your complete store: product pages, branding, copy, and layout—all optimized for conversions.",
+                  icon: <Zap className="w-8 h-8 text-accent" />
+                },
+                {
+                  step: "3",
+                  title: "Customize & Launch",
+                  description: "Fine-tune any details you'd like, connect your payment processor, and go live. Start selling in minutes, not months.",
+                  icon: <CheckCircle2 className="w-8 h-8 text-accent" />
+                }
+              ].map((step, i) => (
+                <li key={i} className="relative">
+                  <article className="h-full p-8 rounded-2xl glass border border-slate-200 dark:border-slate-800 transition-all duration-300 group">
+                    <div className="flex items-center gap-4 mb-6">
+                      <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        {step.icon}
+                      </div>
+                      <span className="text-6xl font-bold text-accent/20">{step.step}</span>
+                    </div>
+                    <h3 className="text-xl font-bold mb-3 text-primary dark:text-white">{step.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {step.description}
+                    </p>
+                  </article>
+                  {i < 2 && (
+                    <div className="hidden md:flex absolute top-1/2 -right-4 w-12 items-center justify-center transform translate-x-1/2 -translate-y-1/2 z-10">
+                      <div className="absolute w-full h-[2px] bg-slate-200 dark:bg-slate-800" />
+                      <div className="relative bg-white dark:bg-slate-950 p-1 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm">
+                        <ArrowRight className="w-4 h-4 text-accent" />
+                      </div>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ol>
+
+            {/* HowTo Schema */}
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  "@context": "https://schema.org",
+                  "@type": "HowTo",
+                  name: "How to Create an E-commerce Store with Baci",
+                  description: "Launch your professional e-commerce store in three simple steps using AI-powered tools.",
+                  step: [
+                    {
+                      "@type": "HowToStep",
+                      position: 1,
+                      name: "Sign Up & Tell Us About Your Business",
+                      text: "Answer a few quick questions about your products, brand, and target audience. Our AI will understand your vision.",
+                      url: "https://baci.app#how-it-works"
+                    },
+                    {
+                      "@type": "HowToStep",
+                      position: 2,
+                      name: "AI Generates Your Store",
+                      text: "Watch as our AI creates your complete store: product pages, branding, copy, and layout—all optimized for conversions.",
+                      url: "https://baci.app#how-it-works"
+                    },
+                    {
+                      "@type": "HowToStep",
+                      position: 3,
+                      name: "Customize & Launch",
+                      text: "Fine-tune any details you'd like, connect your payment processor, and go live. Start selling in minutes, not months.",
+                      url: "https://baci.app#how-it-works"
+                    }
+                  ],
+                  totalTime: "PT10M"
+                })
+              }}
+            />
+          </div>
+        </section>
+
+        {/* FAQs Section */}
+        <section id="faqs" className="py-24 bg-slate-50 dark:bg-slate-900/50">
+          <div className="container" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl mb-4 text-primary dark:text-white">
+                Frequently Asked Questions
+              </h2>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Everything you need to know about building your store with Baci.
+              </p>
+            </div>
+
+            <dl className="max-w-4xl mx-auto space-y-6">
+              {[
+                {
+                  question: "Do I need coding skills to use Baci?",
+                  answer: "Not at all! Baci is designed for everyone. Our AI handles all the technical work—you just answer a few questions about your business, and we create your entire store automatically."
+                },
+                {
+                  question: "How long does it take to launch my store?",
+                  answer: "Most merchants go live in under 10 minutes. The AI generates your store in seconds, and you can customize and launch immediately. No waiting for developers or designers."
+                },
+                {
+                  question: "Can I use my own domain name?",
+                  answer: "Yes! You can connect your custom domain or use a free Baci subdomain. We provide step-by-step instructions to connect your domain from providers like GoDaddy, Namecheap, or Google Domains."
+                },
+                {
+                  question: "What payment methods can I accept?",
+                  answer: "Baci integrates with major payment processors including Stripe, PayPal, and local payment methods. Accept credit cards, debit cards, digital wallets, and more—all with secure, PCI-compliant checkout."
+                },
+                {
+                  question: "Is there a free trial?",
+                  answer: "Yes! Start with our 14-day free trial. No credit card required. Test all features, build your store, and only pay when you're ready to go live."
+                },
+                {
+                  question: "Can I migrate from another platform?",
+                  answer: "Absolutely. We offer free migration assistance for stores moving from Shopify, WooCommerce, or other platforms. Our team will help you import your products, customers, and orders seamlessly."
+                },
+                {
+                  question: "Do you offer customer support?",
+                  answer: "Yes! We provide 24/7 email support for all plans, plus live chat and priority support for premium customers. Our comprehensive knowledge base and video tutorials are also available anytime."
+                },
+                {
+                  question: "Can I sell physical and digital products?",
+                  answer: "Yes! Baci supports both physical products (with inventory tracking and shipping) and digital products (instant delivery via secure download links). You can sell both types in the same store."
+                }
+              ].map((faq, i) => (
+                <FAQItem key={i} question={faq.question} answer={faq.answer} />
+              ))}
+            </dl>
+
+            <div className="mt-12 text-center animate-fade-in">
+              <p className="text-muted-foreground mb-4">
+                Still have questions? We're here to help.
+              </p>
+              <Button asChild variant="outline" className="rounded-full border-2 hover:bg-accent/5 hover:text-accent hover:border-accent/50 transition-all">
+                <Link href="/contact">Contact Support</Link>
+              </Button>
+            </div>
+
+            {/* FAQ Schema */}
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify({
+                  "@context": "https://schema.org",
+                  "@type": "FAQPage",
+                  mainEntity: [
+                    {
+                      "@type": "Question",
+                      name: "Do I need coding skills to use Baci?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Not at all! Baci is designed for everyone. Our AI handles all the technical work—you just answer a few questions about your business, and we create your entire store automatically."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "How long does it take to launch my store?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Most merchants go live in under 10 minutes. The AI generates your store in seconds, and you can customize and launch immediately. No waiting for developers or designers."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Can I use my own domain name?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Yes! You can connect your custom domain or use a free Baci subdomain. We provide step-by-step instructions to connect your domain from providers like GoDaddy, Namecheap, or Google Domains."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "What payment methods can I accept?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Baci integrates with major payment processors including Stripe, PayPal, and local payment methods. Accept credit cards, debit cards, digital wallets, and more—all with secure, PCI-compliant checkout."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Is there a free trial?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Yes! Start with our 14-day free trial. No credit card required. Test all features, build your store, and only pay when you're ready to go live."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Can I migrate from another platform?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Absolutely. We offer free migration assistance for stores moving from Shopify, WooCommerce, or other platforms. Our team will help you import your products, customers, and orders seamlessly."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Do you offer customer support?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Yes! We provide 24/7 email support for all plans, plus live chat and priority support for premium customers. Our comprehensive knowledge base and video tutorials are also available anytime."
+                      }
+                    },
+                    {
+                      "@type": "Question",
+                      name: "Can I sell physical and digital products?",
+                      acceptedAnswer: {
+                        "@type": "Answer",
+                        text: "Yes! Baci supports both physical products (with inventory tracking and shipping) and digital products (instant delivery via secure download links). You can sell both types in the same store."
+                      }
+                    }
+                  ]
+                })
+              }}
+            />
+          </div>
+        </section>
+      </main>
+
+      {/* Footer */}
+      <PlatformFooter />
+    </div>
+  );
+}
+
+export default function LandingPage() {
+  return (
+    <AppBody>
+      <PlatformAnalyticsProvider />
+      <BaciLandingPage />
+    </AppBody>
+  );
+}
