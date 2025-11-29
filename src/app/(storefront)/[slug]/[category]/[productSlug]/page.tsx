@@ -194,8 +194,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
             />
             <script
                 type="application/ld+json"
-                // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }}
+                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
             />
             <Suspense fallback={<ProductDetailSkeleton />}>
                 <ProductDetailClient product={product} />

@@ -327,8 +327,7 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
                     {legacyContent && (
                       <div
                         className="prose prose-sm dark:prose-invert max-w-none"
-                        // nosemgrep
-                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(legacyContent) }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(legacyContent) }} // nosemgrep
                       />
                     )}
                   </div>

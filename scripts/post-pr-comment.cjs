@@ -83,7 +83,7 @@ const req = https.request(options, (res) => {
 });
 
 req.on('error', (error) => {
-    console.error('Error:', error);
+    console.error('Error:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
 });
 
 req.write(data);

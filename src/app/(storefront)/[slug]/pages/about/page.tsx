@@ -80,11 +80,7 @@ export default async function AboutPage({ params }: PageProps) {
 
   return (
     <>
-      {/* nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd as Record<string, unknown>) }}
-      />
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd as Record<string, unknown>) }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
       <AboutPageClient
         merchant={merchant}
         aboutPage={aboutPage}

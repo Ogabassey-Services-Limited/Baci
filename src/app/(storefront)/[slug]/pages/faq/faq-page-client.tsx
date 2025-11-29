@@ -119,10 +119,9 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
                             <AccordionContent className="text-muted-foreground pb-4">
                               <div
                                 className="prose prose-sm dark:prose-invert max-w-none"
-                                // nosemgrep
                                 dangerouslySetInnerHTML={{
                                   __html: sanitizeHtml(faq.answer),
-                                }}
+                                }} // nosemgrep
                               />
                             </AccordionContent>
                           </AccordionItem>
@@ -152,10 +151,9 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
                                   <AccordionContent className="text-muted-foreground pb-4">
                                     <div
                                       className="prose prose-sm dark:prose-invert max-w-none"
-                                      // nosemgrep
                                       dangerouslySetInnerHTML={{
                                         __html: sanitizeHtml(faq.answer),
-                                      }}
+                                      }} // nosemgrep
                                     />
                                   </AccordionContent>
                                 </AccordionItem>
@@ -171,8 +169,7 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
                   <div className="max-w-3xl mx-auto">
                     <div
                       className="prose prose-lg dark:prose-invert max-w-none"
-                      // nosemgrep
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(legacyContent) }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(legacyContent) }} // nosemgrep
                     />
                   </div>
                 ) : null}

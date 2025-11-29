@@ -220,15 +220,13 @@ export default async function ProductPage({ params }: PageProps) {
             {/* Product Schema.org JSON-LD */}
             <script
                 type="application/ld+json"
-                // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }}
+                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }} // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
             />
 
             {/* Breadcrumb Schema.org JSON-LD */}
             <script
                 type="application/ld+json"
-                // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
-                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }}
+                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }} // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
             />
 
             <Suspense fallback={<ProductDetailSkeleton />}>

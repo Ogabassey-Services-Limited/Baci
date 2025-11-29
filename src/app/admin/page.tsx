@@ -54,9 +54,9 @@ function formatCurrency(value: number): string {
   });
 
   if (value >= 1000000) {
-    return formatter.format(value / 1000000).replace('$', '$') + 'M'; // Keeping simple M suffix for now, but using formatter for locale
+    return formatter.format(value / 1000000) + 'M';
   } else if (value >= 1000) {
-    return formatter.format(value / 1000).replace('$', '$') + 'K';
+    return formatter.format(value / 1000) + 'K';
   }
   return formatter.format(value);
 }

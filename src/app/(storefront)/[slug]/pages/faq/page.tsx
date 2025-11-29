@@ -80,11 +80,7 @@ export default async function FAQPage({ params }: PageProps) {
   return (
     <>
       {/* FAQ JSON-LD Schema - enables FAQ rich results in Google */}
-      {/* nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
-      />
+      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
       <FAQPageClient
         merchant={merchant}
         faqItems={faqItems}

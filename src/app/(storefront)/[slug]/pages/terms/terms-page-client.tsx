@@ -107,8 +107,7 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                         prose-p:text-muted-foreground prose-p:leading-relaxed
                         prose-li:text-muted-foreground
                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-                      // nosemgrep
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} // nosemgrep
                     />
                   ) : (
                     <div className="text-center text-muted-foreground py-12">
