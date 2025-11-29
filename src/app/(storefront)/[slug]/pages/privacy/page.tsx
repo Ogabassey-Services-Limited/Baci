@@ -95,7 +95,10 @@ export default async function PrivacyPage({ params }: PageProps) {
   return (
     <>
       {/* Privacy Policy JSON-LD Schema */}
-      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
+      />
       <PrivacyPageClient
         merchant={merchant}
         content={merchant.pages?.privacy}
