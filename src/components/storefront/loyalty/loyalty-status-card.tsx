@@ -1,7 +1,7 @@
 'use client';
 
 import { useLoyalty } from '@/hooks/use-loyalty';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardTitle, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -50,7 +50,7 @@ export function LoyaltyStatusCard({
   const tierInfo = getTierInfo(tier);
   const progressPercentage = nextTier
     ? Math.min(100, ((data.lifetime_points - (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] || 0)) /
-        (pointsToNextTier + (data.lifetime_points - (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] || 0)))) * 100)
+      (pointsToNextTier + (data.lifetime_points - (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] || 0)))) * 100)
     : 100;
 
   if (compact) {
