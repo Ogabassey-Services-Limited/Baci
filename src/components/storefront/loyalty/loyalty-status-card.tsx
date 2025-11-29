@@ -1,0 +1,135 @@
+'use client';
+
+import { useLoyalty } from '@/hooks/use-loyalty';
+import { Card, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Sparkles, Trophy, ArrowRight } from 'lucide-react';
+
+interface LoyaltyStatusCardProps {
+  merchantId: string;
+  customerId: string;
+  compact?: boolean;
+}
+
+export function LoyaltyStatusCard({
+  merchantId,
+  customerId,
+  compact = false,
+}: LoyaltyStatusCardProps) {
+  const {
+    data,
+    loading,
+    enrolled,
+    pointsBalance,
+    tier,
+    nextTier,
+    pointsToNextTier,
+    getTierInfo,
+  } = useLoyalty(merchantId, customerId);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader className={compact ? 'pb-2' : ''}>
+          <Skeleton className="h-5 w-32" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-8 w-24 mb-2" />
+          <Skeleton className="h-2 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!enrolled || !data) {
+    return null;
+  }
+
+  const tierInfo = getTierInfo(tier);
+  const progressPercentage = nextTier
+    ? Math.min(100, ((data.lifetime_points - (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] || 0)) /
+        (pointsToNextTier + (data.lifetime_points - (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] || 0)))) * 100)
+    : 100;
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
+        <div className="p-2 bg-white rounded-full shadow-sm">
+          <Sparkles className="h-4 w-4 text-purple-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-semibold text-lg">{pointsBalance.toLocaleString()}</span>
+            <span className="text-sm text-muted-foreground">points</span>
+            <Badge className={`${tierInfo.colors.bg} ${tierInfo.colors.text} ml-auto`}>
+              {tier.charAt(0).toUpperCase() + tier.slice(1)}
+            </Badge>
+          </div>
+          {nextTier && (
+            <p className="text-xs text-muted-foreground truncate">
+              {pointsToNextTier.toLocaleString()} pts to {nextTier}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4 text-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-5 w-5" />
+            <span className="font-medium">Rewards Member</span>
+          </div>
+          <Badge className={`${tierInfo.colors.bg} ${tierInfo.colors.text} ${tierInfo.colors.border} border`}>
+            {tier.charAt(0).toUpperCase() + tier.slice(1)}
+          </Badge>
+        </div>
+      </div>
+
+      <CardContent className="pt-4">
+        <div className="text-center mb-4">
+          <div className="text-3xl font-bold">{pointsBalance.toLocaleString()}</div>
+          <div className="text-sm text-muted-foreground">Available Points</div>
+        </div>
+
+        {nextTier && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Progress to {nextTier}</span>
+              <span className="font-medium">{pointsToNextTier.toLocaleString()} pts to go</span>
+            </div>
+            <Progress value={progressPercentage} className="h-2" />
+          </div>
+        )}
+
+        <div className="mt-4 pt-4 border-t">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Lifetime Points</span>
+            <span className="font-medium">{data.lifetime_points.toLocaleString()}</span>
+          </div>
+        </div>
+
+        {data.redeemable_rewards.length > 0 && (
+          <div className="mt-4 p-3 bg-green-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-800">
+                  {data.redeemable_rewards.length} reward{data.redeemable_rewards.length > 1 ? 's' : ''} available!
+                </p>
+                <p className="text-xs text-green-600">
+                  Redeem your points now
+                </p>
+              </div>
+              <ArrowRight className="h-4 w-4 text-green-600" />
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
