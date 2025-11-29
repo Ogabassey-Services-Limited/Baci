@@ -1,11 +1,21 @@
 
 'use client';
 
+import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { getContrastingTextColor } from '@/lib/color-utils';
 import type { MerchantData } from '@/hooks/use-merchant';
-import { CookieConsent } from '@/components/storefront/cookie-consent';
-import { NewsletterWidget } from '@/components/storefront/newsletter-widget';
+
+// Lazy-load non-critical widgets to reduce initial JS bundle
+const CookieConsent = dynamic(
+  () => import('@/components/storefront/cookie-consent').then(mod => ({ default: mod.CookieConsent })),
+  { ssr: false }
+);
+
+const NewsletterWidget = dynamic(
+  () => import('@/components/storefront/newsletter-widget').then(mod => ({ default: mod.NewsletterWidget })),
+  { ssr: false }
+);
 
 export default function AppBody({
   children,

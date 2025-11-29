@@ -1,19 +1,29 @@
 
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 // import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import AppBody from '@/components/app-body';
 import { CheckCircle2, Sparkles, Zap, Store, Palette, ShoppingBag, BarChart, ArrowRight, Star, DollarSign, ChevronDown } from 'lucide-react';
-import { TypingAnimation } from '@/components/landing/typing-animation';
 import { MetricCard } from '@/components/landing/metric-card';
 import { getLandingMetrics } from './actions';
 import { useEffect, useState } from 'react';
-import { PlatformAnalyticsProvider } from '@/components/analytics/platform-analytics-provider';
 
 import { PlatformHeader } from '@/components/platform/header';
 import { PlatformFooter } from '@/components/platform/footer';
+
+// Lazy-load non-critical components to reduce initial JS bundle
+const TypingAnimation = dynamic(
+  () => import('@/components/landing/typing-animation').then(mod => ({ default: mod.TypingAnimation })),
+  { ssr: false, loading: () => <span>Dream</span> }
+);
+
+const PlatformAnalyticsProvider = dynamic(
+  () => import('@/components/analytics/platform-analytics-provider').then(mod => ({ default: mod.PlatformAnalyticsProvider })),
+  { ssr: false }
+);
 
 // Interface for metrics
 interface LandingMetrics {
