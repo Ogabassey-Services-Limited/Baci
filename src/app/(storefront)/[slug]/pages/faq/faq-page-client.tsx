@@ -58,7 +58,7 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
-        <AppBody merchant={merchant as any}>
+        <AppBody merchant={merchant as Parameters<typeof AppBody>[0]["merchant"]}>
           <div className="flex flex-col min-h-screen">
             <StorefrontHeader />
 

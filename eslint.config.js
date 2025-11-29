@@ -14,6 +14,7 @@ export default [
       '.next/',
       'node_modules/',
       'scripts/',
+      '.gemini/',
       'reproduce_issue.ts',
       'src/app/page.backup.tsx',
       'src/app/page.tsx.bak',

@@ -1,11 +1,12 @@
 import { GadgetCustomTemplateOgabassey } from '@/components/storefront/templates/gadget-custom-template-ogabassey';
 import { GadgetDefaultTemplate } from '@/components/storefront/templates/gadget-default-template';
+import { ComponentType } from 'react';
 
-export type TemplateDefinition = {
+export interface TemplateDefinition {
     id: string;
     name: string;
-    component: React.ComponentType<any>;
     description?: string;
+    component: ComponentType<Record<string, unknown>>;
     isCustom?: boolean;
 };
 

@@ -87,7 +87,7 @@ async function getProductCached(storeSlug: string, productSlug: string): Promise
 
 export async function generateMetadata(
     { params, searchParams }: PageProps,
-    _parent: ResolvingMetadata
+    __parent: ResolvingMetadata
 ): Promise<Metadata> {
     const { slug, productSlug } = await params;
     const resolvedSearchParams = await searchParams;
