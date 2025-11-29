@@ -43,7 +43,11 @@ export const TYPE_LABELS: Record<NotificationType, string> = {
 // ============================================================================
 
 /**
- * Notification template for reusable messages
+ * Notification template for reusable messages.
+ *
+ * @future This interface is defined for the planned notification templates feature.
+ * Templates will allow admins to create reusable notification messages.
+ * Currently not in use - will be implemented in admin notifications templates page.
  */
 export interface NotificationTemplate {
   id: string;

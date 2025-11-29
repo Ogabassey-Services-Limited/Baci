@@ -3,9 +3,9 @@ import { Suspense } from 'react';
 import { headers } from 'next/headers';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { StorefrontWrapper } from './storefront-wrapper';
-import { escapeHtml } from '@/lib/sanitize';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { getCachedMerchant } from '@/lib/cached-data';
+import { generateLocalBusinessSchema, generateWebSiteSchema, type LocalBusinessData } from '@/lib/seo-utils';
 
 // Valid slug pattern: alphanumeric and hyphens, no file extensions
 const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
@@ -89,7 +89,8 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
     // Use cached merchant data for better performance
     const merchant = await getCachedMerchant(slug);
 
-    let jsonLd = null;
+    let localBusinessSchema = null;
+    let webSiteSchema = null;
 
     if (merchant) {
         const headersList = await headers();
@@ -97,58 +98,51 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
         const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
         const baseUrl = `${protocol}://${host}`;
         const description = merchant.site_description || merchant.site_tagline || `Welcome to ${merchant.business_name}`;
-
-        // Map business_type to Schema.org type
-        const getSchemaType = (type: string | null) => {
-            switch (type) {
-                case 'fashion': return 'ClothingStore';
-                case 'electronics': return 'ElectronicsStore';
-                case 'home-goods': return 'HomeGoodsStore';
-                case 'health-beauty': return 'HealthAndBeautyBusiness';
-                case 'food-beverage': return 'GroceryStore';
-                case 'restaurant': return 'Restaurant';
-                default: return 'Store';
-            }
-        };
-
-        const schemaType = getSchemaType(merchant.business_type);
         const socialMedia = merchant.social_media as Record<string, string> | null;
 
-        // Build sameAs array from social media links
-        const sameAs: string[] = [];
+        // Build social media URLs
+        const socialMediaUrls: Record<string, string> = {};
         if (socialMedia) {
-            if (socialMedia.facebook) sameAs.push(`https://facebook.com/${encodeURIComponent(socialMedia.facebook)}`);
-            if (socialMedia.instagram) sameAs.push(`https://instagram.com/${encodeURIComponent(socialMedia.instagram.replace('@', ''))}`);
-            if (socialMedia.twitter) sameAs.push(`https://twitter.com/${encodeURIComponent(socialMedia.twitter.replace('@', ''))}`);
-            if (socialMedia.tiktok) sameAs.push(`https://tiktok.com/${encodeURIComponent(socialMedia.tiktok.replace('@', ''))}`);
-            if (socialMedia.youtube) sameAs.push(`https://youtube.com/${encodeURIComponent(socialMedia.youtube)}`);
-            if (socialMedia.linkedin) sameAs.push(`https://linkedin.com/company/${encodeURIComponent(socialMedia.linkedin)}`);
+            if (socialMedia.facebook) socialMediaUrls.facebook = `https://facebook.com/${encodeURIComponent(socialMedia.facebook)}`;
+            if (socialMedia.instagram) socialMediaUrls.instagram = `https://instagram.com/${encodeURIComponent(socialMedia.instagram.replace('@', ''))}`;
+            if (socialMedia.twitter) socialMediaUrls.twitter = `https://twitter.com/${encodeURIComponent(socialMedia.twitter.replace('@', ''))}`;
+            if (socialMedia.tiktok) socialMediaUrls.tiktok = `https://tiktok.com/@${encodeURIComponent(socialMedia.tiktok.replace('@', ''))}`;
+            if (socialMedia.youtube) socialMediaUrls.youtube = `https://youtube.com/${encodeURIComponent(socialMedia.youtube)}`;
+            if (socialMedia.linkedin) socialMediaUrls.linkedin = `https://linkedin.com/company/${encodeURIComponent(socialMedia.linkedin)}`;
         }
 
-        // Sanitize all user-controlled values for JSON-LD to prevent XSS
-        jsonLd = {
-            '@context': 'https://schema.org',
-            '@type': schemaType,
-            name: escapeHtml(merchant.business_name),
-            description: escapeHtml(description),
-            url: escapeHtml(baseUrl),
-            ...(merchant.logo_url && { logo: escapeHtml(merchant.logo_url), image: escapeHtml(merchant.logo_url) }),
-            ...(merchant.phone && { telephone: escapeHtml(merchant.phone) }),
-            ...(sameAs.length > 0 && { sameAs: sameAs.map(url => escapeHtml(url)) }),
-            potentialAction: {
-                '@type': 'SearchAction',
-                target: escapeHtml(`${baseUrl}/products?q={search_term_string}`),
-                'query-input': 'required name=search_term_string',
-            },
+        // Build LocalBusiness schema data
+        const businessData: LocalBusinessData = {
+            name: merchant.business_name,
+            description,
+            url: baseUrl,
+            logo: merchant.logo_url || undefined,
+            telephone: merchant.phone || undefined,
+            socialMedia: Object.keys(socialMediaUrls).length > 0 ? socialMediaUrls : undefined,
         };
+
+        localBusinessSchema = generateLocalBusinessSchema(businessData);
+
+        // Generate WebSite schema with search action
+        webSiteSchema = generateWebSiteSchema(
+            merchant.business_name,
+            baseUrl,
+            `${baseUrl}/products?q={search_term_string}`
+        );
     }
 
     return (
         <>
-            {jsonLd && (
+            {localBusinessSchema && (
                 <script
                     type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+                />
+            )}
+            {webSiteSchema && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }}
                 />
             )}
             <MerchantProvider slug={slug}>

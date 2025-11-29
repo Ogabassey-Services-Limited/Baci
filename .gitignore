@@ -46,3 +46,5 @@ firestore-debug.log
 # MCP config (contains secrets)
 .mcp.json
 .idx/mcp.json
+src_backup_*.tar.gz
+knip-results.json

@@ -14,6 +14,7 @@
  * @see /docs/adr/001-business-type-journey-architecture.md for architecture decisions
  */
 
+import { ReactNode } from 'react';
 import { LucideIcon, Shirt, Laptop, Home, Sparkles, Palette, Coffee, Scissors } from 'lucide-react';
 import { ModernTemplate } from '@/templates/modern';
 import { ArtisanTemplate } from '@/templates/artisan';
@@ -60,7 +61,7 @@ export interface BusinessTypeConfig {
   /** Recommended features for this business type (future) */
   recommendedFeatures?: string[];
   /** Template component to use for storefronts */
-  template: React.ComponentType<unknown>;
+  template: React.ComponentType<{ children: ReactNode }>;
   /** Lucide icon component for UI */
   icon: LucideIcon;
   /** Journey configuration for onboarding and product creation */
@@ -81,7 +82,7 @@ export interface BusinessTypeConfig {
  * const prompt = `Generate a product description for a ${fashionConfig.aiPromptContext} business`;
  * ```
  */
-export const BUSINESS_TYPES = {
+export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
   FASHION: {
     id: 'fashion',
     label: 'Fashion & Apparel',
@@ -235,7 +236,7 @@ export const BUSINESS_TYPES = {
       },
     },
   },
-} as const;
+};
 
 /**
  * Helper type for business type IDs
@@ -243,9 +244,9 @@ export const BUSINESS_TYPES = {
 export type BusinessTypeId = keyof typeof BUSINESS_TYPES;
 
 /**
- * Helper type for business type configuration
+ * Helper type for business type configuration (alias for backwards compatibility)
  */
-export type BusinessTypeConfigType = typeof BUSINESS_TYPES[BusinessTypeId];
+export type BusinessTypeConfigType = BusinessTypeConfig;
 
 /**
  * Get business type configuration by ID

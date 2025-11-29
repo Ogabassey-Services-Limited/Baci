@@ -16,7 +16,6 @@ const inter = Inter({
 });
 
 const VENDOR_NAME = 'Baci';
-const VENDOR_LEGAL_NAME = 'Baci AI E-commerce';
 const VENDOR_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
 
 
@@ -85,7 +84,7 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-import { generateSoftwareApplicationSchema } from '@/lib/seo-utils';
+import { generateSoftwareApplicationSchema, generateOrganizationSchema, generateWebSiteSchema, type OrganizationData } from '@/lib/seo-utils';
 import { PLATFORM_PRICING } from '@/config/platform';
 
 export default async function RootLayout({
@@ -98,47 +97,27 @@ export default async function RootLayout({
   const nonce = headersList.get('x-nonce') || undefined;
   // const nonce = undefined;
 
-  const organizationSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
+  // Build organization data for schema generator
+  const organizationData: OrganizationData = {
     name: VENDOR_NAME,
-    alternateName: 'Baci - Your AI-Powered E-commerce Builder',
-    legalName: VENDOR_LEGAL_NAME,
     url: VENDOR_URL,
     logo: `${VENDOR_URL}/logo.svg`,
-    sameAs: [
-      'https://twitter.com/usebaci',
-      'https://linkedin.com/company/usebaci',
-      'https://instagram.com/usebaci'
-    ],
-    contactPoint: {
-      '@type': 'ContactPoint',
-      telephone: '+1-555-555-5555',
-      contactType: 'customer service',
-      areaServed: 'US',
-      availableLanguage: 'en'
+    description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
+    socialMedia: {
+      twitter: 'https://twitter.com/usebaci',
+      linkedin: 'https://linkedin.com/company/usebaci',
+      instagram: 'https://instagram.com/usebaci',
     },
-    // Entity Salience: Connect Baci to AI and E-commerce concepts
-    knowsAbout: [
-      'Artificial Intelligence',
-      'E-commerce',
-      'Web Development',
-      'Online Store Builder',
-      'SaaS'
-    ]
   };
 
-  const websiteSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
-    name: VENDOR_NAME,
-    url: VENDOR_URL,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: `${VENDOR_URL}/search?q={search_term_string}`,
-      'query-input': 'required name=search_term_string',
-    },
-  };
+  const organizationSchema = generateOrganizationSchema(organizationData);
+
+  // Use the SEO utility for consistent WebSite schema generation
+  const websiteSchema = generateWebSiteSchema(
+    VENDOR_NAME,
+    VENDOR_URL,
+    `${VENDOR_URL}/search?q={search_term_string}`
+  );
 
   const softwareApplicationSchema = generateSoftwareApplicationSchema(PLATFORM_PRICING);
 
