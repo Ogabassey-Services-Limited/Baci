@@ -276,36 +276,11 @@ export function sanitizeJson<T>(input: unknown, schema: z.ZodSchema<T>): T | nul
 }
 
 /**
- * Recursively sanitize all string values in an object for use in JSON-LD scripts.
- * This is useful when using pre-stored schema objects from the database.
- * Prevents XSS attacks by escaping HTML-sensitive characters in all string values.
+ * Alias for sanitizeSchemaMarkup for backward compatibility.
+ * @see sanitizeSchemaMarkup
+ * @deprecated Use sanitizeSchemaMarkup instead
  */
-export function sanitizeSchemaObject<T>(obj: T): T {
-    if (obj === null || obj === undefined) {
-        return obj;
-    }
-
-    if (typeof obj === 'string') {
-        return escapeHtml(obj) as T;
-    }
-
-    if (Array.isArray(obj)) {
-        return obj.map(item => sanitizeSchemaObject(item)) as T;
-    }
-
-    if (typeof obj === 'object') {
-        const sanitized: Record<string, unknown> = {};
-        for (const key in obj) {
-            if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                sanitized[key] = sanitizeSchemaObject((obj as Record<string, unknown>)[key]);
-            }
-        }
-        return sanitized as T;
-    }
-
-    // Numbers, booleans, etc. pass through unchanged
-    return obj;
-}
+export const sanitizeSchemaObject = sanitizeSchemaMarkup;
 
 /**
  * Safely stringify a JSON-LD schema object for use in dangerouslySetInnerHTML.
