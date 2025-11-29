@@ -48,3 +48,4 @@ firestore-debug.log
 .idx/mcp.json
 src_backup_*.tar.gz
 knip-results.json
+.gemini/bin/
