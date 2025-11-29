@@ -5,11 +5,16 @@ import { Search, TrendingUp } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { getProductUrl } from '@/lib/seo-utils';
+import { trackEvent } from '@/lib/event-tracking';
 
 interface Product {
     id: string;
     name: string;
-    category: string;
+    slug?: string;
+    category?: string;
+    condition?: 'new' | 'used' | string;
+    condition_detail?: string;
     price: number;
     image_small: string;
 }
@@ -23,7 +28,7 @@ interface SearchAutocompleteProps {
     merchantId: string;
     value: string;
     onChange: (value: string) => void;
-    onSelectProduct?: (productId: string) => void;
+    onSelectProduct?: (url: string) => void;
     placeholder?: string;
     className?: string;
 }
@@ -76,6 +81,10 @@ export function SearchAutocomplete({
             setPopularSearches(data.popularSearches || []);
             setIsOpen(true);
             setHighlightedIndex(-1);
+
+            // Track search event for merchant analytics
+            const resultsCount = (data.suggestions?.length || 0) + (data.popularSearches?.length || 0);
+            trackEvent.search(merchantId, query, resultsCount);
         } catch (error) {
             console.error('Autocomplete error:', error);
             setSuggestions([]);
@@ -116,7 +125,7 @@ export function SearchAutocomplete({
             e.preventDefault();
             if (highlightedIndex < suggestions.length) {
                 const product = suggestions[highlightedIndex];
-                onSelectProduct?.(product.id);
+                onSelectProduct?.(getProductUrl(product));
                 setIsOpen(false);
             } else {
                 const searchIndex = highlightedIndex - suggestions.length;
@@ -140,6 +149,7 @@ export function SearchAutocomplete({
             role="combobox"
             aria-expanded={isOpen && hasResults}
             aria-haspopup="listbox"
+            aria-controls={listboxId}
             aria-owns={listboxId}
         >
             <div className="relative">
@@ -170,7 +180,7 @@ export function SearchAutocomplete({
                     id={listboxId}
                     role="listbox"
                     aria-label="Search suggestions"
-                    className="absolute z-50 mt-2 w-full rounded-md border bg-popover shadow-lg"
+                    className="absolute z-50 mt-2 w-full rounded-md border glass-themed shadow-lg"
                 >
                     <div className="max-h-96 overflow-y-auto p-2">
                         {/* Product suggestions */}
@@ -186,7 +196,7 @@ export function SearchAutocomplete({
                                         role="option"
                                         aria-selected={highlightedIndex === index}
                                         onClick={() => {
-                                            onSelectProduct?.(product.id);
+                                            onSelectProduct?.(getProductUrl(product));
                                             setIsOpen(false);
                                         }}
                                         className={cn(

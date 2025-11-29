@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuChe
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import AddProductForm from '@/app/dashboard/products/add/add-product-form';
 import { GoogleSheetImportDialog } from '@/components/products/google-sheet-import-dialog';
+import { CSVBulkImportDialog } from '@/components/products/csv-bulk-import-dialog';
 
 
 const GoogleSheetIcon = () => (
@@ -58,6 +59,7 @@ function ProductsPageContent() {
     const { merchant } = useMerchant();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isGoogleSheetImportOpen, setIsGoogleSheetImportOpen] = useState(false);
+    const [isCSVBulkImportOpen, setIsCSVBulkImportOpen] = useState(false);
     const { toast } = useToast();
 
     const handleProductSaved = async (product: Product) => {
@@ -163,6 +165,10 @@ function ProductsPageContent() {
         setIsGoogleSheetImportOpen(true);
     };
 
+    const handleCSVBulkImport = () => {
+        setIsCSVBulkImportOpen(true);
+    };
+
     const formatCurrency = (amount: number) => {
         const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
         const locale = country ? `en-${country.code}` : 'en-US';
@@ -224,11 +230,25 @@ function ProductsPageContent() {
                 onImport={(data) => startAiProcessing(data, 'Google Sheet Import', 'csv')}
             />
 
+            <CSVBulkImportDialog
+                open={isCSVBulkImportOpen}
+                onOpenChange={setIsCSVBulkImportOpen}
+                onImportComplete={() => window.location.reload()}
+            />
+
             <div className="flex flex-col h-full">
                 <div className="flex flex-col gap-4 mb-4">
                     <div className="flex items-center justify-between">
-                        <h1 className="text-2xl font-bold">Products 🛍️</h1>
+                        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+                            Products 🛍️
+                        </h1>
                         <div className="flex items-center gap-2">
+                            <Button size="sm" variant="outline" className="h-9 gap-1" onClick={handleCSVBulkImport}>
+                                <Send className="h-3.5 w-3.5" />
+                                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                                    Bulk CSV Import
+                                </span>
+                            </Button>
                             <Button size="sm" variant="outline" className="h-9 gap-1" onClick={() => setWorkflowStep('upload')}>
                                 <File className="h-3.5 w-3.5" />
                                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
@@ -306,7 +326,7 @@ function ProductsPageContent() {
                                     rows={1}
                                 />
                                 <Button type="submit" size="icon" className="absolute right-2 top-1.5 h-8 w-8" disabled={isLoading || !searchTerm.trim()}>
-                                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                    {isLoading ? <Loader2 className="h-4 w-4 motion-safe:animate-spin" /> : <Send className="h-4 w-4" />}
                                     <span className="sr-only">Submit</span>
                                 </Button>
                             </div>

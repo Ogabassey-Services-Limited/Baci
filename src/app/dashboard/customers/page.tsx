@@ -145,13 +145,15 @@ export default function CustomersPage() {
     };
 
     if (authLoading) {
-        return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+        return <div className="flex justify-center items-center h-full"><Loader2 className="h-8 w-8 motion-safe:animate-spin" /></div>;
     }
 
     return (
         <div className="flex flex-col gap-4 h-full">
             <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">Customers</h1>
+                <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+                    Customers 👥
+                </h1>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="sm" className="border-primary text-primary hover:bg-primary/10">
                         <Download className="mr-2 h-4 w-4" />
@@ -245,7 +247,7 @@ export default function CustomersPage() {
                 </div>
             </div>
 
-            <div className="border border-primary/20 rounded-md bg-white">
+            <div className="glass border border-primary/20 rounded-md">
                 <Table>
                     <TableHeader>
                         <TableRow>
@@ -263,7 +265,7 @@ export default function CustomersPage() {
                         {loading ? (
                             <TableRow>
                                 <TableCell colSpan={8} className="h-24 text-center">
-                                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                                    <Loader2 className="h-6 w-6 motion-safe:animate-spin mx-auto" />
                                 </TableCell>
                             </TableRow>
                         ) : customers.length === 0 ? (

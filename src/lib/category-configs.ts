@@ -20,6 +20,20 @@ export interface CategoryFulfillmentIdentifier {
     description?: string;
 }
 
+/** Journey configuration for product creation experience */
+export interface CategoryJourney {
+    onboarding?: {
+        logoStyle?: string;
+        colorScheme?: string;
+        additionalSteps?: string[];
+    };
+    productCreation?: {
+        requiredFields?: string[];
+        aiDescriptionStyle?: string;
+        imageRequirements?: string;
+    };
+}
+
 export interface CategoryConfig {
     displayName: string;
     description: string;
@@ -28,6 +42,8 @@ export interface CategoryConfig {
     fulfillmentIdentifiers?: CategoryFulfillmentIdentifier[];
     exampleProducts?: string[];
     productCategories?: string[]; // Predefined product categories for this business type
+    /** Journey configuration for this category type */
+    journey?: CategoryJourney;
 }
 
 export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {

@@ -1,21 +1,27 @@
 
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
 import { Providers } from '@/contexts/providers';
+import { CsrfInitializer } from '@/components/csrf-initializer';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap', // Prevents FOIT (Flash of Invisible Text)
+  preload: true, // Preloads font for faster initial render
+});
 
 const VENDOR_NAME = 'Baci';
-const VENDOR_LEGAL_NAME = 'Baci AI E-commerce';
 const VENDOR_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
 
 
 export const metadata: Metadata = {
   title: {
-    default: `${VENDOR_NAME} - AI E-commerce Builder`,
+    default: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
     template: `%s | ${VENDOR_NAME}`,
   },
   description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
@@ -34,7 +40,7 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: `${VENDOR_NAME} - AI E-commerce Builder`,
+    title: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
     description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
     url: VENDOR_URL,
     siteName: VENDOR_NAME,
@@ -43,7 +49,7 @@ export const metadata: Metadata = {
         url: `${VENDOR_URL}/og-image.png`, // Ensure this image exists or use a placeholder
         width: 1200,
         height: 630,
-        alt: `${VENDOR_NAME} - AI E-commerce Builder`,
+        alt: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
       },
     ],
     locale: 'en_US',
@@ -51,7 +57,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${VENDOR_NAME} - AI E-commerce Builder`,
+    title: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
     description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
     creator: `@${VENDOR_NAME}`, // Update if you have a specific handle
     images: [`${VENDOR_URL}/og-image.png`],
@@ -78,68 +84,79 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-import { CsrfInitializer } from '@/components/csrf-initializer';
+import { generateSoftwareApplicationSchema, generateOrganizationSchema, generateWebSiteSchema, type OrganizationData } from '@/lib/seo-utils';
+import { PLATFORM_PRICING } from '@/config/platform';
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Get nonce from middleware (will be null for storefront routes)
+  const headersList = await headers();
+  const nonce = headersList.get('x-nonce') || undefined;
+  // const nonce = undefined;
 
-  const organizationSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name: VENDOR_NAME,
-    legalName: VENDOR_LEGAL_NAME,
-    url: VENDOR_URL,
-    logo: `${VENDOR_URL}/logo.svg`, // Assuming you have a logo file
-    sameAs: [
-      // Add links to your social media profiles here
-      // e.g., "https://twitter.com/your-brand"
-    ],
-  };
-
-  const websiteSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'WebSite',
+  // Build organization data for schema generator
+  const organizationData: OrganizationData = {
     name: VENDOR_NAME,
     url: VENDOR_URL,
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: `${VENDOR_URL}/search?q={search_term_string}`,
-      'query-input': 'required name=search_term_string',
+    logo: `${VENDOR_URL}/logo.svg`,
+    description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
+    socialMedia: {
+      twitter: 'https://twitter.com/usebaci',
+      linkedin: 'https://linkedin.com/company/usebaci',
+      instagram: 'https://instagram.com/usebaci',
     },
   };
 
-  const softwareApplicationSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    name: VENDOR_NAME,
-    applicationCategory: 'BusinessApplication',
-    operatingSystem: 'Web',
-    offers: {
-      '@type': 'Offer',
-      price: '0',
-      priceCurrency: 'USD',
-    },
-    description: 'AI-powered e-commerce platform for building online stores.',
-  };
+  const organizationSchema = generateOrganizationSchema(organizationData);
+
+  // Use the SEO utility for consistent WebSite schema generation
+  const websiteSchema = generateWebSiteSchema(
+    VENDOR_NAME,
+    VENDOR_URL,
+    `${VENDOR_URL}/search?q={search_term_string}`
+  );
+
+  const softwareApplicationSchema = generateSoftwareApplicationSchema(PLATFORM_PRICING);
 
 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <meta httpEquiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://vercel.live https://assets.vercel.com https://va.vercel-scripts.com; object-src 'none'; base-uri 'self';" />
+        {/*
+          Font loading is handled automatically by next/font/google (Inter).
+          No manual preconnect/preload needed - Next.js optimizes this.
+        */}
+
+        {/* Preconnect hints for critical third-party origins */}
+        {/* Supabase - database and auth */}
+        <link rel="preconnect" href="https://dtbqucrqfbycfpmfwtie.supabase.co" />
+        <link rel="dns-prefetch" href="https://dtbqucrqfbycfpmfwtie.supabase.co" />
+        {/* Vercel Analytics */}
+        <link rel="preconnect" href="https://vitals.vercel-insights.com" />
+        {/* Common image CDNs */}
+        <link rel="dns-prefetch" href="https://images.unsplash.com" />
+        <link rel="dns-prefetch" href="https://res.cloudinary.com" />
+
+        {/* Schema.org JSON-LD - Safe: These are statically generated schema objects, not user input */}
+        {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
         />
+        {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
+        {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
         <script
           type="application/ld+json"
+          nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
         />
       </head>

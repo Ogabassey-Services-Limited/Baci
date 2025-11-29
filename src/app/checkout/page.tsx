@@ -19,10 +19,14 @@ import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
-import { getCountryByCode } from '@/lib/countries';
+import { useCurrency } from '@/hooks/use-currency';
 import { apiPost } from '@/lib/api-client';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { isValidPhoneNumber, type Country as CountryCode } from 'react-phone-number-input';
+import { getCountryByCode } from '@/lib/countries';
+import { trackEvent } from '@/lib/event-tracking';
+import { trackServerSidePurchase, trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
+import { trackPlatformPurchase } from '@/components/analytics/platform-analytics-provider';
 
 const DEFAULT_SHIPPING_FEE = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00');
 
@@ -42,8 +46,19 @@ const authSchema = z.object({
   email: z.string().email({ error: 'Please enter a valid email address.' }),
   password: z.string().min(8, { error: 'Password must be at least 8 characters.' }),
 }).superRefine(async (data, ctx) => {
-  // Check for breached passwords during signup
   if (data.password && data.password.length >= 8) {
+    // Check for common passwords first (instant, no network)
+    const { isCommonPassword } = await import('@/lib/utils');
+    if (isCommonPassword(data.password)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['password'],
+        message: 'This password is too common. Please choose a more unique password.'
+      });
+      return;
+    }
+
+    // Check for breached passwords during signup
     try {
       const { checkPasswordBreach } = await import('@/lib/password-breach');
       const { isBreached } = await checkPasswordBreach(data.password);
@@ -148,7 +163,7 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
             )}
           />
           <ThemedButton type="submit" colorRole="primary" className="w-full" disabled={isLoading}>
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
             {isLogin ? 'Sign In' : 'Sign Up'}
           </ThemedButton>
         </form>
@@ -166,6 +181,8 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
 function Step1_Shipping() {
   const { control, setValue } = useFormContext<ShippingFormValues>();
   const { merchant } = useMerchant();
+
+  // const currencyCode = merchant?.country ? getCountryByCode(merchant.country)?.currencyCode || 'NGN' : 'NGN';
 
   const country = merchant?.country ? getCountryByCode(merchant.country) : null;
 
@@ -273,19 +290,7 @@ function Step1_Shipping() {
 }
 
 function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
-  const { merchant } = useMerchant();
-
-  const formatCurrency = (value: number) => {
-    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
-    const locale = country ? `en-${country.code}` : 'en-US';
-    const currency = country ? country.currency : 'USD';
-
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currency,
-      currencyDisplay: 'symbol',
-    }).format(value);
-  };
+  const { formatCurrency } = useCurrency();
 
   return (
     <div className="space-y-4">
@@ -300,7 +305,7 @@ function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
             </div>
           </div>
           {shippingFee === null ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Loader2 className="h-5 w-5 motion-safe:animate-spin" />
           ) : (
             <p className="font-semibold">{formatCurrency(shippingFee)}</p>
           )}
@@ -330,6 +335,7 @@ function CheckoutPageContent() {
   const { toast } = useToast();
   const { clearCart, cart, cartCount, cartTotal } = useCart();
   const { merchant } = useMerchant();
+  const { currencyCode } = useCurrency();
   const [step, setStep] = useState(0); // 0: Auth, 1: Shipping, 2: Payment
   const [pageLoading, setPageLoading] = useState(true);
   const [formIsLoading, setFormIsLoading] = useState(false);
@@ -441,6 +447,33 @@ function CheckoutPageContent() {
   const handleNext = async () => {
     const isValid = await shippingForm.trigger();
     if (isValid && step < totalSteps) {
+      // Track begin_checkout when moving to payment step
+      if (step === 1 && merchant?.id) {
+        // Client-side tracking
+        trackEvent.beginCheckout(
+          merchant.id,
+          cart.map(item => ({ product: item, quantity: item.quantity })),
+          'NGN' // Default currency for Nigeria
+        );
+
+        // Server-side tracking for GA4, Facebook, TikTok, Snapchat
+        trackServerSideBeginCheckout(
+          merchant.id,
+          cartTotal,
+          'NGN',
+          cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            category: item.category,
+          })),
+          undefined,
+          { eventSourceUrl: window.location.href }
+        ).catch(err => {
+          console.warn('Server-side analytics error:', err);
+        });
+      }
       setStep(step + 1);
     }
   };
@@ -518,6 +551,55 @@ function CheckoutPageContent() {
       };
       sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
 
+      // Track purchase event for merchant analytics (client-side + internal)
+      if (merchant?.id) {
+        trackEvent.purchase(
+          merchant.id,
+          order.order_number as string,
+          cart.map(item => ({ product: item, quantity: item.quantity })),
+          order.total as number,
+          'NGN', // Default currency for Nigeria
+          finalShippingFee,
+          0 // No tax in this system
+        );
+
+        // Server-side tracking for GA4, Facebook, TikTok, Snapchat
+        // This bypasses ad blockers and provides more accurate attribution
+        trackServerSidePurchase(
+          merchant.id,
+          order.order_number as string,
+          order.total as number,
+          'NGN',
+          cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            category: item.category,
+          })),
+          {
+            email: data.email,
+            phone: data.phone,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            city: data.city,
+            state: data.state,
+          },
+          { eventSourceUrl: window.location.href }
+        ).catch(err => {
+          // Don't block checkout on analytics errors
+          console.warn('Server-side analytics error:', err);
+        });
+
+        // Track platform-level purchase (for platform owner's analytics)
+        trackPlatformPurchase(
+          merchant.id,
+          order.total as number,
+          currencyCode,
+          order.order_number as string
+        );
+      }
+
       toast({
         title: 'Payment Successful!',
         description: `Order ${order.order_number} has been placed.`,
@@ -544,53 +626,69 @@ function CheckoutPageContent() {
   };
 
   return (
-    <div className="container mx-auto max-w-4xl py-12 px-4">
-      <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8">
-        <ArrowLeft className="w-4 h-4" />
-        Back to Store
-      </Link>
+    <>
+      {/* Skip link for keyboard navigation */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        Skip to main content
+      </a>
+      <main
+        id="main-content"
+        className="container mx-auto max-w-4xl py-12 px-4"
+        style={{
+          paddingLeft: 'max(1rem, env(safe-area-inset-left))',
+          paddingRight: 'max(1rem, env(safe-area-inset-right))',
+        }}
+      >
+        <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8">
+          <ArrowLeft className="w-4 h-4" />
+          Back to Store
+        </Link>
 
-      <div className="grid md:grid-cols-[1fr_350px] gap-12 items-start">
-        <Card>
-          <CardContent className="p-8">
-            <h2 className="text-2xl font-bold mb-6">
-              {getStepTitle()}
-            </h2>
+        <div className="grid md:grid-cols-[1fr_350px] gap-12 items-start">
+          <Card className="glass">
+            <CardContent className="p-8">
+              <h2 className="text-2xl font-bold mb-6">
+                {getStepTitle()}
+              </h2>
 
-            {step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
+              {step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
 
-            {step === 1 && (
-              <FormProvider {...shippingForm}>
+              {step === 1 && (
+                <FormProvider {...shippingForm}>
+                  <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
+                    <Step1_Shipping />
+                    <div className="flex justify-end pt-4">
+                      <ThemedButton type="button" colorRole="primary" onClick={handleNext}>
+                        Continue to Payment
+                      </ThemedButton>
+                    </div>
+                  </form>
+                </FormProvider>
+              )}
+
+              {step === 2 && (
                 <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
-                  <Step1_Shipping />
-                  <div className="flex justify-end pt-4">
-                    <ThemedButton type="button" colorRole="primary" onClick={handleNext}>
-                      Continue to Payment
+                  <Step2_Payment shippingFee={shippingFee} />
+                  <div className="flex justify-between pt-4">
+                    <Button type="button" variant="outline" onClick={handlePrev}>
+                      Previous
+                    </Button>
+                    <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading || shippingFee === null}>
+                      {(formIsLoading || shippingFee === null) && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />}
+                      Place Order
                     </ThemedButton>
                   </div>
                 </form>
-              </FormProvider>
-            )}
-
-            {step === 2 && (
-              <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
-                <Step2_Payment shippingFee={shippingFee} />
-                <div className="flex justify-between pt-4">
-                  <Button type="button" variant="outline" onClick={handlePrev}>
-                    Previous
-                  </Button>
-                  <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading || shippingFee === null}>
-                    {(formIsLoading || shippingFee === null) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Place Order
-                  </ThemedButton>
-                </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-        <OrderSummary />
-      </div>
-    </div>
+              )}
+            </CardContent>
+          </Card>
+          <OrderSummary />
+        </div>
+      </main>
+    </>
   );
 }
 

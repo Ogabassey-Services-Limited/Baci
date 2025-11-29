@@ -1,112 +1,127 @@
+import type { NextConfig } from "next";
+import bundleAnalyzer from '@next/bundle-analyzer';
 
-import type {NextConfig} from 'next';
-import dotenv from 'dotenv';
-
-dotenv.config({ path: '.env.local' });
-
-// Security headers configuration
-const securityHeaders = [
-  {
-    key: 'X-DNS-Prefetch-Control',
-    value: 'on',
-  },
-  {
-    key: 'Strict-Transport-Security',
-    value: 'max-age=31536000; includeSubDomains',
-  },
-  {
-    key: 'X-Frame-Options',
-    value: 'SAMEORIGIN',
-  },
-  {
-    key: 'X-Content-Type-Options',
-    value: 'nosniff',
-  },
-  {
-    key: 'X-XSS-Protection',
-    value: '1; mode=block',
-  },
-  {
-    key: 'Referrer-Policy',
-    value: 'strict-origin-when-cross-origin',
-  },
-  {
-    key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
-  },
-  {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https: http:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live",
-      "frame-src 'self' https://checkout.korapay.com",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-      "frame-ancestors 'self'",
-    ].join('; '),
-  },
-];
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+  openAnalyzer: false,
+});
 
 const nextConfig: NextConfig = {
-  typescript: {
-    // TypeScript errors are now fixed - enforcing strict type checking
-    ignoreBuildErrors: false,
-  },
-  reactStrictMode: true, // Enabled for better development experience and catching issues
+  // Enable React Compiler for automatic memoization (Next.js 16 stable)
+  // Reduces unnecessary re-renders without manual useMemo/useCallback
+  reactCompiler: true,
+
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
+        hostname: 'api.dicebear.com',
       },
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
       },
       {
+        protocol: 'https',
+        hostname: 'plus.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'loremflickr.com',
+      },
+      {
+        // Placeholder images for development/previews
         protocol: 'https',
         hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: 'drive.google.com',
-        port: '',
-        pathname: '/**',
+        hostname: 'avatars.githubusercontent.com',
       },
       {
         protocol: 'https',
-        hostname: 'www.gstatic.com',
-        port: '',
-        pathname: '/**',
+        hostname: 'cloudflare-ipfs.com',
       },
       {
         protocol: 'https',
-        hostname: 'aivqthbxdshhltbwipbr.supabase.co',
-        port: '',
-        pathname: '/storage/v1/object/public/**',
+        hostname: 'd1csarkz8obe9u.cloudfront.net',
       },
+      {
+        protocol: 'https',
+        hostname: 'ogabassey.com',
+      },
+      {
+        // Supabase storage for merchant images
+        protocol: 'https',
+        hostname: '*.supabase.co',
+      }
     ],
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    // Optimize image formats - AVIF is 20% smaller than WebP
+    formats: ['image/avif', 'image/webp'],
+    // Cache optimized images (Next.js 16 default is 4 hours / 14400s)
+    minimumCacheTTL: 60 * 60 * 24 * 365,
   },
+
+  experimental: {
+    // Enable optimized CSS bundling
+    optimizeCss: false,
+
+    // Server Actions configuration
+    serverActions: {
+      bodySizeLimit: '2mb',
+    },
+
+    // Enable View Transitions API (React 19.2 feature)
+    viewTransition: true,
+
+    // Note: 'use cache' directive (cacheComponents) is not enabled because it's
+    // incompatible with existing route segment configs (revalidate, dynamic).
+    // Using unstable_cache from next/cache for granular caching instead.
+    // Enable cacheComponents once all routes are migrated.
+    // cacheComponents: true,
+
+    // Bundle optimization - tree-shake large libraries
+    optimizePackageImports: [
+      'lucide-react',
+      'recharts',
+      'date-fns',
+      'framer-motion',
+      '@radix-ui/react-icons',
+      'lodash-es',
+      '@supabase/supabase-js',
+    ],
+
+    // Enable Turbopack file system caching for faster dev rebuilds (Next.js 16 beta)
+    turbopackFileSystemCacheForDev: true,
+  },
+
+  // Enable typed routes for compile-time validation of Link hrefs
+  typedRoutes: true,
+
+  // Security headers
   async headers() {
     return [
       {
-        // Apply security headers to all routes
         source: '/(.*)',
-        headers: securityHeaders,
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+        ],
       },
     ];
   },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

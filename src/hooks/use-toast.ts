@@ -172,6 +172,88 @@ function toast({ ...props }: Toast) {
   }
 }
 
+/**
+ * Promise-based toast for async operations
+ * Shows loading state, then success or error
+ *
+ * @example
+ * await toast.promise(addToCart(product), {
+ *   loading: 'Adding to cart...',
+ *   success: 'Added to cart!',
+ *   error: 'Failed to add to cart'
+ * })
+ */
+interface PromiseToastMessages {
+  loading: string
+  success: string | ((data: unknown) => string)
+  error: string | ((error: unknown) => string)
+}
+
+async function toastPromise<T>(
+  promise: Promise<T>,
+  messages: PromiseToastMessages
+): Promise<T> {
+  const id = genId()
+
+  // Show loading toast
+  dispatch({
+    type: "ADD_TOAST",
+    toast: {
+      id,
+      title: messages.loading,
+      open: true,
+      onOpenChange: (open) => {
+        if (!open) dispatch({ type: "DISMISS_TOAST", toastId: id })
+      },
+    },
+  })
+
+  try {
+    const result = await promise
+
+    // Update to success
+    dispatch({
+      type: "UPDATE_TOAST",
+      toast: {
+        id,
+        title: typeof messages.success === 'function'
+          ? messages.success(result)
+          : messages.success,
+        variant: 'default',
+      },
+    })
+
+    // Auto dismiss after delay
+    setTimeout(() => {
+      dispatch({ type: "DISMISS_TOAST", toastId: id })
+    }, 2000)
+
+    return result
+  } catch (error) {
+    // Update to error
+    dispatch({
+      type: "UPDATE_TOAST",
+      toast: {
+        id,
+        title: typeof messages.error === 'function'
+          ? messages.error(error)
+          : messages.error,
+        variant: 'destructive',
+      },
+    })
+
+    // Auto dismiss after longer delay for errors
+    setTimeout(() => {
+      dispatch({ type: "DISMISS_TOAST", toastId: id })
+    }, 4000)
+
+    throw error
+  }
+}
+
+// Attach promise method to toast function
+toast.promise = toastPromise
+
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState)
 

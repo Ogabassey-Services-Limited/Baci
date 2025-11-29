@@ -7,7 +7,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { sanitizeSearchQuery, sanitizeLikePattern, isValidUuid } from '@/lib/sanitize';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
-import { sendEmail } from '@/lib/brevo';
+import { sendEmail } from '@/lib/zeptomail';
 import { generateOrderConfirmationEmail, generateOrderConfirmationText } from '@/lib/email-templates';
 
 // GIGL-specific shipment creation logic is now in its own function
@@ -399,6 +399,7 @@ export async function POST(request: NextRequest) {
           htmlContent,
           textContent,
           replyTo: `support@${merchantDetails.slug}.${rootDomain}`,
+          emailType: 'orders',
         }).catch((emailError) => {
           logger.error({ message: 'Failed to send order confirmation email', error: emailError });
         });

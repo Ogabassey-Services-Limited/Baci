@@ -8,6 +8,8 @@ import Image from 'next/image';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getBusinessTypeById } from '@/config/business-types';
 import { type Product } from '@/lib/products';
+import { getProductUrl } from '@/lib/seo-utils';
+import { dynamicRoutes } from '@/lib/routes';
 import { Loader2, ShoppingBag, Search, Plus, Minus, ChevronDown } from 'lucide-react';
 import { CardContent } from '@/components/ui/card';
 import { getCountryByCode } from '@/lib/countries';
@@ -344,7 +346,7 @@ function StorefrontContent() {
 
                     return (
                       <ThemedCard key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col" accentPosition="top">
-                        <Link href={`/product/${product.id}`} className="block">
+                        <Link href={getProductUrl(product)} className="block">
                           <Image
                             src={product.imageLarge}
                             alt={product.name}
@@ -412,7 +414,7 @@ function StorefrontContent() {
                   <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
                   <nav className="grid grid-cols-2 gap-2">
                     {availableFooterLinks.map((link) => (
-                      <ThemedLink key={link.key} className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100" href={`/pages/${link.key}`}>
+                      <ThemedLink key={link.key} className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100" href={dynamicRoutes.page(link.key)}>
                         {link.label}
                       </ThemedLink>
                     ))}

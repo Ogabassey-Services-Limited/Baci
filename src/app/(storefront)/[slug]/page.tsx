@@ -1,22 +1,35 @@
-'use server';
-
 import { Metadata } from 'next';
-import { createClient } from '@/lib/supabase/server';
-import { cookies, headers } from 'next/headers';
+import { Suspense } from 'react';
+import { headers } from 'next/headers';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { StorefrontWrapper } from './storefront-wrapper';
-import { escapeHtml } from '@/lib/sanitize';
+import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
+import { getCachedMerchant } from '@/lib/cached-data';
+import { generateLocalBusinessSchema, generateWebSiteSchema, type LocalBusinessData } from '@/lib/seo-utils';
+
+// Valid slug pattern: alphanumeric and hyphens, no file extensions
+const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+
+function isValidMerchantSlug(slug: string): boolean {
+    return typeof slug === 'string' &&
+        !!slug.trim() &&
+        !slug.includes('.') && // No file extensions
+        VALID_SLUG_REGEX.test(slug.toLowerCase());
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
     const { slug } = await params;
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
 
-    const { data: merchant } = await supabase
-        .from('merchants')
-        .select('business_name, site_title, site_tagline, site_description, business_type')
-        .eq('slug', slug)
-        .single();
+    // Skip database query for invalid slugs (like static asset requests)
+    if (!isValidMerchantSlug(slug)) {
+        return {
+            title: 'Not Found',
+            description: 'The page you are looking for does not exist.',
+        };
+    }
+
+    // Use cached merchant data for better performance
+    const merchant = await getCachedMerchant(slug);
 
     if (!merchant) {
         return {
@@ -33,7 +46,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
     const baseUrl = `${protocol}://${host}`;
 
-
+    const socialMedia = merchant.social_media as Record<string, string> | null;
 
     return {
         title: title,
@@ -46,6 +59,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
             description: description,
             url: baseUrl,
             type: 'website',
+            siteName: merchant.business_name,
+            ...(merchant.logo_url && { images: [{ url: merchant.logo_url, alt: `${merchant.business_name} logo` }] }),
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: title,
+            description: description,
+            ...(merchant.logo_url && { images: [merchant.logo_url] }),
+            ...(socialMedia?.twitter && {
+                site: socialMedia.twitter.startsWith('@') ? socialMedia.twitter : `@${socialMedia.twitter}`,
+            }),
         },
     };
 }
@@ -53,7 +77,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function StorefrontPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
 
-    if (typeof slug !== 'string' || !slug.trim()) {
+    // Validate slug format to prevent database queries for static assets
+    if (!isValidMerchantSlug(slug)) {
         return (
             <div className="flex h-screen w-full items-center justify-center">
                 <p>Invalid store URL.</p>
@@ -61,16 +86,11 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
         );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Use cached merchant data for better performance
+    const merchant = await getCachedMerchant(slug);
 
-    const { data: merchant } = await supabase
-        .from('merchants')
-        .select('business_name, site_title, site_tagline, site_description, business_type')
-        .eq('slug', slug)
-        .single();
-
-    let jsonLd = null;
+    let localBusinessSchema = null;
+    let webSiteSchema = null;
 
     if (merchant) {
         const headersList = await headers();
@@ -78,47 +98,60 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
         const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
         const baseUrl = `${protocol}://${host}`;
         const description = merchant.site_description || merchant.site_tagline || `Welcome to ${merchant.business_name}`;
+        const socialMedia = merchant.social_media as Record<string, string> | null;
 
-        // Map business_type to Schema.org type
-        const getSchemaType = (type: string | null) => {
-            switch (type) {
-                case 'fashion': return 'ClothingStore';
-                case 'electronics': return 'ElectronicsStore';
-                case 'home-goods': return 'HomeGoodsStore';
-                case 'health-beauty': return 'HealthAndBeautyBusiness';
-                case 'food-beverage': return 'GroceryStore';
-                case 'restaurant': return 'Restaurant';
-                default: return 'Store';
-            }
+        // Build social media URLs
+        const socialMediaUrls: Record<string, string> = {};
+        if (socialMedia) {
+            if (socialMedia.facebook) socialMediaUrls.facebook = `https://facebook.com/${encodeURIComponent(socialMedia.facebook)}`;
+            if (socialMedia.instagram) socialMediaUrls.instagram = `https://instagram.com/${encodeURIComponent(socialMedia.instagram.replace('@', ''))}`;
+            if (socialMedia.twitter) socialMediaUrls.twitter = `https://twitter.com/${encodeURIComponent(socialMedia.twitter.replace('@', ''))}`;
+            if (socialMedia.tiktok) socialMediaUrls.tiktok = `https://tiktok.com/@${encodeURIComponent(socialMedia.tiktok.replace('@', ''))}`;
+            if (socialMedia.youtube) socialMediaUrls.youtube = `https://youtube.com/${encodeURIComponent(socialMedia.youtube)}`;
+            if (socialMedia.linkedin) socialMediaUrls.linkedin = `https://linkedin.com/company/${encodeURIComponent(socialMedia.linkedin)}`;
+        }
+
+        // Build LocalBusiness schema data
+        const businessData: LocalBusinessData = {
+            name: merchant.business_name,
+            description,
+            url: baseUrl,
+            logo: merchant.logo_url || undefined,
+            telephone: merchant.phone || undefined,
+            socialMedia: Object.keys(socialMediaUrls).length > 0 ? socialMediaUrls : undefined,
         };
 
-        const schemaType = getSchemaType(merchant.business_type);
+        localBusinessSchema = generateLocalBusinessSchema(businessData);
 
-        // Sanitize all user-controlled values for JSON-LD to prevent XSS
-        jsonLd = {
-            '@context': 'https://schema.org',
-            '@type': schemaType,
-            name: escapeHtml(merchant.business_name),
-            description: escapeHtml(description),
-            url: escapeHtml(baseUrl),
-            potentialAction: {
-                '@type': 'SearchAction',
-                target: escapeHtml(`${baseUrl}/products?q={search_term_string}`),
-                'query-input': 'required name=search_term_string',
-            },
-        };
+        // Generate WebSite schema with search action
+        webSiteSchema = generateWebSiteSchema(
+            merchant.business_name,
+            baseUrl,
+            `${baseUrl}/products?q={search_term_string}`
+        );
     }
 
     return (
         <>
-            {jsonLd && (
+            {/* Schema.org JSON-LD - Safe: Generated from sanitized merchant data via generateLocalBusinessSchema */}
+            {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
+            {localBusinessSchema && (
                 <script
                     type="application/ld+json"
-                    dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
+                />
+            )}
+            {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
+            {webSiteSchema && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }}
                 />
             )}
             <MerchantProvider slug={slug}>
-                <StorefrontWrapper />
+                <Suspense fallback={<StorefrontPageSkeleton />}>
+                    <StorefrontWrapper />
+                </Suspense>
             </MerchantProvider>
         </>
     );

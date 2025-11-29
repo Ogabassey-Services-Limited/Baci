@@ -1,10 +1,9 @@
-
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { useEffect, useState, useTransition } from 'react';
+import { Sparkles, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AnalyticsCategory } from './analytics-category-nav';
 
 interface Insight {
@@ -21,26 +20,54 @@ interface AIInsightsPanelProps {
     activeCategory: AnalyticsCategory;
 }
 
+// Default placeholder insights shown while AI loads
+const placeholderInsights: Insight[] = [
+    {
+        title: 'Analyzing your data...',
+        description: 'AI is reviewing your sales patterns, customer behavior, and inventory trends.',
+        type: 'neutral',
+        priority: 'medium',
+    }
+];
+
 export function AIInsightsPanel({ className, activeCategory }: AIInsightsPanelProps) {
-    const [insights, setInsights] = useState<Insight[]>([]);
+    const [insights, setInsights] = useState<Insight[]>(placeholderInsights);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
     const [currentIndex, setCurrentIndex] = useState(0);
+    const [isPending, startTransition] = useTransition();
 
     useEffect(() => {
+        const controller = new AbortController();
+
         async function fetchInsights() {
             try {
-                const response = await fetch('/api/analytics/insights');
+                const response = await fetch('/api/analytics/insights', {
+                    signal: controller.signal,
+                    // Don't block on this request
+                    priority: 'low' as RequestPriority,
+                });
                 if (!response.ok) throw new Error('Failed to fetch insights');
                 const data = await response.json();
-                setInsights(data.insights || []);
+
+                // Use transition to avoid blocking UI
+                startTransition(() => {
+                    setInsights(data.insights || []);
+                    setError(false);
+                });
             } catch (err) {
-                console.error(err);
+                if ((err as Error).name !== 'AbortError') {
+                    console.error(err);
+                    setError(true);
+                }
             } finally {
                 setLoading(false);
             }
         }
 
         fetchInsights();
+
+        return () => controller.abort();
     }, []);
 
     // Filter insights based on active category
@@ -69,75 +96,104 @@ export function AIInsightsPanel({ className, activeCategory }: AIInsightsPanelPr
     }, [filteredInsights.length]);
 
     const currentInsight = filteredInsights[currentIndex];
+    const isAnalyzing = loading || isPending;
 
-    if (loading) {
-        return (
-            <div className={cn(
-                'min-h-[72px] h-auto rounded-xl bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border border-indigo-200/50 dark:border-indigo-800/50 backdrop-blur-sm animate-pulse',
-                className
-            )} />
-        );
-    }
-
-    if (!currentInsight) {
-        return (
-            <div className={cn(
-                'min-h-[72px] h-auto rounded-xl bg-gradient-to-r from-indigo-500/10 to-violet-500/10 border border-indigo-200/50 dark:border-indigo-800/50 backdrop-blur-sm flex items-center px-4',
-                className
-            )}>
-                <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <p className="text-sm text-muted-foreground">No insights available</p>
-                </div>
-            </div>
-        );
-    }
-
+    // Always render - show placeholder/skeleton state while loading
     return (
         <div
             className={cn(
-                'w-full min-h-[72px] h-auto rounded-xl border bg-card/50 backdrop-blur-sm flex items-center px-4 py-3 gap-3 relative overflow-hidden shadow-sm',
+                'w-full min-h-[72px] h-auto rounded-xl border bg-card/50 backdrop-blur-sm flex items-center px-4 py-3 gap-3 relative overflow-hidden shadow-sm transition-all',
+                isAnalyzing && 'bg-gradient-to-r from-indigo-500/5 to-violet-500/5',
+                error && 'border-destructive/30',
                 className
             )}
         >
             {/* Icon */}
-            <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-primary" />
+            <div className={cn(
+                "flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors",
+                isAnalyzing ? "bg-indigo-500/10" : "bg-primary/10"
+            )}>
+                {isAnalyzing ? (
+                    <RefreshCw className="h-5 w-5 text-indigo-500 animate-spin" />
+                ) : (
+                    <Sparkles className="h-5 w-5 text-primary" />
+                )}
             </div>
 
             {/* Content */}
             <div className="flex-1 min-w-0 relative flex flex-col justify-center">
-                <motion.div
-                    key={currentIndex}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.5 }}
-                >
-                    <h3 className="text-sm font-semibold text-foreground">
-                        {currentInsight.title}
-                    </h3>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                        {currentInsight.description}
-                    </p>
-                </motion.div>
+                <AnimatePresence mode="wait">
+                    {error ? (
+                        <motion.div
+                            key="error"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                        >
+                            <h3 className="text-sm font-semibold text-foreground">
+                                Insights unavailable
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                                We couldn't load AI insights right now. Your analytics data is still available below.
+                            </p>
+                        </motion.div>
+                    ) : currentInsight ? (
+                        <motion.div
+                            key={`insight-${currentIndex}`}
+                            initial={{ opacity: 0, y: 5 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -5 }}
+                            transition={{ duration: 0.3 }}
+                        >
+                            <h3 className={cn(
+                                "text-sm font-semibold text-foreground",
+                                isAnalyzing && "text-indigo-600 dark:text-indigo-400"
+                            )}>
+                                {currentInsight.title}
+                            </h3>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                                {currentInsight.description}
+                            </p>
+                        </motion.div>
+                    ) : (
+                        <motion.div
+                            key="no-insights"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                        >
+                            <h3 className="text-sm font-semibold text-foreground">
+                                No insights yet
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                                Keep selling to generate AI-powered insights about your business.
+                            </p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
-            {/* Indicator dots */}
-            {filteredInsights.length > 1 && (
+            {/* Indicator dots - only show when we have multiple real insights */}
+            {!isAnalyzing && !error && filteredInsights.length > 1 && (
                 <div className="flex gap-1">
                     {filteredInsights.map((_, idx) => (
-                        <div
+                        <button
                             key={idx}
+                            onClick={() => setCurrentIndex(idx)}
+                            aria-label={`View insight ${idx + 1}`}
                             className={cn(
-                                'w-1.5 h-1.5 rounded-full transition-all',
+                                'h-1.5 rounded-full transition-all hover:bg-primary/50',
                                 idx === currentIndex
                                     ? 'bg-primary w-4'
-                                    : 'bg-muted-foreground/30'
+                                    : 'bg-muted-foreground/30 w-1.5'
                             )}
                         />
                     ))}
                 </div>
+            )}
+
+            {/* Loading shimmer overlay */}
+            {isAnalyzing && (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer pointer-events-none" />
             )}
         </div>
     );

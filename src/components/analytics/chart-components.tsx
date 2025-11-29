@@ -45,7 +45,7 @@ const CustomTooltip = ({ active, payload, label, prefix = '' }: TooltipProps) =>
 
 export function RevenueChart({ data, className }: ChartProps) {
     return (
-        <ResponsiveContainer width="100%" height="100%" className={className}>
+        <ResponsiveContainer width="100%" height="100%" className={className} debounce={100}>
             <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
@@ -87,7 +87,7 @@ export function RevenueChart({ data, className }: ChartProps) {
 
 export function OrdersChart({ data, className }: ChartProps) {
     return (
-        <ResponsiveContainer width="100%" height="100%" className={className}>
+        <ResponsiveContainer width="100%" height="100%" className={className} debounce={100}>
             <BarChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
                 <XAxis
@@ -122,7 +122,7 @@ const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#10b981', '#f59e0b'];
 
 export function SalesByChannelChart({ data, className }: ChartProps) {
     return (
-        <ResponsiveContainer width="100%" height="100%" className={className}>
+        <ResponsiveContainer width="100%" height="100%" className={className} debounce={100}>
             <PieChart>
                 <Pie
                     data={data}

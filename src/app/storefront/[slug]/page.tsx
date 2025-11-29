@@ -17,7 +17,7 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
 
     return (
         <MerchantProvider slug={slug}>
-            <Storefront />
+            <Storefront slug={slug} />
         </MerchantProvider>
     );
 }

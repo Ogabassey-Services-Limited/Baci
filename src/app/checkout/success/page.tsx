@@ -41,7 +41,6 @@ function SuccessPageContent() {
     useEffect(() => {
         const orderData = sessionStorage.getItem('lastOrder');
         if (orderData) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setOrder(JSON.parse(orderData));
         }
     }, []);

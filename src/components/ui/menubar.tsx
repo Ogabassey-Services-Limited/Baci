@@ -58,7 +58,7 @@ const MenubarTrigger = React.forwardRef<
   <MenubarPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center rounded-sm px-3 py-1.5 text-sm font-medium outline-none focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
+      "flex cursor-default select-none items-center rounded-sm px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
       className
     )}
     {...props}
@@ -75,14 +75,14 @@ const MenubarSubTrigger = React.forwardRef<
   <MenubarPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
+      "flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
       inset && "pl-8",
       className
     )}
     {...props}
   >
     {children}
-    <ChevronRight className="ml-auto h-4 w-4" />
+    <ChevronRight className="ml-auto h-4 w-4" aria-hidden="true" />
   </MenubarPrimitive.SubTrigger>
 ))
 MenubarSubTrigger.displayName = MenubarPrimitive.SubTrigger.displayName
@@ -160,7 +160,7 @@ const MenubarCheckboxItem = React.forwardRef<
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <MenubarPrimitive.ItemIndicator>
-        <Check className="h-4 w-4" />
+        <Check className="h-4 w-4" aria-hidden="true" />
       </MenubarPrimitive.ItemIndicator>
     </span>
     {children}
@@ -182,7 +182,7 @@ const MenubarRadioItem = React.forwardRef<
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <MenubarPrimitive.ItemIndicator>
-        <Circle className="h-2 w-2 fill-current" />
+        <Circle className="h-2 w-2 fill-current" aria-hidden="true" />
       </MenubarPrimitive.ItemIndicator>
     </span>
     {children}

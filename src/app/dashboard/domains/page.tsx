@@ -197,7 +197,9 @@ export default function DomainsPage() {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Domains</h1>
+          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+            Domains 🌐
+          </h1>
           <p className="text-muted-foreground">Manage your store domains and custom URLs</p>
         </div>
         <Button onClick={() => setActiveTab('search')}>
@@ -225,13 +227,13 @@ export default function DomainsPage() {
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-4">
           {loading ? (
-            <Card>
+            <Card className="glass">
               <CardContent className="p-12 text-center text-muted-foreground">
                 Loading domains...
               </CardContent>
             </Card>
           ) : domains.length === 0 ? (
-            <Card>
+            <Card className="glass">
               <CardContent className="p-12 text-center space-y-4">
                 <Globe className="w-16 h-16 mx-auto text-muted-foreground" />
                 <div>
@@ -251,7 +253,7 @@ export default function DomainsPage() {
           ) : (
             <div className="space-y-4">
               {domains.map((domain) => (
-                <Card key={domain.id}>
+                <Card key={domain.id} className="glass">
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div>
@@ -310,7 +312,7 @@ export default function DomainsPage() {
                           >
                             {verifyingDomains.has(domain.domain) ? (
                               <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                <Loader2 className="w-4 h-4 mr-2 motion-safe:animate-spin" />
                                 Verifying...
                               </>
                             ) : (
@@ -341,7 +343,7 @@ export default function DomainsPage() {
 
         {/* Search Tab */}
         <TabsContent value="search">
-          <Card>
+          <Card className="glass">
             <CardHeader>
               <CardTitle>Search for a Domain</CardTitle>
               <CardDescription>
@@ -371,7 +373,7 @@ export default function DomainsPage() {
 
         {/* Custom Domain Tab */}
         <TabsContent value="custom">
-          <Card>
+          <Card className="glass">
             <CardHeader>
               <CardTitle>Add Your Own Domain</CardTitle>
               <CardDescription>
@@ -381,8 +383,9 @@ export default function DomainsPage() {
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium">Domain Name</label>
+                  <label htmlFor="custom-domain-input" className="text-sm font-medium">Domain Name</label>
                   <Input
+                    id="custom-domain-input"
                     placeholder="yourdomain.com"
                     className="mt-2"
                     value={customDomainInput}
@@ -426,7 +429,7 @@ export default function DomainsPage() {
                 <Button onClick={handleAddCustomDomain} disabled={addingDomain}>
                   {addingDomain ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      <Loader2 className="w-4 h-4 mr-2 motion-safe:animate-spin" />
                       Adding...
                     </>
                   ) : (

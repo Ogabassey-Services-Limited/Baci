@@ -17,9 +17,11 @@ This document describes our scalable theming system that allows each merchant to
   - **Accent**: A vibrant color for calls-to-action (CTAs) and highlights.
 
 ### 2. CSS Custom Properties (CSS Variables)
-- **Location**: Injected at the root of the app by `src/components/app-body.tsx`.
+- **Base Theme:** Defined in `/src/app/globals.css` using standard `shadcn/ui` variable names (e.g., `--primary`, `--secondary`).
+- **Dynamic Overrides:** The extracted brand colors are injected at the root of the app by `src/components/app-body.tsx` as `--store-*` variables.
 - **Variables**:
   ```css
+  /* Dynamically Injected Merchant-Specific Variables */
   --store-primary: #hexcolor;
   --store-secondary: #hexcolor;
   --store-accent: #hexcolor;
@@ -27,8 +29,8 @@ This document describes our scalable theming system that allows each merchant to
   --store-secondary-text: #FFFFFF;
   --store-accent-text: #000000;
   ```
-- **Scope**: Available to all child components, including those in portals (like Sheets and Dialogs).
-- **Fallbacks**: Default Baci brand colors are used if a merchant has not completed onboarding.
+- **Scope**: These variables are used by the `ThemedComponents` to apply the merchant's branding, overriding the base theme.
+- **Fallbacks**: Default Baci brand colors (from the base theme) are used if a merchant has not completed onboarding.
 
 ### 3. Themed Component System
 - **Location**: `/src/components/themed/`
@@ -65,6 +67,7 @@ This document describes our scalable theming system that allows each merchant to
 - [x] `ThemedBadge` - Status badges in brand colors.
 - [x] `ThemedLink` - Links in brand colors.
 - [x] `ThemedInput` - Form inputs with branded focus states.
+- [x] `ThemedSheet` - Side sheets with branded headers/footers.
 - [x] Centralized barrel file for easy imports (`@/components/themed`).
 - [x/ `CREATE_TEMPLATE_GUIDE.md` for developers.
 

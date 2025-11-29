@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { generateSlug, generateProductSchema, generateMetaDescription } from '@/lib/seo-utils';
+import { generateSlug, generateProductSlug, generateProductSchema, generateMetaDescription } from '@/lib/seo-utils';
 import { getCountryByCode } from '@/lib/countries';
 import { Product } from '@/lib/products';
 import { sanitizeSearchQuery, sanitizeLikePattern, sanitizeSchemaMarkup } from '@/lib/sanitize';
@@ -229,7 +229,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Prepare data for insertion
-        const slug = body.slug || generateSlug(body.name);
+        // Generate slug with condition if not 'new'
+        const slug = body.slug || generateProductSlug(body.name, body.condition, body.condition_detail);
         const sku = body.sku || generateSlug(body.name).toUpperCase().substring(0, 20); // Fallback SKU
 
         // Generate SEO data if missing

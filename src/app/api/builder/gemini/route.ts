@@ -1,9 +1,53 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import {
+    geminiPro,
+    checkRateLimit,
+    AI_RATE_LIMITS,
+    withRetry,
+    sanitizePromptInput,
+} from '@/ai/provider';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+// Puck configuration schema for structured output
+const PuckComponentSchema = z.object({
+    type: z.string(),
+    props: z.record(z.string(), z.any()),
+});
 
-// Enhanced system prompt for comprehensive website modifications
+const PuckThemeColorsSchema = z.object({
+    primary: z.string().optional(),
+    accent: z.string().optional(),
+    header: z.object({
+        background: z.string().optional(),
+        text: z.string().optional(),
+        iconColor: z.string().optional(),
+        cartIconColor: z.string().optional(),
+        searchBorder: z.string().optional(),
+        searchBackground: z.string().optional(),
+    }).optional(),
+    footer: z.object({
+        background: z.string().optional(),
+        text: z.string().optional(),
+        linkColor: z.string().optional(),
+        linkHoverColor: z.string().optional(),
+    }).optional(),
+}).passthrough();
+
+const PuckConfigSchema = z.object({
+    content: z.array(PuckComponentSchema),
+    root: z.object({
+        title: z.string().optional(),
+    }).passthrough(),
+    zones: z.record(z.string(), z.any()).optional(),
+    theme: z.object({
+        colors: PuckThemeColorsSchema.optional(),
+    }).passthrough().optional(),
+}).passthrough();
+
+// System prompt for the AI builder
 const SYSTEM_PROMPT = `You are an expert website builder AI assistant with deep knowledge of e-commerce storefronts, UX/UI design, and modern web technologies.
 
 Your role is to help merchants build and customize their online stores by modifying a Puck-based page builder configuration.
@@ -60,11 +104,6 @@ The configuration includes a powerful theme system that controls ALL visual styl
 - **Content updates**: Modify component props
 - **Layout changes**: Adjust component positioning and properties
 
-## Response Format:
-Return ONLY valid JSON matching the current configuration structure with your modifications applied.
-Include ALL existing fields unless explicitly told to remove them.
-Ensure all components have required props and proper types.
-
 ## Examples:
 - "make the site blue" → Update theme.colors.primary to blue, adjust related colors
 - "add a testimonials section" → Insert Testimonial component(s) in logical position
@@ -76,71 +115,102 @@ Remember: You're helping merchants create beautiful, functional storefronts. Be 
 
 export async function POST(req: Request) {
     try {
+        // Auth check
+        const cookieStore = await cookies();
+        const supabase = createClient(cookieStore);
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Rate limiting
+        const rateLimit = checkRateLimit(`builder:${user.id}`, AI_RATE_LIMITS.builder);
+        if (!rateLimit.allowed) {
+            return NextResponse.json(
+                {
+                    error: 'Rate limit exceeded',
+                    details: `Please wait ${Math.ceil(rateLimit.resetIn / 1000)} seconds before trying again.`,
+                },
+                {
+                    status: 429,
+                    headers: {
+                        'X-RateLimit-Remaining': '0',
+                        'X-RateLimit-Reset': String(Math.ceil(rateLimit.resetIn / 1000)),
+                    },
+                }
+            );
+        }
+
         const { prompt, currentConfig } = await req.json();
 
         if (!prompt) {
             return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
         }
 
-        const model = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash-exp',
-            generationConfig: {
-                temperature: 0.7,
-                topP: 0.95,
-                topK: 40,
-                maxOutputTokens: 8192,
-                responseMimeType: 'application/json',
-            },
-        });
+        // Sanitize the user prompt
+        const sanitizedPrompt = sanitizePromptInput(prompt, 1000).value;
 
-        const chat = model.startChat({
-            history: [
-                {
-                    role: 'user',
-                    parts: [{ text: SYSTEM_PROMPT }],
-                },
-                {
-                    role: 'model',
-                    parts: [{ text: 'I understand. I am a website builder AI assistant. I will help you modify your page builder configuration following all the guidelines. I will return only valid JSON with the requested modifications applied.' }],
-                },
-            ],
-        });
+        if (!sanitizedPrompt) {
+            return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
+        }
 
-        // Create the user message with context
-        const userMessage = `Current Configuration:
+        // Generate the updated config using Vercel AI SDK with retry logic
+        const result = await withRetry(async () => {
+            return await generateObject({
+                model: geminiPro,
+                schema: PuckConfigSchema,
+                system: SYSTEM_PROMPT,
+                prompt: `Current Configuration:
 \`\`\`json
 ${JSON.stringify(currentConfig, null, 2)}
 \`\`\`
 
-User Request: ${prompt}
+User Request: ${sanitizedPrompt}
 
-Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`;
+Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`,
+            });
+        });
 
-        const result = await chat.sendMessage(userMessage);
-        const response = result.response;
-        const text = response.text();
+        let updatedConfig = result.object;
 
-        // Parse the JSON response
-        let updatedConfig;
-        try {
-            // Try to extract JSON from code blocks if present
-            const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/) || text.match(/```\s*([\s\S]*?)\s*```/);
-            const jsonText = jsonMatch ? jsonMatch[1] : text;
-            updatedConfig = JSON.parse(jsonText);
-        } catch (_) {
-            console.error('Failed to parse AI response:', text);
-            throw new Error('AI returned invalid JSON');
+        // Deep merge theme if it exists
+        let mergedTheme = currentConfig.theme || {};
+        if (updatedConfig.theme) {
+            if (updatedConfig.theme.colors) {
+                const existingColors = mergedTheme.colors || {};
+                mergedTheme = {
+                    ...mergedTheme,
+                    colors: {
+                        ...existingColors,
+                        ...updatedConfig.theme.colors,
+                        header: {
+                            ...(existingColors.header || {}),
+                            ...(updatedConfig.theme.colors.header || {}),
+                        },
+                        footer: {
+                            ...(existingColors.footer || {}),
+                            ...(updatedConfig.theme.colors.footer || {}),
+                        },
+                    },
+                };
+            }
         }
 
         // Ensure all components have unique IDs
         if (updatedConfig.content && Array.isArray(updatedConfig.content)) {
-            updatedConfig.content = updatedConfig.content.map((component: Record<string, unknown>, index: number) => ({
+            const contentWithIds = updatedConfig.content.map((component, index) => ({
                 ...component,
                 props: {
-                    ...(component.props as Record<string, unknown>),
-                    id: (component.props as Record<string, unknown>)?.id || `${(component.type as string).toLowerCase()}-${Date.now()}-${index}`
+                    ...component.props,
+                    id: component.props?.id || `${component.type.toLowerCase()}-${Date.now()}-${index}`
                 }
             }));
+            updatedConfig = {
+                ...updatedConfig,
+                theme: mergedTheme,
+                content: contentWithIds,
+            };
         }
 
         // Validate the structure
@@ -156,16 +226,28 @@ Please return the complete updated configuration as valid JSON. Make intelligent
             updatedConfig.zones = currentConfig.zones || {};
         }
 
-        return NextResponse.json({ config: updatedConfig });
+        return NextResponse.json(
+            { config: updatedConfig },
+            {
+                headers: {
+                    'X-RateLimit-Remaining': String(rateLimit.remaining),
+                },
+            }
+        );
     } catch (error) {
+        // Log full error details server-side for debugging
         console.error('Gemini AI Builder Error:', error);
         console.error('Error details:', {
             message: error instanceof Error ? error.message : 'Unknown error',
             stack: error instanceof Error ? error.stack : undefined,
         });
-        return NextResponse.json({
-            error: 'Failed to process AI request',
-            details: error instanceof Error ? error.message : 'Unknown error'
-        }, { status: 500 });
+        // Return generic error message to client to avoid exposing internal details
+        return NextResponse.json(
+            {
+                error: 'Failed to process AI request',
+                details: 'An unexpected error occurred. Please try again later.'
+            },
+            { status: 500 }
+        );
     }
 }

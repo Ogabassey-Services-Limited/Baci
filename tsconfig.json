@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2022",
     "lib": [
       "dom",
       "dom.iterable",
@@ -17,6 +17,11 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "types": [
+      "vitest/globals",
+      "@testing-library/jest-dom",
+      "google.maps"
+    ],
     "plugins": [
       {
         "name": "next"

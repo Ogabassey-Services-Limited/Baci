@@ -33,6 +33,11 @@ export interface ProductSchemaMarkup {
     description?: string;
     image?: string[];
     brand?: { '@type': 'Brand'; name: string };
+    aggregateRating?: {
+        '@type': 'AggregateRating';
+        ratingValue: number;
+        reviewCount: number;
+    };
     offers?: {
         '@type': 'Offer';
         price: number;
@@ -110,6 +115,12 @@ export interface Product {
     // Classification
     condition?: 'new' | 'used';
     condition_detail?: string; // "Brand New", "Premium Used", etc.
+
+    // Additional attributes
+    material?: string;
+    size_attribute?: string;
+    specs?: string;
+    warranty?: string;
 
     // SEO
     meta_title?: string;

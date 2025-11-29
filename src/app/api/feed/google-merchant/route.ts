@@ -1,10 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { stripHtmlTags } from '@/lib/sanitize';
+import { CACHE_HEADERS } from '@/lib/cache-headers';
+import { unstable_cache } from 'next/cache';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Factory function that creates a cached fetcher for each merchant
+// This ensures each merchant gets their own cache entry
+function createCachedFeedDataFetcher(merchantIdentifier: string, isBySlug: boolean) {
+    return unstable_cache(
+        async () => {
+            const merchantQuery = supabase
+                .from('merchants')
+                .select('id, business_name, country, payout_currency, slug');
+
+            const { data: merchant, error: merchantError } = isBySlug
+                ? await merchantQuery.eq('slug', merchantIdentifier).single()
+                : await merchantQuery.eq('id', merchantIdentifier).single();
+
+            if (merchantError || !merchant) {
+                throw new Error('Merchant not found');
+            }
+
+            const { data: products, error: productsError } = await supabase
+                .from('products')
+                .select('*')
+                .eq('merchant_id', merchant.id)
+                .eq('status', 'active')
+                .order('created_at', { ascending: false });
+
+            if (productsError) {
+                throw new Error('Failed to fetch products');
+            }
+
+            return { merchant, products: products || [] };
+        },
+        ['google-merchant-feed', merchantIdentifier], // Include merchant identifier in cache key
+        {
+            revalidate: 3600, // Revalidate every 1 hour
+            tags: ['google-merchant-feed', 'products', `merchant-feed-${merchantIdentifier}`],
+        }
+    );
+}
 
 /**
  * Google Merchant Center Product Feed API
@@ -27,52 +67,33 @@ export async function GET(request: NextRequest) {
         );
     }
 
-    // Get merchant data
-    const merchantQuery = supabase
-        .from('merchants')
-        .select('id, business_name, country, payout_currency, slug');
+    try {
+        const identifier = merchantId || merchantSlug!;
+        const getCachedFeedData = createCachedFeedDataFetcher(identifier, !!merchantSlug);
+        const { merchant, products } = await getCachedFeedData();
 
-    const { data: merchant, error: merchantError } = merchantId
-        ? await merchantQuery.eq('id', merchantId).single()
-        : await merchantQuery.eq('slug', merchantSlug!).single();
+        // Determine base URL from request headers
+        const host = request.headers.get('host') || `${merchant.slug}.baci.app`;
+        const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+        const baseUrl = `${protocol}://${host}`;
 
-    if (merchantError || !merchant) {
-        return NextResponse.json(
-            { error: 'Merchant not found' },
-            { status: 404 }
-        );
+        // Generate RSS 2.0 feed with Google Merchant Center extensions
+        const feedXml = generateGoogleMerchantFeed(products, merchant, baseUrl);
+
+        return new NextResponse(feedXml, {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/xml; charset=utf-8',
+                ...CACHE_HEADERS.LONG, // Cache for 1 hour with stale-while-revalidate
+            },
+        });
+    } catch (error) {
+        const message = (error as Error).message;
+        if (message === 'Merchant not found') {
+            return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+        }
+        return NextResponse.json({ error: 'Failed to generate feed' }, { status: 500 });
     }
-
-    // Get active products with all necessary fields
-    const { data: products, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('merchant_id', merchant.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
-
-    if (productsError) {
-        return NextResponse.json(
-            { error: 'Failed to fetch products' },
-            { status: 500 }
-        );
-    }
-
-    // Determine base URL from request headers
-    const host = request.headers.get('host') || `${merchant.slug}.baci.app`;
-    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-    const baseUrl = `${protocol}://${host}`;
-
-    // Generate RSS 2.0 feed with Google Merchant Center extensions
-    const feedXml = generateGoogleMerchantFeed(products || [], merchant, baseUrl);
-
-    return new NextResponse(feedXml, {
-        status: 200,
-        headers: {
-            'Content-Type': 'application/xml; charset=utf-8',
-            'Cache-Control': 'public, max-age=3600, s-maxage=3600', // Cache for 1 hour
-        },
-    });
 }
 
 interface Product {

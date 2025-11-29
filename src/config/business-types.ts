@@ -14,10 +14,12 @@
  * @see /docs/adr/001-business-type-journey-architecture.md for architecture decisions
  */
 
-import { LucideIcon, Shirt, Laptop, Home, Sparkles, Palette, Coffee } from 'lucide-react';
+import { ReactNode } from 'react';
+import { LucideIcon, Shirt, Laptop, Home, Sparkles, Palette, Coffee, Scissors } from 'lucide-react';
 import { ModernTemplate } from '@/templates/modern';
 import { ArtisanTemplate } from '@/templates/artisan';
 import { TechTemplate } from '@/templates/tech';
+import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
 
 /**
  * Business type journey configuration
@@ -59,7 +61,7 @@ export interface BusinessTypeConfig {
   /** Recommended features for this business type (future) */
   recommendedFeatures?: string[];
   /** Template component to use for storefronts */
-  template: React.ComponentType<unknown>;
+  template: React.ComponentType<{ children: ReactNode }>;
   /** Lucide icon component for UI */
   icon: LucideIcon;
   /** Journey configuration for onboarding and product creation */
@@ -80,14 +82,14 @@ export interface BusinessTypeConfig {
  * const prompt = `Generate a product description for a ${fashionConfig.aiPromptContext} business`;
  * ```
  */
-export const BUSINESS_TYPES = {
+export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
   FASHION: {
     id: 'fashion',
     label: 'Fashion & Apparel',
     description: 'Clothing, accessories, and fashion items',
     aiPromptContext: 'fashion and style-focused',
     recommendedFeatures: ['size-charts', 'color-variants', 'lookbooks', 'style-guides'],
-    template: ModernTemplate,
+    template: PremiumDefaultTemplate,
     icon: Shirt,
     journey: {
       onboarding: {
@@ -212,7 +214,29 @@ export const BUSINESS_TYPES = {
       },
     },
   },
-} as const;
+
+  HAIR_EXTENSIONS: {
+    id: 'hair-extensions',
+    label: 'Hair & Extensions',
+    description: 'Wigs, weaves, bundles, closures, frontals, and hair care products',
+    aiPromptContext: 'hair and beauty with focus on quality, texture, origin, and styling versatility',
+    recommendedFeatures: ['texture-guide', 'length-charts', 'care-instructions', 'styling-tutorials'],
+    template: PremiumDefaultTemplate,
+    icon: Scissors,
+    journey: {
+      onboarding: {
+        logoStyle: 'glamorous, sleek, beauty-focused',
+        colorScheme: 'luxurious, elegant, black and gold or rose gold accents',
+        additionalSteps: ['hair-sourcing', 'texture-specialization'],
+      },
+      productCreation: {
+        requiredFields: ['texture', 'length', 'origin', 'density', 'color'],
+        aiDescriptionStyle: 'luxurious and aspirational, emphasizes quality, texture, versatility, and styling options',
+        imageRequirements: 'High-quality shots showing texture, multiple angles, styled and unstyled, color accuracy',
+      },
+    },
+  },
+};
 
 /**
  * Helper type for business type IDs
@@ -220,9 +244,9 @@ export const BUSINESS_TYPES = {
 export type BusinessTypeId = keyof typeof BUSINESS_TYPES;
 
 /**
- * Helper type for business type configuration
+ * Helper type for business type configuration (alias for backwards compatibility)
  */
-export type BusinessTypeConfigType = typeof BUSINESS_TYPES[BusinessTypeId];
+export type BusinessTypeConfigType = BusinessTypeConfig;
 
 /**
  * Get business type configuration by ID

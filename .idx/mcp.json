@@ -1,16 +1,22 @@
 {
   "mcpServers": {
     "context7": {
-      "command": "/home/user/.global_modules/bin/context7-mcp",
-      "args": [],
+      "command": "/Users/macbook/.nvm/versions/node/v24.11.0/bin/npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
       "env": {
         "CONTEXT7_API_KEY": "${CONTEXT7_API_KEY}",
         "CONTEXT7_API_URL": "https://context7.com/api/v1"
       }
     },
     "supabase": {
-      "command": "/home/user/.global_modules/bin/mcp-server-supabase",
-      "args": [],
+      "command": "/Users/macbook/.nvm/versions/node/v24.11.0/bin/npx",
+      "args": [
+        "-y",
+        "supabase-mcp"
+      ],
       "env": {
         "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}",
         "SUPABASE_URL": "${SUPABASE_URL}",

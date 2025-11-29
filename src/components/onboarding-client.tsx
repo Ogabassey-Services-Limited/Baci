@@ -8,7 +8,7 @@ const OnboardingForm = dynamic(() => import('@/components/onboarding-form'), {
   ssr: false,
   loading: () => (
     <div className="flex justify-center items-center h-[400px]">
-      <Loader2 className="h-8 w-8 animate-spin" />
+      <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
     </div>
   ),
 });

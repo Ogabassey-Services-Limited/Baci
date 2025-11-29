@@ -1,5 +1,6 @@
 import { Product, ProductSchemaMarkup } from './products';
-import { escapeHtml, stripHtmlTags } from './sanitize';
+import { escapeHtml, stripHtmlTags, sanitizeSchemaMarkup } from './sanitize';
+import type { Route } from 'next';
 
 /**
  * Generates a URL-friendly slug from a string
@@ -14,6 +15,78 @@ export function generateSlug(text: string): string {
         .replace(/--+/g, '-')   // Replace multiple - with single -
         .replace(/^-+/, '')       // Trim - from start of text
         .replace(/-+$/, '');      // Trim - from end of text
+}
+
+/**
+ * Generates a full product slug including condition
+ * Examples:
+ *   - "iPhone 12" (new) → "iphone-12-new"
+ *   - "iPhone 12" (used) → "iphone-12-used"
+ *   - "iPhone 12" (refurbished) → "iphone-12-refurbished"
+ *   - "iPhone 12" (no condition) → "iphone-12"
+ */
+export function generateProductSlug(
+    name: string,
+    condition?: 'new' | 'used' | string,
+    conditionDetail?: string
+): string {
+    const baseSlug = generateSlug(name);
+
+    // If no condition specified, just use base slug
+    if (!condition) {
+        return baseSlug;
+    }
+
+    // Use condition detail if available (e.g., "refurbished", "premium-used")
+    // Otherwise use the condition itself (e.g., "new", "used")
+    const conditionSlug = conditionDetail
+        ? generateSlug(conditionDetail)
+        : generateSlug(condition);
+
+    return `${baseSlug}-${conditionSlug}`;
+}
+
+/**
+ * Builds the product URL path based on available data
+ * Priority:
+ *   1. /{category}/{product-slug} (if category exists)
+ *   2. /products/{product-slug} (fallback)
+ *
+ * Examples:
+ *   - smartphones, "iphone-12-used" → "/smartphones/iphone-12-used"
+ *   - null, "generic-item" → "/products/generic-item"
+ */
+export function buildProductUrl(
+    productSlug: string,
+    category?: string | null
+): Route {
+    if (category) {
+        const categorySlug = generateSlug(category);
+        return `/${categorySlug}/${productSlug}` as Route;
+    }
+    return `/products/${productSlug}` as Route;
+}
+
+/**
+ * Generates the full product URL path from product data
+ * Convenience function combining slug generation and URL building
+ */
+export function getProductUrl(product: {
+    slug?: string;
+    name: string;
+    category?: string | null;
+    condition?: 'new' | 'used' | string;
+    condition_detail?: string;
+    id: string;
+}): Route {
+    // Use existing slug or generate one
+    const productSlug = product.slug || generateProductSlug(
+        product.name,
+        product.condition,
+        product.condition_detail
+    ) || product.id;
+
+    return buildProductUrl(productSlug, product.category);
 }
 
 /**
@@ -156,6 +229,15 @@ export function generateProductSchema(product: Product, merchantName: string = '
             priceCurrency: currency,
             valueAddedTaxIncluded: product.taxable !== false
         };
+    }
+
+    // Merge custom schema markup if provided (e.g. aggregateRating)
+    // This allows merchants to extend the auto-generated schema with their own data
+    if (product.schema_markup) {
+        const sanitizedCustomSchema = sanitizeSchemaMarkup(product.schema_markup);
+        // We merge sanitizedCustomSchema into schema
+        // Using Object.assign to override/extend existing fields
+        Object.assign(schema, sanitizedCustomSchema);
     }
 
     return schema;
@@ -329,4 +411,376 @@ export function generateMetaDescription(description: string, maxLength: number =
     if (plainText.length <= validMaxLength) return plainText;
 
     return plainText.substring(0, validMaxLength - ELLIPSIS_LENGTH) + ELLIPSIS;
+}
+
+/**
+ * Generates CollectionPage schema for product listing pages (categories, collections)
+ * @see https://schema.org/CollectionPage
+ */
+export interface CollectionPageData {
+    name: string;
+    description?: string;
+    url: string;
+    products: Product[];
+    merchantName: string;
+    currency?: string;
+}
+
+export function generateCollectionPageSchema(data: CollectionPageData): Record<string, unknown> {
+    const safeProducts = data.products.slice(0, 20); // Limit to 20 for performance
+
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: escapeHtml(data.name),
+        description: data.description ? escapeHtml(data.description) : undefined,
+        url: escapeHtml(data.url),
+        mainEntity: {
+            '@type': 'ItemList',
+            itemListElement: safeProducts.map((product, index) => ({
+                '@type': 'ListItem',
+                position: index + 1,
+                item: {
+                    '@type': 'Product',
+                    name: escapeHtml(product.name),
+                    description: product.description ? escapeHtml(generateMetaDescription(product.description, 100)) : undefined,
+                    image: product.imageLarge ? escapeHtml(product.imageLarge) : undefined,
+                    url: escapeHtml(getProductUrl(product)),
+                    offers: {
+                        '@type': 'Offer',
+                        price: product.price,
+                        priceCurrency: data.currency || 'NGN',
+                        availability: product.stock > 0
+                            ? 'https://schema.org/InStock'
+                            : 'https://schema.org/OutOfStock'
+                    }
+                }
+            }))
+        },
+        numberOfItems: data.products.length
+    };
+}
+
+/**
+ * Generates ProductGroup schema for products with variants (colors, sizes, etc.)
+ * @see https://schema.org/ProductGroup
+ */
+export interface ProductGroupData {
+    name: string;
+    description?: string;
+    url: string;
+    variants: Product[];
+    merchantName: string;
+    currency?: string;
+    variesBy?: ('color' | 'size' | 'material' | 'pattern')[];
+}
+
+export function generateProductGroupSchema(data: ProductGroupData): Record<string, unknown> {
+    const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'ProductGroup',
+        name: escapeHtml(data.name),
+        description: data.description ? escapeHtml(data.description) : undefined,
+        url: escapeHtml(data.url),
+        productGroupID: escapeHtml(data.name.toLowerCase().replace(/\s+/g, '-')),
+        hasVariant: data.variants.map(variant => ({
+            '@type': 'Product',
+            name: escapeHtml(variant.name),
+            description: variant.description ? escapeHtml(generateMetaDescription(variant.description, 100)) : undefined,
+            image: variant.imageLarge ? escapeHtml(variant.imageLarge) : undefined,
+            sku: variant.sku ? escapeHtml(variant.sku) : undefined,
+            color: variant.color ? escapeHtml(variant.color) : undefined,
+            offers: {
+                '@type': 'Offer',
+                price: variant.price,
+                priceCurrency: data.currency || 'NGN',
+                availability: variant.stock > 0
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock',
+                seller: {
+                    '@type': 'Organization',
+                    name: escapeHtml(data.merchantName)
+                }
+            }
+        }))
+    };
+
+    // Add variesBy property if specified
+    if (data.variesBy && data.variesBy.length > 0) {
+        schema.variesBy = data.variesBy.map(v =>
+            `https://schema.org/${v.charAt(0).toUpperCase() + v.slice(1)}`
+        );
+    }
+
+    return schema;
+}
+
+/**
+ * Generates Organization schema for the merchant/store
+ * @see https://schema.org/Organization
+ */
+export interface OrganizationData {
+    name: string;
+    url: string;
+    logo?: string;
+    description?: string;
+    email?: string;
+    telephone?: string;
+    socialMedia?: {
+        facebook?: string;
+        instagram?: string;
+        twitter?: string;
+        linkedin?: string;
+        youtube?: string;
+    };
+    foundingDate?: string;
+}
+
+export function generateOrganizationSchema(data: OrganizationData): Record<string, unknown> {
+    const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: escapeHtml(data.name),
+        url: escapeHtml(data.url),
+    };
+
+    if (data.logo) {
+        const safeLogo = escapeHtml(data.logo);
+        schema.logo = {
+            '@type': 'ImageObject',
+            url: safeLogo,
+            width: 600,
+            height: 60
+        };
+        schema.image = safeLogo;
+    }
+
+    if (data.description) {
+        schema.description = escapeHtml(data.description);
+    }
+
+    if (data.email) {
+        schema.email = escapeHtml(data.email);
+    }
+
+    if (data.telephone) {
+        schema.telephone = escapeHtml(data.telephone);
+    }
+
+    if (data.foundingDate) {
+        schema.foundingDate = escapeHtml(data.foundingDate);
+    }
+
+    // Collect social media profiles
+    const sameAs: string[] = [];
+    if (data.socialMedia) {
+        if (data.socialMedia.facebook) sameAs.push(escapeHtml(data.socialMedia.facebook));
+        if (data.socialMedia.instagram) sameAs.push(escapeHtml(data.socialMedia.instagram));
+        if (data.socialMedia.twitter) sameAs.push(escapeHtml(data.socialMedia.twitter));
+        if (data.socialMedia.linkedin) sameAs.push(escapeHtml(data.socialMedia.linkedin));
+        if (data.socialMedia.youtube) sameAs.push(escapeHtml(data.socialMedia.youtube));
+    }
+
+    if (sameAs.length > 0) {
+        schema.sameAs = sameAs;
+    }
+
+    return schema;
+}
+
+/**
+ * Generates WebSite schema with SearchAction for sitelinks search box
+ * @see https://developers.google.com/search/docs/appearance/structured-data/sitelinks-searchbox
+ */
+export function generateWebSiteSchema(
+    name: string,
+    url: string,
+    searchUrlTemplate?: string
+): Record<string, unknown> {
+    const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: escapeHtml(name),
+        url: escapeHtml(url),
+    };
+
+    // Add search action for sitelinks search box
+    if (searchUrlTemplate) {
+        schema.potentialAction = {
+            '@type': 'SearchAction',
+            target: {
+                '@type': 'EntryPoint',
+                urlTemplate: escapeHtml(searchUrlTemplate)
+            },
+            'query-input': 'required name=search_term_string'
+        };
+    }
+
+    return schema;
+}
+
+/**
+ * Generates AggregateRating schema for products with reviews
+ * Returns the aggregateRating object to be merged into Product schema
+ * @see https://schema.org/AggregateRating
+ */
+export interface ReviewStats {
+    averageRating: number;
+    reviewCount: number;
+}
+
+export interface AggregateRatingSchema {
+    '@type': 'AggregateRating';
+    ratingValue: number;
+    reviewCount: number;
+    bestRating?: number;
+    worstRating?: number;
+}
+
+export function generateAggregateRating(stats: ReviewStats): AggregateRatingSchema | null {
+    if (!stats.reviewCount || stats.reviewCount === 0) {
+        return null;
+    }
+
+    return {
+        '@type': 'AggregateRating',
+        ratingValue: Math.round(stats.averageRating * 10) / 10, // Round to 1 decimal
+        reviewCount: stats.reviewCount,
+        bestRating: 5,
+        worstRating: 1
+    };
+}
+
+/**
+ * Generates SoftwareApplication schema for SaaS platforms (2025 best practices)
+ * Uses AggregateOffer and UnitPriceSpecification for subscription pricing.
+ * @see https://schema.org/SoftwareApplication
+ */
+export interface SoftwarePricingPlan {
+    name: string;
+    price: number;
+    currency: string;
+    billingDuration: 'P1M' | 'P1Y'; // ISO 8601 duration (1 Month, 1 Year)
+    description?: string;
+}
+
+export interface SoftwareApplicationData {
+    name: string;
+    applicationCategory: string; // e.g., "BusinessApplication", "ECommerceApplication"
+    operatingSystem: string; // e.g., "Web", "iOS", "Android"
+    description: string;
+    url: string;
+    image?: string;
+    softwareVersion?: string;
+    rating?: ReviewStats; // Only use if reviews are from a 3rd party source or strictly vetted
+    priceRange?: string; // e.g., "Free - $29/mo"
+    offers?: SoftwarePricingPlan[];
+    featureList?: string[];
+}
+
+export function generateSoftwareApplicationSchema(data: SoftwareApplicationData): Record<string, unknown> {
+    const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: escapeHtml(data.name),
+        applicationCategory: escapeHtml(data.applicationCategory),
+        operatingSystem: escapeHtml(data.operatingSystem),
+        description: escapeHtml(data.description),
+        url: escapeHtml(data.url),
+    };
+
+    if (data.image) {
+        schema.image = escapeHtml(data.image);
+        schema.screenshot = escapeHtml(data.image); // Use main image as screenshot too
+    }
+
+    if (data.softwareVersion) {
+        schema.softwareVersion = escapeHtml(data.softwareVersion);
+    }
+
+    if (data.featureList && data.featureList.length > 0) {
+        schema.featureList = data.featureList.map(f => escapeHtml(f)); // URL to feature page or plain text
+    }
+
+    // Rating (CAUTION: Only use if compliant with "Self-referencing" rules)
+    if (data.rating && data.rating.reviewCount > 0) {
+        schema.aggregateRating = {
+            '@type': 'AggregateRating',
+            ratingValue: data.rating.averageRating,
+            reviewCount: data.rating.reviewCount,
+            bestRating: 5,
+            worstRating: 1
+        };
+    }
+
+    // Offers / Pricing
+    if (data.offers && data.offers.length > 0) {
+        // Find min and max price for AggregateOffer
+        const prices = data.offers.map(o => o.price);
+        const lowPrice = Math.min(...prices);
+        const highPrice = Math.max(...prices);
+        const currency = data.offers[0].currency; // Assume same currency
+
+        schema.offers = {
+            '@type': 'AggregateOffer',
+            priceCurrency: escapeHtml(currency),
+            lowPrice: lowPrice,
+            highPrice: highPrice,
+            offerCount: data.offers.length,
+            offers: data.offers.map(offer => ({
+                '@type': 'Offer',
+                name: escapeHtml(offer.name),
+                description: offer.description ? escapeHtml(offer.description) : undefined,
+                price: offer.price,
+                priceCurrency: escapeHtml(offer.currency),
+                priceSpecification: {
+                    '@type': 'UnitPriceSpecification',
+                    price: offer.price,
+                    priceCurrency: escapeHtml(offer.currency),
+                    billingIncrement: 1,
+                    unitCode: 'MON', // Standard unit code for "Month" logic usually implied or explicit duration
+                    billingDuration: offer.billingDuration // e.g., P1M
+                }
+            }))
+        };
+    }
+
+    return schema;
+}
+
+/**
+ * Constructs a clean canonical URL by removing noisy query parameters.
+ * Best practice for 2025: Point to the "clean" version of the URL (without tracking/sorting).
+ *
+ * @param baseUrl - The absolute base URL (e.g., "https://store.com/products")
+ * @param searchParams - The current search parameters object
+ * @param allowedParams - List of parameters to KEEP (e.g., ['page', 'q']). All others are stripped.
+ */
+export function constructCanonicalUrl(
+    baseUrl: string,
+    searchParams: URLSearchParams | { entries(): IterableIterator<[string, string]> } | Record<string, string | string[] | undefined>,
+    allowedParams: string[] = ['page']
+): string {
+    // Normalize searchParams to URLSearchParams
+    const params = new URLSearchParams();
+
+    if (searchParams) {
+        const entries = searchParams instanceof URLSearchParams
+            ? searchParams.entries()
+            : Object.entries(searchParams);
+
+        for (const [key, value] of entries) {
+            // Only keep allowed parameters
+            if (allowedParams.includes(key)) {
+                if (Array.isArray(value)) {
+                    value.forEach(v => params.append(key, v));
+                } else if (value !== undefined) {
+                    params.append(key, value as string);
+                }
+            }
+        }
+    }
+
+    const queryString = params.toString();
+    return queryString ? `${baseUrl}?${queryString}` : baseUrl;
 }

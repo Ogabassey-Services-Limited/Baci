@@ -13,6 +13,7 @@ export type ServerActionState = {
   message: string;
   success: boolean;
   businessName?: string;
+  merchantId?: string;
   errors?: {
     fieldErrors: Record<string, string[] | undefined>;
   }
@@ -45,7 +46,7 @@ export async function submitOnboarding(
     businessName,
     businessType,
     otherBusinessType,
-    logoDataUri,
+    logoUrl: logoDataUri,
     brandColors: brandColorsString,
   } = validationResult.data;
 
@@ -222,7 +223,7 @@ export async function submitOnboarding(
       // Don't fail onboarding if template generation fails
     }
 
-    return { success: true, message: 'Store Created!', businessName };
+    return { success: true, message: 'Store Created!', businessName, merchantId: merchantData.id };
   } catch (e) {
     const error = e as Error;
     logger.error({ message: "Onboarding submission failed.", error: { name: error.name, message: error.message, stack: error.stack } });

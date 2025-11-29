@@ -88,12 +88,12 @@ export default function PagesSettingsPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin" /></div>
+    return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 motion-safe:animate-spin" /></div>
   }
 
   return (
     <div className="grid gap-6">
-      <Card>
+      <Card className="glass">
         <CardHeader>
           <CardTitle>Store Pages</CardTitle>
           <CardDescription>
@@ -130,7 +130,7 @@ export default function PagesSettingsPage() {
               </Accordion>
              
               <Button type="submit" disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isSaving && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
                 Save Page Content
               </Button>
             </form>

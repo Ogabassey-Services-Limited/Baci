@@ -1,7 +1,6 @@
 'use client';
 
 import { Puck, Data, Drawer, DefaultComponentProps } from '@measured/puck';
-import '@measured/puck/puck.css';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -118,6 +117,11 @@ export default function BuilderClient() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
     const { merchant, loading: merchantLoading } = useMerchant();
+
+    // Dynamically load Puck CSS to avoid render-blocking
+    useEffect(() => {
+        import('@measured/puck/puck.css');
+    }, []);
 
     useEffect(() => {
         if (!authLoading && !user) {

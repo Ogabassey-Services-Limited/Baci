@@ -133,6 +133,7 @@ export function StoreSettingsPanel({ settings, onChange }: StoreSettingsPanelPro
     const [data, setData] = useState<StoreSettings>(settings || defaultSettings);
 
     // Sync local state when settings prop changes from parent
+    // This is an intentional controlled component pattern for prop-to-state sync
     useEffect(() => {
         setData(settings || defaultSettings);
     }, [settings]);

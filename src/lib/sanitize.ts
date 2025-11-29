@@ -316,3 +316,19 @@ export function sanitizeSchemaObject<T>(obj: T): T {
     // Numbers, booleans, etc. pass through unchanged
     return obj;
 }
+
+/**
+ * Safely stringify a JSON-LD schema object for use in dangerouslySetInnerHTML.
+ * This function sanitizes all string values and returns a safe JSON string.
+ *
+ * Usage:
+ *   <script type="application/ld+json"
+ *     dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(schema) }}
+ *   />
+ */
+export function safeJsonLdStringify<T extends Record<string, unknown>>(schema: T): string {
+    // Sanitize all string values in the schema
+    const sanitized = sanitizeSchemaMarkup(schema);
+    // JSON.stringify also escapes special characters
+    return JSON.stringify(sanitized);
+}

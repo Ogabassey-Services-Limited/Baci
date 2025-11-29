@@ -1,8 +1,7 @@
-
 'use server';
 
 import { generateObject } from 'ai';
-import { geminiFlash } from '@/ai/provider';
+import { geminiFlash, withRetry, sanitizePromptInput } from '@/ai/provider';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
@@ -29,6 +28,12 @@ const ProductDetailsSchema = z.object({
 
 const _AutofillProductDetailsOutputSchema = z.object({
   details: ProductDetailsSchema,
+  metadata: z.object({
+    inputTruncation: z.object({
+      productName: z.boolean(),
+      businessType: z.boolean(),
+    }).optional(),
+  }).optional(),
 });
 
 type AutofillProductDetailsOutput = z.infer<typeof _AutofillProductDetailsOutputSchema>;
@@ -36,7 +41,30 @@ type AutofillProductDetailsOutput = z.infer<typeof _AutofillProductDetailsOutput
 export async function autofillProductDetails(
   input: AutofillProductDetailsInput
 ): Promise<AutofillProductDetailsOutput> {
-  const { productName, businessType } = input;
+  // Sanitize inputs and collect truncation metadata
+  const productNameResult = sanitizePromptInput(input.productName, 200);
+  const businessTypeResult = sanitizePromptInput(input.businessType, 100);
+
+  const productName = productNameResult.value;
+  const businessType = businessTypeResult.value;
+
+  const truncationInfo = {
+    productName: productNameResult.metadata.wasTruncated,
+    businessType: businessTypeResult.metadata.wasTruncated,
+  };
+
+  // Log truncation warnings for observability
+  if (truncationInfo.productName || truncationInfo.businessType) {
+    logger.warn({
+      message: 'Input truncation occurred during product autofill',
+      truncationInfo,
+      details: {
+        productName: productNameResult.metadata,
+        businessType: businessTypeResult.metadata,
+      },
+    });
+  }
+
   const categoryConfig = getCategoryConfigFromBusinessType(businessType);
 
   const possibleVariantAttributesWithLabels = categoryConfig.variantAttributes?.map(attr =>
@@ -45,19 +73,19 @@ export async function autofillProductDetails(
 
   const existingCategories = categoryConfig.productCategories || [];
 
-
   try {
-    const { object } = await generateObject({
-      model: geminiFlash,
-      schema: ProductDetailsSchema,
-      prompt: `
+    const { object } = await withRetry(async () => {
+      return await generateObject({
+        model: geminiFlash,
+        schema: ProductDetailsSchema,
+        prompt: `
         You are an AI assistant for an e-commerce platform. Your task is to autofill product details based on a product name and business type.
 
         Product Name: "${productName}"
         Business Type: "${businessType}"
-        
+
         Available Categories for this Business Type: [${existingCategories.join(', ')}]
-        
+
         Possible Variant Attributes (with examples): ${possibleVariantAttributesWithLabels}
 
         Instructions:
@@ -74,6 +102,7 @@ export async function autofillProductDetails(
 
         Return a single, valid JSON object.
       `,
+      });
     });
 
     logger.info({ message: 'Product details autofilled successfully', details: object });
@@ -86,7 +115,12 @@ export async function autofillProductDetails(
       });
     }
 
-    return { details: object };
+    return {
+      details: object,
+      metadata: {
+        inputTruncation: truncationInfo,
+      },
+    };
 
   } catch (error) {
     logger.error({ message: 'Product autofill generation failed', error });

@@ -5,20 +5,33 @@ import { useState, useEffect, useCallback, createContext, useContext, ReactNode 
 import { logger } from '@/lib/logger';
 import { Product } from '@/lib/products';
 
-// Define the shape of a cart item, which can have a quantity
+// Define the shape of a cart item, which can have a quantity and variant info
 interface CartItem extends Product {
   quantity: number;
+  variantId?: string;
+  variantAttributes?: Record<string, string>;
+}
+
+// Options for adding to cart
+interface AddToCartOptions {
+  variantId?: string;
+  variantAttributes?: Record<string, string>;
 }
 
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (product: Product, quantity?: number) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addToCart: (product: Product, quantity?: number, options?: AddToCartOptions) => void;
+  removeFromCart: (productId: string, variantId?: string) => void;
+  updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
   clearCart: () => void;
   cartCount: number;
   cartTotal: number;
 }
+
+// Generate a unique key for cart items (productId + variantId if present)
+const getCartItemKey = (productId: string, variantId?: string): string => {
+  return variantId ? `${productId}:${variantId}` : productId;
+};
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
@@ -47,7 +60,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // Load cart from localStorage on initial client-side render
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCart(getCartFromStorage());
   }, []);
 
@@ -56,36 +68,57 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     saveCartToStorage(cart);
   }, [cart]);
 
-  const addToCart = useCallback((product: Product, quantity: number = 1) => {
+  const addToCart = useCallback((product: Product, quantity: number = 1, options?: AddToCartOptions) => {
     setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id);
+      const variantId = options?.variantId;
+      const variantAttributes = options?.variantAttributes;
+      const itemKey = getCartItemKey(product.id, variantId);
+
+      // Find existing item with same product AND variant
+      const existingItem = prevCart.find((item) =>
+        getCartItemKey(item.id, item.variantId) === itemKey
+      );
+
       if (existingItem) {
         // If item already exists, increment its quantity
         return prevCart.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
+          getCartItemKey(item.id, item.variantId) === itemKey
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
         );
       }
-      // Otherwise, add the new item with the specified quantity
-      return [...prevCart, { ...product, quantity }];
+      // Otherwise, add the new item with the specified quantity and variant info
+      return [...prevCart, {
+        ...product,
+        quantity,
+        variantId,
+        variantAttributes
+      }];
     });
   }, []);
 
-  const removeFromCart = useCallback((productId: string) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
+  const removeFromCart = useCallback((productId: string, variantId?: string) => {
+    const itemKey = getCartItemKey(productId, variantId);
+    setCart((prevCart) => prevCart.filter((item) =>
+      getCartItemKey(item.id, item.variantId) !== itemKey
+    ));
   }, []);
 
-  const updateQuantity = useCallback((productId: string, quantity: number) => {
-    const product = cart.find(item => item.id === productId);
+  const updateQuantity = useCallback((productId: string, quantity: number, variantId?: string) => {
+    const itemKey = getCartItemKey(productId, variantId);
+    const product = cart.find(item => getCartItemKey(item.id, item.variantId) === itemKey);
     const moq = product?.minimum_order_quantity || 1;
 
     if (quantity < moq) {
       if (quantity === 0) {
-        removeFromCart(productId);
+        removeFromCart(productId, variantId);
       } else {
         // If trying to set below MOQ, reset to MOQ.
         setCart((prevCart) =>
           prevCart.map((item) =>
-            item.id === productId ? { ...item, quantity: moq } : item
+            getCartItemKey(item.id, item.variantId) === itemKey
+              ? { ...item, quantity: moq }
+              : item
           )
         );
       }
@@ -93,7 +126,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
     setCart((prevCart) =>
       prevCart.map((item) =>
-        item.id === productId ? { ...item, quantity } : item
+        getCartItemKey(item.id, item.variantId) === itemKey
+          ? { ...item, quantity }
+          : item
       )
     );
   }, [cart, removeFromCart]);

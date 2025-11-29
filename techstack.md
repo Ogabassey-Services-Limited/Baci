@@ -8,7 +8,7 @@ This document provides a comprehensive overview of the technology stack used to 
 
 ### Next.js 15 (App Router)
 - **Framework:** [Next.js](https://nextjs.org/)
-- **Version:** `15.0.0`
+- **Version:** `^16.0.5`
 - **Why:** Next.js is the leading React framework for production. The App Router enables a powerful combination of Server Components for performance and Client Components for interactivity. This hybrid approach is ideal for a dynamic e-commerce platform.
 - **Key Features Used:**
   - **Server Components:** For fast initial page loads and SEO.
@@ -22,7 +22,7 @@ This document provides a comprehensive overview of the technology stack used to 
 
 ### React 18
 - **Library:** [React](https://react.dev/)
-- **Version:** `18.3.1`
+- **Version:** `^19.2.0`
 - **Why:** The industry standard for building user interfaces. React's component model allows for reusable and maintainable code.
 - **Key Features Used:**
   - **Hooks:** (`useState`, `useEffect`, `useContext`) for state management.
@@ -71,22 +71,21 @@ This document provides a comprehensive overview of the technology stack used to 
 
 ## 5. Artificial Intelligence
 
-### Google Genkit
-- **Framework:** [Genkit](https://firebase.google.com/docs/genkit)
-- **Version:** `1.20.0`
-- **Why:** An open-source framework from Google for building production-ready AI applications. It helps structure, deploy, and monitor AI flows, making our AI features robust and maintainable.
-- **Key Features Used:**
-  - **Flows (`ai.defineFlow`):** Orchestrates multi-step AI tasks.
-  - **Structured I/O (Zod):** Ensures all data passed to and from the AI models is type-safe and validated.
-  - **Dev UI:** A local dashboard for testing and debugging AI flows.
-- **Location:** `src/ai/flows/*`
+### Vercel AI SDK
+- **Framework:** [Vercel AI SDK](https://sdk.vercel.ai/)
+- **Package:** `ai`
+- **Why:** An open-source library for building AI-powered user interfaces. It provides simple and powerful helpers for integrating generative UI into our Next.js application, seamlessly handling streaming responses.
 
-### Google AI (Gemini Models)
+### Google AI Provider
 - **Provider:** [Google AI](https://ai.google.dev/)
-- **Plugin:** `@genkit-ai/google-genai`
-- **Why:** Provides access to Google's powerful and cost-effective Gemini family of models.
+- **Package:** `@ai-sdk/google`
+- **Why:** The official AI SDK provider for using Google's models. This allows us to easily access the Gemini family of models within the Vercel AI SDK framework.
+- **Location:** `src/ai/provider.ts`
+
+### Gemini Models
 - **Models Used:**
-  - **`gemini-2.5-pro-image-preview`:** A versatile multimodal model used for logo generation, image analysis (color extraction), and photo enhancement.
+  - **`gemini-2.0-flash`:** A fast and cost-effective model used for text-based tasks like generating product descriptions and autofilling form details.
+  - **`gemini-2.5-flash-preview-image`:** A powerful multimodal model used for tasks involving images, such as analyzing an uploaded logo to extract brand colors.
 
 ---
 

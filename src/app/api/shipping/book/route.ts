@@ -1,0 +1,264 @@
+/**
+ * Shipping Booking API
+ * Book a shipment with the selected provider
+ */
+
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+import { shippingService } from '@/lib/shipping';
+import type { BookingRequest, ShippingProviderCode } from '@/lib/shipping/types';
+import { z } from 'zod';
+import { isValidUuid } from '@/lib/sanitize';
+
+// =============================================================================
+// REQUEST VALIDATION
+// =============================================================================
+
+const BookingRequestSchema = z.object({
+  // Order ID (required)
+  orderId: z.string().refine(isValidUuid, { message: 'Invalid order ID' }),
+  // Selected quote ID (required)
+  quoteId: z.string().refine(isValidUuid, { message: 'Invalid quote ID' }),
+  // Receiver info (required)
+  receiver: z.object({
+    name: z.string().min(1),
+    email: z.string().email().optional(),
+    phone: z.string().min(1),
+    address: z.string().min(1),
+    city: z.string().min(1),
+    state: z.string().min(1),
+    country: z.string().default('Nigeria'),
+    countryCode: z.string().default('NG'),
+    postalCode: z.string().optional(),
+    stationId: z.number().optional(),
+  }),
+  // Sender info (optional - uses merchant address)
+  sender: z.object({
+    name: z.string().min(1),
+    email: z.string().email().optional(),
+    phone: z.string().min(1),
+    address: z.string().min(1),
+    city: z.string().min(1),
+    state: z.string().min(1),
+    country: z.string().default('Nigeria'),
+    countryCode: z.string().default('NG'),
+    postalCode: z.string().optional(),
+    stationId: z.number().optional(),
+  }).optional(),
+  // Items to ship (required)
+  items: z.array(z.object({
+    name: z.string().min(1),
+    quantity: z.number().int().positive(),
+    weight: z.number().positive(),
+    value: z.number().nonnegative(),
+    category: z.string().optional(),
+  })).min(1),
+  // Special instructions
+  instructions: z.string().optional(),
+});
+
+// =============================================================================
+// POST /api/shipping/book - Book a shipment
+// =============================================================================
+
+export async function POST(request: NextRequest) {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // Authenticate
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Get merchant
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('id, business_name, business_location, phone')
+      .eq('user_id', user.id)
+      .single();
+
+    if (merchantError || !merchant) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const body = await request.json();
+
+    // Validate request
+    const parseResult = BookingRequestSchema.safeParse(body);
+    if (!parseResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid request',
+          details: parseResult.error.flatten().fieldErrors
+        },
+        { status: 400 }
+      );
+    }
+
+    const data = parseResult.data;
+
+    // Verify the order belongs to this merchant
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('id, merchant_id, shipping_status')
+      .eq('id', data.orderId)
+      .eq('merchant_id', merchant.id)
+      .single();
+
+    if (orderError || !order) {
+      return NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if already shipped
+    // Check if already shipped or being processed
+    if (['shipped', 'delivered', 'processing'].includes(order.shipping_status)) {
+      return NextResponse.json(
+        { error: 'Order has already been shipped or is being processed' },
+        { status: 400 }
+      );
+    }
+
+    // Get the selected quote
+    const { data: quote, error: quoteError } = await supabase
+      .from('shipping_quotes')
+      .select('*')
+      .eq('id', data.quoteId)
+      .single();
+
+    if (quoteError || !quote) {
+      return NextResponse.json(
+        { error: 'Quote not found or expired' },
+        { status: 404 }
+      );
+    }
+
+    // Check if quote is expired
+    if (new Date(quote.expires_at) < new Date()) {
+      return NextResponse.json(
+        { error: 'Quote has expired. Please get a new quote.' },
+        { status: 400 }
+      );
+    }
+
+    // Build sender info
+    let senderInfo = data.sender;
+    if (!senderInfo) {
+      const locationParts = (merchant.business_location || 'Lagos').split(',').map((s: string) => s.trim());
+      senderInfo = {
+        name: merchant.business_name || 'Merchant',
+        phone: merchant.phone || '',
+        address: merchant.business_location || 'Lagos',
+        city: locationParts[0] || 'Lagos',
+        state: locationParts[1] || locationParts[0] || 'Lagos',
+        country: 'Nigeria',
+        countryCode: 'NG',
+      };
+    }
+
+    // Build booking request
+    const bookingRequest: BookingRequest = {
+      orderId: data.orderId,
+      quoteId: data.quoteId,
+      providerRateId: quote.provider_rate_id,
+      sender: senderInfo,
+      receiver: {
+        ...data.receiver,
+        country: data.receiver.country || 'Nigeria',
+        countryCode: data.receiver.countryCode || 'NG',
+      },
+      items: data.items,
+      instructions: data.instructions,
+    };
+
+    // Book the shipment
+    const provider = quote.provider as ShippingProviderCode;
+    const result = await shippingService.bookShipment(provider, bookingRequest);
+
+    // Create shipment record in database
+    const { data: shipment, error: shipmentError } = await supabase
+      .from('shipments')
+      .insert({
+        order_id: data.orderId,
+        merchant_id: merchant.id,
+        provider: result.provider,
+        provider_shipment_id: result.providerShipmentId,
+        tracking_number: result.trackingNumber,
+        carrier_name: result.carrierName,
+        status: result.status,
+        sender_address: senderInfo,
+        receiver_address: data.receiver,
+        items: data.items,
+        price: quote.price,
+        currency: quote.currency,
+        estimated_delivery_days: quote.estimated_days,
+        pickup_scheduled_at: result.pickupScheduledAt,
+        label_url: result.labelUrl,
+        provider_response: result.rawResponse,
+      })
+      .select()
+      .single();
+
+    if (shipmentError) {
+      console.error('Error creating shipment record:', shipmentError);
+      // Return error - inconsistent state is worse than failed booking
+      return NextResponse.json(
+        {
+          error: 'Shipment booked with provider but failed to save record. Contact support with tracking number: ' + result.trackingNumber,
+          trackingNumber: result.trackingNumber,
+        },
+        { status: 500 }
+      );
+    }
+
+    // Update order with shipment info
+    await supabase
+      .from('orders')
+      .update({
+        shipment_id: shipment?.id,
+        shipping_status: 'processing',
+        shipping_provider: result.provider,
+        tracking_number: result.trackingNumber,
+        selected_quote_id: data.quoteId,
+        fulfillment_type: 'provider',
+      })
+      .eq('id', data.orderId);
+
+    // Mark quote as used
+    await supabase
+      .from('shipping_quotes')
+      .update({ used: true })
+      .eq('id', data.quoteId);
+
+    return NextResponse.json({
+      success: true,
+      shipment: {
+        id: shipment?.id,
+        trackingNumber: result.trackingNumber,
+        providerShipmentId: result.providerShipmentId,
+        carrier: result.carrierName,
+        status: result.status,
+        pickupScheduledAt: result.pickupScheduledAt,
+        labelUrl: result.labelUrl,
+      },
+    }, { status: 201 });
+
+  } catch (error) {
+    console.error('Error booking shipment:', error);
+    return NextResponse.json(
+      { error: 'Failed to book shipment', details: error instanceof Error ? error.message : 'Unknown error' },
+      { status: 500 }
+    );
+  }
+}

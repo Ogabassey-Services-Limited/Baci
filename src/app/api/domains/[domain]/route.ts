@@ -17,7 +17,27 @@ export async function GET(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // TODO: Verify domain belongs to user (check database)
+        // Verify domain belongs to user's merchant account
+        const { data: merchant } = await supabase
+            .from('merchants')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+
+        if (!merchant) {
+            return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+        }
+
+        const { data: domainRecord, error: domainError } = await supabase
+            .from('domains')
+            .select('id')
+            .eq('domain', domain)
+            .eq('merchant_id', merchant.id)
+            .single();
+
+        if (domainError || !domainRecord) {
+            return NextResponse.json({ error: 'Domain not found or access denied' }, { status: 403 });
+        }
 
         // Fetch all info in parallel
         const [info, nameservers, lock] = await Promise.all([
@@ -56,6 +76,28 @@ export async function POST(
 
         if (authError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Verify domain belongs to user's merchant account
+        const { data: merchant } = await supabase
+            .from('merchants')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+
+        if (!merchant) {
+            return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+        }
+
+        const { data: domainRecord, error: domainError } = await supabase
+            .from('domains')
+            .select('id')
+            .eq('domain', domain)
+            .eq('merchant_id', merchant.id)
+            .single();
+
+        if (domainError || !domainRecord) {
+            return NextResponse.json({ error: 'Domain not found or access denied' }, { status: 403 });
         }
 
         let result;
