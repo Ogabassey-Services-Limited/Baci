@@ -147,7 +147,7 @@ function selectFeaturedQuotes(rankedQuotes: RankedQuote[]): ShippingQuote[] {
 // =============================================================================
 
 export class QuoteAggregator {
-  constructor(private registry: ShippingProviderRegistry) {}
+  constructor(private registry: ShippingProviderRegistry) { }
 
   /**
    * Get aggregated quotes from all enabled providers
@@ -174,7 +174,7 @@ export class QuoteAggregator {
         allQuotes.push(...result.value);
       } else {
         warnings.push(`${providers[index].name}: ${result.reason?.message || 'Unknown error'}`);
-        console.error(`[QuoteAggregator] Provider ${providers[index].name} failed:`, result.reason);
+        console.error('[QuoteAggregator] Provider failed:', providers[index].name, result.reason);
       }
     });
 

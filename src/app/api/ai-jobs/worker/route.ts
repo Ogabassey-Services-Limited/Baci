@@ -102,14 +102,23 @@ export async function POST(request: NextRequest) {
 
         for (const job of jobs) {
             try {
-                // Mark as processing
-                await supabase
+                // Atomically claim the job - only proceed if still pending
+                const { data: claimedJob, error: claimError } = await supabase
                     .from('ai_jobs')
                     .update({
                         status: 'processing',
                         started_at: new Date().toISOString()
                     })
-                    .eq('id', job.id);
+                    .eq('id', job.id)
+                    .eq('status', 'pending')
+                    .select()
+                    .single();
+
+                if (claimError || !claimedJob) {
+                    // Job was already claimed by another worker
+                    console.log('Job already claimed by another worker:', job.id);
+                    continue;
+                }
 
                 // Process based on job type
                 let output;

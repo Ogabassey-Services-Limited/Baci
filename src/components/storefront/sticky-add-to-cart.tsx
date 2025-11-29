@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useCurrency } from '@/hooks/use-currency';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
-import { Product } from '@/lib/products';
+import { Product, ProductVariant } from '@/lib/products';
 import { ThemedButton } from '@/components/themed';
 import { ShoppingCart, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -13,6 +13,10 @@ import { QuantityButton } from '@/components/ui/animated-icons';
 interface StickyAddToCartProps {
   /** Product to add to cart */
   product: Product;
+  /** Selected variant (for products with variants) */
+  selectedVariant?: ProductVariant | null;
+  /** Selected variant attributes */
+  selectedAttributes?: Record<string, string>;
   /** Minimum distance from top before showing (default: 400px) */
   showAfterScroll?: number;
   /** Custom class name */
@@ -35,6 +39,8 @@ interface StickyAddToCartProps {
  */
 export function StickyAddToCart({
   product,
+  selectedVariant,
+  selectedAttributes,
   showAfterScroll = 400,
   className,
 }: StickyAddToCartProps) {
@@ -74,8 +80,18 @@ export function StickyAddToCart({
   // Don't render on desktop
   if (!isMobile) return null;
 
-  const cartItem = cart.find((item) => item.id === product.id);
-  const isOutOfStock = product.manage_stock && product.stock === 0;
+  // Find cart item matching product and variant
+  const cartItem = cart.find((item) => {
+    if (selectedVariant) {
+      return item.id === product.id && item.variantId === selectedVariant.id;
+    }
+    return item.id === product.id && !item.variantId;
+  });
+
+  // Get current price and stock based on variant selection
+  const currentPrice = selectedVariant?.price_override ?? product.price;
+  const currentStock = selectedVariant?.stock_quantity ?? product.stock;
+  const isOutOfStock = product.manage_stock && currentStock === 0;
 
   const handleQuantityChange = (newQuantity: number) => {
     const moq = product.minimum_order_quantity || 1;
@@ -85,10 +101,22 @@ export function StickyAddToCart({
   };
 
   const handleAddToCart = () => {
-    addToCart(product, quantity);
+    const productToAdd = selectedVariant
+      ? { ...product, price: currentPrice }
+      : product;
+
+    addToCart(productToAdd, quantity, selectedVariant ? {
+      variantId: selectedVariant.id,
+      variantAttributes: selectedAttributes || {}
+    } : undefined);
+
+    const variantInfo = selectedVariant
+      ? ` (${Object.values(selectedAttributes || {}).join(', ')})`
+      : '';
+
     toast({
       title: 'Added to cart',
-      description: `${quantity} x ${product.name} has been added to your cart.`,
+      description: `${quantity} x ${product.name}${variantInfo} has been added to your cart.`,
     });
   };
 
@@ -130,7 +158,7 @@ export function StickyAddToCart({
                 className="font-bold text-lg"
                 style={{ color: 'var(--store-primary)' }}
               >
-                {formatCurrency(product.price)}
+                {formatCurrency(currentPrice)}
               </p>
             </div>
 
@@ -139,14 +167,14 @@ export function StickyAddToCart({
               <div className="flex items-center gap-2">
                 <QuantityButton
                   type="minus"
-                  onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}
+                  onClick={() => updateQuantity(product.id, cartItem.quantity - 1, selectedVariant?.id)}
                   disabled={cartItem.quantity <= 1}
                   className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
                 />
                 <span className="w-8 text-center font-medium">{cartItem.quantity}</span>
                 <QuantityButton
                   type="plus"
-                  onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}
+                  onClick={() => updateQuantity(product.id, cartItem.quantity + 1, selectedVariant?.id)}
                   className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
                 />
               </div>

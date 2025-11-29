@@ -167,7 +167,8 @@ Deno.serve(async (req: Request) => {
         });
       } catch (notificationError) {
         console.error(
-          `Error processing notification ${notification.id}:`,
+          'Error processing notification:',
+          notification.id,
           notificationError
         );
         results.push({

@@ -4,7 +4,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useIndustryTheme } from '@/hooks/use-industry-theme';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { AnnouncementBar } from '@/components/storefront/blocks/announcement-bar';
-import { OgabasseyHeader } from '@/components/storefront/blocks/ogabassey-header';
+import { Header } from '@/components/storefront/blocks/header';
 import { Footer } from '@/components/storefront/blocks/footer';
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { Newsletter } from '@/components/storefront/blocks/newsletter';
@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 
-export function DefaultTemplate() {
+export function GadgetDefaultTemplate() {
     const { merchant } = useMerchant();
     const theme = useIndustryTheme(merchant?.business_type);
 
@@ -60,7 +60,14 @@ export function DefaultTemplate() {
             style={{ backgroundColor: theme.colors.background, color: theme.colors.text }}
         >
             <AnnouncementBar />
-            <OgabasseyHeader />
+            <Header
+                showLogo={true}
+                showSearch={true}
+                showCart={true}
+                showMenu={true}
+                layout="logo-left-nav-center"
+                sticky={true}
+            />
 
             <main>
                 {/* --- Dynamic Hero Section --- */}

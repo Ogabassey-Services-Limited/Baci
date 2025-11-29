@@ -588,7 +588,19 @@ export default function OrdersPage() {
             )}
           </AlertTitle>
           <AlertDescription>
-            <button type="button" className="font-medium underline bg-transparent border-none p-0 cursor-pointer text-inherit">Click to resolve</button>
+            <button
+              type="button"
+              className="font-medium underline bg-transparent border-none p-0 cursor-pointer text-inherit"
+              onClick={() => {
+                // TODO: Implement resolve action - filter to show only urgent orders
+                toast({
+                  title: 'Coming Soon',
+                  description: 'This feature will filter to show only urgent orders.',
+                });
+              }}
+            >
+              Click to resolve
+            </button>
           </AlertDescription>
           <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6" onClick={() => setShowAlert(false)}>
             <X className="h-4 w-4 text-yellow-700" />

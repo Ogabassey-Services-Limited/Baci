@@ -30,7 +30,9 @@ export async function generateProductDescription(
 
     // Sanitize all user-provided inputs using centralized sanitizer
     const productName = sanitizePromptInput(validatedInput.productName, 200).value;
-    const keywords = validatedInput.keywords?.map((k: string) => sanitizePromptInput(k, 50).value).slice(0, 10);
+    const keywords = (validatedInput.keywords ?? [])
+      .map((k) => sanitizePromptInput(k, 50).value)
+      .slice(0, 10);
     const brandVoice = validatedInput.brandVoice ? sanitizePromptInput(validatedInput.brandVoice, 200).value : undefined;
     const targetAudience = validatedInput.targetAudience ? sanitizePromptInput(validatedInput.targetAudience, 200).value : undefined;
     const businessType = validatedInput.businessType ? sanitizePromptInput(validatedInput.businessType, 100).value : undefined;

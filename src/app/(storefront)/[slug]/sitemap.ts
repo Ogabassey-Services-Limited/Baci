@@ -51,7 +51,7 @@ export default async function sitemap({ params }: Props): Promise<MetadataRoute.
 
         return {
             url,
-            lastModified: product.updated_at ? new Date(product.updated_at) : new Date(),
+            lastModified: product.updated_at ? new Date(product.updated_at) : undefined,
             changeFrequency: 'weekly' as const,
             priority: 0.8,
         };

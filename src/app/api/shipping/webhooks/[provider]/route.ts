@@ -30,12 +30,12 @@ function verifyWebhookSignature(
 
   // If no secret configured, skip verification (not recommended for production)
   if (!secret) {
-    console.warn(`[Webhook] No secret configured for ${provider}, skipping verification`);
+    console.warn('[Webhook] No secret configured for provider, skipping verification:', provider);
     return true;
   }
 
   if (!signature) {
-    console.error(`[Webhook] No signature provided for ${provider}`);
+    console.error('[Webhook] No signature provided for provider:', provider);
     return false;
   }
 
@@ -166,12 +166,12 @@ export async function POST(
     // Read payload
     const payload = await request.text();
     const signature = request.headers.get('x-webhook-signature') ||
-                      request.headers.get('x-signature') ||
-                      request.headers.get('authorization');
+      request.headers.get('x-signature') ||
+      request.headers.get('authorization');
 
     // Verify signature
     if (!verifyWebhookSignature(provider, payload, signature)) {
-      console.error(`[Webhook] Invalid signature for ${provider}`);
+      console.error('[Webhook] Invalid signature for provider:', provider);
       return NextResponse.json(
         { error: 'Invalid signature' },
         { status: 401 }
@@ -183,7 +183,7 @@ export async function POST(
     try {
       parsedPayload = JSON.parse(payload);
     } catch {
-      console.error(`[Webhook] Invalid JSON payload for ${provider}`);
+      console.error('[Webhook] Invalid JSON payload for provider:', provider);
       return NextResponse.json(
         { error: 'Invalid JSON' },
         { status: 400 }
@@ -193,7 +193,7 @@ export async function POST(
     // Extract event data
     const event = parseWebhookPayload(provider, parsedPayload);
     if (!event) {
-      console.warn(`[Webhook] Could not parse payload for ${provider}`, parsedPayload);
+      console.warn('[Webhook] Could not parse payload for provider:', provider, parsedPayload);
       // Return success to avoid retries for unparseable payloads
       return NextResponse.json({ received: true, parsed: false });
     }
@@ -228,7 +228,7 @@ export async function POST(
     const { data: shipment, error: shipmentError } = await shipmentQuery.single();
 
     if (shipmentError || !shipment) {
-      console.warn(`[Webhook] Shipment not found for tracking: ${event.trackingNumber}`);
+      console.warn('[Webhook] Shipment not found for tracking:', event.trackingNumber);
       // Mark webhook as processed (no shipment to update)
       await supabase
         .from('shipping_webhook_events')
@@ -302,7 +302,7 @@ export async function POST(
       .eq('tracking_number', event.trackingNumber)
       .eq('provider', providerUpper);
 
-    console.log(`[Webhook] Processed ${provider} webhook for ${event.trackingNumber}: ${normalizedStatus}`);
+    console.log('[Webhook] Processed webhook for provider:', provider, 'tracking:', event.trackingNumber, 'status:', normalizedStatus);
 
     return NextResponse.json({
       received: true,
@@ -312,7 +312,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error(`[Webhook] Error processing ${provider} webhook:`, error);
+    console.error('[Webhook] Error processing webhook for provider:', provider, error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

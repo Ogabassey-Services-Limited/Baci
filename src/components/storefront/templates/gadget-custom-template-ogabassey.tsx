@@ -8,7 +8,7 @@ import { CategoryIcons } from '@/components/storefront/blocks/category-icons';
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { Phone, Wifi, Laptop, Speaker, Gamepad2 } from 'lucide-react';
 
-export function OgabasseyTemplate() {
+export function GadgetCustomTemplateOgabassey() {
     const { merchant } = useMerchant();
 
     // Hardcoded data for Ogabassey demo

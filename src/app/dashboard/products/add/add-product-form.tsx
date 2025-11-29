@@ -181,6 +181,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       // Only auto-generate if user hasn't manually edited slug (simplified check)
       // Ideally we'd track "touched" state for slug
       // For now, just generate if empty
+      form.setValue('slug', generateSlug(watchName));
     }
   }, [watchName, form]);
 

@@ -89,7 +89,7 @@ export class ShippingService {
       throw new Error(`Provider ${provider} not found`);
     }
 
-    console.log(`[ShippingService] Booking shipment with ${provider}`, {
+    console.log('[ShippingService] Booking shipment with provider:', provider, {
       orderId: request.orderId,
       quoteId: request.quoteId,
     });
@@ -185,7 +185,7 @@ export class ShippingService {
             }
           }
         } catch (error) {
-          console.error(`[ShippingService] Failed to get locations from ${provider.name}:`, error);
+          console.error('[ShippingService] Failed to get locations from provider:', provider.name, error);
         }
       }
     }

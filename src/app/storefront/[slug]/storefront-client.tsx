@@ -354,8 +354,8 @@ function StorefrontContent() {
 
 
 import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
-import { OgabasseyTemplate } from '@/components/storefront/templates/ogabassey-template';
-import { OgabasseyTemplate3 } from '@/components/storefront/templates/ogabassey-template-3';
+import { GadgetCustomTemplateOgabassey } from '@/components/storefront/templates/gadget-custom-template-ogabassey';
+import { GadgetDefaultTemplate } from '@/components/storefront/templates/gadget-default-template';
 
 export function Storefront({ slug }: { slug?: string }) {
   const { merchant, loading } = useMerchant();
@@ -383,18 +383,18 @@ export function Storefront({ slug }: { slug?: string }) {
   }
 
   // For demo/preview purposes, check for specific slug
-  if (slug === 'ogabassey1') {
+  if (slug === 'ogabassey1' || slug === 'ogabassey') {
     return (
       <ThemedStorefrontLayout>
-        <OgabasseyTemplate />
+        <GadgetCustomTemplateOgabassey />
       </ThemedStorefrontLayout>
     );
   }
 
-  if (slug === 'ogabassey3') {
+  if (slug === 'default-test') {
     return (
       <ThemedStorefrontLayout>
-        <OgabasseyTemplate3 />
+        <GadgetDefaultTemplate />
       </ThemedStorefrontLayout>
     );
   }

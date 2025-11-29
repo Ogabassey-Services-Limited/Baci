@@ -73,32 +73,9 @@ import {
   AlertDescription,
   AlertTitle,
 } from '@/components/ui/alert';
+import { StaffRole, StaffMember } from '@/types/staff';
 
-type StaffRole =
-  | 'admin'
-  | 'manager'
-  | 'sales_rep'
-  | 'inventory'
-  | 'accountant'
-  | 'customer_service'
-  | 'marketing'
-  | 'fulfillment';
 
-interface StaffMember {
-  id: string;
-  email: string;
-  name: string | null;
-  role: StaffRole;
-  status: 'pending' | 'active' | 'suspended' | 'removed';
-  invited_at: string;
-  accepted_at: string | null;
-  last_login_at: string | null;
-}
-
-interface RolePermissions {
-  role: StaffRole;
-  permissions: Record<string, Record<string, boolean>>;
-}
 
 const ROLE_LABELS: Record<StaffRole, string> = {
   admin: 'Administrator',
@@ -161,11 +138,11 @@ function formatDate(dateStr: string | null): string {
 
 export default function TeamSettingsPage() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [rolePermissions, setRolePermissions] = useState<RolePermissions[]>([]); // Reserved for future role permissions UI
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [staffToRemove, setStaffToRemove] = useState<{ id: string; email: string } | null>(null);
   const [inviteForm, setInviteForm] = useState({
     email: '',
     name: '',
@@ -181,7 +158,6 @@ export default function TeamSettingsPage() {
       if (!response.ok) throw new Error('Failed to fetch staff');
       const data = await response.json();
       setStaff(data.staff || []);
-      setRolePermissions(data.rolePermissions || []);
     } catch (error) {
       console.error('Failed to fetch staff:', error);
       toast({
@@ -268,12 +244,15 @@ export default function TeamSettingsPage() {
   };
 
   const handleRemoveStaff = async (staffId: string, email: string) => {
-    if (!confirm(`Are you sure you want to remove ${email} from your team?`)) {
-      return;
-    }
+    setStaffToRemove({ id: staffId, email });
+    setRemoveDialogOpen(true);
+  };
+
+  const confirmRemoveStaff = async () => {
+    if (!staffToRemove) return;
 
     try {
-      const response = await fetch(`/api/staff/${staffId}`, {
+      const response = await fetch(`/api/staff/${staffToRemove.id}`, {
         method: 'DELETE',
       });
 
@@ -291,6 +270,9 @@ export default function TeamSettingsPage() {
         description: 'Failed to remove team member.',
         variant: 'destructive',
       });
+    } finally {
+      setRemoveDialogOpen(false);
+      setStaffToRemove(null);
     }
   };
 
@@ -575,25 +557,18 @@ export default function TeamSettingsPage() {
                                 Resend Invitation
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem asChild>
-                              <div className="flex flex-col w-full">
-                                <span className="text-xs text-muted-foreground mb-1 px-2">Change Role</span>
-                                <Select
-                                  value={member.role}
-                                  onValueChange={(value) => handleUpdateRole(member.id, value as StaffRole)}
-                                >
-                                  <SelectTrigger className="h-8">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                                      <SelectItem key={value} value={value}>
-                                        {label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                            <DropdownMenuItem onClick={() => {
+                              const newRole = prompt(
+                                `Change role for ${member.email}. Current: ${ROLE_LABELS[member.role]}\n\nAvailable roles:\n` +
+                                Object.entries(ROLE_LABELS).map(([k, v]) => `${k}: ${v}`).join('\n'),
+                                member.role
+                              );
+                              if (newRole && newRole in ROLE_LABELS) {
+                                handleUpdateRole(member.id, newRole as StaffRole);
+                              }
+                            }}>
+                              <Shield className="h-4 w-4 mr-2" />
+                              Change Role
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {member.status === 'active' && (
@@ -655,6 +630,36 @@ export default function TeamSettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Remove Confirmation Dialog */}
+      <Dialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Team Member</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove <strong>{staffToRemove?.email}</strong> from your team? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRemoveDialogOpen(false);
+                setStaffToRemove(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRemoveStaff}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
