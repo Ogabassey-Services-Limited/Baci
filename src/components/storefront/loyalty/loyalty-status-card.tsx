@@ -1,7 +1,7 @@
 'use client';
 
 import { useLoyalty } from '@/hooks/use-loyalty';
-import { Card, CardContent, CardDescription, CardTitle, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
