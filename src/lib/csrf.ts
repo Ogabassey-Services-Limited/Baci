@@ -94,7 +94,7 @@ export async function getCsrfToken(): Promise<string | null> {
 }
 
 /**
- * Verify CSRF token from request
+ * Verify CSRF token from request (Edge-compatible - uses request.cookies)
  */
 export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
     // Get token from header
@@ -105,10 +105,9 @@ export async function verifyCsrfToken(request: NextRequest): Promise<boolean> {
         return false;
     }
 
-    // Get secret from cookie
-    const cookieStore = await cookies();
-    const secretCookie = cookieStore.get(CSRF_SECRET_NAME);
-    const tokenCookie = cookieStore.get(CSRF_TOKEN_NAME);
+    // Get secret from cookie using Edge-compatible request.cookies
+    const secretCookie = request.cookies.get(CSRF_SECRET_NAME);
+    const tokenCookie = request.cookies.get(CSRF_TOKEN_NAME);
 
     if (!secretCookie || !tokenCookie) {
         console.warn('CSRF: Missing cookies');

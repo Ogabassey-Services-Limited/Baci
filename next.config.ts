@@ -11,6 +11,12 @@ const nextConfig: NextConfig = {
   // Reduces unnecessary re-renders without manual useMemo/useCallback
   reactCompiler: true,
 
+  // Fix Vercel middleware tracing issue with Next.js 16
+  // See: https://github.com/vercel/next.js/issues/71818
+  outputFileTracingIncludes: {
+    '/middleware': ['./node_modules/@supabase/**/*'],
+  },
+
   images: {
     remotePatterns: [
       {
