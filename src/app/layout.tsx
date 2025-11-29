@@ -127,13 +127,12 @@ export default async function RootLayout({
           No manual preconnect/preload needed - Next.js optimizes this.
         */}
 
-        {/* Preconnect hints for critical third-party origins */}
-        {/* Supabase - database and auth */}
-        <link rel="preconnect" href="https://dtbqucrqfbycfpmfwtie.supabase.co" />
+        {/*
+          DNS prefetch hints for third-party origins
+          Using dns-prefetch instead of preconnect to avoid "unused preconnect" warnings
+          dns-prefetch is less aggressive but still helps with connection setup
+        */}
         <link rel="dns-prefetch" href="https://dtbqucrqfbycfpmfwtie.supabase.co" />
-        {/* Vercel Analytics */}
-        <link rel="preconnect" href="https://vitals.vercel-insights.com" />
-        {/* Common image CDNs */}
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
 

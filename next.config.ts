@@ -71,6 +71,10 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
+    // Inline CSS to eliminate render-blocking CSS requests
+    // Replaces <link> tags with <style> tags for faster FCP/LCP
+    inlineCss: true,
+
     // Enable optimized CSS bundling
     optimizeCss: false,
 
