@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { shippingService } from '@/lib/shipping';
 import type { ShippingProviderCode } from '@/lib/shipping/types';
-import { isValidUuid } from '@/lib/sanitize';
+import { isValidUuid } from '@/lib/sanitize-core';
 
 // =============================================================================
 // POST /api/shipping/cancel/[shipmentId] - Cancel a shipment

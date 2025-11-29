@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AboutPageClient } from './about-page-client';
 import { generateAboutPageJsonLd, MerchantAboutPage } from '@/types/about-page';
-import { safeJsonLdStringify } from '@/lib/sanitize';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 
 interface PageProps {
   params: Promise<{ slug: string }>;

@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { generateSlug, generateProductSlug, generateProductSchema, generateMetaDescription } from '@/lib/seo-utils';
 import { getCountryByCode } from '@/lib/countries';
 import { Product } from '@/lib/products';
-import { sanitizeSearchQuery, sanitizeLikePattern, sanitizeSchemaMarkup } from '@/lib/sanitize';
+import { sanitizeSearchQuery, sanitizeLikePattern, sanitizeSchemaMarkup } from '@/lib/sanitize-core';
 
 export async function GET(request: NextRequest) {
     try {

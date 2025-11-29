@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { FAQPageClient } from './faq-page-client';
 import { generateFAQSchema } from '@/lib/seo-utils';
 import { FAQItem, parseLegacyFAQ } from '@/types/faq';
-import { safeJsonLdStringify } from '@/lib/sanitize';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 
 interface PageProps {
   params: Promise<{ slug: string }>;

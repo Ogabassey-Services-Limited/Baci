@@ -77,23 +77,28 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
 }
 
+import { notFound } from 'next/navigation';
+
+// ... imports
+
 export default async function StorefrontPage({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = await params;
 
     // Validate slug format to prevent database queries for static assets
     if (!isValidMerchantSlug(slug)) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center">
-                <p>Invalid store URL.</p>
-            </div>
-        );
+        notFound();
     }
 
     // Use cached merchant data for better performance
     const merchant = await getCachedMerchant(slug);
 
+    if (!merchant) {
+        notFound();
+    }
+
     let localBusinessSchema = null;
     let webSiteSchema = null;
+// ... rest of the component
 
     if (merchant) {
         const headersList = await headers();

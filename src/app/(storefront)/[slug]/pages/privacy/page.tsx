@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { PrivacyPageClient } from './privacy-page-client';
-import { safeJsonLdStringify } from '@/lib/sanitize';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
