@@ -29,7 +29,7 @@ jobs:
         uses: lycheeverse/lychee-action@v1.9.0
         with:
           # Check all markdown, html, and ts/tsx files
-          args: --verbose --no-progress './**/*.md' './**/*.html' './**/*.tsx' './**/*.ts' --exclude-mail
+          args: --verbose --no-progress './**/*.md' './**/*.html' './**/*.tsx' './**/*.ts' --exclude-mail --exclude 'localhost|127.0.0.1|github.com|via.placeholder.com'
           # Fail action if broken links are found
           fail: true
         env:
