@@ -18,6 +18,15 @@ function getSupabaseAdmin() {
  * the platform owner's analytics pixels on public pages.
  */
 
+// Default empty config response
+const EMPTY_CONFIG = {
+  google_analytics_id: null,
+  facebook_pixel_id: null,
+  tiktok_pixel_id: null,
+  snapchat_pixel_id: null,
+  twitter_pixel_id: null,
+};
+
 export async function GET() {
   try {
     // Get platform settings (only analytics IDs, no secrets)
@@ -29,37 +38,30 @@ export async function GET() {
       .single();
 
     if (error) {
-      // If no settings exist yet, return empty config
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({
-          google_analytics_id: null,
-          facebook_pixel_id: null,
-          tiktok_pixel_id: null,
-          snapchat_pixel_id: null,
-          twitter_pixel_id: null,
-        });
+      // Return empty config for common non-critical errors:
+      // PGRST116: No rows found (table exists but empty)
+      // 42P01: Table doesn't exist
+      // 42703: Column doesn't exist
+      if (error.code === 'PGRST116' || error.code === '42P01' || error.code === '42703') {
+        return NextResponse.json(EMPTY_CONFIG);
       }
 
       console.error('Failed to fetch platform analytics config:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch config' },
-        { status: 500 }
-      );
+      // Still return empty config instead of 500 to prevent blocking page load
+      return NextResponse.json(EMPTY_CONFIG);
     }
 
     // Return only pixel IDs (no API secrets or tokens)
     return NextResponse.json({
-      google_analytics_id: settings.google_analytics_id || null,
-      facebook_pixel_id: settings.facebook_pixel_id || null,
-      tiktok_pixel_id: settings.tiktok_pixel_id || null,
-      snapchat_pixel_id: settings.snapchat_pixel_id || null,
-      twitter_pixel_id: settings.twitter_pixel_id || null,
+      google_analytics_id: settings?.google_analytics_id || null,
+      facebook_pixel_id: settings?.facebook_pixel_id || null,
+      tiktok_pixel_id: settings?.tiktok_pixel_id || null,
+      snapchat_pixel_id: settings?.snapchat_pixel_id || null,
+      twitter_pixel_id: settings?.twitter_pixel_id || null,
     });
   } catch (error) {
     console.error('Platform analytics config error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    // Return empty config instead of 500 to prevent blocking page load
+    return NextResponse.json(EMPTY_CONFIG);
   }
 }

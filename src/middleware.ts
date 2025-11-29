@@ -300,6 +300,21 @@ function applySecurityHeaders(
     response.headers.set('x-nonce', nonce);
   }
 
+  // HSTS - Strict Transport Security with includeSubDomains and preload
+  response.headers.set(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains; preload'
+  );
+
+  // Cross-Origin-Opener-Policy - Isolate browsing context
+  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+
+  // Additional security headers
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
   // Detect bots/crawlers for optimized SEO caching
   const isBot = /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i.test(userAgent);
 
