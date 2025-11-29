@@ -37,8 +37,12 @@ async function fetchBlogPosts() {
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const headersList = await headers();
-  const host = headersList.get('host') || 'localhost:3000';
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  
+  const host = process.env.NEXT_PUBLIC_ROOT_DOMAIN 
+    ? process.env.NEXT_PUBLIC_ROOT_DOMAIN 
+    : (headersList.get('host') || 'localhost:3000');
+
   const siteUrl = `${protocol}://${host}`;
 
   // Define static platform pages

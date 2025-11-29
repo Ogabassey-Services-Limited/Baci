@@ -9,7 +9,7 @@ import { cookies } from 'next/headers';
 import { shippingService } from '@/lib/shipping';
 import type { BookingRequest, ShippingProviderCode } from '@/lib/shipping/types';
 import { z } from 'zod';
-import { isValidUuid } from '@/lib/sanitize';
+import { isValidUuid } from '@/lib/sanitize-core';
 
 // =============================================================================
 // REQUEST VALIDATION

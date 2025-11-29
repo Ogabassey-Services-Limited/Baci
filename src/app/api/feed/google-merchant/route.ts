@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { stripHtmlTags } from '@/lib/sanitize';
+import { stripHtmlTags } from '@/lib/sanitize-core';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
 import { unstable_cache } from 'next/cache';
 

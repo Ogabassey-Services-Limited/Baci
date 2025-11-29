@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import ProductDetailClient from './product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema, generateAggregateRating, constructCanonicalUrl } from '@/lib/seo-utils';
-import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize';
+import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize-core';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import { getCachedMerchant, getCachedProduct, getCachedProductRatingStats } from '@/lib/cached-data';
 

@@ -6,7 +6,7 @@ import { Suspense } from 'react';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema, generateSlug, getProductUrl } from '@/lib/seo-utils';
-import { escapeHtml, safeJsonLdStringify, sanitizeLikePattern } from '@/lib/sanitize';
+import { escapeHtml, safeJsonLdStringify, sanitizeLikePattern } from '@/lib/sanitize-core';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 
 // Enable ISR with 5 minute revalidation

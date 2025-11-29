@@ -7,6 +7,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
 import { Providers } from '@/contexts/providers';
 import { CsrfInitializer } from '@/components/csrf-initializer';
+import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
+import { generateSoftwareApplicationSchema, generateOrganizationSchema, generateWebSiteSchema, type OrganizationData } from '@/lib/seo-utils';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -15,18 +17,15 @@ const inter = Inter({
   preload: true, // Preloads font for faster initial render
 });
 
-const VENDOR_NAME = 'Baci';
-const VENDOR_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
-
-
 export const metadata: Metadata = {
+  metadataBase: new URL(PLATFORM_CONFIG.url),
   title: {
-    default: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
-    template: `%s | ${VENDOR_NAME}`,
+    default: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
+    template: `%s | ${PLATFORM_CONFIG.name}`,
   },
-  description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
-  applicationName: VENDOR_NAME,
-  authors: [{ name: VENDOR_NAME }],
+  description: PLATFORM_CONFIG.description,
+  applicationName: PLATFORM_CONFIG.name,
+  authors: [{ name: PLATFORM_CONFIG.name }],
   keywords: ['ai', 'ecommerce', 'store builder', 'online store', 'nextjs', 'react', 'business', 'retail'],
   robots: {
     index: true,
@@ -40,16 +39,16 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
-    description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
-    url: VENDOR_URL,
-    siteName: VENDOR_NAME,
+    title: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
+    description: PLATFORM_CONFIG.description,
+    url: PLATFORM_CONFIG.url,
+    siteName: PLATFORM_CONFIG.name,
     images: [
       {
-        url: `${VENDOR_URL}/og-image.png`, // Ensure this image exists or use a placeholder
+        url: `${PLATFORM_CONFIG.url}/og-image.png`, // Ensure this image exists or use a placeholder
         width: 1200,
         height: 630,
-        alt: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
+        alt: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
       },
     ],
     locale: 'en_US',
@@ -57,13 +56,13 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: `${VENDOR_NAME} - Your AI-Powered E-commerce Builder`,
-    description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
-    creator: `@${VENDOR_NAME}`, // Update if you have a specific handle
-    images: [`${VENDOR_URL}/og-image.png`],
+    title: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
+    description: PLATFORM_CONFIG.description,
+    creator: `@${PLATFORM_CONFIG.name}`, // Update if you have a specific handle
+    images: [`${PLATFORM_CONFIG.url}/og-image.png`],
   },
   alternates: {
-    canonical: VENDOR_URL,
+    canonical: PLATFORM_CONFIG.url,
   },
 };
 
@@ -84,9 +83,6 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
-import { generateSoftwareApplicationSchema, generateOrganizationSchema, generateWebSiteSchema, type OrganizationData } from '@/lib/seo-utils';
-import { PLATFORM_PRICING } from '@/config/platform';
-
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -99,10 +95,10 @@ export default async function RootLayout({
 
   // Build organization data for schema generator
   const organizationData: OrganizationData = {
-    name: VENDOR_NAME,
-    url: VENDOR_URL,
-    logo: `${VENDOR_URL}/logo.svg`,
-    description: 'Create your e-commerce store in seconds with AI. Launch a professional online store with no coding required.',
+    name: PLATFORM_CONFIG.name,
+    url: PLATFORM_CONFIG.url,
+    logo: `${PLATFORM_CONFIG.url}/logo.svg`,
+    description: PLATFORM_CONFIG.description,
     socialMedia: {
       twitter: 'https://twitter.com/usebaci',
       linkedin: 'https://linkedin.com/company/usebaci',
@@ -114,9 +110,9 @@ export default async function RootLayout({
 
   // Use the SEO utility for consistent WebSite schema generation
   const websiteSchema = generateWebSiteSchema(
-    VENDOR_NAME,
-    VENDOR_URL,
-    `${VENDOR_URL}/search?q={search_term_string}`
+    PLATFORM_CONFIG.name,
+    PLATFORM_CONFIG.url,
+    `${PLATFORM_CONFIG.url}/search?q={search_term_string}`
   );
 
   const softwareApplicationSchema = generateSoftwareApplicationSchema(PLATFORM_PRICING);
