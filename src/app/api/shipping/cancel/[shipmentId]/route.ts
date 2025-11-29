@@ -59,6 +59,7 @@ export async function POST(
       .from('shipments')
       .select('id, provider, provider_shipment_id, order_id, status, merchant_id')
       .eq('id', shipmentId)
+      .eq('merchant_id', merchant.id)
       .single();
 
     if (shipmentError || !shipment) {
@@ -68,19 +69,19 @@ export async function POST(
       );
     }
 
-    // Verify merchant owns this shipment
-    if (shipment.merchant_id !== merchant.id) {
-      return NextResponse.json(
-        { error: 'Unauthorized - shipment does not belong to this merchant' },
-        { status: 403 }
-      );
-    }
-
     // Check if shipment can be cancelled
     const nonCancellableStatuses = ['delivered', 'cancelled', 'returned'];
     if (nonCancellableStatuses.includes(shipment.status)) {
       return NextResponse.json(
         { error: `Cannot cancel shipment with status: ${shipment.status}` },
+        { status: 400 }
+      );
+    }
+
+    // Ensure this shipment is cancellable via a provider
+    if (!shipment.provider || !shipment.provider_shipment_id) {
+      return NextResponse.json(
+        { error: 'This shipment cannot be cancelled via a provider' },
         { status: 400 }
       );
     }
@@ -99,7 +100,7 @@ export async function POST(
     }
 
     // Update shipment status
-    await supabase
+    const { error: updateError } = await supabase
       .from('shipments')
       .update({
         status: 'cancelled',
@@ -107,6 +108,14 @@ export async function POST(
         refund_amount: result.refundAmount,
       })
       .eq('id', shipmentId);
+
+    if (updateError) {
+      console.error('Error updating shipment status:', updateError);
+      return NextResponse.json(
+        { error: 'Shipment cancelled with provider but failed to update local status' },
+        { status: 500 }
+      );
+    }
 
     // Update order
     await supabase

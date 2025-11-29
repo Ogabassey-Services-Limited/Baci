@@ -52,7 +52,7 @@ export function GadgetDefaultTemplate() {
         'full': 'rounded-full',
     };
 
-    const radiusClass = RadiusMap[theme.radius];
+    const radiusClass = RadiusMap[theme.radius as keyof typeof RadiusMap] || 'rounded-md';
 
     return (
         <div
@@ -139,7 +139,7 @@ export function GadgetDefaultTemplate() {
                         {categories.map((cat, i) => (
                             <Link
                                 key={i}
-                                href={cat.href}
+                                href={cat.href as any}
                                 className={cn(
                                     "group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border",
                                     radiusClass,

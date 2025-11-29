@@ -122,9 +122,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if already shipped
-    if (order.shipping_status === 'shipped' || order.shipping_status === 'delivered') {
+    // Check if already shipped or being processed
+    if (['shipped', 'delivered', 'processing'].includes(order.shipping_status)) {
       return NextResponse.json(
-        { error: 'Order has already been shipped' },
+        { error: 'Order has already been shipped or is being processed' },
         { status: 400 }
       );
     }
@@ -211,7 +212,14 @@ export async function POST(request: NextRequest) {
 
     if (shipmentError) {
       console.error('Error creating shipment record:', shipmentError);
-      // Continue even if DB insert fails - shipment is booked with provider
+      // Return error - inconsistent state is worse than failed booking
+      return NextResponse.json(
+        {
+          error: 'Shipment booked with provider but failed to save record. Contact support with tracking number: ' + result.trackingNumber,
+          trackingNumber: result.trackingNumber,
+        },
+        { status: 500 }
+      );
     }
 
     // Update order with shipment info

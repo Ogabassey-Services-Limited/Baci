@@ -383,7 +383,7 @@ export function Storefront({ slug }: { slug?: string }) {
   }
 
   // For demo/preview purposes, check for specific slug
-  if (slug === 'ogabassey1' || slug === 'ogabassey') {
+  if (slug === 'gadget-custom-template-ogabassey') {
     return (
       <ThemedStorefrontLayout>
         <GadgetCustomTemplateOgabassey />
@@ -391,7 +391,7 @@ export function Storefront({ slug }: { slug?: string }) {
     );
   }
 
-  if (slug === 'default-test') {
+  if (slug === 'gadget-default-template') {
     return (
       <ThemedStorefrontLayout>
         <GadgetDefaultTemplate />

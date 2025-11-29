@@ -33,17 +33,23 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Check if subscriber already exists for this merchant
-    const { data: existing } = await supabase
+    let query = supabase
       .from('newsletter_subscribers')
       .select('id, status')
-      .eq('email', normalizedEmail)
-      .eq('merchant_id', merchantId || '')
-      .single();
+      .eq('email', normalizedEmail);
+
+    if (merchantId) {
+      query = query.eq('merchant_id', merchantId);
+    } else {
+      query = query.is('merchant_id', null);
+    }
+
+    const { data: existing } = await query.single();
 
     if (existing) {
       if (existing.status === 'unsubscribed') {
         // Resubscribe
-        await supabase
+        const { error: updateError } = await supabase
           .from('newsletter_subscribers')
           .update({
             status: 'subscribed',
@@ -51,6 +57,14 @@ export async function POST(request: NextRequest) {
             source,
           })
           .eq('id', existing.id);
+
+        if (updateError) {
+          console.error('Newsletter resubscribe error:', updateError);
+          return NextResponse.json(
+            { error: 'Failed to resubscribe. Please try again.' },
+            { status: 500 }
+          );
+        }
 
         return NextResponse.json({
           success: true,
@@ -175,14 +189,21 @@ export async function DELETE(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Update subscriber status to unsubscribed
-    const { error: updateError } = await supabase
+    let query = supabase
       .from('newsletter_subscribers')
       .update({
         status: 'unsubscribed',
         unsubscribed_at: new Date().toISOString(),
       })
-      .eq('email', normalizedEmail)
-      .eq('merchant_id', merchantId || '');
+      .eq('email', normalizedEmail);
+
+    if (merchantId) {
+      query = query.eq('merchant_id', merchantId);
+    } else {
+      query = query.is('merchant_id', null);
+    }
+
+    const { error: updateError } = await query;
 
     if (updateError) {
       console.error('Newsletter unsubscribe error:', updateError);

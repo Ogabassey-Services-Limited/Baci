@@ -1,7 +1,7 @@
 'use client';
 
 import { useMerchant } from '@/hooks/use-merchant';
-import { Header } from '@/components/storefront/blocks/header';
+import { OgabasseyHeader } from '@/components/storefront/blocks/ogabassey-header';
 import { Footer } from '@/components/storefront/blocks/footer';
 import { BentoGridHero } from '@/components/storefront/blocks/bento-grid-hero';
 import { CategoryIcons } from '@/components/storefront/blocks/category-icons';
@@ -56,21 +56,12 @@ export function GadgetCustomTemplateOgabassey() {
     return (
         <div className="min-h-screen bg-white font-sans">
             {/* 1. Header with Phone Art Background */}
-            <Header
-                showLogo={true}
+            <OgabasseyHeader
+                logoText="Ogabassey"
                 showSearch={true}
                 showCart={true}
-                showMenu={true}
-                layout="logo-left-nav-center"
-                glassEffect={false}
-                sticky={true}
-                backgroundColor="#1a1a1a" // Dark background
-                textColor="#ffffff"
-                searchStyle="filled"
-                searchRadius="sm"
-                backgroundImage="https://images.unsplash.com/photo-1556656793-02715d8dd660?auto=format&fit=crop&w=2000&q=80" // Placeholder for "phone art" pattern
-                storeName="Ogabassey"
-                logoUrl="https://ogabassey.com/wp-content/uploads/2023/06/Ogabassey-Logo-1.png" // Using real logo if possible, or fallback
+                showUser={true}
+                showBell={true}
             />
 
             <main>

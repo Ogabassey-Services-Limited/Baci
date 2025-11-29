@@ -94,7 +94,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
 
       if (slug) {
         // Mock data for Ogabassey demo
-        if (slug === 'ogabassey1' || slug === 'ogabassey3') {
+        if (slug === 'ogabassey1' || slug === 'ogabassey3' || slug === 'gadget-custom-template-ogabassey' || slug === 'gadget-default-template') {
           merchantData = {
             id: 'demo-ogabassey',
             user_id: 'demo-user',

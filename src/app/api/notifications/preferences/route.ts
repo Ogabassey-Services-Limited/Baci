@@ -2,6 +2,23 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import type { UpdatePreferencesInput } from '@/types/notifications';
+import { z } from 'zod';
+
+const timeStringSchema = z.string().regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)').nullable();
+
+const preferencesSchema = z.object({
+  in_app_enabled: z.boolean().optional(),
+  banner_enabled: z.boolean().optional(),
+  quiet_hours_start: timeStringSchema.optional(),
+  quiet_hours_end: timeStringSchema.optional(),
+}).refine(
+  (data) => {
+    const hasStart = data.quiet_hours_start !== null && data.quiet_hours_start !== undefined;
+    const hasEnd = data.quiet_hours_end !== null && data.quiet_hours_end !== undefined;
+    return hasStart === hasEnd; // Both set or both unset
+  },
+  { message: 'Both quiet hours start and end must be set together', path: ['quiet_hours_start'] }
+);
 
 /**
  * GET /api/notifications/preferences
@@ -90,7 +107,17 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Parse request body
-    const body: UpdatePreferencesInput = await request.json();
+    const json = await request.json();
+    const validation = preferencesSchema.safeParse(json);
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: 'Invalid request', details: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+
+    const body = validation.data;
 
     // Build update object
     const updates: Record<string, unknown> = {
