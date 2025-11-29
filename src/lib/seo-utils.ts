@@ -750,6 +750,86 @@ export function generateSoftwareApplicationSchema(data: SoftwareApplicationData)
 }
 
 /**
+ * Generates Article schema for blog posts (Google Discover optimized)
+ * @see https://schema.org/Article
+ */
+export interface ArticleData {
+    headline: string;
+    description: string;
+    image: string | string[];
+    datePublished: string;
+    dateModified?: string;
+    authorName: string;
+    authorUrl?: string;
+    publisherName: string;
+    publisherLogo: string;
+    url: string;
+}
+
+export function generateArticleSchema(data: ArticleData): Record<string, unknown> {
+    return {
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: escapeHtml(data.headline),
+        description: escapeHtml(data.description),
+        image: Array.isArray(data.image) ? data.image.map(img => escapeHtml(img)) : escapeHtml(data.image),
+        datePublished: escapeHtml(data.datePublished),
+        dateModified: escapeHtml(data.dateModified || data.datePublished),
+        author: {
+            '@type': 'Person',
+            name: escapeHtml(data.authorName),
+            url: data.authorUrl ? escapeHtml(data.authorUrl) : undefined,
+        },
+        publisher: {
+            '@type': 'Organization',
+            name: escapeHtml(data.publisherName),
+            logo: {
+                '@type': 'ImageObject',
+                url: escapeHtml(data.publisherLogo)
+            }
+        },
+        mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': escapeHtml(data.url)
+        }
+    };
+}
+
+/**
+ * Generates ProfilePage schema for merchant "About" pages (E-E-A-T signal)
+ * @see https://schema.org/ProfilePage
+ */
+export interface ProfilePageData {
+    name: string;
+    description?: string;
+    image?: string;
+    url: string;
+    sameAs?: string[];
+    jobTitle?: string; // e.g., "Store Owner", "Artisan"
+}
+
+export function generateProfilePageSchema(data: ProfilePageData): Record<string, unknown> {
+    const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'ProfilePage',
+        mainEntity: {
+            '@type': 'Person', // Or 'Organization' depending on the profile type, sticking to Person/Merchant owner context usually
+            name: escapeHtml(data.name),
+            description: data.description ? escapeHtml(data.description) : undefined,
+            image: data.image ? escapeHtml(data.image) : undefined,
+            url: escapeHtml(data.url),
+            jobTitle: data.jobTitle ? escapeHtml(data.jobTitle) : undefined,
+        }
+    };
+
+    if (data.sameAs && data.sameAs.length > 0) {
+        (schema.mainEntity as Record<string, unknown>).sameAs = data.sameAs.map(url => escapeHtml(url));
+    }
+
+    return schema;
+}
+
+/**
  * Constructs a clean canonical URL by removing noisy query parameters.
  * Best practice for 2025: Point to the "clean" version of the URL (without tracking/sorting).
  *

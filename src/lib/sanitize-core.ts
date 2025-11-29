@@ -157,6 +157,9 @@ export function sanitizeInteger(value: unknown): number {
  */
 export function sanitizePrice(value: unknown): number {
     const num = sanitizeNumber(value);
+    if (!Number.isFinite(num)) {
+        return 0;
+    }
     return Math.max(0, Math.round(num * 100) / 100);
 }
 
@@ -270,8 +273,9 @@ export function sanitizeFileName(fileName: string): string {
 export function sanitizeJson<T>(input: unknown, schema: z.ZodSchema<T>): T | null {
     try {
         return schema.parse(input);
-    } catch (error) {
-        console.error('JSON validation failed:', error);
+    } catch {
+        // Don't log validation errors to prevent PII leakage
+        // In development, use a debug flag if detailed logging is needed
         return null;
     }
 }

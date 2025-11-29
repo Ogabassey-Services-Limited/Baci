@@ -3,12 +3,17 @@ import { PlatformHeader } from '@/components/platform/header';
 import { PlatformFooter } from '@/components/platform/footer';
 import { Metadata } from 'next';
 import Link from 'next/link';
-// import { Button } from '@/components/ui/button';
 import { asRoute } from '@/lib/routes';
+import { PLATFORM_CONFIG } from '@/config/platform';
 
 export const metadata: Metadata = {
   title: 'Blog - Baci',
   description: 'Latest news, updates, and e-commerce tips from Baci.',
+  alternates: {
+    types: {
+      'application/rss+xml': `${PLATFORM_CONFIG.url}/feed.xml`,
+    },
+  },
 };
 
 export default function BlogPage() {
@@ -17,28 +22,63 @@ export default function BlogPage() {
     {
       title: 'How AI is Revolutionizing E-commerce in Africa',
       excerpt: 'Discover how artificial intelligence is leveling the playing field for small business owners across the continent.',
-      date: 'Oct 24, 2025',
+      date: '2025-10-24',
       category: 'Industry Trends',
       slug: 'ai-revolutionizing-ecommerce',
+      image: '/blog/ai-ecommerce.jpg'
     },
     {
       title: '5 Tips for Writing Product Descriptions that Sell',
       excerpt: 'Learn the secrets to writing copy that converts visitors into customers, powered by Baci AI.',
-      date: 'Oct 18, 2025',
+      date: '2025-10-18',
       category: 'Guides',
       slug: 'writing-product-descriptions',
+      image: '/blog/copywriting-tips.jpg'
     },
     {
       title: 'Introducing Baci Pro: Advanced Features for Growth',
       excerpt: 'We are excited to launch our new Pro tier, designed to help your business scale faster than ever.',
-      date: 'Oct 10, 2025',
+      date: '2025-10-10',
       category: 'Product Updates',
       slug: 'introducing-baci-pro',
+      image: '/blog/baci-pro.jpg'
     },
   ];
 
+  const blogSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Blog',
+    name: 'The Baci Blog',
+    description: 'Insights, updates, and stories for the modern merchant.',
+    url: `${PLATFORM_CONFIG.url}/blog`,
+    publisher: {
+      '@type': 'Organization',
+      name: PLATFORM_CONFIG.name,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${PLATFORM_CONFIG.url}/logo.png`
+      }
+    },
+    blogPost: posts.map(post => ({
+      '@type': 'BlogPosting',
+      headline: post.title,
+      description: post.excerpt,
+      datePublished: post.date,
+      url: `${PLATFORM_CONFIG.url}/blog/${post.slug}`,
+      image: `${PLATFORM_CONFIG.url}${post.image}`,
+      author: {
+        '@type': 'Organization',
+        name: 'Baci Team'
+      }
+    }))
+  };
+
   return (
     <AppBody>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema) }}
+      />
       <div className="flex flex-col min-h-screen bg-background font-sans selection:bg-accent/30">
         <PlatformHeader />
         <main className="flex-1 pt-24 pb-16">
