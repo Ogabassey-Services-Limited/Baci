@@ -148,7 +148,8 @@ export function sanitizeNumber(value: unknown): number {
  * Sanitize integer input
  */
 export function sanitizeInteger(value: unknown): number {
-    return Math.floor(sanitizeNumber(value));
+    const num = sanitizeNumber(value);
+    return Number.isFinite(num) ? Math.floor(num) : 0;
 }
 
 /**
