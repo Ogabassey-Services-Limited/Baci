@@ -89,14 +89,14 @@ export class ShippingService {
       throw new Error(`Provider ${provider} not found`);
     }
 
-    console.log('[ShippingService] Booking shipment with provider:', provider, {
+    console.log('[ShippingService] Booking shipment', { provider,
       orderId: request.orderId,
       quoteId: request.quoteId,
     });
 
     const result = await providerInstance.bookShipment(request);
 
-    console.log(`[ShippingService] Shipment booked successfully`, {
+    console.log('[ShippingService] Shipment booked successfully', {
       provider,
       trackingNumber: result.trackingNumber,
     });
@@ -157,7 +157,7 @@ export class ShippingService {
       throw new Error(`Provider ${provider} not found`);
     }
 
-    console.log(`[ShippingService] Cancelling shipment`, { provider, shipmentId });
+    console.log('[ShippingService] Cancelling shipment', { provider, shipmentId });
 
     return providerInstance.cancelShipment(shipmentId);
   }

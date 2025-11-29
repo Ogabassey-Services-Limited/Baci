@@ -174,7 +174,7 @@ export class QuoteAggregator {
         allQuotes.push(...result.value);
       } else {
         warnings.push(`${providers[index].name}: ${result.reason?.message || 'Unknown error'}`);
-        console.error('[QuoteAggregator] Provider failed:', providers[index].name, result.reason);
+        console.error('[QuoteAggregator] Provider failed', { provider: providers[index].name, reason: result.reason });
       }
     });
 

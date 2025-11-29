@@ -125,7 +125,7 @@ Deno.serve(async (req: Request) => {
           .select();
 
         if (insertError) {
-          console.error(`Error inserting merchant notifications: ${insertError.message}`);
+          console.error('Error inserting merchant notifications', { error: insertError.message });
           // Continue anyway - some might have been inserted
         }
 
@@ -166,11 +166,10 @@ Deno.serve(async (req: Request) => {
           merchants: merchantIds.length,
         });
       } catch (notificationError) {
-        console.error(
-          'Error processing notification:',
-          notification.id,
-          notificationError
-        );
+        console.error('Error processing notification', {
+          notificationId: notification.id,
+          error: notificationError instanceof Error ? notificationError.message : notificationError,
+        });
         results.push({
           id: notification.id,
           status: "error",

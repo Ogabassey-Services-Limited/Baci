@@ -232,13 +232,21 @@ export async function PATCH(request: NextRequest) {
     };
 
     // Update order
-    await supabase
+    const { error: updateError } = await supabase
       .from('orders')
       .update({
         self_fulfillment_data: updatedData,
         tracking_number: updates.trackingNumber || order.self_fulfillment_data?.trackingNumber,
       })
       .eq('id', orderId);
+
+    if (updateError) {
+      console.error('Error updating self-fulfillment:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to update order' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

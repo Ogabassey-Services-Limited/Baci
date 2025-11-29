@@ -96,7 +96,11 @@ export default async function ContactPage({ params }: PageProps) {
   return (
     <>
       {/* ContactPage JSON-LD Schema */}
-      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+      {/* nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
+      />
       <ContactPageClient
         merchant={merchant}
         legacyContent={merchant.pages?.contact}

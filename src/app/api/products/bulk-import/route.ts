@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { generateProductSlug } from '@/lib/seo-utils';
 
 interface CSVRow {
   name: string;
@@ -50,19 +51,6 @@ function parseCSV(csvText: string): CSVRow[] {
   return rows;
 }
 
-/**
- * Generate a unique slug from a name
- */
-function generateSlug(name: string, index: number): string {
-  const baseSlug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
-
-  return `${baseSlug}-${Date.now()}-${index}`;
-}
 
 /**
  * POST /api/products/bulk-import
@@ -139,17 +127,18 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Create product
+        // Create product - use generateProductSlug for consistency with other routes
         const productData = {
           merchant_id: merchant.id,
           name: row.name,
           description: row.description || '',
-          price,
-          stock_quantity: stockQuantity,
+          base_price: price,
+          quantity: stockQuantity,
+          track_quantity: stockQuantity !== null,
           category: row.category || null,
           sku: row.sku || null,
           status: row.status === 'draft' ? 'draft' : 'active',
-          slug: generateSlug(row.name, i),
+          slug: generateProductSlug(row.name),
           images: [],
         };
 

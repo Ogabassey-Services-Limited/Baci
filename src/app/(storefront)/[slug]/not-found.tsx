@@ -8,7 +8,18 @@ import { useMerchantSafe } from '@/hooks/use-merchant';
 export default function StorefrontNotFound() {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
+  const isLoading = merchantContext?.loading;
   const storeName = merchant?.business_name || 'Store';
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[60vh] flex-col items-center justify-center p-8 animate-pulse">
+        <div className="h-32 w-48 bg-gray-200 dark:bg-gray-800 rounded-lg mb-8" />
+        <div className="h-8 w-64 bg-gray-200 dark:bg-gray-800 rounded mb-4" />
+        <div className="h-4 w-96 bg-gray-200 dark:bg-gray-800 rounded" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center p-8">

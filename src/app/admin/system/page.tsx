@@ -132,7 +132,8 @@ export default function SystemHealthPage() {
     }
 
     return () => controller.abort();
-  }, [toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const refreshAnalyticsViews = async () => {
     try {

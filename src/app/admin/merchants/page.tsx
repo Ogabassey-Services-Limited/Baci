@@ -143,7 +143,8 @@ export default function MerchantsPage() {
     } finally {
       setLoading(false);
     }
-  }, [sortBy, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy]);
 
   useEffect(() => {
     fetchMerchants();

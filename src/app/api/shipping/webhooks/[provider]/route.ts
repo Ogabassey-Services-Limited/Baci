@@ -4,9 +4,15 @@
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 import { mapProviderStatus } from '@/lib/shipping/status-mapper';
+
+// Create a service role client for webhooks (no cookies/auth needed)
+function getServiceClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
 import type { ShippingProviderCode, NormalizedShipmentStatus } from '@/lib/shipping/types';
 import crypto from 'crypto';
 
@@ -28,14 +34,19 @@ function verifyWebhookSignature(
 
   const secret = secrets[provider.toLowerCase()];
 
-  // If no secret configured, skip verification (not recommended for production)
+  // Security: Fail closed - require webhook secrets in production
   if (!secret) {
-    console.warn('[Webhook] No secret configured for provider, skipping verification:', provider);
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[Webhook] No secret configured for provider in production - rejecting', { provider });
+      return false;
+    }
+    // Only allow bypass in development
+    console.warn('[Webhook] No secret configured for provider in development - allowing', { provider });
     return true;
   }
 
   if (!signature) {
-    console.error('[Webhook] No signature provided for provider:', provider);
+    console.error('[Webhook] No signature provided', { provider });
     return false;
   }
 
@@ -45,11 +56,18 @@ function verifyWebhookSignature(
     .update(payload)
     .digest('hex');
 
+  // Security: Handle buffer length mismatch before timingSafeEqual
+  // timingSafeEqual throws TypeError if buffers have different lengths
+  const signatureBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expectedSignature);
+
+  if (signatureBuffer.length !== expectedBuffer.length) {
+    console.error('[Webhook] Signature length mismatch', { provider });
+    return false;
+  }
+
   // Compare signatures (timing-safe)
-  return crypto.timingSafeEqual(
-    Buffer.from(signature),
-    Buffer.from(expectedSignature)
-  );
+  return crypto.timingSafeEqual(signatureBuffer, expectedBuffer);
 }
 
 // =============================================================================
@@ -171,7 +189,7 @@ export async function POST(
 
     // Verify signature
     if (!verifyWebhookSignature(provider, payload, signature)) {
-      console.error('[Webhook] Invalid signature for provider:', provider);
+      console.error('[Webhook] Invalid signature', { provider });
       return NextResponse.json(
         { error: 'Invalid signature' },
         { status: 401 }
@@ -183,7 +201,7 @@ export async function POST(
     try {
       parsedPayload = JSON.parse(payload);
     } catch {
-      console.error('[Webhook] Invalid JSON payload for provider:', provider);
+      console.error('[Webhook] Invalid JSON payload', { provider });
       return NextResponse.json(
         { error: 'Invalid JSON' },
         { status: 400 }
@@ -193,13 +211,13 @@ export async function POST(
     // Extract event data
     const event = parseWebhookPayload(provider, parsedPayload);
     if (!event) {
-      console.warn('[Webhook] Could not parse payload for provider:', provider, parsedPayload);
+      console.warn('[Webhook] Could not parse payload', { provider, payload: parsedPayload });
       // Return success to avoid retries for unparseable payloads
       return NextResponse.json({ received: true, parsed: false });
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Use service role client - webhooks are external, no user cookies
+    const supabase = getServiceClient();
 
     // Store webhook event for debugging
     await supabase.from('shipping_webhook_events').insert({
@@ -228,7 +246,7 @@ export async function POST(
     const { data: shipment, error: shipmentError } = await shipmentQuery.single();
 
     if (shipmentError || !shipment) {
-      console.warn('[Webhook] Shipment not found for tracking:', event.trackingNumber);
+      console.warn('[Webhook] Shipment not found', { trackingNumber: event.trackingNumber });
       // Mark webhook as processed (no shipment to update)
       await supabase
         .from('shipping_webhook_events')
@@ -302,7 +320,7 @@ export async function POST(
       .eq('tracking_number', event.trackingNumber)
       .eq('provider', providerUpper);
 
-    console.log('[Webhook] Processed webhook for provider:', provider, 'tracking:', event.trackingNumber, 'status:', normalizedStatus);
+    console.log('[Webhook] Processed webhook', { provider, trackingNumber: event.trackingNumber, status: normalizedStatus });
 
     return NextResponse.json({
       received: true,
@@ -312,7 +330,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('[Webhook] Error processing webhook for provider:', provider, error);
+    console.error('[Webhook] Error processing webhook', { provider, error: error instanceof Error ? error.message : error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
