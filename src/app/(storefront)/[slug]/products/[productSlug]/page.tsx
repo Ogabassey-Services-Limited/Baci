@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import ProductDetailClient from './product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema, generateAggregateRating, constructCanonicalUrl } from '@/lib/seo-utils';
-import { escapeHtml } from '@/lib/sanitize';
+import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import { getCachedMerchant, getCachedProduct, getCachedProductRatingStats } from '@/lib/cached-data';
 
@@ -112,13 +112,13 @@ export async function generateMetadata(
     // 1. Use explicit canonical from product data if available
     // 2. OR build the base path and strip noisy params using constructCanonicalUrl
     let canonicalUrl = product.canonical_url;
-    
+
     if (!canonicalUrl) {
         const basePath = `${baseUrl}/products/${product.slug || product.id}`;
         // For product pages, we generally want to strip ALL query params to consolidate authority
         // unless specific params change the content significantly (e.g. variant=123)
         // passing ['variant'] to allowedParams if your variants have unique URLs
-        canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, ['variant']); 
+        canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, ['variant']);
     }
 
     const socialMedia = merchant?.social_media as Record<string, string> | undefined;
@@ -220,13 +220,13 @@ export default async function ProductPage({ params }: PageProps) {
             {/* Product Schema.org JSON-LD */}
             <script
                 type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }}
             />
 
             {/* Breadcrumb Schema.org JSON-LD */}
             <script
                 type="application/ld+json"
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+                dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }}
             />
 
             <Suspense fallback={<ProductDetailSkeleton />}>

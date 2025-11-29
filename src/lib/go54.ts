@@ -127,9 +127,9 @@ function generateToken(): string {
   // 4. Password hashing algorithms (bcrypt/argon2) are for stored passwords, not API signatures
   // lgtm[js/insufficient-password-hash]
   // codeql[js/insufficient-password-hash] - False positive: This is HMAC-based API token generation, not password storage
-  const hash = crypto.createHmac('sha256', message).update(GO54_API_KEY).digest('hex');
+  const signature = crypto.createHmac('sha256', message).update(GO54_API_KEY).digest('hex');
 
-  return Buffer.from(hash).toString('base64');
+  return Buffer.from(signature).toString('base64');
 }
 
 /**
