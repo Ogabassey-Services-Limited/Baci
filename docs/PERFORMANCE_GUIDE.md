@@ -47,9 +47,10 @@ export default function CartPage() {
 - ✅ **Cart page**: Prerender checkout (90% conversion path)
 - ✅ **Product pages**: Prefetch related products
 - ✅ **Category pages**: Prefetch visible product links
-- ❌ **Don't prerender many pages**: Each prerender is expensive (full page load in background)
+- ❌ **Don't prerender many pages**: Each prerender is expensive (full-page load in background)
 
 #### **Benefits:**
+
 - **Instant navigation**: <50ms page loads for prerendered pages
 - **Automatic optimization**: Browser respects data-saver, battery, and connection speed
 - **Zero JavaScript cost**: Works even if JS is disabled
@@ -93,11 +94,13 @@ import { HeroImage, ProductImage, ThumbnailImage } from '@/components/optimized-
 ```
 
 #### **Rules:**
+
 - ✅ **1-2 high-priority images max** per page (hero, main product)
 - ✅ **low priority** for below-fold, thumbnails, decorative
 - ❌ **Don't mark all images as high** - defeats the purpose
 
 #### **Benefits:**
+
 - **20-30% faster LCP**: Critical images load first
 - **Better perceived performance**: Hero appears instantly
 - **Smarter browser loading**: Non-critical images deferred
@@ -124,25 +127,30 @@ compiler: {
 ## 🎯 E-commerce Performance Checklist
 
 ### **Homepage**
+
 - [ ] Hero image uses `<HeroImage>` (LCP optimization)
 - [ ] Featured products use `<ThumbnailImage>` (lazy load)
 - [ ] Add `<SpeculationRules>` for top categories
 
 ### **Category/Collection Pages**
+
 - [ ] First 6-8 products use `<ProductImage>` (above fold)
 - [ ] Rest use `<ThumbnailImage>` (lazy load)
 - [ ] Prefetch individual product pages (Speculation Rules)
 
 ### **Product Detail Pages**
+
 - [ ] Main product image uses `<ProductImage>` (high priority)
 - [ ] Gallery images lazy loaded
 - [ ] Add `<ProductPageSpeculationRules>` to prefetch related products
 
 ### **Shopping Cart**
+
 - [ ] Add `<CartSpeculationRules>` to prerender checkout
 - [ ] Lazy load product thumbnails
 
 ### **Checkout**
+
 - [ ] Preload payment processor scripts
 - [ ] High priority for any confirmation images
 
@@ -164,15 +172,18 @@ With these optimizations:
 ## 🔍 Monitoring Performance
 
 ### **Lighthouse CI**
+
 ```bash
 npm run build
 npx lighthouse http://localhost:3000 --view
 ```
 
 ### **Web Vitals (Production)**
+
 Already configured with Vercel Analytics - check dashboard.
 
 ### **Chrome DevTools**
+
 1. Open DevTools → Performance
 2. Record page load
 3. Check "Prerender" and "Prefetch" in Network panel
@@ -191,15 +202,18 @@ Already configured with Vercel Analytics - check dashboard.
 ## 🛠️ Troubleshooting
 
 ### Speculation Rules not working?
+
 - Check browser support: Chrome DevTools → Application → Speculative Loads
 - Verify script injection: View Page Source → Look for `<script type="speculationrules">`
 
 ### Images still loading slowly?
+
 - Check `fetchpriority` in Network panel (DevTools)
 - Ensure only 1-2 images have `priority="high"`
 - Verify images use Next.js Image component
 
 ### Bundle size not improving?
+
 - Run `npm run build` to see production bundle sizes
 - Check `optimizePackageImports` is working (tree-shaking)
 

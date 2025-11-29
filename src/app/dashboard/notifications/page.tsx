@@ -194,11 +194,10 @@ function NotificationCard({ notification, onMarkAsRead, onDismiss }: Notificatio
   };
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       className={cn(
-        'flex gap-4 p-4 border rounded-lg transition-colors cursor-pointer hover:bg-muted/50',
+        'flex gap-4 p-4 border rounded-lg transition-colors cursor-pointer hover:bg-muted/50 w-full text-left',
         isUnread && 'bg-muted/30 border-primary/20'
       )}
       onClick={handleClick}
@@ -261,6 +260,6 @@ function NotificationCard({ notification, onMarkAsRead, onDismiss }: Notificatio
           </div>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
