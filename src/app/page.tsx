@@ -2,7 +2,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Logo } from '@/components/logo';
+// import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import AppBody from '@/components/app-body';
 import { CheckCircle2, Sparkles, Zap, Store, Palette, ShoppingBag, BarChart, ArrowRight, Star, DollarSign, ChevronDown } from 'lucide-react';

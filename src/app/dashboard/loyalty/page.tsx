@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   Gift,
   Crown,
-  Star,
+  // Star,
   Users,
   TrendingUp,
   Settings,

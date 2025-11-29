@@ -57,7 +57,7 @@ export default function AnnouncementBarPage() {
                 title: 'Settings saved',
                 description: 'Announcement bar settings have been updated.',
             });
-        } catch (error) {
+        } catch {
             toast({
                 title: 'Error',
                 description: 'Failed to save settings.',

@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { ThemedButton } from '@/components/themed';
+// import { ThemedButton } from '@/components/themed';
 import { asRoute } from '@/lib/routes';
 
 export interface OgabasseyHeroProps {

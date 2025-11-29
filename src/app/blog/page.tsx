@@ -3,7 +3,7 @@ import { PlatformHeader } from '@/components/platform/header';
 import { PlatformFooter } from '@/components/platform/footer';
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+// import { Button } from '@/components/ui/button';
 import { asRoute } from '@/lib/routes';
 
 export const metadata: Metadata = {

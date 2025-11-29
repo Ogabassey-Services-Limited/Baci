@@ -8,19 +8,19 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import {
-  Search,
+  // Search,
   Sparkles,
   CheckCircle2,
-  AlertTriangle,
+  // AlertTriangle,
   XCircle,
   Loader2,
   RefreshCw,
-  Wand2,
+  // Wand2,
   FileText,
   Tag,
   Target,
 } from 'lucide-react';
-import Image from 'next/image';
+// import Image from 'next/image';
 
 interface ProductSEO {
   productId: string;

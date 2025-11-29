@@ -38,9 +38,17 @@ export function StorefrontHeader() {
     if (!merchant) return null;
 
     const handleProductSelect = (url: string) => {
-        // Validate URL is a relative path to prevent open redirects
-        if (url.startsWith('/')) {
+        // Strict validation: Only allow relative paths starting with /
+        // Reject any URL that contains: protocol (http://, https://), double slashes (//), or backslashes
+        const isValidRelativePath = url.startsWith('/') &&
+            !url.startsWith('//') &&
+            !url.includes('\\') &&
+            !/^https?:\/\//i.test(url);
+
+        if (isValidRelativePath) {
             router.push(asRoute(url));
+        } else {
+            console.warn('Invalid product URL rejected:', url);
         }
     };
 

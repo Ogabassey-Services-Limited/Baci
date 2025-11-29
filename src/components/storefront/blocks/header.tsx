@@ -14,7 +14,7 @@ import { Cart } from '@/components/cart';
 import { Search, ShoppingBag, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemedButton } from '@/components/themed';
-import { routes, asRoute } from '@/lib/routes';
+import { asRoute } from '@/lib/routes';
 
 export interface HeaderProps {
     showLogo?: boolean;

@@ -21,7 +21,7 @@ import { BentoCard } from '@/components/ui/bento-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ChartConfig } from '@/components/ui/chart';
 import { useMerchant } from '@/hooks/use-merchant';
-import Link from 'next/link';
+// import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 // Dynamically import chart wrapper components (correct pattern)

@@ -63,9 +63,16 @@ const req = https.request(options, (res) => {
         if (res.statusCode === 201) {
             console.log('✅ Comment posted successfully!');
             // Sanitize URL to prevent log injection
-            const url = JSON.parse(responseData).html_url;
-            const sanitizedUrl = url.replace(/[\r\n]/g, '');
-            console.log(sanitizedUrl);
+            const parsedResponse = JSON.parse(responseData);
+            const url = parsedResponse.html_url;
+            // Remove all control characters and validate URL format
+            const sanitizedUrl = url.replace(/[\r\n\t\x00-\x1F\x7F]/g, '');
+            // Only log if it's a valid GitHub URL
+            if (sanitizedUrl.startsWith('https://github.com/')) {
+                console.log(sanitizedUrl);
+            } else {
+                console.log('[URL sanitized for security]');
+            }
         } else {
             console.error(`❌ Failed to post comment: ${res.statusCode}`);
             console.error(responseData);

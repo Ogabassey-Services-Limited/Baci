@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import Link from 'next/link';
 import { Button } from './button';
 
 describe('Button', () => {
@@ -34,7 +35,7 @@ describe('Button', () => {
   it('should render as a different element when asChild is true', () => {
     render(
       <Button asChild>
-        <a href="/">Link</a>
+        <Link href="/">Link</Link>
       </Button>
     );
     const linkElement = screen.getByRole('link', { name: /link/i });

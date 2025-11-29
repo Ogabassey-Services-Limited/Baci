@@ -114,7 +114,7 @@ async function forwardToPlatformAnalytics(
 
   if (!settings) return;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://baci.app';
+  // const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://baci.app';
 
   // Map platform events to GA4 event names
   const ga4EventMap: Record<PlatformEventType, string> = {

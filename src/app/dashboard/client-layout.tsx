@@ -90,7 +90,23 @@ const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }:
   );
 
   // Validate that storeUrl is safe (relative or from trusted domain)
-  const isSafeUrl = storeUrl.startsWith('/') || storeUrl.startsWith('http://localhost:') || storeUrl.includes('.usebaci.com');
+  // Only allow:
+  // 1. Relative paths starting with /
+  // 2. localhost URLs (development only)
+  // 3. URLs ending with .usebaci.com (production)
+  const isSafeUrl = (() => {
+    if (storeUrl.startsWith('/')) return true;
+    if (storeUrl.startsWith('http://localhost:')) return true;
+
+    try {
+      const url = new URL(storeUrl);
+      const trustedDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+      // Ensure the hostname ends with our trusted domain (prevents subdomain takeover)
+      return url.hostname.endsWith(`.${trustedDomain}`) || url.hostname === trustedDomain;
+    } catch {
+      return false;
+    }
+  })();
 
   return (
     <Link

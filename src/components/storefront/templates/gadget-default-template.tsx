@@ -139,7 +139,7 @@ export function GadgetDefaultTemplate() {
                         {categories.map((cat, i) => (
                             <Link
                                 key={i}
-                                href={cat.href as any}
+                                href={cat.href as Record<string, unknown>}
                                 className={cn(
                                     "group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border",
                                     radiusClass,

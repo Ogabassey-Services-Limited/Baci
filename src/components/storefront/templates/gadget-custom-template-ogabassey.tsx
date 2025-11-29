@@ -9,7 +9,7 @@ import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { Phone, Wifi, Laptop, Speaker, Gamepad2 } from 'lucide-react';
 
 export function GadgetCustomTemplateOgabassey() {
-    const { merchant } = useMerchant();
+    const { merchant: _merchant } = useMerchant();
 
     // Hardcoded data for Ogabassey demo
     const bentoImages = [
@@ -48,7 +48,7 @@ export function GadgetCustomTemplateOgabassey() {
     ];
 
     // Service highlights (using same component style for now)
-    const services = [
+    const _services = [
         { label: 'We Pay YOU When', icon: 'smartphone', link: '#', color: 'bg-red-100' }, // Placeholder icon
         { label: 'You Buy Airtime!', icon: 'wifi', link: '#', color: 'bg-red-100' },
     ];

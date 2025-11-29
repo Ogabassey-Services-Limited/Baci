@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { MerchantAboutPage } from '@/types/about-page';
 import { StorefrontHeader } from '@/components/storefront/header';
 import { StorefrontFooter } from '@/components/storefront/footer';
@@ -11,7 +10,6 @@ import AppBody from '@/components/app-body';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { asRoute } from '@/lib/routes';
 import {
   Award,
   Calendar,
@@ -50,7 +48,7 @@ export function AboutPageClient({ merchant, aboutPage, legacyContent }: AboutPag
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
-        <AppBody merchant={merchant as any}>
+        <AppBody merchant={merchant as Parameters<typeof AppBody>[0]['merchant']}>
           <div className="flex flex-col min-h-screen">
             <StorefrontHeader />
 
@@ -311,6 +309,7 @@ export function AboutPageClient({ merchant, aboutPage, legacyContent }: AboutPag
                         <div className="aspect-video rounded-xl overflow-hidden bg-muted">
                           <iframe
                             src={aboutPage.video_url.replace('watch?v=', 'embed/')}
+                            title="About Us Video"
                             className="w-full h-full"
                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                             allowFullScreen
