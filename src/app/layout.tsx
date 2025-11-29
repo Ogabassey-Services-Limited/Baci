@@ -5,6 +5,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Providers } from '@/contexts/providers';
 import { CsrfInitializer } from '@/components/csrf-initializer';
 import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
@@ -170,6 +171,7 @@ export default async function RootLayout({
           <Toaster />
         </Providers>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

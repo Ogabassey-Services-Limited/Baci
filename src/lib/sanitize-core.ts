@@ -273,7 +273,7 @@ export function sanitizeFileName(fileName: string): string {
 export function sanitizeJson<T>(input: unknown, schema: z.ZodSchema<T>): T | null {
     try {
         return schema.parse(input);
-    } catch {
+    } catch (_error) {
         // Don't log validation errors to prevent PII leakage
         // In development, use a debug flag if detailed logging is needed
         return null;

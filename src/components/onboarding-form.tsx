@@ -105,10 +105,11 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
               <SelectContent>
                 {businessTypes.map((type) => (
                   <SelectItem key={type.id} value={type.id}>
+                    <span className="mr-2">{type.emoji}</span>
                     {type.label}
                   </SelectItem>
                 ))}
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="other"><span className="mr-2">✨</span>Other</SelectItem>
               </SelectContent>
             </Select>
             <FormMessage />

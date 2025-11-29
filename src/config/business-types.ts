@@ -64,6 +64,8 @@ export interface BusinessTypeConfig {
   template: React.ComponentType<{ children: ReactNode }>;
   /** Lucide icon component for UI */
   icon: LucideIcon;
+  /** Emoji representation */
+  emoji: string;
   /** Journey configuration for onboarding and product creation */
   journey: BusinessTypeJourney;
 }
@@ -91,6 +93,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     recommendedFeatures: ['size-charts', 'color-variants', 'lookbooks', 'style-guides'],
     template: PremiumDefaultTemplate,
     icon: Shirt,
+    emoji: '👗',
     journey: {
       onboarding: {
         logoStyle: 'elegant, minimalist, fashion-forward',
@@ -113,6 +116,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     recommendedFeatures: ['spec-sheets', 'warranty-info', 'comparison-tables', 'compatibility-guides'],
     template: TechTemplate,
     icon: Laptop,
+    emoji: '💻',
     journey: {
       onboarding: {
         logoStyle: 'modern, sleek, tech-forward',
@@ -135,6 +139,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     recommendedFeatures: ['room-visualizer', 'dimension-guides', 'material-samples', 'style-collections'],
     template: ArtisanTemplate,
     icon: Home,
+    emoji: '🏠',
     journey: {
       onboarding: {
         logoStyle: 'warm, inviting, home-focused',
@@ -157,6 +162,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     recommendedFeatures: ['ingredient-lists', 'skin-type-filters', 'before-after', 'routine-builders'],
     template: ModernTemplate,
     icon: Sparkles,
+    emoji: '💄',
     journey: {
       onboarding: {
         logoStyle: 'clean, elegant, wellness-oriented',
@@ -179,6 +185,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     recommendedFeatures: ['maker-story', 'custom-orders', 'crafting-process', 'limited-editions'],
     template: ArtisanTemplate,
     icon: Palette,
+    emoji: '🧶',
     journey: {
       onboarding: {
         logoStyle: 'handcrafted, artistic, personal',
@@ -201,6 +208,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     recommendedFeatures: ['nutrition-facts', 'allergen-info', 'recipes', 'pairing-guides'],
     template: ArtisanTemplate,
     icon: Coffee,
+    emoji: '🍳',
     journey: {
       onboarding: {
         logoStyle: 'appetizing, fresh, inviting',
@@ -223,6 +231,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     recommendedFeatures: ['texture-guide', 'length-charts', 'care-instructions', 'styling-tutorials'],
     template: PremiumDefaultTemplate,
     icon: Scissors,
+    emoji: '💇🏾‍♀️',
     journey: {
       onboarding: {
         logoStyle: 'glamorous, sleek, beauty-focused',

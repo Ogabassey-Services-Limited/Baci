@@ -7,15 +7,24 @@ import { useForm, FormProvider, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, CreditCard, User, Mail, KeyRound, ArrowLeft, Truck } from 'lucide-react';
+import { Loader2, CreditCard, User, Mail, KeyRound, ArrowLeft, Truck, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { ThemedInput, ThemedButton } from '@/components/themed';
 import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
-import { OrderSummary } from '@/components/order-summary';
 import { useMerchant, MerchantProvider } from '@/hooks/use-merchant';
+// 2025 Checkout Components
+import {
+  ShippingSelector,
+  DiscountCodeInput,
+  CheckoutProgress,
+  DynamicOrderSummary,
+  type ShippingQuote,
+  type DiscountResult,
+  type CheckoutStep,
+} from '@/components/storefront/checkout';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { createClient } from '@/lib/supabase/client';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
@@ -178,27 +187,99 @@ function Step0_Auth({ onAuthSuccess }: { onAuthSuccess: (user: SupabaseUser) => 
   );
 }
 
-function Step1_Shipping() {
-  const { control, setValue } = useFormContext<ShippingFormValues>();
+function Step1_Shipping({
+  onShippingSelect,
+  selectedShippingQuote,
+  shippingLoading,
+}: {
+  onShippingSelect: (quote: ShippingQuote) => void;
+  selectedShippingQuote: ShippingQuote | null;
+  shippingLoading: boolean;
+}) {
+  const { control, setValue, watch } = useFormContext<ShippingFormValues>();
   const { merchant } = useMerchant();
-
-  // const currencyCode = merchant?.country ? getCountryByCode(merchant.country)?.currencyCode || 'NGN' : 'NGN';
+  const { cart, cartTotal: _cartTotal } = useCart();
 
   const country = merchant?.country ? getCountryByCode(merchant.country) : null;
 
+  // Watch address fields for shipping quote
+  const watchedFields = watch(['firstName', 'lastName', 'phone', 'address', 'city', 'state', 'email']);
+  const [firstName, lastName, phone, address, city, state, email] = watchedFields;
+
+  // Build receiver address for shipping selector
+  const receiverAddress = {
+    name: `${firstName || ''} ${lastName || ''}`.trim() || 'Customer',
+    phone: phone || '',
+    email: email,
+    address: address || '',
+    city: city || '',
+    state: state || '',
+    country: country?.name || 'Nigeria',
+    countryCode: country?.code || 'NG',
+  };
+
+  // Build items for shipping quote
+  const shippingItems = cart.map(item => ({
+    name: item.name,
+    quantity: item.quantity,
+    weight: 1, // Default weight
+    value: item.price * item.quantity,
+  }));
+
+  // Check if address is complete enough for shipping quotes
+  const addressComplete = !!(address && city && state);
+
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-6">
+      {/* Contact & Address Section */}
+      <div className="space-y-4">
+        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+          Contact Information
+        </h4>
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={control}
+            name="firstName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>First Name</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <ThemedInput placeholder="John" {...field} className="pl-10" id="firstName" name="firstName" autoComplete="given-name" />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={control}
+            name="lastName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Last Name (Surname)</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <ThemedInput placeholder="Doe" {...field} className="pl-10" id="lastName" name="lastName" autoComplete="family-name" />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
         <FormField
           control={control}
-          name="firstName"
+          name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>First Name</FormLabel>
+              <FormLabel>Email</FormLabel>
               <FormControl>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <ThemedInput placeholder="John" {...field} className="pl-10" id="firstName" name="firstName" autoComplete="given-name" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <ThemedInput type="email" placeholder="you@example.com" {...field} className="pl-10" id="shipping-email" name="shipping-email" autoComplete="email" />
                 </div>
               </FormControl>
               <FormMessage />
@@ -207,124 +288,171 @@ function Step1_Shipping() {
         />
         <FormField
           control={control}
-          name="lastName"
+          name="phone"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Last Name (Surname)</FormLabel>
+              <FormLabel>Phone Number</FormLabel>
               <FormControl>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <ThemedInput placeholder="Doe" {...field} className="pl-10" id="lastName" name="lastName" autoComplete="family-name" />
-                </div>
+                <PhoneInput
+                  placeholder="Enter phone number"
+                  defaultCountry={(country?.code as CountryCode) || 'NG'}
+                  value={field.value}
+                  onChange={field.onChange}
+                  id="phone"
+                  autoComplete="tel"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
       </div>
-      <FormField
-        control={control}
-        name="email"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Email</FormLabel>
-            <FormControl>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <ThemedInput type="email" placeholder="you@example.com" {...field} className="pl-10" id="shipping-email" name="shipping-email" autoComplete="email" />
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={control}
-        name="phone"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Phone Number</FormLabel>
-            <FormControl>
-              <PhoneInput
-                placeholder="Enter phone number"
-                defaultCountry={(country?.code as CountryCode) || 'NG'}
-                value={field.value}
-                onChange={field.onChange}
-                id="phone"
-                autoComplete="tel"
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={control}
-        name="address"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Street Address</FormLabel>
-            <FormControl>
-              <AddressAutocomplete
-                {...field}
-                useThemedInput={true}
-                showIcon={true}
-                country={country?.code}
-                onChange={(val) => field.onChange(val)}
-                onSelect={(place) => {
-                  field.onChange(place.formattedAddress);
-                  setValue('city', place.city);
-                  setValue('state', place.state);
-                }}
-              />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
 
-      <FormField control={control} name="city" render={({ field }) => (<FormItem><FormControl><input type="hidden" {...field} /></FormControl></FormItem>)} />
-      <FormField control={control} name="state" render={({ field }) => (<FormItem><FormControl><input type="hidden" {...field} /></FormControl></FormItem>)} />
+      {/* Delivery Address Section */}
+      <div className="space-y-4">
+        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+          Delivery Address
+        </h4>
+        <FormField
+          control={control}
+          name="address"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Street Address</FormLabel>
+              <FormControl>
+                <AddressAutocomplete
+                  {...field}
+                  useThemedInput={true}
+                  showIcon={true}
+                  country={country?.code}
+                  onChange={(val) => field.onChange(val)}
+                  onSelect={(place) => {
+                    field.onChange(place.formattedAddress);
+                    setValue('city', place.city);
+                    setValue('state', place.state);
+                  }}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField control={control} name="city" render={({ field }) => (<FormItem><FormControl><input type="hidden" {...field} /></FormControl></FormItem>)} />
+        <FormField control={control} name="state" render={({ field }) => (<FormItem><FormControl><input type="hidden" {...field} /></FormControl></FormItem>)} />
+      </div>
+
+      {/* Shipping Options - 2025 Best Practice: Cheapest/Fastest tabs with delivery dates */}
+      {addressComplete && (
+        <ShippingSelector
+          receiverAddress={receiverAddress}
+          items={shippingItems}
+          onSelect={onShippingSelect}
+          selectedQuoteId={selectedShippingQuote?.id}
+          isLoading={shippingLoading}
+          className="pt-2"
+        />
+      )}
     </div>
   );
 }
 
-function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
+function Step2_Payment({
+  selectedShippingQuote,
+  appliedDiscount: _appliedDiscount,
+  onDiscountApply,
+  merchantId,
+  cartTotal,
+  customerEmail,
+  productIds,
+}: {
+  selectedShippingQuote: ShippingQuote | null;
+  appliedDiscount: DiscountResult | null;
+  onDiscountApply: (discount: DiscountResult | null) => void;
+  merchantId: string;
+  cartTotal: number;
+  customerEmail?: string;
+  productIds?: string[];
+}) {
   const { formatCurrency } = useCurrency();
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-medium">Shipping & Payment</h3>
-      <Card>
-        <CardContent className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Truck className="h-6 w-6 text-muted-foreground" />
-            <div>
-              <p className="font-semibold">GIGL Shipping</p>
-              <p className="text-sm text-muted-foreground">Standard (Est. 3-5 business days)</p>
+    <div className="space-y-6">
+      {/* Selected Shipping Summary */}
+      <div className="space-y-4">
+        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+          Delivery Method
+        </h4>
+        <Card>
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Truck className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold">
+                  {selectedShippingQuote?.carrierName || selectedShippingQuote?.displayName || 'Standard Shipping'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedShippingQuote?.estimatedDays
+                    ? `Est. ${selectedShippingQuote.estimatedDays} business days`
+                    : 'Est. 3-5 business days'}
+                </p>
+              </div>
             </div>
-          </div>
-          {shippingFee === null ? (
-            <Loader2 className="h-5 w-5 motion-safe:animate-spin" />
-          ) : (
-            <p className="font-semibold">{formatCurrency(shippingFee)}</p>
-          )}
-        </CardContent>
-      </Card>
-      <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
-        <div className="flex items-center gap-4">
-          <CreditCard className="h-8 w-8 text-muted-foreground" />
-          <div>
-            <p className="font-semibold">Pay with Card</p>
-            <p className="text-sm text-muted-foreground">
-              Click the button below to simulate payment.
+            <p className="font-semibold">
+              {selectedShippingQuote ? formatCurrency(selectedShippingQuote.price) : '—'}
             </p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
-      <p className="text-xs text-muted-foreground text-center">
-        This is a demo. No real payment will be processed.
-      </p>
+
+      {/* Discount Code - 2025 Best Practice: Strategic placement, collapsible */}
+      <div className="space-y-4">
+        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+          Discount
+        </h4>
+        <DiscountCodeInput
+          merchantId={merchantId}
+          orderTotal={cartTotal}
+          customerEmail={customerEmail}
+          productIds={productIds}
+          onApply={onDiscountApply}
+        />
+      </div>
+
+      {/* Payment Method */}
+      <div className="space-y-4">
+        <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">
+          Payment Method
+        </h4>
+        <Card className="border-primary">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <CreditCard className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold">Pay with Card</p>
+                <p className="text-sm text-muted-foreground">
+                  Secure payment via Korapay
+                </p>
+              </div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span>🔒</span>
+                <span>Secure</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Trust signals */}
+      <div className="flex items-center justify-center gap-6 pt-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">🔒 SSL Encrypted</span>
+        <span className="flex items-center gap-1">💳 Safe Payment</span>
+        <span className="flex items-center gap-1">📦 Tracked Delivery</span>
+      </div>
     </div>
   );
 }
@@ -341,8 +469,17 @@ function CheckoutPageContent() {
   const [formIsLoading, setFormIsLoading] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [shippingFee, setShippingFee] = useState<number | null>(null);
+
+  // 2025 Checkout: Enhanced state for shipping and discounts
+  const [selectedShippingQuote, setSelectedShippingQuote] = useState<ShippingQuote | null>(null);
+  const [appliedDiscount, setAppliedDiscount] = useState<DiscountResult | null>(null);
+  const [shippingLoading, _setShippingLoading] = useState(false);
+
   const totalSteps = 2;
   const supabase = createClient();
+
+  // Product IDs for discount validation
+  const productIds = cart.map(item => item.id);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -406,38 +543,23 @@ function CheckoutPageContent() {
   }, [cartCount, pageLoading, router]);
 
 
-  // Fetch shipping quote when address is valid
-  const watchAddress = shippingForm.watch('address');
-  const watchCity = shippingForm.watch('city');
-  useEffect(() => {
-    const getShippingQuote = async () => {
-      setShippingFee(null); // Reset on address change
-      if (watchAddress && watchAddress.length > 5) {
-        try {
-          const data = await apiPost<{ shippingFee: number }>('/api/shipping/quote', {
-            receiverCity: watchCity || 'Lagos',
-            cartValue: cartTotal,
-            items: cart.map(i => ({ name: i.name, quantity: i.quantity, weight: 1, value: i.price }))
-          });
-          setShippingFee(data.shippingFee);
-        } catch (error) {
-          console.error("Failed to get shipping quote:", error);
-          toast({
-            title: "Shipping Quote Error",
-            description: "Could not fetch your shipping fee. A default shipping fee is applied.",
-            variant: "destructive",
-          });
-          setShippingFee(DEFAULT_SHIPPING_FEE); // Fallback
-        }
-      }
-    };
+  // Handle shipping quote selection (from ShippingSelector component)
+  const handleShippingSelect = (quote: ShippingQuote) => {
+    setSelectedShippingQuote(quote);
+    setShippingFee(quote.price);
+  };
 
-    const handler = setTimeout(() => {
-      getShippingQuote();
-    }, 1000); // Debounce
+  // Handle discount code application
+  const handleDiscountApply = (discount: DiscountResult | null) => {
+    setAppliedDiscount(discount);
+  };
 
-    return () => clearTimeout(handler);
-  }, [watchAddress, watchCity, cartTotal, cart, toast]);
+  // Calculate final total with discount
+  const _calculateFinalTotal = () => {
+    const shipping = selectedShippingQuote?.price ?? shippingFee ?? DEFAULT_SHIPPING_FEE;
+    const discount = appliedDiscount?.discountAmount ?? 0;
+    return Math.max(0, cartTotal + shipping - discount);
+  };
 
   const handleAuthSuccess = (authedUser: SupabaseUser) => {
     setUser(authedUser);
@@ -446,6 +568,17 @@ function CheckoutPageContent() {
 
   const handleNext = async () => {
     const isValid = await shippingForm.trigger();
+
+    // 2025 Best Practice: Require shipping selection before proceeding
+    if (step === 1 && !selectedShippingQuote) {
+      toast({
+        title: "Select Shipping",
+        description: "Please select a delivery option to continue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (isValid && step < totalSteps) {
       // Track begin_checkout when moving to payment step
       if (step === 1 && merchant?.id) {
@@ -512,11 +645,13 @@ function CheckoutPageContent() {
         image: item.image,
       }));
 
-      // Calculate totals
+      // Calculate totals - 2025: Use selected shipping quote and discount
       const subtotal = cartTotal;
-      const finalShippingFee = shippingFee ?? merchantData.shipping_fee ?? DEFAULT_SHIPPING_FEE;
+      const finalShippingFee = selectedShippingQuote?.price ?? shippingFee ?? merchantData.shipping_fee ?? DEFAULT_SHIPPING_FEE;
+      const discountAmount = appliedDiscount?.discountAmount ?? 0;
+      const finalTotal = Math.max(0, subtotal + finalShippingFee - discountAmount);
 
-      // Create order via API
+      // Create order via API - 2025: Include shipping provider details and discount
       const { order } = await apiPost<{ order: Record<string, unknown> }>('/api/orders', {
         merchant_id: merchantData.id,
         customer_email: data.email,
@@ -525,6 +660,12 @@ function CheckoutPageContent() {
         items: orderItems,
         subtotal,
         shipping_fee: finalShippingFee,
+        // 2025: Discount information
+        discount_code_id: appliedDiscount?.id,
+        discount_code: appliedDiscount?.code,
+        discount_amount: discountAmount,
+        // Final total after discount
+        total: finalTotal,
         payment_method: 'card',
         payment_status: 'paid', // Since this is a demo, mark as paid
         shipping_status: 'pending',
@@ -536,10 +677,15 @@ function CheckoutPageContent() {
           state: data.state,
         },
         source: 'online_store',
-        shipping_provider: 'GIGL', // Add shipping provider
+        // 2025: Detailed shipping provider info
+        shipping_provider: selectedShippingQuote?.provider || 'GIGL',
+        shipping_quote_id: selectedShippingQuote?.id,
+        shipping_carrier: selectedShippingQuote?.carrierName,
+        shipping_service_tier: selectedShippingQuote?.serviceTier,
+        estimated_delivery_days: selectedShippingQuote?.estimatedDays,
       });
 
-      // Store order data for success page
+      // Store order data for success page - 2025: Include all details
       const orderData = {
         order_id: order.id,
         order_number: order.order_number,
@@ -547,7 +693,11 @@ function CheckoutPageContent() {
         items: cart,
         subtotal,
         shipping_fee: finalShippingFee,
-        total: order.total,
+        discount_code: appliedDiscount?.code,
+        discount_amount: discountAmount,
+        total: finalTotal,
+        shipping_provider: selectedShippingQuote?.carrierName || selectedShippingQuote?.provider,
+        estimated_delivery_days: selectedShippingQuote?.estimatedDays,
       };
       sessionStorage.setItem('lastOrder', JSON.stringify(orderData));
 
@@ -619,11 +769,21 @@ function CheckoutPageContent() {
     }
   };
 
-  const getStepTitle = () => {
-    if (step === 0) return 'Authentication';
-    if (step === 1) return 'Shipping Information';
-    return 'Payment';
+  // Map step number to CheckoutStep type for progress indicator
+  const getCurrentCheckoutStep = (): CheckoutStep => {
+    if (step === 1) return 'shipping';
+    if (step === 2) return 'payment';
+    return 'shipping';
   };
+
+  const getStepTitle = () => {
+    if (step === 0) return 'Sign In';
+    if (step === 1) return 'Shipping & Delivery';
+    return 'Review & Pay';
+  };
+
+  // Check if place order button should be enabled
+  const canPlaceOrder = !formIsLoading && selectedShippingQuote !== null;
 
   return (
     <>
@@ -636,32 +796,63 @@ function CheckoutPageContent() {
       </a>
       <main
         id="main-content"
-        className="container mx-auto max-w-4xl py-12 px-4"
+        className="container mx-auto max-w-5xl py-8 px-4"
         style={{
           paddingLeft: 'max(1rem, env(safe-area-inset-left))',
           paddingRight: 'max(1rem, env(safe-area-inset-right))',
         }}
       >
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Store
-        </Link>
+        {/* Header with back link */}
+        <div className="flex items-center justify-between mb-6">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Store
+          </Link>
+          <h1 className="text-xl font-semibold">Checkout</h1>
+        </div>
 
-        <div className="grid md:grid-cols-[1fr_350px] gap-12 items-start">
+        {/* 2025 Best Practice: Progress indicator with verbs */}
+        {step > 0 && (
+          <CheckoutProgress
+            currentStep={getCurrentCheckoutStep()}
+            onStepClick={(clickedStep) => {
+              if (clickedStep === 'shipping' && step > 1) setStep(1);
+            }}
+            className="mb-8"
+          />
+        )}
+
+        <div className="grid lg:grid-cols-[1fr_400px] gap-8 items-start">
+          {/* Main checkout form */}
           <Card className="glass">
-            <CardContent className="p-8">
-              <h2 className="text-2xl font-bold mb-6">
+            <CardContent className="p-6 md:p-8">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                {step === 0 && <UserCircle className="h-6 w-6" />}
+                {step === 1 && <Truck className="h-6 w-6" />}
+                {step === 2 && <CreditCard className="h-6 w-6" />}
                 {getStepTitle()}
               </h2>
 
+              {/* Step 0: Authentication */}
               {step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
 
+              {/* Step 1: Shipping - 2025: With integrated shipping selector */}
               {step === 1 && (
                 <FormProvider {...shippingForm}>
                   <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
-                    <Step1_Shipping />
-                    <div className="flex justify-end pt-4">
-                      <ThemedButton type="button" colorRole="primary" onClick={handleNext}>
+                    <Step1_Shipping
+                      onShippingSelect={handleShippingSelect}
+                      selectedShippingQuote={selectedShippingQuote}
+                      shippingLoading={shippingLoading}
+                    />
+                    <div className="flex justify-end pt-4 border-t">
+                      <ThemedButton
+                        type="button"
+                        colorRole="primary"
+                        onClick={handleNext}
+                        disabled={!selectedShippingQuote}
+                        className="min-w-[180px]"
+                      >
                         Continue to Payment
                       </ThemedButton>
                     </div>
@@ -669,15 +860,29 @@ function CheckoutPageContent() {
                 </FormProvider>
               )}
 
+              {/* Step 2: Payment - 2025: With discount code and payment method */}
               {step === 2 && (
                 <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
-                  <Step2_Payment shippingFee={shippingFee} />
-                  <div className="flex justify-between pt-4">
+                  <Step2_Payment
+                    selectedShippingQuote={selectedShippingQuote}
+                    appliedDiscount={appliedDiscount}
+                    onDiscountApply={handleDiscountApply}
+                    merchantId={merchant?.id || ''}
+                    cartTotal={cartTotal}
+                    customerEmail={shippingForm.getValues('email')}
+                    productIds={productIds}
+                  />
+                  <div className="flex justify-between pt-4 border-t">
                     <Button type="button" variant="outline" onClick={handlePrev}>
-                      Previous
+                      Back
                     </Button>
-                    <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading || shippingFee === null}>
-                      {(formIsLoading || shippingFee === null) && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />}
+                    <ThemedButton
+                      type="submit"
+                      colorRole="accent"
+                      disabled={!canPlaceOrder}
+                      className="min-w-[180px]"
+                    >
+                      {formIsLoading && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />}
                       Place Order
                     </ThemedButton>
                   </div>
@@ -685,7 +890,15 @@ function CheckoutPageContent() {
               )}
             </CardContent>
           </Card>
-          <OrderSummary />
+
+          {/* 2025 Best Practice: Dynamic Order Summary with real-time updates */}
+          <DynamicOrderSummary
+            subtotal={cartTotal}
+            shippingQuote={selectedShippingQuote}
+            discount={appliedDiscount}
+            currencyCode={currencyCode}
+            shippingLoading={shippingLoading}
+          />
         </div>
       </main>
     </>

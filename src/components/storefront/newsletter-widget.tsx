@@ -8,8 +8,8 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 
-const NEWSLETTER_DISMISSED_KEY = 'baci-newsletter-dismissed';
-const NEWSLETTER_SUBSCRIBED_KEY = 'baci-newsletter-subscribed';
+const NEWSLETTER_DISMISSED_KEY = 'baci-newsletter-dismissed-v2';
+const NEWSLETTER_SUBSCRIBED_KEY = 'baci-newsletter-subscribed-v2';
 
 interface NewsletterWidgetProps {
   /**
@@ -221,10 +221,10 @@ export function NewsletterWidget({
             className="text-lg font-bold"
             style={{ color: 'var(--store-primary, hsl(var(--foreground)))' }}
           >
-            Get {discountText} your first order!
+            Unlock {discountText} your first order
           </h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Subscribe to our newsletter for exclusive deals and updates.
+            Join our community for exclusive discounts, latest news, and member-only perks.
           </p>
         </div>
 
@@ -254,7 +254,7 @@ export function NewsletterWidget({
                 Subscribing...
               </>
             ) : (
-              'Get My Discount'
+              'Claim My Discount'
             )}
           </ThemedButton>
         </form>

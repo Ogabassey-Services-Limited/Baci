@@ -245,6 +245,12 @@ export default function LoginForm() {
                                             GitHub
                                         </Button>
                                     </div>
+                                    <p className="text-center text-sm text-muted-foreground mt-6">
+                                        Don't have an account?{' '}
+                                        <Link href="/signup" className="font-semibold text-primary hover:underline">
+                                            Sign Up
+                                        </Link>
+                                    </p>
                                 </motion.div>
                             ) : (
                                 <motion.div
