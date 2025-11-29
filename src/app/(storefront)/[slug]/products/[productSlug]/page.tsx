@@ -9,6 +9,10 @@ import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import { getCachedMerchant, getCachedProduct, getCachedProductRatingStats } from '@/lib/cached-data';
 
+// Enable ISR (Incremental Static Regeneration) with 5 minute revalidation
+// Pages will be statically generated on-demand and cached for 5 minutes
+export const revalidate = 300; // Revalidate every 5 minutes (300 seconds)
+
 interface PageProps {
     params: Promise<{
         slug: string; // Store slug
