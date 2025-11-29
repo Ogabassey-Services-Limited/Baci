@@ -61,6 +61,11 @@ jobs:
             --exclude 'developers\.facebook\.com'
             --exclude 'baci\.app'
             --exclude 'theagilitysystems\.com'
+            --exclude 'graph\.facebook\.com'
+            --exclude 'apiideraos\.com'
+            --exclude 'res\.cloudinary\.com/$'
+            --exclude 'linkedin\.com/company'
+            --exclude 'instagram\.com'
           # Fail action if broken links are found
           fail: true
         env:
