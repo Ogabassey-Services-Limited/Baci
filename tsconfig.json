@@ -18,7 +18,7 @@
     "jsx": "react-jsx",
     "incremental": true,
     "types": [
-      "jest",
+      "vitest/globals",
       "@testing-library/jest-dom",
       "google.maps"
     ],
