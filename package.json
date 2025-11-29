@@ -11,7 +11,7 @@
     "analyze": "ANALYZE=true next build",
     "docs": "typedoc",
     "typecheck": "tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest run"
   },
   "dependencies": {
     "@ai-sdk/google": "^2.0.40",
