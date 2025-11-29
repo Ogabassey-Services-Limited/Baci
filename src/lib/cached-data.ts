@@ -444,3 +444,112 @@ export const getCachedProductRatingStats = unstable_cache(
     tags: ['reviews'],
   }
 );
+
+/**
+ * Cached store SEO summary data for generating dynamic meta descriptions
+ * Fetches product count, top categories, and basic store stats
+ */
+export const getCachedStoreSEOData = unstable_cache(
+  async (merchantId: string) => {
+    const supabase = getPublicSupabaseClient();
+
+    // Fetch product count
+    const { count: productCount } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active');
+
+    // Fetch top categories (by product count)
+    const { data: categories } = await supabase
+      .from('categories')
+      .select('name')
+      .eq('merchant_id', merchantId)
+      .order('position', { ascending: true })
+      .limit(5);
+
+    // Fetch featured products for keywords
+    const { data: featuredProducts } = await supabase
+      .from('products')
+      .select('name')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .eq('is_featured', true)
+      .limit(3);
+
+    return {
+      productCount: productCount || 0,
+      categoryNames: categories?.map(c => c.name) || [],
+      featuredProductNames: featuredProducts?.map(p => p.name) || [],
+    };
+  },
+  ['store-seo-data'],
+  {
+    revalidate: CACHE_DURATIONS.products,
+    tags: ['products', 'categories'],
+  }
+);
+
+/**
+ * Generate a dynamic meta description for a storefront
+ * Falls back to increasingly generic descriptions based on available data
+ */
+export function generateStorefrontDescription(
+  merchant: {
+    business_name: string;
+    site_description?: string | null;
+    site_tagline?: string | null;
+    business_type?: string | null;
+    category?: string | null;
+  },
+  seoData?: {
+    productCount: number;
+    categoryNames: string[];
+    featuredProductNames: string[];
+  }
+): string {
+  // 1. Use custom description if set
+  if (merchant.site_description) {
+    return merchant.site_description;
+  }
+
+  // 2. Use tagline if set
+  if (merchant.site_tagline) {
+    return merchant.site_tagline;
+  }
+
+  // 3. Generate dynamic description from store data
+  if (seoData && seoData.productCount > 0) {
+    const parts: string[] = [];
+
+    // Start with store name and what they sell
+    if (seoData.categoryNames.length > 0) {
+      const topCategories = seoData.categoryNames.slice(0, 3).join(', ');
+      parts.push(`Shop ${topCategories} at ${merchant.business_name}`);
+    } else {
+      parts.push(`Shop at ${merchant.business_name}`);
+    }
+
+    // Add product count
+    if (seoData.productCount >= 10) {
+      parts.push(`Browse ${seoData.productCount}+ products`);
+    }
+
+    // Add business type context
+    if (merchant.business_type || merchant.category) {
+      const type = merchant.business_type || merchant.category;
+      parts.push(`Your trusted ${type} store`);
+    }
+
+    return parts.join('. ') + '.';
+  }
+
+  // 4. Fallback with business type
+  if (merchant.business_type || merchant.category) {
+    const type = merchant.business_type || merchant.category;
+    return `Shop quality ${type} products at ${merchant.business_name}. Browse our collection and find what you need.`;
+  }
+
+  // 5. Generic fallback
+  return `Welcome to ${merchant.business_name}. Browse our collection of quality products and shop online with confidence.`;
+}

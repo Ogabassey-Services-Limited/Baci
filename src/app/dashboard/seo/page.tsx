@@ -7,20 +7,22 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
-  // Search,
   Sparkles,
   CheckCircle2,
-  // AlertTriangle,
   XCircle,
   Loader2,
   RefreshCw,
-  // Wand2,
   FileText,
   Tag,
   Target,
+  Store,
+  Edit3,
+  Save,
 } from 'lucide-react';
-// import Image from 'next/image';
 
 interface ProductSEO {
   productId: string;
@@ -30,6 +32,29 @@ interface ProductSEO {
   hasDescription: boolean;
   hasKeywords: boolean;
   issues: string[];
+}
+
+interface StoreSEO {
+  score: number;
+  current: {
+    site_title?: string;
+    site_description?: string;
+    site_tagline?: string;
+    business_type?: string;
+  };
+  stats: {
+    productCount: number;
+    categoryCount: number;
+  };
+  issues: string[];
+  suggestions: string[];
+}
+
+interface GeneratedStoreSEO {
+  site_description: string;
+  site_tagline: string;
+  seo_keywords: string[];
+  suggestions: string[];
 }
 
 interface SEOSummary {
@@ -90,9 +115,93 @@ export default function SEOOptimizerPage() {
   const [optimizing, setOptimizing] = useState(false);
   const [showOptimized, setShowOptimized] = useState(false);
 
+  // Store SEO state
+  const [storeSEO, setStoreSEO] = useState<StoreSEO | null>(null);
+  const [generatedStoreSEO, setGeneratedStoreSEO] = useState<GeneratedStoreSEO | null>(null);
+  const [generatingStore, setGeneratingStore] = useState(false);
+  const [savingStore, setSavingStore] = useState(false);
+  const [editingStore, setEditingStore] = useState(false);
+  const [editedDescription, setEditedDescription] = useState('');
+  const [editedTagline, setEditedTagline] = useState('');
+
   useEffect(() => {
     fetchSEOStatus();
+    fetchStoreSEO();
   }, []);
+
+  async function fetchStoreSEO() {
+    try {
+      const res = await fetch('/api/ai/store-seo');
+      if (res.ok) {
+        const data = await res.json();
+        setStoreSEO(data);
+        setEditedDescription(data.current?.site_description || '');
+        setEditedTagline(data.current?.site_tagline || '');
+      }
+    } catch (error) {
+      console.error('Failed to fetch store SEO:', error);
+    }
+  }
+
+  async function generateStoreSEOContent() {
+    setGeneratingStore(true);
+    try {
+      const res = await fetch('/api/ai/store-seo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'all', autoApply: false }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setGeneratedStoreSEO(data.generated);
+        setEditedDescription(data.generated.site_description);
+        setEditedTagline(data.generated.site_tagline);
+        setEditingStore(true);
+      }
+    } catch (error) {
+      console.error('Failed to generate store SEO:', error);
+    } finally {
+      setGeneratingStore(false);
+    }
+  }
+
+  async function saveStoreSEO() {
+    setSavingStore(true);
+    try {
+      const res = await fetch('/api/ai/store-seo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'all',
+          autoApply: true,
+          // Override with edited values
+        }),
+      });
+
+      if (res.ok) {
+        // Also update merchant directly with edited values
+        const updateRes = await fetch('/api/merchant/settings', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            site_description: editedDescription,
+            site_tagline: editedTagline,
+          }),
+        });
+
+        if (updateRes.ok) {
+          setEditingStore(false);
+          setGeneratedStoreSEO(null);
+          await fetchStoreSEO();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save store SEO:', error);
+    } finally {
+      setSavingStore(false);
+    }
+  }
 
   async function fetchSEOStatus() {
     setLoading(true);
@@ -212,6 +321,171 @@ export default function SEOOptimizerPage() {
           </Button>
         </div>
       </div>
+
+      {/* Store SEO Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Store className="h-5 w-5" />
+              <div>
+                <CardTitle>Store SEO</CardTitle>
+                <CardDescription>
+                  Your store&apos;s meta description and tagline for search engines
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {storeSEO && (
+                <Badge variant={storeSEO.score >= 80 ? 'default' : storeSEO.score >= 50 ? 'secondary' : 'destructive'}>
+                  Score: {storeSEO.score}%
+                </Badge>
+              )}
+              {!editingStore ? (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingStore(true)}
+                  >
+                    <Edit3 className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={generateStoreSEOContent}
+                    disabled={generatingStore}
+                  >
+                    {generatingStore ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    Generate with AI
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingStore(false);
+                      setGeneratedStoreSEO(null);
+                      setEditedDescription(storeSEO?.current?.site_description || '');
+                      setEditedTagline(storeSEO?.current?.site_tagline || '');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={saveStoreSEO}
+                    disabled={savingStore}
+                  >
+                    {savingStore ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {editingStore ? (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="site_tagline">Store Tagline</Label>
+                <Input
+                  id="site_tagline"
+                  value={editedTagline}
+                  onChange={(e) => setEditedTagline(e.target.value)}
+                  placeholder="Your store's catchy tagline"
+                  maxLength={100}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {editedTagline.length}/100 characters
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="site_description">Meta Description</Label>
+                <Textarea
+                  id="site_description"
+                  value={editedDescription}
+                  onChange={(e) => setEditedDescription(e.target.value)}
+                  placeholder="Describe your store for search engines (150-160 chars recommended)"
+                  maxLength={200}
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {editedDescription.length}/160 characters (recommended)
+                  {editedDescription.length > 160 && (
+                    <span className="text-orange-500 ml-2">May be truncated in search results</span>
+                  )}
+                </p>
+              </div>
+              {generatedStoreSEO && (
+                <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                    <Sparkles className="h-4 w-4" />
+                    <span className="font-medium">AI Suggestions</span>
+                  </div>
+                  {generatedStoreSEO.suggestions.map((suggestion, i) => (
+                    <p key={i} className="text-sm text-green-600 dark:text-green-400">
+                      • {suggestion}
+                    </p>
+                  ))}
+                  {generatedStoreSEO.seo_keywords.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      <span className="text-xs text-muted-foreground">Keywords:</span>
+                      {generatedStoreSEO.seo_keywords.slice(0, 8).map((kw, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {kw}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-1">Tagline</div>
+                <p className="text-sm">
+                  {storeSEO?.current?.site_tagline || (
+                    <span className="text-orange-500 italic">Not set - using default</span>
+                  )}
+                </p>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-1">Meta Description</div>
+                <p className="text-sm">
+                  {storeSEO?.current?.site_description || (
+                    <span className="text-orange-500 italic">Not set - auto-generated from products</span>
+                  )}
+                </p>
+              </div>
+              {storeSEO?.issues && storeSEO.issues.length > 0 && (
+                <div className="md:col-span-2">
+                  <div className="text-sm font-medium text-muted-foreground mb-1">Issues</div>
+                  <div className="flex flex-wrap gap-2">
+                    {storeSEO.issues.map((issue, i) => (
+                      <Badge key={i} variant="outline" className="text-orange-600 border-orange-300">
+                        {issue}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Summary Stats */}
       {summary && (

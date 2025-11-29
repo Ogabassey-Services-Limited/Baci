@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { StorefrontWrapper } from './storefront-wrapper';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import { getCachedMerchant } from '@/lib/cached-data';
+import { getCachedMerchant, getCachedStoreSEOData, generateStorefrontDescription } from '@/lib/cached-data';
 import { generateLocalBusinessSchema, generateWebSiteSchema, type LocalBusinessData } from '@/lib/seo-utils';
 
 // Valid slug pattern: alphanumeric and hyphens, no file extensions
@@ -41,8 +41,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         };
     }
 
+    // Fetch SEO data for dynamic description generation
+    const seoData = await getCachedStoreSEOData(merchant.id);
+
     const title = merchant.site_title || merchant.business_name;
-    const description = merchant.site_description || merchant.site_tagline || `Welcome to ${merchant.business_name}`;
+    // Generate dynamic description based on store data
+    const description = generateStorefrontDescription(merchant, seoData);
 
     const headersList = await headers();
     const host = headersList.get('host') || `${slug}.localhost:3000`;
@@ -100,7 +104,10 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
         const host = headersList.get('host') || `${slug}.localhost:3000`;
         const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
         const baseUrl = `${protocol}://${host}`;
-        const description = merchant.site_description || merchant.site_tagline || `Welcome to ${merchant.business_name}`;
+
+        // Fetch SEO data for dynamic description
+        const seoData = await getCachedStoreSEOData(merchant.id);
+        const description = generateStorefrontDescription(merchant, seoData);
         const socialMedia = merchant.social_media as Record<string, string> | null;
 
         // Build social media URLs
