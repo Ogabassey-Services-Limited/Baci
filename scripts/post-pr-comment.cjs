@@ -74,8 +74,10 @@ const req = https.request(options, (res) => {
                 console.log('[URL sanitized for security]');
             }
         } else {
-            console.error(`❌ Failed to post comment: ${res.statusCode}`);
-            console.error(responseData);
+            // Sanitize statusCode to prevent log injection
+            const sanitizedStatusCode = String(res.statusCode).replace(/[^0-9]/g, '') || '?';
+            console.error(`❌ Failed to post comment: ${sanitizedStatusCode}`);
+            console.error(JSON.stringify(responseData));
         }
     });
 });

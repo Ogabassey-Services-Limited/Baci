@@ -298,7 +298,7 @@ export function SocialProofWidget({
   lowStockThreshold = 5,
   recentSalesCount,
   showViewers = true,
-  showRecentPurchases = true,
+  // showRecentPurchases = true,
   showLowStock = true,
   showSalesCount = true,
   className,

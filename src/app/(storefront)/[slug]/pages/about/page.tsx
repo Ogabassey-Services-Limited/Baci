@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { AboutPageClient } from './about-page-client';
 import { generateAboutPageJsonLd, MerchantAboutPage } from '@/types/about-page';
+import { safeJsonLdStringify } from '@/lib/sanitize';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -79,10 +80,10 @@ export default async function AboutPage({ params }: PageProps) {
 
   return (
     <>
-      {/* nosemgrep: react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
+      {/* nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd as Record<string, unknown>) }}
       />
       <AboutPageClient
         merchant={merchant}

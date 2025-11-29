@@ -41,6 +41,16 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { NotificationWithStats, NotificationType } from '@/types/notifications';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface DeliveryRecord {
   id: string;
@@ -74,11 +84,16 @@ export default function NotificationDetailsPage({
   const [deliveries, setDeliveries] = useState<DeliveryRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
+    const abortController = new AbortController();
+
     async function fetchNotification() {
       try {
-        const response = await fetch(`/api/admin/notifications/${id}`);
+        const response = await fetch(`/api/admin/notifications/${id}`, {
+          signal: abortController.signal,
+        });
         if (!response.ok) {
           throw new Error('Failed to fetch notification');
         }
@@ -87,6 +102,7 @@ export default function NotificationDetailsPage({
         setNotification(data);
         setDeliveries(data.deliveries || []);
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
         console.error('Error fetching notification:', error);
         toast({
           title: 'Error',
@@ -94,17 +110,20 @@ export default function NotificationDetailsPage({
           variant: 'destructive',
         });
       } finally {
-        setIsLoading(false);
+        if (!abortController.signal.aborted) {
+          setIsLoading(false);
+        }
       }
     }
 
     fetchNotification();
-  }, [id, toast]);
+    return () => abortController.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this notification?')) return;
-
     setIsDeleting(true);
+    setShowDeleteDialog(false);
     try {
       const response = await fetch(`/api/admin/notifications/${id}`, {
         method: 'DELETE',
@@ -190,7 +209,7 @@ export default function NotificationDetailsPage({
         </div>
         <Button
           variant="destructive"
-          onClick={handleDelete}
+          onClick={() => setShowDeleteDialog(true)}
           disabled={isDeleting}
         >
           {isDeleting ? (
@@ -315,8 +334,8 @@ export default function NotificationDetailsPage({
                     {notification.target_type === 'all'
                       ? 'All Merchants'
                       : notification.target_type === 'segment'
-                      ? `Segment: ${notification.target_segment}`
-                      : `${notification.target_merchant_ids?.length || 0} Merchants`}
+                        ? `Segment: ${notification.target_segment}`
+                        : `${notification.target_merchant_ids?.length || 0} Merchants`}
                   </span>
                 </div>
               </div>
@@ -419,6 +438,26 @@ export default function NotificationDetailsPage({
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the notification.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

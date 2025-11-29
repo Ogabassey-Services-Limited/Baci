@@ -220,12 +220,14 @@ export default async function ProductPage({ params }: PageProps) {
             {/* Product Schema.org JSON-LD */}
             <script
                 type="application/ld+json"
+                // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
                 dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }}
             />
 
             {/* Breadcrumb Schema.org JSON-LD */}
             <script
                 type="application/ld+json"
+                // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
                 dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }}
             />
 

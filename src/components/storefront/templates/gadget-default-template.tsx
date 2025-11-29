@@ -10,7 +10,9 @@ import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { Newsletter } from '@/components/storefront/blocks/newsletter';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
+import { asRoute } from '@/lib/routes';
 
 export function GadgetDefaultTemplate() {
     const { merchant } = useMerchant();
@@ -74,10 +76,12 @@ export function GadgetDefaultTemplate() {
                 <section className="relative overflow-hidden">
                     {theme.layout.hero === 'full' ? (
                         <div className="relative h-[600px] w-full">
-                            <img
+                            <Image
                                 src={heroImage}
                                 alt="Hero"
-                                className="absolute inset-0 w-full h-full object-cover"
+                                fill
+                                className="object-cover"
+                                priority
                             />
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-center p-6">
                                 <div className="max-w-2xl text-white space-y-6">
@@ -121,10 +125,11 @@ export function GadgetDefaultTemplate() {
                                     </button>
                                 </div>
                                 <div className={cn("relative h-[500px] overflow-hidden shadow-2xl", radiusClass)}>
-                                    <img
+                                    <Image
                                         src={heroImage}
                                         alt="Hero"
-                                        className="absolute inset-0 w-full h-full object-cover transition-transform hover:scale-105 duration-700"
+                                        fill
+                                        className="object-cover transition-transform hover:scale-105 duration-700"
                                     />
                                 </div>
                             </div>
@@ -139,7 +144,7 @@ export function GadgetDefaultTemplate() {
                         {categories.map((cat, i) => (
                             <Link
                                 key={i}
-                                href={cat.href as Record<string, unknown>}
+                                href={asRoute(cat.href)}
                                 className={cn(
                                     "group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border",
                                     radiusClass,

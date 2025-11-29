@@ -108,6 +108,16 @@ export default function CreateNotificationPage() {
       return;
     }
 
+    if (formData.target_type === 'segment' && !formData.target_segment) {
+      toast({ title: 'Error', description: 'Please select a target segment', variant: 'destructive' });
+      return;
+    }
+
+    if (scheduleEnabled && !formData.scheduled_for) {
+      toast({ title: 'Error', description: 'Please select a schedule date and time', variant: 'destructive' });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -374,7 +384,7 @@ export default function CreateNotificationPage() {
                   type="datetime-local"
                   value={formData.scheduled_for || ''}
                   onChange={(e) => updateFormData({ scheduled_for: e.target.value })}
-                  min={new Date().toISOString().slice(0, 16)}
+                  min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
                 />
               )}
             </div>
@@ -396,7 +406,7 @@ export default function CreateNotificationPage() {
                   type="datetime-local"
                   value={formData.expires_at || ''}
                   onChange={(e) => updateFormData({ expires_at: e.target.value })}
-                  min={new Date().toISOString().slice(0, 16)}
+                  min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
                 />
               )}
             </div>

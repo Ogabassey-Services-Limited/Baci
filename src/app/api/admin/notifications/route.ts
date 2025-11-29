@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') as AdminNotificationFilters['type'];
     const priority = searchParams.get('priority') as AdminNotificationFilters['priority'];
     const search = searchParams.get('search');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100);
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10) || 20, 100);
+    const offset = parseInt(searchParams.get('offset') || '0', 10) || 0;
 
     // Build query
     let query = supabase
@@ -79,7 +79,9 @@ export async function GET(request: NextRequest) {
 
     // Search filter
     if (search) {
-      query = query.or(`title.ilike.%${search}%,message.ilike.%${search}%`);
+      // Escape special characters for LIKE pattern
+      const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&');
+      query = query.or(`title.ilike.%${sanitizedSearch}%,message.ilike.%${sanitizedSearch}%`);
     }
 
     // Pagination
@@ -159,7 +161,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse and validate request body
-    const body: CreateNotificationInput = await request.json();
+    let body: CreateNotificationInput;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
 
     // Validation
     if (!body.title?.trim()) {
@@ -214,35 +221,63 @@ export async function POST(request: NextRequest) {
     if (shouldSendImmediately && notification) {
       let merchantsSent = 0;
 
+      // Fetch merchant IDs for broadcast if not already available
+      let broadcastMerchantIds: string[] = [];
       if (body.target_type === 'all') {
         // Send to all merchants
-        const { data: count } = await supabase
+        const { data: count, error: rpcError } = await supabase
           .rpc('send_notification_to_all_merchants', { p_notification_id: notification.id });
+
+        if (rpcError) {
+          console.error('Error sending to all merchants:', rpcError);
+          // Consider rolling back or marking notification as failed
+        }
         merchantsSent = count || 0;
+
+        // Fetch IDs for broadcast
+        const { data: allMerchants } = await supabase
+          .from('merchants')
+          .select('id')
+          .not('user_id', 'is', null);
+        broadcastMerchantIds = (allMerchants || []).map((m: { id: string }) => m.id);
+
       } else if (body.target_type === 'specific' && body.target_merchant_ids?.length) {
         // Send to specific merchants
-        const { data: count } = await supabase
+        const { data: count, error: rpcError } = await supabase
           .rpc('send_notification_to_merchants', {
             p_notification_id: notification.id,
             p_merchant_ids: body.target_merchant_ids,
           });
+
+        if (rpcError) {
+          console.error('Error sending to specific merchants:', rpcError);
+        }
         merchantsSent = count || 0;
+        broadcastMerchantIds = body.target_merchant_ids;
+
       } else if (body.target_type === 'segment' && body.target_segment) {
         // Get merchants in segment and send
         const segmentMerchants = await getSegmentMerchantIds(supabase, body.target_segment);
         if (segmentMerchants.length > 0) {
-          const { data: count } = await supabase
+          const { data: count, error: rpcError } = await supabase
             .rpc('send_notification_to_merchants', {
               p_notification_id: notification.id,
               p_merchant_ids: segmentMerchants,
             });
+
+          if (rpcError) {
+            console.error('Error sending to segment merchants:', rpcError);
+          }
           merchantsSent = count || 0;
+          broadcastMerchantIds = segmentMerchants;
         }
       }
 
       // Broadcast to connected clients via Supabase Realtime
       // This is done by creating a broadcast message on the notification channel
-      await broadcastNotification(supabase, notification, body.target_type, body.target_merchant_ids, body.target_segment);
+      // Broadcast to connected clients via Supabase Realtime
+      // This is done by creating a broadcast message on the notification channel
+      await broadcastNotification(supabase, notification, broadcastMerchantIds);
 
       return NextResponse.json({
         notification,
@@ -285,16 +320,11 @@ async function getSegmentMerchantIds(
       break;
     }
     case 'active':
-      // Merchants with orders in the last 30 days (simplified)
-      // In production, you'd join with orders or use the health view
-      query = query.not('user_id', 'is', null);
-      break;
+      // TODO: Implement proper active merchant logic using merchant_health view
+      throw new Error('Segment "active" not yet implemented');
     case 'at_risk':
-      // This would ideally use the merchant_health view
-      // For now, just return merchants without recent orders
-      // In production, you'd have more sophisticated logic
-      query = query.not('user_id', 'is', null);
-      break;
+      // TODO: Implement proper at-risk merchant logic using merchant_health view
+      throw new Error('Segment "at_risk" not yet implemented');
   }
 
   const { data } = await query;
@@ -307,25 +337,10 @@ async function getSegmentMerchantIds(
 async function broadcastNotification(
   supabase: ReturnType<typeof createClient>,
   notification: Notification,
-  targetType: string,
-  targetMerchantIds?: string[],
-  targetSegment?: string
+  merchantIds: string[]
 ) {
   try {
-    // Get list of merchant IDs to notify
-    let merchantIds: string[] = [];
-
-    if (targetType === 'all') {
-      const { data } = await supabase
-        .from('merchants')
-        .select('id')
-        .not('user_id', 'is', null);
-      merchantIds = (data || []).map((m: { id: string }) => m.id);
-    } else if (targetType === 'specific' && targetMerchantIds) {
-      merchantIds = targetMerchantIds;
-    } else if (targetType === 'segment' && targetSegment) {
-      merchantIds = await getSegmentMerchantIds(supabase, targetSegment);
-    }
+    if (merchantIds.length === 0) return;
 
     // Broadcast to each merchant's private channel
     // Note: In production with many merchants, you might want to batch this
@@ -350,7 +365,7 @@ async function broadcastNotification(
     // In production, you might use per-merchant channels for better isolation
     const channel = supabase.channel('notifications:global');
 
-    await channel.send({
+    const sendResult = await channel.send({
       type: 'broadcast',
       event: 'new_notification',
       payload: {
@@ -358,6 +373,10 @@ async function broadcastNotification(
         target_merchant_ids: merchantIds,
       },
     });
+
+    if (sendResult !== 'ok') {
+      console.warn('Broadcast may not have been delivered:', sendResult);
+    }
 
     // Cleanup channel
     await supabase.removeChannel(channel);

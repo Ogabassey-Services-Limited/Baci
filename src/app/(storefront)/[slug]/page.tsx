@@ -117,12 +117,12 @@ export default async function StorefrontPage({ params }: { params: Promise<{ slu
         // Build sameAs array from social media links
         const sameAs: string[] = [];
         if (socialMedia) {
-            if (socialMedia.facebook) sameAs.push(`https://facebook.com/${socialMedia.facebook}`);
-            if (socialMedia.instagram) sameAs.push(`https://instagram.com/${socialMedia.instagram.replace('@', '')}`);
-            if (socialMedia.twitter) sameAs.push(`https://twitter.com/${socialMedia.twitter.replace('@', '')}`);
-            if (socialMedia.tiktok) sameAs.push(`https://tiktok.com/${socialMedia.tiktok.replace('@', '')}`);
-            if (socialMedia.youtube) sameAs.push(`https://youtube.com/${socialMedia.youtube}`);
-            if (socialMedia.linkedin) sameAs.push(`https://linkedin.com/company/${socialMedia.linkedin}`);
+            if (socialMedia.facebook) sameAs.push(`https://facebook.com/${encodeURIComponent(socialMedia.facebook)}`);
+            if (socialMedia.instagram) sameAs.push(`https://instagram.com/${encodeURIComponent(socialMedia.instagram.replace('@', ''))}`);
+            if (socialMedia.twitter) sameAs.push(`https://twitter.com/${encodeURIComponent(socialMedia.twitter.replace('@', ''))}`);
+            if (socialMedia.tiktok) sameAs.push(`https://tiktok.com/${encodeURIComponent(socialMedia.tiktok.replace('@', ''))}`);
+            if (socialMedia.youtube) sameAs.push(`https://youtube.com/${encodeURIComponent(socialMedia.youtube)}`);
+            if (socialMedia.linkedin) sameAs.push(`https://linkedin.com/company/${encodeURIComponent(socialMedia.linkedin)}`);
         }
 
         // Sanitize all user-controlled values for JSON-LD to prevent XSS

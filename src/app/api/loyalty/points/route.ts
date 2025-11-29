@@ -119,12 +119,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Get current loyalty record (or create one)
-    let { data: loyalty, error: loyaltyError } = await supabase
+    // Get current loyalty record (or create one)
+    const { data: initialLoyalty, error: loyaltyError } = await supabase
       .from('customer_loyalty')
       .select('*')
       .eq('merchant_id', merchant.id)
       .eq('customer_id', customerId)
       .single();
+
+    let loyalty = initialLoyalty;
 
     if (loyaltyError && loyaltyError.code === 'PGRST116') {
       // Create new loyalty record

@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { safeJsonLdStringify } from '@/lib/sanitize';
 import { TermsPageClient } from './terms-page-client';
 
 interface PageProps {
@@ -97,7 +98,7 @@ export default async function TermsPage({ params }: PageProps) {
       {/* nosemgrep: react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(termsSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}
       />
       <TermsPageClient
         merchant={merchant}

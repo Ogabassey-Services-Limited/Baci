@@ -2,53 +2,10 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
-interface PlatformSummary {
-  totalGmv: number;
-  gmvChange: number;
-  activeMerchants: number;
-  totalMerchants: number;
-  totalOrders: number;
-  avgGmvPerMerchant: number;
-  platformRevenue: number;
-  processorFees: number;
-  netToMerchants: number;
-}
+import { PlatformAnalytics, DailyGmvData } from '@/types/analytics';
 
-interface MerchantHealthBreakdown {
-  healthy: number;
-  atRisk: number;
-  churned: number;
-  new: number;
-}
-
-interface GrowthMetrics {
-  newMerchantsThisMonth: number;
-  merchantGrowthRate: number;
-  gmvGrowthRate: number;
-}
-
-interface TopMerchant {
-  id: string;
-  name: string;
-  gmv: number;
-  orders: number;
-}
-
-interface DailyGmvData {
-  date: string;
-  gmv: number;
-  orders: number;
-  merchants: number;
-}
-
-interface PlatformAnalyticsResponse {
-  summary: PlatformSummary;
-  merchantHealth: MerchantHealthBreakdown;
-  growth: GrowthMetrics;
-  topMerchants: TopMerchant[];
-  dailyGmv: DailyGmvData[];
-  generatedAt: string;
-}
+// Re-export types for backward compatibility if needed, or just use the imported one
+type PlatformAnalyticsResponse = PlatformAnalytics;
 
 /**
  * GET /api/admin/analytics
@@ -84,7 +41,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '30d';
 
-    const periodDays = period === '7d' ? 7 : period === '90d' ? 90 : period === 'all' ? 365 : 30;
+    const periodDays = period === '7d' ? 7 : period === '90d' ? 90 : period === 'all' ? 3650 : 30; // 10 years for 'all'
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - periodDays);
     const startDateStr = startDate.toISOString().split('T')[0];
@@ -165,7 +122,7 @@ export async function GET(request: NextRequest) {
 
     // Process merchant health breakdown
     const healthData = merchantHealthResult.data || [];
-    const merchantHealth: MerchantHealthBreakdown = {
+    const merchantHealth = {
       healthy: healthData.filter(h => h.health_status === 'healthy').length,
       atRisk: healthData.filter(h => h.health_status === 'at_risk').length,
       churned: healthData.filter(h => h.health_status === 'churned').length,
@@ -179,10 +136,10 @@ export async function GET(request: NextRequest) {
     const newMerchantsThisMonth = currentMonth?.new_merchants || 0;
     const merchantGrowthRate = previousMonth?.new_merchants
       ? ((newMerchantsThisMonth - previousMonth.new_merchants) / previousMonth.new_merchants) * 100
-      : 0;
+      : newMerchantsThisMonth > 0 ? 100 : 0;
 
     // Process top merchants
-    const topMerchants: TopMerchant[] = (topMerchantsResult.data || []).map(m => ({
+    const topMerchants = (topMerchantsResult.data || []).map(m => ({
       id: m.merchant_id,
       name: m.business_name || 'Unnamed Store',
       gmv: Number(m.total_gmv) || 0,

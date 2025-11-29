@@ -90,11 +90,15 @@ export default function WishListPage() {
 
   // Check if email is stored in localStorage
   useEffect(() => {
-    const storedEmail = localStorage.getItem('customerEmail');
-    if (storedEmail) {
-      setCustomerEmail(storedEmail);
-      setIsEmailSubmitted(true);
-      fetchWishList(storedEmail);
+    try {
+      const storedEmail = localStorage.getItem('customerEmail');
+      if (storedEmail) {
+        setCustomerEmail(storedEmail);
+        setIsEmailSubmitted(true);
+        fetchWishList(storedEmail);
+      }
+    } catch {
+      // localStorage not available (e.g., incognito mode)
     }
   }, [fetchWishList]);
 
@@ -118,7 +122,8 @@ export default function WishListPage() {
   const handleRemoveItem = async (itemId: string, productName: string) => {
     setRemovingItemId(itemId);
     try {
-      const response = await fetch(`/api/wishlist?id=${itemId}`, {
+      const emailParam = customerEmail ? `&email=${encodeURIComponent(customerEmail)}` : '';
+      const response = await fetch(`/api/wishlist?id=${itemId}${emailParam}`, {
         method: 'DELETE',
       });
 
@@ -167,18 +172,24 @@ export default function WishListPage() {
       addToCart(product, 1);
 
       // Remove from wishlist
-      const response = await fetch(`/api/wishlist?id=${item.id}`, {
+      const emailParam = customerEmail ? `&email=${encodeURIComponent(customerEmail)}` : '';
+      const response = await fetch(`/api/wishlist?id=${item.id}${emailParam}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
         setWishListItems((prev) => prev.filter((i) => i.id !== item.id));
+        toast({
+          title: 'Added to Cart',
+          description: `${item.products.name} has been added to your cart.`,
+        });
+      } else {
+        toast({
+          title: 'Partially Complete',
+          description: `${item.products.name} added to cart but could not be removed from wishlist.`,
+          variant: 'destructive',
+        });
       }
-
-      toast({
-        title: 'Added to Cart',
-        description: `${item.products.name} has been added to your cart.`,
-      });
     } catch {
       toast({
         title: 'Error',
@@ -191,7 +202,9 @@ export default function WishListPage() {
   };
 
   const handleShareWishlist = async () => {
-    const shareUrl = `${window.location.origin}/${merchantSlug}/wishlist?email=${encodeURIComponent(customerEmail)}`;
+    // Consider generating a shareable token on the backend instead of exposing email
+    // For now, using base64 encoding as a simple obfuscation (not secure, but better than plain text)
+    const shareUrl = `${window.location.origin}/${merchantSlug}/wishlist?share=${encodeURIComponent(btoa(customerEmail))}`;
 
     try {
       await navigator.clipboard.writeText(shareUrl);

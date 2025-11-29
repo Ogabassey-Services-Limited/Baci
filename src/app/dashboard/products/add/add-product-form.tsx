@@ -220,7 +220,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
   const categoryConfig = useMemo(() => {
     if (!merchant?.business_type) return getCategoryConfigFromBusinessType('general');
     return getCategoryConfigFromBusinessType(merchant.business_type);
-  }, [merchant?.business_type, merchant]);
+  }, [merchant?.business_type]);
 
   const handleColorImageUpload = (color: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -369,7 +369,10 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
       canvas.width = img.width;
       canvas.height = img.height;
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) {
+        setEnhancingImages(prev => ({ ...prev, [color]: false }));
+        return;
+      }
 
       // Add white background
       ctx.fillStyle = '#FFFFFF';
@@ -620,6 +623,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                   <FormField
                     key={fieldKey}
                     control={form.control}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     name={formFieldName as any} // Cast as any due to dynamic field names
                     render={({ field }) => (
                       <FormItem>

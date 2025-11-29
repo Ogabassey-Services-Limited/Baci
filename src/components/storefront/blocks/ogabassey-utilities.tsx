@@ -2,7 +2,7 @@
 
 // import { cn } from '@/lib/utils';
 import { renderIcon } from '@/components/builder/icon-registry';
-import { Phone, Wifi, Laptop, Zap, Trophy } from 'lucide-react';
+// import { Phone, Wifi, Laptop, Zap, Trophy } from 'lucide-react';
 
 export interface OgabasseyUtilitiesProps {
     services: {

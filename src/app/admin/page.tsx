@@ -36,43 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Skeleton } from '@/components/ui/skeleton';
 
-interface PlatformAnalytics {
-  summary: {
-    totalGmv: number;
-    gmvChange: number;
-    activeMerchants: number;
-    totalMerchants: number;
-    totalOrders: number;
-    avgGmvPerMerchant: number;
-    platformRevenue: number;
-    processorFees: number;
-    netToMerchants: number;
-  };
-  merchantHealth: {
-    healthy: number;
-    atRisk: number;
-    churned: number;
-    new: number;
-  };
-  growth: {
-    newMerchantsThisMonth: number;
-    merchantGrowthRate: number;
-    gmvGrowthRate: number;
-  };
-  topMerchants: Array<{
-    id: string;
-    name: string;
-    gmv: number;
-    orders: number;
-  }>;
-  dailyGmv: Array<{
-    date: string;
-    gmv: number;
-    orders: number;
-    merchants: number;
-  }>;
-  generatedAt: string;
-}
+import { PlatformAnalytics } from '@/types/analytics';
 
 const HEALTH_COLORS = {
   healthy: '#10b981',
@@ -82,12 +46,19 @@ const HEALTH_COLORS = {
 };
 
 function formatCurrency(value: number): string {
+  const formatter = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
   if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(2)}M`;
+    return formatter.format(value / 1000000).replace('$', '$') + 'M'; // Keeping simple M suffix for now, but using formatter for locale
   } else if (value >= 1000) {
-    return `$${(value / 1000).toFixed(1)}K`;
+    return formatter.format(value / 1000).replace('$', '$') + 'K';
   }
-  return `$${value.toFixed(2)}`;
+  return formatter.format(value);
 }
 
 function formatNumber(value: number): string {
@@ -137,12 +108,40 @@ export default function AdminDashboardPage() {
       setRefreshing(true);
       const response = await fetch('/api/admin/analytics', { method: 'POST' });
       if (!response.ok) throw new Error('Failed to refresh');
+
       toast({
         title: 'Views Refreshing',
         description: 'Analytics views are being refreshed. This may take a moment.',
       });
-      // Refetch after a short delay to get updated data
-      setTimeout(() => fetchAnalytics(true), 2000);
+
+      // Poll for completion instead of fixed delay
+      const pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/admin/analytics?period=${period}`);
+          if (res.ok) {
+            const data = await res.json();
+            // Check if data is newer than what we have
+            if (data.generatedAt !== analytics?.generatedAt) {
+              setAnalytics(data);
+              clearInterval(pollInterval);
+              setRefreshing(false);
+              toast({
+                title: 'Data Refreshed',
+                description: 'Platform analytics have been updated.',
+              });
+            }
+          }
+        } catch {
+          // Ignore errors during polling
+        }
+      }, 2000);
+
+      // Stop polling after 30 seconds
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        setRefreshing(false);
+      }, 30000);
+
     } catch (error) {
       console.error('Failed to refresh views:', error);
       toast({

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { PrivacyPageClient } from './privacy-page-client';
+import { safeJsonLdStringify } from '@/lib/sanitize';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -94,10 +95,10 @@ export default async function PrivacyPage({ params }: PageProps) {
   return (
     <>
       {/* Privacy Policy JSON-LD Schema */}
-      {/* nosemgrep: react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
+      {/* nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(privacySchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
       />
       <PrivacyPageClient
         merchant={merchant}

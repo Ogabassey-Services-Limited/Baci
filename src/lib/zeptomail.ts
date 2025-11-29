@@ -203,7 +203,7 @@ export async function sendEmail({
       // Only retry on retryable errors
       if (attempt < RETRY_CONFIG.maxRetries && isRetryableError(lastError.code)) {
         const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt);
-        console.warn(`ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms:`, lastError.message);
+        console.warn(`ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`);
         await sleep(delay);
         continue;
       }
@@ -212,7 +212,7 @@ export async function sendEmail({
     }
   }
 
-  console.error('ZeptoMail email error:', lastError);
+  console.error('ZeptoMail email error:', JSON.stringify(lastError));
   return {
     success: false,
     error: lastError?.message || 'Unknown error',
@@ -286,7 +286,7 @@ export async function sendEmailWithTemplate({
 
       if (attempt < RETRY_CONFIG.maxRetries && isRetryableError(lastError.code)) {
         const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt);
-        console.warn(`ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms:`, lastError.message);
+        console.warn(`ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`);
         await sleep(delay);
         continue;
       }
@@ -295,7 +295,7 @@ export async function sendEmailWithTemplate({
     }
   }
 
-  console.error('ZeptoMail template email error:', lastError);
+  console.error('ZeptoMail template email error:', JSON.stringify(lastError));
   return {
     success: false,
     error: lastError?.message || 'Unknown error',
@@ -359,7 +359,7 @@ export async function sendBatchEmailWithTemplate({
 
       if (attempt < RETRY_CONFIG.maxRetries && isRetryableError(lastError.code)) {
         const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt);
-        console.warn(`ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms:`, lastError.message);
+        console.warn(`ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`);
         await sleep(delay);
         continue;
       }
@@ -368,7 +368,7 @@ export async function sendBatchEmailWithTemplate({
     }
   }
 
-  console.error('ZeptoMail batch email error:', lastError);
+  console.error('ZeptoMail batch email error:', JSON.stringify(lastError));
   return {
     success: false,
     error: lastError?.message || 'Unknown error',

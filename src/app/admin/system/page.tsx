@@ -106,13 +106,19 @@ export default function SystemHealthPage() {
   const { toast } = useToast();
 
   const fetchHealth = useCallback(async () => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/db-health');
+      const response = await fetch('/api/admin/db-health', { signal });
       if (!response.ok) throw new Error('Failed to fetch health data');
       const data = await response.json();
-      setHealth(data);
+      if (!signal.aborted) {
+        setHealth(data);
+      }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
       console.error('Failed to fetch system health:', error);
       toast({
         title: 'Error',
@@ -120,8 +126,12 @@ export default function SystemHealthPage() {
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      if (!signal.aborted) {
+        setLoading(false);
+      }
     }
+
+    return () => controller.abort();
   }, [toast]);
 
   const refreshAnalyticsViews = async () => {
@@ -146,14 +156,17 @@ export default function SystemHealthPage() {
   };
 
   useEffect(() => {
-    fetchHealth();
+    const abort = fetchHealth();
+    return () => {
+      abort.then(cleanup => cleanup && cleanup());
+    };
   }, [fetchHealth]);
 
   // Calculate overall health score
-  const healthScore = health?.health
+  const healthScore = health?.health && health.health.length > 0
     ? Math.round(
-        (health.health.filter((h) => h.status === 'healthy').length / health.health.length) * 100
-      )
+      (health.health.filter((h) => h.status === 'healthy').length / health.health.length) * 100
+    )
     : 0;
 
   return (

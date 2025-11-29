@@ -1,4 +1,4 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
@@ -6,7 +6,7 @@ import { Suspense } from 'react';
 import ProductDetailClient from '../../products/[productSlug]/product-detail-client';
 import { Product } from '@/lib/products';
 import { generateProductSchema, generateBreadcrumbSchema, generateSlug, getProductUrl } from '@/lib/seo-utils';
-import { escapeHtml, safeJsonLdStringify } from '@/lib/sanitize';
+import { escapeHtml, safeJsonLdStringify, sanitizeLikePattern } from '@/lib/sanitize';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 
 // Enable ISR with 5 minute revalidation
@@ -20,13 +20,16 @@ interface PageProps {
     }>;
 }
 
-async function getProduct(storeSlug: string, categorySlug: string, productSlug: string) {
+import { cache } from 'react';
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+
+const getProduct = cache(async (storeSlug: string, categorySlug: string, productSlug: string) => {
     const supabase = createServerComponentClient({ cookies });
 
     // 1. Get Merchant ID from store slug
     const { data: merchant, error: merchantError } = await supabase
         .from('merchants')
-        .select('id, business_name')
+        .select('id, business_name, social_media, payout_currency, category')
         .eq('slug', storeSlug)
         .single();
 
@@ -45,7 +48,9 @@ async function getProduct(storeSlug: string, categorySlug: string, productSlug: 
         .eq('merchant_id', merchant.id);
 
     if (isUuid) {
-        query = query.or(`slug.eq.${productSlug},id.eq.${productSlug}`);
+        // Validated by isUuid regex, but sanitizing to be safe against injection
+        const safeSlug = sanitizeLikePattern(productSlug);
+        query = query.or(`slug.eq.${safeSlug},id.eq.${safeSlug}`);
     } else {
         query = query.eq('slug', productSlug);
     }
@@ -75,8 +80,8 @@ async function getProduct(storeSlug: string, categorySlug: string, productSlug: 
         }
     }
 
-    return { product: product as Product, categoryMismatch };
-}
+    return { product: product as Product, categoryMismatch, merchant };
+});
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
     const { slug, category, productSlug } = await params;
@@ -89,14 +94,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         };
     }
 
-    const { product } = result;
-    const supabase = createServerComponentClient({ cookies });
-
-    const { data: merchant } = await supabase
-        .from('merchants')
-        .select('business_name, social_media')
-        .eq('slug', slug)
-        .single();
+    const { product, merchant } = result;
 
     const headersList = await headers();
     const host = headersList.get('host') || 'baci.app';
@@ -119,7 +117,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         openGraph: {
             title: product.meta_title || product.name,
             description: product.meta_description || product.description,
-            images: product.images?.map(img => ({ url: img.url, alt: img.alt })) || [
+            images: product.images?.length ? product.images.map(img => ({ url: img.url, alt: img.alt })) : [
                 {
                     url: product.imageLarge || product.image,
                     width: 800,
@@ -152,14 +150,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
         notFound();
     }
 
-    const { product } = result;
-    const supabase = createServerComponentClient({ cookies });
-
-    const { data: merchant } = await supabase
-        .from('merchants')
-        .select('business_name, payout_currency, category')
-        .eq('slug', slug)
-        .single();
+    const { product, merchant } = result;
 
     const headersList = await headers();
     const host = headersList.get('host') || 'baci.app';
@@ -198,12 +189,12 @@ export default async function CategoryProductPage({ params }: PageProps) {
         <>
             <script
                 type="application/ld+json"
-                // nosemgrep: react-dangerouslysetinnerhtml
+                // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
                 dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }}
             />
             <script
                 type="application/ld+json"
-                // nosemgrep: react-dangerouslysetinnerhtml
+                // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
                 dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(breadcrumbSchema) }}
             />
             <Suspense fallback={<ProductDetailSkeleton />}>

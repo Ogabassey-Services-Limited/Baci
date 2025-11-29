@@ -107,6 +107,7 @@ export function PrivacyPageClient({ merchant, content }: PrivacyPageClientProps)
                         prose-p:text-muted-foreground prose-p:leading-relaxed
                         prose-li:text-muted-foreground
                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
+                      // nosemgrep
                       dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
                     />
                   ) : (

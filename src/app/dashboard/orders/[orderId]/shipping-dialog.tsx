@@ -112,8 +112,7 @@ export function ShippingDialog({
   // Provider fulfillment state
   const [loadingQuotes, setLoadingQuotes] = useState(false);
   const [quotes, setQuotes] = useState<ShippingQuote[]>([]);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [sessionId, setSessionId] = useState<string | null>(null); // Reserved for future quote session management
+  const [, setSessionId] = useState<string | null>(null); // Reserved for future quote session management
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
 

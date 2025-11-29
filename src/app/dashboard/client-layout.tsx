@@ -95,7 +95,7 @@ const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }:
   // 2. localhost URLs (development only)
   // 3. URLs ending with .usebaci.com (production)
   const isSafeUrl = (() => {
-    if (storeUrl.startsWith('/')) return true;
+    if (storeUrl.startsWith('/') && !storeUrl.startsWith('//')) return true;
     if (storeUrl.startsWith('http://localhost:')) return true;
 
     try {

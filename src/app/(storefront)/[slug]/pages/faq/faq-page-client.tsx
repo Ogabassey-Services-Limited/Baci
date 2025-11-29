@@ -45,10 +45,10 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
   // Filter FAQs based on search
   const filteredFAQs = searchQuery
     ? faqItems.filter(
-        faq =>
-          faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      faq =>
+        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+    )
     : faqItems;
 
   // Group FAQs by category
@@ -119,6 +119,7 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
                             <AccordionContent className="text-muted-foreground pb-4">
                               <div
                                 className="prose prose-sm dark:prose-invert max-w-none"
+                                // nosemgrep
                                 dangerouslySetInnerHTML={{
                                   __html: sanitizeHtml(faq.answer),
                                 }}
@@ -151,6 +152,7 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
                                   <AccordionContent className="text-muted-foreground pb-4">
                                     <div
                                       className="prose prose-sm dark:prose-invert max-w-none"
+                                      // nosemgrep
                                       dangerouslySetInnerHTML={{
                                         __html: sanitizeHtml(faq.answer),
                                       }}
@@ -169,6 +171,7 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
                   <div className="max-w-3xl mx-auto">
                     <div
                       className="prose prose-lg dark:prose-invert max-w-none"
+                      // nosemgrep
                       dangerouslySetInnerHTML={{ __html: sanitizeHtml(legacyContent) }}
                     />
                   </div>

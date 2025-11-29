@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const sessionToken = searchParams.get('session');
+    const emailParam = searchParams.get('email');
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -38,6 +39,9 @@ export async function GET(request: NextRequest) {
     if (user?.email) {
       // Authenticated user - use their email
       customerIdentifier = user.email;
+    } else if (emailParam) {
+      // Email-based lookup (for storefront wishlist page)
+      customerIdentifier = emailParam;
     } else if (sessionToken && sessionToken.length >= 16) {
       // Guest user - use hashed session token as identifier
       customerIdentifier = `guest:${hashSessionToken(sessionToken)}`;
@@ -176,6 +180,7 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('id');
     const sessionToken = searchParams.get('session');
+    const emailParam = searchParams.get('email');
 
     if (!itemId) {
       return NextResponse.json(
@@ -201,6 +206,8 @@ export async function DELETE(request: NextRequest) {
 
     if (user?.email) {
       customerIdentifier = user.email;
+    } else if (emailParam) {
+      customerIdentifier = emailParam;
     } else if (sessionToken && sessionToken.length >= 16) {
       customerIdentifier = `guest:${hashSessionToken(sessionToken)}`;
     } else {

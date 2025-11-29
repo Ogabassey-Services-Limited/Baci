@@ -182,6 +182,8 @@ function Step1_Shipping() {
   const { control, setValue } = useFormContext<ShippingFormValues>();
   const { merchant } = useMerchant();
 
+  // const currencyCode = merchant?.country ? getCountryByCode(merchant.country)?.currencyCode || 'NGN' : 'NGN';
+
   const country = merchant?.country ? getCountryByCode(merchant.country) : null;
 
   return (
@@ -288,7 +290,7 @@ function Step1_Shipping() {
 }
 
 function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
-  const { formatCurrency, currencyCode } = useCurrency();
+  const { formatCurrency } = useCurrency();
 
   return (
     <div className="space-y-4">
@@ -641,51 +643,51 @@ function CheckoutPageContent() {
         }}
       >
         <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8">
-        <ArrowLeft className="w-4 h-4" />
-        Back to Store
-      </Link>
+          <ArrowLeft className="w-4 h-4" />
+          Back to Store
+        </Link>
 
-      <div className="grid md:grid-cols-[1fr_350px] gap-12 items-start">
-        <Card className="glass">
-          <CardContent className="p-8">
-            <h2 className="text-2xl font-bold mb-6">
-              {getStepTitle()}
-            </h2>
+        <div className="grid md:grid-cols-[1fr_350px] gap-12 items-start">
+          <Card className="glass">
+            <CardContent className="p-8">
+              <h2 className="text-2xl font-bold mb-6">
+                {getStepTitle()}
+              </h2>
 
-            {step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
+              {step === 0 && <Step0_Auth onAuthSuccess={handleAuthSuccess} />}
 
-            {step === 1 && (
-              <FormProvider {...shippingForm}>
+              {step === 1 && (
+                <FormProvider {...shippingForm}>
+                  <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
+                    <Step1_Shipping />
+                    <div className="flex justify-end pt-4">
+                      <ThemedButton type="button" colorRole="primary" onClick={handleNext}>
+                        Continue to Payment
+                      </ThemedButton>
+                    </div>
+                  </form>
+                </FormProvider>
+              )}
+
+              {step === 2 && (
                 <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
-                  <Step1_Shipping />
-                  <div className="flex justify-end pt-4">
-                    <ThemedButton type="button" colorRole="primary" onClick={handleNext}>
-                      Continue to Payment
+                  <Step2_Payment shippingFee={shippingFee} />
+                  <div className="flex justify-between pt-4">
+                    <Button type="button" variant="outline" onClick={handlePrev}>
+                      Previous
+                    </Button>
+                    <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading || shippingFee === null}>
+                      {(formIsLoading || shippingFee === null) && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />}
+                      Place Order
                     </ThemedButton>
                   </div>
                 </form>
-              </FormProvider>
-            )}
-
-            {step === 2 && (
-              <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
-                <Step2_Payment shippingFee={shippingFee} />
-                <div className="flex justify-between pt-4">
-                  <Button type="button" variant="outline" onClick={handlePrev}>
-                    Previous
-                  </Button>
-                  <ThemedButton type="submit" colorRole="accent" disabled={formIsLoading || shippingFee === null}>
-                    {(formIsLoading || shippingFee === null) && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" aria-hidden="true" />}
-                    Place Order
-                  </ThemedButton>
-                </div>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-        <OrderSummary />
-      </div>
-    </main>
+              )}
+            </CardContent>
+          </Card>
+          <OrderSummary />
+        </div>
+      </main>
     </>
   );
 }

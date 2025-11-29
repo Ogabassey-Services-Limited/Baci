@@ -80,6 +80,7 @@ export function AboutPageClient({ merchant, aboutPage, legacyContent }: AboutPag
                         </h2>
                         <div
                           className="prose prose-lg dark:prose-invert max-w-none"
+                          // nosemgrep
                           dangerouslySetInnerHTML={{ __html: sanitizeHtml(aboutPage.story) }}
                         />
                       </section>
@@ -344,6 +345,7 @@ export function AboutPageClient({ merchant, aboutPage, legacyContent }: AboutPag
                     <div className="max-w-4xl mx-auto">
                       <div
                         className="prose prose-lg dark:prose-invert max-w-none"
+                        // nosemgrep
                         dangerouslySetInnerHTML={{ __html: sanitizeHtml(legacyContent) }}
                       />
                     </div>

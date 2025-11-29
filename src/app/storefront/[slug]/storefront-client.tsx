@@ -6,7 +6,7 @@ import { Logo } from '@/components/logo';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchant } from '@/hooks/use-merchant';
-import { getBusinessTypeById } from '@/config/business-types';
+// import { getBusinessTypeById } from '@/config/business-types';
 import { type Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 import { dynamicRoutes } from '@/lib/routes';
@@ -33,6 +33,9 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
+import { GadgetCustomTemplateOgabassey } from '@/components/storefront/templates/gadget-custom-template-ogabassey';
+import { GadgetDefaultTemplate } from '@/components/storefront/templates/gadget-default-template';
 
 
 // New component to handle the layout and theming
@@ -42,7 +45,7 @@ function ThemedStorefrontLayout({ children }: { children: React.ReactNode }) {
 }
 
 
-function StorefrontContent() {
+export function StorefrontContent() {
   const { merchant } = useMerchant();
   const [searchQuery, setSearchQuery] = useState('');
   const { cart, cartCount, addToCart, updateQuantity } = useCart();
@@ -353,9 +356,7 @@ function StorefrontContent() {
 }
 
 
-import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
-import { GadgetCustomTemplateOgabassey } from '@/components/storefront/templates/gadget-custom-template-ogabassey';
-import { GadgetDefaultTemplate } from '@/components/storefront/templates/gadget-default-template';
+// Imports moved to top
 
 export function Storefront({ slug }: { slug?: string }) {
   const { merchant, loading } = useMerchant();
@@ -399,9 +400,9 @@ export function Storefront({ slug }: { slug?: string }) {
     );
   }
 
-  const businessTypeConfig = getBusinessTypeById(merchant.business_type);
-  // Default to Premium template if no specific business type template found
-  const TemplateComponent = (businessTypeConfig?.template || PremiumDefaultTemplate) as React.ComponentType<any>;
+  // const businessTypeConfig = getBusinessTypeById(merchant.business_type);
+  // Default to Premium template if no specific business type template
+  const TemplateComponent = PremiumDefaultTemplate;
 
   if (!TemplateComponent) {
     return <div>Error: Store template not found for business type '{merchant.business_type}'.</div>

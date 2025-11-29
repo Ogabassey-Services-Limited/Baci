@@ -50,6 +50,16 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 // cn is available if needed for conditional classes
 import type {
   NotificationWithStats,
@@ -79,6 +89,7 @@ export default function AdminNotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationWithStats[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   // Filters
   const [filters, setFilters] = useState<AdminNotificationFilters>({
@@ -159,8 +170,6 @@ export default function AdminNotificationsPage() {
   }, [fetchNotifications]);
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this notification?')) return;
-
     try {
       const response = await fetch(`/api/admin/notifications/${id}`, {
         method: 'DELETE',
@@ -183,6 +192,8 @@ export default function AdminNotificationsPage() {
         description: 'Failed to delete notification',
         variant: 'destructive',
       });
+    } finally {
+      setDeleteId(null);
     }
   };
 
@@ -412,8 +423,8 @@ export default function AdminNotificationsPage() {
                           {notification.sent_at
                             ? formatDistanceToNow(new Date(notification.sent_at), { addSuffix: true })
                             : notification.scheduled_for
-                            ? format(new Date(notification.scheduled_for), 'MMM d, yyyy HH:mm')
-                            : formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                              ? format(new Date(notification.scheduled_for), 'MMM d, yyyy HH:mm')
+                              : formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -429,7 +440,7 @@ export default function AdminNotificationsPage() {
                               View Details
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleDelete(notification.id)}
+                              onClick={() => setDeleteId(notification.id)}
                               className="text-red-600"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
@@ -471,6 +482,26 @@ export default function AdminNotificationsPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the notification.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteId && handleDelete(deleteId)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div >
   );
 }

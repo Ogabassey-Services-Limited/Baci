@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { ContactPageClient } from './contact-page-client';
+import { safeJsonLdStringify } from '@/lib/sanitize';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -95,10 +96,10 @@ export default async function ContactPage({ params }: PageProps) {
   return (
     <>
       {/* ContactPage JSON-LD Schema */}
-      {/* nosemgrep: react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
+      {/* nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(contactSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
       />
       <ContactPageClient
         merchant={merchant}

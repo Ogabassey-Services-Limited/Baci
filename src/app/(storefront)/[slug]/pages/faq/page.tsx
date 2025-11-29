@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { FAQPageClient } from './faq-page-client';
 import { generateFAQSchema } from '@/lib/seo-utils';
 import { FAQItem, parseLegacyFAQ } from '@/types/faq';
+import { safeJsonLdStringify } from '@/lib/sanitize';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -79,10 +80,10 @@ export default async function FAQPage({ params }: PageProps) {
   return (
     <>
       {/* FAQ JSON-LD Schema - enables FAQ rich results in Google */}
-      {/* nosemgrep: react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
+      {/* nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml - JSON-LD structured data is safe server-generated content */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
       />
       <FAQPageClient
         merchant={merchant}

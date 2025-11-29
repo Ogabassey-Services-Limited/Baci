@@ -1,7 +1,10 @@
 import React from 'react';
-import { Search, Bell, ShoppingCart, User, Smartphone, Gamepad2, Laptop, Printer, Keyboard } from 'lucide-react';
+import { Bell, ShoppingCart, User, Smartphone, Gamepad2, Laptop, Printer, Keyboard } from 'lucide-react';
 
 const LandingPage = () => {
+    // const handleSubmit = (e: React.FormEvent) => {
+    //     // Function body for handleSubmit
+    // };
     return (
         <div className="min-h-screen bg-white font-sans">
 
@@ -127,7 +130,7 @@ const LandingPage = () => {
 const CategoryItem = ({ icon, label }: { icon: React.ReactNode, label: string }) => (
     <div className="flex flex-col items-center gap-3 group cursor-pointer">
         <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-red-500 shadow-sm border border-gray-100 group-hover:bg-red-50 group-hover:border-red-200 transition-all">
-            {React.cloneElement(icon as React.ReactElement<any>, { size: 28 })}
+            {React.cloneElement(icon as React.ReactElement<{ size: number }>, { size: 28 })}
         </div>
         <span className="text-sm font-medium text-gray-700">{label}</span>
     </div>

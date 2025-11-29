@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -150,23 +150,23 @@ export default function MerchantsPage() {
   }, [fetchMerchants]);
 
   // Filter merchants
-  const filteredMerchants = merchants.filter((merchant) => {
+  const filteredMerchants = useMemo(() => merchants.filter((merchant) => {
     const matchesSearch =
       merchant.business_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       merchant.email?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesHealth = healthFilter === 'all' || merchant.health_status === healthFilter;
     return matchesSearch && matchesHealth;
-  });
+  }), [merchants, searchQuery, healthFilter]);
 
   // Stats
-  const stats = {
+  const stats = useMemo(() => ({
     total: merchants.length,
     healthy: merchants.filter((m) => m.health_status === 'healthy').length,
     atRisk: merchants.filter((m) => m.health_status === 'at_risk').length,
     churned: merchants.filter((m) => m.health_status === 'churned').length,
     new: merchants.filter((m) => m.health_status === 'new').length,
     totalGmv: merchants.reduce((sum, m) => sum + (Number(m.total_gmv) || 0), 0),
-  };
+  }), [merchants]);
 
   return (
     <div className="space-y-6">

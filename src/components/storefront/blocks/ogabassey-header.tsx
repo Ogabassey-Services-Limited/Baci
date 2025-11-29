@@ -16,7 +16,7 @@ export interface OgabasseyHeaderProps {
 }
 
 export function OgabasseyHeader({
-    logoText = "ogabassey",
+    // logoText = "ogabassey",
     showSearch = true,
     showCart = true,
     showUser = true,

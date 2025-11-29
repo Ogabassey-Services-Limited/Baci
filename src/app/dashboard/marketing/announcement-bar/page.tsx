@@ -8,7 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Megaphone } from 'lucide-react';
+import {
+    Loader2,
+} from 'lucide-react';
 
 interface AnnouncementBarConfig {
     enabled: boolean;
