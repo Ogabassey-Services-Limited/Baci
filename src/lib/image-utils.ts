@@ -65,20 +65,27 @@ export function getProductBlurPlaceholder(category?: string): string {
  * Helps Next.js optimize images from various CDNs
  */
 export function getImageLoader(src: string) {
-  // Supabase storage
-  if (src.includes('supabase.co')) {
-    return {
-      loader: 'default' as const,
-      quality: 80,
-    };
-  }
+  try {
+    const url = new URL(src);
+    const hostname = url.hostname;
 
-  // Placeholder services
-  if (src.includes('placehold.co') || src.includes('via.placeholder.com')) {
-    return {
-      loader: 'default' as const,
-      quality: 75,
-    };
+    // Supabase storage - check hostname ends with supabase.co
+    if (hostname.endsWith('.supabase.co') || hostname === 'supabase.co') {
+      return {
+        loader: 'default' as const,
+        quality: 80,
+      };
+    }
+
+    // Placeholder services - check exact hostname match
+    if (hostname === 'placehold.co' || hostname === 'via.placeholder.com') {
+      return {
+        loader: 'default' as const,
+        quality: 75,
+      };
+    }
+  } catch {
+    // Invalid URL, use default
   }
 
   // Default

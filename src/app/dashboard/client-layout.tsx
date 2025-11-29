@@ -89,9 +89,12 @@ const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }:
     </>
   );
 
+  // Validate that storeUrl is safe (relative or from trusted domain)
+  const isSafeUrl = storeUrl.startsWith('/') || storeUrl.startsWith('http://localhost:') || storeUrl.includes('.usebaci.com');
+
   return (
     <Link
-      href={asRoute(storeUrl)}
+      href={isSafeUrl ? asRoute(storeUrl) : asRoute('/')}
       className={cn(baseClassName, 'transition-all hover:text-primary')}
     >
       {isCollapsed && !isMobile ? (

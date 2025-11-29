@@ -3,28 +3,30 @@ name: Bundle Analysis
 on:
   # Run weekly to keep an eye on size drift
   schedule:
-    - cron: '0 9 * * 1' # Every Monday at 9am
+    - cron: "0 9 * * 1" # Every Monday at 9am
   # Allow manual trigger
   workflow_dispatch:
   # Run on main branch pushes to verify impact
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
-      - 'package.json'
-      - 'package-lock.json'
-      - 'next.config.ts'
+      - "package.json"
+      - "package-lock.json"
+      - "next.config.ts"
 
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install Dependencies
         run: npm ci

@@ -62,7 +62,10 @@ const req = https.request(options, (res) => {
     res.on('end', () => {
         if (res.statusCode === 201) {
             console.log('✅ Comment posted successfully!');
-            console.log(JSON.parse(responseData).html_url);
+            // Sanitize URL to prevent log injection
+            const url = JSON.parse(responseData).html_url;
+            const sanitizedUrl = url.replace(/[\r\n]/g, '');
+            console.log(sanitizedUrl);
         } else {
             console.error(`❌ Failed to post comment: ${res.statusCode}`);
             console.error(responseData);

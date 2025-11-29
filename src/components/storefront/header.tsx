@@ -38,7 +38,10 @@ export function StorefrontHeader() {
     if (!merchant) return null;
 
     const handleProductSelect = (url: string) => {
-        router.push(asRoute(url));
+        // Validate URL is a relative path to prevent open redirects
+        if (url.startsWith('/')) {
+            router.push(asRoute(url));
+        }
     };
 
     return (
