@@ -37,7 +37,7 @@ jobs:
             --exclude-mail
             --exclude 'localhost|127\.0\.0\.1'
             --exclude 'github\.com'
-            --exclude 'via\.placeholder\.com|example\.com|yourcdn\.com'
+            --exclude 'via\.placeholder\.com|example\.com|yourcdn\.com|yoursite\.com'
             --exclude '\$\{|%7B|%7D'
             --exclude 'VIDEO_ID|spreadsheetId|project_ref'
             --exclude 'base\.google\.com/ns'
@@ -52,6 +52,15 @@ jobs:
             --exclude 'firebase\.google\.com/docs/genkit'
             --exclude 'unsplash\.com/photo-'
             --exclude 'facebook\.com/sharer'
+            --exclude 'ogabassey\.com'
+            --exclude 'topship-staging\.africa|api-topship\.com'
+            --exclude 'whogohost\.com'
+            --exclude 'docs\.google\.com/spreadsheets/d/$'
+            --exclude 'api\.korapay\.com'
+            --exclude 'store\.com'
+            --exclude 'developers\.facebook\.com'
+            --exclude 'baci\.app'
+            --exclude 'theagilitysystems\.com'
           # Fail action if broken links are found
           fail: true
         env:
