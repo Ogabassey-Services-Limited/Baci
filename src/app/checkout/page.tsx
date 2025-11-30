@@ -7,7 +7,7 @@ import { useForm, FormProvider, useFormContext } from 'react-hook-form';
 import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Loader2, CreditCard, User, Mail, KeyRound, ArrowLeft, Truck } from 'lucide-react';
+import { Loader2, CreditCard, User, Mail, KeyRound, ArrowLeft, Truck, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -27,6 +27,8 @@ import { getCountryByCode } from '@/lib/countries';
 import { trackEvent } from '@/lib/event-tracking';
 import { trackServerSidePurchase, trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
 import { trackPlatformPurchase } from '@/components/analytics/platform-analytics-provider';
+import { CheckoutProgress } from '@/components/storefront/checkout/checkout-progress';
+import { DiscountCodeInput } from '@/components/storefront/checkout/discount-code-input';
 
 const DEFAULT_SHIPPING_FEE = parseFloat(process.env.NEXT_PUBLIC_DEFAULT_SHIPPING_FEE ?? '10.00');
 
@@ -330,6 +332,16 @@ function Step2_Payment({ shippingFee }: { shippingFee: number | null }) {
 }
 
 
+// Discount type for checkout
+interface DiscountResult {
+  valid: boolean;
+  code: string;
+  discount_type: 'percentage' | 'fixed';
+  discount_value: number;
+  minimum_order?: number;
+  description?: string;
+}
+
 function CheckoutPageContent() {
   const router = useRouter();
   const { toast } = useToast();
@@ -341,8 +353,19 @@ function CheckoutPageContent() {
   const [formIsLoading, setFormIsLoading] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [shippingFee, setShippingFee] = useState<number | null>(null);
+  const [appliedDiscount, setAppliedDiscount] = useState<DiscountResult | null>(null);
   const totalSteps = 2;
   const supabase = createClient();
+
+  // Calculate discount amount
+  const discountAmount = appliedDiscount
+    ? appliedDiscount.discount_type === 'percentage'
+      ? Math.round(cartTotal * (appliedDiscount.discount_value / 100))
+      : Math.min(appliedDiscount.discount_value, cartTotal)
+    : 0;
+
+  // Calculate loyalty points (1 point per 100 NGN spent)
+  const loyaltyPointsEarned = Math.floor((cartTotal - discountAmount) / 100);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -642,10 +665,22 @@ function CheckoutPageContent() {
           paddingRight: 'max(1rem, env(safe-area-inset-right))',
         }}
       >
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-8">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6">
           <ArrowLeft className="w-4 h-4" />
           Back to Store
         </Link>
+
+        {/* Checkout Progress Indicator */}
+        <div className="mb-8">
+          <CheckoutProgress
+            currentStep={step === 0 ? 1 : step === 1 ? 2 : 3}
+            steps={[
+              { label: 'Account', description: 'Sign in or create account' },
+              { label: 'Shipping', description: 'Delivery details' },
+              { label: 'Payment', description: 'Complete order' },
+            ]}
+          />
+        </div>
 
         <div className="grid md:grid-cols-[1fr_350px] gap-12 items-start">
           <Card className="glass">
@@ -672,6 +707,32 @@ function CheckoutPageContent() {
               {step === 2 && (
                 <form onSubmit={shippingForm.handleSubmit(onShippingSubmit)} className="space-y-6">
                   <Step2_Payment shippingFee={shippingFee} />
+
+                  {/* Discount Code Section */}
+                  {merchant?.id && (
+                    <div className="pt-2">
+                      <DiscountCodeInput
+                        merchantId={merchant.id}
+                        cartTotal={cartTotal}
+                        onApply={(discount) => setAppliedDiscount(discount)}
+                        onRemove={() => setAppliedDiscount(null)}
+                        appliedDiscount={appliedDiscount}
+                      />
+                    </div>
+                  )}
+
+                  {/* Loyalty Points Preview */}
+                  {loyaltyPointsEarned > 0 && (
+                    <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-purple-600" />
+                        <span className="text-sm text-purple-800">
+                          You&apos;ll earn <strong>{loyaltyPointsEarned}</strong> loyalty points with this order
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex justify-between pt-4">
                     <Button type="button" variant="outline" onClick={handlePrev}>
                       Previous
@@ -685,7 +746,11 @@ function CheckoutPageContent() {
               )}
             </CardContent>
           </Card>
-          <OrderSummary />
+          <OrderSummary
+            shippingFee={shippingFee ?? undefined}
+            discountAmount={discountAmount}
+            discountCode={appliedDiscount?.code}
+          />
         </div>
       </main>
     </>

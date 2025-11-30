@@ -50,7 +50,7 @@ export function LoyaltyStatusCard({
   const tierInfo = getTierInfo(tier);
   const progressPercentage = nextTier
     ? Math.min(100, ((data.lifetime_points - (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] || 0)) /
-        (pointsToNextTier + (data.lifetime_points - (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] || 0)))) * 100)
+      (pointsToNextTier + (data.lifetime_points - (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] || 0)))) * 100)
     : 100;
 
   if (compact) {
