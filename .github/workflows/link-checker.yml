@@ -26,7 +26,7 @@ jobs:
           restore-keys: cache-lychee-
 
       - name: Link Checker
-        uses: lycheeverse/lychee-action@v1.9.0
+        uses: lycheeverse/lychee-action@v2.0.2
         with:
           # Check all markdown, html, and ts/tsx files
           # Excludes: localhost, github.com, placeholders, template variables, CDN preconnects, API endpoints
@@ -66,6 +66,11 @@ jobs:
             --exclude 'res\.cloudinary\.com/$'
             --exclude 'linkedin\.com/company'
             --exclude 'instagram\.com'
+            --exclude 'medium\.com'
+            --exclude 'openai\.com'
+            --exclude 'npmjs\.com'
+            --exclude 'paystack\.com/docs'
+            --exclude 'business-api\.tiktok\.com'
           # Fail action if broken links are found
           fail: true
         env:

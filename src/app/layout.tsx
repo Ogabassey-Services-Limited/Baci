@@ -5,6 +5,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Providers } from '@/contexts/providers';
 import { CsrfInitializer } from '@/components/csrf-initializer';
 import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
@@ -126,13 +127,12 @@ export default async function RootLayout({
           No manual preconnect/preload needed - Next.js optimizes this.
         */}
 
-        {/* Preconnect hints for critical third-party origins */}
-        {/* Supabase - database and auth */}
-        <link rel="preconnect" href="https://dtbqucrqfbycfpmfwtie.supabase.co" />
+        {/*
+          DNS prefetch hints for third-party origins
+          Using dns-prefetch instead of preconnect to avoid "unused preconnect" warnings
+          dns-prefetch is less aggressive but still helps with connection setup
+        */}
         <link rel="dns-prefetch" href="https://dtbqucrqfbycfpmfwtie.supabase.co" />
-        {/* Vercel Analytics */}
-        <link rel="preconnect" href="https://vitals.vercel-insights.com" />
-        {/* Common image CDNs */}
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
 
@@ -170,6 +170,7 @@ export default async function RootLayout({
           <Toaster />
         </Providers>
         <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

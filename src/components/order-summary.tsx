@@ -5,20 +5,22 @@ import { useCurrency } from '@/hooks/use-currency';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Tag } from 'lucide-react';
 
 interface OrderSummaryProps {
   shippingFee?: number;
+  discountAmount?: number;
+  discountCode?: string;
 }
 
-export function OrderSummary({ shippingFee }: OrderSummaryProps) {
+export function OrderSummary({ shippingFee, discountAmount = 0, discountCode }: OrderSummaryProps) {
   const { cart, cartTotal } = useCart();
   const { formatCurrency } = useCurrency();
 
-  const total = cartTotal + (shippingFee || 0);
+  const total = cartTotal + (shippingFee || 0) - discountAmount;
 
   return (
-    <Card>
+    <Card className="sticky top-24">
       <CardHeader>
         <CardTitle>Order Summary</CardTitle>
       </CardHeader>
@@ -44,7 +46,11 @@ export function OrderSummary({ shippingFee }: OrderSummaryProps) {
             <div className="flex justify-between">
                 <span className="text-muted-foreground">Shipping</span>
                 {shippingFee !== undefined ? (
-                  <span>{formatCurrency(shippingFee)}</span>
+                  shippingFee === 0 ? (
+                    <span className="text-green-600 font-medium">FREE</span>
+                  ) : (
+                    <span>{formatCurrency(shippingFee)}</span>
+                  )
                 ) : (
                   <span className="text-muted-foreground text-sm flex items-center gap-1">
                     <Loader2 className="h-3 w-3 motion-safe:animate-spin" />
@@ -52,6 +58,15 @@ export function OrderSummary({ shippingFee }: OrderSummaryProps) {
                   </span>
                 )}
             </div>
+            {discountAmount > 0 && discountCode && (
+              <div className="flex justify-between text-green-600">
+                <span className="flex items-center gap-1">
+                  <Tag className="h-3 w-3" />
+                  Discount ({discountCode})
+                </span>
+                <span>-{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
         </div>
         <Separator />
         <div className="flex justify-between font-bold text-lg">

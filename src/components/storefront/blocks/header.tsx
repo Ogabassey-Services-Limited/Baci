@@ -5,12 +5,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useCart } from '@/hooks/use-cart';
+import { useAuth } from '@/contexts/auth-context';
 import { cn } from '@/lib/utils';
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { Cart } from '@/components/cart';
+import { LoyaltyBadge } from '@/components/storefront/loyalty/loyalty-badge';
 import { Search, ShoppingBag, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemedButton } from '@/components/themed';
@@ -61,6 +63,7 @@ export function Header({
 }: HeaderProps) {
     const { merchant } = useMerchant();
     const { cartCount } = useCart();
+    const { user } = useAuth();
     const [isScrolled, setIsScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -213,6 +216,17 @@ export function Header({
                             </Button>
                         )}
 
+                        {/* Loyalty Badge - shows when user is logged in and enrolled */}
+                        {user && merchant?.id && (
+                            <LoyaltyBadge
+                                merchantId={merchant.id}
+                                customerId={user.id}
+                                compact
+                                className="hidden sm:flex"
+                                rewardsHref="/pages/rewards"
+                            />
+                        )}
+
                         {showCart && (
                             <SheetTrigger asChild>
                                 <button className="relative p-2 hover:bg-black/5 rounded-full transition-colors group">
@@ -268,6 +282,20 @@ export function Header({
                                         {link.label}
                                     </Link>
                                 ))}
+                                {user && merchant?.id && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="w-full text-left"
+                                    >
+                                        <LoyaltyBadge
+                                            merchantId={merchant.id}
+                                            customerId={user.id}
+                                            showPoints
+                                            rewardsHref="/pages/rewards"
+                                        />
+                                    </button>
+                                )}
                             </nav>
                         </div>
                     </motion.div>

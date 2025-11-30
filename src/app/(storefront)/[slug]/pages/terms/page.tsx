@@ -95,7 +95,10 @@ export default async function TermsPage({ params }: PageProps) {
   return (
     <>
       {/* Terms of Service JSON-LD Schema */}
-      dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }} // nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}
+      />
       <TermsPageClient
         merchant={merchant}
         content={merchant.pages?.terms}
