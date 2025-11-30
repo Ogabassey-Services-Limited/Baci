@@ -785,3 +785,90 @@ export function constructCanonicalUrl(
     const queryString = params.toString();
     return queryString ? `${baseUrl}?${queryString}` : baseUrl;
 }
+
+/**
+ * Blog Post Schema Data
+ */
+interface BlogPostSchemaData {
+    title: string;
+    description: string;
+    url: string;
+    image?: string;
+    datePublished: string;
+    dateModified?: string;
+    author: {
+        name: string;
+        url?: string;
+        jobTitle?: string;
+        description?: string;
+    };
+    publisher: {
+        name: string;
+        logo: string;
+        url: string;
+    };
+    wordCount?: number;
+    keywords?: string[];
+    category?: string;
+    readingTime?: number;
+}
+
+/**
+ * Generate Blog Post Schema (Article)
+ */
+export function generateBlogPostSchema(data: BlogPostSchemaData): Record<string, unknown> {
+    const schema: Record<string, unknown> = {
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: data.title,
+        description: data.description,
+        url: data.url,
+        datePublished: data.datePublished,
+        dateModified: data.dateModified || data.datePublished,
+        author: {
+            '@type': 'Person',
+            name: data.author.name,
+            ...(data.author.url && { url: data.author.url }),
+            ...(data.author.jobTitle && { jobTitle: data.author.jobTitle }),
+            ...(data.author.description && { description: data.author.description }),
+        },
+        publisher: {
+            '@type': 'Organization',
+            name: data.publisher.name,
+            url: data.publisher.url,
+            logo: {
+                '@type': 'ImageObject',
+                url: data.publisher.logo,
+            },
+        },
+        mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': data.url,
+        },
+    };
+
+    if (data.image) {
+        schema.image = {
+            '@type': 'ImageObject',
+            url: data.image,
+        };
+    }
+
+    if (data.wordCount) {
+        schema.wordCount = data.wordCount;
+    }
+
+    if (data.keywords && data.keywords.length > 0) {
+        schema.keywords = data.keywords.join(', ');
+    }
+
+    if (data.category) {
+        schema.articleSection = data.category;
+    }
+
+    if (data.readingTime) {
+        schema.timeRequired = `PT${data.readingTime}M`;
+    }
+
+    return schema;
+}

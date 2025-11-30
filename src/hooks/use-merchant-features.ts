@@ -80,6 +80,12 @@ export interface MerchantFeatureSettings {
   auto_generate_schema: boolean;
   custom_robots_txt: string | null;
 
+  // Blog
+  blog_enabled: boolean;
+  auto_blog_enabled: boolean;
+  google_reviews_enabled: boolean;
+  google_place_id: string | null;
+
   // Notifications
   email_notifications_enabled: boolean;
   sms_notifications_enabled: boolean;
@@ -285,6 +291,10 @@ export function useMerchantFeatures() {
     guestCheckoutEnabled: settings?.guest_checkout_enabled ?? true,
     shippingProviders: settings?.shipping_providers ?? ['gigl', 'topship', 'shiip'],
     freeShippingThreshold: settings?.free_shipping_threshold ?? null,
+    blogEnabled: settings?.blog_enabled ?? false,
+    autoBlogEnabled: settings?.auto_blog_enabled ?? false,
+    googleReviewsEnabled: settings?.google_reviews_enabled ?? false,
+    googlePlaceId: settings?.google_place_id ?? null,
   };
 }
 
