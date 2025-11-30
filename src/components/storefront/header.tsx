@@ -21,8 +21,7 @@ import { routes, asRoute } from '@/lib/routes';
  * All visual properties are controlled by the theme system:
  * - --theme-header-bg: Background color
  * - --theme-header-text: Text color
- * - --theme-header-icon: Icon color
- * - --theme-header-cart-icon: Cart icon color
+ * - --theme-header-icon: Icon color (menu, cart, all icons)
  * - --theme-header-search-border: Search border color
  * - --theme-header-search-bg: Search background color
  * - --theme-header-height: Header height
@@ -105,7 +104,7 @@ export function StorefrontHeader() {
                             variant="outline"
                             size="icon"
                             className="relative touch-manipulation h-11 w-11 min-w-[44px] min-h-[44px]"
-                            style={{ color: 'var(--theme-header-cart-icon, #000000)' }}
+                            style={{ color: 'var(--theme-header-icon, #000000)' }}
                         >
                             <CartIcon count={cartCount} size={20} />
                             <span className="sr-only">Cart ({cartCount} items)</span>

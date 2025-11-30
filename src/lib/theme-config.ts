@@ -23,7 +23,6 @@ export interface ThemeConfiguration {
             background: string;
             text: string;
             iconColor: string;
-            cartIconColor: string;
             searchBorder: string;
             searchBackground: string;
         };
@@ -240,7 +239,6 @@ export const defaultTheme: ThemeConfiguration = {
             background: '#FFFFFF',
             text: '#000000',
             iconColor: '#000000',
-            cartIconColor: '#000000',
             searchBorder: '#E2E8F0',
             searchBackground: '#FFFFFF',
         },

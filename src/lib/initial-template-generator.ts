@@ -15,20 +15,48 @@ interface TemplateParams {
 
 /**
  * Generate hero carousel slides based on business type
+ * Now uses AI-generated images from the database
  */
-export function generateHeroSlides(businessName: string, businessType: string) {
-    // High-quality ecommerce hero images from Unsplash
+export async function generateHeroSlides(
+    businessName: string,
+    businessType: string,
+    heroImageIds?: string[]
+) {
+    // Fallback images if AI generation is not available yet
     const fallbackImages = [
         { imageUrl: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80' },
         { imageUrl: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80' },
         { imageUrl: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1920&q=80' }
     ];
 
-    const imagesForSlides = [
+    let imagesForSlides = [
         PlaceHolderImages[0] || fallbackImages[0],
         PlaceHolderImages[1] || fallbackImages[1],
         PlaceHolderImages[2] || fallbackImages[2],
     ];
+
+    // If merchant has AI-generated hero images, use those instead
+    if (heroImageIds && heroImageIds.length > 0) {
+        try {
+            const { createClient } = await import('@/lib/supabase/server');
+            const { cookies } = await import('next/headers');
+            const cookieStore = await cookies();
+            const supabase = createClient(cookieStore);
+
+            const { data: heroImages, error } = await supabase
+                .from('ai_hero_images')
+                .select('image_url')
+                .in('id', heroImageIds)
+                .limit(3);
+
+            if (!error && heroImages && heroImages.length > 0) {
+                imagesForSlides = heroImages.map((img: { image_url: string }) => ({ imageUrl: img.image_url }));
+            }
+        } catch (error) {
+            // Fall back to placeholder images if fetch fails
+            console.error('Failed to fetch hero images:', error);
+        }
+    }
 
     return imagesForSlides.map((img, i) => {
         let title = `Welcome to ${businessName}`;
@@ -121,8 +149,7 @@ export function deriveThemeFromColors(brandColors: { primary: string; background
                 background: brandColors.background,
                 text: '#000000',
                 iconColor: brandColors.primary,
-                cartIconColor: brandColors.accent,
-                searchBorder: '#E0E0E0',
+                searchBorder: brandColors.primary,
                 searchBackground: '#FFFFFF',
             },
 
@@ -347,14 +374,17 @@ export function generateFeatures(businessType: string) {
 /**
  * Generate initial Puck template for a new merchant
  */
-export function generateInitialTemplate(params: TemplateParams): Data {
-    const { businessName, businessType, brandColors } = params;
+export async function generateInitialTemplate(params: TemplateParams): Promise<Data> {
+    const { businessName, businessType, brandColors, merchant } = params;
 
     // Generate theme from brand colors
     const theme = deriveThemeFromColors(brandColors);
 
-    // Generate hero slides
-    const slides = generateHeroSlides(businessName, businessType);
+    // Get hero image IDs from merchant if available
+    const heroImageIds = (merchant?.hero_image_ids as string[]) || undefined;
+
+    // Generate hero slides (now async to fetch AI images)
+    const slides = await generateHeroSlides(businessName, businessType, heroImageIds);
 
     // Generate features
     const features = generateFeatures(businessType);
