@@ -4,7 +4,7 @@
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 
-const OnboardingForm = dynamic(() => import('@/components/onboarding-form'), {
+const OnboardingForm = dynamic(() => import('@/components/onboarding-form').then(mod => mod.default), {
   ssr: false,
   loading: () => (
     <div className="flex justify-center items-center h-[400px]">

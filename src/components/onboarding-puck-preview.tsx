@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useRef, Component, ReactNode } from 'react';
+import { useMemo, useEffect, useRef, useState, Component, ReactNode } from 'react';
 import { Render } from '@measured/puck';
 import { builderConfig } from '@/components/builder/config';
 import { generateHeroSlides, deriveThemeFromColors, generateFeatures } from '@/lib/initial-template-generator';
@@ -71,7 +71,6 @@ function applyThemeToElement(element: HTMLElement, brandColors: BrandColors) {
     element.style.setProperty('--theme-header-bg', theme.colors.header.background);
     element.style.setProperty('--theme-header-text', theme.colors.header.text);
     element.style.setProperty('--theme-header-icon', theme.colors.header.iconColor);
-    element.style.setProperty('--theme-header-cart-icon', theme.colors.header.cartIconColor);
     element.style.setProperty('--theme-header-search-border', theme.colors.header.searchBorder);
     element.style.setProperty('--theme-header-search-bg', theme.colors.header.searchBackground);
 
@@ -116,16 +115,16 @@ function applyThemeToElement(element: HTMLElement, brandColors: BrandColors) {
 /**
  * Generate preview template data (client-side version of generateInitialTemplate)
  */
-function generatePreviewTemplate(params: {
+async function generatePreviewTemplate(params: {
     businessName: string;
     businessType: string;
     logoDataUri: string | null;
     brandColors: BrandColors;
-}): Data {
+}): Promise<Data> {
     const { businessName, businessType, logoDataUri } = params;
 
-    // Generate hero slides
-    const slides = generateHeroSlides(businessName, businessType);
+    // Generate hero slides (await the async function)
+    const slides = await generateHeroSlides(businessName, businessType);
 
     // Generate features
     const features = generateFeatures(businessType);
@@ -245,17 +244,35 @@ export function OnboardingPuckPreview({
     brandColors
 }: OnboardingPuckPreviewProps) {
     const previewRef = useRef<HTMLDivElement>(null);
+    const [puckData, setPuckData] = useState<Data | null>(null);
 
-    // Generate Puck data - only regenerates when props change
-    const puckData = useMemo(() => {
-        if (!brandColors) return null;
+    // Generate Puck data asynchronously
+    useEffect(() => {
+        let isMounted = true;
 
-        return generatePreviewTemplate({
-            businessName: businessName || 'Your Store',
-            businessType: businessType || 'other',
-            logoDataUri: logoDataUri ?? null,
-            brandColors
-        });
+        if (!brandColors) {
+            setPuckData(null);
+            return;
+        }
+
+        const loadData = async () => {
+            const data = await generatePreviewTemplate({
+                businessName: businessName || 'Your Store',
+                businessType: businessType || 'other',
+                logoDataUri: logoDataUri ?? null,
+                brandColors
+            });
+
+            if (isMounted) {
+                setPuckData(data);
+            }
+        };
+
+        loadData();
+
+        return () => {
+            isMounted = false;
+        };
     }, [businessName, businessType, logoDataUri, brandColors]);
 
     // Apply theme to scoped container
@@ -274,7 +291,12 @@ export function OnboardingPuckPreview({
     }
 
     return (
-        <div className="p-4 rounded-lg border border-dashed bg-muted/20 overflow-hidden">
+        <div className="relative p-4 rounded-lg border border-dashed bg-muted/20 overflow-hidden">
+            {/* Live Preview Badge */}
+            <div className="absolute top-16 right-6 z-50 bg-amber-500 text-black text-[10px] px-3 py-1.5 rounded-full font-semibold shadow-lg">
+                Live Store Preview
+            </div>
+
             <div
                 ref={previewRef}
                 className="scale-[0.8] origin-top-left w-[125%] -translate-x-1 -translate-y-1 bg-background rounded-md shadow-lg pointer-events-none"
