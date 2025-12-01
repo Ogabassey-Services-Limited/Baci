@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { TypingPlaceholderInput } from '@/components/ui/typing-placeholder-input';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
@@ -111,7 +112,7 @@ export default function LoginForm() {
                     <div className="relative p-8">
                         <div className="flex flex-col items-center text-center mb-8">
                             <Link href="/" className="mb-6 transition-transform hover:scale-105">
-                                <Logo />
+                                <Logo priority />
                             </Link>
                             <motion.div
                                 key={mode}
@@ -171,11 +172,11 @@ export default function LoginForm() {
                                             </div>
                                             <div className="relative group">
                                                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                                                <Input
+                                                <TypingPlaceholderInput
                                                     id="password"
                                                     name="password"
                                                     type={showPassword ? 'text' : 'password'}
-                                                    placeholder="••••••••"
+                                                    placeholders={["••••••••", "Enter password", "Secure access"]}
                                                     required
                                                     minLength={8}
                                                     className="pl-10 pr-10 h-11 bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all"

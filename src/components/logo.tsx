@@ -6,9 +6,10 @@ interface LogoProps {
   width?: number;
   height?: number;
   variant?: "default" | "light" | "auto";
+  priority?: boolean;
 }
 
-export function Logo({ className, width = 100, height = 31, variant = "auto" }: LogoProps) {
+export function Logo({ className, width = 100, height = 31, variant = "auto", priority = false }: LogoProps) {
   if (variant === "light") {
     return (
       <div className={cn("relative", className)} style={{ width, height }}>
@@ -16,8 +17,10 @@ export function Logo({ className, width = 100, height = 31, variant = "auto" }: 
           src="/baci-logo-dark.svg"
           alt="Baci Logo"
           fill
+          sizes={`${width}px`}
           className="object-contain"
-          priority
+          priority={priority}
+          loading={priority ? "eager" : "lazy"}
         />
       </div>
     );
@@ -29,15 +32,19 @@ export function Logo({ className, width = 100, height = 31, variant = "auto" }: 
         src="/baci-logo.svg"
         alt="Baci Logo"
         fill
+        sizes={`${width}px`}
         className="object-contain dark:hidden"
-        priority
+        priority={priority}
+        loading={priority ? "eager" : "lazy"}
       />
       <Image
         src="/baci-logo-dark.svg"
         alt="Baci Logo"
         fill
+        sizes={`${width}px`}
         className="object-contain hidden dark:block"
-        priority
+        priority={priority}
+        loading={priority ? "eager" : "lazy"}
       />
     </div>
   );

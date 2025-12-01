@@ -30,6 +30,12 @@ export interface MerchantData {
   slug?: string;
   custom_domain?: string;
   published_config?: Record<string, unknown> | null;
+  // Favicon properties
+  favicon_svg_url?: string;
+  favicon_png_32_url?: string;
+  favicon_png_192_url?: string;
+  favicon_apple_touch_url?: string;
+  favicon_uploaded_at?: string;
 }
 
 export type StaffRole =

@@ -22,8 +22,8 @@ export async function generateMetadata({
     }
 
     const icons: Metadata['icons'] = {
-        icon: [],
-        apple: [],
+        icon: [] as Array<{ url: string; type?: string; sizes?: string }>,
+        apple: [] as Array<{ url: string; type?: string; sizes?: string }>,
     };
 
     // Add cache-busting timestamp to URLs
@@ -37,7 +37,7 @@ export async function generateMetadata({
 
     // Prefer SVG for modern browsers
     if (merchant.favicon_svg_url) {
-        icons.icon!.push({
+        (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
             url: addTimestamp(merchant.favicon_svg_url)!,
             type: 'image/svg+xml',
         });
@@ -45,7 +45,7 @@ export async function generateMetadata({
 
     // PNG fallbacks
     if (merchant.favicon_png_32_url) {
-        icons.icon!.push({
+        (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
             url: addTimestamp(merchant.favicon_png_32_url)!,
             sizes: '32x32',
             type: 'image/png',
@@ -53,7 +53,7 @@ export async function generateMetadata({
     }
 
     if (merchant.favicon_png_192_url) {
-        icons.icon!.push({
+        (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
             url: addTimestamp(merchant.favicon_png_192_url)!,
             sizes: '192x192',
             type: 'image/png',
@@ -62,7 +62,7 @@ export async function generateMetadata({
 
     // Apple Touch Icon
     if (merchant.favicon_apple_touch_url) {
-        icons.apple!.push({
+        (icons.apple as Array<{ url: string; type?: string; sizes?: string }>).push({
             url: addTimestamp(merchant.favicon_apple_touch_url)!,
             sizes: '180x180',
             type: 'image/png',

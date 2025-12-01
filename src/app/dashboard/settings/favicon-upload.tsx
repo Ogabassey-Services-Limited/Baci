@@ -40,6 +40,15 @@ export function FaviconUpload() {
             return;
         }
 
+        if (!merchant) {
+            toast({
+                title: 'Error',
+                description: 'Merchant information not available',
+                variant: 'destructive',
+            });
+            return;
+        }
+
         setUploading(true);
 
         try {
@@ -97,7 +106,7 @@ export function FaviconUpload() {
                 <div className="flex items-center gap-4 p-4 border rounded-lg bg-muted/50">
                     <div className="relative w-8 h-8">
                         <Image
-                            src={preview || merchant.favicon_png_32_url}
+                            src={preview || merchant?.favicon_png_32_url || ''}
                             alt="Current favicon"
                             width={32}
                             height={32}

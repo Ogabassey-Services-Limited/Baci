@@ -135,7 +135,7 @@ export default async function RootLayout({
 
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         {/*
           Font loading is handled automatically by next/font/google (Inter).
