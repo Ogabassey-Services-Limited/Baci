@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { TypingPlaceholderInput } from '@/components/ui/typing-placeholder-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -402,11 +403,11 @@ export default function DiscountCodesPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label htmlFor="code">Code *</Label>
-                <Input
+                <TypingPlaceholderInput
                   id="code"
                   value={formData.code}
                   onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  placeholder="SAVE20"
+                  placeholders={["SAVE20", "WELCOME10", "FREESHIP", "SUMMER25", "VIP50"]}
                   required
                 />
               </div>

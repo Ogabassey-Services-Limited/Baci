@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TypingPlaceholderInput } from '@/components/ui/typing-placeholder-input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -445,7 +446,7 @@ export function ShippingDialog({
                   <Label htmlFor="carrierName">Carrier Name (Optional)</Label>
                   <Input
                     id="carrierName"
-                    placeholder="e.g., GIG Logistics, DHL, or your dispatch name"
+                    placeholder="GIG Logistics, DHL, or your dispatch name"
                     value={selfCarrierName}
                     onChange={(e) => setSelfCarrierName(e.target.value)}
                   />

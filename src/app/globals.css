@@ -120,7 +120,7 @@
     -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset !important;
     -webkit-text-fill-color: hsl(var(--foreground)) !important;
     caret-color: hsl(var(--primary)) !important;
-    transition: background-color 5000s ease-in-out 0s;
+    transition: background-color 9999s ease-in-out 0s;
   }
 
   .dark input:-webkit-autofill,

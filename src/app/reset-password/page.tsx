@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
@@ -7,9 +6,9 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
+import { KeyRound, Loader2, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -17,6 +16,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Logo } from '@/components/logo';
 import { checkPasswordStrength } from '@/lib/utils';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
+import { SubmitButton } from '@/components/ui/submit-button';
 
 const resetPasswordSchema = z.object({
     password: z.string().refine(password => checkPasswordStrength(password) >= 2, {
@@ -114,21 +114,38 @@ function ResetPasswordForm() {
     };
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-muted/20 p-4">
-            <div className="w-full max-w-sm space-y-4">
-                <div className="flex justify-center">
-                    <Link href="/">
-                        <Logo />
-                    </Link>
-                </div>
-                <Card>
-                    <CardHeader className="text-center">
-                        <CardTitle>Reset Your Password</CardTitle>
-                        <CardDescription>
-                            Enter and confirm your new password below.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
+        <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
+            {/* Dynamic Background Elements */}
+            <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
+            <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
+
+            {/* Animated Orbs */}
+            <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/30 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '4s' }} />
+            <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-accent/30 rounded-full blur-3xl animate-pulse" style={{ animationDuration: '6s' }} />
+
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="relative z-10 w-full max-w-[420px] p-4"
+            >
+                <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl">
+                    {/* Glass Shine Effect */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+
+                    <div className="relative p-8">
+                        <div className="flex flex-col items-center text-center mb-8">
+                            <Link href="/" className="mb-6 transition-transform hover:scale-105">
+                                <Logo />
+                            </Link>
+                            <div className="space-y-2">
+                                <h1 className="text-2xl font-bold tracking-tight">Reset Password</h1>
+                                <p className="text-sm text-muted-foreground">
+                                    Enter and confirm your new password below.
+                                </p>
+                            </div>
+                        </div>
+
                         <FormProvider {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                 <FormField
@@ -138,13 +155,13 @@ function ResetPasswordForm() {
                                         <FormItem>
                                             <FormLabel>New Password</FormLabel>
                                             <FormControl>
-                                                <div className="relative">
-                                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                <div className="relative group">
+                                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                                     <Input
                                                         type={showPassword ? "text" : "password"}
                                                         placeholder="Min. 8 characters"
                                                         {...field}
-                                                        className="pl-10 pr-10"
+                                                        className="pl-10 pr-10 h-11 bg-white/50 dark:bg-black/20 border-white/10 focus:border-primary/50 transition-all"
                                                         id="password"
                                                         name="password"
                                                         autoComplete="new-password"
@@ -153,8 +170,8 @@ function ResetPasswordForm() {
                                                         autoCapitalize="off"
                                                         data-form-type="password"
                                                     />
-                                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)}>
-                                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent z-20" onClick={() => setShowPassword(!showPassword)}>
+                                                        {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" /> }
                                                     </Button>
                                                 </div>
                                             </FormControl>
@@ -170,13 +187,13 @@ function ResetPasswordForm() {
                                         <FormItem>
                                             <FormLabel>Confirm New Password</FormLabel>
                                             <FormControl>
-                                                <div className="relative">
-                                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                <div className="relative group">
+                                                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                                     <Input
                                                         type={showConfirmPassword ? "text" : "password"}
                                                         placeholder="Re-enter your new password"
                                                         {...field}
-                                                        className="pl-10 pr-10"
+                                                        className="pl-10 pr-10 h-11 bg-white/50 dark:bg-black/20 border-white/10 focus:border-primary/50 transition-all"
                                                         id="confirmPassword"
                                                         name="confirmPassword"
                                                         autoComplete="new-password"
@@ -185,8 +202,8 @@ function ResetPasswordForm() {
                                                         autoCapitalize="off"
                                                         data-form-type="password"
                                                     />
-                                                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                                                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                                    <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent z-20" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                                                        {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" /> }
                                                     </Button>
                                                 </div>
                                             </FormControl>
@@ -194,15 +211,18 @@ function ResetPasswordForm() {
                                         </FormItem>
                                     )}
                                 />
-                                <Button type="submit" className="w-full" disabled={isLoading}>
-                                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                <SubmitButton
+                                    className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                    pendingText="Updating..."
+                                    disabled={isLoading}
+                                >
                                     Update Password
-                                </Button>
+                                </SubmitButton>
                             </form>
                         </FormProvider>
-                    </CardContent>
-                </Card>
-            </div>
+                    </div>
+                </div>
+            </motion.div>
         </div>
     );
 }

@@ -378,7 +378,7 @@ export default function NewBlogPostPage() {
                 <Label htmlFor="category">Category</Label>
                 <Input
                   id="category"
-                  placeholder="e.g., Product News, Tutorials"
+                  placeholder="Product News, Tutorials"
                   value={formData.category}
                   onChange={(e) => handleChange('category', e.target.value)}
                 />
@@ -489,7 +489,7 @@ export default function NewBlogPostPage() {
                 <Label htmlFor="author_title">Author Title (optional)</Label>
                 <Input
                   id="author_title"
-                  placeholder="e.g., Founder, Product Expert"
+                  placeholder="Founder, Product Expert"
                   value={formData.author_title}
                   onChange={(e) => handleChange('author_title', e.target.value)}
                 />

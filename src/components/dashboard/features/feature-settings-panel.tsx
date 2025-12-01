@@ -207,7 +207,7 @@ export function FeatureSettingsPanel() {
                   <div className="flex gap-2">
                     <Input
                       type="number"
-                      placeholder="e.g., 50000"
+                      placeholder="50000"
                       defaultValue={settings.free_shipping_threshold || ''}
                       onChange={(e) =>
                         handleInputChange(

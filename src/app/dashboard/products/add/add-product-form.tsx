@@ -880,7 +880,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                       <div className="flex gap-2">
                         <div className="flex-1 relative">
                           <TagInput
-                            placeholder="e.g., Black, Red, Blue"
+                            placeholder="Black, Red, Blue"
                             value={colorTags}
                             onChange={(tags) => {
                               // Handle adding/removing tags
@@ -1067,7 +1067,7 @@ export default function AddProductForm({ onProductAdded, onCancel, initialData }
                       <FormLabel>Keywords</FormLabel>
                       <FormControl>
                         <TagInput
-                          placeholder="e.g., keyword1, keyword2"
+                          placeholder="keyword1, keyword2"
                           value={field.value ? field.value.split(',').map((k: string) => k.trim()).filter(Boolean) : []}
                           onChange={(tags) => field.onChange(tags.join(', '))}
                         />

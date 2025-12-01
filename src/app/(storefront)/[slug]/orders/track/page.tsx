@@ -177,7 +177,7 @@ export default function OrderTrackPage() {
                 </label>
                 <Input
                   id="orderNumber"
-                  placeholder="e.g., ORD-123456"
+                  placeholder="ORD-123456"
                   value={orderNumber}
                   onChange={(e) => setOrderNumber(e.target.value)}
                   required
@@ -234,8 +234,8 @@ export default function OrderTrackPage() {
                         orderData.order.status === 'delivered'
                           ? 'default'
                           : orderData.order.status === 'cancelled'
-                          ? 'destructive'
-                          : 'secondary'
+                            ? 'destructive'
+                            : 'secondary'
                       }
                     >
                       {orderData.order.status.charAt(0).toUpperCase() +
@@ -287,9 +287,8 @@ export default function OrderTrackPage() {
                         </div>
                         {index < orderData.timeline.length - 1 && (
                           <div
-                            className={`absolute top-10 w-0.5 h-full ${
-                              event.status === 'completed' ? 'bg-green-500' : 'bg-gray-200'
-                            }`}
+                            className={`absolute top-10 w-0.5 h-full ${event.status === 'completed' ? 'bg-green-500' : 'bg-gray-200'
+                              }`}
                           />
                         )}
                       </div>

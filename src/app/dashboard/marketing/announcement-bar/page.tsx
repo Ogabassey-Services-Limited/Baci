@@ -141,7 +141,7 @@ export default function AnnouncementBarPage() {
                                 id="message"
                                 value={config.message}
                                 onChange={(e) => setConfig({ ...config, message: e.target.value })}
-                                placeholder="e.g., Free shipping on orders over $50!"
+                                placeholder="Free shipping on orders over $50!"
                             />
                         </div>
 
@@ -151,7 +151,7 @@ export default function AnnouncementBarPage() {
                                 id="link"
                                 value={config.link}
                                 onChange={(e) => setConfig({ ...config, link: e.target.value })}
-                                placeholder="e.g., /category/sale"
+                                placeholder="/category/sale"
                             />
                             <p className="text-xs text-muted-foreground">
                                 Where should users go when they click the bar? Leave empty for no link.

@@ -151,7 +151,7 @@ export default function LoginForm() {
                                                     type="email"
                                                     placeholder="name@example.com"
                                                     required
-                                                    className="pl-10 h-11 bg-white/50 dark:bg-black/20 border-white/10 focus:border-primary/50 transition-all"
+                                                    className="pl-10 h-11 bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all"
                                                     autoComplete="email"
                                                 />
                                             </div>
@@ -178,7 +178,7 @@ export default function LoginForm() {
                                                     placeholder="••••••••"
                                                     required
                                                     minLength={8}
-                                                    className="pl-10 pr-10 h-11 bg-white/50 dark:bg-black/20 border-white/10 focus:border-primary/50 transition-all"
+                                                    className="pl-10 pr-10 h-11 bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all"
                                                     autoComplete="current-password"
                                                 />
                                                 <Button
@@ -220,7 +220,7 @@ export default function LoginForm() {
                                     <div className="grid grid-cols-2 gap-3">
                                         <Button
                                             variant="outline"
-                                            className="h-12 bg-white/50 dark:bg-black/20 border-white/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all hover:scale-[1.02]"
+                                            className="h-12 bg-white/50 dark:bg-black/20 border-primary/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all hover:scale-[1.02]"
                                             onClick={() => handleOAuthSignIn('google')}
                                             disabled={isGoogleLoading || isGithubLoading}
                                         >
@@ -233,7 +233,7 @@ export default function LoginForm() {
                                         </Button>
                                         <Button
                                             variant="outline"
-                                            className="h-12 bg-white/50 dark:bg-black/20 border-white/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all hover:scale-[1.02]"
+                                            className="h-12 bg-white/50 dark:bg-black/20 border-primary/10 hover:bg-white/80 dark:hover:bg-white/10 transition-all hover:scale-[1.02]"
                                             onClick={() => handleOAuthSignIn('github')}
                                             disabled={isGoogleLoading || isGithubLoading}
                                         >
@@ -265,7 +265,7 @@ export default function LoginForm() {
                                                     type="email"
                                                     placeholder="name@example.com"
                                                     required
-                                                    className="pl-10 h-11 bg-white/50 dark:bg-black/20 border-white/10 focus:border-primary/50 transition-all"
+                                                    className="pl-10 h-11 bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all"
                                                     autoComplete="email"
                                                 />
                                             </div>
