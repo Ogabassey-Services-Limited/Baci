@@ -60,6 +60,10 @@ function sanitizeForLogging(obj: unknown, depth = 0): unknown {
     return obj;
   }
 
+  if (obj instanceof Error) {
+    return sanitizeErrorForLogging(obj, depth);
+  }
+
   if (typeof obj !== 'object') return obj;
 
   if (Array.isArray(obj)) {

@@ -8,7 +8,7 @@ interface LogoProps {
   variant?: "default" | "light" | "auto";
 }
 
-export function Logo({ className, width = 100, height = 31, variant = "default" }: LogoProps) {
+export function Logo({ className, width = 100, height = 31, variant = "auto" }: LogoProps) {
   if (variant === "light") {
     return (
       <div className={cn("relative", className)} style={{ width, height }}>
@@ -23,34 +23,20 @@ export function Logo({ className, width = 100, height = 31, variant = "default" 
     );
   }
 
-  if (variant === "auto") {
-    return (
-      <div className={cn("relative", className)} style={{ width, height }}>
-        <Image
-          src="/baci-logo.svg"
-          alt="Baci Logo"
-          fill
-          className="object-contain dark:hidden"
-          priority
-        />
-        <Image
-          src="/baci-logo-dark.svg"
-          alt="Baci Logo"
-          fill
-          className="object-contain hidden dark:block"
-          priority
-        />
-      </div>
-    );
-  }
-
   return (
     <div className={cn("relative", className)} style={{ width, height }}>
       <Image
         src="/baci-logo.svg"
         alt="Baci Logo"
         fill
-        className="object-contain"
+        className="object-contain dark:hidden"
+        priority
+      />
+      <Image
+        src="/baci-logo-dark.svg"
+        alt="Baci Logo"
+        fill
+        className="object-contain hidden dark:block"
         priority
       />
     </div>

@@ -21,15 +21,16 @@ interface PageProps {
 }
 
 import { cache } from 'react';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/server';
 
 const getProduct = cache(async (storeSlug: string, categorySlug: string, productSlug: string) => {
-    const supabase = createServerComponentClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
     // 1. Get Merchant ID from store slug
     const { data: merchant, error: merchantError } = await supabase
         .from('merchants')
-        .select('id, business_name, social_media, payout_currency, category')
+        .select('id, business_name, social_media, payout_currency, business_type')
         .eq('slug', storeSlug)
         .single();
 

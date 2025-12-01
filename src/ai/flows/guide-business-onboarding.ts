@@ -1,7 +1,7 @@
 'use server';
 
-import { generateObject, generateText } from 'ai';
-import { geminiFlash, gemini25FlashImage, withRetry, sanitizePromptInput } from '@/ai/provider';
+import { generateObject, generateText, experimental_generateImage } from 'ai';
+import { geminiFlash, gemini25FlashImage, imagen3, withRetry, sanitizePromptInput } from '@/ai/provider';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 
@@ -113,31 +113,23 @@ Requirements:
 
 Please generate the logo image now.`;
 
-      // Use Gemini 2.5 Flash Image with native image generation
-      const result = await withRetry(async () => {
-        return await generateText({
-          model: gemini25FlashImage,
+      // Use Imagen 3 for image generation
+      const { image } = await withRetry(async () => {
+        return await experimental_generateImage({
+          model: imagen3,
           prompt: prompt,
-          providerOptions: {
-            google: {
-              responseModalities: ['TEXT', 'IMAGE'],
-            },
-          },
+          n: 1,
         });
       });
 
-      // Extract image from response files
-      const imageFile = result.files?.find(f => f.mediaType?.startsWith('image/'));
-
-      if (!imageFile || !imageFile.base64) {
-        logger.error({ message: 'No image in response', files: result.files });
+      if (!image || !image.base64) {
+        logger.error({ message: 'No image generated' });
         throw new Error('No image generated.');
       }
 
-      const mediaType = imageFile.mediaType || 'image/png';
-      const logoDataUri = `data:${mediaType};base64,${imageFile.base64}`;
+      const logoDataUri = `data:image/png;base64,${image.base64}`;
 
-      logger.info({ message: 'Logo generated successfully with Gemini 2.5 Flash Image' });
+      logger.info({ message: 'Logo generated successfully with Imagen 3' });
       return { logos: [logoDataUri] };
 
     } catch (error) {

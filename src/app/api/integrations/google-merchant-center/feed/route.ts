@@ -1,11 +1,12 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(_request: Request) {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://baci.app';
 
     try {
