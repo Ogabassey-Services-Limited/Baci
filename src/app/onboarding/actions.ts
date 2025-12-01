@@ -162,6 +162,27 @@ export async function submitOnboarding(
 
     logger.info({ message: 'Merchant data saved successfully', merchantData });
 
+    // 3.5. Assign AI-generated hero images to merchant
+    try {
+      const { assignHeroImagesToMerchant } = await import('@/services/hero-image-generator');
+      const category = finalBusinessType.toLowerCase();
+
+      logger.info({ message: 'Assigning hero images to merchant', merchantId: merchantData.id, category });
+
+      const assignResult = await assignHeroImagesToMerchant(merchantData.id, category);
+
+      if (assignResult.success) {
+        logger.info({ message: 'Hero images assigned successfully', imageIds: assignResult.imageIds });
+      } else {
+        logger.warn({ message: 'Failed to assign hero images', error: assignResult.error });
+        // Don't fail onboarding if hero image assignment fails
+      }
+    } catch (heroImageError) {
+      logger.error({ message: 'Exception while assigning hero images', error: heroImageError });
+      // Don't fail onboarding if hero image assignment fails
+    }
+
+
     // 4. Create free subdomain domain record
     try {
       const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
@@ -193,7 +214,7 @@ export async function submitOnboarding(
     try {
       const { generateInitialTemplate } = await import('@/lib/initial-template-generator');
 
-      const initialPuckConfig = generateInitialTemplate({
+      const initialPuckConfig = await generateInitialTemplate({
         businessName,
         businessType: finalBusinessType,
         brandColors,

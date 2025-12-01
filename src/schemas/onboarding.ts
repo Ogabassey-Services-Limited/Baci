@@ -28,7 +28,7 @@ export const step1Schema = step1BaseSchema.refine(data => {
  * Step 2: Branding (Client-side validation)
  */
 export const step2Schema = z.object({
-  logoUrl: z.string().url({ message: 'A valid logo URL is required.' }).min(1, { message: 'Logo is required. Please upload or generate one.' }),
+  logoUrl: z.string().min(1, { message: 'Logo is required. Please upload or generate one.' }),
   brandColors: z.string().min(1, { error: 'Brand colors are required.' }),
   brandPreferences: z.string().optional(),
 });

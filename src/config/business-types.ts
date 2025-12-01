@@ -15,7 +15,8 @@
  */
 
 import { ReactNode } from 'react';
-import { LucideIcon, Shirt, Laptop, Home, Sparkles, Palette, Coffee, Scissors } from 'lucide-react';
+import { LucideIcon } from 'lucide-react';
+import { Shirt, Laptop, Home, Sparks, Palette, CoffeeCup, Scissor } from 'iconoir-react';
 import { ModernTemplate } from '@/templates/modern';
 import { ArtisanTemplate } from '@/templates/artisan';
 import { TechTemplate } from '@/templates/tech';
@@ -156,7 +157,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     aiPromptContext: 'health, beauty, and wellness-focused',
     recommendedFeatures: ['ingredient-lists', 'skin-type-filters', 'before-after', 'routine-builders'],
     template: ModernTemplate,
-    icon: Sparkles,
+    icon: Sparks,
     journey: {
       onboarding: {
         logoStyle: 'clean, elegant, wellness-oriented',
@@ -200,7 +201,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     aiPromptContext: 'food and beverage with focus on taste, quality, and ingredients',
     recommendedFeatures: ['nutrition-facts', 'allergen-info', 'recipes', 'pairing-guides'],
     template: ArtisanTemplate,
-    icon: Coffee,
+    icon: CoffeeCup,
     journey: {
       onboarding: {
         logoStyle: 'appetizing, fresh, inviting',
@@ -222,7 +223,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     aiPromptContext: 'hair and beauty with focus on quality, texture, origin, and styling versatility',
     recommendedFeatures: ['texture-guide', 'length-charts', 'care-instructions', 'styling-tutorials'],
     template: PremiumDefaultTemplate,
-    icon: Scissors,
+    icon: Scissor,
     journey: {
       onboarding: {
         logoStyle: 'glamorous, sleek, beauty-focused',
