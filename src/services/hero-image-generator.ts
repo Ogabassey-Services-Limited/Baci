@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/logger';
 // TODO: Verify correct import for image generation
-// import { generateImage } from 'ai';
-import { geminiFlash } from '@/ai/provider';
+import { experimental_generateImage as generateImage } from 'ai';
+import { geminiFlash, imagen3 } from '@/ai/provider';
 
 // Style mapping based on business category
 const CATEGORY_STYLES: Record<string, string> = {
@@ -99,12 +99,12 @@ export async function generateHeroImageBatch(
 
                 try {
                     const { image } = await generateImage({
-                        model: geminiFlash,
+                        model: imagen3,
                         prompt: fullPrompt,
                     });
 
                     // Convert image to base64 data URI
-                    const base64Image = await image.base64();
+                    const base64Image = image.base64;
 
                     // Upload to Supabase Storage
                     const fileName = `hero-${category}-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
@@ -238,10 +238,18 @@ export async function assignHeroImagesToMerchant(
 
         // Increment usage count for assigned images
         for (const imageId of imageIds) {
-            await supabase
+            const { data: currentImage } = await supabase
                 .from('ai_hero_images')
-                .update({ usage_count: supabase.sql`usage_count + 1` })
-                .eq('id', imageId);
+                .select('usage_count')
+                .eq('id', imageId)
+                .single();
+
+            if (currentImage) {
+                await supabase
+                    .from('ai_hero_images')
+                    .update({ usage_count: (currentImage.usage_count || 0) + 1 })
+                    .eq('id', imageId);
+            }
         }
 
         // Update merchant with assigned image IDs
@@ -296,10 +304,19 @@ export async function regenerateHeroImagesForMerchant(
         // Decrement usage count of old images
         if (merchant.hero_image_ids && merchant.hero_image_ids.length > 0) {
             for (const oldImageId of merchant.hero_image_ids) {
-                await supabase
+                const { data: currentImage } = await supabase
                     .from('ai_hero_images')
-                    .update({ usage_count: supabase.sql`GREATEST(usage_count - 1, 0)` })
-                    .eq('id', oldImageId);
+                    .select('usage_count')
+                    .eq('id', oldImageId)
+                    .single();
+
+                if (currentImage) {
+                    const newCount = Math.max((currentImage.usage_count || 0) - 1, 0);
+                    await supabase
+                        .from('ai_hero_images')
+                        .update({ usage_count: newCount })
+                        .eq('id', oldImageId);
+                }
             }
         }
 

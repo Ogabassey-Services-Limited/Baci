@@ -50,7 +50,12 @@ export async function generateHeroSlides(
                 .limit(3);
 
             if (!error && heroImages && heroImages.length > 0) {
-                imagesForSlides = heroImages.map((img: { image_url: string }) => ({ imageUrl: img.image_url }));
+                imagesForSlides = heroImages.map((img: { image_url: string }, index: number) => ({
+                    imageUrl: img.image_url,
+                    id: `ai-hero-${index}`,
+                    description: 'AI Generated Hero Image',
+                    imageHint: 'hero'
+                }));
             }
         } catch (error) {
             // Fall back to placeholder images if fetch fails
