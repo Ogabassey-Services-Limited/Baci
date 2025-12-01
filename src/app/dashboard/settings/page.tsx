@@ -51,6 +51,7 @@ import { cn } from '@/lib/utils';
 import { uploadImage } from '@/lib/storage';
 import Link from 'next/link';
 import { SetupInstructions } from '@/components/analytics/setup-instructions';
+import { FaviconUpload } from './favicon-upload';
 
 extend([a11yPlugin]);
 
@@ -360,6 +361,18 @@ export default function SettingsPage() {
 
           <Card className="glass">
             <CardHeader>
+              <CardTitle>Favicon</CardTitle>
+              <CardDescription>
+                Upload a custom favicon for your storefront browser tabs and bookmarks.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FaviconUpload />
+            </CardContent>
+          </Card>
+
+          <Card className="glass">
+            <CardHeader>
               <CardTitle>Hero Section Carousel</CardTitle>
               <CardDescription>
                 Manage the slides for your storefront's hero section. Recommended size: 1920x1080px.
@@ -375,7 +388,7 @@ export default function SettingsPage() {
                       ) : (
                         <span className="text-xs text-muted-foreground">Upload</span>
                       )}
-                      <Input type="file" accept="image/*" className="absolute w-32 h-20 opacity-0 cursor-pointer" onChange={(e) => handleHeroImageUpload(index, e)} />
+                      <Input id={`hero-image-${index}`} name={`hero-image-${index}`} type="file" accept="image/*" className="absolute w-32 h-20 opacity-0 cursor-pointer" onChange={(e) => handleHeroImageUpload(index, e)} aria-label={`Upload hero slide ${index + 1} image`} />
                     </div>
                     <div className="flex-1 space-y-2">
                       <Input placeholder="Headline" value={slide.headline} onChange={e => handleHeroSlideChange(index, 'headline', e.target.value)} />
