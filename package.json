@@ -58,7 +58,7 @@
     "colord": "^2.9.3",
     "colorthief": "^2.4.0",
     "critters": "^0.0.23",
-    "date-fns": "^3.6.0",
+    "date-fns": "^4.1.0",
     "dotenv": "^16.5.0",
     "embla-carousel-autoplay": "^8.1.7",
     "embla-carousel-react": "^8.6.0",
