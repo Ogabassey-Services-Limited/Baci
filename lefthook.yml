@@ -3,7 +3,7 @@ pre-commit:
   commands:
     lint:
       glob: "*.{js,ts,jsx,tsx}"
-      run: npx eslint {staged_files}
+      run: npx biome check --changed {staged_files}
     knip:
       run: npx knip --no-exit-code # Warn only for now to avoid blocking commits on unused exports
 

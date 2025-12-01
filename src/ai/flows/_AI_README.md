@@ -1,757 +1,856 @@
-# AI Flows - Genkit Integration
+# Baci E-commerce Platform - AI Coding Assistant Rules
+## ⚠️ CRITICAL: Pre-Implementation Checklist
+**BEFORE implementing ANY code changes, you MUST:**
+1. **✅ Verify Implementation Strategy**
+   - Is this the **best** approach to solve the problem in 2025?
+   - Does it follow best practices for security and accessibility in 2025?
+   - Is this the **fastest** way to implement it?
+   - Have you checked for existing solutions in the codebase?
+   - Are there simpler alternatives that achieve the same goal?
+   - **If unsure, ASK the user to confirm the approach before proceeding**
+2. **✅ Use Latest Versions & Modern APIs**
+   - All dependencies should use their latest stable versions (except Tailwind CSS 3.x which is intentional)
+   - Use modern JavaScript/TypeScript features (async/await, optional chaining, nullish coalescing)
+   - Prefer Next.js 15+ App Router patterns over legacy Pages Router
 
-**Directory:** `/src/ai/flows/`
-**Purpose:** Genkit AI flows for merchant dashboard automation
-**AI Framework:** Google Genkit 1.20.0
-
+3. **✅ Technical SEO & Performance First**
+   - Generate JSON-LD structured data for all public pages (Product, Organization, BreadcrumbList, etc.)
+   - Use semantic HTML5 elements (`<article>`, `<section>`, `<nav>`, `<header>`, `<footer>`, `<aside>`)
+   - Add proper heading hierarchy (single `<h1>`, then `<h2>`, `<h3>`, etc.)
+   - Include descriptive meta tags (title, description, Open Graph, Twitter Cards)
+   - Ensure canonical URLs are set correctly
+   - Optimize images (Next.js `<Image>`, WebP format, proper dimensions, lazy loading)
+4. **✅ WCAG 2.1 AA Accessibility Compliance**
+   - Color contrast ratio minimum 4.5:1 for normal text, 3:1 for large text
+   - All interactive elements must be keyboard accessible (proper tabindex, focus states)
+   - Use semantic HTML and ARIA labels where appropriate
+   - Images must have meaningful `alt` text (or `alt=""` for decorative images)
+   - Form inputs must have associated `<label>` elements
+   - Error messages must be announced to screen readers
+   - Focus indicators must be visible on all interactive elements
+5. **✅ Security Principles**
+   - Sanitize all URLs and external links (use `rel="noopener noreferrer nofollow"` for untrusted links)
+   - Validate and sanitize all user inputs (use Zod schemas)
+   - Sanitize AI-generated HTML content (use DOMPurify)
+   - Never expose secrets or API keys in client code
+   - Use HTTPS for all external resources
+   - Implement CSRF protection for forms
+   - Follow principle of least privilege for database access (RLS policies)
+6. **✅ Semantic HTML & List Structures**
+   - Use `<ul>` for unordered lists, `<ol>` for ordered lists
+   - Use `<dl>`, `<dt>`, `<dd>` for definition/description lists
+   - Avoid `<div>` soup - use semantic elements (`<article>`, `<section>`, `<aside>`)
+   - Use `<button>` for actions, `<a>` for navigation
+   - Tables should use `<thead>`, `<tbody>`, `<th>`, `<td>` properly
 ---
-
-## Overview
-
-This directory contains all AI-powered flows using **Google Genkit** as the orchestration layer. Each flow wraps Gemini API calls with structured input/output validation using Zod schemas.
-
-**AI Models Used:**
-- `gemini-2.5-flash` - Text generation (product descriptions)
-- `gemini-2.5-flash-image-preview` - Image generation and analysis (logos, image enhancement)
-
+## Project Identity
+You are working on **Baci**, an AI-native e-commerce platform that enables Nigerian merchants to create complete online stores in under 3 minutes. The platform leverages Google Gemini for intelligent automation, Supabase for backend infrastructure, and Next.js for the storefront.
+**Core Philosophy:** "Your business, live in 3 minutes"
+**Technical Excellence Standards:**
+- ⚡ Performance: Core Web Vitals optimized (LCP < 2.5s, FID < 100ms, CLS < 0.1)
+- ♿ Accessibility: WCAG 2.1 AA compliant
+- 🔒 Security: OWASP Top 10 mitigated
+- 📈 SEO: Structured data, semantic HTML, optimized metadata
+- 🎨 UX: Mobile-first, responsive, intuitive
 ---
-
-## Flows Index
-
-| Flow | File | Purpose | Input | Output | Model |
-|------|------|---------|-------|--------|-------|
-| **guideBusinessOnboarding** | `guide-business-onboarding.ts` | Logo generation + color extraction | businessName, businessType, brandPreferences, optional logoDataUri | logoDataUri, brandColors (5 hex) | gemini-2.5-flash-image-preview |
-| **generateProductDescription** | `generate-product-descriptions.ts` | AI product descriptions | productName, businessType, productDetails | description (string) | gemini-2.5-flash |
-| **enhanceProductImage** | `enhance-product-images.ts` | Background removal + lighting | photoDataUri | enhancedPhotoDataUri | gemini-2.5-flash-image-preview |
-
+## Tech Stack (Version Accuracy Matters)
+### Frontend
+- **Framework:** Next.js 16.0.6+ (App Router, **not** Pages Router)
+- **React:** 19.2.0+
+- **TypeScript:** Strict mode enabled
+- **Styling:** Tailwind CSS 3.x + shadcn/ui components
+- **State Management:** React hooks (`useState`, `useContext`), Zustand for global state
+- **Forms:** React Hook Form + Zod validation
+- **Animations:** Framer Motion
+### Backend & Database
+- **Platform:** Supabase (PostgreSQL)
+- **Auth:** `@supabase/ssr` (Server-side safe)
+- **Storage:** Supabase Storage for images/assets
+- **API Routes:** Next.js App Router API handlers
+### AI & Integrations
+- **Provider:** `@ai-sdk/google` (Google Gemini)
+- **Models:**
+  - `gemini-2.5-flash`
+  - `gemini-2.5-pro` 
+- **Payment:** Paystack (Nigerian market) , Korapay (Multi country)
+- **CMS:** @measured/puck (visual page builder)
 ---
-
-## Flow 1: guideBusinessOnboarding
-
-### Purpose
-Guides merchants through logo creation and brand color selection during onboarding. Supports two modes:
-1. **Generate Logo:** AI creates a logo based on business context and color preferences
-2. **Extract Colors:** AI analyzes uploaded logo and extracts brand color palette
-
-### File
-`/src/ai/flows/guide-business-onboarding.ts`
-
-### Input Schema
-
-```typescript
-{
-  businessName: string;         // e.g., "Amara Fashion"
-  businessType: string;          // e.g., "fashion", "electronics"
-  brandPreferences: string;      // e.g., "deep ocean blue", "warm sunset orange"
-  logoDataUri?: string;          // Optional: data:image/png;base64,...
-}
+## Code Architecture & Patterns
+### Directory Structure
 ```
-
-### Output Schema
-
-```typescript
-{
-  logoDataUri?: string;          // Generated logo (if created) as data URI
-  brandColors: string[];         // Array of exactly 5 hex color codes
-}
+src/
+├── app/                      # Next.js App Router pages
+│   ├── (storefront)/        # Customer-facing routes
+│   ├── api/                 # API endpoints
+│   ├── dashboard/           # Merchant dashboard
+│   └── onboarding/          # Merchant signup flow
+├── components/
+│   ├── ui/                  # Base shadcn/ui components
+│   ├── storefront/          # Customer-facing components
+│   ├── dashboard/           # Merchant dashboard components
+│   └── themed/              # Brand-aware themed components
+├── lib/                     # Utilities & core logic
+├── ai/                      # AI flows & providers
+├── hooks/                   # Custom React hooks
+├── schemas/                 # Zod validation schemas
+└── types/                   # Shared TypeScript types
 ```
-
-### Brand Colors Order
-
-The 5 colors returned represent:
-1. **Primary** - Main brand color
-2. **Secondary** - Complementary color
-3. **Accent** - Highlight/call-to-action color
-4. **Background** - Neutral background
-5. **Text** - Dark text color for readability
-
-### Usage Modes
-
-#### Mode 1: Generate Logo
-
-```typescript
-const result = await guideBusinessOnboarding({
-  businessName: 'Amara Fashion',
-  businessType: 'fashion',
-  brandPreferences: 'deep ocean blue',
-  // logoDataUri: undefined (or omit)
-});
-// Returns:
-// {
-//   logoDataUri: 'data:image/png;base64,...',
-//   brandColors: ['#3F51B5', '#9C27B0', '#FFC107', '#F5F5F5', '#212121']
-// }
-```
-
-#### Mode 2: Extract Colors from Uploaded Logo
-
-```typescript
-const result = await guideBusinessOnboarding({
-  businessName: 'Amara Fashion',
-  businessType: 'fashion',
-  brandPreferences: '', // Not used in extraction mode
-  logoDataUri: 'data:image/png;base64,...' // Uploaded logo
-});
-// Returns:
-// {
-//   logoDataUri: undefined, // Not generated
-//   brandColors: ['#...', '#...', '#...', '#...', '#...']
-// }
-```
-
-### Prompts
-
-**✅ Phase 3 Update:** Prompts now include style guidance from business type config.
-
-**Logo Generation Prompt** (lines 166-174, enhanced with config):
-```
-Generate a simple, modern, and professional logo for a business named "[businessName]".
-The business is in the "[businessType]" sector.
-The user's favorite color is "[brandPreferences]", so the logo and brand colors should be inspired by this.
-After generating the logo, create a 5-color palette (primary, secondary, accent, background, text) based on the generated logo.
-Return ONLY the generated image and a JSON object with a "brandColors" key containing an array of 5 hex color strings.
-```
-
-**Note:** The actual prompt now includes LOGO STYLE GUIDANCE and COLOR SCHEME GUIDANCE from the business type config (Phase 3).
-
-**Color Extraction Prompt** (lines 109-131):
-```
-You are an expert branding assistant. Your task is to generate a simple, modern logo and a 5-color brand palette based on the user's input.
-
-Business Name: {{{businessName}}}
-Business Type: {{{businessType}}}
-Favorite Color: {{{brandPreferences}}}
-
-An existing logo has been provided. Analyze the logo and extract a 5-color palette from it.
-The palette should consist of:
-1. A primary color.
-2. A secondary color.
-3. An accent color.
-4. A neutral background color.
-5. A dark text color.
-```
-
-### AI Model
-- **Model:** `googleai/gemini-2.5-flash-image-preview`
-- **Config:** `responseModalities: ['TEXT', 'IMAGE']`
-- **Capabilities:** Image generation, image analysis, structured text output
-
+### File Naming Conventions
+- **Components:** `kebab-case.tsx` (e.g., `product-card.tsx`)
+- **Utilities:** `kebab-case.ts` (e.g., `format-currency.ts`)
+- **Types:** `kebab-case.ts` or `index.ts` (e.g., `types/index.ts`)
+- **API Routes:** `route.ts` (Next.js convention)
+- **Server Actions:** `actions.ts` (Next.js convention)
+---
+## Coding Standards
+### TypeScript Best Practices
+1. **Always use TypeScript** - No `.js` or `.jsx` files
+2. **Avoid `any`** - Use `unknown` and type guards instead
+3. **Use interfaces for objects, types for unions/intersections**
+   ```typescript
+   // ✅ Good
+   interface Product {
+     id: string;
+     name: string;
+   }
+   
+   type Status = 'active' | 'draft' | 'archived';
+   
+   // ❌ Bad
+   const product: any = {...};
+   ```
+4. **Export types alongside components**
+   ```typescript
+   export interface ProductCardProps {
+     product: Product;
+     onSelect?: (id: string) => void;
+   }
+   
+   export function ProductCard({ product, onSelect }: ProductCardProps) {
+     // ...
+   }
+   ```
+### React Patterns
+1. **Use Server Components by default** (Next.js App Router)
+   - Only add `'use client'` when you need client-side interactivity
+   - Use Server Actions for mutations
+   
+2. **Component Structure**
+   ```typescript
+   'use client'; // Only if needed
+   
+   import { SomeLibrary } from 'library';
+   import { LocalComponent } from '@/components/local';
+   import type { ComponentProps } from './types';
+   
+   export interface MyComponentProps {
+     // Props here
+   }
+   
+   export function MyComponent({ prop1, prop2 }: MyComponentProps) {
+     // Hooks first
+     const [state, setState] = useState<Type>(initial);
+     const router = useRouter();
+     
+     // Event handlers
+     const handleClick = () => {
+       // ...
+     };
+     
+     // Render
+     return (
+       <div>
+         {/* JSX */}
+       </div>
+     );
+   }
+   ```
+3. **Use async/await, not .then()**
+   ```typescript
+   // ✅ Good
+   async function fetchData() {
+     try {
+       const data = await api.get('/endpoint');
+       return data;
+     } catch (error) {
+       logger.error({ message: 'Fetch failed', error });
+       throw error;
+     }
+   }
+   
+   // ❌ Bad
+   function fetchData() {
+     return api.get('/endpoint')
+       .then(data => data)
+       .catch(err => console.error(err));
+   }
+   ```
+### Supabase Patterns
+1. **Always use server-side client for sensitive operations**
+   ```typescript
+   // Server Component or API Route
+   import { createClient } from '@/lib/supabase/server';
+   import { cookies } from 'next/headers';
+   
+   export async function GET() {
+     const cookieStore = await cookies();
+     const supabase = createClient(cookieStore);
+     // ... use supabase
+   }
+   ```
+2. **Use client-side client only for public data**
+   ```typescript
+   // Client Component
+   import { createClient } from '@/lib/supabase/client';
+   
+   const supabase = createClient();
+   ```
+3. **Type-safe queries**
+   ```typescript
+   const { data, error } = await supabase
+     .from('products')
+     .select('*')
+     .eq('merchant_id', merchantId)
+     .single();
+   
+   if (error) {
+     logger.error({ message: 'Query failed', error });
+     throw new Error('Failed to fetch product');
+   }
+   ```
+### AI Integration Patterns
+1. **Use Vercel AI SDK exported functions**
+   ```typescript
+   import { generateText, generateObject } from 'ai';
+   import { geminiFlash, imagen3 } from '@/ai/provider';
+   import { z } from 'zod';
+   
+   // Text generation
+   const { text } = await generateText({
+     model: geminiFlash,
+     prompt: 'Your prompt here',
+   });
+   
+   // Structured output
+   const { object } = await generateObject({
+     model: geminiFlash,
+     schema: z.object({
+       title: z.string(),
+       description: z.string(),
+     }),
+     prompt: 'Generate product details',
+   });
+   ```
+2. **Use the correct model exports**
+   - `geminiFlash` - Fast text generation
+   - `geminiPro` - Higher quality (currently aliased to flash)
+   - `gemini25FlashImage` - Multimodal (text + images)
+   - `imagen3` - Image generation only
+3. **Always wrap AI calls in try/catch with fallbacks**
+   ```typescript
+   try {
+     const result = await generateText({ model, prompt });
+     return result.text;
+   } catch (error) {
+     logger.error({ message: 'AI generation failed', error });
+     return fallbackValue; // Always provide a fallback
+   }
+   ```
 ### Error Handling
-
-1. **JSON Parsing Fails** (line 113-128):
-   - Falls back to `extractColorsPrompt` with structured output
-   - If still fails, throws error
-
-2. **No Media/Output** (line 105-109):
-   - Throws error: "AI failed to generate a logo or brand colors."
-   - Logs error with context
-
-3. **Extraction Fails** (line 84-86):
-   - Throws error: "Failed to get a structured response from the model when extracting colors."
-
-### Called By
-- `/src/app/onboarding/onboarding-form.tsx:172` (Generate logo button)
-- `/src/app/onboarding/onboarding-form.tsx:340` (Form submission)
-
-### Future Improvements
-- Cache color extraction results to avoid duplicate calls
-- Add fallback default palettes if AI fails
-- Support more color palette sizes (3, 7, 10 colors)
-- Allow user to adjust/refine generated colors
-
+1. **Use structured logging**
+   ```typescript
+   import { logger } from '@/lib/logger';
+   
+   // ✅ Good
+   logger.error({
+     message: 'Product creation failed',
+     error,
+     context: { productId, merchantId },
+   });
+   
+   // ❌ Bad
+   console.error('Error:', error);
+   ```
+2. **Use toast for user-facing errors**
+   ```typescript
+   import { useToast } from '@/hooks/use-toast';
+   
+   const { toast } = useToast();
+   
+   toast({
+     title: 'Error',
+     description: 'Failed to save product',
+     variant: 'destructive',
+   });
+   ```
 ---
-
-## Flow 2: generateProductDescription
-
-### Purpose
-Generates compelling, business-type-aware product descriptions using AI. Tailors copy style to the type of business (fashion vs electronics vs handmade, etc.).
-
-### File
-`/src/ai/flows/generate-product-descriptions.ts`
-
-### Input Schema
-
-```typescript
-{
-  productName: string;           // e.g., "Handmade Ceramic Mug"
-  businessType: string;          // e.g., "handmade", "fashion", "electronics"
-  productDetails: string;        // e.g., "Blue ceramic, 12oz, dishwasher safe"
-}
+## Theming & Branding System
+**Critical:** Baci allows merchants to have custom-branded storefronts. Always use the theming system:
+### Theme Configuration
+- **Location:** `src/lib/theme-config.ts`
+- **Applied via:** CSS Custom Properties (`--theme-*`)
+- **Components:** Use themed wrapper components in `src/components/themed/`
+### Using Theme Colors
+```tsx
+// ✅ Good - Uses merchant's brand colors
+<div className="bg-[var(--theme-primary)] text-[var(--theme-primary-foreground)]">
+  Brand-aware button
+</div>
+// ❌ Bad - Hardcoded color
+<div className="bg-blue-600 text-white">
+  Not brand-aware
+</div>
 ```
-
-### Output Schema
-
-```typescript
-{
-  description: string;           // AI-generated product description
-}
-```
-
-### Prompt (lines 36-44)
-
-```
-You are an expert copywriter specializing in e-commerce product descriptions.
-
-You will generate a compelling product description based on the provided information, taking into account the business type.
-
-Product Name: {{{productName}}}
-Business Type: {{{businessType}}}
-Product Details: {{{productDetails}}}
-
-Write a product description that is engaging, informative, and persuasive.
-```
-
-### Business Type Context
-
-The `businessType` field influences the AI's writing style:
-- **Fashion:** Aspirational, lifestyle-focused, emphasizes style and fit
-- **Electronics:** Feature-focused, technical, highlights specs
-- **Handmade:** Story-focused, emphasizes craftsmanship and uniqueness
-- **Health & Beauty:** Benefit-focused, addresses customer concerns
-- **Home Goods:** Lifestyle-focused, how it fits in a home
-- **Food & Beverage:** Sensory-focused, emphasizes taste and quality
-
-**✅ Phase 3 Complete:** Flow now automatically reads business type config for prompt customization.
-
-**⚠️ Critical Issue (Phase 4):** Product form hardcodes `businessType: "Handmade & Crafts"` instead of reading from user profile. See `/src/app/dashboard/products/add/add-product-form.tsx:122`.
-
-### AI Model
-- **Model:** `googleai/gemini-2.5-flash` (text-only)
-- **No image generation/analysis**
-- **Faster and cheaper than image preview model**
-
-### Usage Example
-
-```typescript
-const result = await generateProductDescription({
-  productName: 'Handmade Ceramic Mug',
-  businessType: 'handmade',
-  productDetails: 'Blue glaze, 12oz capacity, dishwasher safe, made from local clay'
-});
-
-console.log(result.description);
-// "This beautiful handmade ceramic mug brings artisan craftsmanship to your daily coffee ritual.
-// Each piece is lovingly crafted from locally-sourced clay and finished with a stunning blue glaze
-// that catches the light. With a generous 12oz capacity and dishwasher-safe design, it combines
-// beauty with everyday practicality. No two mugs are exactly alike, making yours truly one-of-a-kind."
-```
-
-### Called By
-- `/src/app/dashboard/products/add/add-product-form.tsx:119` (Generate with AI button)
-
-### Error Handling
-- Logs error to console
-- Shows toast notification to user
-- Does not crash the form
-
-### Future Improvements
-- **Fix hardcoded business type** - Read from user profile (Phase 4, ADR 001)
-- Use business type config for description style guidance
-- Add tone options (casual, professional, playful)
-- Support multiple description lengths (short, medium, long)
-- Generate SEO-optimized descriptions
-- A/B test different description styles
-
+### Theme Properties Available
+- `--theme-primary`, `--theme-secondary`, `--theme-accent`
+- `--theme-background`, `--theme-foreground`
+- `--theme-header-bg`, `--theme-header-text`, `--theme-header-icon`
+- `--theme-footer-bg`, `--theme-footer-text`, `--theme-footer-link`
+- See `src/lib/theme-config.ts` for complete list
 ---
-
-## Flow 3: enhanceProductImage
-
-### Purpose
-Enhances product photos by:
-1. Removing background (transparent or white)
-2. Adjusting lighting to studio quality
-3. Making product stand out professionally
-
-### File
-`/src/ai/flows/enhance-product-images.ts`
-
-### Input Schema
-
+## Database & API Patterns
+### Naming Conventions
+- **Tables:** `snake_case` (e.g., `merchant_products`, `page_configs`)
+- **Columns:** `snake_case` (e.g., `business_name`, `created_at`)
+- **JSON/JSONB columns:** Use `*_config` or `*_settings` suffix
+### Common Tables
+- `merchants` - Merchant accounts & business info
+- `products` - Product catalog
+- `orders` - Customer orders
+- `page_configs` - Puck page builder data (draft/published)
+- `ai_hero_images` - AI-generated hero images pool
+- `discounts` - Promotional codes
+### API Route Patterns
 ```typescript
-{
-  photoDataUri: string;          // data:image/jpeg;base64,...
-}
-```
-
-### Output Schema
-
-```typescript
-{
-  enhancedPhotoDataUri: string;  // Enhanced image as data URI
-}
-```
-
-### Prompt (lines 48-49)
-
-```
-The user has uploaded an image of a product for their e-commerce store. Your task is to professionally enhance this image. Isolate the main product by removing the background and making it transparent. Then, adjust the lighting to be bright and even, as if it were taken in a studio, to ensure the product looks appealing and stands out. Return only the enhanced image.
-```
-
-### AI Model
-- **Model:** `googleai/gemini-2.5-flash-image-preview`
-- **Config:** `responseModalities: ['TEXT', 'IMAGE']`
-  - **Important:** Must provide both TEXT and IMAGE modalities (line 52 comment)
-  - IMAGE-only mode won't work
-
-### Usage Example
-
-```typescript
-// User uploads product photo
-const file = event.target.files[0];
-const reader = new FileReader();
-reader.onload = async () => {
-  const dataUri = reader.result as string;
-
-  // Enhance the image
-  const result = await enhanceProductImage({
-    photoDataUri: dataUri
-  });
-
-  // Display enhanced version
-  setEnhancedImage(result.enhancedPhotoDataUri);
-};
-reader.readAsDataURL(file);
-```
-
-### Called By
-- `/src/app/dashboard/products/add/add-product-form.tsx:90` (Automatic on image upload)
-
-### Automatic Enhancement
-
-The product form **automatically enhances** images when uploaded:
-1. User selects image file
-2. File is converted to data URI
-3. `enhanceProductImage` is called immediately
-4. Enhanced version is shown with toggle switch
-5. User can switch between original and enhanced
-
-### Error Handling
-
-**Line 55-57:**
-```typescript
-if (!media) {
-  throw new Error('no media returned');
-}
-```
-
-**In Product Form (line 93-100):**
-- Catches error
-- Shows destructive toast notification
-- Keeps original image
-- Clears enhanced image state
-
-### Current Limitations
-
-1. **Large File Sizes:** Data URIs are memory-intensive, especially for high-res images
-2. **No Preview:** User must wait for enhancement to complete
-3. **No Undo:** Can't revert to original after accepting enhanced version
-4. **Slow Processing:** Image generation takes 5-15 seconds
-5. **Cost:** Image preview model is more expensive than text-only
-
-### Future Improvements
-- Upload to Firebase Storage first, pass URLs instead of data URIs
-- Show preview/loading indicator during enhancement
-- Allow user to adjust enhancement settings (brightness, contrast)
-- Batch enhancement for multiple product images
-- Cache enhanced images to avoid re-processing
-- Compress images before sending to AI
-- Add manual crop/rotate before enhancement
-
----
-
-## Genkit Architecture
-
-### File Structure
-
-```
-/src/ai/
-├── genkit.ts                          # Genkit initialization, model config
-├── dev.ts                             # Development server for Genkit Dev UI
-└── flows/
-    ├── guide-business-onboarding.ts   # Logo generation + color extraction
-    ├── generate-product-descriptions.ts # Product descriptions
-    └── enhance-product-images.ts      # Image enhancement
-```
-
-### Genkit Initialization
-
-**File:** `/src/ai/genkit.ts`
-
-```typescript
-import { genkit } from 'genkit';
-import { googleAI } from '@genkit-ai/google-genai';
-
-export const ai = genkit({
-  plugins: [googleAI()],
-  model: 'googleai/gemini-2.5-flash', // Default model
-});
-```
-
-### Development Server
-
-**File:** `/src/ai/dev.ts`
-
-Start Genkit Dev UI:
-```bash
-npm run genkit:dev
-```
-
-Visit: http://localhost:4000
-
-**Features:**
-- Test flows with sample inputs
-- View flow history and logs
-- Inspect input/output schemas
-- Debug prompt engineering
-- Monitor token usage
-
----
-
-## Common Patterns
-
-### Flow Definition Pattern
-
-All flows follow this structure:
-
-```typescript
-// 1. Import Genkit
-import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
-
-// 2. Define schemas
-const InputSchema = z.object({ /* ... */ });
-const OutputSchema = z.object({ /* ... */ });
-
-// 3. Export types
-export type FlowInput = z.infer<typeof InputSchema>;
-export type FlowOutput = z.infer<typeof OutputSchema>;
-
-// 4. Export flow function
-export async function flowName(input: FlowInput): Promise<FlowOutput> {
-  return flowNameFlow(input);
-}
-
-// 5. Define internal flow
-const flowNameFlow = ai.defineFlow({
-  name: 'flowNameFlow',
-  inputSchema: InputSchema,
-  outputSchema: OutputSchema,
-}, async (input) => {
-  // AI generation logic
-  const { output } = await ai.generate({ /* ... */ });
-  return output;
-});
-```
-
-### Prompt Engineering Pattern
-
-#### For Structured Output (Preferred)
-
-```typescript
-const prompt = ai.definePrompt({
-  name: 'myPrompt',
-  input: { schema: InputSchema },
-  output: { schema: OutputSchema },
-  prompt: `Detailed instructions with {{{variables}}}`,
-});
-
-const { output } = await prompt(input);
-return output!; // Zod-validated
-```
-
-#### For Free-Form Generation
-
-```typescript
-const { output, media } = await ai.generate({
-  model: 'googleai/gemini-2.5-flash-image-preview',
-  prompt: [
-    { text: 'Instructions here' },
-    { media: { url: imageDataUri } } // Optional image input
-  ],
-  config: {
-    responseModalities: ['TEXT', 'IMAGE']
+// app/api/example/route.ts
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+export async function GET(request: Request) {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    
+    // Auth check
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Business logic
+    const { data, error } = await supabase
+      .from('table')
+      .select('*')
+      .eq('user_id', user.id);
+    
+    if (error) throw error;
+    
+    return NextResponse.json({ data });
+  } catch (error) {
+    logger.error({ message: 'API error', error });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
-});
+}
 ```
-
 ---
-
-## Testing AI Flows
-
-### Using Genkit Dev UI (Recommended)
-
+## Performance & Optimization
+1. **Use Next.js Image component**
+   ```tsx
+   import Image from 'next/image';
+   
+   <Image
+     src={product.imageUrl}
+     alt={product.name}
+     width={300}
+     height={300}
+     className="object-cover"
+     priority={isAboveFold}
+   />
+   ```
+2. **Lazy load non-critical components**
+   ```typescript
+   import dynamic from 'next/dynamic';
+   
+   const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
+     loading: () => <Skeleton />,
+     ssr: false, // Client-side only if needed
+   });
+   ```
+3. **Optimize Supabase queries**
+   - Use `.select()` to fetch only needed columns
+   - Add indexes for frequently queried columns
+   - Use `.single()` when expecting one result
+---
+## Security Guidelines
+1. **Never expose secrets in client code**
+   - Use `NEXT_PUBLIC_*` prefix only for truly public values
+   - Keep API keys in `.env.local` (git-ignored)
+2. **Validate all user inputs**
+   ```typescript
+   import { z } from 'zod';
+   
+   const productSchema = z.object({
+     name: z.string().min(1).max(100),
+     price: z.number().positive(),
+   });
+   
+   const result = productSchema.safeParse(userInput);
+   if (!result.success) {
+     return { error: result.error.issues };
+   }
+   ```
+3. **Sanitize AI outputs**
+   ```typescript
+   import DOMPurify from 'isomorphic-dompurify';
+   
+   const clean = DOMPurify.sanitize(aiGeneratedHTML);
+   ```
+4. **Use RLS (Row Level Security) in Supabase**
+   - All tables should have RLS policies
+   - Users can only access their own data
+5. **Link Sanitization** - Critical for security
+   ```tsx
+   // ✅ Good - Sanitized external link
+   <a 
+     href={sanitizedUrl} 
+     target="_blank" 
+     rel="noopener noreferrer nofollow"
+     aria-label="Visit external site (opens in new tab)"
+   >
+     {linkText}
+   </a>
+   
+   // ❌ Bad - Unsanitized link
+   <a href={userProvidedUrl} target="_blank">Click here</a>
+   ```
+6. **Content Security Policy (CSP)**
+   - Set appropriate CSP headers in `next.config.ts`
+   - Restrict resource loading to trusted sources
+   - Use nonces for inline scripts when necessary
+---
+## Technical SEO Best Practices
+### JSON-LD Structured Data
+**Always generate structured data for public pages using our utility:**
+```typescript
+import { generateProductSchema, generateOrganizationSchema, generateBreadcrumbSchema } from '@/lib/seo-utils';
+// Product pages
+export async function generateMetadata({ params }: PageProps) {
+  const product = await fetchProduct(params.slug);
+  
+  return {
+    title: product.name,
+    description: product.description,
+    openGraph: {
+      title: product.name,
+      description: product.description,
+      images: [product.imageUrl],
+      type: 'product',
+    },
+    // Add JSON-LD in page component
+  };
+}
+// In page component
+export default function ProductPage({ product }: Props) {
+  const productSchema = generateProductSchema({
+    name: product.name,
+    description: product.description,
+    image: product.imageUrl,
+    price: product.price,
+    currency: 'NGN',
+    availability: product.inStock ? 'InStock' : 'OutOfStock',
+  });
+  
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      {/* Page content */}
+    </>
+  );
+}
+```
+### Semantic HTML Structure
+```tsx
+// ✅ Good - Semantic HTML
+<article className="product">
+  <header>
+    <h1>{product.name}</h1>
+  </header>
+  
+  <section className="details">
+    <h2>Product Details</h2>
+    <dl>
+      <dt>Price</dt>
+      <dd>{formatCurrency(product.price)}</dd>
+      <dt>Availability</dt>
+      <dd>{product.stock} in stock</dd>
+    </dl>
+  </section>
+  
+  <section className="description">
+    <h2>Description</h2>
+    <p>{product.description}</p>
+  </section>
+  
+  <footer>
+    <button type="button">Add to Cart</button>
+  </footer>
+</article>
+// ❌ Bad - Div soup
+<div className="product">
+  <div className="product-title">{product.name}</div>
+  <div className="product-details">
+    <div>Price: {product.price}</div>
+    <div>Stock: {product.stock}</div>
+  </div>
+  <div onClick={addToCart}>Add to Cart</div>
+</div>
+```
+### Meta Tags & Open Graph
+```tsx
+// Always include in page metadata
+export const metadata = {
+  title: 'Page Title - Baci',
+  description: 'Compelling description under 160 characters',
+  keywords: ['e-commerce', 'Nigeria', 'online store'],
+  
+  openGraph: {
+    title: 'Page Title',
+    description: 'Description for social sharing',
+    images: ['/og-image.jpg'],
+    type: 'website',
+    siteName: 'Baci',
+  },
+  
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Page Title',
+    description: 'Twitter-specific description',
+    images: ['/twitter-image.jpg'],
+  },
+  
+  alternates: {
+    canonical: 'https://baci.tech/page-url',
+  },
+};
+```
+### Heading Hierarchy
+```tsx
+// ✅ Good - Proper hierarchy
+<main>
+  <h1>Main Page Title</h1>
+  
+  <section>
+    <h2>Section Title</h2>
+    <p>Content...</p>
+    
+    <h3>Subsection</h3>
+    <p>More content...</p>
+  </section>
+  
+  <section>
+    <h2>Another Section</h2>
+    <p>Content...</p>
+  </section>
+</main>
+// ❌ Bad - Skipped levels, multiple H1s
+<main>
+  <h1>Title 1</h1>
+  <h1>Title 2</h1>  {/* Only ONE h1 per page */}
+  <h4>Skipped h2 and h3</h4>
+</main>
+```
+---
+## Accessibility (WCAG 2.1 AA) Guidelines
+### Color Contrast
+```tsx
+// Use our contrast checker utility
+import { checkContrast } from '@/lib/accessibility';
+// ✅ Good - Meets WCAG AA (4.5:1 for normal text)
+<p className="text-gray-900 dark:text-gray-100">
+  Readable text with proper contrast
+</p>
+// ❌ Bad - Low contrast
+<p className="text-gray-400 bg-gray-300">
+  Hard to read - only 2:1 contrast ratio
+</p>
+```
+### Keyboard Navigation
+```tsx
+// ✅ Good - Fully keyboard accessible
+<button
+  type="button"
+  onClick={handleClick}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleClick();
+    }
+  }}
+  className="focus:ring-2 focus:ring-primary focus:outline-none"
+  aria-label="Add product to cart"
+>
+  Add to Cart
+</button>
+// ✅ Good - Custom interactive element
+<div
+  role="button"
+  tabIndex={0}
+  onClick={handleClick}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleClick();
+    }
+  }}
+  className="cursor-pointer focus:ring-2 focus:ring-primary"
+  aria-label="Open menu"
+>
+  Menu Icon
+</div>
+// ❌ Bad - Not keyboard accessible
+<div onClick={handleClick}>Click me</div>
+```
+### Form Accessibility
+```tsx
+// ✅ Good - Accessible form
+<form onSubmit={handleSubmit}>
+  <div>
+    <label htmlFor="product-name" className="block mb-2">
+      Product Name <span aria-label="required">*</span>
+    </label>
+    <input
+      id="product-name"
+      type="text"
+      name="name"
+      required
+      aria-required="true"
+      aria-invalid={errors.name ? 'true' : 'false'}
+      aria-describedby={errors.name ? 'name-error' : undefined}
+      className="w-full border rounded px-3 py-2"
+    />
+    {errors.name && (
+      <p id="name-error" className="text-red-600 text-sm mt-1" role="alert">
+        {errors.name.message}
+      </p>
+    )}
+  </div>
+  
+  <button type="submit" aria-label="Save product">
+    Save
+  </button>
+</form>
+// ❌ Bad - No labels,  no error announcements
+<form>
+  <input type="text" placeholder="Name" />
+  {errors.name && <span>{errors.name}</span>}
+  <button>Save</button>
+</form>
+```
+### Image Accessibility
+```tsx
+// ✅ Good - Descriptive alt text
+<Image
+  src={product.imageUrl}
+  alt={`${product.name} - ${product.category}`}
+  width={300}
+  height={300}
+/>
+// ✅ Good - Decorative image
+<Image
+  src="/decorative-pattern.svg"
+  alt=""
+  aria-hidden="true"
+  width={100}
+  height={100}
+/>
+// ❌ Bad - Missing or generic alt
+<Image src={image} alt="Image" />
+<Image src={image} />
+```
+### ARIA Labels & Roles
+```tsx
+// ✅ Good - Proper ARIA usage
+<nav aria-label="Main navigation">
+  <ul>
+    <li><a href="/" aria-current="page">Home</a></li>
+    <li><a href="/products">Products</a></li>
+  </ul>
+</nav>
+<button
+  onClick={toggleMenu}
+  aria-expanded={isOpen}
+  aria-controls="mobile-menu"
+  aria-label="Toggle navigation menu"
+>
+  <MenuIcon aria-hidden="true" />
+</button>
+<div
+  id="mobile-menu"
+  className={isOpen ? 'block' : 'hidden'}
+  role="region"
+  aria-labelledby="menu-heading"
+>
+  <h2 id="menu-heading" className="sr-only">Site Navigation</h2>
+  {/* Menu content */}
+</div>
+// ❌ Bad - Missing ARIA, unclear purpose
+<button onClick={toggleMenu}>
+  <MenuIcon />
+</button>
+```
+### Screen Reader Only Content
+```tsx
+// Utility class for sr-only content
+// In global CSS: .sr-only { ... }
+<h1>
+  Products
+  <span className="sr-only">- Page {currentPage} of {totalPages}</span>
+</h1>
+<button>
+  <TrashIcon aria-hidden="true" />
+  <span className="sr-only">Delete product</span>
+</button>
+```
+---
+## Git Commit Conventions
+Use conventional commits format:
+```
+feat: add product image optimization
+fix: resolve cart total calculation bug
+docs: update API documentation
+refactor: simplify theme color extraction
+perf: optimize product query performance
+test: add unit tests for checkout flow
+chore: update dependencies
+```
+### Commit Workflow
+1. Make logical, atomic commits
+2. Keep commits focused (one feature/fix per commit)
+3. Write descriptive commit messages
+4. Use `--no-verify` only when necessary (e.g., bypassing pre-commit hooks for cleanup commits)
+---
+## Testing & Quality
+1. **Run type checks before committing**
+   ```bash
+   npm run typecheck
+   ```
+2. **Run linter**
+   ```bash
+   npm run lint
+   ```
+3. **Build before pushing**
+   ```bash
+   npm run build
+   ```
+4. **Test critical AI flows manually**
+   - Onboarding (logo upload → color extraction)
+   - Product description generation
+   - Blog post generation
+---
+## AI Assistant Workflow Rules
+### When Writing Code
+1. **Always check existing patterns first** - Look at similar components/files before creating new ones
+2. **Prefer modification over recreation** - Edit existing files instead of rewriting
+3. **Use project conventions** - Follow the established file structure and naming
+4. **Type safety is non-negotiable** - All code must pass TypeScript strict checks
+5. **Test after changes** - Run build and typecheck to verify changes
+### When Fixing Bugs
+1. **Identify the root cause** - Don't just patch symptoms
+2. **Check for similar issues** - Fix all instances of the same pattern
+3. **Verify the fix** - Run the affected feature to ensure it works
+4. **Update types if needed** - Ensure TypeScript types reflect reality
+### When Adding Features
+1. **Understand the context** - Read related files and documentation
+2. **Follow existing patterns** - Match the style of similar features
+3. **Consider theming** - New components should respect merchant branding
+4. **Plan database changes** - Discuss schema modifications before implementing
+5. **Document complex logic** - Add comments for non-obvious code
+### Communication Style
+1. **Be concise** - Provide clear, actionable information
+2. **Show, don't just tell** - Include code examples
+3. **Acknowledge mistakes** - If an approach doesn't work, explain why and pivot
+4. **Ask for clarification** - Don't assume; confirm requirements
+---
+## Common Gotchas & Pitfalls
+### Next.js App Router
+- **Don't use `useRouter()` from `next/navigation` in Server Components** - It's client-only
+- **`cookies()` is async** - Always `await cookies()` in Next.js 15+
+- **Server Actions need `'use server'`** - Mark functions with this directive
+### Supabase
+- **RLS policies are enforced** - If a query returns nothing, check RLS rules
+- **Date fields are strings** - Convert to `Date` objects in TypeScript
+- **JSONB columns need casting** - Use `.select('jsonb_column::text')` if needed
+### AI SDK
+- **Models are not interchangeable** - `imagen3` only generates images, not text
+- **Structured output requires Zod schemas** - Use `generateObject` not `generateText`
+- **Rate limits exist** - Implement exponential backoff for retries
+### Tailwind CSS
+- **Dynamic classes don't work** - Use template literals in `className`, not string concatenation
+  ```tsx
+  // ❌ Bad
+  className={`bg-${color}-500`} // Won't work
+  
+  // ✅ Good
+  className="bg-blue-500 data-[active=true]:bg-green-500"
+  // or use CSS variables
+  style={{ backgroundColor: `var(--theme-${color})` }}
+  ```
+---
+## Documentation Requirements
+### When Creating New Features
+1. **Update `project_brief.md`** if it changes core user flows
+2. **Update `techstack.md`** if adding new dependencies
+3. **Add JSDoc comments** to exported functions/components
+   ```typescript
+   /**
+    * Generates a product description using AI
+    * @param productName - The name of the product
+    * @param category - Product category for context
+    * @returns AI-generated description string
+    */
+   export async function generateDescription(
+     productName: string,
+     category: string
+   ): Promise<string> {
+     // ...
+   }
+   ```
+### When Adding Dependencies
+Document in a comment or README:
+- **Why** was it added?
+- **What** does it replace (if applicable)?
+- **How** should it be used?
+---
+## Quick Reference
+### Import Aliases
+- `@/` → `src/` (e.g., `@/components/ui/button`)
+- `@/lib/` → `src/lib/`
+- `@/app/` → `src/app/`
+### Environment Variables (Common)
+- `NEXT_PUBLIC_SUPABASE_URL` - Public Supabase URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Public Supabase anon key
+- `SUPABASE_SERVICE_ROLE_KEY` - Server-only admin key
+- `GOOGLE_GENAI_API_KEY` - Google AI API key
+- `PAYSTACK_SECRET_KEY` - Paystack secret key
+### Useful Commands
 ```bash
-npm run genkit:dev
+npm run dev          # Start development server
+npm run build        # Production build
+npm run typecheck    # Check TypeScript types
+npm run lint         # Run ESLint
+npm run docs         # Generate TypeDoc documentation
 ```
-
-1. Open http://localhost:4000
-2. Select flow from dropdown
-3. Enter sample input (JSON format)
-4. Click "Run"
-5. View output and logs
-
-### Programmatic Testing
-
-```typescript
-import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
-
-async function testFlow() {
-  const result = await guideBusinessOnboarding({
-    businessName: 'Test Store',
-    businessType: 'fashion',
-    brandPreferences: 'royal blue',
-  });
-
-  console.log('Logo:', result.logoDataUri?.substring(0, 50));
-  console.log('Colors:', result.brandColors);
-}
-```
-
-### Test Cases
-
-#### guideBusinessOnboarding
-- ✅ Generate logo with valid inputs
-- ✅ Extract colors from uploaded logo
-- ❌ Handle missing businessName
-- ❌ Handle invalid logoDataUri format
-- ❌ Handle AI failure gracefully
-
-#### generateProductDescription
-- ✅ Generate description for all business types
-- ✅ Handle empty productDetails
-- ❌ Handle very long product names (token limits)
-- ❌ Test description quality/style
-
-#### enhanceProductImage
-- ✅ Enhance image with transparent background
-- ❌ Handle very large images
-- ❌ Handle unsupported image formats
-- ❌ Test enhancement quality
-
 ---
-
-## Error Handling
-
-### AI Flow Errors
-
-All flows can throw these errors:
-
-1. **Network Errors:** API timeout, connection issues
-2. **Model Errors:** Rate limits, quota exceeded
-3. **Validation Errors:** Output doesn't match schema
-4. **Content Errors:** AI refuses to generate (policy violation)
-
-### Handling in Components
-
-```typescript
-try {
-  const result = await guideBusinessOnboarding(input);
-  // Use result
-} catch (error) {
-  logger.error({ error, message: 'Flow failed' });
-  toast({
-    title: 'AI Error',
-    description: 'Could not generate logo. Please try again.',
-    variant: 'destructive'
-  });
-  // Fallback behavior
-}
-```
-
-### Current Error Handling Issues
-
-1. **Silent Failures:** Logo generation fails without user notification
-2. **No Retry Logic:** Single failure = complete failure
-3. **No Fallbacks:** No default logos or colors when AI fails
-4. **Generic Error Messages:** Users don't know what went wrong
-
----
-
-## Cost & Performance
-
-### Model Pricing (Approximate)
-
-| Model | Input | Output | Use Case |
-|-------|-------|--------|----------|
-| gemini-2.5-flash | Low | Low | Text generation (descriptions) |
-| gemini-2.5-flash-image-preview | Medium | High | Image generation/analysis |
-
-### Token Usage
-
-- **Logo Generation:** ~500-1000 tokens (includes image output)
-- **Color Extraction:** ~200-500 tokens (includes image input)
-- **Product Description:** ~100-300 tokens
-- **Image Enhancement:** ~500-1000 tokens (includes image I/O)
-
-### Optimization Strategies
-
-1. **Cache Results:** Don't regenerate the same content
-2. **Compress Images:** Reduce data URI size before sending
-3. **Batch Requests:** Group multiple operations when possible
-4. **Use Cheaper Models:** Use text-only model when images not needed
-5. **Lazy Loading:** Generate content only when needed, not preemptively
-
----
-
-## Business Type Integration
-
-### Current State (Hardcoded)
-
-Business types passed to AI flows are currently hardcoded strings:
-- `guideBusinessOnboarding`: Reads from onboarding form
-- `generateProductDescription`: **Hardcoded to "Handmade & Crafts"** ⚠️
-
-### Future State (Configuration-Driven)
-
-**After Phase 3 of ADR 001:**
-
-Import business type config:
-```typescript
-import { getBusinessTypeById, getAIPromptContext } from '@/config/business-types';
-
-// In flow
-const config = getBusinessTypeById(input.businessType);
-const context = config.aiPromptContext;
-const style = config.journey.productCreation.aiDescriptionStyle;
-
-// Use in prompt
-const prompt = `Generate a ${style} description for this ${context} product...`;
-```
-
-This will make AI prompts automatically adapt to each business type's style.
-
----
-
-## Common Modifications
-
-### Adding a New Flow
-
-1. **Create file:** `/src/ai/flows/my-new-flow.ts`
-
-2. **Define schemas:**
-```typescript
-const InputSchema = z.object({ /* ... */ });
-const OutputSchema = z.object({ /* ... */ });
-export type MyFlowInput = z.infer<typeof InputSchema>;
-export type MyFlowOutput = z.infer<typeof OutputSchema>;
-```
-
-3. **Create flow:**
-```typescript
-const myFlow = ai.defineFlow({
-  name: 'myFlow',
-  inputSchema: InputSchema,
-  outputSchema: OutputSchema,
-}, async (input) => {
-  const { output } = await ai.generate({ /* ... */ });
-  return output;
-});
-
-export async function myNewFlow(input: MyFlowInput): Promise<MyFlowOutput> {
-  return myFlow(input);
-}
-```
-
-4. **Test in Genkit Dev UI**
-
-5. **Call from component:**
-```typescript
-import { myNewFlow } from '@/ai/flows/my-new-flow';
-
-const result = await myNewFlow({ /* ... */ });
-```
-
-### Modifying a Prompt
-
-1. **Find prompt definition** (look for `ai.definePrompt` or inline prompt in `ai.generate`)
-
-2. **Edit prompt text** carefully
-   - Use clear, specific instructions
-   - Provide context and examples
-   - Specify output format
-
-3. **Test with multiple inputs** in Genkit Dev UI
-
-4. **Check output quality** - does it match expectations?
-
-5. **Update output schema** if needed
-
-### Changing AI Model
-
-```typescript
-// From:
-model: 'googleai/gemini-2.5-flash'
-
-// To:
-model: 'googleai/gemini-pro' // or other model
-```
-
-**Caution:**
-- Different models have different capabilities
-- Pricing varies significantly
-- Response quality may differ
-- Token limits may differ
-
----
-
-## AI Assistant Guidelines
-
-### Before Modifying Flows
-
-1. **Read this file completely**
-2. **Check `/AI_CONTEXT.md`** for project-wide rules
-3. **Review schema docs** in `/src/schemas/README.md`
-4. **Test in Genkit Dev UI** before deploying
-
-### When Creating New Flows
-
-1. **Define clear input/output schemas** with descriptions
-2. **Export TypeScript types** for type safety
-3. **Add error handling** with user-friendly messages
-4. **Document in this file** with examples
-5. **Test with edge cases**
-
-### When Modifying Prompts
-
-1. **Be specific** - vague prompts produce vague results
-2. **Provide context** - business type, user intent, constraints
-3. **Show examples** - especially for structured output
-4. **Test variations** - AI output is probabilistic
-5. **Monitor quality** - check multiple generations
-
-### Common Pitfalls
-
-- ❌ Changing schema without updating callers
-- ❌ Not handling AI failures
-- ❌ Using wrong model for task (text vs image)
-- ❌ Forgetting to test with all business types
-- ❌ Not documenting new flows
-
----
-
-## Related Documentation
-
-- **Project Overview:** `/AI_CONTEXT.md`
-- **Schema Definitions:** `/src/schemas/README.md`
-- **Onboarding Flow:** `/src/app/onboarding/_AI_README.md`
-- **Business Type Config:** `/src/config/business-types.ts`
-- **ADR 001:** `/docs/adr/001-business-type-journey-architecture.md`
-
----
-
-## External Resources
-
-- **Genkit Docs:** https://firebase.google.com/docs/genkit
-- **Gemini API:** https://ai.google.dev/docs
-- **Prompt Engineering:** https://ai.google.dev/docs/prompt_best_practices
-- **Zod Validation:** https://zod.dev/
-
----
-
-## Questions?
-
-For AI assistants:
-1. Check this file for flow-specific guidance
-2. Check `/AI_CONTEXT.md` for project-wide rules
-3. Test in Genkit Dev UI: `npm run genkit:dev`
-4. Ask user if documentation is unclear
+## Final Notes
+- **Stay consistent** - Match the existing code style
+- **Prioritize merchant experience** - Fast onboarding and easy store management
+- **Think mobile-first** - Most merchants use phones
+- **Embrace AI** - Use Gemini for repetitive tasks (descriptions, SEO, etc.)
+- **Keep it simple** - Complex features can be added later; MVP first
+**Remember:** Every line of code should serve the mission of getting Nigerian merchants online in under 3 minutes.

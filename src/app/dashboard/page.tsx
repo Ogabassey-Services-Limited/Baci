@@ -77,6 +77,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setMounted(true);
+    // In a real app, we would fetch data here and handle errors
+    // For now, since we're using mock data, we'll simulate a successful load
+    // If this were a real fetch:
+    /*
+    fetchAnalytics()
+      .catch(error => {
+        console.error('Failed to load analytics:', error);
+        toast({
+          title: "Error loading dashboard",
+          description: "Could not fetch latest analytics data. Showing cached data.",
+          variant: "destructive"
+        });
+      });
+    */
   }, []);
 
   if (!mounted) return null;
