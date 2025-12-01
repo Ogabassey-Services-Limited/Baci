@@ -6,7 +6,7 @@ import { useForm, FormProvider } from 'react-hook-form';
 import { z } from 'zod';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { KeyRound, Loader2, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -171,7 +171,7 @@ function ResetPasswordForm() {
                                                         data-form-type="password"
                                                     />
                                                     <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent z-20" onClick={() => setShowPassword(!showPassword)}>
-                                                        {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" /> }
+                                                        {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                                                     </Button>
                                                 </div>
                                             </FormControl>
@@ -203,7 +203,7 @@ function ResetPasswordForm() {
                                                         data-form-type="password"
                                                     />
                                                     <Button type="button" variant="ghost" size="sm" className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent z-20" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                                                        {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" /> }
+                                                        {showConfirmPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
                                                     </Button>
                                                 </div>
                                             </FormControl>

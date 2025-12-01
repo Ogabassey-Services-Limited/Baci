@@ -104,7 +104,7 @@ const nextConfig: NextConfig = {
     ],
 
     // Enable Turbopack file system caching for faster dev rebuilds (Next.js 16 beta)
-    turbopackFileSystemCacheForDev: true,
+    // turbopackFileSystemCacheForDev: true,
   },
 
   // Enable typed routes for compile-time validation of Link hrefs

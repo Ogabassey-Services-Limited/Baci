@@ -194,12 +194,10 @@ export function getCurrentTheme(): Partial<ThemeConfiguration> {
  * Merge a partial theme configuration with the current theme
  * Useful for updating only specific theme properties
  */
-export function updateTheme(partialTheme: Partial<ThemeConfiguration>): void {
-    // In a real implementation, you'd deep merge the partial theme
-    // with the current theme and then apply it
-    // For now, we'll just apply what's provided
-
-
-
-    // Add more specific updates as needed
+export function validateTheme(theme: ThemeConfiguration): boolean {
+    // Basic validation
+    if (!theme.colors || !theme.typography) {
+        return false;
+    }
+    return true;
 }

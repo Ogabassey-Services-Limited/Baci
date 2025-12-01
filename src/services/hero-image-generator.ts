@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { logger } from '@/lib/logger';
 // TODO: Verify correct import for image generation
 import { experimental_generateImage as generateImage } from 'ai';
-import { geminiFlash, imagen3 } from '@/ai/provider';
+import { geminiPro, imagen3 } from '@/ai/provider';
 
 // Style mapping based on business category
 const CATEGORY_STYLES: Record<string, string> = {

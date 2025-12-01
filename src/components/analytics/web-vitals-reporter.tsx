@@ -17,7 +17,6 @@ import { onCLS, onINP, onLCP, onFCP, onTTFB, type Metric } from 'web-vitals';
  * - TTFB (Time to First Byte) - Server response time
  *
  * @see https://web.dev/vitals/
- * @see https://developers.google.com/analytics/devguides/collection/ga4/user-timings
  */
 
 interface WebVitalsReporterProps {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect, useRef, useState, Component, ReactNode } from 'react';
+import { useEffect, useRef, useState, Component, ReactNode } from 'react';
 import { Render } from '@measured/puck';
 import { builderConfig } from '@/components/builder/config';
 import { generateHeroSlides, deriveThemeFromColors, generateFeatures } from '@/lib/initial-template-generator';
