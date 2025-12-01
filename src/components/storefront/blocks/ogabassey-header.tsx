@@ -6,6 +6,7 @@ import { searchProductsWithGemini, ProductRecommendation } from '@/services/gemi
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useCart } from '@/hooks/use-cart';
+import { Logo } from '@/components/logo';
 
 export interface OgabasseyHeaderProps {
     logoText?: string;
@@ -81,14 +82,9 @@ export function OgabasseyHeader({
                         </button>
 
                         {/* Logo */}
+                        {/* Logo */}
                         <Link href="/" className="flex items-center gap-0.5 cursor-pointer select-none">
-                            <div className="relative flex items-center justify-center mr-1">
-                                <div className="bg-red-600 rounded-full w-8 h-8 flex items-center justify-center">
-                                    <span className="text-white font-bold text-lg leading-none pb-0.5">e</span>
-                                </div>
-                            </div>
-                            <span className="text-red-600 font-extrabold text-2xl tracking-tight">oga</span>
-                            <span className="text-white font-bold text-2xl tracking-tight">bassey</span>
+                            <Logo variant="light" width={120} height={40} className="w-auto h-10" />
                         </Link>
                     </div>
 

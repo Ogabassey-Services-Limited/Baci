@@ -134,7 +134,7 @@ function BaciLandingPage() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto pt-4">
-                <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white text-lg px-8 h-14 rounded-full shadow-xl shadow-primary/20 transition-all hover:shadow-primary/40 hover:-translate-y-1">
+                <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground dark:text-indigo-950 text-lg px-8 h-14 rounded-full shadow-xl shadow-primary/20 transition-all hover:shadow-primary/40 hover:-translate-y-1">
                   <Link href="/onboarding">
                     Start Free Trial <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
@@ -189,8 +189,8 @@ function BaciLandingPage() {
                 Start your 14-day free trial today.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-                <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90 text-lg px-8 h-14 rounded-full shadow-xl transition-all hover:scale-105">
-                  <Link href="/onboarding">Get Started Now</Link>
+                <Button asChild size="lg" className="bg-white text-indigo-950 hover:bg-white/90 text-lg px-8 h-14 rounded-full shadow-xl transition-all hover:scale-105">
+                  <Link href="/onboarding">Start Free Trial</Link>
                 </Button>
               </div>
               <div className="flex items-center justify-center gap-8 pt-8 text-white/60 text-sm">

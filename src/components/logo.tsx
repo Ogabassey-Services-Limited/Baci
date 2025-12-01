@@ -1,20 +1,58 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
   className?: string;
-  variant?: "default" | "light";
+  width?: number;
+  height?: number;
+  variant?: "default" | "light" | "auto";
 }
 
-export function Logo({ className, variant = "default" }: LogoProps) {
-  const textColor = variant === "light" ? "text-white" : "text-primary";
+export function Logo({ className, width = 100, height = 31, variant = "default" }: LogoProps) {
+  if (variant === "light") {
+    return (
+      <div className={cn("relative", className)} style={{ width, height }}>
+        <Image
+          src="/baci-logo-dark.svg"
+          alt="Baci Logo"
+          fill
+          className="object-contain"
+          priority
+        />
+      </div>
+    );
+  }
+
+  if (variant === "auto") {
+    return (
+      <div className={cn("relative", className)} style={{ width, height }}>
+        <Image
+          src="/baci-logo.svg"
+          alt="Baci Logo"
+          fill
+          className="object-contain dark:hidden"
+          priority
+        />
+        <Image
+          src="/baci-logo-dark.svg"
+          alt="Baci Logo"
+          fill
+          className="object-contain hidden dark:block"
+          priority
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className={cn("flex items-center gap-2 font-bold text-2xl tracking-tight", className)}>
-      <span className={textColor}>Bac</span>
-      <div className="relative flex flex-col justify-end h-full">
-        <span className={textColor}>i</span>
-        <span className="absolute -top-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-accent" />
-      </div>
+    <div className={cn("relative", className)} style={{ width, height }}>
+      <Image
+        src="/baci-logo.svg"
+        alt="Baci Logo"
+        fill
+        className="object-contain"
+        priority
+      />
     </div>
   );
 }

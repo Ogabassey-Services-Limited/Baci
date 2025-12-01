@@ -147,9 +147,7 @@ export function Header({
                                     className="rounded-full object-cover ring-2 ring-white/50 shadow-sm transition-transform group-hover:scale-105"
                                 />
                             ) : (
-                                <div className="bg-primary/10 p-2 rounded-full">
-                                    <Logo className="w-8 h-8" />
-                                </div>
+                                <Logo className="transition-transform group-hover:scale-105" />
                             )}
                             <span className={cn("font-bold text-xl tracking-tight transition-colors")}>
                                 {finalStoreName}

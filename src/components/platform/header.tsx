@@ -9,7 +9,7 @@ export function PlatformHeader() {
     <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 border-b border-white/10 glass">
       <div className="container h-16 flex items-center justify-between" style={{ paddingLeft: 'max(1rem, env(safe-area-inset-left))', paddingRight: 'max(1rem, env(safe-area-inset-right))' }}>
         <Link href="/" className="flex items-center gap-2 group">
-          <Logo className="transition-transform group-hover:scale-105" />
+          <Logo variant="auto" className="transition-transform group-hover:scale-105" />
           <span className="sr-only">Baci</span>
         </Link>
         <nav className="hidden md:flex items-center gap-8">
@@ -21,7 +21,7 @@ export function PlatformHeader() {
           <Button asChild variant="ghost" className="hidden sm:inline-flex hover:bg-primary/10 hover:text-primary">
             <Link href="/login">Login</Link>
           </Button>
-          <Button asChild className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40 hover:-translate-y-0.5">
+          <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground dark:text-indigo-950 shadow-lg shadow-primary/20 transition-all hover:shadow-primary/40 hover:-translate-y-0.5">
             <Link href="/onboarding">Get Started</Link>
           </Button>
         </div>

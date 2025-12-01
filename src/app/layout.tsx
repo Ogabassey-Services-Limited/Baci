@@ -8,6 +8,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Providers } from '@/contexts/providers';
 import { CsrfInitializer } from '@/components/csrf-initializer';
+import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter';
 import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
 import { generateSoftwareApplicationSchema, generateOrganizationSchema, generateWebSiteSchema, type OrganizationData } from '@/lib/seo-utils';
 
@@ -28,6 +29,19 @@ export const metadata: Metadata = {
   applicationName: PLATFORM_CONFIG.name,
   authors: [{ name: PLATFORM_CONFIG.name }],
   keywords: ['ai', 'ecommerce', 'store builder', 'online store', 'nextjs', 'react', 'business', 'retail'],
+  // Favicon configuration - comprehensive setup for all devices
+  icons: {
+    icon: [
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/bag-icon.svg', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
+  // PWA manifest
+  manifest: '/manifest.json',
   robots: {
     index: true,
     follow: true,
@@ -54,6 +68,7 @@ export const metadata: Metadata = {
     ],
     locale: 'en_US',
     type: 'website',
+    // ...
   },
   twitter: {
     card: 'summary_large_image',
@@ -98,7 +113,7 @@ export default async function RootLayout({
   const organizationData: OrganizationData = {
     name: PLATFORM_CONFIG.name,
     url: PLATFORM_CONFIG.url,
-    logo: `${PLATFORM_CONFIG.url}/logo.svg`,
+    logo: `${PLATFORM_CONFIG.url}/baci-logo.svg`,
     description: PLATFORM_CONFIG.description,
     socialMedia: {
       twitter: 'https://twitter.com/usebaci',
@@ -169,6 +184,7 @@ export default async function RootLayout({
           {children}
           <Toaster />
         </Providers>
+        <WebVitalsReporter />
         <Analytics />
         <SpeedInsights />
       </body>
