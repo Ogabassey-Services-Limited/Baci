@@ -367,6 +367,8 @@ type RootProps = {
 
 function HeroCarouselComponent({ slides, autoplayDelay = 5000 }: HeroCarouselProps) {
     const plugin = Autoplay({ delay: autoplayDelay, stopOnInteraction: true });
+    // Ensure slides is always an array to prevent "slides.map is not a function" error
+    const safeSlides = Array.isArray(slides) ? slides : [];
 
     return (
         <section className="w-full relative" aria-label="Hero Carousel">
@@ -376,7 +378,7 @@ function HeroCarouselComponent({ slides, autoplayDelay = 5000 }: HeroCarouselPro
                 opts={{ loop: true }}
             >
                 <CarouselContent>
-                    {slides.map((slide, index) => (
+                    {safeSlides.map((slide, index) => (
                         <CarouselItem key={index}>
                             <div className="w-full h-[60vh] md:h-[70vh] relative">
                                 <Image

@@ -17,7 +17,9 @@ const _GuideBusinessOnboardingInputSchema = z.object({
     .describe(
       "A URL to a company logo, which will be used for color extraction."
     ),
-  task: z.enum(['generate_logos', 'extract_colors']).describe("The specific task for the flow to perform."),
+  task: z.enum(['generate_logos', 'extract_colors', 'generate_names']).describe("The specific task for the flow to perform."),
+  description: z.string().optional().describe('Business description for name generation.'),
+  tone: z.string().optional().describe('Desired tone for business name generation.'),
 });
 type GuideBusinessOnboardingInput = z.infer<typeof _GuideBusinessOnboardingInputSchema>;
 
@@ -36,6 +38,7 @@ const _GuideBusinessOnboardingOutputSchema = z.object({
       'An array of data URIs for the generated logos.'
     ),
   brandColors: BrandColorsSchema.optional().describe('A list of 3 brand colors in hex format (e.g., #RRGGBB).'),
+  businessNames: z.array(z.string()).optional().describe('Generated business name suggestions.'),
 });
 type GuideBusinessOnboardingOutput = z.infer<typeof _GuideBusinessOnboardingOutputSchema>;
 
@@ -142,6 +145,58 @@ Please generate the logo image now.`;
       logger.error({ message: 'Logo generation failed', error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
       console.error('Logo generation error details:', error);
       throw new Error(`Failed to generate logo: ${errorMessage}`);
+    }
+  }
+
+  if (input.task === 'generate_names') {
+    if (!input.description) {
+      throw new Error('description is required for name generation.');
+    }
+
+    logger.info({ message: 'Generating business names', flow: 'guideBusinessOnboarding' });
+
+    const description = sanitizePromptInput(input.description, 200).value;
+    const tone = input.tone || 'Modern';
+
+    try {
+      const { object } = await withRetry(async () => {
+        return await generateObject({
+          model: geminiFlash,
+          schema: z.object({
+            businessNames: z.array(z.string()).describe('Array of 6 creative business name suggestions'),
+          }),
+          messages: [
+            {
+              role: 'system',
+              content: `You are a creative brand naming expert. Generate unique, memorable business names.
+
+TASK: Generate 6 creative business name suggestions based on the description and tone.
+
+REQUIREMENTS:
+- Names should be short (1-3 words max)
+- Easy to pronounce and spell
+- Memorable and distinctive
+- Reflect the business description
+- Match the desired tone: ${tone}
+- Avoid generic names
+- Consider domain availability trends (short, unique)
+
+OUTPUT: Return exactly 6 names as an array.`
+            },
+            {
+              role: 'user',
+              content: `Business Description: ${description}\nTone: ${tone}\n\nGenerate 6 creative business name suggestions.`
+            }
+          ]
+        });
+      });
+
+      logger.info({ message: 'Business names generated successfully', names: object.businessNames });
+      return { businessNames: object.businessNames };
+
+    } catch (error) {
+      logger.error({ message: 'Name generation failed', error });
+      throw new Error('Failed to generate business names.');
     }
   }
 
