@@ -24,7 +24,7 @@ const PuckThemeColorsSchema = z.object({
         background: z.string().optional(),
         text: z.string().optional(),
         iconColor: z.string().optional(),
-        cartIconColor: z.string().optional(),
+
         searchBorder: z.string().optional(),
         searchBackground: z.string().optional(),
     }).optional(),

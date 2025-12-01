@@ -130,9 +130,9 @@ export function ThemeEditor({ theme, onChange, onReset }: ThemeEditorProps) {
                                     onChange={(v) => updateColor(['colors', 'header', 'text'], v)}
                                 />
                                 <ColorSwatch
-                                    label="Cart Icon"
-                                    value={theme.colors.header.cartIconColor}
-                                    onChange={(v) => updateColor(['colors', 'header', 'cartIconColor'], v)}
+                                    label="Icons"
+                                    value={theme.colors.header.iconColor}
+                                    onChange={(v) => updateColor(['colors', 'header', 'iconColor'], v)}
                                 />
                                 <ColorSwatch
                                     label="Search"

@@ -29,7 +29,7 @@ export function applyTheme(theme: ThemeConfiguration): void {
     root.style.setProperty('--theme-header-bg', theme.colors.header.background);
     root.style.setProperty('--theme-header-text', theme.colors.header.text);
     root.style.setProperty('--theme-header-icon', theme.colors.header.iconColor);
-    root.style.setProperty('--theme-header-cart-icon', theme.colors.header.cartIconColor);
+
     root.style.setProperty('--theme-header-search-border', theme.colors.header.searchBorder);
     root.style.setProperty('--theme-header-search-bg', theme.colors.header.searchBackground);
 
@@ -185,7 +185,6 @@ export function getCurrentTheme(): Partial<ThemeConfiguration> {
             primary: style.getPropertyValue('--theme-primary').trim(),
             header: {
                 background: style.getPropertyValue('--theme-header-bg').trim(),
-                cartIconColor: style.getPropertyValue('--theme-header-cart-icon').trim(),
             },
         },
     } as Partial<ThemeConfiguration>;
@@ -200,12 +199,7 @@ export function updateTheme(partialTheme: Partial<ThemeConfiguration>): void {
     // with the current theme and then apply it
     // For now, we'll just apply what's provided
 
-    if (partialTheme.colors?.header?.cartIconColor) {
-        document.documentElement.style.setProperty(
-            '--theme-header-cart-icon',
-            partialTheme.colors.header.cartIconColor
-        );
-    }
+
 
     // Add more specific updates as needed
 }
