@@ -36,6 +36,7 @@ import { cn, checkPasswordStrength } from '@/lib/utils';
 import { getAllBusinessTypes } from '@/config/business-types';
 import type { BrandColors } from '@/types';
 import { createClient } from '@/lib/supabase/client';
+import { User } from '@supabase/supabase-js';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/onboarding/actions';
 import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
@@ -607,7 +608,7 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
 
   const password = watch('password') || '';
   const passwordStrength = checkPasswordStrength(password);
-  const isPasswordStrong = passwordStrength.score >= 3;
+  const isPasswordStrong = passwordStrength >= 3;
 
   const handleMagicLinkRequest = async () => {
     const { email } = form.getValues();
