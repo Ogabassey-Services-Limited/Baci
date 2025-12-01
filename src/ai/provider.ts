@@ -20,8 +20,11 @@ export const geminiFlash = google('gemini-2.0-flash'); // Fast, cheap - for simp
 export const geminiPro = google('gemini-2.0-flash'); // Alias for flash (upgrade to gemini-2.0-pro if needed)
 
 // Multimodal model - handles text, image understanding, and image generation
-// Free tier: 500 images/day with gemini-2.5-flash-preview-image
-export const gemini25FlashImage = google('gemini-2.5-flash-preview-image');
+// Free tier: Experimental model for now
+export const gemini25FlashImage = google('gemini-2.0-flash-exp');
+
+// Imagen 3 model for dedicated image generation
+export const imagen3 = google.image('imagen-3.0-generate-001');
 
 /**
  * Rate Limiting Configuration

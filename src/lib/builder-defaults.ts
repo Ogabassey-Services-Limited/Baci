@@ -5,7 +5,7 @@ import { generateInitialTemplate } from './initial-template-generator';
  * Generate default Puck config from merchant's existing template
  * This is used when no draft or published config exists
  */
-export function generateDefaultConfig(merchant: Record<string, unknown>): Data {
+export async function generateDefaultConfig(merchant: Record<string, unknown>): Promise<Data> {
     return generateInitialTemplate({
         businessName: (merchant?.business_name as string) || 'Your Store',
         businessType: (merchant?.business_type as string) || 'other',

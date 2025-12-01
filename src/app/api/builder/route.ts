@@ -62,7 +62,7 @@ export async function GET(request: Request) {
         configToEdit = pageConfig.published_config;
     } else {
         // No draft or published config - use default template
-        configToEdit = generateDefaultConfig(merchant);
+        configToEdit = await generateDefaultConfig(merchant);
         isDefault = true;
     }
 
