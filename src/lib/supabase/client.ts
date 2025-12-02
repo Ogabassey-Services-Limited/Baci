@@ -73,6 +73,7 @@ export function createClient() {
           throw createInvalidCookieSizeError(cookie);
         }
         if (typeof document !== 'undefined') {
+          // biome-ignore lint/suspicious/noDocumentCookie: Client-side cookie fallback
           document.cookie = cookie;
         }
       },
@@ -86,6 +87,7 @@ export function createClient() {
         if (options.path) cookie += `; path=${options.path}`;
         if (options.domain) cookie += `; domain=${options.domain}`;
         if (typeof document !== 'undefined') {
+          // biome-ignore lint/suspicious/noDocumentCookie: Client-side cookie fallback
           document.cookie = cookie;
         }
       },

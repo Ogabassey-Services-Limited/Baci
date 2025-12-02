@@ -56,7 +56,7 @@ export async function DELETE() {
  * GET /api/analytics/cache
  * Get cache stats (for debugging)
  */
-export async function GET() {
+export function GET() {
   try {
     return NextResponse.json({
       size: cache.size(),

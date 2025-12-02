@@ -596,16 +596,16 @@ export class GiglProvider extends BaseShippingProvider {
   // CANCEL SHIPMENT
   // ==========================================================================
 
-  async cancelShipment(shipmentId: string): Promise<CancellationResult> {
+  cancelShipment(shipmentId: string): Promise<CancellationResult> {
     // GIGL doesn't have a documented cancel endpoint
     // This would need to be handled manually or through their dashboard
     this.log('warn', 'GIGL cancellation not implemented', { shipmentId });
 
-    return {
+    return Promise.resolve({
       success: false,
       message:
         'GIGL shipment cancellation must be done through their customer service',
-    };
+    });
   }
 
   // ==========================================================================

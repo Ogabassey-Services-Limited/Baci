@@ -152,7 +152,7 @@ export async function sendTwitterEvent(
  * and use CAPI only for high-value conversions like purchases.
  */
 export const twitterCAPI = {
-  purchase: async (
+  purchase: (
     pixelId: string,
     oauthToken: string,
     oauthTokenSecret: string,

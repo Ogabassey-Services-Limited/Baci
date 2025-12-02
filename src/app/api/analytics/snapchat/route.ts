@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     };
 
     const currency = eventData.currency || 'NGN';
-    let result;
+    let result: { success: boolean; error?: string };
 
     switch (event) {
       case 'purchase':

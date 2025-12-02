@@ -103,7 +103,8 @@ export async function POST(request: NextRequest) {
     const finalEventId = eventId || generateEventId();
     const currency = eventData.currency || 'USD';
 
-    let result;
+    // biome-ignore lint/suspicious/noExplicitAny: External API response
+    let result: { success: boolean; error?: string; response?: any };
 
     switch (event) {
       case 'Purchase':

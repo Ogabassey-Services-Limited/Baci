@@ -44,7 +44,7 @@ interface RouteParams {
 // Calculate reading time based on word count
 function calculateReadingTime(content: string): number {
   const wordsPerMinute = 200;
-  const wordCount = content.split(/\s+/).length;
+  const wordCount = calculateWordCount(content);
   return Math.ceil(wordCount / wordsPerMinute);
 }
 

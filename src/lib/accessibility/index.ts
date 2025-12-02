@@ -80,7 +80,7 @@ export function announceToScreenReader(
   // Clear and set the message (required for re-announcements of same text)
   liveRegion.textContent = '';
   setTimeout(() => {
-    liveRegion!.textContent = message;
+    if (liveRegion) liveRegion.textContent = message;
   }, 100);
 }
 

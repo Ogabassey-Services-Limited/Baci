@@ -4,8 +4,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { CACHE_HEADERS } from '@/lib/cache-headers';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Factory function that creates a cached fetcher for each merchant
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const identifier = merchantId || merchantSlug!;
+    const identifier = merchantId || merchantSlug || '';
     const getCachedFeedData = createCachedFeedDataFetcher(
       identifier,
       !!merchantSlug

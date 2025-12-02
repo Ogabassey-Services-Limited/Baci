@@ -147,7 +147,7 @@ export async function sendTikTokEvent(
  * Helper functions for common e-commerce events
  */
 export const tiktokEventsAPI = {
-  purchase: async (
+  purchase: (
     pixelId: string,
     accessToken: string,
     userData: TikTokUserData,
@@ -175,7 +175,7 @@ export const tiktokEventsAPI = {
     });
   },
 
-  initiateCheckout: async (
+  initiateCheckout: (
     pixelId: string,
     accessToken: string,
     userData: TikTokUserData,

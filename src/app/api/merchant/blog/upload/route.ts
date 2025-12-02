@@ -67,8 +67,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate unique filename
-    const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    // Map validated MIME type to extension (don't trust filename)
+    const mimeToExt: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'image/avif': 'avif',
+    };
+    const extension = mimeToExt[file.type] || 'jpg';
     const filename = `${nanoid(12)}.${extension}`;
     const filePath = `blog/${merchant.id}/${filename}`;
 

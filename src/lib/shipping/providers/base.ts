@@ -95,6 +95,7 @@ export abstract class BaseShippingProvider implements ShippingProvider {
    * Default availability check - tries to authenticate
    */
   async isAvailable(): Promise<boolean> {
+    await Promise.resolve(); // Ensure async behavior
     try {
       // Subclasses should override with provider-specific health check
       return true;

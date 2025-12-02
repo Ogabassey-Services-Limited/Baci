@@ -5,6 +5,7 @@ import { generateInitialTemplate } from './initial-template-generator';
  * Generate default Puck config from merchant's existing template
  * This is used when no draft or published config exists
  */
+// biome-ignore lint/suspicious/useAwait: Interface consistency
 export async function generateDefaultConfig(
   merchant: Record<string, unknown>
 ): Promise<Data> {

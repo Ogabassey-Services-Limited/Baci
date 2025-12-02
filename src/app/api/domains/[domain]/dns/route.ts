@@ -80,8 +80,10 @@ export async function POST(
   let user = null;
   let domainData = null;
   const { domain } = await params;
-  let cookieStore;
-  let supabase;
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy code
+  let cookieStore: any;
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy code
+  let supabase: any;
 
   try {
     cookieStore = await cookies();

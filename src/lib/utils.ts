@@ -140,8 +140,9 @@ export const checkPasswordStrength = (password: string): number => {
  * @param stream The ReadableStream from the AI response.
  * @returns A promise that resolves to a data URI string.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 export async function streamToDataURI(
+  // biome-ignore lint/suspicious/noExplicitAny: Stream can contain any data
   stream: ReadableStream<any>
 ): Promise<string> {
   const reader = stream.getReader();
@@ -153,7 +154,7 @@ export async function streamToDataURI(
     const { value, done: readerDone } = await reader.read();
     if (readerDone) {
       done = true;
-    } else {
+    } else if (value) {
       // The chunk can be a string (for text parts) or an object with binary data.
       // We are interested in the binary data for the image.
       if (value.image) {
@@ -163,7 +164,6 @@ export async function streamToDataURI(
         chunks.push(value.image.data);
       } else if (value.text) {
         // This handles cases where the model might interleave text and image chunks.
-        // We are primarily interested in the image.
       }
     }
   }

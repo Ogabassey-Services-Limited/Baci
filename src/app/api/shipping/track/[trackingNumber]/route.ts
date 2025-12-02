@@ -42,7 +42,8 @@ export async function GET(
       .eq('tracking_number', trackingNumber)
       .single();
 
-    let trackingResult;
+    // biome-ignore lint/suspicious/noExplicitAny: External API response
+    let trackingResult: any;
 
     if (shipment?.provider) {
       // Track with known provider
@@ -88,7 +89,8 @@ export async function GET(
         .from('orders')
         .update({
           shipping_status:
-            orderStatusMap[trackingResult.status] || 'processing',
+            orderStatusMap[trackingResult.status as NormalizedShipmentStatus] ||
+            'processing',
         })
         .eq('id', shipment.order_id);
     }
@@ -101,7 +103,7 @@ export async function GET(
       statusLabel: getStatusLabel(trackingResult.status),
       estimatedDelivery: trackingResult.estimatedDelivery?.toISOString(),
       actualDelivery: trackingResult.actualDelivery?.toISOString(),
-      events: trackingResult.events.map((e) => ({
+      events: trackingResult.events.map((e: any) => ({
         status: e.status,
         description: e.description,
         location: e.location,
@@ -110,12 +112,12 @@ export async function GET(
       // Include additional shipment details if we have them
       shipment: shipment
         ? {
-            id: shipment.id,
-            orderId: shipment.order_id,
-            receiverCity: shipment.receiver_address?.city,
-            receiverState: shipment.receiver_address?.state,
-            estimatedDays: shipment.estimated_delivery_days,
-          }
+          id: shipment.id,
+          orderId: shipment.order_id,
+          receiverCity: shipment.receiver_address?.city,
+          receiverState: shipment.receiver_address?.state,
+          estimatedDays: shipment.estimated_delivery_days,
+        }
         : undefined,
     });
   } catch (error) {

@@ -24,6 +24,7 @@ import {
  * 2. Call the usage endpoints to get actual metrics
  * 3. Or use Supabase's built-in usage alerts
  */
+// biome-ignore lint/suspicious/useAwait: Future async implementation
 export async function getRealtimeUsageStats(): Promise<RealtimeUsageStats> {
   // In production, you would fetch from Supabase Management API:
   // GET https://api.supabase.com/v1/projects/{project_ref}/usage

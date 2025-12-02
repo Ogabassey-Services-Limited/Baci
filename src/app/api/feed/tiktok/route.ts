@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 /**
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
   const { data: merchant, error: merchantError } = merchantId
     ? await merchantQuery.eq('id', merchantId).single()
-    : await merchantQuery.eq('slug', merchantSlug!).single();
+    : await merchantQuery.eq('slug', merchantSlug ?? '').single();
 
   if (merchantError || !merchant) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });

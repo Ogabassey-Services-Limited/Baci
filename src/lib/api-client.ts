@@ -19,7 +19,7 @@ function getCsrfToken(): string | null {
  * Fetch with CSRF protection
  * Use this instead of fetch() for all state-changing API calls
  */
-export async function fetchWithCsrf(
+export function fetchWithCsrf(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {

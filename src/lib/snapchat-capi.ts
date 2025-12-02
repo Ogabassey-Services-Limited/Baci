@@ -131,7 +131,7 @@ export async function sendSnapchatEvent(
  * Helper functions for common e-commerce events
  */
 export const snapchatCAPI = {
-  purchase: async (
+  purchase: (
     pixelId: string,
     accessToken: string,
     userData: SnapchatUserData,
@@ -149,7 +149,7 @@ export const snapchatCAPI = {
     });
   },
 
-  startCheckout: async (
+  startCheckout: (
     pixelId: string,
     accessToken: string,
     userData: SnapchatUserData,
@@ -164,7 +164,7 @@ export const snapchatCAPI = {
     });
   },
 
-  addToCart: async (
+  addToCart: (
     pixelId: string,
     accessToken: string,
     userData: SnapchatUserData,

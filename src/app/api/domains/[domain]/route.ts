@@ -122,7 +122,7 @@ export async function POST(
       );
     }
 
-    let result;
+    let result: unknown;
 
     switch (action) {
       case 'update_nameservers':

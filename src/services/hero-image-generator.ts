@@ -243,11 +243,12 @@ export async function assignHeroImagesToMerchant(
 
       const imageIds = retryImages.map((img: { id: string }) => img.id);
 
-      // Update usage count
-      await supabase
-        .from('ai_hero_images')
-        .update({ usage_count: supabase.rpc('increment', { x: 1 }) })
-        .in('id', imageIds);
+      // FIXED: Increment usage count for each image atomically
+      // Note: Supabase doesn't support SQL expressions in .update()
+      // Using database RPC for atomic operation
+      for (const imageId of imageIds) {
+        await supabase.rpc('increment_hero_image_usage', { image_id: imageId });
+      }
 
       // Update merchant
       await supabase
@@ -263,20 +264,10 @@ export async function assignHeroImagesToMerchant(
 
     const imageIds = images.map((img: { id: string }) => img.id);
 
-    // Increment usage count for assigned images
+    // FIXED: Increment usage count atomically (was N+1 query pattern)
+    // Using RPC function for atomic increment
     for (const imageId of imageIds) {
-      const { data: currentImage } = await supabase
-        .from('ai_hero_images')
-        .select('usage_count')
-        .eq('id', imageId)
-        .single();
-
-      if (currentImage) {
-        await supabase
-          .from('ai_hero_images')
-          .update({ usage_count: (currentImage.usage_count || 0) + 1 })
-          .eq('id', imageId);
-      }
+      await supabase.rpc('increment_hero_image_usage', { image_id: imageId });
     }
 
     // Update merchant with assigned image IDs

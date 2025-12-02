@@ -9,8 +9,8 @@ import { mapProviderStatus } from '@/lib/shipping/status-mapper';
 
 // Create a service role client for webhooks (no cookies/auth needed)
 function getServiceClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 

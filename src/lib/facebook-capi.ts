@@ -73,13 +73,13 @@ interface FacebookEvent {
   event_id: string;
   event_source_url?: string;
   action_source:
-    | 'website'
-    | 'app'
-    | 'email'
-    | 'phone_call'
-    | 'chat'
-    | 'physical_store'
-    | 'other';
+  | 'website'
+  | 'app'
+  | 'email'
+  | 'phone_call'
+  | 'chat'
+  | 'physical_store'
+  | 'other';
   user_data: Record<string, string | undefined>;
   custom_data?: Record<string, unknown>;
   opt_out?: boolean;
@@ -233,7 +233,7 @@ export async function sendFacebookCAPIEvent(
           access_token: accessToken,
           // Enable test mode in development
           ...(process.env.NODE_ENV === 'development' &&
-          process.env.FB_TEST_EVENT_CODE
+            process.env.FB_TEST_EVENT_CODE
             ? { test_event_code: process.env.FB_TEST_EVENT_CODE }
             : {}),
         }),
@@ -267,7 +267,7 @@ export const facebookCAPI = {
   /**
    * Track a purchase event (server-side)
    */
-  purchase: async (
+  purchase: (
     pixelId: string,
     accessToken: string,
     userData: FacebookUserData,
@@ -307,7 +307,7 @@ export const facebookCAPI = {
   /**
    * Track initiate checkout (server-side)
    */
-  initiateCheckout: async (
+  initiateCheckout: (
     pixelId: string,
     accessToken: string,
     userData: FacebookUserData,
@@ -335,7 +335,7 @@ export const facebookCAPI = {
   /**
    * Track add to cart (server-side)
    */
-  addToCart: async (
+  addToCart: (
     pixelId: string,
     accessToken: string,
     userData: FacebookUserData,
@@ -364,7 +364,7 @@ export const facebookCAPI = {
   /**
    * Track view content (server-side)
    */
-  viewContent: async (
+  viewContent: (
     pixelId: string,
     accessToken: string,
     userData: FacebookUserData,

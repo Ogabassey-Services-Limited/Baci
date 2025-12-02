@@ -40,6 +40,7 @@ export function generateColorBlur(color: string = '#f4f4f5'): string {
  * Generate blur placeholder based on dominant color extraction
  * For server-side use - extracts average color from image URL
  */
+// biome-ignore lint/suspicious/useAwait: Future async implementation
 export async function generateBlurFromImage(
   _imageUrl: string
 ): Promise<string> {

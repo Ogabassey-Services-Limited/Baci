@@ -100,7 +100,7 @@ This migration will:
   }
 }
 
-export async function GET() {
+export function GET() {
   return NextResponse.json({
     message:
       'Use POST to check migration status (requires admin authentication)',

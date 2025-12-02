@@ -40,7 +40,9 @@ export async function GET(request: NextRequest) {
         results_count: results?.length || 0,
         search_method: 'server',
       })
-      .then(() => {}); // Don't wait for response
+      .then(() => {
+        /* fire and forget */
+      });
 
     // If no results, try to find spelling suggestion
     let didYouMean = null;

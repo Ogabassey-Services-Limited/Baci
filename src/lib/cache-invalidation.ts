@@ -5,6 +5,7 @@ import { revalidateTag } from 'next/cache';
 /**
  * Invalidate merchant-related caches after updates
  */
+// biome-ignore lint/suspicious/useAwait: Server actions must be async
 export async function invalidateMerchantCache(
   merchantId: string,
   merchantSlug?: string
@@ -20,6 +21,7 @@ export async function invalidateMerchantCache(
 /**
  * Invalidate product cache after product updates
  */
+// biome-ignore lint/suspicious/useAwait: Server actions must be async
 export async function invalidateProductCache(
   merchantId: string,
   productSlug?: string
@@ -35,6 +37,7 @@ export async function invalidateProductCache(
 /**
  * Invalidate single product cache
  */
+// biome-ignore lint/suspicious/useAwait: Server actions must be async
 export async function invalidateSingleProductCache(
   merchantId: string,
   productSlug: string
@@ -46,6 +49,7 @@ export async function invalidateSingleProductCache(
 /**
  * Invalidate category cache after category updates
  */
+// biome-ignore lint/suspicious/useAwait: Server actions must be async
 export async function invalidateCategoryCache(
   merchantId: string,
   categorySlug?: string
@@ -61,6 +65,7 @@ export async function invalidateCategoryCache(
 /**
  * Invalidate page config cache (Puck builder)
  */
+// biome-ignore lint/suspicious/useAwait: Server actions must be async
 export async function invalidatePageConfigCache(
   merchantId: string,
   pageSlug: string = 'home'
@@ -72,6 +77,7 @@ export async function invalidatePageConfigCache(
 /**
  * Invalidate product reviews cache
  */
+// biome-ignore lint/suspicious/useAwait: Server actions must be async
 export async function invalidateReviewsCache(productId: string) {
   // @ts-expect-error - Next.js 16 types mismatch
   revalidateTag(`reviews-${productId}`);

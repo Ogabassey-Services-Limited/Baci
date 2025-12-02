@@ -13,8 +13,8 @@ const DEFAULT_JOB_PROCESS_LIMIT = (() => {
 
 // Initialize clients lazily at runtime to avoid build-time errors
 function getSupabaseClient() {
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 }
 
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Process based on job type
-        let output;
+        let output: unknown;
         if (job.type === 'price_list_processing') {
           output = await processPriceList(job.input);
         } else {

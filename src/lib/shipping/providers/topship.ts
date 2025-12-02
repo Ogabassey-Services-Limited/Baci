@@ -192,7 +192,7 @@ export class TopshipProvider extends BaseShippingProvider {
   async getCities(stateCode: string): Promise<TopshipCity[]> {
     // Check cache
     if (this.citiesCache.has(stateCode)) {
-      return this.citiesCache.get(stateCode)!;
+      return this.citiesCache.get(stateCode) ?? [];
     }
 
     const response = await this.safeFetch(

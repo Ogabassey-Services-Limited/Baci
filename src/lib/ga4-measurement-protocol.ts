@@ -163,7 +163,7 @@ export const ga4MeasurementProtocol = {
   /**
    * Track a purchase event
    */
-  purchase: async (
+  purchase: (
     measurementId: string,
     apiSecret: string,
     userData: GA4UserData,
@@ -195,7 +195,7 @@ export const ga4MeasurementProtocol = {
   /**
    * Track begin checkout event
    */
-  beginCheckout: async (
+  beginCheckout: (
     measurementId: string,
     apiSecret: string,
     userData: GA4UserData,
@@ -223,7 +223,7 @@ export const ga4MeasurementProtocol = {
   /**
    * Track add to cart event
    */
-  addToCart: async (
+  addToCart: (
     measurementId: string,
     apiSecret: string,
     userData: GA4UserData,
@@ -250,7 +250,7 @@ export const ga4MeasurementProtocol = {
   /**
    * Track view item event
    */
-  viewItem: async (
+  viewItem: (
     measurementId: string,
     apiSecret: string,
     userData: GA4UserData,
@@ -278,7 +278,7 @@ export const ga4MeasurementProtocol = {
   /**
    * Track search event
    */
-  search: async (
+  search: (
     measurementId: string,
     apiSecret: string,
     userData: GA4UserData,

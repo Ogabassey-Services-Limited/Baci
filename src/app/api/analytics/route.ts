@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const currentPeriodEnd = endDateParam ? new Date(endDateParam) : now;
     const currentPeriodStart = startDateParam
       ? new Date(startDateParam)
-      : new Date(now.setDate(now.getDate() - 7));
+      : new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     // Calculate duration to determine previous period
     const duration = currentPeriodEnd.getTime() - currentPeriodStart.getTime();

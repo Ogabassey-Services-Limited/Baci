@@ -53,7 +53,7 @@ export function initializeConsentMode(): void {
 
   // Define gtag function
   window.gtag = function gtag() {
-    // eslint-disable-next-line prefer-rest-params
+    // biome-ignore lint/complexity/noArguments: Google Tag Manager pattern
     window.dataLayer.push(arguments);
   };
 

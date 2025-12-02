@@ -56,7 +56,7 @@ export class ShippingService {
    * Get aggregated shipping quotes from all enabled providers
    */
   async getQuotes(request: QuoteRequest): Promise<QuoteResponse> {
-    return this.aggregator.getQuotes(request);
+    return await this.aggregator.getQuotes(request);
   }
 
   /**
@@ -70,7 +70,7 @@ export class ShippingService {
     if (!providerInstance) {
       throw new Error(`Provider ${provider} not found`);
     }
-    return providerInstance.getQuotes(request);
+    return await providerInstance.getQuotes(request);
   }
 
   // ==========================================================================
@@ -167,7 +167,7 @@ export class ShippingService {
       shipmentId,
     });
 
-    return providerInstance.cancelShipment(shipmentId);
+    return await providerInstance.cancelShipment(shipmentId);
   }
 
   // ==========================================================================

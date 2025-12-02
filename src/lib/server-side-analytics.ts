@@ -271,7 +271,7 @@ export async function trackServerSidePurchase(
   customer: ServerAnalyticsUserData,
   options?: { eventSourceUrl?: string; clientId?: string }
 ): Promise<AnalyticsResult[]> {
-  return sendServerSideAnalytics(
+  return await sendServerSideAnalytics(
     merchantId,
     'purchase',
     customer,
@@ -296,7 +296,7 @@ export async function trackServerSideBeginCheckout(
   customer?: ServerAnalyticsUserData,
   options?: { eventSourceUrl?: string; clientId?: string }
 ): Promise<AnalyticsResult[]> {
-  return sendServerSideAnalytics(
+  return await sendServerSideAnalytics(
     merchantId,
     'begin_checkout',
     customer || {},
