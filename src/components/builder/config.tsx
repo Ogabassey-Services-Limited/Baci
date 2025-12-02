@@ -404,15 +404,15 @@ function HeroCarouselComponent({
     <section className="w-full relative" aria-label="Hero Carousel">
       <Carousel className="w-full" plugins={[plugin]} opts={{ loop: true }}>
         <CarouselContent>
-          {safeSlides.map((slide, index) => (
-            <CarouselItem key={index}>
+          {safeSlides.map((slide) => (
+            <CarouselItem key={slide.image}>
               <div className="w-full h-[60vh] md:h-[70vh] relative">
                 <Image
                   src={slide.image}
                   alt={slide.title}
                   fill
                   className="object-cover"
-                  priority={index === 0}
+                  priority={slide.image === safeSlides[0]?.image}
                 />
                 <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center text-white p-4">
                   <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">
@@ -547,8 +547,8 @@ function CustomHeader({
           aria-label="Main Navigation"
         >
           <ul className="flex items-center gap-6 m-0 p-0 list-none">
-            {navigationLinks.map((link, index) => (
-              <li key={index}>
+            {navigationLinks.map((link) => (
+              <li key={link.url}>
                 <Link
                   href={asRoute(link.url)}
                   className="text-sm font-medium hover:text-primary transition-colors relative group"
@@ -690,8 +690,8 @@ function CustomFooter({
               <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
               <nav aria-label="Footer Navigation">
                 <ul className="flex flex-col gap-2 list-none p-0 m-0">
-                  {quickLinks.map((link, index) => (
-                    <li key={index}>
+                  {quickLinks.map((link) => (
+                    <li key={link.url}>
                       <Link
                         href={asRoute(link.url)}
                         className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
@@ -1090,10 +1090,10 @@ export const builderConfig: Config<
               style={
                 backgroundImage
                   ? {
-                      backgroundImage: `url(${backgroundImage})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }
+                    backgroundImage: `url(${backgroundImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }
                   : {}
               }
               aria-label="Hero Banner"
@@ -1717,7 +1717,7 @@ export const builderConfig: Config<
               >
                 {[...Array(5)].map((_, i) => (
                   <Star
-                    key={i}
+                    key={`star-${i}`}
                     className={cn('w-4 h-4', {
                       'fill-current': i < rating,
                     })}
@@ -1816,9 +1816,9 @@ export const builderConfig: Config<
                 )}
               </div>
               <div className={`grid grid-cols-1 md:grid-cols-${columns} gap-8`}>
-                {features.map((feature, i) => (
+                {features.map((feature) => (
                   <div
-                    key={i}
+                    key={feature.title}
                     className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm"
                   >
                     <div
@@ -2203,9 +2203,9 @@ export const builderConfig: Config<
             // Convert options from textarea string to array
             options: field.options
               ? (field.options as string)
-                  .split('\n')
-                  .map((opt: string) => opt.trim())
-                  .filter(Boolean)
+                .split('\n')
+                .map((opt: string) => opt.trim())
+                .filter(Boolean)
               : undefined,
           })
         );
@@ -2302,9 +2302,9 @@ export const builderConfig: Config<
               'justify-end': alignment === 'right',
             })}
           >
-            {socialIcons.map(({ Icon, url, name }, index) => (
+            {socialIcons.map(({ Icon, url, name }) => (
               <Link
-                key={index}
+                key={name}
                 href={asRoute(url!)}
                 className="text-muted-foreground hover:text-primary transition-colors"
                 target="_blank"
@@ -2482,10 +2482,9 @@ export const builderConfig: Config<
                 <div className="max-w-2xl mx-auto space-y-3">
                   {items.map(
                     (
-                      item: { question: string; answer: string },
-                      index: number
+                      item: { question: string; answer: string }
                     ) => (
-                      <details key={index} className="group border rounded-lg">
+                      <details key={item.question} className="group border rounded-lg">
                         <summary className="flex justify-between items-center cursor-pointer p-4 font-medium hover:bg-muted/50 transition-colors">
                           {item.question}
                           <span className="ml-2 transform group-open:rotate-180 transition-transform">
@@ -2504,11 +2503,10 @@ export const builderConfig: Config<
                 <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                   {items.map(
                     (
-                      item: { question: string; answer: string },
-                      index: number
+                      item: { question: string; answer: string }
                     ) => (
                       <div
-                        key={index}
+                        key={item.question}
                         className="p-6 border rounded-lg bg-card"
                       >
                         <h3 className="font-semibold text-lg mb-2">
@@ -2524,10 +2522,9 @@ export const builderConfig: Config<
                 <div className="max-w-2xl mx-auto space-y-6">
                   {items.map(
                     (
-                      item: { question: string; answer: string },
-                      index: number
+                      item: { question: string; answer: string }
                     ) => (
-                      <div key={index} className="border-b pb-6 last:border-0">
+                      <div key={item.question} className="border-b pb-6 last:border-0">
                         <h3 className="font-semibold text-lg mb-2">
                           {item.question}
                         </h3>
@@ -2666,10 +2663,9 @@ export const builderConfig: Config<
                     >
                       {stats.map(
                         (
-                          stat: { value: string; label: string },
-                          index: number
+                          stat: { value: string; label: string }
                         ) => (
-                          <div key={index} className="text-center">
+                          <div key={stat.label} className="text-center">
                             <p
                               className="text-3xl font-bold"
                               style={{ color: 'var(--store-primary)' }}
@@ -2877,7 +2873,7 @@ export const builderConfig: Config<
                   className={cn(
                     'space-y-6',
                     layout === 'stacked' &&
-                      'grid md:grid-cols-2 gap-6 space-y-0'
+                    'grid md:grid-cols-2 gap-6 space-y-0'
                   )}
                 >
                   {contactInfo?.map(
@@ -2887,10 +2883,9 @@ export const builderConfig: Config<
                         label: string;
                         value: string;
                         link?: string;
-                      },
-                      index: number
+                      }
                     ) => (
-                      <div key={index} className="flex items-start gap-4">
+                      <div key={info.label} className="flex items-start gap-4">
                         <div className="p-3 rounded-lg bg-[var(--store-primary)]/10">
                           {renderIcon(info.icon, {
                             className: 'w-5 h-5',
@@ -3034,10 +3029,9 @@ export const builderConfig: Config<
                 <div className="prose dark:prose-invert max-w-none space-y-8">
                   {sections?.map(
                     (
-                      section: { heading: string; content: string },
-                      index: number
+                      section: { heading: string; content: string }
                     ) => (
-                      <div key={index}>
+                      <div key={section.heading}>
                         <h2 className="text-2xl font-semibold mb-3">
                           {section.heading}
                         </h2>
@@ -3382,15 +3376,14 @@ export const builderConfig: Config<
                       icon: string;
                       title: string;
                       description?: string;
-                    },
-                    index: number
+                    }
                   ) => (
                     <div
-                      key={index}
+                      key={badge.title}
                       className={cn(
                         'flex items-center',
                         style === 'cards' &&
-                          'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
+                        'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
                         style === 'minimal' && 'gap-3',
                         style === 'icons-only' && 'flex-col text-center'
                       )}
@@ -3398,13 +3391,13 @@ export const builderConfig: Config<
                       <div
                         className={cn(
                           'rounded-full flex items-center justify-center',
-                          style === 'cards' &&
-                            'w-12 h-12 md:w-14 md:h-14 bg-[var(--store-primary)]/10 mb-3',
-                          style === 'minimal' &&
-                            'w-10 h-10 bg-[var(--store-primary)]/10',
-                          style === 'icons-only' &&
-                            'w-14 h-14 md:w-16 md:h-16 bg-[var(--store-primary)]/10'
+                          style === 'cards' && 'mb-4 w-16 h-16 bg-primary/10',
+                          style === 'minimal' && 'w-12 h-12 bg-primary/10',
+                          style === 'icons-only' && 'mb-2 w-12 h-12 bg-primary/10'
                         )}
+                        style={{
+                          color: 'var(--store-primary)',
+                        }}
                       >
                         {renderIcon(badge.icon, {
                           className: cn(

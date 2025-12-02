@@ -131,8 +131,8 @@ export default function RewardsPage() {
                 title: 'Exclusive Access',
                 description: 'Early access to sales',
               },
-            ].map((benefit, index) => (
-              <Card key={index}>
+            ].map((benefit) => (
+              <Card key={benefit.title}>
                 <CardContent className="pt-6">
                   <div className="flex flex-col items-center text-center">
                     <div className="p-3 bg-purple-100 rounded-full mb-3">
@@ -199,8 +199,8 @@ export default function RewardsPage() {
                 Your tier benefits:
               </p>
               <ul className="space-y-2">
-                {tierInfo.benefits.map((benefit, index) => (
-                  <li key={index} className="flex items-center gap-2 text-sm">
+                {tierInfo.benefits.map((benefit) => (
+                  <li key={benefit} className="flex items-center gap-2 text-sm">
                     <div className="w-1.5 h-1.5 bg-primary rounded-full" />
                     {benefit}
                   </li>
@@ -252,11 +252,10 @@ export default function RewardsPage() {
                         >
                           <div className="flex items-center gap-3">
                             <div
-                              className={`p-2 rounded-full ${
-                                transaction.points > 0
-                                  ? 'bg-green-100'
-                                  : 'bg-red-100'
-                              }`}
+                              className={`p-2 rounded-full ${transaction.points > 0
+                                ? 'bg-green-100'
+                                : 'bg-red-100'
+                                }`}
                             >
                               {transaction.points > 0 ? (
                                 <TrendingUp className="h-4 w-4 text-green-600" />
@@ -280,11 +279,10 @@ export default function RewardsPage() {
                             </div>
                           </div>
                           <span
-                            className={`font-semibold ${
-                              transaction.points > 0
-                                ? 'text-green-600'
-                                : 'text-red-600'
-                            }`}
+                            className={`font-semibold ${transaction.points > 0
+                              ? 'text-green-600'
+                              : 'text-red-600'
+                              }`}
                           >
                             {transaction.points > 0 ? '+' : ''}
                             {transaction.points.toLocaleString()} pts
