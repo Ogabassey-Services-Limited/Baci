@@ -119,9 +119,9 @@ export function AboutPageClient({
                                   Our Values
                                 </h3>
                                 <ul className="space-y-2">
-                                  {aboutPage.values.map((value, index) => (
+                                  {aboutPage.values.map((value) => (
                                     <li
-                                      key={index}
+                                      key={value}
                                       className="flex items-center gap-2 text-muted-foreground"
                                     >
                                       <span className="h-1.5 w-1.5 rounded-full bg-primary" />
@@ -235,8 +235,8 @@ export function AboutPageClient({
                           Our Team
                         </h2>
                         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                          {aboutPage.team.map((member, index) => (
-                            <Card key={index} className="text-center">
+                          {aboutPage.team.map((member) => (
+                            <Card key={member.name} className="text-center">
                               <CardContent className="pt-6">
                                 {member.image && (
                                   <Image
@@ -288,8 +288,8 @@ export function AboutPageClient({
                             Our Journey
                           </h2>
                           <div className="space-y-6">
-                            {aboutPage.milestones.map((milestone, index) => (
-                              <div key={index} className="flex gap-4">
+                            {aboutPage.milestones.map((milestone) => (
+                              <div key={`${milestone.year}-${milestone.title}`} className="flex gap-4">
                                 <div className="shrink-0 w-20 text-right">
                                   <span className="font-bold text-primary">
                                     {milestone.year}
@@ -320,9 +320,9 @@ export function AboutPageClient({
                           Awards & Recognition
                         </h2>
                         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {aboutPage.awards.map((award, index) => (
+                          {aboutPage.awards.map((award) => (
                             <Card
-                              key={index}
+                              key={award.title}
                               className="bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800"
                             >
                               <CardContent className="pt-6 text-center">
@@ -374,14 +374,14 @@ export function AboutPageClient({
                           Gallery
                         </h2>
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                          {aboutPage.gallery.map((image, index) => (
+                          {aboutPage.gallery.map((image) => (
                             <div
-                              key={index}
+                              key={image}
                               className="aspect-square rounded-lg overflow-hidden"
                             >
                               <Image
                                 src={image}
-                                alt={`Gallery image ${index + 1}`}
+                                alt={`Gallery image`}
                                 width={400}
                                 height={400}
                                 className="object-cover w-full h-full hover:scale-105 transition-transform"

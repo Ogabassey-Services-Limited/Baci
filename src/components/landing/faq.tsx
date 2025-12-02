@@ -58,10 +58,10 @@ export function FAQ() {
 
         <div className="glass rounded-3xl p-8 md:p-12">
           <Accordion type="single" collapsible className="w-full">
-            {faqs.map((faq, index) => (
+            {faqs.map((faq) => (
               <AccordionItem
-                key={index}
-                value={`item-${index}`}
+                key={faq.question}
+                value={faq.question}
                 className="border-b-border/50 last:border-0"
               >
                 <AccordionTrigger className="text-lg font-semibold text-left hover:text-accent transition-colors">
