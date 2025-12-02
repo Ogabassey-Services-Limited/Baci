@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { generateBlogPostSchema } from '@/lib/seo-utils';
+import { escapeHtml, generateBlogPostSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 
 interface PageProps {
@@ -187,7 +187,7 @@ export default async function BlogPostPage({ params }: PageProps) {
       {
         '@type': 'ListItem',
         position: 1,
-        name: merchant.business_name,
+        name: escapeHtml(merchant.business_name),
         item: `https://${merchant.slug}.usebaci.com`,
       },
       {
@@ -199,7 +199,7 @@ export default async function BlogPostPage({ params }: PageProps) {
       {
         '@type': 'ListItem',
         position: 3,
-        name: post.title,
+        name: escapeHtml(post.title),
         item: `https://${merchant.slug}.usebaci.com/blog/${post.slug}`,
       },
     ],
