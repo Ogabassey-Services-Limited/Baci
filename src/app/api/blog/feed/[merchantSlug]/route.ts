@@ -142,7 +142,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   xmlns:atom="http://www.w3.org/2005/Atom"
   xmlns:content="http://purl.org/rss/1.0/modules/content/"
   xmlns:dc="http://purl.org/dc/elements/1.1/"
-  xmlns:media="https://search.yahoo.com/mrss/">
+  xmlns:media="http://search.yahoo.com/mrss/">
   <channel>
     <title>${escapeXml(merchant.business_name)} Blog</title>
     <link>${escapeXml(storeUrl)}/blog</link>
