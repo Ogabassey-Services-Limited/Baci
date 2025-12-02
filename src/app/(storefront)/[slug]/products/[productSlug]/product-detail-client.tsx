@@ -158,9 +158,9 @@ export default function ProductDetailClient({ product }: { product: Product }) {
       quantity,
       selectedVariant
         ? {
-            variantId: selectedVariant.id,
-            variantAttributes: selectedAttributes,
-          }
+          variantId: selectedVariant.id,
+          variantAttributes: selectedAttributes,
+        }
         : undefined
     );
 
@@ -213,10 +213,10 @@ export default function ProductDetailClient({ product }: { product: Product }) {
 
   const brandColors = merchant?.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -272,11 +272,11 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               items={[
                 ...(product.category
                   ? [
-                      {
-                        label: product.category,
-                        href: `/?category=${encodeURIComponent(product.category)}`,
-                      },
-                    ]
+                    {
+                      label: product.category,
+                      href: `/?category=${encodeURIComponent(product.category)}`,
+                    },
+                  ]
                   : []),
                 { label: product.name },
               ]}
@@ -320,7 +320,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                     </button>
                     {product.images.map((img, idx) => (
                       <button
-                        key={idx}
+                        key={img.url}
                         type="button"
                         onClick={() => setSelectedImage(img.url)}
                         className={cn(

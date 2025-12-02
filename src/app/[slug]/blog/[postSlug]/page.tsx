@@ -10,6 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { asRoute } from '@/lib/routes';
 import { generateBlogPostSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
+import Image from 'next/image';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
@@ -53,7 +55,7 @@ async function getPostData(merchantSlug: string, postSlug: string) {
     .from('blog_posts')
     .update({ view_count: (post.view_count || 0) + 1 })
     .eq('id', post.id)
-    .then(() => {});
+    .then(() => { });
 
   // Get related posts (same category or matching tags)
   let relatedQuery = supabase
@@ -107,11 +109,11 @@ export async function generateMetadata({
       tags: post.tags,
       images: post.featured_image_url
         ? [
-            {
-              url: post.featured_image_url,
-              alt: post.featured_image_alt || post.title,
-            },
-          ]
+          {
+            url: post.featured_image_url,
+            alt: post.featured_image_alt || post.title,
+          },
+        ]
         : [],
     },
     twitter: {
@@ -144,7 +146,8 @@ export default async function BlogPostPage({ params }: PageProps) {
   const { merchant, post, relatedPosts } = data;
 
   // Parse markdown content
-  const htmlContent = await marked(post.content);
+  const rawHtml = await marked(post.content);
+  const htmlContent = sanitizeHtml(rawHtml);
 
   // Generate schema
   const baseUrl = `https://${merchant.slug}.usebaci.com`;
@@ -203,10 +206,12 @@ export default async function BlogPostPage({ params }: PageProps) {
     <>
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
         dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema) }}
       />
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
 
@@ -228,11 +233,12 @@ export default async function BlogPostPage({ params }: PageProps) {
           <article className="max-w-4xl mx-auto">
             {/* Featured Image */}
             {post.featured_image_url && (
-              <div className="aspect-video rounded-lg overflow-hidden mb-8">
-                <img
+              <div className="aspect-video rounded-lg overflow-hidden mb-8 relative">
+                <Image
                   src={post.featured_image_url}
                   alt={post.featured_image_alt || post.title}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
                 />
               </div>
             )}
@@ -288,6 +294,7 @@ export default async function BlogPostPage({ params }: PageProps) {
             {/* Post Content */}
             <div
               className="prose prose-slate dark:prose-invert max-w-none mb-8"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
               dangerouslySetInnerHTML={{ __html: htmlContent }}
             />
 
@@ -351,11 +358,12 @@ export default async function BlogPostPage({ params }: PageProps) {
                     >
                       <Card className="h-full hover:shadow-lg transition-shadow group">
                         {related.featured_image_url && (
-                          <div className="aspect-video overflow-hidden rounded-t-lg">
-                            <img
+                          <div className="aspect-video overflow-hidden rounded-t-lg relative">
+                            <Image
                               src={related.featured_image_url}
                               alt={related.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              fill
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                           </div>
                         )}

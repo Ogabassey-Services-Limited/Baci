@@ -173,13 +173,13 @@ export async function generateMetadata(
         url: img.url,
         alt: img.alt,
       })) || [
-        {
-          url: product.imageLarge || product.image,
-          width: 800,
-          height: 600,
-          alt: product.name,
-        },
-      ],
+          {
+            url: product.imageLarge || product.image,
+            width: 800,
+            height: 600,
+            alt: product.name,
+          },
+        ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,
@@ -263,12 +263,14 @@ export default async function ProductPage({ params }: PageProps) {
       {/* Product Schema.org JSON-LD */}
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(productSchema) }} // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml
       />
 
       {/* Breadcrumb Schema.org JSON-LD */}
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{
           __html: safeJsonLdStringify(breadcrumbSchema),
         }} // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml

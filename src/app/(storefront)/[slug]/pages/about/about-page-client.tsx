@@ -87,6 +87,7 @@ export function AboutPageClient({
                         </h2>
                         <div
                           className="prose prose-lg dark:prose-invert max-w-none"
+                          // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
                           dangerouslySetInnerHTML={{
                             __html: sanitizeHtml(aboutPage.story),
                           }} // nosemgrep
@@ -398,6 +399,7 @@ export function AboutPageClient({
                     <div className="max-w-4xl mx-auto">
                       <div
                         className="prose prose-lg dark:prose-invert max-w-none"
+                        // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
                         dangerouslySetInnerHTML={{
                           __html: sanitizeHtml(legacyContent),
                         }} // nosemgrep

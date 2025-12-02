@@ -172,6 +172,7 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           nonce={nonce}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(organizationSchema),
           }}
@@ -180,12 +181,14 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           nonce={nonce}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
         {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
         <script
           type="application/ld+json"
           nonce={nonce}
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(softwareApplicationSchema),
           }}

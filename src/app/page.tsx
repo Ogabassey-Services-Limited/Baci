@@ -49,16 +49,14 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
             {question}
           </span>
           <ChevronDown
-            className={`w-5 h-5 text-accent flex-shrink-0 mt-1 transition-transform duration-300 ${
-              isOpen ? 'rotate-180' : ''
-            }`}
+            className={`w-5 h-5 text-accent flex-shrink-0 mt-1 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''
+              }`}
           />
         </button>
       </dt>
       <dd
-        className={`overflow-hidden transition-all duration-300 ${
-          isOpen ? 'max-h-96 opacity-100 px-6 pb-4' : 'max-h-0 opacity-0'
-        }`}
+        className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 opacity-100 px-6 pb-4' : 'max-h-0 opacity-0'
+          }`}
       >
         <p className="text-muted-foreground leading-relaxed pt-2">{answer}</p>
       </dd>
@@ -83,6 +81,7 @@ function BaciLandingPage() {
       {/* Header */}
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             '@context': 'https://schema.org',
@@ -403,6 +402,7 @@ function BaciLandingPage() {
             {/* HowTo Schema */}
             <script
               type="application/ld+json"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
               dangerouslySetInnerHTML={{
                 __html: JSON.stringify({
                   '@context': 'https://schema.org',
@@ -521,6 +521,7 @@ function BaciLandingPage() {
             {/* FAQ Schema */}
             <script
               type="application/ld+json"
+              // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
               dangerouslySetInnerHTML={{
                 __html: JSON.stringify({
                   '@context': 'https://schema.org',

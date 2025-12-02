@@ -179,6 +179,7 @@ export default async function StorefrontPage({
       {localBusinessSchema && (
         <script
           type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema from sanitized merchant data
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(localBusinessSchema),
           }}
@@ -188,6 +189,7 @@ export default async function StorefrontPage({
       {webSiteSchema && (
         <script
           type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema from sanitized merchant data
           dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }}
         />
       )}

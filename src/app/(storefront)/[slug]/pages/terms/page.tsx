@@ -99,6 +99,7 @@ export default async function TermsPage({ params }: PageProps) {
       {/* Terms of Service JSON-LD Schema */}
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}
       />
       <TermsPageClient merchant={merchant} content={merchant.pages?.terms} />

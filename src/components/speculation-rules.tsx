@@ -93,6 +93,7 @@ export function SpeculationRules({ nonce }: { nonce?: string }) {
     <script
       type="speculationrules"
       nonce={nonce}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: Speculation rules
       dangerouslySetInnerHTML={{ __html: JSON.stringify(rules) }}
     />
   );
@@ -132,6 +133,7 @@ export function CartSpeculationRules({ nonce }: { nonce?: string }) {
     <script
       type="speculationrules"
       nonce={nonce}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: Speculation rules
       dangerouslySetInnerHTML={{ __html: JSON.stringify(rules) }}
     />
   );
@@ -174,6 +176,7 @@ export function ProductPageSpeculationRules({ nonce }: { nonce?: string }) {
     <script
       type="speculationrules"
       nonce={nonce}
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: Speculation rules
       dangerouslySetInnerHTML={{ __html: JSON.stringify(rules) }}
     />
   );

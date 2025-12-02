@@ -31,10 +31,10 @@ export function ClientPage({ slug }: { slug: string }) {
 
   const brandColors = merchant.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -65,6 +65,7 @@ export function ClientPage({ slug }: { slug: string }) {
         </h1>
         <div
           className="prose dark:prose-invert max-w-none"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
           dangerouslySetInnerHTML={{ __html: sanitizeHtml(pageContent || '') }}
         />
       </main>

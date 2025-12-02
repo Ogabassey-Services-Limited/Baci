@@ -78,6 +78,7 @@ export function FAQ() {
         {/* JSON-LD Schema for SGE Optimization */}
         <script
           type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',

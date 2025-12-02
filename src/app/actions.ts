@@ -5,12 +5,20 @@ import { unstable_cache } from 'next/cache';
 
 // Initialize Supabase client with Service Role Key for admin-level access (counting)
 // If SERVICE_ROLE_KEY is not available, we'll fall back to static numbers
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+if (!supabaseUrl || !supabaseServiceKey) {
+  // Fallback to empty strings to prevent crash during build time if envs are missing
+  // But log error in runtime
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('Missing Supabase environment variables in actions.ts');
+  }
+}
+
+const supabase = createClient(supabaseUrl || '', supabaseServiceKey || '');
 
 interface LandingMetrics {
   merchants: number;

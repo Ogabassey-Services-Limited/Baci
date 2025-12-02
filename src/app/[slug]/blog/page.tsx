@@ -2,6 +2,7 @@ import { Calendar, Clock, Rss, User } from 'lucide-react';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -207,11 +208,12 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
               <Link key={post.id} href={`/${slug}/blog/${post.slug}`}>
                 <Card className="h-full hover:shadow-lg transition-shadow overflow-hidden group">
                   {post.featured_image_url && (
-                    <div className="aspect-video overflow-hidden">
-                      <img
+                    <div className="aspect-video overflow-hidden relative">
+                      <Image
                         src={post.featured_image_url}
                         alt={post.featured_image_alt || post.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        fill
+                        className="object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     </div>
                   )}

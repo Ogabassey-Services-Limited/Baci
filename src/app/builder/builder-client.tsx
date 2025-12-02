@@ -505,9 +505,9 @@ export default function BuilderClient() {
                             newContent[componentIndex - 1],
                             newContent[componentIndex],
                           ] = [
-                            newContent[componentIndex],
-                            newContent[componentIndex - 1],
-                          ];
+                              newContent[componentIndex],
+                              newContent[componentIndex - 1],
+                            ];
                           setData({ ...data, content: newContent });
                         }
                       }}
@@ -518,9 +518,9 @@ export default function BuilderClient() {
                             newContent[componentIndex],
                             newContent[componentIndex + 1],
                           ] = [
-                            newContent[componentIndex + 1],
-                            newContent[componentIndex],
-                          ];
+                              newContent[componentIndex + 1],
+                              newContent[componentIndex],
+                            ];
                           setData({ ...data, content: newContent });
                         }
                       }}
@@ -738,6 +738,7 @@ export default function BuilderClient() {
                 mediaPanel={<MediaLibrary />}
               >
                 <style
+                  // biome-ignore lint/security/noDangerouslySetInnerHtml: Static CSS styles
                   dangerouslySetInnerHTML={{
                     __html: `
                                     /* Hide category titles to create continuous grid */
@@ -840,11 +841,10 @@ export default function BuilderClient() {
                   <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
                     <button
                       onClick={() => setViewportWidth(375)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
-                        viewportWidth === 375
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 375
                           ? 'bg-white shadow-sm'
                           : 'hover:bg-white'
-                      }`}
+                        }`}
                       title="Mobile Portrait (375px)"
                     >
                       <Smartphone className="w-4 h-4 text-primary" />
@@ -852,11 +852,10 @@ export default function BuilderClient() {
                     </button>
                     <button
                       onClick={() => setViewportWidth(768)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
-                        viewportWidth === 768
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 768
                           ? 'bg-white shadow-sm'
                           : 'hover:bg-white'
-                      }`}
+                        }`}
                       title="Tablet (768px)"
                     >
                       <Tablet className="w-4 h-4 text-primary" />
@@ -864,11 +863,10 @@ export default function BuilderClient() {
                     </button>
                     <button
                       onClick={() => setViewportWidth('100%')}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
-                        viewportWidth === '100%'
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === '100%'
                           ? 'bg-white shadow-sm'
                           : 'hover:bg-white'
-                      }`}
+                        }`}
                       title="Desktop (1440px)"
                     >
                       <Monitor className="w-4 h-4 text-primary" />

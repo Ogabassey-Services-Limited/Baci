@@ -65,13 +65,12 @@ function StarRating({
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
-          className={`${sizeClasses[size]} ${
-            star <= rating
+          className={`${sizeClasses[size]} ${star <= rating
               ? 'fill-yellow-400 text-yellow-400'
               : star - 0.5 <= rating
                 ? 'fill-yellow-400/50 text-yellow-400'
                 : 'text-gray-300 dark:text-gray-600'
-          }`}
+            }`}
         />
       ))}
     </div>
@@ -311,6 +310,7 @@ export function GoogleReviewsSection({
         {/* Schema markup for SEO */}
         <script
           type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(reviewSchema),
           }}

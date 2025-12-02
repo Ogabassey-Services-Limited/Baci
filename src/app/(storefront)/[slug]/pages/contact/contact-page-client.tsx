@@ -366,6 +366,7 @@ export function ContactPageClient({
                     {legacyContent && (
                       <div
                         className="prose prose-sm dark:prose-invert max-w-none"
+                        // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
                         dangerouslySetInnerHTML={{
                           __html: sanitizeHtml(legacyContent),
                         }} // nosemgrep
