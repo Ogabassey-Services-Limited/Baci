@@ -3,22 +3,20 @@
 import { Loader2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 
 interface LogoGeneratorModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onGenerate: (favoriteColor: string) => void;
   isGenerating: boolean;
+  children: React.ReactNode; // The trigger button
 }
 
 export function LogoGeneratorModal({
@@ -26,6 +24,7 @@ export function LogoGeneratorModal({
   onOpenChange,
   onGenerate,
   isGenerating,
+  children,
 }: LogoGeneratorModalProps) {
   const [favoriteColor, setFavoriteColor] = useState('');
 
@@ -37,50 +36,52 @@ export function LogoGeneratorModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Generate AI Logo</DialogTitle>
-          <DialogDescription>
-            Tell us your favorite color, and our AI will create a unique,
-            minimalist logo for your brand.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+    <Popover open={isOpen} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent className="w-80" align="center" side="top" sideOffset={10}>
+        <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="favorite-color">
-              What is your favorite color or color scheme?
-            </Label>
-            <Input
-              id="favorite-color"
-              placeholder="e.g. Royal Blue, Sunset Orange, Pastel Pink"
-              value={favoriteColor}
-              onChange={(e) => setFavoriteColor(e.target.value)}
-              autoFocus
-              disabled={isGenerating}
-            />
+            <h4 className="font-semibold text-sm">Generate AI Logo</h4>
+            <p className="text-xs text-muted-foreground">
+              Tell us your favorite color to create a unique logo.
+            </p>
           </div>
-          <DialogFooter>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor="favorite-color" className="text-xs">
+                Favorite color or color scheme
+              </Label>
+              <Input
+                id="favorite-color"
+                placeholder="e.g. Royal Blue, Sunset Orange"
+                value={favoriteColor}
+                onChange={(e) => setFavoriteColor(e.target.value)}
+                autoFocus
+                disabled={isGenerating}
+                className="h-9 text-sm"
+              />
+            </div>
             <Button
               type="submit"
               disabled={!favoriteColor.trim() || isGenerating}
-              className="w-full sm:w-auto"
+              className="w-full h-9"
+              size="sm"
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating Magic...
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                  Creating...
                 </>
               ) : (
                 <>
-                  <Wand2 className="mr-2 h-4 w-4" />
+                  <Wand2 className="mr-2 h-3.5 w-3.5" />
                   Generate Logo
                 </>
               )}
             </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          </form>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

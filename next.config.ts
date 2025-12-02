@@ -41,6 +41,11 @@ const nextConfig: NextConfig = {
         hostname: 'picsum.photos',
       },
       {
+        // Placeholder images for development/previews
+        protocol: 'https',
+        hostname: 'placehold.co',
+      },
+      {
         protocol: 'https',
         hostname: 'avatars.githubusercontent.com',
       },

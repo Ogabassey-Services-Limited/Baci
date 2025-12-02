@@ -68,11 +68,11 @@ function BenefitPill({
     >
       <div
         className={cn(
-          'p-1.5 rounded-full bg-opacity-10',
+          'p-1.5 rounded-full bg-opacity-20 dark:bg-opacity-10',
           color.replace('text-', 'bg-')
         )}
       >
-        <Icon className={cn('w-4 h-4', color)} />
+        <Icon className={cn('w-4 h-4', color)} strokeWidth={2.5} />
       </div>
       <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
         {label}

@@ -7,6 +7,9 @@ import {
   stripHtmlTags,
 } from './sanitize-core';
 
+// Re-export escapeHtml for use in other modules
+export { escapeHtml };
+
 /**
  * Generates a URL-friendly slug from a string
  */

@@ -1,10 +1,10 @@
 'use server';
 
-import { experimental_generateImage, generateObject } from 'ai';
+import { generateObject, generateText } from 'ai';
 import { z } from 'zod';
 import {
+  gemini25FlashImage,
   geminiFlash,
-  imagen3,
   sanitizePromptInput,
   withRetry,
 } from '@/ai/provider';
@@ -149,23 +149,31 @@ Requirements:
 
 Please generate the logo image now.`;
 
-      // Use Imagen 3 for image generation
-      const { image } = await withRetry(async () => {
-        return await experimental_generateImage({
-          model: imagen3,
+      // Use Gemini 2.5 Flash Image for image generation (native multimodal)
+      // Imagen models are not available in Google AI API - only in Vertex AI
+      const result = await withRetry(async () => {
+        return await generateText({
+          model: gemini25FlashImage,
           prompt: prompt,
-          n: 1,
         });
       });
 
-      if (!image || !image.base64) {
-        logger.error({ message: 'No image generated' });
+      // Extract image from files array
+      const imageFile = result.files?.find((file) =>
+        file.mediaType.startsWith('image/')
+      );
+
+      if (!imageFile || !imageFile.base64) {
+        logger.error({ message: 'No image generated in response' });
         throw new Error('No image generated.');
       }
 
-      const logoDataUri = `data:image/png;base64,${image.base64}`;
+      // Convert base64 to data URI
+      const logoDataUri = `data:${imageFile.mediaType};base64,${imageFile.base64}`;
 
-      logger.info({ message: 'Logo generated successfully with Imagen 3' });
+      logger.info({
+        message: 'Logo generated successfully with Gemini 2.5 Flash Image',
+      });
       return { logos: [logoDataUri] };
     } catch (error) {
       const errorMessage =

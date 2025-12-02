@@ -239,6 +239,20 @@ function Step1_BusinessDetails({
                   'Urban Styles',
                 ]}
                 {...field}
+                onChange={(e) => {
+                  // Convert to sentence case (title case)
+                  const words = e.target.value.split(' ');
+                  const titleCased = words
+                    .map((word) => {
+                      if (word.length === 0) return word;
+                      return (
+                        word.charAt(0).toUpperCase() +
+                        word.slice(1).toLowerCase()
+                      );
+                    })
+                    .join(' ');
+                  field.onChange(titleCased);
+                }}
                 onKeyDown={onKeyDown}
                 name="businessName"
                 autoComplete="organization"
@@ -506,8 +520,10 @@ function Step2_Branding() {
         <div className="w-full animate-in fade-in slide-in-from-top-4 duration-700">
           <div
             className={cn(
-              'relative rounded-xl border border-white/10 bg-muted/5 transition-all duration-500 ease-in-out overflow-hidden',
-              isPreviewExpanded ? 'h-auto' : 'h-[280px]'
+              'relative rounded-xl border border-white/10 bg-muted/5 transition-all duration-500 ease-in-out',
+              isPreviewExpanded
+                ? 'h-auto overflow-hidden'
+                : 'h-[280px] overflow-y-auto'
             )}
           >
             <div
@@ -734,24 +750,24 @@ function Step2_Branding() {
                 <li>Professional vector style</li>
               </ul>
             </div>
-            <Button
-              type="button"
-              onClick={() => setIsGeneratorModalOpen(true)}
-              disabled={isLoading}
-              className="w-full bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black font-medium mt-auto border border-primary/10 shadow-sm"
+            <LogoGeneratorModal
+              isOpen={isGeneratorModalOpen}
+              onOpenChange={setIsGeneratorModalOpen}
+              onGenerate={handleGenerateLogo}
+              isGenerating={isGenerating}
             >
-              Generate with AI
-            </Button>
+              <Button
+                type="button"
+                onClick={() => setIsGeneratorModalOpen(true)}
+                disabled={isLoading}
+                className="w-full bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black font-medium mt-auto border border-primary/10 shadow-sm"
+              >
+                Generate with AI
+              </Button>
+            </LogoGeneratorModal>
           </div>
         </div>
       </div>
-
-      <LogoGeneratorModal
-        isOpen={isGeneratorModalOpen}
-        onOpenChange={setIsGeneratorModalOpen}
-        onGenerate={handleGenerateLogo}
-        isGenerating={isGenerating}
-      />
 
       {/* Error Messages for Hidden Fields */}
       <div className="space-y-2">

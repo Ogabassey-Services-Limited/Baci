@@ -385,7 +385,7 @@ export function OnboardingPuckPreview({
 
       <div
         ref={previewRef}
-        className="scale-[0.8] origin-top-left w-[125%] -translate-x-1 -translate-y-1 bg-background rounded-md shadow-lg pointer-events-none"
+        className="scale-[0.8] origin-top-left w-[125%] -translate-x-1 -translate-y-1 bg-background rounded-md shadow-lg"
         style={{ backgroundColor: 'var(--theme-background)' }}
       >
         <PreviewErrorBoundary>
