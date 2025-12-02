@@ -113,6 +113,7 @@ export default async function Image({ params }: ImageProps) {
       >
         {/* Logo */}
         {merchant.logo_url && (
+          // biome-ignore lint/performance/noImgElement: Satori (OpenGraph image generation) requires img tags
           <img
             src={merchant.logo_url}
             alt=""

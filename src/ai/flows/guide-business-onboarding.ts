@@ -84,6 +84,7 @@ export async function guideBusinessOnboarding(
     });
 
     try {
+      const logoUrl = input.logoUrl; // Already validated on line 78
       const { object } = await withRetry(async () => {
         return await generateObject({
           model: geminiFlash,
@@ -104,7 +105,7 @@ IMPORTANT:
             },
             {
               role: 'user',
-              content: [{ type: 'image', image: input.logoUrl! }],
+              content: [{ type: 'image', image: logoUrl }],
             },
           ],
         });

@@ -39,38 +39,50 @@ export async function generateMetadata({
 
   // Prefer SVG for modern browsers
   if (merchant.favicon_svg_url) {
-    (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
-      url: addTimestamp(merchant.favicon_svg_url)!,
-      type: 'image/svg+xml',
-    });
+    const timestampedUrl = addTimestamp(merchant.favicon_svg_url);
+    if (timestampedUrl) {
+      (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
+        url: timestampedUrl,
+        type: 'image/svg+xml',
+      });
+    }
   }
 
   // PNG fallbacks
   if (merchant.favicon_png_32_url) {
-    (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
-      url: addTimestamp(merchant.favicon_png_32_url)!,
-      sizes: '32x32',
-      type: 'image/png',
-    });
+    const timestampedUrl = addTimestamp(merchant.favicon_png_32_url);
+    if (timestampedUrl) {
+      (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
+        url: timestampedUrl,
+        sizes: '32x32',
+        type: 'image/png',
+      });
+    }
   }
 
   if (merchant.favicon_png_192_url) {
-    (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
-      url: addTimestamp(merchant.favicon_png_192_url)!,
-      sizes: '192x192',
-      type: 'image/png',
-    });
+    const timestampedUrl = addTimestamp(merchant.favicon_png_192_url);
+    if (timestampedUrl) {
+      (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
+        url: timestampedUrl,
+        sizes: '192x192',
+        type: 'image/png',
+      });
+    }
   }
 
   // Apple Touch Icon
   if (merchant.favicon_apple_touch_url) {
-    (icons.apple as Array<{ url: string; type?: string; sizes?: string }>).push(
-      {
-        url: addTimestamp(merchant.favicon_apple_touch_url)!,
-        sizes: '180x180',
-        type: 'image/png',
-      }
-    );
+    const timestampedUrl = addTimestamp(merchant.favicon_apple_touch_url);
+    if (timestampedUrl) {
+      (icons.apple as Array<{ url: string; type?: string; sizes?: string }>).push(
+        {
+          url: timestampedUrl,
+          sizes: '180x180',
+          type: 'image/png',
+        }
+      );
+    }
   }
 
   return {

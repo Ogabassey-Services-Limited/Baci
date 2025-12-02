@@ -167,6 +167,7 @@ export default async function Image({ params }: ImageProps) {
           }}
         >
           {productImage ? (
+            // biome-ignore lint/performance/noImgElement: Satori (OpenGraph image generation) requires img tags
             <img
               src={productImage}
               alt=""
@@ -216,6 +217,7 @@ export default async function Image({ params }: ImageProps) {
             }}
           >
             {merchant.logo_url && (
+              // biome-ignore lint/performance/noImgElement: Satori (OpenGraph image generation) requires img tags
               <img
                 src={merchant.logo_url}
                 alt=""

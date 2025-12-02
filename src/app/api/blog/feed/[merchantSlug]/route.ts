@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
+import sanitizeHtml from 'sanitize-html';
 
 /**
  * Blog RSS Feed API
@@ -50,9 +51,13 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&apos;');
 }
 
-// Strip HTML tags for plain text excerpts
+// Strip HTML tags for plain text excerpts using sanitize-html
+// This is more reliable than regex and prevents XSS bypasses
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').trim();
+  return sanitizeHtml(html, {
+    allowedTags: [],
+    allowedAttributes: {},
+  }).trim();
 }
 
 // Create anonymous Supabase client for public access
@@ -154,44 +159,42 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     <lastBuildDate>${lastBuildDate}</lastBuildDate>
     <atom:link href="${escapeXml(feedUrl)}" rel="self" type="application/rss+xml"/>
     <generator>Baci E-commerce Platform</generator>
-    ${
-      merchant.logo_url
+    ${merchant.logo_url
         ? `<image>
       <url>${escapeXml(merchant.logo_url)}</url>
       <title>${escapeXml(merchant.business_name)}</title>
       <link>${escapeXml(storeUrl)}</link>
     </image>`
         : ''
-    }
+      }
     ${posts
-      .map((post) => {
-        const postUrl = `${storeUrl}/blog/${post.slug}`;
-        const pubDate = new Date(post.published_at).toUTCString();
-        const excerpt =
-          post.excerpt || stripHtml(post.content).substring(0, 300);
+        .map((post) => {
+          const postUrl = `${storeUrl}/blog/${post.slug}`;
+          const pubDate = new Date(post.published_at).toUTCString();
+          const excerpt =
+            post.excerpt || stripHtml(post.content).substring(0, 300);
 
-        return `
+          return `
     <item>
       <title>${escapeXml(post.title)}</title>
       <link>${escapeXml(postUrl)}</link>
       <guid isPermaLink="true">${escapeXml(postUrl)}</guid>
       <pubDate>${pubDate}</pubDate>
       <description>${escapeXml(excerpt)}</description>
-      <content:encoded><![CDATA[${post.content}]]></content:encoded>
+      <content:encoded><![CDATA[${post.content.replace(/]]>/g, ']]]]><![CDATA[>')}]]></content:encoded>
       <dc:creator>${escapeXml(post.author_name)}</dc:creator>
       ${post.category ? `<category>${escapeXml(post.category)}</category>` : ''}
-      ${
-        post.featured_image_url
-          ? `
+      ${post.featured_image_url
+              ? `
       <enclosure url="${escapeXml(post.featured_image_url)}" type="image/jpeg"/>
       <media:content url="${escapeXml(post.featured_image_url)}" medium="image">
         <media:title>${escapeXml(post.title)}</media:title>
       </media:content>`
-          : ''
-      }
+              : ''
+            }
     </item>`;
-      })
-      .join('')}
+        })
+        .join('')}
   </channel>
 </rss>`;
 
