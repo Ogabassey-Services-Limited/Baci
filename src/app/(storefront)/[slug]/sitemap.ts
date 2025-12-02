@@ -4,8 +4,13 @@ import { headers } from 'next/headers';
 import { generateSlug } from '@/lib/seo-utils';
 
 // Initialize Supabase client for public data access
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing required Supabase environment variables');
+}
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 type Props = {
