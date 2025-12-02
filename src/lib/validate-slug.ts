@@ -33,5 +33,5 @@ export function validateSlug(
     slug: string | undefined | null,
     fallback = '#'
 ): string {
-    return isSafeSlug(slug) ? slug : fallback;
+    return isSafeSlug(slug) ? (slug as string) : fallback;
 }
