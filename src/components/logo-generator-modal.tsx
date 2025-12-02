@@ -38,7 +38,12 @@ export function LogoGeneratorModal({
   return (
     <Popover open={isOpen} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-80" align="center" side="top" sideOffset={10}>
+      <PopoverContent
+        className="w-80"
+        align="center"
+        side="top"
+        sideOffset={10}
+      >
         <div className="space-y-4">
           <div className="space-y-2">
             <h4 className="font-semibold text-sm">Generate AI Logo</h4>

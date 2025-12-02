@@ -17,9 +17,12 @@ import {
   Mail,
   Maximize2,
   Pencil,
+  Eraser,
   Shuffle,
   Sparkles,
   Upload,
+  Wand2,
+  X,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -438,14 +441,63 @@ function Step2_Branding() {
     await Promise.all([uploadPromise, extractionPromise]);
   };
 
-  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
+  const handleRemoveBackground = async () => {
+    const logoToProcess = currentLogoDataUri || logoUrl;
+    if (!logoToProcess) return;
+
+    setIsUploading(true);
+    toast({
+      title: 'Removing background...',
+      description: 'This happens locally on your device.',
+    });
+
+    try {
+      // Dynamic import to avoid loading heavy library until needed
+      const { removeBackground } = await import('@imgly/background-removal');
+
+      const blob = await removeBackground(logoToProcess);
+      const url = URL.createObjectURL(blob);
+
+      // Convert blob URL to data URI for storage/processing
       const reader = new FileReader();
       reader.onloadend = async () => {
         const dataUri = reader.result as string;
         await processNewLogo(dataUri);
+        URL.revokeObjectURL(url);
+        toast({ title: 'Background removed!' });
       };
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error('Background removal failed:', error);
+      toast({
+        title: 'Background removal failed',
+        description: 'Please try a different image.',
+        variant: 'destructive',
+      });
+      setIsUploading(false);
+    }
+  };
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setIsUploading(true); // Immediate feedback
+      const reader = new FileReader();
+
+      reader.onloadend = async () => {
+        const dataUri = reader.result as string;
+        await processNewLogo(dataUri);
+      };
+
+      reader.onerror = () => {
+        setIsUploading(false);
+        toast({
+          title: 'Failed to read file',
+          description: 'Please try another image.',
+          variant: 'destructive'
+        });
+      };
+
       reader.readAsDataURL(file);
     }
   };
@@ -704,8 +756,8 @@ function Step2_Branding() {
                             className="w-full h-full"
                             style={{ backgroundColor: brandColors[role] }}
                           />
-                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <Pencil className="w-4 h-4 text-white" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Pencil className="w-4 h-4 text-white drop-shadow-md" />
                           </div>
                         </button>
                       </PopoverTrigger>
@@ -732,39 +784,75 @@ function Step2_Branding() {
         <div className="space-y-6">
           {/* Generator Control Card */}
           <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-5 flex flex-col justify-between gap-4 shadow-sm h-full min-h-[200px]">
-            <div className="text-left space-y-4">
-              <div className="flex items-center gap-2 text-amber-400">
-                <Sparkles className="w-5 h-5" />
-                <h3 className="font-semibold text-lg text-foreground">
-                  Need a Logo?
-                </h3>
-              </div>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Don't have a logo yet? No problem. Our AI can design a unique,
-                minimalist logo tailored to <strong>{businessName}</strong> in
-                seconds.
-              </p>
-              <ul className="text-xs text-muted-foreground space-y-2 list-disc pl-4">
-                <li>Instant generation</li>
-                <li>Auto-extracted brand colors</li>
-                <li>Professional vector style</li>
-              </ul>
-            </div>
-            <LogoGeneratorModal
-              isOpen={isGeneratorModalOpen}
-              onOpenChange={setIsGeneratorModalOpen}
-              onGenerate={handleGenerateLogo}
-              isGenerating={isGenerating}
-            >
-              <Button
-                type="button"
-                onClick={() => setIsGeneratorModalOpen(true)}
-                disabled={isLoading}
-                className="w-full bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black font-medium mt-auto border border-primary/10 shadow-sm"
-              >
-                Generate with AI
-              </Button>
-            </LogoGeneratorModal>
+            {currentLogoDataUri || logoUrl ? (
+              <>
+                <div className="text-left space-y-4">
+                  <div className="flex items-center gap-2 text-blue-400">
+                    <Wand2 className="w-5 h-5" />
+                    <h3 className="font-semibold text-lg text-foreground">
+                      Refine Logo
+                    </h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Make your logo pop by removing the background. This creates a
+                    clean, transparent look perfect for any website header.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleRemoveBackground}
+                  disabled={isUploading}
+                  className="w-full bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black font-medium mt-auto border border-primary/10 shadow-sm"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Eraser className="mr-2 h-4 w-4" />
+                      Remove Background
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="text-left space-y-4">
+                  <div className="flex items-center gap-2 text-amber-400">
+                    <Sparkles className="w-5 h-5" />
+                    <h3 className="font-semibold text-lg text-foreground">
+                      Need a Logo?
+                    </h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Don't have a logo yet? No problem. Our AI can design a unique,
+                    minimalist logo tailored to <strong>{businessName}</strong> in
+                    seconds.
+                  </p>
+                  <ul className="text-xs text-muted-foreground space-y-2 list-disc pl-4">
+                    <li>Instant generation</li>
+                    <li>Auto-extracted brand colors</li>
+                    <li>Professional vector style</li>
+                  </ul>
+                </div>
+                <LogoGeneratorModal
+                  isOpen={isGeneratorModalOpen}
+                  onOpenChange={setIsGeneratorModalOpen}
+                  onGenerate={handleGenerateLogo}
+                  isGenerating={isGenerating}
+                >
+                  <Button
+                    type="button"
+                    disabled={isLoading}
+                    className="w-full bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black font-medium mt-auto border border-primary/10 shadow-sm"
+                  >
+                    Generate with AI
+                  </Button>
+                </LogoGeneratorModal>
+              </>
+            )}
           </div>
         </div>
       </div>

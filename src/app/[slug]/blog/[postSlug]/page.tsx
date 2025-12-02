@@ -11,7 +11,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { escapeHtml, generateBlogPostSchema } from '@/lib/seo-utils';
+import {
+  generateBlogPostSchema,
+  generateBreadcrumbSchema,
+} from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 
 interface PageProps {
@@ -180,30 +183,20 @@ export default async function BlogPostPage({ params }: PageProps) {
   });
 
   // BreadcrumbList schema
-  const breadcrumbSchema = {
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: escapeHtml(merchant.business_name),
-        item: `https://${merchant.slug}.usebaci.com`,
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: 'Blog',
-        item: `https://${merchant.slug}.usebaci.com/blog`,
-      },
-      {
-        '@type': 'ListItem',
-        position: 3,
-        name: escapeHtml(post.title),
-        item: `https://${merchant.slug}.usebaci.com/blog/${post.slug}`,
-      },
-    ],
-  };
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    {
+      name: merchant.business_name,
+      url: `https://${merchant.slug}.usebaci.com`,
+    },
+    {
+      name: 'Blog',
+      url: `https://${merchant.slug}.usebaci.com/blog`,
+    },
+    {
+      name: post.title,
+      url: `https://${merchant.slug}.usebaci.com/blog/${post.slug}`,
+    },
+  ]);
 
   return (
     <>
