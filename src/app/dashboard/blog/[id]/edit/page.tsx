@@ -29,6 +29,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
+import { isSafeSlug } from '@/lib/validate-slug';
 
 interface PostFormData {
   title: string;
@@ -178,15 +179,15 @@ export default function EditBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
           : [],
         keywords: formData.keywords
           ? formData.keywords
-              .split(',')
-              .map((k) => k.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((k) => k.trim())
+            .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,
@@ -285,7 +286,7 @@ export default function EditBlogPostPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {formData.status === 'published' && merchant?.slug && (
+          {formData.status === 'published' && merchant?.slug && isSafeSlug(merchant.slug) && (
             <Button variant="outline" asChild>
               <a
                 href={`/${merchant.slug}/blog/${formData.slug}`}

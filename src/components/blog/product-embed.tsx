@@ -16,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatCurrency } from '@/lib/currency';
+import { isSafeSlug } from '@/lib/validate-slug';
 
 interface Product {
   id: string;
@@ -128,8 +129,8 @@ export function ProductEmbedPicker({
                 <div
                   key={product.id}
                   className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors ${selected.has(product.id)
-                      ? 'border-primary bg-primary/5'
-                      : ''
+                    ? 'border-primary bg-primary/5'
+                    : ''
                     }`}
                   onClick={() => toggleProduct(product.id)}
                 >
@@ -213,15 +214,34 @@ export function ProductCard({
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
-      <a
-        href={merchantSlug ? `/${merchantSlug}/products/${product.slug}` : '#'}
-      >
+      {merchantSlug && isSafeSlug(merchantSlug) ? (
+        <a href={`/${merchantSlug}/products/${product.slug}`}>
+          <div className="aspect-square relative overflow-hidden bg-muted">
+            {product.images?.[0] ? (
+              <img
+                src={product.images[0]}
+                alt={product.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <Package className="w-12 h-12 text-muted-foreground" />
+              </div>
+            )}
+            {hasDiscount && (
+              <Badge className="absolute top-2 right-2" variant="destructive">
+                -{discountPercentage}%
+              </Badge>
+            )}
+          </div>
+        </a>
+      ) : (
         <div className="aspect-square relative overflow-hidden bg-muted">
           {product.images?.[0] ? (
             <img
               src={product.images[0]}
               alt={product.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              className="w-full h-full object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -234,17 +254,17 @@ export function ProductCard({
             </Badge>
           )}
         </div>
-      </a>
+      )}
       <CardContent className="p-4">
-        <a
-          href={
-            merchantSlug ? `/${merchantSlug}/products/${product.slug}` : '#'
-          }
-        >
-          <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors">
-            {product.name}
-          </h3>
-        </a>
+        {merchantSlug && isSafeSlug(merchantSlug) ? (
+          <a href={`/${merchantSlug}/products/${product.slug}`}>
+            <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors">
+              {product.name}
+            </h3>
+          </a>
+        ) : (
+          <h3 className="font-semibold line-clamp-2">{product.name}</h3>
+        )}
         <div className="flex items-center gap-2 mt-2">
           <span className="font-bold text-lg">
             {formatCurrency(product.price)}
@@ -290,10 +310,10 @@ export function ProductGrid({
     <div className="my-8 not-prose">
       <div
         className={`grid gap-4 ${products.length === 1
-            ? 'grid-cols-1 max-w-sm mx-auto'
-            : products.length === 2
-              ? 'grid-cols-2 max-w-xl mx-auto'
-              : 'grid-cols-2 md:grid-cols-3'
+          ? 'grid-cols-1 max-w-sm mx-auto'
+          : products.length === 2
+            ? 'grid-cols-2 max-w-xl mx-auto'
+            : 'grid-cols-2 md:grid-cols-3'
           }`}
       >
         {products.map((product) => (

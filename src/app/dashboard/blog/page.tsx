@@ -60,6 +60,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useMerchantFeatures } from '@/hooks/use-merchant-features';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
+import { isSafeSlug } from '@/lib/validate-slug';
 
 interface BlogPost {
   id: string;
@@ -279,7 +280,7 @@ export default function BlogPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {merchant?.slug && (
+          {merchant?.slug && isSafeSlug(merchant.slug) && (
             <Button variant="outline" size="sm" asChild>
               <a
                 href={`/api/blog/feed/${merchant.slug}`}
@@ -462,7 +463,7 @@ export default function BlogPage() {
                           Edit
                         </Link>
                       </DropdownMenuItem>
-                      {post.status === 'published' && merchant?.slug && (
+                      {post.status === 'published' && merchant?.slug && isSafeSlug(merchant.slug) && (
                         <DropdownMenuItem asChild>
                           <a
                             href={`/${merchant.slug}/blog/${post.slug}`}

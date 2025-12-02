@@ -13,6 +13,7 @@ import { useStorefront } from '@/contexts/storefront-context';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute, routes } from '@/lib/routes';
+import { isSafeSlug } from '@/lib/validate-slug';
 import { SearchAutocomplete } from './search-autocomplete';
 
 /**
@@ -66,28 +67,50 @@ export function StorefrontHeader() {
           color: 'var(--theme-header-text, #000000)',
         }}
       >
-        <Link
-          href={routes.storefront(merchant.slug || '')}
-          className="flex items-center gap-3 font-semibold shrink-0"
-        >
-          {merchant.logo_url ? (
-            <Image
-              src={merchant.logo_url}
-              alt={`${merchant.business_name} logo`}
-              width={160}
-              height={48}
-              className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-[160px] object-contain"
-              priority
-            />
-          ) : (
-            <Logo />
-          )}
-          {!merchant.logo_url && (
-            <span className="hidden sm:inline-block">
-              {merchant.business_name}
-            </span>
-          )}
-        </Link>
+        {merchant.slug && isSafeSlug(merchant.slug) ? (
+          <Link
+            href={routes.storefront(merchant.slug)}
+            className="flex items-center gap-3 font-semibold shrink-0"
+          >
+            {merchant.logo_url ? (
+              <Image
+                src={merchant.logo_url}
+                alt={`${merchant.business_name} logo`}
+                width={160}
+                height={48}
+                className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-[160px] object-contain"
+                priority
+              />
+            ) : (
+              <Logo />
+            )}
+            {!merchant.logo_url && (
+              <span className="hidden sm:inline-block">
+                {merchant.business_name}
+              </span>
+            )}
+          </Link>
+        ) : (
+          <div className="flex items-center gap-3 font-semibold shrink-0">
+            {merchant.logo_url ? (
+              <Image
+                src={merchant.logo_url}
+                alt={`${merchant.business_name} logo`}
+                width={160}
+                height={48}
+                className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-[160px] object-contain"
+                priority
+              />
+            ) : (
+              <Logo />
+            )}
+            {!merchant.logo_url && (
+              <span className="hidden sm:inline-block">
+                {merchant.business_name}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex-1 flex justify-center px-4">
           <SearchAutocomplete
