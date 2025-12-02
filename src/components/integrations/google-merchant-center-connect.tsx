@@ -230,7 +230,7 @@ export function GoogleMerchantCenterConnect({
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: SVG props type
 function InfoIcon(props: any) {
   return (
     <svg
@@ -244,6 +244,7 @@ function InfoIcon(props: any) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <circle cx="12" cy="12" r="10" />
       <path d="M12 16v-4" />

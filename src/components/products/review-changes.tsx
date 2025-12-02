@@ -291,6 +291,7 @@ export function ReviewChanges() {
 
         {aiResponse.changes.map((change, index) => (
           <ChangeCard
+            // biome-ignore lint/suspicious/noArrayIndexKey: AI changes have no stable ID
             key={index}
             change={change}
             isSelected={selectedChanges.has(

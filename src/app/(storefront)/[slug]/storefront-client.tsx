@@ -198,10 +198,10 @@ function StorefrontContent() {
 
   const brandColors = merchant.brand_colors
     ? [
-      merchant.brand_colors.primary,
-      merchant.brand_colors.background,
-      merchant.brand_colors.accent,
-    ].filter(Boolean)
+        merchant.brand_colors.primary,
+        merchant.brand_colors.background,
+        merchant.brand_colors.accent,
+      ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -346,6 +346,7 @@ function StorefrontContent() {
                 return (
                   <button
                     key={stableKey}
+                    type="button"
                     onClick={() => api?.scrollTo(index)}
                     className={cn(
                       'h-2 w-2 rounded-full transition-all',

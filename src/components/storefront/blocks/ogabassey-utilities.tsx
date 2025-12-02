@@ -45,9 +45,9 @@ export function OgabasseyUtilities({
         {/* Center Icons */}
         <div className="flex-1 px-8">
           <div className="flex justify-around items-center w-full">
-            {services.map((service, index) => (
+            {services.map((service) => (
               <div
-                key={index}
+                key={service.label}
                 className="flex flex-col items-center gap-2 group cursor-pointer"
               >
                 <div className="text-red-500 group-hover:scale-110 transition-transform duration-300">

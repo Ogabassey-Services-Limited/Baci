@@ -279,6 +279,7 @@ export default function DashboardPage() {
             <div className="h-[60px] mt-4 flex items-end justify-between gap-1">
               {[40, 25, 60, 30, 70, 45, 20, 55, 35, 65].map((h, i) => (
                 <motion.div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: List is static
                   key={i}
                   initial={{ height: 0 }}
                   animate={{ height: `${h}%` }}

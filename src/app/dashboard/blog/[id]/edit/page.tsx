@@ -10,6 +10,7 @@ import {
   Send,
   X,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -179,15 +180,15 @@ export default function EditBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean)
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
           : [],
         keywords: formData.keywords
           ? formData.keywords
-            .split(',')
-            .map((k) => k.trim())
-            .filter(Boolean)
+              .split(',')
+              .map((k) => k.trim())
+              .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,
@@ -286,19 +287,21 @@ export default function EditBlogPostPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {formData.status === 'published' && merchant?.slug && isSafeSlug(merchant.slug) && (
-            <Button variant="outline" asChild>
-              <a
-                href={`/${merchant.slug}/blog/${formData.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                View Live
-                <ExternalLink className="w-3 h-3 ml-1" />
-              </a>
-            </Button>
-          )}
+          {formData.status === 'published' &&
+            merchant?.slug &&
+            isSafeSlug(merchant.slug) && (
+              <Button variant="outline" asChild>
+                <a
+                  href={`/${merchant.slug}/blog/${formData.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View Live
+                  <ExternalLink className="w-3 h-3 ml-1" />
+                </a>
+              </Button>
+            )}
           <Button
             variant="outline"
             onClick={() => savePost()}
@@ -447,12 +450,16 @@ export default function EditBlogPostPage() {
 
               {formData.featured_image_url && (
                 <div className="relative inline-block">
-                  <img
+                  <Image
                     src={formData.featured_image_url}
                     alt="Preview"
-                    className="max-w-md rounded-lg border"
+                    width={448}
+                    height={252}
+                    className="max-w-md rounded-lg border object-cover"
+                    unoptimized
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
                     }}
                   />
                   <Button

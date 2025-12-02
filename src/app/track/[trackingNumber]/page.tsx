@@ -290,7 +290,10 @@ export default function TrackingPage({
                 {/* Events */}
                 <div className="space-y-6">
                   {tracking.events.map((event, index) => (
-                    <div key={index} className="relative flex gap-4">
+                    <div
+                      // biome-ignore lint/suspicious/noArrayIndexKey: Tracking events from API have no stable ID
+                      key={index}
+                      className="relative flex gap-4">
                       {/* Dot */}
                       <div
                         className={cn(

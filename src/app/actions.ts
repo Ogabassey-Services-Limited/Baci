@@ -27,6 +27,7 @@ interface LandingMetrics {
   rating: number;
 }
 
+// biome-ignore lint/suspicious/useAwait: Server Actions must be async
 export async function getLandingMetrics(): Promise<LandingMetrics> {
   return unstable_cache(
     async () => {

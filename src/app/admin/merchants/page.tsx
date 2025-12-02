@@ -325,8 +325,9 @@ export default function MerchantsPage() {
         <CardContent>
           {loading ? (
             <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
+              {[...Array(3)].map((_, i) => (
                 <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton loaders are transient UI elements
                   key={i}
                   className="flex items-center gap-4 p-4 border rounded-lg"
                 >

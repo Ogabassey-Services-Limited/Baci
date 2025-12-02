@@ -79,17 +79,17 @@ export function AIInsightsPanel({
     activeCategory === 'overview'
       ? insights
       : insights.filter((insight) => {
-          const text = (insight.title + insight.description).toLowerCase();
-          const keywords: Record<string, string[]> = {
-            finance: ['revenue', 'sales', 'profit', 'cost', 'money'],
-            products: ['product', 'stock', 'inventory', 'selling'],
-            customers: ['customer', 'user', 'buyer', 'retention'],
-            marketing: ['campaign', 'ad', 'social', 'traffic', 'conversion'],
-          };
-          return (
-            keywords[activeCategory]?.some((k) => text.includes(k)) ?? true
-          );
-        });
+        const text = (insight.title + insight.description).toLowerCase();
+        const keywords: Record<string, string[]> = {
+          finance: ['revenue', 'sales', 'profit', 'cost', 'money'],
+          products: ['product', 'stock', 'inventory', 'selling'],
+          customers: ['customer', 'user', 'buyer', 'retention'],
+          marketing: ['campaign', 'ad', 'social', 'traffic', 'conversion'],
+        };
+        return (
+          keywords[activeCategory]?.some((k) => text.includes(k)) ?? true
+        );
+      });
 
   // Auto-rotate insights every 5 seconds
   useEffect(() => {
@@ -190,7 +190,9 @@ export function AIInsightsPanel({
         <div className="flex gap-1">
           {filteredInsights.map((_, idx) => (
             <button
+              // biome-ignore lint/suspicious/noArrayIndexKey: Pagination indicators have stable positions
               key={idx}
+              type="button"
               onClick={() => setCurrentIndex(idx)}
               aria-label={`View insight ${idx + 1}`}
               className={cn(

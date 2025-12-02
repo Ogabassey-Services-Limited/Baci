@@ -11,7 +11,7 @@ import {
   Plus,
   Search,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -61,12 +61,9 @@ export default function DomainsPage() {
   } | null>(null);
   const { toast } = useToast();
 
-  useEffect(() => {
-    fetchDomains();
-  }, []);
-
-  async function fetchDomains() {
+  const fetchDomains = useCallback(async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/domains');
       if (response.ok) {
         const data = await response.json();
@@ -74,10 +71,19 @@ export default function DomainsPage() {
       }
     } catch (error) {
       console.error('Error fetching domains:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch domains',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
-  }
+  }, [toast]);
+
+  useEffect(() => {
+    fetchDomains();
+  }, [fetchDomains]);
 
   const getStatusBadge = (status: Domain['status']) => {
     const variants: Record<
@@ -313,9 +319,9 @@ export default function DomainsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() =>
-                            (window.location.href = `/dashboard/domains/${domain.domain}`)
-                          }
+                          onClick={() => {
+                            window.location.href = `/dashboard/domains/${domain.domain}`;
+                          }}
                         >
                           Manage
                         </Button>

@@ -76,8 +76,8 @@ export function Footer({
                     All Products
                   </Link>
                 </li>
-                {quickLinks.map((link, index) => (
-                  <li key={index}>
+                {quickLinks.map((link) => (
+                  <li key={link.label}>
                     <Link
                       href={asRoute(link.url)}
                       className="hover:text-white transition-colors"

@@ -137,11 +137,10 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
         }
 
         // Storefront mode - load by slug
-        const businessNameFromSlug = slug.replace(/-/g, ' ');
         const { data, error } = await supabase
           .from('merchants')
           .select('*')
-          .ilike('business_name', businessNameFromSlug)
+          .eq('slug', slug)
           .single();
 
         if (error && error.code !== 'PGRST116') {

@@ -213,7 +213,9 @@ export function BusinessNameGeneratorModal({
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {generatedNames.map((name, index) => (
                   <button
+                    // biome-ignore lint/suspicious/noArrayIndexKey: Generated names don't have IDs
                     key={index}
+                    type="button"
                     onClick={() => handleSelectName(name)}
                     className="group relative flex items-center justify-center rounded-lg border bg-card p-4 text-center text-sm font-medium transition-all hover:border-primary hover:bg-primary/5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                   >

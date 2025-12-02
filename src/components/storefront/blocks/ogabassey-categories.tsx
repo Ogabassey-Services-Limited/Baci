@@ -36,9 +36,9 @@ export function OgabasseyCategories({
 
       <div className="w-full max-w-screen-lg mx-auto">
         <div className="flex flex-wrap justify-center md:justify-evenly gap-4 md:gap-8">
-          {categories.map((category, index) => (
+          {categories.map((category) => (
             <div
-              key={index}
+              key={category.label}
               className="flex flex-col items-center text-center group"
             >
               <Link

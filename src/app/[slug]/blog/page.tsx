@@ -1,9 +1,10 @@
 import { Calendar, Clock, Rss, User } from 'lucide-react';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,11 +22,11 @@ interface PageProps {
   searchParams: Promise<{ category?: string; page?: string }>;
 }
 
-async function getMerchantAndPosts(
+const getMerchantAndPosts = cache(async (
   merchantSlug: string,
   category?: string,
   page = 1
-) {
+) => {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const limit = 12;
@@ -87,7 +88,7 @@ async function getMerchantAndPosts(
     currentPage: page,
     totalPages: Math.ceil((count || 0) / limit),
   };
-}
+});
 
 export async function generateMetadata({
   params,

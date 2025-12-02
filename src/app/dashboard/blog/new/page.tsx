@@ -1,9 +1,10 @@
 'use client';
 
 import { ArrowLeft, Loader2, Save, Send, X } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BlogEditor } from '@/components/blog/blog-editor';
 import { ProductGrid } from '@/components/blog/product-embed';
 import { Button } from '@/components/ui/button';
@@ -68,6 +69,18 @@ export default function NewBlogPostPage() {
     seo_title: '',
     seo_description: '',
   });
+
+  // Update author name when merchant loads
+  useEffect(() => {
+    if (merchant?.business_name) {
+      setFormData((prev) => {
+        if (!prev.author_name) {
+          return { ...prev, author_name: merchant.business_name };
+        }
+        return prev;
+      });
+    }
+  }, [merchant?.business_name]);
   const [embeddedProducts, setEmbeddedProducts] = useState<Product[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('content');
@@ -142,9 +155,9 @@ export default function NewBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,
@@ -376,12 +389,16 @@ export default function NewBlogPostPage() {
 
               {formData.featured_image_url && (
                 <div className="relative inline-block">
-                  <img
+                  <Image
                     src={formData.featured_image_url}
                     alt="Preview"
-                    className="max-w-md rounded-lg border"
+                    width={448}
+                    height={252}
+                    className="max-w-md rounded-lg border object-cover"
+                    unoptimized
                     onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
                     }}
                   />
                   <Button

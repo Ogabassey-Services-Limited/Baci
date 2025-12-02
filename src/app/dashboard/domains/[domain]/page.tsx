@@ -518,7 +518,9 @@ export default function DomainDetailsPage() {
                       </TableRow>
                     ) : (
                       dnsRecords.map((record, index) => (
-                        <TableRow key={index}>
+                        <TableRow
+                          key={`${record.type}-${record.name}-${record.value}`}
+                        >
                           <TableCell>
                             <Badge variant="outline">{record.type}</Badge>
                           </TableCell>
@@ -599,8 +601,8 @@ export default function DomainDetailsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {forwards.map((forward, index) => (
-                    <TableRow key={index}>
+                  {forwards.map((forward) => (
+                    <TableRow key={`${forward.prefix}-${forward.forwardto}`}>
                       <TableCell>
                         {forward.prefix}@{domain}
                       </TableCell>

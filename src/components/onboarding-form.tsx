@@ -276,7 +276,7 @@ function Step1_BusinessDetails({
 function Step2_Branding() {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
-  const { watch, setValue, control } = form;
+  const { watch, setValue } = form;
 
   const businessName = watch('businessName');
   const businessType = watch('businessType');
@@ -318,7 +318,7 @@ function Step2_Branding() {
       img.src = imageDataUri;
       img.crossOrigin = 'Anonymous';
 
-      img.onload = async () => {
+      img.onload = () => {
         try {
           const palette = colorThief.getPalette(img, 8); // Get more colors to filter from
           const toHex = (rgb: number[]) =>
@@ -424,7 +424,7 @@ function Step2_Branding() {
     await Promise.all([uploadPromise, extractionPromise]);
   };
 
-  const handleLogoUpload = async (
+  const handleLogoUpload = (
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
     const file = event.target.files?.[0];
@@ -1145,7 +1145,9 @@ export default function OnboardingForm() {
             description: 'Please try logging in manually',
             variant: 'destructive',
           });
-          setTimeout(() => (window.location.href = '/login'), 2000);
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
         }
       });
     } else if (submissionState.message) {
@@ -1236,7 +1238,7 @@ export default function OnboardingForm() {
     setMagicLinkSent(true);
   };
 
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const values = form.getValues();
@@ -1309,8 +1311,7 @@ export default function OnboardingForm() {
         >
           <input type="hidden" {...form.register('logoUrl')} />
           <input type="hidden" {...form.register('brandColors')} />
-          <div
-            role="region"
+          <section
             aria-live="polite"
             aria-atomic="true"
             className="min-h-[250px]"
@@ -1334,7 +1335,7 @@ export default function OnboardingForm() {
                   user={user}
                 />
               ))}
-          </div>
+          </section>
           <OnboardingNavigation
             currentStep={step}
             totalSteps={totalSteps}

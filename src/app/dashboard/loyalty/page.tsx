@@ -12,7 +12,7 @@ import {
   // Star,
   Users,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -91,12 +91,7 @@ export default function LoyaltyProgramPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSettings();
-    fetchCustomers();
-  }, [fetchCustomers, fetchSettings]);
-
-  async function fetchSettings() {
+  const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch('/api/loyalty/settings');
       if (res.ok) {
@@ -106,9 +101,9 @@ export default function LoyaltyProgramPage() {
     } catch (error) {
       console.error('Failed to fetch loyalty settings:', error);
     }
-  }
+  }, []);
 
-  async function fetchCustomers(tier?: string | null) {
+  const fetchCustomers = useCallback(async (tier?: string | null) => {
     try {
       const params = new URLSearchParams();
       if (tier) params.set('tier', tier);
@@ -124,7 +119,12 @@ export default function LoyaltyProgramPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchSettings();
+    fetchCustomers();
+  }, [fetchSettings, fetchCustomers]);
 
   async function saveSettings() {
     if (!settings) return;

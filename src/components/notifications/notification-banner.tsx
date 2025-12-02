@@ -229,7 +229,7 @@ export function NotificationBannerStack({
                   variant="link"
                   size="sm"
                   className="h-auto p-0 mt-2 text-sm"
-                  onClick={() => window.open(banner.action_url!, '_blank')}
+                  onClick={() => window.open(banner.action_url ?? '', '_blank')}
                 >
                   {banner.action_label}
                   <ExternalLink className="h-3 w-3 ml-1" />

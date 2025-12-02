@@ -141,6 +141,7 @@ export function StickyAddToCart({
     >
       {/* Scroll to top button */}
       <button
+        type="button"
         onClick={scrollToTop}
         className={cn(
           'absolute -top-12 right-4 w-10 h-10 rounded-full',

@@ -33,12 +33,12 @@ interface TimelineEvent {
   description: string;
   timestamp: string;
   icon:
-  | 'order'
-  | 'payment'
-  | 'processing'
-  | 'shipped'
-  | 'delivered'
-  | 'cancelled';
+    | 'order'
+    | 'payment'
+    | 'processing'
+    | 'shipped'
+    | 'delivered'
+    | 'cancelled';
 }
 
 interface OrderItem {
@@ -315,10 +315,11 @@ export default function OrderTrackPage() {
                         </div>
                         {index < orderData.timeline.length - 1 && (
                           <div
-                            className={`absolute top-10 w-0.5 h-full ${event.status === 'completed'
+                            className={`absolute top-10 w-0.5 h-full ${
+                              event.status === 'completed'
                                 ? 'bg-green-500'
                                 : 'bg-gray-200'
-                              }`}
+                            }`}
                           />
                         )}
                       </div>

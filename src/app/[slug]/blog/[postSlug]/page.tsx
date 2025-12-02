@@ -2,22 +2,24 @@ import { ArrowLeft, Calendar, Clock, Tag, User } from 'lucide-react';
 import { marked } from 'marked';
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { asRoute } from '@/lib/routes';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { generateBlogPostSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
-import Image from 'next/image';
-import { sanitizeHtml } from '@/lib/sanitize';
+
+import { cache } from 'react';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
 }
 
-async function getPostData(merchantSlug: string, postSlug: string) {
+const getPostData = cache(async (merchantSlug: string, postSlug: string) => {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
@@ -55,7 +57,9 @@ async function getPostData(merchantSlug: string, postSlug: string) {
     .from('blog_posts')
     .update({ view_count: (post.view_count || 0) + 1 })
     .eq('id', post.id)
-    .then(() => { });
+    .then(({ error }) => {
+      if (error) console.error('Failed to update view count', error);
+    });
 
   // Get related posts (same category or matching tags)
   let relatedQuery = supabase
@@ -75,7 +79,7 @@ async function getPostData(merchantSlug: string, postSlug: string) {
   const { data: relatedPosts } = await relatedQuery;
 
   return { merchant, post, relatedPosts: relatedPosts || [] };
-}
+});
 
 export async function generateMetadata({
   params,

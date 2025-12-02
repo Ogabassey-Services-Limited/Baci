@@ -54,16 +54,19 @@ const LandingPage = () => {
 
           {/* Right Icons */}
           <div className="flex items-center gap-6">
-            <button className="hover:text-red-400 transition">
+            <button type="button" className="hover:text-red-400 transition">
               <Bell size={20} />
             </button>
-            <button className="relative hover:text-red-400 transition">
+            <button
+              type="button"
+              className="relative hover:text-red-400 transition"
+            >
               <ShoppingCart size={20} />
               <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full">
                 0
               </span>
             </button>
-            <button className="hover:text-red-400 transition">
+            <button type="button" className="hover:text-red-400 transition">
               <User size={20} />
             </button>
           </div>

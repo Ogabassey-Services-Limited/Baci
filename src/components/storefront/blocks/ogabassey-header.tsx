@@ -93,7 +93,10 @@ export function OgabasseyHeader({
         <div className="max-w-[1400px] mx-auto flex items-center justify-between gap-4 relative z-10">
           {/* Left: Menu & Logo */}
           <div className="flex items-center gap-4 shrink-0">
-            <button className="text-gray-400 hover:text-white transition-colors">
+            <button
+              type="button"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
               <LayoutGrid size={24} />
             </button>
 
@@ -175,9 +178,9 @@ export function OgabasseyHeader({
                             </h3>
                           </div>
                           <ul className="space-y-3">
-                            {results.map((item, idx) => (
+                            {results.map((item) => (
                               <li
-                                key={idx}
+                                key={item.name}
                                 className="flex justify-between items-start group cursor-pointer hover:bg-gray-50 p-2 rounded-md transition-colors"
                               >
                                 <div>
@@ -195,7 +198,10 @@ export function OgabasseyHeader({
                             ))}
                           </ul>
                           <div className="mt-4 pt-3 border-t border-gray-100 text-center">
-                            <button className="text-xs font-semibold text-red-600 hover:underline">
+                            <button
+                              type="button"
+                              className="text-xs font-semibold text-red-600 hover:underline"
+                            >
                               View all results
                             </button>
                           </div>
@@ -219,12 +225,18 @@ export function OgabasseyHeader({
           {/* Right Icons */}
           <div className="flex items-center gap-5 shrink-0 text-white/80">
             {showBell && (
-              <button className="relative hover:text-white transition-colors">
+              <button
+                type="button"
+                className="relative hover:text-white transition-colors"
+              >
                 <Bell size={22} />
               </button>
             )}
             {showCart && (
-              <button className="relative hover:text-white transition-colors">
+              <button
+                type="button"
+                className="relative hover:text-white transition-colors"
+              >
                 <ShoppingCart size={22} />
                 {cartCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[10px] font-bold h-4 w-4 rounded-full flex items-center justify-center border border-[#1a1a1a]">
@@ -234,7 +246,10 @@ export function OgabasseyHeader({
               </button>
             )}
             {showUser && (
-              <button className="hover:text-white transition-colors">
+              <button
+                type="button"
+                className="hover:text-white transition-colors"
+              >
                 <User size={22} />
               </button>
             )}

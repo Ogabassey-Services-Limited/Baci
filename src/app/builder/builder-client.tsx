@@ -505,9 +505,9 @@ export default function BuilderClient() {
                             newContent[componentIndex - 1],
                             newContent[componentIndex],
                           ] = [
-                              newContent[componentIndex],
-                              newContent[componentIndex - 1],
-                            ];
+                            newContent[componentIndex],
+                            newContent[componentIndex - 1],
+                          ];
                           setData({ ...data, content: newContent });
                         }
                       }}
@@ -518,9 +518,9 @@ export default function BuilderClient() {
                             newContent[componentIndex],
                             newContent[componentIndex + 1],
                           ] = [
-                              newContent[componentIndex + 1],
-                              newContent[componentIndex],
-                            ];
+                            newContent[componentIndex + 1],
+                            newContent[componentIndex],
+                          ];
                           setData({ ...data, content: newContent });
                         }
                       }}
@@ -570,6 +570,7 @@ export default function BuilderClient() {
                         componentIcons[componentName] || Box;
                       return (
                         <Drawer.Item
+                          // biome-ignore lint/suspicious/noArrayIndexKey: List is static
                           key={`${componentName}-${index}`}
                           name={componentName}
                         >
@@ -642,7 +643,7 @@ export default function BuilderClient() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleSave(data!)}
+                  onClick={() => data && handleSave(data)}
                   disabled={saving}
                   className="h-9"
                 >
@@ -840,34 +841,40 @@ export default function BuilderClient() {
                 <div className="h-12 bg-white border-b flex items-center justify-center gap-2 px-4 shrink-0">
                   <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
                     <button
+                      type="button"
                       onClick={() => setViewportWidth(375)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 375
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
+                        viewportWidth === 375
                           ? 'bg-white shadow-sm'
                           : 'hover:bg-white'
-                        }`}
+                      }`}
                       title="Mobile Portrait (375px)"
                     >
                       <Smartphone className="w-4 h-4 text-primary" />
                       <span className="text-xs font-medium">Mobile</span>
                     </button>
                     <button
+                      type="button"
                       onClick={() => setViewportWidth(768)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 768
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
+                        viewportWidth === 768
                           ? 'bg-white shadow-sm'
                           : 'hover:bg-white'
-                        }`}
+                      }`}
                       title="Tablet (768px)"
                     >
                       <Tablet className="w-4 h-4 text-primary" />
                       <span className="text-xs font-medium">Tablet</span>
                     </button>
                     <button
-                      onClick={() => setViewportWidth('100%')}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === '100%'
+                      type="button"
+                      onClick={() => setViewportWidth(1200)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
+                        viewportWidth === 1200
                           ? 'bg-white shadow-sm'
                           : 'hover:bg-white'
-                        }`}
-                      title="Desktop (1440px)"
+                      }`}
+                      title="Desktop (1200px)"
                     >
                       <Monitor className="w-4 h-4 text-primary" />
                       <span className="text-xs font-medium">Desktop</span>
@@ -911,6 +918,7 @@ export default function BuilderClient() {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"

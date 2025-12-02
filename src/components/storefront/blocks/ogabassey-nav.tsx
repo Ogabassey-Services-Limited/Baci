@@ -37,12 +37,12 @@ export function OgabasseyNav({
         <div className="flex items-center justify-between h-12">
           <nav className="flex-1 overflow-x-auto no-scrollbar">
             <ul className="flex items-center gap-6 whitespace-nowrap">
-              {links.map((link, index) => {
+              {links.map((link) => {
                 const isActive =
                   pathname === link.url || activeNav === link.label;
 
                 return (
-                  <li key={index}>
+                  <li key={link.label}>
                     <Link
                       href={asRoute(link.url)}
                       onClick={() => setActiveNav(link.label)}

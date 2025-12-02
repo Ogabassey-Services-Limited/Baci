@@ -40,12 +40,12 @@ export function CategoryIcons({ categories = [] }: CategoryIconsProps) {
   return (
     <section className="container mx-auto px-4 py-12">
       <div className="flex flex-wrap justify-center gap-8 md:gap-12">
-        {categories.map((cat, index) => {
+        {categories.map((cat) => {
           const Icon = iconMap[cat.icon.toLowerCase()] || Smartphone;
 
           return (
             <Link
-              key={index}
+              key={cat.label}
               href={asRoute(cat.link)}
               className="group flex flex-col items-center gap-3 min-w-[80px]"
             >

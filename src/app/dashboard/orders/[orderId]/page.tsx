@@ -121,7 +121,7 @@ export default function OrderDetailsPage() {
     });
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy code using any
   const handleFulfillmentConfirm = async (fulfillmentData: any) => {
     console.log('Fulfillment data received:', fulfillmentData);
     // Here you would typically save the fulfillmentData to your backend.

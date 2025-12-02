@@ -153,6 +153,7 @@ export default function FulfillmentDialog({
                   {Array.from({ length: item.quantity }).map(
                     (_, quantityIndex) => (
                       <div
+                        // biome-ignore lint/suspicious/noArrayIndexKey: List is static
                         key={quantityIndex}
                         className="space-y-4 p-3 bg-muted/50 rounded-md"
                       >
@@ -163,7 +164,7 @@ export default function FulfillmentDialog({
                           (field, fieldIndex) => {
                             const formFieldIndex =
                               quantityIndex *
-                              (item.product.fulfillmentFields?.length ?? 0) +
+                                (item.product.fulfillmentFields?.length ?? 0) +
                               fieldIndex;
                             const fieldName = `groups.${itemIndex}.fields.${formFieldIndex}.value`;
 
@@ -171,7 +172,7 @@ export default function FulfillmentDialog({
                               <FormField
                                 key={`${item.id}-${quantityIndex}-${field.name}`}
                                 control={form.control}
-                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                // biome-ignore lint/suspicious/noExplicitAny: Legacy code using any
                                 name={fieldName as any}
                                 render={({ field: formField }) => (
                                   <FormItem className="grid grid-cols-3 items-center gap-x-4 gap-y-1">

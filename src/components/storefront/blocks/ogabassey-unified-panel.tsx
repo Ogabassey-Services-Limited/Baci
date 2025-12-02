@@ -54,9 +54,9 @@ export function OgabasseyUnifiedPanel({
           {/* Center Icons */}
           <div className="flex-1 px-8">
             <div className="flex justify-around items-center w-full">
-              {categories.map((category, index) => (
+              {categories.map((category) => (
                 <div
-                  key={index}
+                  key={category.label}
                   className="flex flex-col items-center text-center group"
                 >
                   <Link
@@ -98,9 +98,9 @@ export function OgabasseyUnifiedPanel({
           <span className="text-base font-bold">Categories</span>
         </div>
         <div className="flex flex-wrap justify-center gap-4">
-          {categories.map((category, index) => (
+          {categories.map((category) => (
             <div
-              key={index}
+              key={category.label}
               className="flex flex-col items-center text-center group"
             >
               <Link

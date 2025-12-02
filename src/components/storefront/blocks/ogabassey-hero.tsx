@@ -58,7 +58,7 @@ export function OgabasseyHero({
           <div className="relative w-full h-full">
             {slides.map((slide, index) => (
               <div
-                key={index}
+                key={slide.image}
                 className={cn(
                   'absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out',
                   index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
@@ -74,6 +74,7 @@ export function OgabasseyHero({
                     fill
                     className="object-cover"
                     priority={index === 0}
+                    sizes="(max-width: 768px) 100vw, 80vw"
                   />
                 </Link>
               </div>
@@ -84,6 +85,7 @@ export function OgabasseyHero({
           {slides.length > 1 && (
             <>
               <button
+                type="button"
                 onClick={(e) => {
                   e.preventDefault();
                   goToPrevious();
@@ -94,6 +96,7 @@ export function OgabasseyHero({
                 <ChevronLeft className="w-6 h-6" />
               </button>
               <button
+                type="button"
                 onClick={(e) => {
                   e.preventDefault();
                   goToNext();
@@ -106,9 +109,10 @@ export function OgabasseyHero({
 
               {/* Dots navigation */}
               <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-20">
-                {slides.map((_, i) => (
+                {slides.map((slide, i) => (
                   <button
-                    key={i}
+                    type="button"
+                    key={`dot-${slide.image}`}
                     onClick={(e) => {
                       e.preventDefault();
                       setCurrentIndex(i);

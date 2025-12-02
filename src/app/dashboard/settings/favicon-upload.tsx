@@ -5,8 +5,8 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
-import { processFavicon } from '@/lib/favicon-processor';
-import { createClient } from '@/lib/supabase/client';
+import { uploadFavicon } from '@/app/dashboard/settings/actions';
+// import { createClient } from '@/lib/supabase/client'; // Not needed anymore
 
 export function FaviconUpload() {
   const [uploading, setUploading] = useState(false);
@@ -51,30 +51,21 @@ export function FaviconUpload() {
     setUploading(true);
 
     try {
-      // Process and upload
-      const result = await processFavicon(file, merchant.id);
+      const formData = new FormData();
+      formData.append('file', file);
 
-      // Update merchant record
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('merchants')
-        .update({
-          favicon_svg_url: result.svg_url,
-          favicon_png_32_url: result.png_32_url,
-          favicon_png_192_url: result.png_192_url,
-          favicon_apple_touch_url: result.apple_touch_url,
-          favicon_uploaded_at: new Date().toISOString(),
-        })
-        .eq('id', merchant.id);
+      const response = await uploadFavicon(formData, merchant.id);
 
-      if (error) throw error;
+      if (!response.success || !response.result) {
+        throw new Error(response.error || 'Upload failed');
+      }
 
       toast({
         title: 'Favicon updated',
         description: 'Your store favicon has been updated successfully',
       });
 
-      setPreview(result.png_32_url);
+      setPreview(response.result.png_32_url);
 
       // Refresh merchant data
       reloadMerchant();
@@ -82,7 +73,7 @@ export function FaviconUpload() {
       console.error('Favicon upload failed:', error);
       toast({
         title: 'Upload failed',
-        description: 'Could not update favicon. Please try again.',
+        description: error instanceof Error ? error.message : 'Could not update favicon. Please try again.',
         variant: 'destructive',
       });
     } finally {

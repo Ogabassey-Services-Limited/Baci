@@ -133,6 +133,7 @@ export function CookieConsent() {
                 size="sm"
                 onClick={() => setShowDetails(true)}
                 className="text-muted-foreground hover:text-foreground h-9"
+                type="button"
               >
                 Customize
               </Button>
@@ -171,6 +172,7 @@ export function CookieConsent() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowDetails(false)}
                 className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
                 aria-label="Close details"

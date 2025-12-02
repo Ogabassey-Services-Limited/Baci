@@ -9,9 +9,31 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import AppBody from '@/components/app-body';
 import { Cart } from '@/components/cart';
 import { Logo } from '@/components/logo';
-import { GadgetCustomTemplateOgabassey } from '@/components/storefront/templates/gadget-custom-template-ogabassey';
-import { GadgetDefaultTemplate } from '@/components/storefront/templates/gadget-default-template';
-import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
+import dynamic from 'next/dynamic';
+
+const GadgetCustomTemplateOgabassey = dynamic(
+  () =>
+    import(
+      '@/components/storefront/templates/gadget-custom-template-ogabassey'
+    ).then((mod) => mod.GadgetCustomTemplateOgabassey),
+  { loading: () => <div className="h-screen w-full bg-white" /> }
+);
+
+const GadgetDefaultTemplate = dynamic(
+  () =>
+    import('@/components/storefront/templates/gadget-default-template').then(
+      (mod) => mod.GadgetDefaultTemplate
+    ),
+  { loading: () => <div className="h-screen w-full bg-white" /> }
+);
+
+const PremiumDefaultTemplate = dynamic(
+  () =>
+    import('@/components/storefront/templates/premium-default').then(
+      (mod) => mod.PremiumDefaultTemplate
+    ),
+  { loading: () => <div className="h-screen w-full bg-white" /> }
+);
 import {
   ThemedBadge,
   ThemedButton,
@@ -148,10 +170,10 @@ export function StorefrontContent() {
 
   const brandColors = merchant.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -241,7 +263,10 @@ export function StorefrontContent() {
                     imageHint: 'store hero',
                   };
                   return (
-                    <CarouselItem key={index}>
+                    <CarouselItem
+                      // biome-ignore lint/suspicious/noArrayIndexKey: Carousel slides have stable positions
+                      key={index}
+                    >
                       <div className="w-full h-[60vh] md:h-[70vh] relative">
                         <Image
                           src={heroImage.imageUrl}
@@ -464,7 +489,7 @@ export function StorefrontContent() {
         </footer>
         <Cart />
       </Sheet>
-    </div>
+    </div >
   );
 }
 

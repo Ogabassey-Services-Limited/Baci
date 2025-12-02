@@ -47,7 +47,7 @@ export function PuckStorefront({ onNoConfig }: PuckStorefrontProps) {
           };
           if (configWithTheme.theme) {
             const { applyTheme } = await import('@/lib/theme-manager');
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // biome-ignore lint/suspicious/noExplicitAny: Theme structure is dynamic
             applyTheme(configWithTheme.theme as any);
           }
         } else {

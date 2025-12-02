@@ -163,6 +163,7 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
 
   return (
     <button
+      type="button"
       onClick={onClick}
       className={cn(
         'w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors border-b last:border-b-0',

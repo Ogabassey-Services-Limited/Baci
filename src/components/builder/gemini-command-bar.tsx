@@ -35,7 +35,7 @@ export function GeminiCommandBar({
   const [command, setCommand] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!command.trim()) return;
 
@@ -85,9 +85,9 @@ export function GeminiCommandBar({
                 <span>Try these suggestions:</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {SUGGESTIONS.slice(0, 6).map((suggestion, index) => (
+                {SUGGESTIONS.slice(0, 6).map((suggestion) => (
                   <button
-                    key={index}
+                    key={suggestion}
                     type="button"
                     onClick={() => handleSuggestionClick(suggestion)}
                     className="text-xs px-2.5 py-1.5 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition-colors"
@@ -161,9 +161,9 @@ export function GeminiCommandBar({
                 <span>Quick suggestions:</span>
               </div>
               <div className="flex flex-wrap gap-2">
-                {SUGGESTIONS.slice(0, 8).map((suggestion, index) => (
+                {SUGGESTIONS.slice(0, 8).map((suggestion) => (
                   <button
-                    key={index}
+                    key={suggestion}
                     type="button"
                     onClick={() => handleSuggestionClick(suggestion)}
                     className="text-sm px-3 py-1.5 rounded-lg bg-white hover:bg-purple-50 text-purple-700 border border-purple-200 hover:border-purple-300 transition-all shadow-sm hover:shadow"

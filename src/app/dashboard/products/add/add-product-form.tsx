@@ -146,9 +146,9 @@ export default function AddProductForm({
   const [colorTags, setColorTags] = useState<string[]>(
     initialData?.color
       ? initialData.color
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
       : []
   );
   const [colorImages, setColorImages] = useState<Record<string, string>>({});
@@ -564,9 +564,9 @@ export default function AddProductForm({
 
     const keywordsArray = data.keywords
       ? data.keywords
-          .split(',')
-          .map((k) => k.trim())
-          .filter(Boolean)
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean)
       : [];
 
     const productData: Product = {
@@ -792,7 +792,7 @@ export default function AddProductForm({
                     <FormField
                       key={fieldKey}
                       control={form.control}
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      // biome-ignore lint/suspicious/noExplicitAny: Dynamic field names from business type config require any
                       name={formFieldName as any} // Cast as any due to dynamic field names
                       render={({ field }) => (
                         <FormItem>
@@ -1217,12 +1217,12 @@ export default function AddProductForm({
                                   (t) => !tags.includes(t)
                                 );
 
-                                newTags.forEach((tag) =>
-                                  handleAddColorTag(tag)
-                                );
-                                removedTags.forEach((tag) =>
-                                  handleRemoveColorTag(tag)
-                                );
+                                newTags.forEach((tag) => {
+                                  handleAddColorTag(tag);
+                                });
+                                removedTags.forEach((tag) => {
+                                  handleRemoveColorTag(tag);
+                                });
                               }}
                             />
                           </div>
@@ -1507,9 +1507,9 @@ export default function AddProductForm({
                             value={
                               field.value
                                 ? field.value
-                                    .split(',')
-                                    .map((k: string) => k.trim())
-                                    .filter(Boolean)
+                                  .split(',')
+                                  .map((k: string) => k.trim())
+                                  .filter(Boolean)
                                 : []
                             }
                             onChange={(tags) => field.onChange(tags.join(', '))}

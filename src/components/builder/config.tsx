@@ -1713,10 +1713,12 @@ export const builderConfig: Config<
               </div>
               <div
                 className="flex gap-1 text-yellow-400"
+                role="img"
                 aria-label={`Rating: ${rating} out of 5 stars`}
               >
                 {[...Array(5)].map((_, i) => (
                   <Star
+                    // biome-ignore lint/suspicious/noArrayIndexKey: Stars are static and stable
                     key={`star-${i}`}
                     className={cn('w-4 h-4', {
                       'fill-current': i < rating,
@@ -2305,7 +2307,7 @@ export const builderConfig: Config<
             {socialIcons.map(({ Icon, url, name }) => (
               <Link
                 key={name}
-                href={asRoute(url!)}
+                href={asRoute(url || '#')}
                 className="text-muted-foreground hover:text-primary transition-colors"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -2480,58 +2482,52 @@ export const builderConfig: Config<
               </div>
               {style === 'accordion' && (
                 <div className="max-w-2xl mx-auto space-y-3">
-                  {items.map(
-                    (
-                      item: { question: string; answer: string }
-                    ) => (
-                      <details key={item.question} className="group border rounded-lg">
-                        <summary className="flex justify-between items-center cursor-pointer p-4 font-medium hover:bg-muted/50 transition-colors">
-                          {item.question}
-                          <span className="ml-2 transform group-open:rotate-180 transition-transform">
-                            ▼
-                          </span>
-                        </summary>
-                        <div className="p-4 pt-0 text-muted-foreground">
-                          {item.answer}
-                        </div>
-                      </details>
-                    )
-                  )}
+                  {items.map((item: { question: string; answer: string }) => (
+                    <details
+                      key={item.question}
+                      className="group border rounded-lg"
+                    >
+                      <summary className="flex justify-between items-center cursor-pointer p-4 font-medium hover:bg-muted/50 transition-colors">
+                        {item.question}
+                        <span className="ml-2 transform group-open:rotate-180 transition-transform">
+                          ▼
+                        </span>
+                      </summary>
+                      <div className="p-4 pt-0 text-muted-foreground">
+                        {item.answer}
+                      </div>
+                    </details>
+                  ))}
                 </div>
               )}
               {style === 'grid' && (
                 <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-                  {items.map(
-                    (
-                      item: { question: string; answer: string }
-                    ) => (
-                      <div
-                        key={item.question}
-                        className="p-6 border rounded-lg bg-card"
-                      >
-                        <h3 className="font-semibold text-lg mb-2">
-                          {item.question}
-                        </h3>
-                        <p className="text-muted-foreground">{item.answer}</p>
-                      </div>
-                    )
-                  )}
+                  {items.map((item: { question: string; answer: string }) => (
+                    <div
+                      key={item.question}
+                      className="p-6 border rounded-lg bg-card"
+                    >
+                      <h3 className="font-semibold text-lg mb-2">
+                        {item.question}
+                      </h3>
+                      <p className="text-muted-foreground">{item.answer}</p>
+                    </div>
+                  ))}
                 </div>
               )}
               {style === 'list' && (
                 <div className="max-w-2xl mx-auto space-y-6">
-                  {items.map(
-                    (
-                      item: { question: string; answer: string }
-                    ) => (
-                      <div key={item.question} className="border-b pb-6 last:border-0">
-                        <h3 className="font-semibold text-lg mb-2">
-                          {item.question}
-                        </h3>
-                        <p className="text-muted-foreground">{item.answer}</p>
-                      </div>
-                    )
-                  )}
+                  {items.map((item: { question: string; answer: string }) => (
+                    <div
+                      key={item.question}
+                      className="border-b pb-6 last:border-0"
+                    >
+                      <h3 className="font-semibold text-lg mb-2">
+                        {item.question}
+                      </h3>
+                      <p className="text-muted-foreground">{item.answer}</p>
+                    </div>
+                  ))}
                 </div>
               )}
             </section>
@@ -2661,23 +2657,19 @@ export const builderConfig: Config<
                         !isHorizontal && 'max-w-2xl mx-auto'
                       )}
                     >
-                      {stats.map(
-                        (
-                          stat: { value: string; label: string }
-                        ) => (
-                          <div key={stat.label} className="text-center">
-                            <p
-                              className="text-3xl font-bold"
-                              style={{ color: 'var(--store-primary)' }}
-                            >
-                              {stat.value}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {stat.label}
-                            </p>
-                          </div>
-                        )
-                      )}
+                      {stats.map((stat: { value: string; label: string }) => (
+                        <div key={stat.label} className="text-center">
+                          <p
+                            className="text-3xl font-bold"
+                            style={{ color: 'var(--store-primary)' }}
+                          >
+                            {stat.value}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {stat.label}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -2877,14 +2869,12 @@ export const builderConfig: Config<
                   )}
                 >
                   {contactInfo?.map(
-                    (
-                      info: {
-                        icon: string;
-                        label: string;
-                        value: string;
-                        link?: string;
-                      }
-                    ) => (
+                    (info: {
+                      icon: string;
+                      label: string;
+                      value: string;
+                      link?: string;
+                    }) => (
                       <div key={info.label} className="flex items-start gap-4">
                         <div className="p-3 rounded-lg bg-[var(--store-primary)]/10">
                           {renderIcon(info.icon, {
@@ -3028,9 +3018,7 @@ export const builderConfig: Config<
                 )}
                 <div className="prose dark:prose-invert max-w-none space-y-8">
                   {sections?.map(
-                    (
-                      section: { heading: string; content: string }
-                    ) => (
+                    (section: { heading: string; content: string }) => (
                       <div key={section.heading}>
                         <h2 className="text-2xl font-semibold mb-3">
                           {section.heading}
@@ -3371,13 +3359,11 @@ export const builderConfig: Config<
                 )}
               >
                 {badges?.map(
-                  (
-                    badge: {
-                      icon: string;
-                      title: string;
-                      description?: string;
-                    }
-                  ) => (
+                  (badge: {
+                    icon: string;
+                    title: string;
+                    description?: string;
+                  }) => (
                     <div
                       key={badge.title}
                       className={cn(
@@ -3393,7 +3379,8 @@ export const builderConfig: Config<
                           'rounded-full flex items-center justify-center',
                           style === 'cards' && 'mb-4 w-16 h-16 bg-primary/10',
                           style === 'minimal' && 'w-12 h-12 bg-primary/10',
-                          style === 'icons-only' && 'mb-2 w-12 h-12 bg-primary/10'
+                          style === 'icons-only' &&
+                          'mb-2 w-12 h-12 bg-primary/10'
                         )}
                         style={{
                           color: 'var(--store-primary)',
@@ -3506,6 +3493,7 @@ export const builderConfig: Config<
           }
         };
 
+        // biome-ignore lint/complexity/noUselessFragments: TypeScript requires JSX.Element return
         if (isDismissed) return <></>;
 
         return (
@@ -3540,8 +3528,9 @@ export const builderConfig: Config<
               </div>
               {dismissible && (
                 <button
+                  type="button"
                   onClick={handleDismiss}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:opacity-70 transition-opacity"
+                  className="absolute top-2 right-2 p-1 bg-white/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                   aria-label="Dismiss announcement"
                 >
                   <svg
@@ -3550,6 +3539,7 @@ export const builderConfig: Config<
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
+                    <title>Dismiss</title>
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"

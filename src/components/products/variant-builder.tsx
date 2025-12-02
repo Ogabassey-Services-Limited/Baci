@@ -361,10 +361,10 @@ export function VariantBuilder({
       const updated = variants.map((v) =>
         v.attributes.color === color
           ? {
-              ...v,
-              primary_image: enhancedPhotoDataUri,
-              images: [enhancedPhotoDataUri],
-            }
+            ...v,
+            primary_image: enhancedPhotoDataUri,
+            images: [enhancedPhotoDataUri],
+          }
           : v
       );
       setVariants(updated);
@@ -552,7 +552,7 @@ export function VariantBuilder({
               base price.
             </p>
             <div className="space-y-2">
-              {specCombos.map((combo, index) => {
+              {specCombos.map((combo) => {
                 const variantWithSpec = variants.find((v) =>
                   Object.entries(combo.attributes).every(
                     ([key, value]) => v.attributes[key] === value
@@ -560,7 +560,7 @@ export function VariantBuilder({
                 );
                 return (
                   <div
-                    key={index}
+                    key={combo.label}
                     className="flex items-center gap-3 p-3 border rounded-lg bg-card"
                   >
                     <p className="flex-1 font-medium text-sm">
@@ -578,8 +578,8 @@ export function VariantBuilder({
                         value={
                           variantWithSpec?.price_override != null
                             ? new Intl.NumberFormat('en-US').format(
-                                variantWithSpec.price_override
-                              )
+                              variantWithSpec.price_override
+                            )
                             : ''
                         }
                         onChange={(e) => {

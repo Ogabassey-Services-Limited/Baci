@@ -61,6 +61,10 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: '*.supabase.co',
       },
+      {
+        protocol: 'https',
+        hostname: '*.googleusercontent.com',
+      },
     ],
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
@@ -76,7 +80,7 @@ const nextConfig: NextConfig = {
     inlineCss: true,
 
     // Enable optimized CSS bundling
-    optimizeCss: false,
+    optimizeCss: true,
 
     // Server Actions configuration
     serverActions: {

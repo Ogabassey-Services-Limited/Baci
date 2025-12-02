@@ -236,7 +236,12 @@ export function CSVBulkImportDialog({
                         <p className="text-xs font-medium">Errors:</p>
                         <ul className="text-xs list-disc list-inside space-y-1">
                           {result.errors.slice(0, 5).map((error, index) => (
-                            <li key={index}>{error}</li>
+                            <li
+                              // biome-ignore lint/suspicious/noArrayIndexKey: Error messages have no stable ID
+                              key={index}
+                            >
+                              {error}
+                            </li>
                           ))}
                           {result.errors.length > 5 && (
                             <li>

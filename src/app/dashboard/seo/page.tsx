@@ -13,7 +13,7 @@ import {
   // AlertTriangle,
   XCircle,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -100,11 +100,7 @@ export default function SEOOptimizerPage() {
   const [optimizing, setOptimizing] = useState(false);
   const [showOptimized, setShowOptimized] = useState(false);
 
-  useEffect(() => {
-    fetchSEOStatus();
-  }, [fetchSEOStatus]);
-
-  async function fetchSEOStatus() {
+  const fetchSEOStatus = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/ai/seo-optimizer');
@@ -118,7 +114,11 @@ export default function SEOOptimizerPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchSEOStatus();
+  }, [fetchSEOStatus]);
 
   async function optimizeSelected() {
     if (selectedProducts.length === 0) return;
@@ -400,9 +400,9 @@ export default function SEOOptimizerPage() {
                         </Badge>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {opt.optimized.keywords.map((kw, i) => (
+                        {opt.optimized.keywords.map((kw) => (
                           <Badge
-                            key={i}
+                            key={kw}
                             variant="secondary"
                             className="text-xs"
                           >
@@ -491,8 +491,12 @@ export default function SEOOptimizerPage() {
                   <TableCell>
                     {product.issues.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {product.issues.slice(0, 2).map((issue, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">
+                        {product.issues.slice(0, 2).map((issue) => (
+                          <Badge
+                            key={issue}
+                            variant="outline"
+                            className="text-xs"
+                          >
                             {issue}
                           </Badge>
                         ))}

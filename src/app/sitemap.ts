@@ -25,7 +25,7 @@ async function fetchActiveMerchants() {
 }
 
 // Fetch blog posts from database (or CMS in future)
-async function fetchBlogPosts() {
+function fetchBlogPosts() {
   // TODO: Replace with actual blog posts table when implemented
   // For now, return static posts
   return [

@@ -97,6 +97,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.8",
+    "@modelcontextprotocol/server-github": "^2025.4.8",
     "@next/bundle-analyzer": "^16.0.5",
     "@next/eslint-plugin-next": "^16.0.3",
     "@tailwindcss/container-queries": "^0.1.1",

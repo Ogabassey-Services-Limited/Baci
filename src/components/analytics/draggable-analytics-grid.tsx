@@ -247,6 +247,7 @@ export function DraggableAnalyticsGrid({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
             <div
+              // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
               key={i}
               className="h-32 bg-muted/10 rounded-2xl border border-border/50 overflow-hidden relative"
             >
@@ -264,6 +265,7 @@ export function DraggableAnalyticsGrid({
               <div className="h-full w-full flex items-end gap-2 pb-8">
                 {[40, 65, 45, 80, 55, 70].map((h, i) => (
                   <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
                     key={i}
                     className="flex-1 bg-muted/20 rounded-t"
                     style={{ height: `${h}%` }}

@@ -54,7 +54,7 @@ export function HeroCarousel({
       >
         <CarouselContent className="h-full">
           {slides.map((slide, index) => (
-            <CarouselItem key={index} className="h-full relative">
+            <CarouselItem key={slide.title} className="h-full relative">
               {/* Background Image with Parallax-like Zoom */}
               <div className="absolute inset-0">
                 <Image

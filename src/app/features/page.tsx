@@ -75,6 +75,7 @@ export default function FeaturesPage() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {features.map((feature, i) => (
                 <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: List is static
                   key={i}
                   className="p-8 rounded-2xl border border-border bg-card hover:shadow-lg transition-shadow"
                 >

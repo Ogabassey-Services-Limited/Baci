@@ -69,8 +69,8 @@ export function ProductGridSkeleton({
 
   return (
     <div className={cn('grid gap-4 md:gap-6', gridCols[columns], className)}>
-      {/* biome-ignore lint/suspicious/noArrayIndexKey: Skeleton loaders render identical temporary items that never reorder (React best practice) */}
       {Array.from({ length: count }).map((_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
         <ProductCardSkeleton key={i} />
       ))}
     </div>
@@ -83,8 +83,8 @@ export function ProductGridSkeleton({
 export function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
   return (
     <tr className="border-b">
-      {/* biome-ignore lint/suspicious/noArrayIndexKey: Skeleton table cells are identical and stateless */}
       {Array.from({ length: columns }).map((_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
         <td key={i} className="p-4">
           <Skeleton className="h-4 w-full" />
         </td>
@@ -110,8 +110,8 @@ export function TableSkeleton({
       <table className="w-full">
         <thead>
           <tr className="border-b bg-muted/50">
-            {/* biome-ignore lint/suspicious/noArrayIndexKey: Skeleton table headers are identical placeholders */}
             {Array.from({ length: columns }).map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
               <th key={i} className="p-4 text-left">
                 <Skeleton className="h-4 w-20" />
               </th>
@@ -119,8 +119,8 @@ export function TableSkeleton({
           </tr>
         </thead>
         <tbody>
-          {/* biome-ignore lint/suspicious/noArrayIndexKey: Skeleton table rows are identical placeholders */}
           {Array.from({ length: rows }).map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
             <TableRowSkeleton key={i} columns={columns} />
           ))}
         </tbody>
@@ -157,8 +157,8 @@ export function StatsGridSkeleton({
 }) {
   return (
     <div className={cn('grid gap-4 md:grid-cols-2 lg:grid-cols-4', className)}>
-      {/* biome-ignore lint/suspicious/noArrayIndexKey: Skeleton stats cards are identical temporary placeholders */}
       {Array.from({ length: count }).map((_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
         <StatsCardSkeleton key={i} />
       ))}
     </div>
@@ -175,8 +175,8 @@ export function ProductDetailSkeleton({ className }: { className?: string }) {
       <div className="space-y-4">
         <Skeleton className="aspect-square w-full rounded-lg" />
         <div className="flex gap-2">
-          {/* biome-ignore lint/suspicious/noArrayIndexKey: Skeleton thumbnail images are identical placeholders */}
           {Array.from({ length: 4 }).map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
             <Skeleton key={i} className="w-20 h-20 rounded-md" />
           ))}
         </div>
@@ -232,8 +232,8 @@ export function CartSkeleton({
 }) {
   return (
     <div className={cn('space-y-0', className)}>
-      {/* biome-ignore lint/suspicious/noArrayIndexKey: Skeleton cart items are identical temporary placeholders */}
       {Array.from({ length: items }).map((_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
         <CartItemSkeleton key={i} />
       ))}
       <div className="p-4 space-y-3">
@@ -290,8 +290,8 @@ export function OrderSummarySkeleton({ className }: { className?: string }) {
     <div className={cn('p-6 rounded-lg border bg-card space-y-4', className)}>
       <Skeleton className="h-6 w-32" />
       <div className="space-y-3">
-        {/* biome-ignore lint/suspicious/noArrayIndexKey: Skeleton summary rows are identical placeholders */}
         {Array.from({ length: 3 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
           <div key={i} className="flex justify-between">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-4 w-16" />
@@ -322,8 +322,8 @@ export function StorefrontHeaderSkeleton({
         <div className="flex items-center justify-between">
           <Skeleton className="h-10 w-32" />
           <div className="hidden md:flex gap-6">
-            {/* biome-ignore lint/suspicious/noArrayIndexKey: Skeleton nav links are identical placeholders */}
             {Array.from({ length: 4 }).map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
               <Skeleton key={i} className="h-4 w-16" />
             ))}
           </div>
@@ -439,8 +439,8 @@ export function OrdersPageSkeleton({ className }: { className?: string }) {
         </div>
       </div>
       <div className="flex gap-2 mb-4">
-        {/* biome-ignore lint/suspicious/noArrayIndexKey: Skeleton filter badges are identical placeholders */}
         {Array.from({ length: 5 }).map((_, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
           <Skeleton key={i} className="h-8 w-20 rounded-full" />
         ))}
       </div>

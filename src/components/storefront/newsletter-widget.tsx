@@ -144,6 +144,7 @@ export function NewsletterWidget({
   if (isMinimized) {
     return (
       <button
+        type="button"
         onClick={handleExpand}
         className={cn(
           'fixed z-40 w-12 h-12 rounded-full shadow-lg',
@@ -185,6 +186,7 @@ export function NewsletterWidget({
       {/* Close and minimize buttons */}
       <div className="absolute top-2 right-2 flex gap-1">
         <button
+          type="button"
           onClick={handleMinimize}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="Minimize"
@@ -204,6 +206,7 @@ export function NewsletterWidget({
           </svg>
         </button>
         <button
+          type="button"
           onClick={handleDismiss}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="Close newsletter signup"

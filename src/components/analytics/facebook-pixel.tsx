@@ -33,7 +33,7 @@ export function FacebookPixel({ pixelId }: FacebookPixelProps) {
 
   return (
     <>
-      <Script id="facebook-pixel" strategy="afterInteractive">
+      <Script id="facebook-pixel" strategy="lazyOnload">
         {`
                     !function(f,b,e,v,n,t,s)
                     {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -49,6 +49,7 @@ export function FacebookPixel({ pixelId }: FacebookPixelProps) {
       </Script>
       <noscript>
         {/* eslint-disable-next-line @next/next/no-img-element -- Tracking pixel must use <img>, not <Image> */}
+        {/* biome-ignore lint/performance/noImgElement: Tracking pixel in noscript must use standard img tag */}
         <img
           height="1"
           width="1"

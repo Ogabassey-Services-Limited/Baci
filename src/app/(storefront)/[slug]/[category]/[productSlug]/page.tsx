@@ -143,13 +143,13 @@ export async function generateMetadata({
       images: product.images?.length
         ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
         : [
-          {
-            url: product.imageLarge || product.image,
-            width: 800,
-            height: 600,
-            alt: product.name,
-          },
-        ],
+            {
+              url: product.imageLarge || product.image,
+              width: 800,
+              height: 600,
+              alt: product.name,
+            },
+          ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,

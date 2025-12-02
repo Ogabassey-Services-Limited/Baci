@@ -49,10 +49,10 @@ export function FAQPageClient({
   // Filter FAQs based on search
   const filteredFAQs = searchQuery
     ? faqItems.filter(
-      (faq) =>
-        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+        (faq) =>
+          faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : faqItems;
 
   // Group FAQs by category

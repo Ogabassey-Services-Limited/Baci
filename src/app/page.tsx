@@ -41,6 +41,7 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
     <div className="group">
       <dt className="mb-3">
         <button
+          type="button"
           onClick={() => setIsOpen(!isOpen)}
           aria-expanded={isOpen}
           className="flex w-full items-start justify-between text-left glass p-6 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-accent/50 transition-all"
@@ -49,14 +50,16 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
             {question}
           </span>
           <ChevronDown
-            className={`w-5 h-5 text-accent flex-shrink-0 mt-1 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''
-              }`}
+            className={`w-5 h-5 text-accent flex-shrink-0 mt-1 transition-transform duration-300 ${
+              isOpen ? 'rotate-180' : ''
+            }`}
           />
         </button>
       </dt>
       <dd
-        className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-96 opacity-100 px-6 pb-4' : 'max-h-0 opacity-0'
-          }`}
+        className={`overflow-hidden transition-all duration-300 ${
+          isOpen ? 'max-h-96 opacity-100 px-6 pb-4' : 'max-h-0 opacity-0'
+        }`}
       >
         <p className="text-muted-foreground leading-relaxed pt-2">{answer}</p>
       </dd>
@@ -308,8 +311,8 @@ function BaciLandingPage() {
                   description:
                     'Get actionable insights on sales, visitors, and conversion rates instantly.',
                 },
-              ].map((feature, i) => (
-                <li key={i}>
+              ].map((feature) => (
+                <li key={feature.title}>
                   <article className="h-full p-8 rounded-2xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                     <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
                       {feature.icon}
@@ -370,7 +373,7 @@ function BaciLandingPage() {
                   icon: <CheckCircle2 className="w-8 h-8 text-accent" />,
                 },
               ].map((step, i) => (
-                <li key={i} className="relative">
+                <li key={step.step} className="relative">
                   <article className="h-full p-8 rounded-2xl glass border border-slate-200 dark:border-slate-800 transition-all duration-300 group">
                     <div className="flex items-center gap-4 mb-6">
                       <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
@@ -500,8 +503,12 @@ function BaciLandingPage() {
                   answer:
                     'Yes! Baci supports both physical products (with inventory tracking and shipping) and digital products (instant delivery via secure download links). You can sell both types in the same store.',
                 },
-              ].map((faq, i) => (
-                <FAQItem key={i} question={faq.question} answer={faq.answer} />
+              ].map((faq) => (
+                <FAQItem
+                  key={faq.question}
+                  question={faq.question}
+                  answer={faq.answer}
+                />
               ))}
             </dl>
 

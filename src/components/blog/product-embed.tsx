@@ -1,7 +1,8 @@
 'use client';
 
 import { Loader2, Package, Search, ShoppingCart } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -46,31 +47,27 @@ export function ProductEmbedPicker({
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds));
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      fetchProducts();
-    }
-  }, [open]);
-
-  async function fetchProducts(query = '') {
+  const fetchProducts = useCallback(async (query = '') => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
       if (query) params.set('search', query);
-      params.set('status', 'active');
-      params.set('limit', '50');
-
-      const response = await fetch(`/api/products?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setProducts(data.products || data || []);
-      }
+      const res = await fetch(`/api/products?${params.toString()}`);
+      if (!res.ok) throw new Error('Failed to fetch products');
+      const data = await res.json();
+      setProducts(data.products || []);
     } catch (error) {
-      console.error('Failed to fetch products:', error);
+      console.error('Error fetching products:', error);
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      fetchProducts();
+    }
+  }, [open, fetchProducts]);
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -126,23 +123,32 @@ export function ProductEmbedPicker({
           ) : (
             <div className="space-y-2">
               {products.map((product) => (
-                <div
+                <button
                   key={product.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors ${selected.has(product.id)
-                    ? 'border-primary bg-primary/5'
-                    : ''
-                    }`}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors w-full text-left ${
+                    selected.has(product.id)
+                      ? 'border-primary bg-primary/5'
+                      : ''
+                  }`}
                   onClick={() => toggleProduct(product.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      toggleProduct(product.id);
+                    }
+                  }}
+                  type="button"
                 >
                   <Checkbox
                     checked={selected.has(product.id)}
                     onCheckedChange={() => toggleProduct(product.id)}
                   />
                   {product.images?.[0] ? (
-                    <img
+                    <Image
                       src={product.images[0]}
                       alt={product.name}
-                      className="w-12 h-12 object-cover rounded"
+                      width={48}
+                      height={48}
+                      className="object-cover rounded"
                     />
                   ) : (
                     <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
@@ -161,7 +167,7 @@ export function ProductEmbedPicker({
                         )}
                     </p>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -209,7 +215,7 @@ export function ProductCard({
   const hasDiscount =
     product.compare_at_price && product.compare_at_price > product.price;
   const discountPercentage = hasDiscount
-    ? Math.round((1 - product.price / product.compare_at_price!) * 100)
+    ? Math.round((1 - product.price / (product.compare_at_price ?? 1)) * 100)
     : 0;
 
   return (
@@ -218,10 +224,12 @@ export function ProductCard({
         <a href={`/${merchantSlug}/products/${product.slug}`}>
           <div className="aspect-square relative overflow-hidden bg-muted">
             {product.images?.[0] ? (
-              <img
+              <Image
                 src={product.images[0]}
                 alt={product.name}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                fill
+                sizes="(max-width: 768px) 50vw, 33vw"
+                className="object-cover group-hover:scale-105 transition-transform duration-300"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
@@ -238,10 +246,12 @@ export function ProductCard({
       ) : (
         <div className="aspect-square relative overflow-hidden bg-muted">
           {product.images?.[0] ? (
-            <img
+            <Image
               src={product.images[0]}
               alt={product.name}
-              className="w-full h-full object-cover"
+              fill
+              sizes="(max-width: 768px) 50vw, 33vw"
+              className="object-cover"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -271,7 +281,7 @@ export function ProductCard({
           </span>
           {hasDiscount && (
             <span className="text-sm text-muted-foreground line-through">
-              {formatCurrency(product.compare_at_price!)}
+              {formatCurrency(product.compare_at_price ?? 0)}
             </span>
           )}
         </div>
@@ -309,12 +319,13 @@ export function ProductGrid({
   return (
     <div className="my-8 not-prose">
       <div
-        className={`grid gap-4 ${products.length === 1
-          ? 'grid-cols-1 max-w-sm mx-auto'
-          : products.length === 2
-            ? 'grid-cols-2 max-w-xl mx-auto'
-            : 'grid-cols-2 md:grid-cols-3'
-          }`}
+        className={`grid gap-4 ${
+          products.length === 1
+            ? 'grid-cols-1 max-w-sm mx-auto'
+            : products.length === 2
+              ? 'grid-cols-2 max-w-xl mx-auto'
+              : 'grid-cols-2 md:grid-cols-3'
+        }`}
       >
         {products.map((product) => (
           <ProductCard

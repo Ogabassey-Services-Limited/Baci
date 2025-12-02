@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle, Upload, X } from 'lucide-react';
+import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
 import { type FileRejection, useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
@@ -140,7 +141,7 @@ export function FileUploader({
           </div>
           <ul className="list-disc list-inside space-y-1 text-xs">
             {errors.map((err, i) => (
-              <li key={i}>{err}</li>
+              <li key={`${err}-${i}`}>{err}</li>
             ))}
           </ul>
         </div>
@@ -150,14 +151,16 @@ export function FileUploader({
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {previews.map((src, index) => (
             <div
-              key={index}
+              key={src}
               className="relative group aspect-square rounded-md overflow-hidden border bg-muted"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={src}
                 alt={`Preview ${index + 1}`}
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                fill
+                className="object-cover transition-transform group-hover:scale-105"
+                unoptimized
               />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <Button

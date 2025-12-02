@@ -86,7 +86,7 @@ export function DomainSearch() {
     }
   };
 
-  const handlePurchase = async (domain: string) => {
+  const handlePurchase = (domain: string) => {
     // TODO: Implement purchase flow with payment
     alert(`Purchase flow for ${domain} - Coming soon!`);
   };

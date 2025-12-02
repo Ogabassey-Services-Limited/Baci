@@ -110,12 +110,12 @@ export function InlineContextMenu({
                 size="sm"
                 className="h-8 w-8 p-0 hover:bg-opacity-10 transition-all"
                 style={{ color: '#2a2c6e' }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = '#2a2c6e10')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = 'transparent')
-                }
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#2a2c6e10';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
                 onClick={() => handleAction(onEdit)}
               >
                 <Settings className="w-4 h-4" />
@@ -134,12 +134,12 @@ export function InlineContextMenu({
                 size="sm"
                 className="h-8 w-8 p-0 transition-all"
                 style={{ color: '#2a2c6e' }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = '#2a2c6e10')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = 'transparent')
-                }
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#2a2c6e10';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
                 onClick={() => handleAction(onDuplicate)}
               >
                 <Copy className="w-4 h-4" />
@@ -158,14 +158,14 @@ export function InlineContextMenu({
                 size="sm"
                 className="h-8 w-8 p-0 transition-all disabled:opacity-30"
                 style={{ color: '#2a2c6e' }}
-                onMouseEnter={(e) =>
-                  !canMoveUp
-                    ? null
-                    : (e.currentTarget.style.backgroundColor = '#2a2c6e10')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = 'transparent')
-                }
+                onMouseEnter={(e) => {
+                  if (canMoveUp) {
+                    e.currentTarget.style.backgroundColor = '#2a2c6e10';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
                 onClick={() => handleAction(onMoveUp)}
                 disabled={!canMoveUp}
               >
@@ -185,14 +185,14 @@ export function InlineContextMenu({
                 size="sm"
                 className="h-8 w-8 p-0 transition-all disabled:opacity-30"
                 style={{ color: '#2a2c6e' }}
-                onMouseEnter={(e) =>
-                  !canMoveDown
-                    ? null
-                    : (e.currentTarget.style.backgroundColor = '#2a2c6e10')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = 'transparent')
-                }
+                onMouseEnter={(e) => {
+                  if (canMoveDown) {
+                    e.currentTarget.style.backgroundColor = '#2a2c6e10';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
                 onClick={() => handleAction(onMoveDown)}
                 disabled={!canMoveDown}
               >
@@ -217,12 +217,12 @@ export function InlineContextMenu({
                 size="sm"
                 className="h-8 w-8 p-0 transition-all"
                 style={{ color: '#dc2626' }}
-                onMouseEnter={(e) =>
-                  (e.currentTarget.style.backgroundColor = '#dc262610')
-                }
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.backgroundColor = 'transparent')
-                }
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#dc262610';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
                 onClick={() => handleAction(onDelete)}
               >
                 <Trash2 className="w-4 h-4" />
@@ -243,12 +243,12 @@ export function InlineContextMenu({
                     size="sm"
                     className="h-8 w-8 p-0 transition-all"
                     style={{ color: '#2a2c6e' }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.backgroundColor = '#2a2c6e10')
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.backgroundColor = 'transparent')
-                    }
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#2a2c6e10';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>

@@ -19,7 +19,7 @@ export function AiCommandBar({
 }: AiCommandBarProps) {
   const [command, setCommand] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!command.trim()) return;
 

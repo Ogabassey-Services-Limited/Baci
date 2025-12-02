@@ -177,9 +177,9 @@ export function Header({
                 'order-1 mr-auto': layout === 'logo-center',
               })}
             >
-              {navigationLinks.map((link, index) => (
+              {navigationLinks.map((link) => (
                 <Link
-                  key={index}
+                  key={link.label}
                   href={asRoute(link.url)}
                   className="text-sm font-medium hover:opacity-70 transition-opacity"
                 >
@@ -253,7 +253,10 @@ export function Header({
 
             {showCart && (
               <SheetTrigger asChild>
-                <button className="relative p-2 hover:bg-black/5 rounded-full transition-colors group">
+                <button
+                  type="button"
+                  className="relative p-2 hover:bg-black/5 rounded-full transition-colors group"
+                >
                   <ShoppingBag className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   {cartCount > 0 && (
                     <span className="absolute top-0 right-0 h-4 w-4 bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center rounded-full shadow-sm animate-in zoom-in">
@@ -266,6 +269,7 @@ export function Header({
 
             {showMenu && (
               <button
+                type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="md:hidden p-2 hover:bg-black/5 rounded-full transition-colors"
               >
@@ -303,9 +307,9 @@ export function Header({
                 <Link href="/" onClick={() => setMobileMenuOpen(false)}>
                   Home
                 </Link>
-                {navigationLinks.map((link, index) => (
+                {navigationLinks.map((link) => (
                   <Link
-                    key={index}
+                    key={link.label}
                     href={asRoute(link.url)}
                     onClick={() => setMobileMenuOpen(false)}
                   >

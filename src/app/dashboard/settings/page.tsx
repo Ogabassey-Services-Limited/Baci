@@ -197,7 +197,7 @@ export default function SettingsPage() {
     setHeroSlides(newSlides);
   };
 
-  const handleHeroImageUpload = async (
+  const handleHeroImageUpload = (
     index: number,
     event: React.ChangeEvent<HTMLInputElement>
   ) => {
@@ -241,9 +241,7 @@ export default function SettingsPage() {
     setHeroSlides(heroSlides.filter((_, i) => i !== index));
   };
 
-  const handleLogoUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -411,7 +409,8 @@ export default function SettingsPage() {
                           >
                             <Popover>
                               <PopoverTrigger asChild>
-                                <div
+                                <button
+                                  type="button"
                                   className="w-12 h-12 rounded-full border-2 cursor-pointer relative group"
                                   aria-label={`Edit ${role} color`}
                                 >
@@ -427,7 +426,7 @@ export default function SettingsPage() {
                                   <div className="absolute inset-0 bg-black/30 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Pencil className="w-5 h-5 text-white" />
                                   </div>
-                                </div>
+                                </button>
                               </PopoverTrigger>
                               <PopoverContent className="w-auto">
                                 <ColorPicker

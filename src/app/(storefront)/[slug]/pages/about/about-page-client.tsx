@@ -290,7 +290,10 @@ export function AboutPageClient({
                           </h2>
                           <div className="space-y-6">
                             {aboutPage.milestones.map((milestone) => (
-                              <div key={`${milestone.year}-${milestone.title}`} className="flex gap-4">
+                              <div
+                                key={`${milestone.year}-${milestone.title}`}
+                                className="flex gap-4"
+                              >
                                 <div className="shrink-0 w-20 text-right">
                                   <span className="font-bold text-primary">
                                     {milestone.year}

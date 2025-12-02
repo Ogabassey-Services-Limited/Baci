@@ -244,6 +244,7 @@ export default function AdminDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {loading ? (
           [...Array(4)].map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
             <Card key={i} className="p-6">
               <Skeleton className="h-4 w-24 mb-4" />
               <Skeleton className="h-8 w-32 mb-2" />
@@ -288,6 +289,7 @@ export default function AdminDashboardPage() {
       <div className="grid gap-4 md:grid-cols-3">
         {loading ? (
           [...Array(3)].map((_, i) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
             <Card key={i} className="p-6">
               <Skeleton className="h-4 w-24 mb-4" />
               <Skeleton className="h-8 w-32 mb-2" />
@@ -466,8 +468,8 @@ export default function AdminDashboardPage() {
                       nameKey="name"
                       stroke="none"
                     >
-                      {healthData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      {healthData.map((entry) => (
+                        <Cell key={`cell-${entry.name}`} fill={entry.color} />
                       ))}
                     </Pie>
                     <Tooltip
@@ -584,6 +586,7 @@ export default function AdminDashboardPage() {
           {loading ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton
                 <div key={i} className="flex items-center gap-4">
                   <Skeleton className="h-10 w-10 rounded-full" />
                   <div className="flex-1">

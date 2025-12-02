@@ -119,6 +119,7 @@ export function GadgetDefaultTemplate() {
                     Discover our premium collection tailored just for you.
                   </p>
                   <button
+                    type="button"
                     className={cn(
                       'px-8 py-4 text-lg font-medium transition-transform hover:scale-105',
                       radiusClass
@@ -149,6 +150,7 @@ export function GadgetDefaultTemplate() {
                     offer.
                   </p>
                   <button
+                    type="button"
                     className={cn(
                       'px-8 py-4 text-lg font-medium flex items-center gap-2 transition-all hover:gap-4',
                       radiusClass

@@ -138,13 +138,19 @@ export async function generateMetadata(
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
 
+  // Only include slug in URL path for localhost (development)
+  // For subdomains (merchant.usebaci.com) and custom domains (merchant.com), 
+  // the merchant identity is in the domain itself, not the path
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+  const urlPrefix = isLocalhost ? `/${slug}` : '';
+
   // Construct canonical URL:
   // 1. Use explicit canonical from product data if available
   // 2. OR build the base path and strip noisy params using constructCanonicalUrl
   let canonicalUrl = product.canonical_url;
 
   if (!canonicalUrl) {
-    const basePath = `${baseUrl}/products/${product.slug || product.id}`;
+    const basePath = `${baseUrl}${urlPrefix}/products/${product.slug || product.id}`;
     // For product pages, we generally want to strip ALL query params to consolidate authority
     // unless specific params change the content significantly (e.g. variant=123)
     // passing ['variant'] to allowedParams if your variants have unique URLs
@@ -220,6 +226,10 @@ export default async function ProductPage({ params }: PageProps) {
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
 
+  // Only include slug in URL path for localhost (development)
+  const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+  const urlPrefix = isLocalhost ? `/${slug}` : '';
+
   // Generate product schema (now handles merging custom schema_markup internally)
   const productSchema = generateProductSchema(
     product,
@@ -229,7 +239,7 @@ export default async function ProductPage({ params }: PageProps) {
 
   // Add URL to the schema offers (sanitized to prevent XSS)
   if (productSchema.offers) {
-    const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
+    const productUrl = `${baseUrl}${urlPrefix}/products/${product.slug || product.id}`;
     productSchema.offers.url = escapeHtml(productUrl);
   }
 
@@ -245,13 +255,13 @@ export default async function ProductPage({ params }: PageProps) {
   }
 
   // Generate breadcrumb schema using helper function (sanitization handled in generateBreadcrumbSchema)
-  const productUrl = `${baseUrl}/products/${product.slug || product.id}`;
+  const productUrl = `${baseUrl}${urlPrefix}/products/${product.slug || product.id}`;
   const categoryUrl = product.category
-    ? `${baseUrl}/products?category=${encodeURIComponent(product.category)}`
-    : `${baseUrl}/products`;
+    ? `${baseUrl}${urlPrefix}/products?category=${encodeURIComponent(product.category)}`
+    : `${baseUrl}${urlPrefix}/products`;
 
   const breadcrumbItems = [
-    { name: merchant?.business_name || 'Home', url: baseUrl },
+    { name: merchant?.business_name || 'Home', url: `${baseUrl}${urlPrefix}` },
     { name: product.category || 'All Products', url: categoryUrl },
     { name: product.name, url: productUrl },
   ];

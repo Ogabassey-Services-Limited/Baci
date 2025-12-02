@@ -332,15 +332,25 @@ export function OnboardingPuckPreview({
     }
 
     const loadData = async () => {
-      const data = await generatePreviewTemplate({
-        businessName: businessName || 'Your Store',
-        businessType: businessType || 'other',
-        logoDataUri: logoDataUri ?? null,
-        brandColors,
-      });
+      try {
+        const data = await generatePreviewTemplate({
+          businessName: businessName || 'Your Store',
+          businessType: businessType || 'other',
+          logoDataUri: logoDataUri ?? null,
+          brandColors,
+        });
 
-      if (isMounted) {
-        setPuckData(data);
+        if (isMounted) {
+          setPuckData(data);
+        }
+      } catch (error) {
+        // Log error but don't crash - preview is non-critical
+        console.error('Failed to generate preview template:', error);
+
+        // Set null to show fallback UI
+        if (isMounted) {
+          setPuckData(null);
+        }
       }
     };
 

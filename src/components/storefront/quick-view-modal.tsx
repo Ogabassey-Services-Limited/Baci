@@ -154,6 +154,7 @@ export function QuickViewModal({
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
         {/* Close button */}
         <button
+          type="button"
           onClick={onClose}
           className="absolute right-4 top-4 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           aria-label="Close"
@@ -185,6 +186,7 @@ export function QuickViewModal({
               <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
                 {allImages.map((img, idx) => (
                   <button
+                    type="button"
                     key={idx}
                     onClick={() => setSelectedImage(img.url)}
                     className={cn(
@@ -265,6 +267,7 @@ export function QuickViewModal({
 
                         return (
                           <button
+                            type="button"
                             key={value}
                             onClick={() => handleAttributeChange(key, value)}
                             disabled={!isAvailable}

@@ -22,6 +22,7 @@ export function DidYouMeanBanner({
         <span className="font-semibold">&quot;{originalQuery}&quot;</span>. Did
         you mean{' '}
         <button
+          type="button"
           onClick={() => onSuggestionClick(suggestion)}
           className="font-semibold text-primary underline-offset-4 hover:underline"
         >

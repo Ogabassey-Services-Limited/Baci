@@ -24,11 +24,11 @@ export function CategoryTabs({ links, className }: CategoryTabsProps) {
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center gap-8 overflow-x-auto no-scrollbar py-4 -mb-px">
-          {links.map((link, index) => {
+          {links.map((link) => {
             const isActive = pathname === link.url;
             return (
               <Link
-                key={index}
+                key={link.label}
                 href={link.url as '/'}
                 className={cn(
                   'text-sm font-medium whitespace-nowrap transition-colors pb-1 border-b-2',

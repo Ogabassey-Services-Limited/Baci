@@ -310,6 +310,7 @@ export default function SystemHealthPage() {
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
                 <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton loader
                   key={i}
                   className="flex items-center gap-4 p-4 border rounded-lg"
                 >
@@ -324,9 +325,9 @@ export default function SystemHealthPage() {
             </div>
           ) : health?.health && health.health.length > 0 ? (
             <div className="space-y-3">
-              {health.health.map((check, index) => (
+              {health.health.map((check) => (
                 <div
-                  key={index}
+                  key={check.check_name}
                   className="flex items-center gap-4 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   {getStatusIcon(check.status)}
@@ -376,8 +377,8 @@ export default function SystemHealthPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {health.indexRecommendations.map((rec, index) => (
-                    <TableRow key={index}>
+                  {health.indexRecommendations.map((rec) => (
+                    <TableRow key={`${rec.table_name}-${rec.index_name}`}>
                       <TableCell className="font-mono text-sm">
                         {rec.table_name}
                       </TableCell>
@@ -419,12 +420,12 @@ export default function SystemHealthPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {health.missingIndexes.map((index, i) => (
+              {health.missingIndexes.map((indexName) => (
                 <div
-                  key={i}
+                  key={indexName}
                   className="p-3 bg-amber-500/5 rounded-lg border border-amber-500/20"
                 >
-                  <code className="text-sm font-mono">{index}</code>
+                  <code className="text-sm font-mono">{indexName}</code>
                 </div>
               ))}
             </div>

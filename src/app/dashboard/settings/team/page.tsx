@@ -250,7 +250,7 @@ export default function TeamSettingsPage() {
     }
   };
 
-  const handleRemoveStaff = async (staffId: string, email: string) => {
+  const handleRemoveStaff = (staffId: string, email: string) => {
     setStaffToRemove({ id: staffId, email });
     setRemoveDialogOpen(true);
   };
@@ -501,6 +501,7 @@ export default function TeamSettingsPage() {
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
                 <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton loaders are transient UI elements
                   key={i}
                   className="flex items-center gap-4 p-4 border rounded-lg"
                 >
@@ -603,9 +604,9 @@ export default function TeamSettingsPage() {
                               onClick={() => {
                                 const newRole = prompt(
                                   `Change role for ${member.email}. Current: ${ROLE_LABELS[member.role]}\n\nAvailable roles:\n` +
-                                    Object.entries(ROLE_LABELS)
-                                      .map(([k, v]) => `${k}: ${v}`)
-                                      .join('\n'),
+                                  Object.entries(ROLE_LABELS)
+                                    .map(([k, v]) => `${k}: ${v}`)
+                                    .join('\n'),
                                   member.role
                                 );
                                 if (newRole && newRole in ROLE_LABELS) {

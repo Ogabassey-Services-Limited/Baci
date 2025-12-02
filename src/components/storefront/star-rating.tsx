@@ -50,6 +50,7 @@ export function StarRating({
 
         return (
           <button
+            // biome-ignore lint/suspicious/noArrayIndexKey: Stars have stable order
             key={index}
             type="button"
             onClick={() => handleClick(index)}
@@ -58,7 +59,7 @@ export function StarRating({
             className={cn(
               'relative transition-transform',
               interactive &&
-                'cursor-pointer hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded',
+              'cursor-pointer hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1 rounded',
               !interactive && 'cursor-default'
             )}
             aria-label={

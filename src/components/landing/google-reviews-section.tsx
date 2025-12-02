@@ -1,6 +1,7 @@
 'use client';
 
 import { ExternalLink, Quote, Star } from 'lucide-react';
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { escapeHtml } from '@/lib/sanitize-core';
 
@@ -61,15 +62,15 @@ function StarRating({
   };
 
   return (
-    <div className="flex" aria-label={`${rating} out of 5 stars`}>
+    <div className="flex" role="img" aria-label={`${rating} out of 5 stars`}>
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
           className={`${sizeClasses[size]} ${star <= rating
-              ? 'fill-yellow-400 text-yellow-400'
-              : star - 0.5 <= rating
-                ? 'fill-yellow-400/50 text-yellow-400'
-                : 'text-gray-300 dark:text-gray-600'
+            ? 'fill-yellow-400 text-yellow-400'
+            : star - 0.5 <= rating
+              ? 'fill-yellow-400/50 text-yellow-400'
+              : 'text-gray-300 dark:text-gray-600'
             }`}
         />
       ))}
@@ -97,8 +98,9 @@ function ReviewCard({ review }: { review: GoogleReview }) {
         {isLong && !expanded && '...'}&rdquo;
         {isLong && (
           <button
+            type="button"
             onClick={() => setExpanded(!expanded)}
-            className="text-accent hover:underline ml-1 text-sm font-medium"
+            className="text-primary hover:underline text-sm font-medium mt-2"
           >
             {expanded ? 'Show less' : 'Read more'}
           </button>
@@ -107,11 +109,12 @@ function ReviewCard({ review }: { review: GoogleReview }) {
 
       <div className="flex items-center gap-3 mt-auto pt-4 border-t border-slate-100 dark:border-slate-800">
         {review.authorPhoto ? (
-          <img
+          <Image
             src={review.authorPhoto}
             alt=""
-            className="w-10 h-10 rounded-full object-cover"
-            loading="lazy"
+            width={40}
+            height={40}
+            className="rounded-full object-cover"
           />
         ) : (
           <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
@@ -258,6 +261,7 @@ export function GoogleReviewsSection({
               className="w-5 h-5"
               viewBox="0 0 24 24"
               xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
             >
               <path
                 fill="#4285F4"

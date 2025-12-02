@@ -59,6 +59,7 @@ export function AnalyticsCategoryNav({
 
         return (
           <button
+            type="button"
             key={category.id}
             onClick={() => onCategoryChange(category.id)}
             className={cn(

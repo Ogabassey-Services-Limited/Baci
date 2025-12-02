@@ -1,11 +1,19 @@
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
 
 // Reserved subdomains that should not be treated as merchant stores
-const RESERVED_SUBDOMAINS = new Set(['www', 'app', 'api', 'admin', 'dashboard', 'mail', 'smtp']);
+const RESERVED_SUBDOMAINS = new Set([
+  'www',
+  'app',
+  'api',
+  'admin',
+  'dashboard',
+  'mail',
+  'smtp',
+]);
 
 // Valid subdomain pattern: alphanumeric and hyphens, 1-63 chars, no leading/trailing hyphens
 const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
@@ -48,7 +56,10 @@ function isValidSubdomain(subdomain: string): boolean {
  * Safely check if hostname is a subdomain of a given parent domain
  * This prevents attacks like "evilusebaci.com" matching "usebaci.com"
  */
-function extractSubdomain(hostname: string, parentDomain: string): string | null {
+function extractSubdomain(
+  hostname: string,
+  parentDomain: string
+): string | null {
   const normalizedHost = normalizeHostname(hostname);
   const normalizedParent = parentDomain.toLowerCase();
   const expectedSuffix = `.${normalizedParent}`;
@@ -76,7 +87,10 @@ function isRootDomain(hostname: string, rootDomain: string): boolean {
   const normalizedHost = normalizeHostname(hostname);
   const normalizedRoot = rootDomain.toLowerCase();
 
-  return normalizedHost === normalizedRoot || normalizedHost === `www.${normalizedRoot}`;
+  return (
+    normalizedHost === normalizedRoot ||
+    normalizedHost === `www.${normalizedRoot}`
+  );
 }
 
 /**
@@ -140,7 +154,9 @@ function isValidCustomDomain(hostname: string): boolean {
  * - Storefront routes: Public merchant pages (relaxed CSP for ISR/SSG)
  * - API routes: Backend endpoints (basic CSP)
  */
-function getRouteType(pathname: string): 'admin' | 'auth' | 'storefront' | 'api' {
+function getRouteType(
+  pathname: string
+): 'admin' | 'auth' | 'storefront' | 'api' {
   if (
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/builder') ||
@@ -170,7 +186,10 @@ function getRouteType(pathname: string): 'admin' | 'auth' | 'storefront' | 'api'
  * - Admin/Auth: Nonce-based CSP (strict, requires SSR)
  * - Storefront: Relaxed CSP (allows ISR/SSG caching)
  */
-function generateCSP(routeType: 'admin' | 'auth' | 'storefront' | 'api', nonce?: string): string {
+function generateCSP(
+  routeType: 'admin' | 'auth' | 'storefront' | 'api',
+  nonce?: string
+): string {
   const baseDirectives = {
     'default-src': "'self'",
     'img-src': "'self' blob: data: https:",
@@ -186,7 +205,8 @@ function generateCSP(routeType: 'admin' | 'auth' | 'storefront' | 'api', nonce?:
       ...baseDirectives,
       'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://maps.googleapis.com https://vercel.live https://va.vercel-scripts.com`,
       'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
-      'connect-src': "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
+      'connect-src':
+        "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
       'frame-src': "'self' https://checkout.korapay.com",
       'form-action': "'self'",
       'frame-ancestors': "'self'",
@@ -199,9 +219,11 @@ function generateCSP(routeType: 'admin' | 'auth' | 'storefront' | 'api', nonce?:
     // Relaxed CSP for merchant storefronts (allows ISR/SSG)
     return Object.entries({
       ...baseDirectives,
-      'script-src': "'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com",
+      'script-src':
+        "'self' 'unsafe-inline' https://vercel.live https://va.vercel-scripts.com",
       'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
-      'connect-src': "'self' https://*.supabase.co https://vitals.vercel-insights.com",
+      'connect-src':
+        "'self' https://*.supabase.co https://vitals.vercel-insights.com",
     })
       .map(([key, value]) => `${key} ${value}`.trim())
       .join('; ');
@@ -232,32 +254,46 @@ export function middleware(request: NextRequest) {
     // In development, use path-based routing: localhost:3000/ogabassey/...
     // The (storefront)/[slug] routes handle this
     subdomain = null;
-  } else if ((subdomain = extractSubdomain(hostname, ROOT_DOMAIN)) !== null) {
-    // Production subdomain: ogabassey.usebaci.com
-    // subdomain already extracted and validated by extractSubdomain
-  } else if (isRootDomain(hostname, ROOT_DOMAIN) || isVercelPreview(hostname)) {
-    // Root domain or Vercel preview - no subdomain, standard routing
-    subdomain = null;
-  } else if (isValidCustomDomain(hostname)) {
-    // Custom domain: ogabassey.com - validated format
-    // Let the page resolve merchant by domain lookup
-    const response = NextResponse.next();
-    response.headers.set('x-custom-domain', normalizeHostname(hostname));
-
-    // Generate route-specific CSP
-    const routeType = getRouteType(pathname);
-    const nonce = (routeType === 'admin' || routeType === 'auth') ? crypto.randomUUID() : undefined;
-
-    return applySecurityHeaders(response, pathname, userAgent, routeType, nonce);
   } else {
-    // Invalid/suspicious hostname - reject
-    return new NextResponse('Bad Request', { status: 400 });
+    const extractedSubdomain = extractSubdomain(hostname, ROOT_DOMAIN);
+    if (extractedSubdomain !== null) {
+      subdomain = extractedSubdomain;
+    } else if (
+      isRootDomain(hostname, ROOT_DOMAIN) ||
+      isVercelPreview(hostname)
+    ) {
+      // Root domain or Vercel preview - no subdomain, standard routing
+      subdomain = null;
+    } else if (isValidCustomDomain(hostname)) {
+      // Custom domain: ogabassey.com - validated format
+      // Let the page resolve merchant by domain lookup
+      const response = NextResponse.next();
+      response.headers.set('x-custom-domain', normalizeHostname(hostname));
+
+      // Generate route-specific CSP
+      const routeType = getRouteType(pathname);
+      const nonce =
+        routeType === 'admin' || routeType === 'auth'
+          ? crypto.randomUUID()
+          : undefined;
+
+      return applySecurityHeaders(
+        response,
+        pathname,
+        userAgent,
+        routeType,
+        nonce
+      );
+    } else {
+      // Invalid/suspicious hostname - reject
+      return new NextResponse('Bad Request', { status: 400 });
+    }
   }
 
   // If we have a valid subdomain (not reserved), rewrite to storefront routes
   if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
     // Check if trying to access main app routes from subdomain - redirect to main domain
-    if (MAIN_APP_ROUTES.some(route => pathname.startsWith(route))) {
+    if (MAIN_APP_ROUTES.some((route) => pathname.startsWith(route))) {
       return NextResponse.redirect(new URL(pathname, `https://${ROOT_DOMAIN}`));
     }
 
@@ -271,15 +307,27 @@ export function middleware(request: NextRequest) {
 
     // Generate route-specific CSP
     const routeType = getRouteType(pathname);
-    const nonce = (routeType === 'admin' || routeType === 'auth') ? crypto.randomUUID() : undefined;
+    const nonce =
+      routeType === 'admin' || routeType === 'auth'
+        ? crypto.randomUUID()
+        : undefined;
 
-    return applySecurityHeaders(response, pathname, userAgent, routeType, nonce);
+    return applySecurityHeaders(
+      response,
+      pathname,
+      userAgent,
+      routeType,
+      nonce
+    );
   }
 
   // Standard request - generate route-specific CSP
   const response = NextResponse.next();
   const routeType = getRouteType(pathname);
-  const nonce = (routeType === 'admin' || routeType === 'auth') ? crypto.randomUUID() : undefined;
+  const nonce =
+    routeType === 'admin' || routeType === 'auth'
+      ? crypto.randomUUID()
+      : undefined;
 
   return applySecurityHeaders(response, pathname, userAgent, routeType, nonce);
 }
@@ -301,7 +349,10 @@ function applySecurityHeaders(
   }
 
   // Detect bots/crawlers for optimized SEO caching
-  const isBot = /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i.test(userAgent);
+  const isBot =
+    /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i.test(
+      userAgent
+    );
 
   // Add cache headers for static assets
   if (
@@ -309,7 +360,10 @@ function applySecurityHeaders(
     pathname.startsWith('/images') ||
     pathname.match(/\.(jpg|jpeg|png|gif|svg|ico|webp|woff|woff2|ttf|eot)$/)
   ) {
-    response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    response.headers.set(
+      'Cache-Control',
+      'public, max-age=31536000, immutable'
+    );
     return response;
   }
 
@@ -321,41 +375,63 @@ function applySecurityHeaders(
   ) {
     response.headers.set(
       'Cache-Control',
-      isBot ? 's-maxage=7200, stale-while-revalidate=172800' : 's-maxage=3600, stale-while-revalidate=86400'
+      isBot
+        ? 's-maxage=7200, stale-while-revalidate=172800'
+        : 's-maxage=3600, stale-while-revalidate=86400'
     );
     return response;
   }
 
   // Cache product pages (both /products/slug and /category/slug formats)
-  if (pathname.match(/^\/[^/]+\/products\/[^/]+$/) || pathname.match(/^\/[^/]+\/[^/]+\/[^/]+$/)) {
+  if (
+    pathname.match(/^\/[^/]+\/products\/[^/]+$/) ||
+    pathname.match(/^\/[^/]+\/[^/]+\/[^/]+$/)
+  ) {
     response.headers.set(
       'Cache-Control',
-      isBot ? 's-maxage=3600, stale-while-revalidate=86400' : 's-maxage=300, stale-while-revalidate=3600'
+      isBot
+        ? 's-maxage=3600, stale-while-revalidate=86400'
+        : 's-maxage=300, stale-while-revalidate=3600'
     );
     return response;
   }
 
   // Cache category pages
-  if (pathname.match(/^\/[^/]+\/[^/]+\/?$/) && !pathname.startsWith('/dashboard') && !pathname.startsWith('/api')) {
+  if (
+    pathname.match(/^\/[^/]+\/[^/]+\/?$/) &&
+    !pathname.startsWith('/dashboard') &&
+    !pathname.startsWith('/api')
+  ) {
     response.headers.set(
       'Cache-Control',
-      isBot ? 's-maxage=1800, stale-while-revalidate=7200' : 's-maxage=300, stale-while-revalidate=3600'
+      isBot
+        ? 's-maxage=1800, stale-while-revalidate=7200'
+        : 's-maxage=300, stale-while-revalidate=3600'
     );
     return response;
   }
 
   // Cache storefront home pages
-  if (pathname.match(/^\/[^/]+\/?$/) && !pathname.startsWith('/dashboard') && !pathname.startsWith('/api')) {
+  if (
+    pathname.match(/^\/[^/]+\/?$/) &&
+    !pathname.startsWith('/dashboard') &&
+    !pathname.startsWith('/api')
+  ) {
     response.headers.set(
       'Cache-Control',
-      isBot ? 's-maxage=600, stale-while-revalidate=3600' : 's-maxage=60, stale-while-revalidate=300'
+      isBot
+        ? 's-maxage=600, stale-while-revalidate=3600'
+        : 's-maxage=60, stale-while-revalidate=300'
     );
     return response;
   }
 
   // No cache for authenticated routes
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/api')) {
-    response.headers.set('Cache-Control', 'no-cache, must-revalidate, max-age=0');
+    response.headers.set(
+      'Cache-Control',
+      'no-cache, must-revalidate, max-age=0'
+    );
     return response;
   }
 

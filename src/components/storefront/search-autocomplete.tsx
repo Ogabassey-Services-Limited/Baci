@@ -214,6 +214,7 @@ export function SearchAutocomplete({
                 </div>
                 {suggestions.map((product, index) => (
                   <button
+                    type="button"
                     key={product.id}
                     id={`search-option-${index}`}
                     role="option"
@@ -272,6 +273,7 @@ export function SearchAutocomplete({
                   const optionIndex = suggestions.length + index;
                   return (
                     <button
+                      type="button"
                       key={search.search_query}
                       id={`search-option-${optionIndex}`}
                       role="option"

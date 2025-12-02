@@ -14,7 +14,8 @@
       "!**/.gemini",
       "!**/reproduce_issue.ts",
       "!**/src/app/page.backup.tsx",
-      "!**/src/app/page.tsx.bak"
+      "!**/src/app/page.tsx.bak",
+      "!**/src/app/globals.css"
     ]
   },
   "formatter": {

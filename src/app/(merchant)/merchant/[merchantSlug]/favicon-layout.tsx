@@ -41,7 +41,9 @@ export async function generateMetadata({
   if (merchant.favicon_svg_url) {
     const timestampedUrl = addTimestamp(merchant.favicon_svg_url);
     if (timestampedUrl) {
-      (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
+      (
+        icons.icon as Array<{ url: string; type?: string; sizes?: string }>
+      ).push({
         url: timestampedUrl,
         type: 'image/svg+xml',
       });
@@ -52,7 +54,9 @@ export async function generateMetadata({
   if (merchant.favicon_png_32_url) {
     const timestampedUrl = addTimestamp(merchant.favicon_png_32_url);
     if (timestampedUrl) {
-      (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
+      (
+        icons.icon as Array<{ url: string; type?: string; sizes?: string }>
+      ).push({
         url: timestampedUrl,
         sizes: '32x32',
         type: 'image/png',
@@ -63,7 +67,9 @@ export async function generateMetadata({
   if (merchant.favicon_png_192_url) {
     const timestampedUrl = addTimestamp(merchant.favicon_png_192_url);
     if (timestampedUrl) {
-      (icons.icon as Array<{ url: string; type?: string; sizes?: string }>).push({
+      (
+        icons.icon as Array<{ url: string; type?: string; sizes?: string }>
+      ).push({
         url: timestampedUrl,
         sizes: '192x192',
         type: 'image/png',
@@ -75,13 +81,13 @@ export async function generateMetadata({
   if (merchant.favicon_apple_touch_url) {
     const timestampedUrl = addTimestamp(merchant.favicon_apple_touch_url);
     if (timestampedUrl) {
-      (icons.apple as Array<{ url: string; type?: string; sizes?: string }>).push(
-        {
-          url: timestampedUrl,
-          sizes: '180x180',
-          type: 'image/png',
-        }
-      );
+      (
+        icons.apple as Array<{ url: string; type?: string; sizes?: string }>
+      ).push({
+        url: timestampedUrl,
+        sizes: '180x180',
+        type: 'image/png',
+      });
     }
   }
 

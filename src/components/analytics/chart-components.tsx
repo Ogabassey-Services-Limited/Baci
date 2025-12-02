@@ -180,7 +180,11 @@ export function SalesByChannelChart({ data, className }: ChartProps) {
           stroke="none"
         >
           {data.map((_entry, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            <Cell
+              // biome-ignore lint/suspicious/noArrayIndexKey: Chart cells use color array with stable positions
+              key={`cell-${index}`}
+              fill={COLORS[index % COLORS.length]}
+            />
           ))}
         </Pie>
         <Tooltip

@@ -29,6 +29,7 @@ export default function DebugAuthPage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Only run on mount
     addLog, // Get session on mount
     supabase.auth.getSession,
   ]);
@@ -76,6 +77,7 @@ export default function DebugAuthPage() {
       const cookie = cookies[i];
       const eqPos = cookie.indexOf('=');
       const name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+      // biome-ignore lint/suspicious/noDocumentCookie: Debug tool
       document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT`;
     }
     setCookies(document.cookie);
@@ -115,18 +117,21 @@ export default function DebugAuthPage() {
 
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={handleLogin}
           className="bg-blue-500 text-white px-4 py-2 rounded"
         >
           Test Login Flow
         </button>
         <button
+          type="button"
           onClick={handleClearCookies}
           className="bg-red-500 text-white px-4 py-2 rounded"
         >
           Clear Cookies
         </button>
         <button
+          type="button"
           onClick={() => window.location.reload()}
           className="bg-gray-500 text-white px-4 py-2 rounded"
         >
@@ -136,6 +141,7 @@ export default function DebugAuthPage() {
 
       <div className="border p-4 rounded bg-black text-green-400 h-64 overflow-y-auto font-mono text-sm">
         {logs.map((log, i) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: Logs are append-only
           <div key={i}>{log}</div>
         ))}
       </div>
