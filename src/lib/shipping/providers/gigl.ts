@@ -3,24 +3,26 @@
  * Refactored from /src/lib/gigl.ts to implement ShippingProvider interface
  */
 
-import { BaseShippingProvider } from './base';
+import { mapGiglStatus } from '../status-mapper';
 import type {
-  ShippingQuote,
-  QuoteRequest,
   BookingRequest,
-  ShipmentBookingResult,
-  TrackingResult,
-  TrackingEvent,
   CancellationResult,
+  QuoteRequest,
+  ShipmentBookingResult,
+  ShippingQuote,
+  TrackingEvent,
+  TrackingResult,
   UnifiedLocation,
 } from '../types';
-import { mapGiglStatus } from '../status-mapper';
+import { BaseShippingProvider } from './base';
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
 
-const GIGL_BASE_URL = process.env.GIGL_BASE_URL || 'https://dev-thirdpartynode.theagilitysystems.com';
+const GIGL_BASE_URL =
+  process.env.GIGL_BASE_URL ||
+  'https://dev-thirdpartynode.theagilitysystems.com';
 const GIGL_EMAIL = process.env.GIGL_EMAIL;
 const GIGL_PASSWORD = process.env.GIGL_PASSWORD;
 const GIGL_TOKEN_EXPIRY_MS = 20 * 24 * 60 * 60 * 1000; // 20 days
@@ -151,7 +153,10 @@ export class GiglProvider extends BaseShippingProvider {
 
     if (!response.ok) {
       const error = await response.text();
-      this.log('error', 'GIGL login failed', { status: response.status, error });
+      this.log('error', 'GIGL login failed', {
+        status: response.status,
+        error,
+      });
       throw new Error('GIGL API authentication failed');
     }
 
@@ -180,7 +185,7 @@ export class GiglProvider extends BaseShippingProvider {
 
   async getLocations(): Promise<UnifiedLocation[]> {
     const stations = await this.getStations();
-    return stations.map(station => ({
+    return stations.map((station) => ({
       state: station.State,
       city: station.City || station.StationName,
       stationId: station.StationId,
@@ -198,13 +203,18 @@ export class GiglProvider extends BaseShippingProvider {
 
     const tokenData = await this.getApiToken();
 
-    const response = await this.safeFetch(`${GIGL_BASE_URL}/localstations/get`, {
-      method: 'GET',
-      headers: { 'access-token': tokenData.token },
-    });
+    const response = await this.safeFetch(
+      `${GIGL_BASE_URL}/localstations/get`,
+      {
+        method: 'GET',
+        headers: { 'access-token': tokenData.token },
+      }
+    );
 
     if (!response.ok) {
-      this.log('error', 'Failed to fetch GIGL stations', { status: response.status });
+      this.log('error', 'Failed to fetch GIGL stations', {
+        status: response.status,
+      });
       throw new Error('Failed to fetch GIGL stations');
     }
 
@@ -215,19 +225,23 @@ export class GiglProvider extends BaseShippingProvider {
     return this.stationsCache || [];
   }
 
-  private async findStationForCity(city: string, state: string): Promise<GiglStation | null> {
+  private async findStationForCity(
+    city: string,
+    state: string
+  ): Promise<GiglStation | null> {
     const stations = await this.getStations();
 
     // Try exact city match first
     let station = stations.find(
-      s => s.City?.toLowerCase() === city.toLowerCase() ||
-           s.StationName?.toLowerCase() === city.toLowerCase()
+      (s) =>
+        s.City?.toLowerCase() === city.toLowerCase() ||
+        s.StationName?.toLowerCase() === city.toLowerCase()
     );
 
     // Try state match if no city match
     if (!station) {
       station = stations.find(
-        s => s.State?.toLowerCase() === state.toLowerCase()
+        (s) => s.State?.toLowerCase() === state.toLowerCase()
       );
     }
 
@@ -244,7 +258,10 @@ export class GiglProvider extends BaseShippingProvider {
 
       // Find stations for sender and receiver
       const senderStation = request.sender
-        ? await this.findStationForCity(request.sender.city, request.sender.state)
+        ? await this.findStationForCity(
+            request.sender.city,
+            request.sender.state
+          )
         : null;
 
       const receiverStation = await this.findStationForCity(
@@ -261,8 +278,14 @@ export class GiglProvider extends BaseShippingProvider {
       }
 
       // Calculate total weight and value
-      const totalWeight = request.items.reduce((sum, item) => sum + item.weight * item.quantity, 0);
-      const totalValue = request.items.reduce((sum, item) => sum + item.value * item.quantity, 0);
+      const totalWeight = request.items.reduce(
+        (sum, item) => sum + item.weight * item.quantity,
+        0
+      );
+      const totalValue = request.items.reduce(
+        (sum, item) => sum + item.value * item.quantity,
+        0
+      );
 
       // Try home delivery first
       const homeDeliveryQuote = await this.fetchQuote(
@@ -315,21 +338,27 @@ export class GiglProvider extends BaseShippingProvider {
         SenderStationId: senderStation?.StationId || 4, // Default to Lagos
         ReceiverStationId: receiverStation.StationId,
         SenderLocation: senderStation
-          ? { Latitude: senderStation.Latitude || 6.5244, Longitude: senderStation.Longitude || 3.3792 }
+          ? {
+              Latitude: senderStation.Latitude || 6.5244,
+              Longitude: senderStation.Longitude || 3.3792,
+            }
           : { Latitude: 6.5244, Longitude: 3.3792 },
         ReceiverLocation: {
-          Latitude: request.receiver.latitude || receiverStation.Latitude || 6.5244,
-          Longitude: request.receiver.longitude || receiverStation.Longitude || 3.3792,
+          Latitude:
+            request.receiver.latitude || receiverStation.Latitude || 6.5244,
+          Longitude:
+            request.receiver.longitude || receiverStation.Longitude || 3.3792,
         },
         VehicleType: totalWeight > 30 ? VehicleType.Van : VehicleType.Bike,
         ShipmentType: ShipmentType.Ecommerce,
         PickUpOptions: pickupOption,
-        DeliveryOptionIds: pickupOption === PickupOptions.HomeDelivery ? [2] : [11],
+        DeliveryOptionIds:
+          pickupOption === PickupOptions.HomeDelivery ? [2] : [11],
         IsFromAgility: false,
         CustomerCode: tokenData.userChannelCode,
         CustomerType: tokenData.userChannelType,
         Value: totalValue,
-        ShipmentItems: request.items.map(item => ({
+        ShipmentItems: request.items.map((item) => ({
           ItemName: item.name,
           Quantity: item.quantity,
           Weight: item.weight,
@@ -339,18 +368,24 @@ export class GiglProvider extends BaseShippingProvider {
         })),
       };
 
-      const response = await this.safeFetch(`${GIGL_BASE_URL}/shipments/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'access-token': tokenData.token,
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await this.safeFetch(
+        `${GIGL_BASE_URL}/shipments/create`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'access-token': tokenData.token,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.text();
-        this.log('warn', 'GIGL quote request failed', { status: response.status, error });
+        this.log('warn', 'GIGL quote request failed', {
+          status: response.status,
+          error,
+        });
         return null;
       }
 
@@ -379,9 +414,15 @@ export class GiglProvider extends BaseShippingProvider {
         insuranceIncluded: true,
         expiresAt: this.getQuoteExpiry(1),
         isStationPickup,
-        pickupStationId: isStationPickup ? receiverStation.StationId : undefined,
-        pickupStationName: isStationPickup ? receiverStation.StationName : undefined,
-        pickupStationAddress: isStationPickup ? receiverStation.Address : undefined,
+        pickupStationId: isStationPickup
+          ? receiverStation.StationId
+          : undefined,
+        pickupStationName: isStationPickup
+          ? receiverStation.StationName
+          : undefined,
+        pickupStationAddress: isStationPickup
+          ? receiverStation.Address
+          : undefined,
       };
     } catch (error) {
       this.log('error', 'Error fetching GIGL quote', { error: String(error) });
@@ -425,8 +466,14 @@ export class GiglProvider extends BaseShippingProvider {
       },
       ReceiverDetails: {
         ReceiverLocation: {
-          Latitude: request.receiver.latitude?.toString() || receiverStation.Latitude?.toString() || '6.5244',
-          Longitude: request.receiver.longitude?.toString() || receiverStation.Longitude?.toString() || '3.3792',
+          Latitude:
+            request.receiver.latitude?.toString() ||
+            receiverStation.Latitude?.toString() ||
+            '6.5244',
+          Longitude:
+            request.receiver.longitude?.toString() ||
+            receiverStation.Longitude?.toString() ||
+            '3.3792',
         },
         ReceiverStationId: receiverStation.StationId,
         ReceiverName: request.receiver.name,
@@ -439,7 +486,7 @@ export class GiglProvider extends BaseShippingProvider {
         IsFromAgility: 0,
         IsBatchPickUp: 0,
       },
-      ShipmentItems: request.items.map(item => ({
+      ShipmentItems: request.items.map((item) => ({
         SpecialPackageId: 10,
         Quantity: item.quantity,
         Value: item.value,
@@ -449,18 +496,24 @@ export class GiglProvider extends BaseShippingProvider {
       })),
     };
 
-    const response = await this.safeFetch(`${GIGL_BASE_URL}/capture/preshipment`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'access-token': tokenData.token,
-      },
-      body: JSON.stringify(payload),
-    });
+    const response = await this.safeFetch(
+      `${GIGL_BASE_URL}/capture/preshipment`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'access-token': tokenData.token,
+        },
+        body: JSON.stringify(payload),
+      }
+    );
 
     if (!response.ok) {
       const error = await response.text();
-      this.log('error', 'GIGL booking failed', { status: response.status, error });
+      this.log('error', 'GIGL booking failed', {
+        status: response.status,
+        error,
+      });
       throw new Error('Failed to book GIGL shipment');
     }
 
@@ -507,7 +560,9 @@ export class GiglProvider extends BaseShippingProvider {
     }
 
     const shipment = result.data[0];
-    const events: TrackingEvent[] = (shipment.MobileShipmentTrackings || []).map(tracking => ({
+    const events: TrackingEvent[] = (
+      shipment.MobileShipmentTrackings || []
+    ).map((tracking) => ({
       status: tracking.Status,
       description: tracking.ScanStatusReason || tracking.Status,
       location: tracking.DepartureServiceCentre?.Name,
@@ -517,17 +572,22 @@ export class GiglProvider extends BaseShippingProvider {
 
     // Get latest status
     const latestEvent = events[0];
-    const status = latestEvent ? mapGiglStatus(latestEvent.rawStatus || '') : 'pending';
+    const status = latestEvent
+      ? mapGiglStatus(latestEvent.rawStatus || '')
+      : 'pending';
 
     // Check if station pickup
-    const isStationPickup = shipment.PickupOptions === PickupOptions.ServiceCentre;
+    const isStationPickup =
+      shipment.PickupOptions === PickupOptions.ServiceCentre;
 
     return {
       provider: 'GIGL',
       trackingNumber,
       status,
       carrierName: 'GIG Logistics',
-      events: events.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
+      events: events.sort(
+        (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+      ),
       isStationPickup,
     };
   }
@@ -543,7 +603,8 @@ export class GiglProvider extends BaseShippingProvider {
 
     return {
       success: false,
-      message: 'GIGL shipment cancellation must be done through their customer service',
+      message:
+        'GIGL shipment cancellation must be done through their customer service',
     };
   }
 

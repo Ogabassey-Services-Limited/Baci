@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * POST /api/staff/accept-invite
@@ -12,9 +12,14 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized - Please sign in first' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in first' },
+        { status: 401 }
+      );
     }
 
     // Parse request body
@@ -22,7 +27,10 @@ export async function POST(request: NextRequest) {
     const { token } = body;
 
     if (!token) {
-      return NextResponse.json({ error: 'Invitation token is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invitation token is required' },
+        { status: 400 }
+      );
     }
 
     // Find invitation by token
@@ -33,17 +41,26 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (findError || !invitation) {
-      return NextResponse.json({ error: 'Invalid or expired invitation' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Invalid or expired invitation' },
+        { status: 404 }
+      );
     }
 
     // Check if invitation is still pending
     if (invitation.status !== 'pending') {
-      return NextResponse.json({ error: 'This invitation has already been used' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'This invitation has already been used' },
+        { status: 400 }
+      );
     }
 
     // Check if invitation has expired
     if (new Date(invitation.invitation_expires_at) < new Date()) {
-      return NextResponse.json({ error: 'This invitation has expired' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'This invitation has expired' },
+        { status: 400 }
+      );
     }
 
     // Check if email matches
@@ -100,7 +117,10 @@ export async function POST(request: NextRequest) {
 
     if (acceptError) {
       console.error('Failed to accept invitation:', acceptError);
-      return NextResponse.json({ error: 'Failed to accept invitation' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to accept invitation' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -110,7 +130,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Accept invitation error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -133,27 +156,40 @@ export async function GET(request: NextRequest) {
     // Find invitation by token
     const { data: invitation, error } = await supabase
       .from('staff_members')
-      .select('email, role, status, invitation_expires_at, merchants(business_name)')
+      .select(
+        'email, role, status, invitation_expires_at, merchants(business_name)'
+      )
       .eq('invitation_token', token)
       .single();
 
     if (error || !invitation) {
-      return NextResponse.json({ error: 'Invalid invitation' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Invalid invitation' },
+        { status: 404 }
+      );
     }
 
     // Check if already accepted
     if (invitation.status !== 'pending') {
-      return NextResponse.json({ error: 'This invitation has already been used' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'This invitation has already been used' },
+        { status: 400 }
+      );
     }
 
     // Check expiry
     if (new Date(invitation.invitation_expires_at) < new Date()) {
-      return NextResponse.json({ error: 'This invitation has expired' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'This invitation has expired' },
+        { status: 400 }
+      );
     }
 
     // Extract merchant name from the joined data
     // Supabase returns nested relations as objects for single relations
-    const merchantInfo = invitation.merchants as unknown as { business_name: string } | null;
+    const merchantInfo = invitation.merchants as unknown as {
+      business_name: string;
+    } | null;
 
     return NextResponse.json({
       valid: true,
@@ -164,6 +200,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Validate invitation error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

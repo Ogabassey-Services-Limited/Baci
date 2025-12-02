@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { getSupabaseUrl, getSupabaseAnonKey } from '@/env';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 
 /**
  * Creates a Supabase client for server-side operations that don't require user authentication.
@@ -16,7 +16,9 @@ export function createAdminClient() {
   const key = getSupabaseAnonKey();
 
   if (!url || !key) {
-    throw new Error('Supabase configuration is missing. Please check your environment variables.');
+    throw new Error(
+      'Supabase configuration is missing. Please check your environment variables.'
+    );
   }
 
   return createClient(url, key, {

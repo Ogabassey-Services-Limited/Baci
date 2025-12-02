@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { onCLS, onINP, onLCP, onFCP, onTTFB, type Metric } from 'web-vitals';
+import { type Metric, onCLS, onFCP, onINP, onLCP, onTTFB } from 'web-vitals';
 
 /**
  * Web Vitals Reporter Component
@@ -45,7 +45,10 @@ const THRESHOLDS = {
   TTFB: { good: 800, poor: 1800 },
 };
 
-function getMetricRating(name: string, value: number): 'good' | 'needs-improvement' | 'poor' {
+function getMetricRating(
+  name: string,
+  value: number
+): 'good' | 'needs-improvement' | 'poor' {
   const threshold = THRESHOLDS[name as keyof typeof THRESHOLDS];
   if (!threshold) return 'needs-improvement';
 
@@ -56,16 +59,22 @@ function getMetricRating(name: string, value: number): 'good' | 'needs-improveme
 
 function sendToGoogleAnalytics(metric: Metric) {
   // Check if gtag is available
-  if (typeof window === 'undefined' || !(window as unknown as { gtag?: unknown }).gtag) {
+  if (
+    typeof window === 'undefined' ||
+    !(window as unknown as { gtag?: unknown }).gtag
+  ) {
     return;
   }
 
-  const gtag = (window as unknown as { gtag: (...args: unknown[]) => void }).gtag;
+  const gtag = (window as unknown as { gtag: (...args: unknown[]) => void })
+    .gtag;
 
   // Send to GA4 using the recommended event structure
   gtag('event', metric.name, {
     // Value must be an integer for event_value
-    value: Math.round(metric.name === 'CLS' ? metric.value * 1000 : metric.value),
+    value: Math.round(
+      metric.name === 'CLS' ? metric.value * 1000 : metric.value
+    ),
     // Use the metric ID as the event label
     event_label: metric.id,
     // Use metric rating for segmentation
@@ -106,7 +115,11 @@ function sendToEndpoint(metric: Metric, endpoint: string) {
 function logToConsole(metric: Metric) {
   const rating = getMetricRating(metric.name, metric.value);
   const color =
-    rating === 'good' ? 'color: green' : rating === 'poor' ? 'color: red' : 'color: orange';
+    rating === 'good'
+      ? 'color: green'
+      : rating === 'poor'
+        ? 'color: red'
+        : 'color: orange';
 
   console.log(
     `%c[Web Vitals] ${metric.name}: ${metric.value.toFixed(metric.name === 'CLS' ? 3 : 0)}ms (${rating})`,

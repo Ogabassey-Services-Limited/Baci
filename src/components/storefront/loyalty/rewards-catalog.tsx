@@ -1,11 +1,24 @@
 'use client';
 
+import {
+  AlertCircle,
+  Check,
+  Copy,
+  Gift,
+  Lock,
+  Sparkles,
+  Truck,
+} from 'lucide-react';
 import { useState } from 'react';
-import { useLoyalty } from '@/hooks/use-loyalty';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -14,8 +27,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useLoyalty } from '@/hooks/use-loyalty';
 import { useToast } from '@/hooks/use-toast';
-import { Gift, Truck, Sparkles, Lock, Check, Copy, AlertCircle } from 'lucide-react';
 
 interface RewardsCatalogProps {
   merchantId: string;
@@ -27,7 +41,11 @@ interface Reward {
   name: string;
   description: string;
   points_required: number;
-  reward_type: 'discount' | 'free_shipping' | 'free_product' | 'exclusive_access';
+  reward_type:
+    | 'discount'
+    | 'free_shipping'
+    | 'free_product'
+    | 'exclusive_access';
   discount_type?: 'percentage' | 'fixed';
   discount_value?: number;
   min_tier?: string;
@@ -40,7 +58,10 @@ const rewardIcons = {
   exclusive_access: Sparkles,
 };
 
-export function RewardsCatalog({ merchantId, customerId }: RewardsCatalogProps) {
+export function RewardsCatalog({
+  merchantId,
+  customerId,
+}: RewardsCatalogProps) {
   const { toast } = useToast();
   const {
     loading,
@@ -186,10 +207,15 @@ export function RewardsCatalog({ merchantId, customerId }: RewardsCatalogProps) 
           {availableRewards.map((reward) => {
             const Icon = rewardIcons[reward.reward_type];
             const isRedeemable = canRedeem(reward);
-            const tierInfo = reward.min_tier ? getTierInfo(reward.min_tier) : null;
+            const tierInfo = reward.min_tier
+              ? getTierInfo(reward.min_tier)
+              : null;
 
             return (
-              <Card key={reward.id} className={!isRedeemable ? 'opacity-75' : ''}>
+              <Card
+                key={reward.id}
+                className={!isRedeemable ? 'opacity-75' : ''}
+              >
                 <CardHeader className="pb-2">
                   <div className="flex items-start justify-between">
                     <div className="p-2 bg-primary/10 rounded-lg">
@@ -197,7 +223,9 @@ export function RewardsCatalog({ merchantId, customerId }: RewardsCatalogProps) 
                     </div>
                     <Badge variant="secondary">{getRewardLabel(reward)}</Badge>
                   </div>
-                  <CardTitle className="text-base mt-2">{reward.name}</CardTitle>
+                  <CardTitle className="text-base mt-2">
+                    {reward.name}
+                  </CardTitle>
                   <CardDescription className="text-sm">
                     {reward.description}
                   </CardDescription>
@@ -216,7 +244,8 @@ export function RewardsCatalog({ merchantId, customerId }: RewardsCatalogProps) 
                       <span>
                         Requires{' '}
                         <span className={tierInfo.colors.text}>
-                          {reward.min_tier.charAt(0).toUpperCase() + reward.min_tier.slice(1)}
+                          {reward.min_tier.charAt(0).toUpperCase() +
+                            reward.min_tier.slice(1)}
                         </span>{' '}
                         tier
                       </span>
@@ -228,17 +257,13 @@ export function RewardsCatalog({ merchantId, customerId }: RewardsCatalogProps) 
                     disabled={!isRedeemable || redeeming === reward.id}
                     onClick={() => handleRedeem(reward)}
                   >
-                    {redeeming === reward.id ? (
-                      'Redeeming...'
-                    ) : !isRedeemable ? (
-                      pointsBalance < reward.points_required ? (
-                        `Need ${(reward.points_required - pointsBalance).toLocaleString()} more pts`
-                      ) : (
-                        `${reward.min_tier} tier required`
-                      )
-                    ) : (
-                      'Redeem'
-                    )}
+                    {redeeming === reward.id
+                      ? 'Redeeming...'
+                      : !isRedeemable
+                        ? pointsBalance < reward.points_required
+                          ? `Need ${(reward.points_required - pointsBalance).toLocaleString()} more pts`
+                          : `${reward.min_tier} tier required`
+                        : 'Redeem'}
                   </Button>
                 </CardContent>
               </Card>
@@ -255,7 +280,8 @@ export function RewardsCatalog({ merchantId, customerId }: RewardsCatalogProps) 
               Reward Redeemed!
             </DialogTitle>
             <DialogDescription>
-              Your reward has been successfully redeemed. Use the code below at checkout.
+              Your reward has been successfully redeemed. Use the code below at
+              checkout.
             </DialogDescription>
           </DialogHeader>
 
@@ -279,11 +305,14 @@ export function RewardsCatalog({ merchantId, customerId }: RewardsCatalogProps) 
               {redemptionResult.expiresAt && (
                 <p className="text-xs text-muted-foreground">
                   Expires:{' '}
-                  {new Date(redemptionResult.expiresAt).toLocaleDateString('en-NG', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
+                  {new Date(redemptionResult.expiresAt).toLocaleDateString(
+                    'en-NG',
+                    {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    }
+                  )}
                 </p>
               )}
             </div>

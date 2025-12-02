@@ -1,18 +1,26 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import {
+  Check,
+  Heart,
+  Loader2,
+  Package,
+  Share2,
+  ShoppingCart,
+  Trash2,
+} from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Heart, Trash2, ShoppingCart, Loader2, Package, Share2, Check } from 'lucide-react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useToast } from '@/hooks/use-toast';
-import { useCurrencyWithCountry } from '@/hooks/use-currency';
 import { useCart } from '@/hooks/use-cart';
-import { Product } from '@/lib/products';
+import { useCurrencyWithCountry } from '@/hooks/use-currency';
+import { useToast } from '@/hooks/use-toast';
+import type { Product } from '@/lib/products';
 
 interface WishListItem {
   id: string;
@@ -53,7 +61,9 @@ export default function WishListPage() {
   useEffect(() => {
     const fetchMerchantCountry = async () => {
       try {
-        const response = await fetch(`/api/storefront/products?merchant_slug=${merchantSlug}&limit=1`);
+        const response = await fetch(
+          `/api/storefront/products?merchant_slug=${merchantSlug}&limit=1`
+        );
         if (response.ok) {
           const data = await response.json();
           if (data.merchant?.country) {
@@ -67,26 +77,31 @@ export default function WishListPage() {
     fetchMerchantCountry();
   }, [merchantSlug]);
 
-  const fetchWishList = useCallback(async (email: string) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(`/api/wishlist?email=${encodeURIComponent(email)}`);
-      if (response.ok) {
-        const data = await response.json();
-        setWishListItems(data.items || []);
-      } else {
-        throw new Error('Failed to fetch wish list');
+  const fetchWishList = useCallback(
+    async (email: string) => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `/api/wishlist?email=${encodeURIComponent(email)}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setWishListItems(data.items || []);
+        } else {
+          throw new Error('Failed to fetch wish list');
+        }
+      } catch (_error) {
+        toast({
+          title: 'Error',
+          description: 'Failed to load your wish list.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoading(false);
       }
-    } catch (_error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to load your wish list.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [toast]);
+    },
+    [toast]
+  );
 
   // Check if email is stored in localStorage
   useEffect(() => {
@@ -122,7 +137,9 @@ export default function WishListPage() {
   const handleRemoveItem = async (itemId: string, productName: string) => {
     setRemovingItemId(itemId);
     try {
-      const emailParam = customerEmail ? `&email=${encodeURIComponent(customerEmail)}` : '';
+      const emailParam = customerEmail
+        ? `&email=${encodeURIComponent(customerEmail)}`
+        : '';
       const response = await fetch(`/api/wishlist?id=${itemId}${emailParam}`, {
         method: 'DELETE',
       });
@@ -172,7 +189,9 @@ export default function WishListPage() {
       addToCart(product, 1);
 
       // Remove from wishlist
-      const emailParam = customerEmail ? `&email=${encodeURIComponent(customerEmail)}` : '';
+      const emailParam = customerEmail
+        ? `&email=${encodeURIComponent(customerEmail)}`
+        : '';
       const response = await fetch(`/api/wishlist?id=${item.id}${emailParam}`, {
         method: 'DELETE',
       });
@@ -265,15 +284,13 @@ export default function WishListPage() {
           <div>
             <h1 className="text-3xl font-bold mb-2">Your Wish List</h1>
             <p className="text-muted-foreground">
-              {customerEmail} • {wishListItems.length} item{wishListItems.length !== 1 ? 's' : ''}
+              {customerEmail} • {wishListItems.length} item
+              {wishListItems.length !== 1 ? 's' : ''}
             </p>
           </div>
           <div className="flex gap-2">
             {wishListItems.length > 0 && (
-              <Button
-                variant="outline"
-                onClick={handleShareWishlist}
-              >
+              <Button variant="outline" onClick={handleShareWishlist}>
                 {shareUrlCopied ? (
                   <Check className="mr-2 h-4 w-4" />
                 ) : (
@@ -305,7 +322,9 @@ export default function WishListPage() {
           <CardContent className="py-12">
             <div className="text-center">
               <Package className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Your wish list is empty</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                Your wish list is empty
+              </h3>
               <p className="text-muted-foreground mb-6">
                 Start adding items you love to save them for later!
               </p>
@@ -318,7 +337,10 @@ export default function WishListPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {wishListItems.map((item) => (
-            <Card key={item.id} className="glass-themed overflow-hidden hover-lift">
+            <Card
+              key={item.id}
+              className="glass-themed overflow-hidden hover-lift"
+            >
               <div className="relative aspect-square">
                 {item.products.images && item.products.images.length > 0 ? (
                   <Image
@@ -362,14 +384,18 @@ export default function WishListPage() {
                     </Button>
                     <div className="flex gap-2">
                       <Button asChild variant="outline" className="flex-1">
-                        <Link href={`/${merchantSlug}/products/${item.products.slug}`}>
+                        <Link
+                          href={`/${merchantSlug}/products/${item.products.slug}`}
+                        >
                           View
                         </Link>
                       </Button>
                       <Button
                         variant="outline"
                         size="icon"
-                        onClick={() => handleRemoveItem(item.id, item.products.name)}
+                        onClick={() =>
+                          handleRemoveItem(item.id, item.products.name)
+                        }
                         disabled={removingItemId === item.id}
                       >
                         {removingItemId === item.id ? (
@@ -388,7 +414,9 @@ export default function WishListPage() {
                     <Button
                       variant="outline"
                       className="w-full"
-                      onClick={() => handleRemoveItem(item.id, item.products.name)}
+                      onClick={() =>
+                        handleRemoveItem(item.id, item.products.name)
+                      }
                       disabled={removingItemId === item.id}
                     >
                       {removingItemId === item.id ? (

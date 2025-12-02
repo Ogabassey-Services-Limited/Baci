@@ -1,13 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertCircle,
+  Check,
+  CheckCircle,
+  Clock,
+  ExternalLink,
+  Globe,
+  Loader2,
+  Plus,
+  Search,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Globe, Search, Plus, Check, AlertCircle, Clock, ExternalLink, Loader2, CheckCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 
 interface Domain {
@@ -31,8 +47,12 @@ interface Domain {
 export default function DomainsPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'search' | 'custom'>('overview');
-  const [verifyingDomains, setVerifyingDomains] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<'overview' | 'search' | 'custom'>(
+    'overview'
+  );
+  const [verifyingDomains, setVerifyingDomains] = useState<Set<string>>(
+    new Set()
+  );
   const [customDomainInput, setCustomDomainInput] = useState('');
   const [addingDomain, setAddingDomain] = useState(false);
   const [verificationInfo, setVerificationInfo] = useState<{
@@ -45,7 +65,7 @@ export default function DomainsPage() {
     fetchDomains();
   }, []);
 
-  const fetchDomains = async () => {
+  async function fetchDomains() {
     try {
       const response = await fetch('/api/domains');
       if (response.ok) {
@@ -57,10 +77,17 @@ export default function DomainsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const getStatusBadge = (status: Domain['status']) => {
-    const variants: Record<Domain['status'], { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string; icon: React.ComponentType<{ className?: string }> }> = {
+    const variants: Record<
+      Domain['status'],
+      {
+        variant: 'default' | 'secondary' | 'destructive' | 'outline';
+        label: string;
+        icon: React.ComponentType<{ className?: string }>;
+      }
+    > = {
       active: { variant: 'default', label: 'Active', icon: Check },
       pending: { variant: 'secondary', label: 'Pending', icon: Clock },
       verifying: { variant: 'secondary', label: 'Verifying', icon: Clock },
@@ -108,7 +135,9 @@ export default function DomainsPage() {
       } else {
         toast({
           title: 'Verification Failed',
-          description: data.error || 'Could not verify domain. Please check your DNS records.',
+          description:
+            data.error ||
+            'Could not verify domain. Please check your DNS records.',
           variant: 'destructive',
         });
       }
@@ -116,7 +145,8 @@ export default function DomainsPage() {
       console.error('Error verifying domain:', error);
       toast({
         title: 'Verification Error',
-        description: 'An error occurred while verifying the domain. Please try again.',
+        description:
+          'An error occurred while verifying the domain. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -155,7 +185,8 @@ export default function DomainsPage() {
       if (response.ok) {
         toast({
           title: 'Domain Added! 🎉',
-          description: 'Your custom domain has been added. Please verify ownership.',
+          description:
+            'Your custom domain has been added. Please verify ownership.',
         });
 
         // Store verification info to show instructions
@@ -200,7 +231,9 @@ export default function DomainsPage() {
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
             Domains 🌐
           </h1>
-          <p className="text-muted-foreground">Manage your store domains and custom URLs</p>
+          <p className="text-muted-foreground">
+            Manage your store domains and custom URLs
+          </p>
         </div>
         <Button onClick={() => setActiveTab('search')}>
           <Plus className="w-4 h-4 mr-2" />
@@ -208,7 +241,10 @@ export default function DomainsPage() {
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'overview' | 'search')}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as 'overview' | 'search')}
+      >
         <TabsList>
           <TabsTrigger value="overview">
             <Globe className="w-4 h-4 mr-2" />
@@ -242,8 +278,13 @@ export default function DomainsPage() {
                     Get started by searching for a domain or adding your own
                   </p>
                   <div className="flex gap-2 justify-center">
-                    <Button onClick={() => setActiveTab('search')}>Search Domains</Button>
-                    <Button variant="outline" onClick={() => setActiveTab('custom')}>
+                    <Button onClick={() => setActiveTab('search')}>
+                      Search Domains
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setActiveTab('custom')}
+                    >
                       Add Custom Domain
                     </Button>
                   </div>
@@ -269,7 +310,13 @@ export default function DomainsPage() {
                         </CardDescription>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => window.location.href = `/dashboard/domains/${domain.domain}`}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            (window.location.href = `/dashboard/domains/${domain.domain}`)
+                          }
+                        >
                           Manage
                         </Button>
                         <Button variant="outline" size="sm">
@@ -282,55 +329,71 @@ export default function DomainsPage() {
                   <CardContent className="space-y-2">
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
-                        <span className="text-muted-foreground">SSL Status:</span>
-                        <Badge variant={domain.ssl_status === 'active' ? 'default' : 'secondary'} className="ml-2">
+                        <span className="text-muted-foreground">
+                          SSL Status:
+                        </span>
+                        <Badge
+                          variant={
+                            domain.ssl_status === 'active'
+                              ? 'default'
+                              : 'secondary'
+                          }
+                          className="ml-2"
+                        >
                           {domain.ssl_status}
                         </Badge>
                       </div>
                       {domain.purchase_info?.expires_at && (
                         <div>
-                          <span className="text-muted-foreground">Expires:</span>
+                          <span className="text-muted-foreground">
+                            Expires:
+                          </span>
                           <span className="ml-2 font-medium">
-                            {new Date(domain.purchase_info.expires_at).toLocaleDateString()}
+                            {new Date(
+                              domain.purchase_info.expires_at
+                            ).toLocaleDateString()}
                           </span>
                         </div>
                       )}
                     </div>
 
-                    {domain.status === 'pending' && domain.domain_type === 'custom' && (
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription className="flex items-center justify-between">
-                          <span>
-                            Domain verification pending. Please add the required DNS records.
-                          </span>
-                          <Button
-                            size="sm"
-                            onClick={() => handleVerifyDomain(domain)}
-                            disabled={verifyingDomains.has(domain.domain)}
-                            className="ml-4"
-                          >
-                            {verifyingDomains.has(domain.domain) ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 motion-safe:animate-spin" />
-                                Verifying...
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                Verify Now
-                              </>
-                            )}
-                          </Button>
-                        </AlertDescription>
-                      </Alert>
-                    )}
+                    {domain.status === 'pending' &&
+                      domain.domain_type === 'custom' && (
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription className="flex items-center justify-between">
+                            <span>
+                              Domain verification pending. Please add the
+                              required DNS records.
+                            </span>
+                            <Button
+                              size="sm"
+                              onClick={() => handleVerifyDomain(domain)}
+                              disabled={verifyingDomains.has(domain.domain)}
+                              className="ml-4"
+                            >
+                              {verifyingDomains.has(domain.domain) ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 motion-safe:animate-spin" />
+                                  Verifying...
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Verify Now
+                                </>
+                              )}
+                            </Button>
+                          </AlertDescription>
+                        </Alert>
+                      )}
 
                     {domain.status === 'active' && domain.verified_at && (
                       <Alert className="border-green-200 bg-green-50">
                         <Check className="h-4 w-4 text-green-600" />
                         <AlertDescription className="text-green-800">
-                          Domain verified on {new Date(domain.verified_at).toLocaleDateString()}
+                          Domain verified on{' '}
+                          {new Date(domain.verified_at).toLocaleDateString()}
                         </AlertDescription>
                       </Alert>
                     )}
@@ -364,7 +427,8 @@ export default function DomainsPage() {
                 </div>
 
                 <p className="text-sm text-muted-foreground">
-                  Popular TLDs: .com.ng (₦8,399/yr), .com (₦19,499/yr), .store (₦60,000/yr)
+                  Popular TLDs: .com.ng (₦8,399/yr), .com (₦19,499/yr), .store
+                  (₦60,000/yr)
                 </p>
               </div>
             </CardContent>
@@ -383,7 +447,12 @@ export default function DomainsPage() {
             <CardContent>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="custom-domain-input" className="text-sm font-medium">Domain Name</label>
+                  <label
+                    htmlFor="custom-domain-input"
+                    className="text-sm font-medium"
+                  >
+                    Domain Name
+                  </label>
                   <Input
                     id="custom-domain-input"
                     placeholder="yourdomain.com"
@@ -411,15 +480,27 @@ export default function DomainsPage() {
                     <AlertCircle className="h-4 w-4 text-blue-600" />
                     <AlertDescription className="text-blue-900">
                       <div className="space-y-2">
-                        <p className="font-semibold">DNS Verification Required</p>
-                        <p className="text-sm">Add this TXT record to your DNS:</p>
+                        <p className="font-semibold">
+                          DNS Verification Required
+                        </p>
+                        <p className="text-sm">
+                          Add this TXT record to your DNS:
+                        </p>
                         <div className="bg-white p-3 rounded border mt-2 font-mono text-xs">
-                          <div><strong>Type:</strong> TXT</div>
-                          <div><strong>Name:</strong> _baci-verification.{verificationInfo.domain}</div>
-                          <div><strong>Value:</strong> {verificationInfo.token}</div>
+                          <div>
+                            <strong>Type:</strong> TXT
+                          </div>
+                          <div>
+                            <strong>Name:</strong> _baci-verification.
+                            {verificationInfo.domain}
+                          </div>
+                          <div>
+                            <strong>Value:</strong> {verificationInfo.token}
+                          </div>
                         </div>
                         <p className="text-sm mt-2">
-                          DNS propagation can take up to 48 hours. You can verify once the record is added.
+                          DNS propagation can take up to 48 hours. You can
+                          verify once the record is added.
                         </p>
                       </div>
                     </AlertDescription>

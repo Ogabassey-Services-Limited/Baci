@@ -1,26 +1,26 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { ArrowLeft, Loader2, Save, Send, X } from 'lucide-react';
 import Link from 'next/link';
-import { asRoute } from '@/lib/routes';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import { useMerchant } from '@/hooks/use-merchant';
-import {
-  Loader2,
-  ArrowLeft,
-  Save,
-  Send,
-  X,
-} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useCallback, useState } from 'react';
 import { BlogEditor } from '@/components/blog/blog-editor';
 import { ProductGrid } from '@/components/blog/product-embed';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
+import { asRoute } from '@/lib/routes';
 
 interface Product {
   id: string;
@@ -122,7 +122,11 @@ export default function NewBlogPostPage() {
   const savePost = async (status: 'draft' | 'published') => {
     const error = validateForm();
     if (error) {
-      toast({ title: 'Validation Error', description: error, variant: 'destructive' });
+      toast({
+        title: 'Validation Error',
+        description: error,
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -136,7 +140,12 @@ export default function NewBlogPostPage() {
         featured_image_url: formData.featured_image_url || null,
         featured_image_alt: formData.featured_image_alt || undefined,
         category: formData.category || undefined,
-        tags: formData.tags ? formData.tags.split(',').map((t) => t.trim()).filter(Boolean) : [],
+        tags: formData.tags
+          ? formData.tags
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,
         author_bio: formData.author_bio || undefined,
@@ -159,9 +168,10 @@ export default function NewBlogPostPage() {
 
       toast({
         title: status === 'published' ? 'Post Published!' : 'Draft Saved',
-        description: status === 'published'
-          ? 'Your blog post is now live.'
-          : 'Your draft has been saved.',
+        description:
+          status === 'published'
+            ? 'Your blog post is now live.'
+            : 'Your draft has been saved.',
       });
 
       router.push(asRoute('/dashboard/blog'));
@@ -169,7 +179,8 @@ export default function NewBlogPostPage() {
       console.error('Error saving post:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to save blog post.',
+        description:
+          error instanceof Error ? error.message : 'Failed to save blog post.',
         variant: 'destructive',
       });
     } finally {
@@ -184,12 +195,15 @@ export default function NewBlogPostPage() {
     const doc = parser.parseFromString(html, 'text/html');
     return doc.body.textContent || '';
   };
-  const wordCount = getTextContent(formData.content).split(/\s+/).filter(Boolean).length;
+  const wordCount = getTextContent(formData.content)
+    .split(/\s+/)
+    .filter(Boolean).length;
   const readingTime = Math.ceil(wordCount / 200);
 
   // SEO metrics
   const titleLength = formData.seo_title?.length || formData.title.length;
-  const descriptionLength = formData.seo_description?.length || formData.excerpt.length;
+  const descriptionLength =
+    formData.seo_description?.length || formData.excerpt.length;
 
   return (
     <div className="space-y-6">
@@ -214,11 +228,19 @@ export default function NewBlogPostPage() {
             onClick={() => savePost('draft')}
             disabled={isSaving}
           >
-            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
             Save Draft
           </Button>
           <Button onClick={() => savePost('published')} disabled={isSaving}>
-            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
+            {isSaving ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4 mr-2" />
+            )}
             Publish
           </Button>
         </div>
@@ -237,7 +259,9 @@ export default function NewBlogPostPage() {
           <Card>
             <CardHeader>
               <CardTitle>Post Content</CardTitle>
-              <CardDescription>Just paste text and images - formatting is handled automatically</CardDescription>
+              <CardDescription>
+                Just paste text and images - formatting is handled automatically
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -261,7 +285,12 @@ export default function NewBlogPostPage() {
                     id="slug"
                     placeholder="auto-generated-from-title"
                     value={formData.slug}
-                    onChange={(e) => handleChange('slug', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                    onChange={(e) =>
+                      handleChange(
+                        'slug',
+                        e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
+                      )
+                    }
                     className="flex-1"
                   />
                 </div>
@@ -300,11 +329,18 @@ export default function NewBlogPostPage() {
           {embeddedProducts.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Embedded Products ({embeddedProducts.length})</CardTitle>
-                <CardDescription>These products will appear in your blog post</CardDescription>
+                <CardTitle>
+                  Embedded Products ({embeddedProducts.length})
+                </CardTitle>
+                <CardDescription>
+                  These products will appear in your blog post
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <ProductGrid products={embeddedProducts} merchantSlug={merchant?.slug} />
+                <ProductGrid
+                  products={embeddedProducts}
+                  merchantSlug={merchant?.slug}
+                />
                 <Button
                   variant="outline"
                   size="sm"
@@ -332,7 +368,9 @@ export default function NewBlogPostPage() {
                   id="featured_image_url"
                   placeholder="https://... or drag an image into the editor"
                   value={formData.featured_image_url}
-                  onChange={(e) => handleChange('featured_image_url', e.target.value)}
+                  onChange={(e) =>
+                    handleChange('featured_image_url', e.target.value)
+                  }
                 />
               </div>
 
@@ -363,7 +401,9 @@ export default function NewBlogPostPage() {
                   id="featured_image_alt"
                   placeholder="Describe the image (for accessibility)"
                   value={formData.featured_image_alt}
-                  onChange={(e) => handleChange('featured_image_alt', e.target.value)}
+                  onChange={(e) =>
+                    handleChange('featured_image_alt', e.target.value)
+                  }
                 />
               </div>
             </CardContent>
@@ -417,7 +457,13 @@ export default function NewBlogPostPage() {
                   maxLength={70}
                 />
                 <div className="flex justify-between text-xs">
-                  <span className={titleLength > 60 ? 'text-destructive' : 'text-muted-foreground'}>
+                  <span
+                    className={
+                      titleLength > 60
+                        ? 'text-destructive'
+                        : 'text-muted-foreground'
+                    }
+                  >
                     {titleLength}/60 characters
                   </span>
                   {titleLength >= 50 && titleLength <= 60 && (
@@ -430,14 +476,24 @@ export default function NewBlogPostPage() {
                 <Label htmlFor="seo_description">Meta Description</Label>
                 <Textarea
                   id="seo_description"
-                  placeholder={formData.excerpt || 'Auto-generated from content'}
+                  placeholder={
+                    formData.excerpt || 'Auto-generated from content'
+                  }
                   value={formData.seo_description}
-                  onChange={(e) => handleChange('seo_description', e.target.value)}
+                  onChange={(e) =>
+                    handleChange('seo_description', e.target.value)
+                  }
                   rows={3}
                   maxLength={160}
                 />
                 <div className="flex justify-between text-xs">
-                  <span className={descriptionLength > 160 ? 'text-destructive' : 'text-muted-foreground'}>
+                  <span
+                    className={
+                      descriptionLength > 160
+                        ? 'text-destructive'
+                        : 'text-muted-foreground'
+                    }
+                  >
                     {descriptionLength}/160 characters
                   </span>
                   {descriptionLength >= 120 && descriptionLength <= 160 && (
@@ -454,10 +510,13 @@ export default function NewBlogPostPage() {
                     {formData.seo_title || formData.title || 'Post Title'}
                   </div>
                   <div className="text-green-700 dark:text-green-500 text-sm">
-                    {merchant?.slug}.usebaci.com/blog/{formData.slug || 'post-slug'}
+                    {merchant?.slug}.usebaci.com/blog/
+                    {formData.slug || 'post-slug'}
                   </div>
                   <div className="text-sm text-muted-foreground line-clamp-2">
-                    {formData.seo_description || formData.excerpt || 'Description auto-generated from content...'}
+                    {formData.seo_description ||
+                      formData.excerpt ||
+                      'Description auto-generated from content...'}
                   </div>
                 </div>
               </div>
@@ -470,9 +529,7 @@ export default function NewBlogPostPage() {
           <Card>
             <CardHeader>
               <CardTitle>Author Information</CardTitle>
-              <CardDescription>
-                For credibility (E-E-A-T)
-              </CardDescription>
+              <CardDescription>For credibility (E-E-A-T)</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">

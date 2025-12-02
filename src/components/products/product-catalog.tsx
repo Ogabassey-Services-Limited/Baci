@@ -1,9 +1,23 @@
-
 'use client';
 
-import { useProductContext } from '@/contexts/product-context';
-import { useMerchant } from '@/hooks/use-merchant';
-import { getCountryByCode } from '@/lib/countries';
+import {
+  AlertTriangle,
+  Edit,
+  Infinity as InfinityIcon,
+  Loader2,
+  Package,
+} from 'lucide-react';
+import Image from 'next/image';
+import React, { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
@@ -12,17 +26,13 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useProductContext } from '@/contexts/product-context';
 import { useDebounce } from '@/hooks/use-debounce';
-import React, { useState, useEffect } from 'react';
+import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Infinity as InfinityIcon, Package, Edit, AlertTriangle } from 'lucide-react';
+import { getCountryByCode } from '@/lib/countries';
+import type { Product } from '@/lib/products';
 import { cn } from '@/lib/utils';
-import { Product } from '@/lib/products';
-import Image from 'next/image';
-
 
 interface ProductCatalogProps {
   statusFilter: string;
@@ -30,8 +40,13 @@ interface ProductCatalogProps {
   onEditProduct?: (product: Product) => void;
 }
 
-export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stockFilter, onEditProduct }: ProductCatalogProps) {
-  const { products, isLoading, pagination, setPage, updateProduct } = useProductContext();
+export function ProductCatalog({
+  statusFilter: _statusFilter,
+  stockFilter: _stockFilter,
+  onEditProduct,
+}: ProductCatalogProps) {
+  const { products, isLoading, pagination, setPage, updateProduct } =
+    useProductContext();
   const { merchant } = useMerchant();
   const { toast } = useToast();
 
@@ -45,30 +60,41 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
     setLocalProducts(products);
   }, [products]);
 
-
   const handlePriceChange = (productId: string, newPrice: string) => {
-    const priceValue = parseFloat(newPrice);
-    if (!isNaN(priceValue)) {
-      setLocalProducts(current => current.map(p => p.id === productId ? { ...p, price: priceValue } : p));
-      setDirtyProducts(prev => new Set(prev).add(productId));
+    const priceValue = Number.parseFloat(newPrice);
+    if (!Number.isNaN(priceValue)) {
+      setLocalProducts((current) =>
+        current.map((p) =>
+          p.id === productId ? { ...p, price: priceValue } : p
+        )
+      );
+      setDirtyProducts((prev) => new Set(prev).add(productId));
     }
   };
 
-  const handleStockChange = (productId: string, newStock: number, variantId?: string) => {
+  const handleStockChange = (
+    productId: string,
+    newStock: number,
+    variantId?: string
+  ) => {
     if (newStock < 0) return;
-    setLocalProducts(current => current.map(p => {
-      if (p.id !== productId) return p;
+    setLocalProducts((current) =>
+      current.map((p) => {
+        if (p.id !== productId) return p;
 
-      if (variantId && p.variants) {
-        return {
-          ...p,
-          variants: p.variants.map(v => v.id === variantId ? { ...v, stock_quantity: newStock } : v)
-        };
-      }
+        if (variantId && p.variants) {
+          return {
+            ...p,
+            variants: p.variants.map((v) =>
+              v.id === variantId ? { ...v, stock_quantity: newStock } : v
+            ),
+          };
+        }
 
-      return { ...p, stock: newStock };
-    }));
-    setDirtyProducts(prev => new Set(prev).add(productId));
+        return { ...p, stock: newStock };
+      })
+    );
+    setDirtyProducts((prev) => new Set(prev).add(productId));
   };
 
   useEffect(() => {
@@ -76,12 +102,14 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
       setIsSaving(true);
       const saveChanges = async () => {
         try {
-          const promises = Array.from(debouncedDirtyProducts).map(async (id) => {
-            const product = localProducts.find(p => p.id === id);
-            if (product) {
-              await updateProduct(product);
+          const promises = Array.from(debouncedDirtyProducts).map(
+            async (id) => {
+              const product = localProducts.find((p) => p.id === id);
+              if (product) {
+                await updateProduct(product);
+              }
             }
-          });
+          );
 
           await Promise.all(promises);
 
@@ -91,11 +119,11 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
           });
           setDirtyProducts(new Set());
         } catch (error) {
-          console.error("Failed to save changes", error);
+          console.error('Failed to save changes', error);
           toast({
             title: 'Save Failed',
             description: 'Could not save changes. Please try again.',
-            variant: 'destructive'
+            variant: 'destructive',
           });
         } finally {
           setIsSaving(false);
@@ -107,7 +135,9 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
   }, [debouncedDirtyProducts, localProducts, updateProduct, toast]);
 
   const formatCurrency = (amount: number) => {
-    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+    const country = merchant?.country
+      ? getCountryByCode(merchant.country)
+      : undefined;
     const locale = country ? `en-${country.code}` : 'en-US';
     const currency = country ? country.currency : 'USD';
 
@@ -123,7 +153,9 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
       <CardHeader className="px-6 py-4 border-b border-primary/10">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-xl font-semibold tracking-tight">Product Catalog</CardTitle>
+            <CardTitle className="text-xl font-semibold tracking-tight">
+              Product Catalog
+            </CardTitle>
             <CardDescription className="mt-1 text-sm text-muted-foreground/80">
               Manage your inventory, pricing, and stock levels.
             </CardDescription>
@@ -140,15 +172,24 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-center">Stock</TableHead>
-                <TableHead className="w-[50px]"></TableHead>
+                <TableHead className="w-[50px]" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {localProducts.map(product => {
-                const isLowStock = !product.manage_stock ? false : (product.stock <= (product.low_stock_threshold || 5));
+              {localProducts.map((product) => {
+                const isLowStock = !product.manage_stock
+                  ? false
+                  : product.stock <= (product.low_stock_threshold || 5);
                 return (
                   <React.Fragment key={product.id}>
-                    <TableRow className={cn("group hover:bg-muted/30 transition-colors border-b border-primary/5", product.variants && product.variants.length > 0 && "bg-muted/5")}>
+                    <TableRow
+                      className={cn(
+                        'group hover:bg-muted/30 transition-colors border-b border-primary/5',
+                        product.variants &&
+                          product.variants.length > 0 &&
+                          'bg-muted/5'
+                      )}
+                    >
                       <TableCell className="pl-6 py-3">
                         <div className="flex items-center gap-4">
                           <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-border/50 bg-muted/20 shrink-0">
@@ -171,7 +212,11 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
                               {product.name}
                             </span>
                             <div className="flex items-center gap-2">
-                              {product.sku && <span className="text-[11px] text-muted-foreground font-mono">SKU: {product.sku}</span>}
+                              {product.sku && (
+                                <span className="text-[11px] text-muted-foreground font-mono">
+                                  SKU: {product.sku}
+                                </span>
+                              )}
                               {isSaving && dirtyProducts.has(product.id) && (
                                 <span className="flex items-center gap-1 text-[10px] text-blue-600 font-medium animate-pulse">
                                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -183,18 +228,26 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className={cn(
-                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border",
-                          product.status === 'active'
-                            ? "bg-green-50 text-green-700 border-green-200/50"
-                            : product.status === 'draft'
-                              ? "bg-yellow-50 text-yellow-700 border-yellow-200/50"
-                              : "bg-gray-50 text-gray-600 border-gray-200/50"
-                        )}>
-                          <span className={cn(
-                            "mr-1.5 h-1.5 w-1.5 rounded-full",
-                            product.status === 'active' ? "bg-green-500" : product.status === 'draft' ? "bg-yellow-500" : "bg-gray-400"
-                          )} />
+                        <div
+                          className={cn(
+                            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
+                            product.status === 'active'
+                              ? 'bg-green-50 text-green-700 border-green-200/50'
+                              : product.status === 'draft'
+                                ? 'bg-yellow-50 text-yellow-700 border-yellow-200/50'
+                                : 'bg-gray-50 text-gray-600 border-gray-200/50'
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              'mr-1.5 h-1.5 w-1.5 rounded-full',
+                              product.status === 'active'
+                                ? 'bg-green-500'
+                                : product.status === 'draft'
+                                  ? 'bg-yellow-500'
+                                  : 'bg-gray-400'
+                            )}
+                          />
                           <span className="capitalize">{product.status}</span>
                         </div>
                       </TableCell>
@@ -206,7 +259,9 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
                           <Input
                             type="number"
                             defaultValue={product.price.toFixed(2)}
-                            onBlur={(e) => handlePriceChange(product.id, e.target.value)}
+                            onBlur={(e) =>
+                              handlePriceChange(product.id, e.target.value)
+                            }
                             className="h-9 text-left pr-3 pl-6 font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm"
                             aria-label={`Price for ${product.name}`}
                             step="0.01"
@@ -214,21 +269,33 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
                         </div>
                       </TableCell>
                       <TableCell>
-                        {product.manage_stock && (!product.variants || product.variants.length === 0) ? (
+                        {product.manage_stock &&
+                        (!product.variants || product.variants.length === 0) ? (
                           <div className="mx-auto w-24 relative">
                             <Input
                               type="number"
                               value={product.stock}
-                              onChange={(e) => handleStockChange(product.id, parseInt(e.target.value, 10) || 0)}
+                              onChange={(e) =>
+                                handleStockChange(
+                                  product.id,
+                                  Number.parseInt(e.target.value, 10) || 0
+                                )
+                              }
                               className={cn(
-                                "h-8 text-center font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md",
-                                product.stock === 0 && "text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200",
-                                isLowStock && product.stock > 0 && "text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200"
+                                'h-8 text-center font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
+                                product.stock === 0 &&
+                                  'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
+                                isLowStock &&
+                                  product.stock > 0 &&
+                                  'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
                               )}
                               aria-label={`Stock for ${product.name}`}
                             />
                             {isLowStock && (
-                              <div className="absolute -right-6 top-1/2 -translate-y-1/2" title={`Low Stock (Threshold: ${product.low_stock_threshold || 5})`}>
+                              <div
+                                className="absolute -right-6 top-1/2 -translate-y-1/2"
+                                title={`Low Stock (Threshold: ${product.low_stock_threshold || 5})`}
+                              >
                                 <AlertTriangle className="h-4 w-4 text-amber-500" />
                               </div>
                             )}
@@ -238,7 +305,10 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
                             See variants
                           </div>
                         ) : (
-                          <div className="flex items-center justify-center gap-1.5 text-muted-foreground/70" title="Infinite Stock">
+                          <div
+                            className="flex items-center justify-center gap-1.5 text-muted-foreground/70"
+                            title="Infinite Stock"
+                          >
                             <InfinityIcon className="h-4 w-4" />
                           </div>
                         )}
@@ -254,10 +324,15 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
                         </Button>
                       </TableCell>
                     </TableRow>
-                    {product.variants?.map(variant => {
-                      const isVariantLowStock = variant.stock_quantity <= (product.low_stock_threshold || 5);
+                    {product.variants?.map((variant) => {
+                      const isVariantLowStock =
+                        variant.stock_quantity <=
+                        (product.low_stock_threshold || 5);
                       return (
-                        <TableRow key={variant.id} className="bg-muted/10 hover:bg-muted/20 border-b border-border/40">
+                        <TableRow
+                          key={variant.id}
+                          className="bg-muted/10 hover:bg-muted/20 border-b border-border/40"
+                        >
                           <TableCell className="pl-12 py-2">
                             <div className="flex items-center gap-3">
                               <div className="h-8 w-8 rounded overflow-hidden border border-border/50 bg-background shrink-0">
@@ -277,13 +352,19 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-sm text-muted-foreground">
-                                  {Object.values(variant.attributes).join(' / ')}
+                                  {Object.values(variant.attributes).join(
+                                    ' / '
+                                  )}
                                 </span>
-                                {variant.sku && <span className="text-[10px] text-muted-foreground/70 font-mono">SKU: {variant.sku}</span>}
+                                {variant.sku && (
+                                  <span className="text-[10px] text-muted-foreground/70 font-mono">
+                                    SKU: {variant.sku}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </TableCell>
-                          <TableCell></TableCell>
+                          <TableCell />
                           <TableCell className="text-right">
                             {variant.price_override && (
                               <span className="text-sm text-muted-foreground font-mono">
@@ -296,21 +377,33 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
                               <Input
                                 type="number"
                                 value={variant.stock_quantity}
-                                onChange={(e) => handleStockChange(product.id, parseInt(e.target.value, 10) || 0, variant.id)}
+                                onChange={(e) =>
+                                  handleStockChange(
+                                    product.id,
+                                    Number.parseInt(e.target.value, 10) || 0,
+                                    variant.id
+                                  )
+                                }
                                 className={cn(
-                                  "h-7 text-center font-mono text-xs bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md",
-                                  variant.stock_quantity === 0 && "text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200",
-                                  isVariantLowStock && variant.stock_quantity > 0 && "text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200"
+                                  'h-7 text-center font-mono text-xs bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
+                                  variant.stock_quantity === 0 &&
+                                    'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
+                                  isVariantLowStock &&
+                                    variant.stock_quantity > 0 &&
+                                    'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
                                 )}
                               />
                               {isVariantLowStock && (
-                                <div className="absolute -right-6 top-1/2 -translate-y-1/2" title={`Low Stock (Threshold: ${product.low_stock_threshold || 5})`}>
+                                <div
+                                  className="absolute -right-6 top-1/2 -translate-y-1/2"
+                                  title={`Low Stock (Threshold: ${product.low_stock_threshold || 5})`}
+                                >
                                   <AlertTriangle className="h-3 w-3 text-amber-500" />
                                 </div>
                               )}
                             </div>
                           </TableCell>
-                          <TableCell></TableCell>
+                          <TableCell />
                         </TableRow>
                       );
                     })}
@@ -330,7 +423,9 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
               <div className="h-12 w-12 rounded-full bg-muted/30 flex items-center justify-center mb-3">
                 <Package className="h-6 w-6 text-muted-foreground/60" />
               </div>
-              <h3 className="text-sm font-medium text-foreground">No products found</h3>
+              <h3 className="text-sm font-medium text-foreground">
+                No products found
+              </h3>
               <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
                 Try adjusting your filters or add a new product.
               </p>
@@ -341,7 +436,16 @@ export function ProductCatalog({ statusFilter: _statusFilter, stockFilter: _stoc
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-between px-6 py-3 border-t border-border/40 bg-muted/5">
           <div className="text-xs text-muted-foreground font-medium">
-            Showing <span className="text-foreground">{((pagination.page - 1) * pagination.limit) + 1}</span> to <span className="text-foreground">{Math.min(pagination.page * pagination.limit, pagination.total)}</span> of <span className="text-foreground">{pagination.total}</span> products
+            Showing{' '}
+            <span className="text-foreground">
+              {(pagination.page - 1) * pagination.limit + 1}
+            </span>{' '}
+            to{' '}
+            <span className="text-foreground">
+              {Math.min(pagination.page * pagination.limit, pagination.total)}
+            </span>{' '}
+            of <span className="text-foreground">{pagination.total}</span>{' '}
+            products
           </div>
           <div className="flex items-center gap-2">
             <Button

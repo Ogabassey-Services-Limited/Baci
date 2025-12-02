@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 /**
  * Twitter/X Conversions API (Server-Side)
@@ -9,7 +9,8 @@ import crypto from 'crypto';
  * @see https://developer.twitter.com/en/docs/twitter-ads-api/measurement/api-reference/conversions
  */
 
-const TWITTER_CAPI_URL = 'https://ads-api.twitter.com/12/measurement/conversions';
+const TWITTER_CAPI_URL =
+  'https://ads-api.twitter.com/12/measurement/conversions';
 
 export type TwitterEventName =
   | 'PAGE_VIEW'
@@ -60,10 +61,10 @@ function hashData(data: string): string {
 export async function sendTwitterEvent(
   pixelId: string,
   oauthToken: string,
-  oauthTokenSecret: string,
-  consumerKey: string,
-  consumerSecret: string,
-  eventName: TwitterEventName,
+  _oauthTokenSecret: string,
+  _consumerKey: string,
+  _consumerSecret: string,
+  _eventName: TwitterEventName,
   userData: TwitterUserData,
   eventData?: TwitterEventData,
   eventId?: string
@@ -73,13 +74,19 @@ export async function sendTwitterEvent(
   }
 
   // Build identifiers
-  const identifiers: Array<{ hashed_email?: string; hashed_phone_number?: string; twclid?: string }> = [];
+  const identifiers: Array<{
+    hashed_email?: string;
+    hashed_phone_number?: string;
+    twclid?: string;
+  }> = [];
 
   if (userData.email) {
     identifiers.push({ hashed_email: hashData(userData.email) });
   }
   if (userData.phone) {
-    identifiers.push({ hashed_phone_number: hashData(userData.phone.replace(/[^\d]/g, '')) });
+    identifiers.push({
+      hashed_phone_number: hashData(userData.phone.replace(/[^\d]/g, '')),
+    });
   }
   if (userData.twitterClickId) {
     identifiers.push({ twclid: userData.twitterClickId });
@@ -87,13 +94,20 @@ export async function sendTwitterEvent(
 
   const conversion = {
     conversion_time: new Date().toISOString(),
-    event_id: eventId || `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+    event_id:
+      eventId || `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
     identifiers,
     conversion_id: eventData?.orderId,
-    ...(eventData?.value !== undefined && { value: eventData.value.toString() }),
+    ...(eventData?.value !== undefined && {
+      value: eventData.value.toString(),
+    }),
     ...(eventData?.currency && { currency: eventData.currency }),
-    ...(eventData?.numItems !== undefined && { number_items: eventData.numItems }),
-    ...(eventData?.contentIds && { contents: eventData.contentIds.map(id => ({ content_id: id })) }),
+    ...(eventData?.numItems !== undefined && {
+      number_items: eventData.numItems,
+    }),
+    ...(eventData?.contentIds && {
+      contents: eventData.contentIds.map((id) => ({ content_id: id })),
+    }),
   };
 
   // Note: Full OAuth 1.0a implementation required for production
@@ -109,7 +123,7 @@ export async function sendTwitterEvent(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${oauthToken}`,
+        Authorization: `Bearer ${oauthToken}`,
       },
       body: JSON.stringify(payload),
     });
@@ -123,7 +137,10 @@ export async function sendTwitterEvent(
     return { success: true };
   } catch (error) {
     console.error('Twitter CAPI request failed:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error',
+    };
   }
 }
 

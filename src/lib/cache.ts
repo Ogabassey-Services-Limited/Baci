@@ -40,7 +40,7 @@ class InMemoryCache {
    * Set data in cache with TTL in seconds
    */
   set<T>(key: string, data: T, ttlSeconds: number): void {
-    const expiresAt = Date.now() + (ttlSeconds * 1000);
+    const expiresAt = Date.now() + ttlSeconds * 1000;
     this.cache.set(key, { data, expiresAt });
   }
 
@@ -74,8 +74,8 @@ class InMemoryCache {
       if (key.length > 1000) continue;
 
       const shouldDelete = isWildcard
-        ? key.startsWith(prefix)  // Wildcard: match prefix
-        : key === pattern;         // Exact match
+        ? key.startsWith(prefix) // Wildcard: match prefix
+        : key === pattern; // Exact match
 
       if (shouldDelete) {
         this.cache.delete(key);
@@ -124,7 +124,9 @@ export { cache };
 /**
  * Generate a cache key from multiple parts
  */
-export function generateCacheKey(...parts: (string | number | undefined)[]): string {
+export function generateCacheKey(
+  ...parts: (string | number | undefined)[]
+): string {
   return parts.filter(Boolean).join(':');
 }
 

@@ -1,11 +1,14 @@
-import { createClient } from '@/lib/supabase/server';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import {
+  generateOrderConfirmationEmail,
+  generateOrderConfirmationText,
+} from '@/lib/email-templates';
 import { verifyPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
-import { generateOrderConfirmationEmail, generateOrderConfirmationText } from '@/lib/email-templates';
-import { createHmac, timingSafeEqual } from 'crypto';
 
 /**
  * Verify Korapay webhook signature
@@ -13,7 +16,10 @@ import { createHmac, timingSafeEqual } from 'crypto';
  * @param payload - The raw request body as string
  * @returns boolean indicating if signature is valid
  */
-function verifyWebhookSignature(signature: string | null, payload: string): boolean {
+function verifyWebhookSignature(
+  signature: string | null,
+  payload: string
+): boolean {
   if (!signature) {
     logger.warn({ message: 'Webhook signature missing' });
     return false;
@@ -56,14 +62,20 @@ export async function POST(request: NextRequest) {
 
     // Verify webhook signature to prevent forged requests
     if (!verifyWebhookSignature(signature, rawBody)) {
-      logger.warn({ message: 'Invalid webhook signature', signature: signature?.substring(0, 20) });
+      logger.warn({
+        message: 'Invalid webhook signature',
+        signature: signature?.substring(0, 20),
+      });
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
     // Parse the verified payload
     const body = JSON.parse(rawBody);
 
-    logger.info({ message: 'Payment webhook received (signature verified)', payload: body });
+    logger.info({
+      message: 'Payment webhook received (signature verified)',
+      payload: body,
+    });
 
     const { reference, status, event } = body;
 
@@ -73,7 +85,12 @@ export async function POST(request: NextRequest) {
 
     // Only process successful payment events
     if (event !== 'charge.success' && status !== 'success') {
-      logger.info({ message: 'Ignoring non-success webhook event', reference, event, status });
+      logger.info({
+        message: 'Ignoring non-success webhook event',
+        reference,
+        event,
+        status,
+      });
       return NextResponse.json({ message: 'Event ignored' });
     }
 
@@ -84,8 +101,15 @@ export async function POST(request: NextRequest) {
     const paymentData = await verifyPayment(reference);
 
     if (paymentData.status !== 'success') {
-      logger.warn({ message: 'Payment verification failed', reference, status: paymentData.status });
-      return NextResponse.json({ error: 'Payment not successful' }, { status: 400 });
+      logger.warn({
+        message: 'Payment verification failed',
+        reference,
+        status: paymentData.status,
+      });
+      return NextResponse.json(
+        { error: 'Payment not successful' },
+        { status: 400 }
+      );
     }
 
     // Find transaction record
@@ -96,8 +120,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (transactionError || !transaction) {
-      logger.error({ message: 'Transaction not found', reference, error: transactionError });
-      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+      logger.error({
+        message: 'Transaction not found',
+        reference,
+        error: transactionError,
+      });
+      return NextResponse.json(
+        { error: 'Transaction not found' },
+        { status: 404 }
+      );
     }
 
     // Check if already processed
@@ -117,7 +148,11 @@ export async function POST(request: NextRequest) {
       .eq('id', transaction.id);
 
     if (updateError) {
-      logger.error({ message: 'Failed to update transaction', reference, error: updateError });
+      logger.error({
+        message: 'Failed to update transaction',
+        reference,
+        error: updateError,
+      });
       throw updateError;
     }
 
@@ -135,9 +170,16 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (orderError) {
-        logger.error({ message: 'Failed to update order', orderId: transaction.order_id, error: orderError });
+        logger.error({
+          message: 'Failed to update order',
+          orderId: transaction.order_id,
+          error: orderError,
+        });
       } else {
-        logger.info({ message: 'Order updated successfully', orderId: transaction.order_id });
+        logger.info({
+          message: 'Order updated successfully',
+          orderId: transaction.order_id,
+        });
 
         // Send order confirmation email
         try {
@@ -148,22 +190,26 @@ export async function POST(request: NextRequest) {
             .single();
 
           if (merchantDetails && order.customer_email) {
-            const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+            const rootDomain =
+              process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
             const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
 
-            const emailItems = (order.order_items || []).map((item: Record<string, unknown>) => ({
-              name: (item.name as string) || 'Product',
-              quantity: (item.quantity as number) || 1,
-              price: (item.price as number) || 0,
-            }));
+            const emailItems = (order.order_items || []).map(
+              (item: Record<string, unknown>) => ({
+                name: (item.name as string) || 'Product',
+                quantity: (item.quantity as number) || 1,
+                price: (item.price as number) || 0,
+              })
+            );
 
             const emailData = {
-              orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
+              orderNumber:
+                order.order_number || order.id.slice(0, 8).toUpperCase(),
               customerName: order.customer_name,
               items: emailItems,
-              subtotal: parseFloat(order.subtotal || '0'),
-              shippingFee: parseFloat(order.shipping_fee || '0'),
-              total: parseFloat(order.total || '0'),
+              subtotal: Number.parseFloat(order.subtotal || '0'),
+              shippingFee: Number.parseFloat(order.shipping_fee || '0'),
+              total: Number.parseFloat(order.total || '0'),
               shippingAddress: {
                 address: order.shipping_address?.address || '',
                 city: order.shipping_address?.city || '',
@@ -186,17 +232,27 @@ export async function POST(request: NextRequest) {
               emailType: 'orders',
             });
 
-            logger.info({ message: 'Order confirmation email sent', orderId: order.id });
+            logger.info({
+              message: 'Order confirmation email sent',
+              orderId: order.id,
+            });
           }
         } catch (emailError) {
-          logger.error({ message: 'Failed to send order confirmation email', error: emailError });
+          logger.error({
+            message: 'Failed to send order confirmation email',
+            error: emailError,
+          });
         }
       }
     }
 
     // Merchant balance is automatically updated via database trigger
 
-    logger.info({ message: 'Payment processed successfully', reference, transactionId: transaction.id });
+    logger.info({
+      message: 'Payment processed successfully',
+      reference,
+      transactionId: transaction.id,
+    });
 
     return NextResponse.json({
       success: true,

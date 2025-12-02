@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 /**
  * Base Skeleton component with shimmer animation
@@ -13,10 +13,10 @@ function Skeleton({
   return (
     <div
       className={cn(
-        "animate-pulse rounded-md bg-muted relative overflow-hidden",
+        'animate-pulse rounded-md bg-muted relative overflow-hidden',
         // Shimmer effect overlay
-        "after:absolute after:inset-0 after:-translate-x-full after:animate-[shimmer_2s_infinite]",
-        "after:bg-gradient-to-r after:from-transparent after:via-white/10 after:to-transparent",
+        'after:absolute after:inset-0 after:-translate-x-full after:animate-[shimmer_2s_infinite]',
+        'after:bg-gradient-to-r after:from-transparent after:via-white/10 after:to-transparent',
         className
       )}
       {...props}
@@ -30,7 +30,7 @@ function Skeleton({
  */
 export function ProductCardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("flex flex-col space-y-3", className)}>
+    <div className={cn('flex flex-col space-y-3', className)}>
       {/* Image placeholder */}
       <Skeleton className="aspect-square w-full rounded-lg" />
       {/* Title */}
@@ -53,7 +53,7 @@ export function ProductCardSkeleton({ className }: { className?: string }) {
 export function ProductGridSkeleton({
   count = 8,
   columns = 4,
-  className
+  className,
 }: {
   count?: number;
   columns?: 2 | 3 | 4 | 5 | 6;
@@ -68,7 +68,7 @@ export function ProductGridSkeleton({
   };
 
   return (
-    <div className={cn("grid gap-4 md:gap-6", gridCols[columns], className)}>
+    <div className={cn('grid gap-4 md:gap-6', gridCols[columns], className)}>
       {Array.from({ length: count }).map((_, i) => (
         <ProductCardSkeleton key={i} />
       ))}
@@ -97,14 +97,14 @@ export function TableRowSkeleton({ columns = 5 }: { columns?: number }) {
 export function TableSkeleton({
   rows = 5,
   columns = 5,
-  className
+  className,
 }: {
   rows?: number;
   columns?: number;
   className?: string;
 }) {
   return (
-    <div className={cn("w-full", className)}>
+    <div className={cn('w-full', className)}>
       <table className="w-full">
         <thead>
           <tr className="border-b bg-muted/50">
@@ -130,7 +130,7 @@ export function TableSkeleton({
  */
 export function StatsCardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("p-6 rounded-lg border bg-card", className)}>
+    <div className={cn('p-6 rounded-lg border bg-card', className)}>
       <div className="flex items-center justify-between mb-4">
         <Skeleton className="h-4 w-24" />
         <Skeleton className="h-8 w-8 rounded-full" />
@@ -146,13 +146,13 @@ export function StatsCardSkeleton({ className }: { className?: string }) {
  */
 export function StatsGridSkeleton({
   count = 4,
-  className
+  className,
 }: {
   count?: number;
   className?: string;
 }) {
   return (
-    <div className={cn("grid gap-4 md:grid-cols-2 lg:grid-cols-4", className)}>
+    <div className={cn('grid gap-4 md:grid-cols-2 lg:grid-cols-4', className)}>
       {Array.from({ length: count }).map((_, i) => (
         <StatsCardSkeleton key={i} />
       ))}
@@ -165,7 +165,7 @@ export function StatsGridSkeleton({
  */
 export function ProductDetailSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("grid md:grid-cols-2 gap-8", className)}>
+    <div className={cn('grid md:grid-cols-2 gap-8', className)}>
       {/* Image gallery */}
       <div className="space-y-4">
         <Skeleton className="aspect-square w-full rounded-lg" />
@@ -200,7 +200,7 @@ export function ProductDetailSkeleton({ className }: { className?: string }) {
  */
 export function CartItemSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("flex gap-4 p-4 border-b", className)}>
+    <div className={cn('flex gap-4 p-4 border-b', className)}>
       <Skeleton className="w-20 h-20 rounded-md flex-shrink-0" />
       <div className="flex-1 space-y-2">
         <Skeleton className="h-4 w-3/4" />
@@ -219,13 +219,13 @@ export function CartItemSkeleton({ className }: { className?: string }) {
  */
 export function CartSkeleton({
   items = 3,
-  className
+  className,
 }: {
   items?: number;
   className?: string;
 }) {
   return (
-    <div className={cn("space-y-0", className)}>
+    <div className={cn('space-y-0', className)}>
       {Array.from({ length: items }).map((_, i) => (
         <CartItemSkeleton key={i} />
       ))}
@@ -245,7 +245,7 @@ export function CartSkeleton({
  */
 export function CheckoutFormSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("space-y-6", className)}>
+    <div className={cn('space-y-6', className)}>
       {/* Contact section */}
       <div className="space-y-4">
         <Skeleton className="h-6 w-32" />
@@ -280,7 +280,7 @@ export function CheckoutFormSkeleton({ className }: { className?: string }) {
  */
 export function OrderSummarySkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("p-6 rounded-lg border bg-card space-y-4", className)}>
+    <div className={cn('p-6 rounded-lg border bg-card space-y-4', className)}>
       <Skeleton className="h-6 w-32" />
       <div className="space-y-3">
         {Array.from({ length: 3 }).map((_, i) => (
@@ -303,9 +303,13 @@ export function OrderSummarySkeleton({ className }: { className?: string }) {
 /**
  * Storefront Header Skeleton - for merchant store headers
  */
-export function StorefrontHeaderSkeleton({ className }: { className?: string }) {
+export function StorefrontHeaderSkeleton({
+  className,
+}: {
+  className?: string;
+}) {
   return (
-    <header className={cn("border-b", className)}>
+    <header className={cn('border-b', className)}>
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <Skeleton className="h-10 w-32" />
@@ -329,7 +333,7 @@ export function StorefrontHeaderSkeleton({ className }: { className?: string }) 
  */
 export function StorefrontHeroSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("relative h-[400px] md:h-[500px] bg-muted", className)}>
+    <div className={cn('relative h-[400px] md:h-[500px] bg-muted', className)}>
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center space-y-4 px-4">
           <Skeleton className="h-12 w-64 mx-auto" />
@@ -347,7 +351,7 @@ export function StorefrontHeroSkeleton({ className }: { className?: string }) {
  */
 export function StorefrontPageSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("min-h-screen", className)}>
+    <div className={cn('min-h-screen', className)}>
       <StorefrontHeaderSkeleton />
       <StorefrontHeroSkeleton />
       <div className="container mx-auto px-4 py-12">
@@ -366,7 +370,7 @@ export function StorefrontPageSkeleton({ className }: { className?: string }) {
  */
 export function DashboardPageSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("space-y-6", className)}>
+    <div className={cn('space-y-6', className)}>
       <div className="flex justify-between items-center">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-10 w-32" />
@@ -391,7 +395,7 @@ export function DashboardPageSkeleton({ className }: { className?: string }) {
  */
 export function ProductsPageSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("space-y-6", className)}>
+    <div className={cn('space-y-6', className)}>
       <div className="flex justify-between items-center">
         <Skeleton className="h-8 w-32" />
         <div className="flex gap-4">
@@ -417,7 +421,7 @@ export function ProductsPageSkeleton({ className }: { className?: string }) {
  */
 export function OrdersPageSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("space-y-6", className)}>
+    <div className={cn('space-y-6', className)}>
       <div className="flex justify-between items-center">
         <Skeleton className="h-8 w-32" />
         <div className="flex gap-4">

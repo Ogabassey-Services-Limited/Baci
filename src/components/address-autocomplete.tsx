@@ -1,10 +1,10 @@
-
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import { Home } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ThemedInput } from '@/components/themed';
 import { Input } from '@/components/ui/input';
-import { Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -16,9 +16,11 @@ interface WindowWithGoogle extends Window {
 
 // Helper function to check if Google Maps is loaded
 const isGoogleMapsLoaded = (): boolean => {
-  return typeof window !== 'undefined' &&
+  return (
+    typeof window !== 'undefined' &&
     typeof (window as WindowWithGoogle).google !== 'undefined' &&
-    typeof (window as WindowWithGoogle).google?.maps?.places !== 'undefined';
+    typeof (window as WindowWithGoogle).google?.maps?.places !== 'undefined'
+  );
 };
 
 // Helper to load the Google Maps script
@@ -60,7 +62,8 @@ export interface PlaceDetails {
   formattedAddress: string;
 }
 
-interface AddressAutocompleteProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onSelect'> {
+interface AddressAutocompleteProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onSelect'> {
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement> | string) => void;
   onSelect?: (place: PlaceDetails) => void;
@@ -84,8 +87,13 @@ export function AddressAutocomplete({
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
   useEffect(() => {
-    if (!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY') {
-      console.warn('Google Maps API key is missing or is a placeholder. Autocomplete will not function.');
+    if (
+      !GOOGLE_MAPS_API_KEY ||
+      GOOGLE_MAPS_API_KEY === 'YOUR_GOOGLE_MAPS_API_KEY'
+    ) {
+      console.warn(
+        'Google Maps API key is missing or is a placeholder. Autocomplete will not function.'
+      );
       return;
     }
 
@@ -95,22 +103,49 @@ export function AddressAutocomplete({
 
   useEffect(() => {
     if (scriptLoaded && inputRef.current && !autocompleteRef.current) {
-      const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-        componentRestrictions: { country: country.toLowerCase() },
-        fields: ['address_components', 'formatted_address'],
-        types: ['address'],
-      });
+      const autocomplete = new window.google.maps.places.Autocomplete(
+        inputRef.current,
+        {
+          componentRestrictions: { country: country.toLowerCase() },
+          fields: ['address_components', 'formatted_address'],
+          types: ['address'],
+        }
+      );
 
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
 
         if (place.address_components) {
-          const streetNumber = place.address_components.find((c: google.maps.GeocoderAddressComponent) => c.types.includes('street_number'))?.long_name || '';
-          const route = place.address_components.find((c: google.maps.GeocoderAddressComponent) => c.types.includes('route'))?.long_name || '';
-          const city = place.address_components.find((c: google.maps.GeocoderAddressComponent) => c.types.includes('locality'))?.long_name || '';
-          const state = place.address_components.find((c: google.maps.GeocoderAddressComponent) => c.types.includes('administrative_area_level_1'))?.short_name || '';
-          const zip = place.address_components.find((c: google.maps.GeocoderAddressComponent) => c.types.includes('postal_code'))?.long_name || '';
-          const country = place.address_components.find((c: google.maps.GeocoderAddressComponent) => c.types.includes('country'))?.short_name || '';
+          const streetNumber =
+            place.address_components.find(
+              (c: google.maps.GeocoderAddressComponent) =>
+                c.types.includes('street_number')
+            )?.long_name || '';
+          const route =
+            place.address_components.find(
+              (c: google.maps.GeocoderAddressComponent) =>
+                c.types.includes('route')
+            )?.long_name || '';
+          const city =
+            place.address_components.find(
+              (c: google.maps.GeocoderAddressComponent) =>
+                c.types.includes('locality')
+            )?.long_name || '';
+          const state =
+            place.address_components.find(
+              (c: google.maps.GeocoderAddressComponent) =>
+                c.types.includes('administrative_area_level_1')
+            )?.short_name || '';
+          const zip =
+            place.address_components.find(
+              (c: google.maps.GeocoderAddressComponent) =>
+                c.types.includes('postal_code')
+            )?.long_name || '';
+          const country =
+            place.address_components.find(
+              (c: google.maps.GeocoderAddressComponent) =>
+                c.types.includes('country')
+            )?.short_name || '';
 
           const formattedAddress = `${streetNumber} ${route}`.trim();
 
@@ -129,14 +164,16 @@ export function AddressAutocomplete({
               state,
               zip,
               country,
-              formattedAddress
+              formattedAddress,
             });
           }
         }
       });
       autocompleteRef.current = autocomplete;
     } else if (autocompleteRef.current && country) {
-      autocompleteRef.current.setComponentRestrictions({ country: country.toLowerCase() });
+      autocompleteRef.current.setComponentRestrictions({
+        country: country.toLowerCase(),
+      });
     }
   }, [scriptLoaded, onChange, onSelect, country]);
 
@@ -158,7 +195,7 @@ export function AddressAutocomplete({
         value={value}
         onChange={handleChange}
         ref={inputRef}
-        className={cn(showIcon ? "pl-10" : "", className)}
+        className={cn(showIcon ? 'pl-10' : '', className)}
         autoComplete="street-address"
       />
     </div>

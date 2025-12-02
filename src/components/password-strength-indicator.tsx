@@ -1,7 +1,6 @@
-
 'use client';
 
-import { cn } from "@/lib/utils";
+import { cn } from '@/lib/utils';
 
 const strengthLevels = [
   { level: 0, text: '', className: '' },
@@ -14,7 +13,9 @@ interface PasswordStrengthIndicatorProps {
   strength: number;
 }
 
-export function PasswordStrengthIndicator({ strength }: PasswordStrengthIndicatorProps) {
+export function PasswordStrengthIndicator({
+  strength,
+}: PasswordStrengthIndicatorProps) {
   const currentLevel = strengthLevels[strength] || strengthLevels[0];
 
   if (strength === 0) return null;

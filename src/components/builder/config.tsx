@@ -1,676 +1,756 @@
-import { Config } from '@measured/puck';
-import React from 'react';
-import { ThemedButton } from '@/components/themed/themed-button';
-import Link from 'next/link';
-import { cn } from '@/lib/utils';
-import { asRoute } from '@/lib/routes';
+import type { Config } from '@measured/puck';
+import Autoplay from 'embla-carousel-autoplay';
 import {
-    Star, Mail, Quote,
-    Search as SearchIcon, Facebook, Instagram, Twitter, Linkedin, Youtube,
-    ShoppingBag, Menu
+  Facebook,
+  Instagram,
+  Linkedin,
+  Mail,
+  Menu,
+  Quote,
+  Search as SearchIcon,
+  ShoppingBag,
+  Star,
+  Twitter,
+  Youtube,
 } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import Image from 'next/image';
+import Link from 'next/link';
+import React from 'react';
+import {
+  OgabasseyCategories,
+  type OgabasseyCategoriesProps,
+} from '@/components/storefront/blocks/ogabassey-categories';
+import {
+  OgabasseyHeader,
+  type OgabasseyHeaderProps,
+} from '@/components/storefront/blocks/ogabassey-header';
+import {
+  OgabasseyHero,
+  type OgabasseyHeroProps,
+} from '@/components/storefront/blocks/ogabassey-hero';
+import {
+  OgabasseyNav,
+  type OgabasseyNavProps,
+} from '@/components/storefront/blocks/ogabassey-nav';
+import {
+  OgabasseyUtilities,
+  type OgabasseyUtilitiesProps,
+} from '@/components/storefront/blocks/ogabassey-utilities';
+import { StorefrontProductGrid } from '@/components/storefront/product-grid';
+import { ThemedButton } from '@/components/themed/themed-button';
 import { Button } from '@/components/ui/button';
 import {
-    Carousel,
-    CarouselContent,
-    CarouselItem,
-    CarouselNext,
-    CarouselPrevious,
-} from "@/components/ui/carousel";
-import Autoplay from "embla-carousel-autoplay";
-import { OgabasseyHeader, OgabasseyHeaderProps } from '@/components/storefront/blocks/ogabassey-header';
-import { OgabasseyHero, OgabasseyHeroProps } from '@/components/storefront/blocks/ogabassey-hero';
-import { OgabasseyNav, OgabasseyNavProps } from '@/components/storefront/blocks/ogabassey-nav';
-import { OgabasseyCategories, OgabasseyCategoriesProps } from '@/components/storefront/blocks/ogabassey-categories';
-import { OgabasseyUtilities, OgabasseyUtilitiesProps } from '@/components/storefront/blocks/ogabassey-utilities';
-import { StorefrontProductGrid } from '@/components/storefront/product-grid';
-import Image from 'next/image';
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel';
+import { Input } from '@/components/ui/input';
+import { asRoute } from '@/lib/routes';
+import { cn } from '@/lib/utils';
+import { AnimatedWrapper, type AnimationType } from './animated-wrapper';
 import { ImagePickerField } from './fields/image-picker-field';
-import { AnimatedWrapper, AnimationType } from './animated-wrapper';
 import { getIconOptions, renderIcon } from './icon-registry';
 
 // Helper to map config animation values to AnimationType
 const mapAnimationType = (type: string | undefined): AnimationType => {
-    const map: Record<string, AnimationType> = {
-        'fade': 'fade-in',
-        'slide': 'slide-up',
-        'zoom': 'zoom-in',
-        'none': 'none',
-    };
-    return map[type ?? 'none'] ?? 'none';
+  const map: Record<string, AnimationType> = {
+    fade: 'fade-in',
+    slide: 'slide-up',
+    zoom: 'zoom-in',
+    none: 'none',
+  };
+  return map[type ?? 'none'] ?? 'none';
 };
-import { StorefrontForm, FormField } from '@/components/storefront/storefront-form';
+
+import {
+  type FormField,
+  StorefrontForm,
+} from '@/components/storefront/storefront-form';
 
 // ==================== TYPE DEFINITIONS ====================
 
 // Common animation fields that can be added to any component
 const animationFields = {
-    animationType: {
-        type: 'select' as const,
-        label: 'Animation',
-        options: [
-            { label: 'None', value: 'none' },
-            { label: 'Fade In', value: 'fade-in' },
-            { label: 'Slide Up', value: 'slide-up' },
-            { label: 'Slide Down', value: 'slide-down' },
-            { label: 'Slide Left', value: 'slide-left' },
-            { label: 'Slide Right', value: 'slide-right' },
-            { label: 'Zoom In', value: 'zoom-in' },
-            { label: 'Scale Up', value: 'scale-up' },
-        ]
-    },
-    animationDuration: {
-        type: 'select' as const,
-        label: 'Animation Speed',
-        options: [
-            { label: 'Fast', value: 'fast' },
-            { label: 'Normal', value: 'normal' },
-            { label: 'Slow', value: 'slow' },
-        ]
-    },
-    animationDelay: {
-        type: 'number' as const,
-        label: 'Animation Delay (seconds)',
-        min: 0,
-        max: 5,
-        step: 0.1
-    },
-    animationTrigger: {
-        type: 'select' as const,
-        label: 'Animation Trigger',
-        options: [
-            { label: 'On Page Load', value: 'immediate' },
-            { label: 'On Scroll Into View', value: 'scroll' },
-        ]
-    }
+  animationType: {
+    type: 'select' as const,
+    label: 'Animation',
+    options: [
+      { label: 'None', value: 'none' },
+      { label: 'Fade In', value: 'fade-in' },
+      { label: 'Slide Up', value: 'slide-up' },
+      { label: 'Slide Down', value: 'slide-down' },
+      { label: 'Slide Left', value: 'slide-left' },
+      { label: 'Slide Right', value: 'slide-right' },
+      { label: 'Zoom In', value: 'zoom-in' },
+      { label: 'Scale Up', value: 'scale-up' },
+    ],
+  },
+  animationDuration: {
+    type: 'select' as const,
+    label: 'Animation Speed',
+    options: [
+      { label: 'Fast', value: 'fast' },
+      { label: 'Normal', value: 'normal' },
+      { label: 'Slow', value: 'slow' },
+    ],
+  },
+  animationDelay: {
+    type: 'number' as const,
+    label: 'Animation Delay (seconds)',
+    min: 0,
+    max: 5,
+    step: 0.1,
+  },
+  animationTrigger: {
+    type: 'select' as const,
+    label: 'Animation Trigger',
+    options: [
+      { label: 'On Page Load', value: 'immediate' },
+      { label: 'On Scroll Into View', value: 'scroll' },
+    ],
+  },
 };
 
 type HeroProps = {
+  title: string;
+  subtitle: string;
+  ctaText: string;
+  ctaLink: string;
+  align: 'left' | 'center' | 'right';
+  padding: 'small' | 'medium' | 'large';
+  backgroundImage?: string;
+  overlay?: boolean;
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
+  // New SEO Prop
+  headingLevel?: 'h1' | 'h2' | 'div';
+};
+
+type HeroCarouselProps = {
+  slides: {
+    image: string;
     title: string;
     subtitle: string;
     ctaText: string;
     ctaLink: string;
-    align: 'left' | 'center' | 'right';
-    padding: 'small' | 'medium' | 'large';
-    backgroundImage?: string;
-    overlay?: boolean;
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
-    // New SEO Prop
-    headingLevel?: 'h1' | 'h2' | 'div';
-};
-
-type HeroCarouselProps = {
-    slides: {
-        image: string;
-        title: string;
-        subtitle: string;
-        ctaText: string;
-        ctaLink: string;
-    }[];
-    autoplayDelay?: number;
+  }[];
+  autoplayDelay?: number;
 };
 
 type TextProps = {
-    title?: string;
-    content: string;
-    align: 'left' | 'center' | 'right';
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
+  title?: string;
+  content: string;
+  align: 'left' | 'center' | 'right';
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
 };
 
 type ImageProps = {
-    src: string;
-    alt: string;
-    aspectRatio: 'auto' | '16/9' | '4/3' | '1/1';
-    link?: string;
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
+  src: string;
+  alt: string;
+  aspectRatio: 'auto' | '16/9' | '4/3' | '1/1';
+  link?: string;
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
 };
 
 type ButtonProps = {
-    text: string;
-    link: string;
-    variant: 'primary' | 'background' | 'accent';
-    align: 'left' | 'center' | 'right';
-    size: 'sm' | 'default' | 'lg';
+  text: string;
+  link: string;
+  variant: 'primary' | 'background' | 'accent';
+  align: 'left' | 'center' | 'right';
+  size: 'sm' | 'default' | 'lg';
 };
 
 type ProductGridProps = {
-    title: string;
-    columns: number;
-    limit: number;
-    category?: string;
-    sortBy?: 'newest' | 'price-low' | 'price-high' | 'name';
-    showFilters?: boolean;
+  title: string;
+  columns: number;
+  limit: number;
+  category?: string;
+  sortBy?: 'newest' | 'price-low' | 'price-high' | 'name';
+  showFilters?: boolean;
 };
 
 type TestimonialProps = {
-    quote: string;
-    author: string;
-    role: string;
-    rating?: number;
-    avatar?: string;
+  quote: string;
+  author: string;
+  role: string;
+  rating?: number;
+  avatar?: string;
 };
 
 type FeaturesProps = {
-    title: string;
-    subtitle?: string;
-    features: { title: string; description: string; icon?: string }[];
-    columns?: number;
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
+  title: string;
+  subtitle?: string;
+  features: { title: string; description: string; icon?: string }[];
+  columns?: number;
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
 };
 
 type NewsletterProps = {
-    title: string;
-    description: string;
-    buttonText: string;
-    placeholder?: string;
+  title: string;
+  description: string;
+  buttonText: string;
+  placeholder?: string;
 };
 
 type SpacerProps = {
-    height: 'small' | 'medium' | 'large' | 'xlarge';
+  height: 'small' | 'medium' | 'large' | 'xlarge';
 };
 
 type FooterProps = {
-    copyrightText?: string;
-    showQuickLinks: boolean;
-    quickLinks: { label: string; url: string }[];
-    socialLinks: {
-        facebook?: string;
-        instagram?: string;
-        twitter?: string;
-        linkedin?: string;
-        youtube?: string;
-    };
-    showNewsletter?: boolean;
-    backgroundColor?: string;
-    textColor?: string;
-};
-
-type HeaderProps = {
-    showLogo: boolean;
-    showSearch: boolean;
-    showCart: boolean;
-    showMenu: boolean;
-    navigationLinks: { label: string; url: string }[];
-    ctaButton?: {
-        text: string;
-        url: string;
-        show: boolean;
-    };
-    backgroundColor?: string;
-    textColor?: string;
-    sticky?: boolean;
-    logoUrl?: string;
-    storeName?: string;
-    // Granular Customization Props
-    layout?: 'logo-left-nav-center' | 'logo-left-nav-right' | 'logo-center';
-    searchStyle?: 'outline' | 'filled' | 'minimal';
-    searchRadius?: 'none' | 'sm' | 'md' | 'full';
-    paddingY?: 'sm' | 'md' | 'lg';
-    glassEffect?: boolean;
-};
-
-type VideoProps = {
-    url: string;
-    title?: string;
-    autoplay?: boolean;
-    controls?: boolean;
-};
-
-type MapProps = {
-    address: string;
-    zoom: number;
-    height?: string;
-};
-
-type InstagramFeedProps = {
-    username: string;
-    postsCount?: number;
-};
-
-type ContactFormProps = {
-    formName: string;
-    fields: FormField[];
-    submitButtonText?: string;
-    successMessage?: string;
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
-};
-
-type SocialIconsProps = {
+  copyrightText?: string;
+  showQuickLinks: boolean;
+  quickLinks: { label: string; url: string }[];
+  socialLinks: {
     facebook?: string;
     instagram?: string;
     twitter?: string;
     linkedin?: string;
     youtube?: string;
-    size?: 'sm' | 'md' | 'lg';
-    alignment?: 'left' | 'center' | 'right';
+  };
+  showNewsletter?: boolean;
+  backgroundColor?: string;
+  textColor?: string;
+};
+
+type HeaderProps = {
+  showLogo: boolean;
+  showSearch: boolean;
+  showCart: boolean;
+  showMenu: boolean;
+  navigationLinks: { label: string; url: string }[];
+  ctaButton?: {
+    text: string;
+    url: string;
+    show: boolean;
+  };
+  backgroundColor?: string;
+  textColor?: string;
+  sticky?: boolean;
+  logoUrl?: string;
+  storeName?: string;
+  // Granular Customization Props
+  layout?: 'logo-left-nav-center' | 'logo-left-nav-right' | 'logo-center';
+  searchStyle?: 'outline' | 'filled' | 'minimal';
+  searchRadius?: 'none' | 'sm' | 'md' | 'full';
+  paddingY?: 'sm' | 'md' | 'lg';
+  glassEffect?: boolean;
+};
+
+type VideoProps = {
+  url: string;
+  title?: string;
+  autoplay?: boolean;
+  controls?: boolean;
+};
+
+type MapProps = {
+  address: string;
+  zoom: number;
+  height?: string;
+};
+
+type InstagramFeedProps = {
+  username: string;
+  postsCount?: number;
+};
+
+type ContactFormProps = {
+  formName: string;
+  fields: FormField[];
+  submitButtonText?: string;
+  successMessage?: string;
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
+};
+
+type SocialIconsProps = {
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  linkedin?: string;
+  youtube?: string;
+  size?: 'sm' | 'md' | 'lg';
+  alignment?: 'left' | 'center' | 'right';
 };
 
 type CodeEmbedProps = {
-    code: string;
-    language?: string;
+  code: string;
+  language?: string;
 };
 
 type SearchProps = {
-    placeholder: string;
-    showFilters?: boolean;
+  placeholder: string;
+  showFilters?: boolean;
 };
 
 type FAQProps = {
-    title: string;
-    subtitle?: string;
-    items: { question: string; answer: string }[];
-    style: 'accordion' | 'grid' | 'list';
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
+  title: string;
+  subtitle?: string;
+  items: { question: string; answer: string }[];
+  style: 'accordion' | 'grid' | 'list';
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
 };
 
 type AboutSectionProps = {
-    title: string;
-    content: string;
-    image?: string;
-    imagePosition: 'left' | 'right' | 'top' | 'bottom';
-    showStats?: boolean;
-    stats?: { value: string; label: string }[];
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
+  title: string;
+  content: string;
+  image?: string;
+  imagePosition: 'left' | 'right' | 'top' | 'bottom';
+  showStats?: boolean;
+  stats?: { value: string; label: string }[];
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
 };
 
 type ContactSectionProps = {
-    title: string;
-    subtitle?: string;
-    showMap?: boolean;
-    mapAddress?: string;
-    contactInfo?: { icon: string; label: string; value: string; link?: string }[];
-    showForm?: boolean;
-    formTitle?: string;
-    layout: 'side-by-side' | 'stacked';
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
+  title: string;
+  subtitle?: string;
+  showMap?: boolean;
+  mapAddress?: string;
+  contactInfo?: { icon: string; label: string; value: string; link?: string }[];
+  showForm?: boolean;
+  formTitle?: string;
+  layout: 'side-by-side' | 'stacked';
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
 };
 
 type LegalSectionProps = {
-    title: string;
-    lastUpdated?: string;
-    sections?: { heading: string; content: string }[];
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
+  title: string;
+  lastUpdated?: string;
+  sections?: { heading: string; content: string }[];
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
 };
 
 type CountdownTimerProps = {
-    endDate: string;
-    title?: string;
-    subtitle?: string;
-    expiredMessage?: string;
-    style: 'boxes' | 'inline' | 'minimal';
-    showDays?: boolean;
-    showHours?: boolean;
-    showMinutes?: boolean;
-    showSeconds?: boolean;
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
+  endDate: string;
+  title?: string;
+  subtitle?: string;
+  expiredMessage?: string;
+  style: 'boxes' | 'inline' | 'minimal';
+  showDays?: boolean;
+  showHours?: boolean;
+  showMinutes?: boolean;
+  showSeconds?: boolean;
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
 };
 
 type TrustBadgesProps = {
-    badges: { icon: string; title: string; description?: string }[];
-    layout: 'horizontal' | 'grid';
-    style: 'cards' | 'minimal' | 'icons-only';
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
+  badges: { icon: string; title: string; description?: string }[];
+  layout: 'horizontal' | 'grid';
+  style: 'cards' | 'minimal' | 'icons-only';
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
 };
 
 type AnnouncementBarProps = {
-    message: string;
-    linkText?: string;
-    linkUrl?: string;
-    backgroundColor?: string;
-    textColor?: string;
-    dismissible?: boolean;
-    animationType?: string;
-    animationDuration?: string;
-    animationDelay?: number;
-    animationTrigger?: string;
+  message: string;
+  linkText?: string;
+  linkUrl?: string;
+  backgroundColor?: string;
+  textColor?: string;
+  dismissible?: boolean;
+  animationType?: string;
+  animationDuration?: string;
+  animationDelay?: number;
+  animationTrigger?: string;
 };
 
 type RootProps = {
-    title: string;
+  title: string;
 };
 
 // ==================== HELPER COMPONENTS ====================
 
-function HeroCarouselComponent({ slides, autoplayDelay = 5000 }: HeroCarouselProps) {
-    const plugin = Autoplay({ delay: autoplayDelay, stopOnInteraction: true });
-    // Ensure slides is always an array to prevent "slides.map is not a function" error
-    const safeSlides = Array.isArray(slides) ? slides : [];
+function HeroCarouselComponent({
+  slides,
+  autoplayDelay = 5000,
+}: HeroCarouselProps) {
+  const plugin = Autoplay({ delay: autoplayDelay, stopOnInteraction: true });
+  // Ensure slides is always an array to prevent "slides.map is not a function" error
+  const safeSlides = Array.isArray(slides) ? slides : [];
 
-    return (
-        <section className="w-full relative" aria-label="Hero Carousel">
-            <Carousel
-                className="w-full"
-                plugins={[plugin]}
-                opts={{ loop: true }}
-            >
-                <CarouselContent>
-                    {safeSlides.map((slide, index) => (
-                        <CarouselItem key={index}>
-                            <div className="w-full h-[60vh] md:h-[70vh] relative">
-                                <Image
-                                    src={slide.image}
-                                    alt={slide.title}
-                                    fill
-                                    className="object-cover"
-                                    priority={index === 0}
-                                />
-                                <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center text-white p-4">
-                                    <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">
-                                        {slide.title}
-                                    </h2>
-                                    <p className="text-lg md:text-xl max-w-2xl mb-8">
-                                        {slide.subtitle}
-                                    </p>
-                                    <ThemedButton asChild size="lg" colorRole="accent">
-                                        <Link href={asRoute(slide.ctaLink)}>
-                                            {slide.ctaText}
-                                        </Link>
-                                    </ThemedButton>
-                                </div>
-                            </div>
-                        </CarouselItem>
-                    ))}
-                </CarouselContent>
-                <CarouselPrevious className="absolute left-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" aria-label="Previous Slide" />
-                <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" aria-label="Next Slide" />
-            </Carousel>
-        </section>
-    );
+  return (
+    <section className="w-full relative" aria-label="Hero Carousel">
+      <Carousel className="w-full" plugins={[plugin]} opts={{ loop: true }}>
+        <CarouselContent>
+          {safeSlides.map((slide, index) => (
+            <CarouselItem key={index}>
+              <div className="w-full h-[60vh] md:h-[70vh] relative">
+                <Image
+                  src={slide.image}
+                  alt={slide.title}
+                  fill
+                  className="object-cover"
+                  priority={index === 0}
+                />
+                <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center text-white p-4">
+                  <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">
+                    {slide.title}
+                  </h2>
+                  <p className="text-lg md:text-xl max-w-2xl mb-8">
+                    {slide.subtitle}
+                  </p>
+                  <ThemedButton asChild size="lg" colorRole="accent">
+                    <Link href={asRoute(slide.ctaLink)}>{slide.ctaText}</Link>
+                  </ThemedButton>
+                </div>
+              </div>
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        <CarouselPrevious
+          className="absolute left-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex"
+          aria-label="Previous Slide"
+        />
+        <CarouselNext
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex"
+          aria-label="Next Slide"
+        />
+      </Carousel>
+    </section>
+  );
 }
 
 function CustomHeader({
-    showLogo,
-    showSearch,
-    showCart,
-    showMenu,
-    navigationLinks,
-    ctaButton,
-    backgroundColor,
-    textColor,
-    sticky,
-    logoUrl,
-    storeName,
-    layout = 'logo-left-nav-center',
-    searchStyle = 'outline',
-    searchRadius = 'md',
-    paddingY = 'md',
-    glassEffect = false
+  showLogo,
+  showSearch,
+  showCart,
+  showMenu,
+  navigationLinks,
+  ctaButton,
+  backgroundColor,
+  textColor,
+  sticky,
+  logoUrl,
+  storeName,
+  layout = 'logo-left-nav-center',
+  searchStyle = 'outline',
+  searchRadius = 'md',
+  paddingY = 'md',
+  glassEffect = false,
 }: HeaderProps) {
-    const paddingClasses = {
-        sm: 'h-14',
-        md: 'h-16',
-        lg: 'h-20'
-    };
+  const paddingClasses = {
+    sm: 'h-14',
+    md: 'h-16',
+    lg: 'h-20',
+  };
 
-    const searchClasses = {
-        outline: 'bg-transparent border-input',
-        filled: 'bg-muted border-transparent',
-        minimal: 'bg-transparent border-transparent border-b border-input rounded-none px-0'
-    };
+  const searchClasses = {
+    outline: 'bg-transparent border-input',
+    filled: 'bg-muted border-transparent',
+    minimal:
+      'bg-transparent border-transparent border-b border-input rounded-none px-0',
+  };
 
-    const radiusClasses = {
-        none: 'rounded-none',
-        sm: 'rounded-sm',
-        md: 'rounded-md',
-        full: 'rounded-full'
-    };
+  const radiusClasses = {
+    none: 'rounded-none',
+    sm: 'rounded-sm',
+    md: 'rounded-md',
+    full: 'rounded-full',
+  };
 
-    return (
-        <header
-            className={cn("px-4 lg:px-6 flex items-center gap-4 shadow-sm z-50 transition-all duration-300", {
-                "sticky top-0": sticky,
-                "backdrop-blur-md bg-opacity-80": glassEffect,
-                "bg-white": !glassEffect && !backgroundColor
-            })}
-            style={{
-                backgroundColor: backgroundColor || (glassEffect ? 'rgba(255, 255, 255, 0.8)' : 'var(--theme-header-bg, #FFFFFF)'),
-                color: textColor || 'var(--theme-header-text, #000000)',
-                height: 'auto',
-                minHeight: paddingClasses[paddingY as keyof typeof paddingClasses] || '4rem'
-            }}
+  return (
+    <header
+      className={cn(
+        'px-4 lg:px-6 flex items-center gap-4 shadow-sm z-50 transition-all duration-300',
+        {
+          'sticky top-0': sticky,
+          'backdrop-blur-md bg-opacity-80': glassEffect,
+          'bg-white': !glassEffect && !backgroundColor,
+        }
+      )}
+      style={{
+        backgroundColor:
+          backgroundColor ||
+          (glassEffect
+            ? 'rgba(255, 255, 255, 0.8)'
+            : 'var(--theme-header-bg, #FFFFFF)'),
+        color: textColor || 'var(--theme-header-text, #000000)',
+        height: 'auto',
+        minHeight:
+          paddingClasses[paddingY as keyof typeof paddingClasses] || '4rem',
+      }}
+    >
+      {/* Logo Section */}
+      {showLogo && (
+        <div
+          className={cn('flex items-center gap-2 font-semibold shrink-0', {
+            'order-1':
+              layout === 'logo-left-nav-center' ||
+              layout === 'logo-left-nav-right',
+            'order-2 mx-auto': layout === 'logo-center',
+          })}
         >
-            {/* Logo Section */}
-            {showLogo && (
-                <div className={cn("flex items-center gap-2 font-semibold shrink-0", {
-                    "order-1": layout === 'logo-left-nav-center' || layout === 'logo-left-nav-right',
-                    "order-2 mx-auto": layout === 'logo-center',
-                })}>
-                    {logoUrl ? (
-                        <Image
-                            src={logoUrl}
-                            alt="Store Logo"
-                            width={160}
-                            height={48}
-                            className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-[160px] object-contain"
-                        />
-                    ) : (
-                        <>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-lg font-bold" aria-hidden="true">
-                                {storeName?.charAt(0)?.toUpperCase() || 'S'}
-                            </div>
-                            <span className="hidden sm:inline-block">{storeName || 'Your Store'}</span>
-                        </>
-                    )}
-                </div>
-            )}
+          {logoUrl ? (
+            <Image
+              src={logoUrl}
+              alt="Store Logo"
+              width={160}
+              height={48}
+              className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-[160px] object-contain"
+            />
+          ) : (
+            <>
+              <div
+                className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-md flex items-center justify-center text-primary-foreground text-lg font-bold"
+                aria-hidden="true"
+              >
+                {storeName?.charAt(0)?.toUpperCase() || 'S'}
+              </div>
+              <span className="hidden sm:inline-block">
+                {storeName || 'Your Store'}
+              </span>
+            </>
+          )}
+        </div>
+      )}
 
-            {/* Navigation Section */}
-            {showMenu && navigationLinks.length > 0 && (
-                <nav
-                    className={cn("hidden md:flex items-center gap-6", {
-                        "order-2 mx-auto": layout === 'logo-left-nav-center',
-                        "order-2 ml-auto mr-4": layout === 'logo-left-nav-right',
-                        "order-1 mr-auto": layout === 'logo-center',
-                    })}
-                    aria-label="Main Navigation"
+      {/* Navigation Section */}
+      {showMenu && navigationLinks.length > 0 && (
+        <nav
+          className={cn('hidden md:flex items-center gap-6', {
+            'order-2 mx-auto': layout === 'logo-left-nav-center',
+            'order-2 ml-auto mr-4': layout === 'logo-left-nav-right',
+            'order-1 mr-auto': layout === 'logo-center',
+          })}
+          aria-label="Main Navigation"
+        >
+          <ul className="flex items-center gap-6 m-0 p-0 list-none">
+            {navigationLinks.map((link, index) => (
+              <li key={index}>
+                <Link
+                  href={asRoute(link.url)}
+                  className="text-sm font-medium hover:text-primary transition-colors relative group"
                 >
-                    <ul className="flex items-center gap-6 m-0 p-0 list-none">
-                        {navigationLinks.map((link, index) => (
-                            <li key={index}>
-                                <Link
-                                    href={asRoute(link.url)}
-                                    className="text-sm font-medium hover:text-primary transition-colors relative group"
-                                >
-                                    {link.label}
-                                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                </nav>
-            )}
+                  {link.label}
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary transition-all group-hover:w-full" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
 
-            {/* Spacer for Center Logo Layout to balance the grid */}
-            {layout === 'logo-center' && <div className="flex-1 order-1 md:hidden" />}
+      {/* Spacer for Center Logo Layout to balance the grid */}
+      {layout === 'logo-center' && <div className="flex-1 order-1 md:hidden" />}
 
-            {/* Search Section */}
-            {showSearch && (
-                <div className={cn("flex-1 max-w-sm hidden md:block", {
-                    "order-3": true,
-                    "ml-auto": layout === 'logo-left-nav-center',
-                })}>
-                    <div className="relative">
-                        <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                        <Input
-                            type="search"
-                            placeholder="Search..."
-                            aria-label="Search products"
-                            className={cn(
-                                "w-full pl-9 transition-all focus-visible:ring-1",
-                                searchClasses[searchStyle as keyof typeof searchClasses],
-                                radiusClasses[searchRadius as keyof typeof radiusClasses]
-                            )}
-                        />
-                    </div>
-                </div>
-            )}
+      {/* Search Section */}
+      {showSearch && (
+        <div
+          className={cn('flex-1 max-w-sm hidden md:block', {
+            'order-3': true,
+            'ml-auto': layout === 'logo-left-nav-center',
+          })}
+        >
+          <div className="relative">
+            <SearchIcon
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              placeholder="Search..."
+              aria-label="Search products"
+              className={cn(
+                'w-full pl-9 transition-all focus-visible:ring-1',
+                searchClasses[searchStyle as keyof typeof searchClasses],
+                radiusClasses[searchRadius as keyof typeof radiusClasses]
+              )}
+            />
+          </div>
+        </div>
+      )}
 
-            {/* Actions Section */}
-            <div className={cn("flex items-center gap-3 shrink-0", {
-                "order-4 ml-auto": true, // Always at the end
-            })}>
-                {ctaButton?.show && ctaButton.text && (
-                    <ThemedButton asChild colorRole="primary" size="sm" className="hidden sm:inline-flex">
-                        <Link href={asRoute(ctaButton.url || '#')}>{ctaButton.text}</Link>
-                    </ThemedButton>
-                )}
+      {/* Actions Section */}
+      <div
+        className={cn('flex items-center gap-3 shrink-0', {
+          'order-4 ml-auto': true, // Always at the end
+        })}
+      >
+        {ctaButton?.show && ctaButton.text && (
+          <ThemedButton
+            asChild
+            colorRole="primary"
+            size="sm"
+            className="hidden sm:inline-flex"
+          >
+            <Link href={asRoute(ctaButton.url || '#')}>{ctaButton.text}</Link>
+          </ThemedButton>
+        )}
 
-                {showSearch && (
-                    <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open search">
-                        <SearchIcon className="w-5 h-5" />
-                    </Button>
-                )}
+        {showSearch && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            aria-label="Open search"
+          >
+            <SearchIcon className="w-5 h-5" />
+          </Button>
+        )}
 
-                {showCart && (
-                    <Button variant="ghost" size="icon" className="relative" aria-label="View cart">
-                        <ShoppingBag className="w-5 h-5" />
-                        <span className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full" />
-                    </Button>
-                )}
+        {showCart && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            aria-label="View cart"
+          >
+            <ShoppingBag className="w-5 h-5" />
+            <span className="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full" />
+          </Button>
+        )}
 
-                {showMenu && (
-                    <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
-                        <Menu className="w-5 h-5" />
-                    </Button>
-                )}
-            </div>
-        </header>
-    );
+        {showMenu && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            aria-label="Open menu"
+          >
+            <Menu className="w-5 h-5" />
+          </Button>
+        )}
+      </div>
+    </header>
+  );
 }
 
 function CustomFooter({
-    copyrightText,
-    showQuickLinks,
-    quickLinks,
-    socialLinks,
-    showNewsletter,
-    backgroundColor,
-    textColor
+  copyrightText,
+  showQuickLinks,
+  quickLinks,
+  socialLinks,
+  showNewsletter,
+  backgroundColor,
+  textColor,
 }: FooterProps) {
-    const socialIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-        facebook: Facebook,
-        instagram: Instagram,
-        twitter: Twitter,
-        linkedin: Linkedin,
-        youtube: Youtube,
-    };
+  const socialIcons: Record<
+    string,
+    React.ComponentType<{ className?: string }>
+  > = {
+    facebook: Facebook,
+    instagram: Instagram,
+    twitter: Twitter,
+    linkedin: Linkedin,
+    youtube: Youtube,
+  };
 
-    return (
-        <footer
-            className="mt-auto py-12"
-            style={{
-                backgroundColor: backgroundColor || 'var(--theme-footer-bg, #1A202C)',
-                color: textColor || 'var(--theme-footer-text, #FFFFFF)',
-            }}
-        >
-            <div className="container mx-auto px-4">
-                <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                        <h3 className="text-lg font-semibold mb-4">Your Store</h3>
-                        <p className="text-sm opacity-80">
-                            {copyrightText || `© ${new Date().getFullYear()} All rights reserved.`}
-                        </p>
-                    </div>
+  return (
+    <footer
+      className="mt-auto py-12"
+      style={{
+        backgroundColor: backgroundColor || 'var(--theme-footer-bg, #1A202C)',
+        color: textColor || 'var(--theme-footer-text, #FFFFFF)',
+      }}
+    >
+      <div className="container mx-auto px-4">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Your Store</h3>
+            <p className="text-sm opacity-80">
+              {copyrightText ||
+                `© ${new Date().getFullYear()} All rights reserved.`}
+            </p>
+          </div>
 
-                    {showQuickLinks && quickLinks.length > 0 && (
-                        <div>
-                            <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
-                            <nav aria-label="Footer Navigation">
-                                <ul className="flex flex-col gap-2 list-none p-0 m-0">
-                                    {quickLinks.map((link, index) => (
-                                        <li key={index}>
-                                            <Link
-                                                href={asRoute(link.url)}
-                                                className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
-                                            >
-                                                {link.label}
-                                            </Link>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </nav>
-                        </div>
-                    )}
-
-                    <div>
-                        <h3 className="text-lg font-semibold mb-4">Follow Us</h3>
-                        <div className="flex gap-4">
-                            {Object.entries(socialLinks).map(([platform, url]) => {
-                                if (!url) return null;
-                                const Icon = socialIcons[platform];
-                                return (
-                                    <Link
-                                        key={platform}
-                                        href={asRoute(url)}
-                                        className="opacity-80 hover:opacity-100 transition-opacity"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        aria-label={`Follow us on ${platform}`}
-                                    >
-                                        <Icon className="w-5 h-5" />
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    {showNewsletter && (
-                        <div>
-                            <h3 className="text-lg font-semibold mb-4">Newsletter</h3>
-                            <div className="flex gap-2">
-                                <Input
-                                    type="email"
-                                    placeholder="Your email"
-                                    className="flex-1"
-                                    aria-label="Email address for newsletter"
-                                />
-                                <Button size="sm">Subscribe</Button>
-                            </div>
-                        </div>
-                    )}
-                </div>
+          {showQuickLinks && quickLinks.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+              <nav aria-label="Footer Navigation">
+                <ul className="flex flex-col gap-2 list-none p-0 m-0">
+                  {quickLinks.map((link, index) => (
+                    <li key={index}>
+                      <Link
+                        href={asRoute(link.url)}
+                        className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
             </div>
-        </footer>
-    );
+          )}
+
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Follow Us</h3>
+            <div className="flex gap-4">
+              {Object.entries(socialLinks).map(([platform, url]) => {
+                if (!url) return null;
+                const Icon = socialIcons[platform];
+                return (
+                  <Link
+                    key={platform}
+                    href={asRoute(url)}
+                    className="opacity-80 hover:opacity-100 transition-opacity"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Follow us on ${platform}`}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {showNewsletter && (
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Newsletter</h3>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="Your email"
+                  className="flex-1"
+                  aria-label="Email address for newsletter"
+                />
+                <Button size="sm">Subscribe</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </footer>
+  );
 }
 
 // ==================== PUCK CONFIGURATION ====================
 
-export const builderConfig: Config<{
+export const builderConfig: Config<
+  {
     OgabasseyHeader: OgabasseyHeaderProps;
     OgabasseyHero: OgabasseyHeroProps;
     OgabasseyNav: OgabasseyNavProps;
@@ -702,2003 +782,2794 @@ export const builderConfig: Config<{
     CountdownTimer: CountdownTimerProps;
     TrustBadges: TrustBadgesProps;
     AnnouncementBar: AnnouncementBarProps;
-}, RootProps> = {
-    categories: {
+  },
+  RootProps
+> = {
+  categories: {
+    layout: {
+      title: 'Layout',
+      components: [
+        'Header',
+        'Hero',
+        'HeroCarousel',
+        'Text',
+        'Spacer',
+        'Features',
+        'Footer',
+        'AnnouncementBar',
+      ],
+    },
+    content: {
+      title: 'Content',
+      components: ['AboutSection', 'FAQ', 'LegalSection', 'ContactSection'],
+    },
+    media: {
+      title: 'Media',
+      components: ['Image', 'Video', 'Testimonial', 'InstagramFeed', 'Map'],
+    },
+    commerce: {
+      title: 'Commerce',
+      components: [
+        'ProductGrid',
+        'Button',
+        'Newsletter',
+        'ContactForm',
+        'Search',
+        'CountdownTimer',
+        'TrustBadges',
+      ],
+    },
+    advanced: {
+      title: 'Advanced',
+      components: ['SocialIcons', 'CodeEmbed'],
+    },
+  },
+  root: {
+    fields: {
+      title: { type: 'text', label: 'Page Title' },
+    },
+    render: ({ children, title }) => {
+      if (typeof document !== 'undefined' && title) {
+        document.title = title;
+      }
+      return <>{children}</>;
+    },
+  },
+  components: {
+    Header: {
+      label: 'Header Navigation',
+      permissions: { delete: false, duplicate: false },
+      fields: {
+        showLogo: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        showSearch: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        showCart: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        showMenu: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        sticky: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        navigationLinks: {
+          type: 'array',
+          getItemSummary: (item) => item.label || 'Link',
+          arrayFields: {
+            label: { type: 'text' },
+            url: { type: 'text' },
+          },
+        },
+        ctaButton: {
+          type: 'object',
+          objectFields: {
+            show: {
+              type: 'radio',
+              options: [
+                { label: 'Yes', value: true },
+                { label: 'No', value: false },
+              ],
+            },
+            text: { type: 'text' },
+            url: { type: 'text' },
+          },
+        },
+        backgroundColor: { type: 'text', label: 'Background Color (hex)' },
+        textColor: { type: 'text', label: 'Text Color (hex)' },
+
+        // New Customization Fields
         layout: {
-            title: 'Layout',
-            components: ['Header', 'Hero', 'HeroCarousel', 'Text', 'Spacer', 'Features', 'Footer', 'AnnouncementBar'],
+          type: 'select',
+          label: 'Layout Style',
+          options: [
+            { label: 'Logo Left, Nav Center', value: 'logo-left-nav-center' },
+            { label: 'Logo Left, Nav Right', value: 'logo-left-nav-right' },
+            { label: 'Logo Center', value: 'logo-center' },
+          ],
         },
-        content: {
-            title: 'Content',
-            components: ['AboutSection', 'FAQ', 'LegalSection', 'ContactSection'],
+        searchStyle: {
+          type: 'radio',
+          label: 'Search Bar Style',
+          options: [
+            { label: 'Outline', value: 'outline' },
+            { label: 'Filled', value: 'filled' },
+            { label: 'Minimal', value: 'minimal' },
+          ],
         },
-        media: {
-            title: 'Media',
-            components: ['Image', 'Video', 'Testimonial', 'InstagramFeed', 'Map'],
+        searchRadius: {
+          type: 'radio',
+          label: 'Search Corner Radius',
+          options: [
+            { label: 'Square', value: 'none' },
+            { label: 'Small', value: 'sm' },
+            { label: 'Medium', value: 'md' },
+            { label: 'Round', value: 'full' },
+          ],
         },
-        commerce: {
-            title: 'Commerce',
-            components: ['ProductGrid', 'Button', 'Newsletter', 'ContactForm', 'Search', 'CountdownTimer', 'TrustBadges'],
+        paddingY: {
+          type: 'select',
+          label: 'Vertical Padding',
+          options: [
+            { label: 'Compact', value: 'sm' },
+            { label: 'Standard', value: 'md' },
+            { label: 'Spacious', value: 'lg' },
+          ],
         },
-        advanced: {
-            title: 'Advanced',
-            components: ['SocialIcons', 'CodeEmbed'],
+        glassEffect: {
+          type: 'radio',
+          label: 'Glassmorphism Effect',
+          options: [
+            { label: 'Enabled', value: true },
+            { label: 'Disabled', value: false },
+          ],
         },
+      },
+      defaultProps: {
+        showLogo: true,
+        showSearch: true,
+        showCart: true,
+        showMenu: true,
+        sticky: true,
+        navigationLinks: [
+          { label: 'Home', url: '/' },
+          { label: 'Shop', url: '/products' },
+          { label: 'About', url: '/about' },
+        ],
+        ctaButton: {
+          show: false,
+          text: 'Get Started',
+          url: '/signup',
+        },
+        layout: 'logo-left-nav-center',
+        searchStyle: 'outline',
+        searchRadius: 'md',
+        paddingY: 'md',
+        glassEffect: false,
+      },
+      render: (props) => <CustomHeader {...props} />,
     },
-    root: {
-        fields: {
-            title: { type: 'text', label: 'Page Title' },
+    Hero: {
+      label: 'Hero Section',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        title: { type: 'text' },
+        subtitle: { type: 'textarea' },
+        ctaText: { type: 'text' },
+        ctaLink: { type: 'text' },
+        backgroundImage: {
+          type: 'custom',
+          label: 'Background Image (optional)',
+          render: ({
+            field,
+            onChange,
+            value,
+          }: {
+            field: { label?: string };
+            onChange: (value: string | undefined) => void;
+            value: string | undefined;
+          }) => {
+            return (
+              <ImagePickerField
+                field={field}
+                onChange={onChange}
+                value={value ?? ''}
+              />
+            );
+          },
         },
-        render: ({ children, title }) => {
-            if (typeof document !== 'undefined' && title) {
-                document.title = title;
-            }
-            return <>{children}</>;
+        overlay: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
         },
-    },
-    components: {
-        Header: {
-            label: 'Header Navigation',
-            permissions: { delete: false, duplicate: false },
-            fields: {
-                showLogo: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                showSearch: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                showCart: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                showMenu: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                sticky: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                navigationLinks: {
-                    type: 'array',
-                    getItemSummary: (item) => item.label || 'Link',
-                    arrayFields: {
-                        label: { type: 'text' },
-                        url: { type: 'text' },
-                    },
-                },
-                ctaButton: {
-                    type: 'object',
-                    objectFields: {
-                        show: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                        text: { type: 'text' },
-                        url: { type: 'text' },
-                    },
-                },
-                backgroundColor: { type: 'text', label: 'Background Color (hex)' },
-                textColor: { type: 'text', label: 'Text Color (hex)' },
+        align: {
+          type: 'select',
+          options: [
+            { label: 'Left', value: 'left' },
+            { label: 'Center', value: 'center' },
+            { label: 'Right', value: 'right' },
+          ],
+        },
+        padding: {
+          type: 'select',
+          options: [
+            { label: 'Small', value: 'small' },
+            { label: 'Medium', value: 'medium' },
+            { label: 'Large', value: 'large' },
+          ],
+        },
+        // New SEO Field
+        headingLevel: {
+          type: 'select',
+          label: 'Heading Level (SEO)',
+          options: [
+            { label: 'H1 (Main Title)', value: 'h1' },
+            { label: 'H2 (Section Title)', value: 'h2' },
+            { label: 'Div (Decoration)', value: 'div' },
+          ],
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        title: 'Welcome to Our Store',
+        subtitle: 'Discover our amazing collection of products.',
+        ctaText: 'Shop Now',
+        ctaLink: '/products',
+        align: 'center',
+        padding: 'medium',
+        overlay: false,
+        headingLevel: 'h1',
+        animationType: 'fade-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: ({
+        title,
+        subtitle,
+        ctaText,
+        ctaLink,
+        align,
+        padding,
+        backgroundImage,
+        overlay,
+        headingLevel,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) => {
+        const paddingClass = {
+          small: 'py-12',
+          medium: 'py-24',
+          large: 'py-32',
+        }[padding];
 
-                // New Customization Fields
-                layout: {
-                    type: 'select',
-                    label: 'Layout Style',
-                    options: [
-                        { label: 'Logo Left, Nav Center', value: 'logo-left-nav-center' },
-                        { label: 'Logo Left, Nav Right', value: 'logo-left-nav-right' },
-                        { label: 'Logo Center', value: 'logo-center' },
-                    ]
-                },
-                searchStyle: {
-                    type: 'radio',
-                    label: 'Search Bar Style',
-                    options: [
-                        { label: 'Outline', value: 'outline' },
-                        { label: 'Filled', value: 'filled' },
-                        { label: 'Minimal', value: 'minimal' },
-                    ]
-                },
-                searchRadius: {
-                    type: 'radio',
-                    label: 'Search Corner Radius',
-                    options: [
-                        { label: 'Square', value: 'none' },
-                        { label: 'Small', value: 'sm' },
-                        { label: 'Medium', value: 'md' },
-                        { label: 'Round', value: 'full' },
-                    ]
-                },
-                paddingY: {
-                    type: 'select',
-                    label: 'Vertical Padding',
-                    options: [
-                        { label: 'Compact', value: 'sm' },
-                        { label: 'Standard', value: 'md' },
-                        { label: 'Spacious', value: 'lg' },
-                    ]
-                },
-                glassEffect: {
-                    type: 'radio',
-                    label: 'Glassmorphism Effect',
-                    options: [
-                        { label: 'Enabled', value: true },
-                        { label: 'Disabled', value: false },
-                    ]
-                },
-            },
-            defaultProps: {
-                showLogo: true,
-                showSearch: true,
-                showCart: true,
-                showMenu: true,
-                sticky: true,
-                navigationLinks: [
-                    { label: 'Home', url: '/' },
-                    { label: 'Shop', url: '/products' },
-                    { label: 'About', url: '/about' },
-                ],
-                ctaButton: {
-                    show: false,
-                    text: 'Get Started',
-                    url: '/signup',
-                },
-                layout: 'logo-left-nav-center',
-                searchStyle: 'outline',
-                searchRadius: 'md',
-                paddingY: 'md',
-                glassEffect: false,
-            },
-            render: (props) => <CustomHeader {...props} />,
-        },
-        Hero: {
-            label: 'Hero Section',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                title: { type: 'text' },
-                subtitle: { type: 'textarea' },
-                ctaText: { type: 'text' },
-                ctaLink: { type: 'text' },
-                backgroundImage: {
-                    type: 'custom',
-                    label: 'Background Image (optional)',
-                    render: ({ field, onChange, value }: { field: { label?: string }; onChange: (value: string | undefined) => void; value: string | undefined }) => {
-                        return <ImagePickerField field={field} onChange={onChange} value={value ?? ''} />;
-                    }
-                },
-                overlay: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                align: {
-                    type: 'select',
-                    options: [
-                        { label: 'Left', value: 'left' },
-                        { label: 'Center', value: 'center' },
-                        { label: 'Right', value: 'right' }
-                    ]
-                },
-                padding: {
-                    type: 'select',
-                    options: [
-                        { label: 'Small', value: 'small' },
-                        { label: 'Medium', value: 'medium' },
-                        { label: 'Large', value: 'large' }
-                    ]
-                },
-                // New SEO Field
-                headingLevel: {
-                    type: 'select',
-                    label: 'Heading Level (SEO)',
-                    options: [
-                        { label: 'H1 (Main Title)', value: 'h1' },
-                        { label: 'H2 (Section Title)', value: 'h2' },
-                        { label: 'Div (Decoration)', value: 'div' },
-                    ]
-                },
-                ...animationFields
-            },
-            defaultProps: {
-                title: 'Welcome to Our Store',
-                subtitle: 'Discover our amazing collection of products.',
-                ctaText: 'Shop Now',
-                ctaLink: '/products',
-                align: 'center',
-                padding: 'medium',
-                overlay: false,
-                headingLevel: 'h1',
-                animationType: 'fade-in',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: ({ title, subtitle, ctaText, ctaLink, align, padding, backgroundImage, overlay, headingLevel, animationType, animationDuration, animationDelay, animationTrigger }) => {
-                const paddingClass = {
-                    small: 'py-12',
-                    medium: 'py-24',
-                    large: 'py-32'
-                }[padding];
+        // Dynamic Heading Tag
+        const HeadingTag = (headingLevel || 'h1') as 'h1' | 'h2' | 'div';
 
-                // Dynamic Heading Tag
-                const HeadingTag = (headingLevel || 'h1') as 'h1' | 'h2' | 'div';
-
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <section
-                            className={cn("relative", paddingClass)}
-                            style={backgroundImage ? {
-                                backgroundImage: `url(${backgroundImage})`,
-                                backgroundSize: 'cover',
-                                backgroundPosition: 'center',
-                            } : {}}
-                            aria-label="Hero Banner"
-                        >
-                            {overlay && backgroundImage && (
-                                <div className="absolute inset-0 bg-black/40" aria-hidden="true" />
-                            )}
-                            <div className={cn("container px-4 md:px-6 flex flex-col gap-4 relative z-10", {
-                                'items-start text-left': align === 'left',
-                                'items-center text-center': align === 'center',
-                                'items-end text-right': align === 'right',
-                            }, {
-                                'text-white': backgroundImage && overlay
-                            })}>
-                                <HeadingTag className="text-4xl md:text-6xl font-bold tracking-tighter">
-                                    {title}
-                                </HeadingTag>
-                                <p className="text-xl max-w-[700px] opacity-90">{subtitle}</p>
-                                <ThemedButton colorRole="primary" size="lg" asChild>
-                                    <Link href={asRoute(ctaLink)}>{ctaText}</Link>
-                                </ThemedButton>
-                            </div>
-                        </section>
-                    </AnimatedWrapper>
-                );
-            }
-        },
-        OgabasseyHeader: {
-            label: 'Ogabassey Header',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                logoText: { type: 'text', label: 'Logo Text' },
-                showSearch: { type: 'radio', label: 'Show Search', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                showCart: { type: 'radio', label: 'Show Cart', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                showUser: { type: 'radio', label: 'Show User', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                showBell: { type: 'radio', label: 'Show Bell', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-            },
-            defaultProps: {
-                logoText: 'ogabassey',
-                showSearch: true,
-                showCart: true,
-                showUser: true,
-                showBell: true,
-            },
-            render: (props) => <OgabasseyHeader {...props} />
-        },
-        OgabasseyHero: {
-            label: 'Ogabassey Hero',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                slides: {
-                    type: 'array',
-                    getItemSummary: (item) => item.title || 'Slide',
-                    arrayFields: {
-                        image: { type: 'text', label: 'Image URL' },
-                        title: { type: 'text', label: 'Title' },
-                        link: { type: 'text', label: 'Link URL' },
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <section
+              className={cn('relative', paddingClass)}
+              style={
+                backgroundImage
+                  ? {
+                      backgroundImage: `url(${backgroundImage})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
                     }
-                },
-                staticBanner1: { type: 'text', label: 'Static Banner 1 URL' },
-                staticBanner2: { type: 'text', label: 'Static Banner 2 URL' },
-                autoplayDelay: { type: 'number', label: 'Autoplay Delay (ms)' },
-            },
-            defaultProps: {
-                slides: [
-                    {
-                        image: 'https://images.unsplash.com/photo-1696429175928-793a1cdef1d3?q=80&w=2070&auto=format&fit=crop',
-                        title: 'iPhone 15 Pro Max',
-                        link: '/category/phones',
-                    },
-                    {
-                        image: 'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=2072&auto=format&fit=crop',
-                        title: 'PlayStation 5',
-                        link: '/category/gaming',
-                    },
-                ],
-                staticBanner1: 'https://images.unsplash.com/photo-1616348436168-de43ad0db179?q=80&w=1981&auto=format&fit=crop',
-                staticBanner2: 'https://images.unsplash.com/photo-1593640408182-31c70c8268f5?q=80&w=2042&auto=format&fit=crop',
-                autoplayDelay: 5000,
-            },
-            render: (props) => <OgabasseyHero {...props} />
-        },
-        OgabasseyNav: {
-            label: 'Ogabassey Nav',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                links: {
-                    type: 'array',
-                    getItemSummary: (item) => item.label || 'Link',
-                    arrayFields: {
-                        label: { type: 'text', label: 'Label' },
-                        url: { type: 'text', label: 'URL' },
-                    }
-                },
-                activeColor: { type: 'text', label: 'Active Color (Hex)' },
-            },
-            defaultProps: {
-                links: [
-                    { label: 'Home', url: '/' },
-                    { label: 'Smart phones', url: '/category/smart-phones' },
-                    { label: 'Laptops', url: '/category/laptops' },
-                    { label: 'Accessories', url: '/category/accessories' },
-                    { label: 'Gaming', url: '/category/gaming' },
-                ],
-                activeColor: '#D62027',
-            },
-            render: (props) => <OgabasseyNav {...props} />
-        },
-        OgabasseyCategories: {
-            label: 'Ogabassey Categories',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                categories: {
-                    type: 'array',
-                    getItemSummary: (item) => item.label || 'Category',
-                    arrayFields: {
-                        label: { type: 'text', label: 'Label' },
-                        icon: {
-                            type: 'select',
-                            label: 'Icon',
-                            options: getIconOptions(),
-                        },
-                        link: { type: 'text', label: 'Link URL' },
-                    }
-                },
-                backgroundColor: { type: 'text', label: 'Background Color (Hex)' },
-                iconColor: { type: 'text', label: 'Icon Color (Hex)' },
-            },
-            defaultProps: {
-                categories: [
-                    { label: 'Phones', icon: 'smartphone', link: '/category/phones' },
-                    { label: 'Gaming', icon: 'gamepad', link: '/category/gaming' },
-                    { label: 'Accessories', icon: 'headphones', link: '/category/accessories' },
-                    { label: 'Printers', icon: 'printer', link: '/category/printers' },
-                    { label: 'Laptop', icon: 'laptop', link: '/category/laptops' },
-                ],
-                backgroundColor: '#FEF2F2',
-                iconColor: '#DC2626',
-            },
-            render: (props) => <OgabasseyCategories {...props} />
-        },
-        OgabasseyUtilities: {
-            label: 'Ogabassey Utilities',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                services: {
-                    type: 'array',
-                    getItemSummary: (item) => item.label || 'Service',
-                    arrayFields: {
-                        label: { type: 'text', label: 'Label' },
-                        icon: {
-                            type: 'select',
-                            label: 'Icon',
-                            options: getIconOptions(),
-                        },
-                    }
-                },
-                startText: { type: 'text', label: 'Start Text' },
-                highlightText: { type: 'text', label: 'Highlight Text' },
-                middleText: { type: 'text', label: 'Middle Text' },
-                endText: { type: 'text', label: 'End Text' },
-                endHighlightText: { type: 'text', label: 'End Highlight Text' },
-            },
-            defaultProps: {
-                services: [
-                    { label: 'Phones', icon: 'smartphone' },
-                    { label: 'Gaming', icon: 'gamepad' },
-                    { label: 'Accessories', icon: 'headphones' },
-                    { label: 'Printers', icon: 'printer' },
-                    { label: 'Laptop', icon: 'laptop' },
-                ],
-                startText: "We Pay",
-                highlightText: "YOU",
-                middleText: "When",
-                endText: "You Buy",
-                endHighlightText: "Airtime!",
-            },
-            render: (props) => <OgabasseyUtilities {...props} />
-        },
-        HeroCarousel: {
-            label: 'Hero Carousel',
-            permissions: { delete: true, duplicate: false },
-            fields: {
-                autoplayDelay: {
-                    type: 'number',
-                    label: 'Autoplay Delay (ms)',
-                    min: 1000,
-                    max: 10000,
-                },
-                slides: {
-                    type: 'array',
-                    getItemSummary: (item) => item.title || 'Slide',
-                    arrayFields: {
-                        image: { type: 'text', label: 'Image URL' },
-                        title: { type: 'text' },
-                        subtitle: { type: 'textarea' },
-                        ctaText: { type: 'text' },
-                        ctaLink: { type: 'text' }
-                    }
-                }
-            },
-            defaultProps: {
-                autoplayDelay: 5000,
-                slides: [
-                    {
-                        image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80',
-                        title: 'Welcome to Your Store',
-                        subtitle: 'Customize this slide with your own images and text to showcase your products.',
-                        ctaText: 'Shop Now',
-                        ctaLink: '#products'
-                    },
-                    {
-                        image: 'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80',
-                        title: 'Featured Collection',
-                        subtitle: 'Add your seasonal promotions or highlight bestselling products here.',
-                        ctaText: 'View Collection',
-                        ctaLink: '#products'
-                    }
-                ]
-            },
-            render: ({ slides, autoplayDelay }) => <HeroCarouselComponent slides={slides} autoplayDelay={autoplayDelay} />
-        },
-        Text: {
-            label: 'Text Block',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                title: { type: 'text' },
-                content: { type: 'textarea' },
-                align: {
-                    type: 'select',
-                    options: [
-                        { label: 'Left', value: 'left' },
-                        { label: 'Center', value: 'center' },
-                        { label: 'Right', value: 'right' }
-                    ]
-                },
-                ...animationFields
-            },
-            defaultProps: {
-                title: 'About Us',
-                content: 'Write something about your brand here.',
-                align: 'left',
-                animationType: 'fade-in',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: ({ title, content, align, animationType, animationDuration, animationDelay, animationTrigger }) => (
-                <AnimatedWrapper
-                    animation={{
-                        type: mapAnimationType(animationType),
-                        duration: animationDuration as 'fast' | 'normal' | 'slow',
-                        delay: animationDelay,
-                        trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                    }}
-                >
-                    <section className="py-12 container px-4 md:px-6">
-                        <div className={cn("max-w-3xl mx-auto", {
-                            'text-left': align === 'left',
-                            'text-center': align === 'center',
-                            'text-right': align === 'right',
-                        })}>
-                            {title && <h2 className="text-3xl font-bold mb-4">{title}</h2>}
-                            <div className="prose dark:prose-invert max-w-none">
-                                <p className="text-lg whitespace-pre-wrap">{content}</p>
-                            </div>
-                        </div>
-                    </section>
-                </AnimatedWrapper>
-            )
-        },
-        Image: {
-            label: 'Image',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                src: {
-                    type: 'custom',
-                    label: 'Image',
-                    render: ({ field, onChange, value }: { field: { label?: string }; onChange: (value: string) => void; value: string }) => {
-                        return <ImagePickerField field={field} onChange={onChange} value={value} />;
-                    }
-                },
-                alt: { type: 'text', label: 'Alt Text' },
-                link: { type: 'text', label: 'Link URL (optional)' },
-                aspectRatio: {
-                    type: 'select',
-                    options: [
-                        { label: 'Auto', value: 'auto' },
-                        { label: '16:9', value: '16/9' },
-                        { label: '4:3', value: '4/3' },
-                        { label: '1:1', value: '1/1' }
-                    ]
-                },
-                ...animationFields
-            },
-            defaultProps: {
-                src: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30',
-                alt: 'Product image',
-                aspectRatio: '16/9',
-                animationType: 'zoom-in',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: ({ src, alt, aspectRatio, link, animationType, animationDuration, animationDelay, animationTrigger }) => {
-                const imageElement = (
-                    <div
-                        className="relative w-full overflow-hidden rounded-lg bg-muted"
-                        style={{ aspectRatio: aspectRatio === 'auto' ? undefined : aspectRatio }}
-                    >
-                        <Image
-                            src={src}
-                            alt={alt}
-                            fill
-                            className="object-cover"
-                        />
-                    </div>
-                );
-
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <section className="py-8 container px-4 md:px-6">
-                            {link ? (
-                                <Link href={asRoute(link)} className="block hover:opacity-90 transition-opacity">
-                                    {imageElement}
-                                </Link>
-                            ) : imageElement}
-                        </section>
-                    </AnimatedWrapper>
-                );
-            }
-        },
-        Button: {
-            label: 'Button',
-            permissions: { delete: true, duplicate: true },
-            inline: true,
-            fields: {
-                text: { type: 'text' },
-                link: { type: 'text' },
-                size: {
-                    type: 'select',
-                    options: [
-                        { label: 'Small', value: 'sm' },
-                        { label: 'Default', value: 'default' },
-                        { label: 'Large', value: 'lg' }
-                    ]
-                },
-                variant: {
-                    type: 'select',
-                    options: [
-                        { label: 'Primary', value: 'primary' },
-                        { label: 'Background', value: 'background' },
-                        { label: 'Accent', value: 'accent' }
-                    ]
-                },
-                align: {
-                    type: 'select',
-                    options: [
-                        { label: 'Left', value: 'left' },
-                        { label: 'Center', value: 'center' },
-                        { label: 'Right', value: 'right' }
-                    ]
-                }
-            },
-            defaultProps: {
-                text: 'Click Me',
-                link: '#',
-                variant: 'primary',
-                align: 'center',
-                size: 'default',
-            },
-            render: ({ text, link, variant, align, size, puck }) => (
+                  : {}
+              }
+              aria-label="Hero Banner"
+            >
+              {overlay && backgroundImage && (
                 <div
-                    ref={puck.dragRef}
-                    className={cn("py-4 container px-4 md:px-6 flex", {
-                        'justify-start': align === 'left',
-                        'justify-center': align === 'center',
-                        'justify-end': align === 'right',
-                    })}
+                  className="absolute inset-0 bg-black/40"
+                  aria-hidden="true"
+                />
+              )}
+              <div
+                className={cn(
+                  'container px-4 md:px-6 flex flex-col gap-4 relative z-10',
+                  {
+                    'items-start text-left': align === 'left',
+                    'items-center text-center': align === 'center',
+                    'items-end text-right': align === 'right',
+                  },
+                  {
+                    'text-white': backgroundImage && overlay,
+                  }
+                )}
+              >
+                <HeadingTag className="text-4xl md:text-6xl font-bold tracking-tighter">
+                  {title}
+                </HeadingTag>
+                <p className="text-xl max-w-[700px] opacity-90">{subtitle}</p>
+                <ThemedButton colorRole="primary" size="lg" asChild>
+                  <Link href={asRoute(ctaLink)}>{ctaText}</Link>
+                </ThemedButton>
+              </div>
+            </section>
+          </AnimatedWrapper>
+        );
+      },
+    },
+    OgabasseyHeader: {
+      label: 'Ogabassey Header',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        logoText: { type: 'text', label: 'Logo Text' },
+        showSearch: {
+          type: 'radio',
+          label: 'Show Search',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        showCart: {
+          type: 'radio',
+          label: 'Show Cart',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        showUser: {
+          type: 'radio',
+          label: 'Show User',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        showBell: {
+          type: 'radio',
+          label: 'Show Bell',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+      },
+      defaultProps: {
+        logoText: 'ogabassey',
+        showSearch: true,
+        showCart: true,
+        showUser: true,
+        showBell: true,
+      },
+      render: (props) => <OgabasseyHeader {...props} />,
+    },
+    OgabasseyHero: {
+      label: 'Ogabassey Hero',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        slides: {
+          type: 'array',
+          getItemSummary: (item) => item.title || 'Slide',
+          arrayFields: {
+            image: { type: 'text', label: 'Image URL' },
+            title: { type: 'text', label: 'Title' },
+            link: { type: 'text', label: 'Link URL' },
+          },
+        },
+        staticBanner1: { type: 'text', label: 'Static Banner 1 URL' },
+        staticBanner2: { type: 'text', label: 'Static Banner 2 URL' },
+        autoplayDelay: { type: 'number', label: 'Autoplay Delay (ms)' },
+      },
+      defaultProps: {
+        slides: [
+          {
+            image:
+              'https://images.unsplash.com/photo-1696429175928-793a1cdef1d3?q=80&w=2070&auto=format&fit=crop',
+            title: 'iPhone 15 Pro Max',
+            link: '/category/phones',
+          },
+          {
+            image:
+              'https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=2072&auto=format&fit=crop',
+            title: 'PlayStation 5',
+            link: '/category/gaming',
+          },
+        ],
+        staticBanner1:
+          'https://images.unsplash.com/photo-1616348436168-de43ad0db179?q=80&w=1981&auto=format&fit=crop',
+        staticBanner2:
+          'https://images.unsplash.com/photo-1593640408182-31c70c8268f5?q=80&w=2042&auto=format&fit=crop',
+        autoplayDelay: 5000,
+      },
+      render: (props) => <OgabasseyHero {...props} />,
+    },
+    OgabasseyNav: {
+      label: 'Ogabassey Nav',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        links: {
+          type: 'array',
+          getItemSummary: (item) => item.label || 'Link',
+          arrayFields: {
+            label: { type: 'text', label: 'Label' },
+            url: { type: 'text', label: 'URL' },
+          },
+        },
+        activeColor: { type: 'text', label: 'Active Color (Hex)' },
+      },
+      defaultProps: {
+        links: [
+          { label: 'Home', url: '/' },
+          { label: 'Smart phones', url: '/category/smart-phones' },
+          { label: 'Laptops', url: '/category/laptops' },
+          { label: 'Accessories', url: '/category/accessories' },
+          { label: 'Gaming', url: '/category/gaming' },
+        ],
+        activeColor: '#D62027',
+      },
+      render: (props) => <OgabasseyNav {...props} />,
+    },
+    OgabasseyCategories: {
+      label: 'Ogabassey Categories',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        categories: {
+          type: 'array',
+          getItemSummary: (item) => item.label || 'Category',
+          arrayFields: {
+            label: { type: 'text', label: 'Label' },
+            icon: {
+              type: 'select',
+              label: 'Icon',
+              options: getIconOptions(),
+            },
+            link: { type: 'text', label: 'Link URL' },
+          },
+        },
+        backgroundColor: { type: 'text', label: 'Background Color (Hex)' },
+        iconColor: { type: 'text', label: 'Icon Color (Hex)' },
+      },
+      defaultProps: {
+        categories: [
+          { label: 'Phones', icon: 'smartphone', link: '/category/phones' },
+          { label: 'Gaming', icon: 'gamepad', link: '/category/gaming' },
+          {
+            label: 'Accessories',
+            icon: 'headphones',
+            link: '/category/accessories',
+          },
+          { label: 'Printers', icon: 'printer', link: '/category/printers' },
+          { label: 'Laptop', icon: 'laptop', link: '/category/laptops' },
+        ],
+        backgroundColor: '#FEF2F2',
+        iconColor: '#DC2626',
+      },
+      render: (props) => <OgabasseyCategories {...props} />,
+    },
+    OgabasseyUtilities: {
+      label: 'Ogabassey Utilities',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        services: {
+          type: 'array',
+          getItemSummary: (item) => item.label || 'Service',
+          arrayFields: {
+            label: { type: 'text', label: 'Label' },
+            icon: {
+              type: 'select',
+              label: 'Icon',
+              options: getIconOptions(),
+            },
+          },
+        },
+        startText: { type: 'text', label: 'Start Text' },
+        highlightText: { type: 'text', label: 'Highlight Text' },
+        middleText: { type: 'text', label: 'Middle Text' },
+        endText: { type: 'text', label: 'End Text' },
+        endHighlightText: { type: 'text', label: 'End Highlight Text' },
+      },
+      defaultProps: {
+        services: [
+          { label: 'Phones', icon: 'smartphone' },
+          { label: 'Gaming', icon: 'gamepad' },
+          { label: 'Accessories', icon: 'headphones' },
+          { label: 'Printers', icon: 'printer' },
+          { label: 'Laptop', icon: 'laptop' },
+        ],
+        startText: 'We Pay',
+        highlightText: 'YOU',
+        middleText: 'When',
+        endText: 'You Buy',
+        endHighlightText: 'Airtime!',
+      },
+      render: (props) => <OgabasseyUtilities {...props} />,
+    },
+    HeroCarousel: {
+      label: 'Hero Carousel',
+      permissions: { delete: true, duplicate: false },
+      fields: {
+        autoplayDelay: {
+          type: 'number',
+          label: 'Autoplay Delay (ms)',
+          min: 1000,
+          max: 10000,
+        },
+        slides: {
+          type: 'array',
+          getItemSummary: (item) => item.title || 'Slide',
+          arrayFields: {
+            image: { type: 'text', label: 'Image URL' },
+            title: { type: 'text' },
+            subtitle: { type: 'textarea' },
+            ctaText: { type: 'text' },
+            ctaLink: { type: 'text' },
+          },
+        },
+      },
+      defaultProps: {
+        autoplayDelay: 5000,
+        slides: [
+          {
+            image:
+              'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1920&q=80',
+            title: 'Welcome to Your Store',
+            subtitle:
+              'Customize this slide with your own images and text to showcase your products.',
+            ctaText: 'Shop Now',
+            ctaLink: '#products',
+          },
+          {
+            image:
+              'https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80',
+            title: 'Featured Collection',
+            subtitle:
+              'Add your seasonal promotions or highlight bestselling products here.',
+            ctaText: 'View Collection',
+            ctaLink: '#products',
+          },
+        ],
+      },
+      render: ({ slides, autoplayDelay }) => (
+        <HeroCarouselComponent slides={slides} autoplayDelay={autoplayDelay} />
+      ),
+    },
+    Text: {
+      label: 'Text Block',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        title: { type: 'text' },
+        content: { type: 'textarea' },
+        align: {
+          type: 'select',
+          options: [
+            { label: 'Left', value: 'left' },
+            { label: 'Center', value: 'center' },
+            { label: 'Right', value: 'right' },
+          ],
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        title: 'About Us',
+        content: 'Write something about your brand here.',
+        align: 'left',
+        animationType: 'fade-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: ({
+        title,
+        content,
+        align,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) => (
+        <AnimatedWrapper
+          animation={{
+            type: mapAnimationType(animationType),
+            duration: animationDuration as 'fast' | 'normal' | 'slow',
+            delay: animationDelay,
+            trigger:
+              animationTrigger === 'onload'
+                ? 'immediate'
+                : (animationTrigger as 'scroll' | 'immediate'),
+          }}
+        >
+          <section className="py-12 container px-4 md:px-6">
+            <div
+              className={cn('max-w-3xl mx-auto', {
+                'text-left': align === 'left',
+                'text-center': align === 'center',
+                'text-right': align === 'right',
+              })}
+            >
+              {title && <h2 className="text-3xl font-bold mb-4">{title}</h2>}
+              <div className="prose dark:prose-invert max-w-none">
+                <p className="text-lg whitespace-pre-wrap">{content}</p>
+              </div>
+            </div>
+          </section>
+        </AnimatedWrapper>
+      ),
+    },
+    Image: {
+      label: 'Image',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        src: {
+          type: 'custom',
+          label: 'Image',
+          render: ({
+            field,
+            onChange,
+            value,
+          }: {
+            field: { label?: string };
+            onChange: (value: string) => void;
+            value: string;
+          }) => {
+            return (
+              <ImagePickerField
+                field={field}
+                onChange={onChange}
+                value={value}
+              />
+            );
+          },
+        },
+        alt: { type: 'text', label: 'Alt Text' },
+        link: { type: 'text', label: 'Link URL (optional)' },
+        aspectRatio: {
+          type: 'select',
+          options: [
+            { label: 'Auto', value: 'auto' },
+            { label: '16:9', value: '16/9' },
+            { label: '4:3', value: '4/3' },
+            { label: '1:1', value: '1/1' },
+          ],
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        src: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30',
+        alt: 'Product image',
+        aspectRatio: '16/9',
+        animationType: 'zoom-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: ({
+        src,
+        alt,
+        aspectRatio,
+        link,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) => {
+        const imageElement = (
+          <div
+            className="relative w-full overflow-hidden rounded-lg bg-muted"
+            style={{
+              aspectRatio: aspectRatio === 'auto' ? undefined : aspectRatio,
+            }}
+          >
+            <Image src={src} alt={alt} fill className="object-cover" />
+          </div>
+        );
+
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <section className="py-8 container px-4 md:px-6">
+              {link ? (
+                <Link
+                  href={asRoute(link)}
+                  className="block hover:opacity-90 transition-opacity"
                 >
-                    <ThemedButton colorRole={variant} size={size} asChild>
-                        <Link href={asRoute(link)}>{text}</Link>
-                    </ThemedButton>
-                </div>
-            )
+                  {imageElement}
+                </Link>
+              ) : (
+                imageElement
+              )}
+            </section>
+          </AnimatedWrapper>
+        );
+      },
+    },
+    Button: {
+      label: 'Button',
+      permissions: { delete: true, duplicate: true },
+      inline: true,
+      fields: {
+        text: { type: 'text' },
+        link: { type: 'text' },
+        size: {
+          type: 'select',
+          options: [
+            { label: 'Small', value: 'sm' },
+            { label: 'Default', value: 'default' },
+            { label: 'Large', value: 'lg' },
+          ],
         },
-        ProductGrid: {
-            label: 'Product Grid',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                title: { type: 'text' },
-                columns: { type: 'number', min: 1, max: 4 },
-                limit: { type: 'number', min: 1, max: 24 },
-                category: { type: 'text', label: 'Filter by Category (optional)' },
-                sortBy: {
-                    type: 'select',
-                    label: 'Sort By',
-                    options: [
-                        { label: 'Newest', value: 'newest' },
-                        { label: 'Price: Low to High', value: 'price-low' },
-                        { label: 'Price: High to Low', value: 'price-high' },
-                        { label: 'Name', value: 'name' },
-                    ]
-                },
-                showFilters: {
-                    type: 'radio',
-                    label: 'Show Filter Dropdown',
-                    options: [
-                        { label: 'Yes', value: true },
-                        { label: 'No', value: false }
-                    ]
-                }
-            },
-            defaultProps: {
-                title: 'Featured Products',
-                columns: 3,
-                limit: 6,
-                sortBy: 'newest',
-                showFilters: true,
-            },
-            // Removed resolveData to avoid type issues
-            render: (props) => <StorefrontProductGrid {...props} />
+        variant: {
+          type: 'select',
+          options: [
+            { label: 'Primary', value: 'primary' },
+            { label: 'Background', value: 'background' },
+            { label: 'Accent', value: 'accent' },
+          ],
         },
-        Footer: {
-            label: 'Footer',
-            permissions: { delete: false, duplicate: false },
-            fields: {
-                copyrightText: { type: 'text', label: 'Copyright Text' },
-                showQuickLinks: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                quickLinks: {
-                    type: 'array',
-                    getItemSummary: (item) => item.label || 'Link',
-                    arrayFields: {
-                        label: { type: 'text' },
-                        url: { type: 'text' },
-                    },
-                },
-                socialLinks: {
-                    type: 'object',
-                    objectFields: {
-                        facebook: { type: 'text', label: 'Facebook URL' },
-                        instagram: { type: 'text', label: 'Instagram URL' },
-                        twitter: { type: 'text', label: 'Twitter URL' },
-                        linkedin: { type: 'text', label: 'LinkedIn URL' },
-                        youtube: { type: 'text', label: 'YouTube URL' },
-                    },
-                },
-                showNewsletter: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                backgroundColor: { type: 'text', label: 'Background Color (hex)' },
-                textColor: { type: 'text', label: 'Text Color (hex)' },
-            },
-            defaultProps: {
-                showQuickLinks: true,
-                quickLinks: [
-                    { label: 'About Us', url: '/about' },
-                    { label: 'Contact', url: '/contact' },
-                    { label: 'Privacy Policy', url: '/privacy' },
-                    { label: 'Terms', url: '/terms' },
-                ],
-                socialLinks: {},
-                showNewsletter: false,
-            },
-            render: (props) => <CustomFooter {...props} />,
+        align: {
+          type: 'select',
+          options: [
+            { label: 'Left', value: 'left' },
+            { label: 'Center', value: 'center' },
+            { label: 'Right', value: 'right' },
+          ],
         },
-        Testimonial: {
-            label: 'Testimonial',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                quote: { type: 'textarea' },
-                author: { type: 'text' },
-                role: { type: 'text' },
-                avatar: { type: 'text', label: 'Avatar URL (optional)' },
-                rating: {
-                    type: 'number',
-                    min: 0,
-                    max: 5,
-                    label: 'Rating (0-5)'
-                }
-            },
-            defaultProps: {
-                quote: "This is the best product I've ever used. Highly recommended!",
-                author: "Jane Doe",
-                role: "Verified Customer",
-                rating: 5,
-            },
-            render: ({ quote, author, role, avatar, rating = 5 }) => (
-                <section className="py-12 container px-4 md:px-6">
-                    <div className="max-w-3xl mx-auto text-center">
-                        <Quote className="w-12 h-12 mx-auto mb-6 text-muted-foreground/20" />
-                        <blockquote className="text-2xl font-medium mb-6">"{quote}"</blockquote>
-                        <div className="flex flex-col items-center gap-3">
-                            {avatar && (
-                                <Image
-                                    src={avatar}
-                                    alt={author}
-                                    width={48}
-                                    height={48}
-                                    className="rounded-full"
-                                />
-                            )}
-                            <div>
-                                <div className="font-semibold">{author}</div>
-                                <div className="text-sm text-muted-foreground">{role}</div>
-                            </div>
-                            <div className="flex gap-1 text-yellow-400" aria-label={`Rating: ${rating} out of 5 stars`}>
-                                {[...Array(5)].map((_, i) => (
-                                    <Star
-                                        key={i}
-                                        className={cn("w-4 h-4", {
-                                            "fill-current": i < rating
-                                        })}
-                                        aria-hidden="true"
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            )
+      },
+      defaultProps: {
+        text: 'Click Me',
+        link: '#',
+        variant: 'primary',
+        align: 'center',
+        size: 'default',
+      },
+      render: ({ text, link, variant, align, size, puck }) => (
+        <div
+          ref={puck.dragRef}
+          className={cn('py-4 container px-4 md:px-6 flex', {
+            'justify-start': align === 'left',
+            'justify-center': align === 'center',
+            'justify-end': align === 'right',
+          })}
+        >
+          <ThemedButton colorRole={variant} size={size} asChild>
+            <Link href={asRoute(link)}>{text}</Link>
+          </ThemedButton>
+        </div>
+      ),
+    },
+    ProductGrid: {
+      label: 'Product Grid',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        title: { type: 'text' },
+        columns: { type: 'number', min: 1, max: 4 },
+        limit: { type: 'number', min: 1, max: 24 },
+        category: { type: 'text', label: 'Filter by Category (optional)' },
+        sortBy: {
+          type: 'select',
+          label: 'Sort By',
+          options: [
+            { label: 'Newest', value: 'newest' },
+            { label: 'Price: Low to High', value: 'price-low' },
+            { label: 'Price: High to Low', value: 'price-high' },
+            { label: 'Name', value: 'name' },
+          ],
         },
-        Features: {
-            label: 'Features Section',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                title: { type: 'text' },
-                subtitle: { type: 'textarea', label: 'Subtitle (optional)' },
-                columns: {
-                    type: 'select',
-                    options: [
-                        { label: '2 Columns', value: 2 },
-                        { label: '3 Columns', value: 3 },
-                        { label: '4 Columns', value: 4 },
-                    ]
-                },
-                features: {
-                    type: 'array',
-                    getItemSummary: (item) => item.title || 'Feature',
-                    arrayFields: {
-                        title: { type: 'text' },
-                        description: { type: 'textarea' },
-                        icon: {
-                            type: 'select',
-                            label: 'Icon',
-                            options: getIconOptions()
-                        }
-                    }
-                },
-                ...animationFields
-            },
-            defaultProps: {
-                title: 'Why Choose Us',
-                columns: 3,
-                features: [
-                    { title: 'Premium Quality', description: 'We use only the finest materials.', icon: 'award' },
-                    { title: 'Fast Shipping', description: 'Get your order in 2-3 business days.', icon: 'truck' },
-                    { title: '24/7 Support', description: 'We are here to help anytime.', icon: 'headphones' }
-                ],
-                animationType: 'slide-up',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: ({ title, subtitle, features, columns = 3, animationType, animationDuration, animationDelay, animationTrigger }) => {
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <section className="py-12 container px-4 md:px-6 bg-muted/30">
-                            <div className="text-center mb-12">
-                                <h2 className="text-3xl font-bold mb-4">{title}</h2>
-                                {subtitle && <p className="text-lg text-muted-foreground max-w-2xl mx-auto">{subtitle}</p>}
-                            </div>
-                            <div className={`grid grid-cols-1 md:grid-cols-${columns} gap-8`}>
-                                {features.map((feature, i) => (
-                                    <div key={i} className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm">
-                                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary" aria-hidden="true">
-                                            {renderIcon(feature.icon as string || 'check', { className: 'w-6 h-6' })}
-                                        </div>
-                                        <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                                        <p className="text-muted-foreground">{feature.description}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    </AnimatedWrapper>
-                );
-            }
+        showFilters: {
+          type: 'radio',
+          label: 'Show Filter Dropdown',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
         },
-        Newsletter: {
-            label: 'Newsletter Signup',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                title: { type: 'text' },
-                description: { type: 'textarea' },
-                placeholder: { type: 'text', label: 'Email Placeholder' },
-                buttonText: { type: 'text' }
-            },
-            defaultProps: {
-                title: 'Subscribe to our newsletter',
-                description: 'Get the latest updates and offers directly in your inbox.',
-                placeholder: 'Enter your email',
-                buttonText: 'Subscribe'
-            },
-            render: ({ title, description, buttonText, placeholder }) => (
-                <section className="py-16 container px-4 md:px-6">
-                    <div className="bg-primary text-primary-foreground rounded-2xl p-8 md:p-12 text-center max-w-4xl mx-auto">
-                        <Mail className="w-12 h-12 mx-auto mb-6 opacity-80" aria-hidden="true" />
-                        <h2 className="text-3xl font-bold mb-4">{title}</h2>
-                        <p className="text-lg opacity-90 mb-8 max-w-2xl mx-auto">{description}</p>
-                        <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
-                            <Input
-                                type="email"
-                                placeholder={placeholder}
-                                className="bg-background text-foreground border-0"
-                                aria-label="Email address for newsletter"
-                            />
-                            <Button variant="secondary" size="lg">
-                                {buttonText}
-                            </Button>
-                        </div>
-                    </div>
-                </section>
-            )
+      },
+      defaultProps: {
+        title: 'Featured Products',
+        columns: 3,
+        limit: 6,
+        sortBy: 'newest',
+        showFilters: true,
+      },
+      // Removed resolveData to avoid type issues
+      render: (props) => <StorefrontProductGrid {...props} />,
+    },
+    Footer: {
+      label: 'Footer',
+      permissions: { delete: false, duplicate: false },
+      fields: {
+        copyrightText: { type: 'text', label: 'Copyright Text' },
+        showQuickLinks: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
         },
-        Spacer: {
-            label: 'Spacer',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                height: {
-                    type: 'select',
-                    options: [
-                        { label: 'Small (2rem)', value: 'small' },
-                        { label: 'Medium (4rem)', value: 'medium' },
-                        { label: 'Large (8rem)', value: 'large' },
-                        { label: 'Extra Large (12rem)', value: 'xlarge' }
-                    ]
-                }
-            },
-            defaultProps: {
-                height: 'medium'
-            },
-            render: ({ height }) => {
-                const heightClass = {
-                    small: 'h-8',
-                    medium: 'h-16',
-                    large: 'h-32',
-                    xlarge: 'h-48'
-                }[height] || 'h-16';
-                return <div className={heightClass} aria-hidden="true" />;
-            }
+        quickLinks: {
+          type: 'array',
+          getItemSummary: (item) => item.label || 'Link',
+          arrayFields: {
+            label: { type: 'text' },
+            url: { type: 'text' },
+          },
         },
-        Video: {
-            label: 'Video Embed',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                url: { type: 'text', label: 'YouTube or Vimeo URL' },
-                title: { type: 'text', label: 'Video Title (optional)' },
-                autoplay: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                controls: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-            },
-            defaultProps: {
-                url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-                autoplay: false,
-                controls: true,
-            },
-            render: ({ url, title, autoplay, controls }) => {
-                // Extract video ID from YouTube/Vimeo URLs with proper hostname validation
-                let embedUrl = '';
-
-                // Helper function to safely check URL hostname
-                const isValidVideoHost = (inputUrl: string, allowedHosts: string[]): boolean => {
-                    try {
-                        const parsedUrl = new URL(inputUrl);
-                        const hostname = parsedUrl.hostname.toLowerCase();
-                        return allowedHosts.some(host =>
-                            hostname === host || hostname.endsWith('.' + host)
-                        );
-                    } catch {
-                        return false;
-                    }
-                };
-
-                // Helper function to extract video ID safely
-                const extractVideoId = (inputUrl: string, pattern: RegExp): string | null => {
-                    try {
-                        const match = inputUrl.match(pattern);
-                        // Validate video ID contains only safe characters (alphanumeric, dash, underscore)
-                        if (match && match[1] && /^[\\w-]+$/.test(match[1])) {
-                            return match[1];
-                        }
-                        return null;
-                    } catch {
-                        return null;
-                    }
-                };
-
-                if (isValidVideoHost(url, ['youtube.com', 'www.youtube.com', 'youtu.be'])) {
-                    // YouTube URL patterns:
-                    // - https://www.youtube.com/watch?v=VIDEO_ID
-                    // - https://youtu.be/VIDEO_ID
-                    const videoId = url.includes('youtu.be')
-                        ? extractVideoId(url, /youtu\.be\/([^?&/]+)/)
-                        : extractVideoId(url, /[?&]v=([^?&/]+)/);
-                    if (videoId) {
-                        embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? 1 : 0}&controls=${controls ? 1 : 0}`;
-                    }
-                } else if (isValidVideoHost(url, ['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'])) {
-                    // Vimeo URL pattern: https://vimeo.com/VIDEO_ID
-                    const videoId = extractVideoId(url, /vimeo\.com\/(\d+)/);
-                    if (videoId) {
-                        embedUrl = `https://player.vimeo.com/video/${videoId}?autoplay=${autoplay ? 1 : 0}`;
-                    }
-                }
-
-                return (
-                    <section className="py-8 container px-4 md:px-6">
-                        {title && <h2 className="text-2xl font-bold mb-4 text-center">{title}</h2>}
-                        <div className="aspect-video bg-muted flex items-center justify-center rounded-lg overflow-hidden">
-                            {embedUrl ? (
-                                <iframe
-                                    src={embedUrl}
-                                    className="w-full h-full"
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                    allowFullScreen
-                                    title={title || "Embedded video"}
-                                />
-                            ) : (
-                                <p className="text-muted-foreground">Invalid video URL</p>
-                            )}
-                        </div>
-                    </section>
-                );
-            }
+        socialLinks: {
+          type: 'object',
+          objectFields: {
+            facebook: { type: 'text', label: 'Facebook URL' },
+            instagram: { type: 'text', label: 'Instagram URL' },
+            twitter: { type: 'text', label: 'Twitter URL' },
+            linkedin: { type: 'text', label: 'LinkedIn URL' },
+            youtube: { type: 'text', label: 'YouTube URL' },
+          },
         },
-        Map: {
-            label: 'Map Embed',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                address: { type: 'text', label: 'Address or Location' },
-                zoom: { type: 'number', min: 1, max: 20 },
-                height: {
-                    type: 'select',
-                    options: [
-                        { label: 'Small', value: '300px' },
-                        { label: 'Medium', value: '450px' },
-                        { label: 'Large', value: '600px' },
-                    ]
-                }
-            },
-            defaultProps: {
-                address: 'New York, NY',
-                zoom: 12,
-                height: '450px',
-            },
-            render: ({ address, zoom, height }) => {
-                const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
-
-                return (
-                    <section className="py-8 container px-4 md:px-6">
-                        <div
-                            className="w-full bg-muted rounded-lg overflow-hidden border"
-                            style={{ height }}
-                        >
-                            <iframe
-                                src={mapUrl}
-                                className="w-full h-full"
-                                allowFullScreen
-                                loading="lazy"
-                                referrerPolicy="no-referrer-when-downgrade"
-                                title="Store location map"
-                            />
-                        </div>
-                    </section>
-                );
-            }
+        showNewsletter: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
         },
-        InstagramFeed: {
-            label: 'Instagram Feed',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                username: { type: 'text' },
-                postsCount: {
-                    type: 'number',
-                    min: 1,
-                    max: 12,
-                    label: 'Number of Posts'
-                }
-            },
-            defaultProps: {
-                username: 'instagram',
-                postsCount: 6,
-            },
-            render: ({ username, postsCount }) => (
-                <section className="py-8 container px-4 md:px-6">
-                    <div className="p-8 bg-muted text-center rounded-lg border">
-                        <Instagram className="w-12 h-12 mx-auto mb-4 text-muted-foreground" aria-hidden="true" />
-                        <h3 className="text-lg font-semibold mb-2">Instagram Feed</h3>
-                        <p className="text-muted-foreground mb-4">@{username} - {postsCount} recent posts</p>
-                        <p className="text-sm text-muted-foreground">
-                            Connect your Instagram account to display real posts
-                        </p>
-                    </div>
-                </section>
-            )
+        backgroundColor: { type: 'text', label: 'Background Color (hex)' },
+        textColor: { type: 'text', label: 'Text Color (hex)' },
+      },
+      defaultProps: {
+        showQuickLinks: true,
+        quickLinks: [
+          { label: 'About Us', url: '/about' },
+          { label: 'Contact', url: '/contact' },
+          { label: 'Privacy Policy', url: '/privacy' },
+          { label: 'Terms', url: '/terms' },
+        ],
+        socialLinks: {},
+        showNewsletter: false,
+      },
+      render: (props) => <CustomFooter {...props} />,
+    },
+    Testimonial: {
+      label: 'Testimonial',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        quote: { type: 'textarea' },
+        author: { type: 'text' },
+        role: { type: 'text' },
+        avatar: { type: 'text', label: 'Avatar URL (optional)' },
+        rating: {
+          type: 'number',
+          min: 0,
+          max: 5,
+          label: 'Rating (0-5)',
         },
-        ContactForm: {
-            label: 'Contact Form',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                formName: { type: 'text', label: 'Form Name' },
-                fields: {
-                    type: 'array',
-                    label: 'Form Fields',
-                    getItemSummary: (item: FormField) => item.label || 'Field',
-                    arrayFields: {
-                        id: { type: 'text', label: 'Field ID (unique)' },
-                        label: { type: 'text', label: 'Field Label' },
-                        type: {
-                            type: 'select',
-                            label: 'Field Type',
-                            options: [
-                                { label: 'Text', value: 'text' },
-                                { label: 'Email', value: 'email' },
-                                { label: 'Phone', value: 'phone' },
-                                { label: 'Text Area', value: 'textarea' },
-                                { label: 'Select Dropdown', value: 'select' },
-                                { label: 'Checkbox', value: 'checkbox' },
-                            ]
-                        },
-                        placeholder: { type: 'text', label: 'Placeholder (optional)' },
-                        required: {
-                            type: 'radio',
-                            label: 'Required?',
-                            options: [
-                                { label: 'Yes', value: true },
-                                { label: 'No', value: false }
-                            ]
-                        },
-                        options: {
-                            type: 'textarea',
-                            label: 'Options (for select, one per line)',
-                        }
-                    }
-                },
-                submitButtonText: { type: 'text', label: 'Submit Button Text' },
-                successMessage: { type: 'textarea', label: 'Success Message' },
-                ...animationFields
-            },
-            defaultProps: {
-                formName: 'Contact Form',
-                fields: [
-                    { id: 'name', type: 'text', label: 'Name', placeholder: 'Your name', required: true },
-                    { id: 'email', type: 'email', label: 'Email', placeholder: 'your@email.com', required: true },
-                    { id: 'phone', type: 'phone', label: 'Phone', placeholder: '(123) 456-7890', required: false },
-                    { id: 'message', type: 'textarea', label: 'Message', placeholder: 'How can we help?', required: true },
-                ],
-                submitButtonText: 'Send Message',
-                successMessage: 'Thank you! We\'ll get back to you soon.',
-                animationType: 'fade-in',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: ({ formName, fields, submitButtonText, successMessage, animationType, animationDuration, animationDelay, animationTrigger }: ContactFormProps) => {
-                // Ensure each field has a unique ID and proper typing for FormField[]
-                const formFields: FormField[] = fields.map((field: Record<string, unknown>, index: number) => ({
-                    id: (field.id as string) || `field-${index}`,
-                    type: (field.type as FormField['type']) || 'text',
-                    label: (field.label as string) || '',
-                    placeholder: field.placeholder as string | undefined,
-                    required: field.required as boolean | undefined,
-                    // Convert options from textarea string to array
-                    options: field.options ? (field.options as string).split('\n').map((opt: string) => opt.trim()).filter(Boolean) : undefined
-                }));
-
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <section className="py-12 container px-4 md:px-6">
-                            <div className="max-w-md mx-auto p-8 border rounded-lg bg-card">
-                                <h3 className="text-2xl font-bold mb-6">{formName}</h3>
-                                <StorefrontForm
-                                    formName={formName}
-                                    fields={formFields}
-                                    submitButtonText={submitButtonText}
-                                    successMessage={successMessage}
-                                    merchantId={''} // Placeholder as we can\'t access puck context here easily
-                                />
-                            </div>
-                        </section>
-                    </AnimatedWrapper>
-                );
-            }
+      },
+      defaultProps: {
+        quote: "This is the best product I've ever used. Highly recommended!",
+        author: 'Jane Doe',
+        role: 'Verified Customer',
+        rating: 5,
+      },
+      render: ({ quote, author, role, avatar, rating = 5 }) => (
+        <section className="py-12 container px-4 md:px-6">
+          <div className="max-w-3xl mx-auto text-center">
+            <Quote className="w-12 h-12 mx-auto mb-6 text-muted-foreground/20" />
+            <blockquote className="text-2xl font-medium mb-6">
+              "{quote}"
+            </blockquote>
+            <div className="flex flex-col items-center gap-3">
+              {avatar && (
+                <Image
+                  src={avatar}
+                  alt={author}
+                  width={48}
+                  height={48}
+                  className="rounded-full"
+                />
+              )}
+              <div>
+                <div className="font-semibold">{author}</div>
+                <div className="text-sm text-muted-foreground">{role}</div>
+              </div>
+              <div
+                className="flex gap-1 text-yellow-400"
+                aria-label={`Rating: ${rating} out of 5 stars`}
+              >
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className={cn('w-4 h-4', {
+                      'fill-current': i < rating,
+                    })}
+                    aria-hidden="true"
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+      ),
+    },
+    Features: {
+      label: 'Features Section',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        title: { type: 'text' },
+        subtitle: { type: 'textarea', label: 'Subtitle (optional)' },
+        columns: {
+          type: 'select',
+          options: [
+            { label: '2 Columns', value: 2 },
+            { label: '3 Columns', value: 3 },
+            { label: '4 Columns', value: 4 },
+          ],
         },
-        SocialIcons: {
-            label: 'Social Icons',
-            permissions: { delete: true, duplicate: true },
-            inline: true,
-            fields: {
-                facebook: { type: 'text', label: 'Facebook URL' },
-                instagram: { type: 'text', label: 'Instagram URL' },
-                twitter: { type: 'text', label: 'Twitter URL' },
-                linkedin: { type: 'text', label: 'LinkedIn URL' },
-                youtube: { type: 'text', label: 'YouTube URL' },
-                size: {
-                    type: 'select',
-                    options: [
-                        { label: 'Small', value: 'sm' },
-                        { label: 'Medium', value: 'md' },
-                        { label: 'Large', value: 'lg' },
-                    ]
-                },
-                alignment: {
-                    type: 'select',
-                    options: [
-                        { label: 'Left', value: 'left' },
-                        { label: 'Center', value: 'center' },
-                        { label: 'Right', value: 'right' },
-                    ]
-                }
+        features: {
+          type: 'array',
+          getItemSummary: (item) => item.title || 'Feature',
+          arrayFields: {
+            title: { type: 'text' },
+            description: { type: 'textarea' },
+            icon: {
+              type: 'select',
+              label: 'Icon',
+              options: getIconOptions(),
             },
-            defaultProps: {
-                size: 'md',
-                alignment: 'center',
-            },
-            render: ({ facebook, instagram, twitter, linkedin, youtube, size, alignment, puck }) => {
-                const sizeMap = {
-                    sm: 'w-6 h-6',
-                    md: 'w-8 h-8',
-                    lg: 'w-10 h-10',
-                };
-
-                const socialIcons = [
-                    { Icon: Facebook, url: facebook, name: 'Facebook' },
-                    { Icon: Instagram, url: instagram, name: 'Instagram' },
-                    { Icon: Twitter, url: twitter, name: 'Twitter' },
-                    { Icon: Linkedin, url: linkedin, name: 'LinkedIn' },
-                    { Icon: Youtube, url: youtube, name: 'YouTube' },
-                ].filter(({ url }) => url);
-
-                return (
+          },
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        title: 'Why Choose Us',
+        columns: 3,
+        features: [
+          {
+            title: 'Premium Quality',
+            description: 'We use only the finest materials.',
+            icon: 'award',
+          },
+          {
+            title: 'Fast Shipping',
+            description: 'Get your order in 2-3 business days.',
+            icon: 'truck',
+          },
+          {
+            title: '24/7 Support',
+            description: 'We are here to help anytime.',
+            icon: 'headphones',
+          },
+        ],
+        animationType: 'slide-up',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: ({
+        title,
+        subtitle,
+        features,
+        columns = 3,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) => {
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <section className="py-12 container px-4 md:px-6 bg-muted/30">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl font-bold mb-4">{title}</h2>
+                {subtitle && (
+                  <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+              <div className={`grid grid-cols-1 md:grid-cols-${columns} gap-8`}>
+                {features.map((feature, i) => (
+                  <div
+                    key={i}
+                    className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm"
+                  >
                     <div
-                        ref={puck.dragRef}
-                        className={cn("flex gap-4 p-4", {
-                            'justify-start': alignment === 'left',
-                            'justify-center': alignment === 'center',
-                            'justify-end': alignment === 'right',
-                        })}
+                      className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4 text-primary"
+                      aria-hidden="true"
                     >
-                        {socialIcons.map(({ Icon, url, name }, index) => (
-                            <Link
-                                key={index}
-                                href={asRoute(url!)}
-                                className="text-muted-foreground hover:text-primary transition-colors"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={`Follow us on ${name}`}
-                            >
-                                <Icon className={sizeMap[size ?? 'md']} />
-                            </Link>
-                        ))}
+                      {renderIcon((feature.icon as string) || 'check', {
+                        className: 'w-6 h-6',
+                      })}
                     </div>
-                );
+                    <h3 className="text-xl font-semibold mb-2">
+                      {feature.title}
+                    </h3>
+                    <p className="text-muted-foreground">
+                      {feature.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </AnimatedWrapper>
+        );
+      },
+    },
+    Newsletter: {
+      label: 'Newsletter Signup',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        title: { type: 'text' },
+        description: { type: 'textarea' },
+        placeholder: { type: 'text', label: 'Email Placeholder' },
+        buttonText: { type: 'text' },
+      },
+      defaultProps: {
+        title: 'Subscribe to our newsletter',
+        description:
+          'Get the latest updates and offers directly in your inbox.',
+        placeholder: 'Enter your email',
+        buttonText: 'Subscribe',
+      },
+      render: ({ title, description, buttonText, placeholder }) => (
+        <section className="py-16 container px-4 md:px-6">
+          <div className="bg-primary text-primary-foreground rounded-2xl p-8 md:p-12 text-center max-w-4xl mx-auto">
+            <Mail
+              className="w-12 h-12 mx-auto mb-6 opacity-80"
+              aria-hidden="true"
+            />
+            <h2 className="text-3xl font-bold mb-4">{title}</h2>
+            <p className="text-lg opacity-90 mb-8 max-w-2xl mx-auto">
+              {description}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+              <Input
+                type="email"
+                placeholder={placeholder}
+                className="bg-background text-foreground border-0"
+                aria-label="Email address for newsletter"
+              />
+              <Button variant="secondary" size="lg">
+                {buttonText}
+              </Button>
+            </div>
+          </div>
+        </section>
+      ),
+    },
+    Spacer: {
+      label: 'Spacer',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        height: {
+          type: 'select',
+          options: [
+            { label: 'Small (2rem)', value: 'small' },
+            { label: 'Medium (4rem)', value: 'medium' },
+            { label: 'Large (8rem)', value: 'large' },
+            { label: 'Extra Large (12rem)', value: 'xlarge' },
+          ],
+        },
+      },
+      defaultProps: {
+        height: 'medium',
+      },
+      render: ({ height }) => {
+        const heightClass =
+          {
+            small: 'h-8',
+            medium: 'h-16',
+            large: 'h-32',
+            xlarge: 'h-48',
+          }[height] || 'h-16';
+        return <div className={heightClass} aria-hidden="true" />;
+      },
+    },
+    Video: {
+      label: 'Video Embed',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        url: { type: 'text', label: 'YouTube or Vimeo URL' },
+        title: { type: 'text', label: 'Video Title (optional)' },
+        autoplay: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        controls: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+      },
+      defaultProps: {
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        autoplay: false,
+        controls: true,
+      },
+      render: ({ url, title, autoplay, controls }) => {
+        // Extract video ID from YouTube/Vimeo URLs with proper hostname validation
+        let embedUrl = '';
+
+        // Helper function to safely check URL hostname
+        const isValidVideoHost = (
+          inputUrl: string,
+          allowedHosts: string[]
+        ): boolean => {
+          try {
+            const parsedUrl = new URL(inputUrl);
+            const hostname = parsedUrl.hostname.toLowerCase();
+            return allowedHosts.some(
+              (host) => hostname === host || hostname.endsWith(`.${host}`)
+            );
+          } catch {
+            return false;
+          }
+        };
+
+        // Helper function to extract video ID safely
+        const extractVideoId = (
+          inputUrl: string,
+          pattern: RegExp
+        ): string | null => {
+          try {
+            const match = inputUrl.match(pattern);
+            // Validate video ID contains only safe characters (alphanumeric, dash, underscore)
+            if (match?.[1] && /^[\\w-]+$/.test(match[1])) {
+              return match[1];
             }
-        },
-        CodeEmbed: {
-            label: 'Custom Code',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                code: { type: 'textarea', label: 'HTML/JavaScript Code' },
-                language: {
-                    type: 'select',
-                    options: [
-                        { label: 'HTML', value: 'html' },
-                        { label: 'JavaScript', value: 'javascript' },
-                    ]
-                }
-            },
-            defaultProps: {
-                code: '<div>Custom Code</div>',
-                language: 'html',
-            },
-            render: ({ code, language }) => (
-                <section className="py-8 container px-4 md:px-6">
-                    <div className="bg-muted p-4 rounded-lg overflow-x-auto">
-                        <pre className="text-sm">
-                            <code className={language ? `language-${language}` : ''}>{code}</code>
-                        </pre>
-                    </div>
-                </section>
-            )
-        },
-        Search: {
-            label: 'Search Bar',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                placeholder: { type: 'text' },
-                showFilters: { type: 'radio', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-            },
-            defaultProps: {
-                placeholder: 'Search products...',
-                showFilters: false,
-            },
-            render: ({ placeholder, showFilters }) => (
-                <section className="py-8 container px-4 md:px-6">
-                    <div className="max-w-2xl mx-auto">
-                        <div className="relative">
-                            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                            <Input
-                                className="pl-10 h-12 text-lg"
-                                placeholder={placeholder}
-                            />
-                        </div>
-                        {showFilters && (
-                            <div className="flex gap-2 mt-4 flex-wrap">
-                                <Button variant="outline" size="sm">All</Button>
-                                <Button variant="outline" size="sm">Category 1</Button>
-                                <Button variant="outline" size="sm">Category 2</Button>
-                                <Button variant="outline" size="sm">Category 3</Button>
-                            </div>
-                        )}
-                    </div>
-                </section>
-            )
-        },
-        FAQ: {
-            label: 'FAQ Section',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                title: { type: 'text', label: 'Section Title' },
-                subtitle: { type: 'textarea', label: 'Subtitle (optional)' },
-                items: {
-                    type: 'array',
-                    label: 'FAQ Items',
-                    getItemSummary: (item) => item.question || 'Question',
-                    arrayFields: {
-                        question: { type: 'text', label: 'Question' },
-                        answer: { type: 'textarea', label: 'Answer' },
-                    }
-                },
-                style: {
-                    type: 'select',
-                    label: 'Style',
-                    options: [
-                        { label: 'Accordion', value: 'accordion' },
-                        { label: 'Grid', value: 'grid' },
-                        { label: 'Simple List', value: 'list' },
-                    ]
-                },
-                ...animationFields
-            },
-            defaultProps: {
-                title: 'Frequently Asked Questions',
-                subtitle: 'Find answers to common questions about our products and services.',
-                style: 'accordion',
-                items: [
-                    { question: 'What payment methods do you accept?', answer: 'We accept all major credit cards, PayPal, and bank transfers. All payments are processed securely.' },
-                    { question: 'How long does shipping take?', answer: 'Standard shipping takes 3-5 business days. Express shipping is available for 1-2 day delivery.' },
-                    { question: 'What is your return policy?', answer: 'We offer a 30-day return policy for all unused items in original packaging. Contact us to initiate a return.' },
-                    { question: 'Do you ship internationally?', answer: 'Yes, we ship to most countries worldwide. International shipping times vary by location.' },
-                ],
-                animationType: 'fade-in',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: ({ title, subtitle, items, style, animationType, animationDuration, animationDelay, animationTrigger }) => {
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <section className="py-12 md:py-16 container px-4 md:px-6">
-                            <div className="max-w-3xl mx-auto text-center mb-10">
-                                <h2 className="text-3xl font-bold mb-4">{title}</h2>
-                                {subtitle && <p className="text-muted-foreground text-lg">{subtitle}</p>}
-                            </div>
-                            {style === 'accordion' && (
-                                <div className="max-w-2xl mx-auto space-y-3">
-                                    {items.map((item: { question: string; answer: string }, index: number) => (
-                                        <details key={index} className="group border rounded-lg">
-                                            <summary className="flex justify-between items-center cursor-pointer p-4 font-medium hover:bg-muted/50 transition-colors">
-                                                {item.question}
-                                                <span className="ml-2 transform group-open:rotate-180 transition-transform">▼</span>
-                                            </summary>
-                                            <div className="p-4 pt-0 text-muted-foreground">
-                                                {item.answer}
-                                            </div>
-                                        </details>
-                                    ))}
-                                </div>
-                            )}
-                            {style === 'grid' && (
-                                <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-                                    {items.map((item: { question: string; answer: string }, index: number) => (
-                                        <div key={index} className="p-6 border rounded-lg bg-card">
-                                            <h3 className="font-semibold text-lg mb-2">{item.question}</h3>
-                                            <p className="text-muted-foreground">{item.answer}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            {style === 'list' && (
-                                <div className="max-w-2xl mx-auto space-y-6">
-                                    {items.map((item: { question: string; answer: string }, index: number) => (
-                                        <div key={index} className="border-b pb-6 last:border-0">
-                                            <h3 className="font-semibold text-lg mb-2">{item.question}</h3>
-                                            <p className="text-muted-foreground">{item.answer}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </section>
-                    </AnimatedWrapper>
-                );
-            }
-        },
-        AboutSection: {
-            label: 'About Section',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                title: { type: 'text', label: 'Section Title' },
-                content: { type: 'textarea', label: 'Main Content' },
-                image: {
-                    type: 'custom',
-                    label: 'Image',
-                    render: ({ field, onChange, value }) => {
-                        return <ImagePickerField field={field} onChange={(v) => onChange(v)} value={value || ''} />;
-                    }
-                },
-                imagePosition: {
-                    type: 'select',
-                    label: 'Image Position',
-                    options: [
-                        { label: 'Left', value: 'left' },
-                        { label: 'Right', value: 'right' },
-                        { label: 'Top', value: 'top' },
-                        { label: 'Bottom', value: 'bottom' },
-                    ]
-                },
-                showStats: { type: 'radio', label: 'Show Statistics', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                stats: {
-                    type: 'array',
-                    label: 'Statistics',
-                    getItemSummary: (item) => item.label || 'Stat',
-                    arrayFields: {
-                        value: { type: 'text', label: 'Value (e.g., 10K+)' },
-                        label: { type: 'text', label: 'Label' },
-                    }
-                },
-                ...animationFields
-            },
-            defaultProps: {
-                title: 'About Our Store',
-                content: 'We are passionate about bringing you the best products at competitive prices. Our journey began with a simple idea: make quality accessible to everyone.\n\nWith years of experience in the industry, we have built strong relationships with suppliers and manufacturers to ensure that every product meets our high standards.',
-                image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
-                imagePosition: 'right',
-                showStats: true,
-                stats: [
-                    { value: '10K+', label: 'Happy Customers' },
-                    { value: '500+', label: 'Products' },
-                    { value: '5', label: 'Years Experience' },
-                    { value: '24/7', label: 'Support' },
-                ],
-                animationType: 'fade-in',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: ({ title, content, image, imagePosition, showStats, stats, animationType, animationDuration, animationDelay, animationTrigger }) => {
-                const isHorizontal = imagePosition === 'left' || imagePosition === 'right';
-                const imageFirst = imagePosition === 'left' || imagePosition === 'top';
+            return null;
+          } catch {
+            return null;
+          }
+        };
 
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <section className="py-12 md:py-16 container px-4 md:px-6">
-                            <div className={cn(
-                                'flex gap-8 md:gap-12',
-                                isHorizontal ? 'flex-col md:flex-row items-center' : 'flex-col',
-                                imageFirst && isHorizontal && 'md:flex-row-reverse'
-                            )}>
-                                {/* Content */}
-                                <div className={cn('flex-1', isHorizontal ? '' : 'text-center')}>
-                                    <h2 className="text-3xl font-bold mb-6">{title}</h2>
-                                    <div className="prose dark:prose-invert max-w-none">
-                                        <p className="text-lg text-muted-foreground whitespace-pre-wrap">{content}</p>
-                                    </div>
-                                    {showStats && stats && stats.length > 0 && (
-                                        <div className={cn(
-                                            'grid grid-cols-2 md:grid-cols-4 gap-6 mt-8',
-                                            !isHorizontal && 'max-w-2xl mx-auto'
-                                        )}>
-                                            {stats.map((stat: { value: string; label: string }, index: number) => (
-                                                <div key={index} className="text-center">
-                                                    <p className="text-3xl font-bold" style={{ color: 'var(--store-primary)' }}>{stat.value}</p>
-                                                    <p className="text-sm text-muted-foreground">{stat.label}</p>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                                {/* Image */}
-                                {image && (
-                                    <div className={cn(
-                                        'flex-1',
-                                        !isHorizontal && 'max-w-2xl mx-auto w-full',
-                                        imageFirst && !isHorizontal && 'order-first'
-                                    )}>
-                                        <div className="relative aspect-video md:aspect-square rounded-lg overflow-hidden">
-                                            <Image src={image} alt={title} fill className="object-cover" />
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-                    </AnimatedWrapper>
-                );
-            }
-        },
-        ContactSection: {
-            label: 'Contact Section',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                title: { type: 'text', label: 'Section Title' },
-                subtitle: { type: 'textarea', label: 'Subtitle (optional)' },
-                showMap: { type: 'radio', label: 'Show Map', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                mapAddress: { type: 'text', label: 'Map Address' },
-                contactInfo: {
-                    type: 'array',
-                    label: 'Contact Information',
-                    getItemSummary: (item) => item.label || 'Contact',
-                    arrayFields: {
-                        icon: {
-                            type: 'select',
-                            label: 'Icon',
-                            options: getIconOptions()
-                        },
-                        label: { type: 'text', label: 'Label' },
-                        value: { type: 'text', label: 'Value' },
-                        link: { type: 'text', label: 'Link (optional)' },
-                    }
-                },
-                showForm: { type: 'radio', label: 'Show Contact Form', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                formTitle: { type: 'text', label: 'Form Title' },
-                layout: {
-                    type: 'select',
-                    label: 'Layout',
-                    options: [
-                        { label: 'Side by Side', value: 'side-by-side' },
-                        { label: 'Stacked', value: 'stacked' },
-                    ]
-                },
-                ...animationFields
-            },
-            defaultProps: {
-                title: 'Get In Touch',
-                subtitle: 'Have questions? We would love to hear from you. Send us a message and we will respond as soon as possible.',
-                showMap: false,
-                mapAddress: '',
-                contactInfo: [
-                    { icon: 'mail', label: 'Email', value: 'hello@example.com', link: 'mailto:hello@example.com' },
-                    { icon: 'phone', label: 'Phone', value: '+1 (555) 123-4567', link: 'tel:+15551234567' },
-                    { icon: 'map-pin', label: 'Address', value: '123 Business St, City, Country', link: '' },
-                    { icon: 'clock', label: 'Hours', value: 'Mon-Fri: 9AM - 6PM', link: '' },
-                ],
-                showForm: true,
-                formTitle: 'Send us a Message',
-                layout: 'side-by-side',
-                animationType: 'fade-in',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: ({ title, subtitle, showMap, mapAddress, contactInfo, showForm, formTitle, layout, animationType, animationDuration, animationDelay, animationTrigger }) => {
-                const formFields: FormField[] = [
-                    { id: 'name', type: 'text', label: 'Your Name', placeholder: 'John Doe', required: true },
-                    { id: 'email', type: 'email', label: 'Email Address', placeholder: 'john@example.com', required: true },
-                    { id: 'subject', type: 'text', label: 'Subject', placeholder: 'How can we help?', required: false },
-                    { id: 'message', type: 'textarea', label: 'Message', placeholder: 'Your message here...', required: true },
-                ];
-
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <section className="py-12 md:py-16 container px-4 md:px-6">
-                            <div className="max-w-4xl mx-auto text-center mb-10">
-                                <h2 className="text-3xl font-bold mb-4">{title}</h2>
-                                {subtitle && <p className="text-muted-foreground text-lg">{subtitle}</p>}
-                            </div>
-
-                            <div className={cn(
-                                'max-w-5xl mx-auto',
-                                layout === 'side-by-side' ? 'grid md:grid-cols-2 gap-8' : 'space-y-8'
-                            )}>
-                                {/* Contact Info */}
-                                <div className={cn(
-                                    'space-y-6',
-                                    layout === 'stacked' && 'grid md:grid-cols-2 gap-6 space-y-0'
-                                )}>
-                                    {contactInfo && contactInfo.map((info: { icon: string; label: string; value: string; link?: string }, index: number) => (
-                                        <div key={index} className="flex items-start gap-4">
-                                            <div className="p-3 rounded-lg bg-[var(--store-primary)]/10">
-                                                {renderIcon(info.icon, { className: 'w-5 h-5', style: { color: 'var(--store-primary)' } })}
-                                            </div>
-                                            <div>
-                                                <p className="font-medium">{info.label}</p>
-                                                {info.link ? (
-                                                    <Link href={asRoute(info.link)} className="text-muted-foreground hover:text-[var(--store-primary)] transition-colors">
-                                                        {info.value}
-                                                    </Link>
-                                                ) : (
-                                                    <p className="text-muted-foreground">{info.value}</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-
-                                    {showMap && mapAddress && (
-                                        <div className="mt-6 rounded-lg overflow-hidden border">
-                                            <iframe
-                                                title="Business location map"
-                                                width="100%"
-                                                height="200"
-                                                style={{ border: 0 }}
-                                                loading="lazy"
-                                                allowFullScreen
-                                                referrerPolicy="no-referrer-when-downgrade"
-                                                src={`https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${encodeURIComponent(mapAddress)}`}
-                                            />
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Contact Form */}
-                                {showForm && (
-                                    <div className="p-6 md:p-8 border rounded-lg bg-card">
-                                        <h3 className="text-xl font-bold mb-6">{formTitle}</h3>
-                                        <StorefrontForm
-                                            formName="contact"
-                                            fields={formFields}
-                                            submitButtonText="Send Message"
-                                            successMessage="Thank you for your message! We will get back to you soon."
-                                            merchantId=""
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-                    </AnimatedWrapper>
-                );
-            }
-        },
-        LegalSection: {
-            label: 'Legal / Policy Section',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                title: { type: 'text', label: 'Page Title' },
-                lastUpdated: { type: 'text', label: 'Last Updated Date' },
-                sections: {
-                    type: 'array',
-                    label: 'Content Sections',
-                    getItemSummary: (item) => item.heading || 'Section',
-                    arrayFields: {
-                        heading: { type: 'text', label: 'Section Heading' },
-                        content: { type: 'textarea', label: 'Content' },
-                    }
-                },
-                ...animationFields
-            },
-            defaultProps: {
-                title: 'Privacy Policy',
-                lastUpdated: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-                sections: [
-                    { heading: 'Introduction', content: 'This Privacy Policy describes how we collect, use, and protect your personal information when you use our services.' },
-                    { heading: 'Information We Collect', content: 'We collect information you provide directly to us, such as when you create an account, make a purchase, or contact us for support.' },
-                    { heading: 'How We Use Your Information', content: 'We use the information we collect to provide, maintain, and improve our services, process transactions, and communicate with you.' },
-                    { heading: 'Contact Us', content: 'If you have any questions about this Privacy Policy, please contact us at privacy@example.com.' },
-                ],
-                animationType: 'fade-in',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: ({ title, lastUpdated, sections, animationType, animationDuration, animationDelay, animationTrigger }) => {
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <section className="py-12 md:py-16 container px-4 md:px-6">
-                            <div className="max-w-3xl mx-auto">
-                                <h1 className="text-4xl font-bold mb-4">{title}</h1>
-                                {lastUpdated && (
-                                    <p className="text-muted-foreground mb-8">Last updated: {lastUpdated}</p>
-                                )}
-                                <div className="prose dark:prose-invert max-w-none space-y-8">
-                                    {sections && sections.map((section: { heading: string; content: string }, index: number) => (
-                                        <div key={index}>
-                                            <h2 className="text-2xl font-semibold mb-3">{section.heading}</h2>
-                                            <p className="text-muted-foreground whitespace-pre-wrap">{section.content}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </section>
-                    </AnimatedWrapper>
-                );
-            }
-        },
-        CountdownTimer: {
-            label: 'Countdown Timer',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                endDate: { type: 'text', label: 'End Date (YYYY-MM-DD HH:MM)' },
-                title: { type: 'text', label: 'Title (optional)' },
-                subtitle: { type: 'text', label: 'Subtitle (optional)' },
-                expiredMessage: { type: 'text', label: 'Expired Message' },
-                style: {
-                    type: 'select',
-                    label: 'Style',
-                    options: [
-                        { label: 'Boxes', value: 'boxes' },
-                        { label: 'Inline', value: 'inline' },
-                        { label: 'Minimal', value: 'minimal' },
-                    ]
-                },
-                showDays: { type: 'radio', label: 'Show Days', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                showHours: { type: 'radio', label: 'Show Hours', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                showMinutes: { type: 'radio', label: 'Show Minutes', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                showSeconds: { type: 'radio', label: 'Show Seconds', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                ...animationFields
-            },
-            defaultProps: {
-                endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16).replace('T', ' '),
-                title: 'Limited Time Offer',
-                subtitle: 'Sale ends in:',
-                expiredMessage: 'This offer has expired',
-                style: 'boxes',
-                showDays: true,
-                showHours: true,
-                showMinutes: true,
-                showSeconds: true,
-                animationType: 'fade-in',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: function CountdownTimerRender({ endDate, title, subtitle, expiredMessage, style, showDays, showHours, showMinutes, showSeconds, animationType, animationDuration, animationDelay, animationTrigger }) {
-                const [timeLeft, setTimeLeft] = React.useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-                const [isExpired, setIsExpired] = React.useState(false);
-
-                React.useEffect(() => {
-                    const calculateTimeLeft = () => {
-                        const end = new Date(endDate).getTime();
-                        const now = Date.now();
-                        const diff = end - now;
-
-                        if (diff <= 0) {
-                            setIsExpired(true);
-                            return { days: 0, hours: 0, minutes: 0, seconds: 0 };
-                        }
-
-                        return {
-                            days: Math.floor(diff / (1000 * 60 * 60 * 24)),
-                            hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-                            minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-                            seconds: Math.floor((diff % (1000 * 60)) / 1000),
-                        };
-                    };
-
-                    setTimeLeft(calculateTimeLeft());
-                    const timer = setInterval(() => {
-                        setTimeLeft(calculateTimeLeft());
-                    }, 1000);
-
-                    return () => clearInterval(timer);
-                }, [endDate]);
-
-                const TimeUnit = ({ value, label }: { value: number; label: string }) => {
-                    if (style === 'boxes') {
-                        return (
-                            <div className="flex flex-col items-center">
-                                <div className="bg-[var(--store-primary)] text-[var(--store-primary-text)] rounded-lg p-3 md:p-4 min-w-[60px] md:min-w-[80px]">
-                                    <span className="text-2xl md:text-4xl font-bold">{String(value).padStart(2, '0')}</span>
-                                </div>
-                                <span className="text-xs md:text-sm text-muted-foreground mt-2 uppercase tracking-wide">{label}</span>
-                            </div>
-                        );
-                    }
-                    if (style === 'minimal') {
-                        return (
-                            <span className="text-2xl md:text-3xl font-bold" style={{ color: 'var(--store-primary)' }}>
-                                {String(value).padStart(2, '0')}
-                                <span className="text-sm text-muted-foreground ml-1">{label.charAt(0)}</span>
-                            </span>
-                        );
-                    }
-                    return (
-                        <span className="text-xl md:text-2xl font-semibold">
-                            {value} <span className="text-sm text-muted-foreground">{label}</span>
-                        </span>
-                    );
-                };
-
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <section className="py-8 md:py-12 container px-4 md:px-6">
-                            <div className="text-center max-w-2xl mx-auto">
-                                {title && <h2 className="text-2xl md:text-3xl font-bold mb-2">{title}</h2>}
-                                {subtitle && !isExpired && <p className="text-muted-foreground mb-6">{subtitle}</p>}
-
-                                {isExpired ? (
-                                    <p className="text-xl text-muted-foreground">{expiredMessage}</p>
-                                ) : (
-                                    <div className={cn(
-                                        'flex justify-center items-center',
-                                        style === 'boxes' ? 'gap-3 md:gap-4' : 'gap-2 md:gap-4'
-                                    )}>
-                                        {showDays && <TimeUnit value={timeLeft.days} label="Days" />}
-                                        {style === 'inline' && showDays && showHours && <span className="text-2xl">:</span>}
-                                        {showHours && <TimeUnit value={timeLeft.hours} label="Hours" />}
-                                        {style === 'inline' && showHours && showMinutes && <span className="text-2xl">:</span>}
-                                        {showMinutes && <TimeUnit value={timeLeft.minutes} label="Minutes" />}
-                                        {style === 'inline' && showMinutes && showSeconds && <span className="text-2xl">:</span>}
-                                        {showSeconds && <TimeUnit value={timeLeft.seconds} label="Seconds" />}
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-                    </AnimatedWrapper>
-                );
-            }
-        },
-        TrustBadges: {
-            label: 'Trust Badges',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                badges: {
-                    type: 'array',
-                    label: 'Badges',
-                    getItemSummary: (item) => item.title || 'Badge',
-                    arrayFields: {
-                        icon: {
-                            type: 'select',
-                            label: 'Icon',
-                            options: getIconOptions()
-                        },
-                        title: { type: 'text', label: 'Title' },
-                        description: { type: 'text', label: 'Description (optional)' },
-                    }
-                },
-                layout: {
-                    type: 'select',
-                    label: 'Layout',
-                    options: [
-                        { label: 'Horizontal', value: 'horizontal' },
-                        { label: 'Grid', value: 'grid' },
-                    ]
-                },
-                style: {
-                    type: 'select',
-                    label: 'Style',
-                    options: [
-                        { label: 'Cards', value: 'cards' },
-                        { label: 'Minimal', value: 'minimal' },
-                        { label: 'Icons Only', value: 'icons-only' },
-                    ]
-                },
-                ...animationFields
-            },
-            defaultProps: {
-                badges: [
-                    { icon: 'shield-check', title: 'Secure Payment', description: '256-bit SSL encryption' },
-                    { icon: 'truck', title: 'Free Shipping', description: 'On orders over $50' },
-                    { icon: 'refresh-cw', title: '30-Day Returns', description: 'Money-back guarantee' },
-                    { icon: 'headphones', title: '24/7 Support', description: 'We are here to help' },
-                ],
-                layout: 'horizontal',
-                style: 'cards',
-                animationType: 'fade-in',
-                animationDuration: 'normal',
-                animationDelay: 0,
-                animationTrigger: 'scroll',
-            },
-            render: ({ badges, layout, style, animationType, animationDuration, animationDelay, animationTrigger }) => {
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <section className="py-8 md:py-12 container px-4 md:px-6">
-                            <div className={cn(
-                                layout === 'horizontal'
-                                    ? 'flex flex-wrap justify-center gap-6 md:gap-8'
-                                    : 'grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6'
-                            )}>
-                                {badges && badges.map((badge: { icon: string; title: string; description?: string }, index: number) => (
-                                    <div
-                                        key={index}
-                                        className={cn(
-                                            'flex items-center',
-                                            style === 'cards' && 'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
-                                            style === 'minimal' && 'gap-3',
-                                            style === 'icons-only' && 'flex-col text-center'
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            'rounded-full flex items-center justify-center',
-                                            style === 'cards' && 'w-12 h-12 md:w-14 md:h-14 bg-[var(--store-primary)]/10 mb-3',
-                                            style === 'minimal' && 'w-10 h-10 bg-[var(--store-primary)]/10',
-                                            style === 'icons-only' && 'w-14 h-14 md:w-16 md:h-16 bg-[var(--store-primary)]/10'
-                                        )}>
-                                            {renderIcon(badge.icon, {
-                                                className: cn(
-                                                    style === 'cards' && 'w-6 h-6 md:w-7 md:h-7',
-                                                    style === 'minimal' && 'w-5 h-5',
-                                                    style === 'icons-only' && 'w-7 h-7 md:w-8 md:h-8'
-                                                ),
-                                                style: { color: 'var(--store-primary)' }
-                                            })}
-                                        </div>
-                                        {style !== 'icons-only' && (
-                                            <div className={style === 'minimal' ? '' : ''}>
-                                                <p className={cn(
-                                                    'font-semibold',
-                                                    style === 'cards' && 'text-sm md:text-base',
-                                                    style === 'minimal' && 'text-sm'
-                                                )}>{badge.title}</p>
-                                                {badge.description && style === 'cards' && (
-                                                    <p className="text-xs md:text-sm text-muted-foreground mt-1">{badge.description}</p>
-                                                )}
-                                            </div>
-                                        )}
-                                        {style === 'icons-only' && (
-                                            <p className="text-xs font-medium mt-2">{badge.title}</p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    </AnimatedWrapper>
-                );
-            }
-        },
-        AnnouncementBar: {
-            label: 'Announcement Bar',
-            permissions: { delete: true, duplicate: true },
-            fields: {
-                message: { type: 'text', label: 'Message' },
-                linkText: { type: 'text', label: 'Link Text (optional)' },
-                linkUrl: { type: 'text', label: 'Link URL (optional)' },
-                backgroundColor: { type: 'text', label: 'Background Color (hex or CSS variable)' },
-                textColor: { type: 'text', label: 'Text Color (hex or CSS variable)' },
-                dismissible: { type: 'radio', label: 'Dismissible', options: [{ label: 'Yes', value: true }, { label: 'No', value: false }] },
-                ...animationFields
-            },
-            defaultProps: {
-                message: 'Free shipping on all orders over $50!',
-                linkText: 'Shop Now',
-                linkUrl: '#products',
-                backgroundColor: 'var(--store-primary)',
-                textColor: 'var(--store-primary-text)',
-                dismissible: true,
-                animationType: 'slide-down',
-                animationDuration: 'fast',
-                animationDelay: 0,
-                animationTrigger: 'onload',
-            },
-            render: function AnnouncementBarRender({ message, linkText, linkUrl, backgroundColor, textColor, dismissible, animationType, animationDuration, animationDelay, animationTrigger }) {
-                const [isDismissed, setIsDismissed] = React.useState(false);
-
-                React.useEffect(() => {
-                    if (typeof window !== 'undefined') {
-                        const dismissed = localStorage.getItem('baci-announcement-dismissed');
-                        if (dismissed === 'true') {
-                            setIsDismissed(true);
-                        }
-                    }
-                }, []);
-
-                const handleDismiss = () => {
-                    setIsDismissed(true);
-                    if (typeof window !== 'undefined') {
-                        localStorage.setItem('baci-announcement-dismissed', 'true');
-                    }
-                };
-
-                if (isDismissed) return <></>;
-
-                return (
-                    <AnimatedWrapper
-                        animation={{
-                            type: mapAnimationType(animationType),
-                            duration: animationDuration as 'fast' | 'normal' | 'slow',
-                            delay: animationDelay,
-                            trigger: animationTrigger === 'onload' ? 'immediate' : (animationTrigger as 'scroll' | 'immediate'),
-                        }}
-                    >
-                        <div
-                            className="relative py-2 px-4 text-center text-sm"
-                            style={{
-                                backgroundColor: backgroundColor || 'var(--store-primary)',
-                                color: textColor || 'var(--store-primary-text)',
-                            }}
-                        >
-                            <div className="container mx-auto flex items-center justify-center gap-2">
-                                <span>{message}</span>
-                                {linkText && linkUrl && (
-                                    <Link
-                                        href={asRoute(linkUrl)}
-                                        className="font-semibold underline underline-offset-2 hover:no-underline"
-                                    >
-                                        {linkText}
-                                    </Link>
-                                )}
-                            </div>
-                            {dismissible && (
-                                <button
-                                    onClick={handleDismiss}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:opacity-70 transition-opacity"
-                                    aria-label="Dismiss announcement"
-                                >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            )}
-                        </div>
-                    </AnimatedWrapper>
-                );
-            }
+        if (
+          isValidVideoHost(url, ['youtube.com', 'www.youtube.com', 'youtu.be'])
+        ) {
+          // YouTube URL patterns:
+          // - https://www.youtube.com/watch?v=VIDEO_ID
+          // - https://youtu.be/VIDEO_ID
+          const videoId = url.includes('youtu.be')
+            ? extractVideoId(url, /youtu\.be\/([^?&/]+)/)
+            : extractVideoId(url, /[?&]v=([^?&/]+)/);
+          if (videoId) {
+            embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? 1 : 0}&controls=${controls ? 1 : 0}`;
+          }
+        } else if (
+          isValidVideoHost(url, [
+            'vimeo.com',
+            'www.vimeo.com',
+            'player.vimeo.com',
+          ])
+        ) {
+          // Vimeo URL pattern: https://vimeo.com/VIDEO_ID
+          const videoId = extractVideoId(url, /vimeo\.com\/(\d+)/);
+          if (videoId) {
+            embedUrl = `https://player.vimeo.com/video/${videoId}?autoplay=${autoplay ? 1 : 0}`;
+          }
         }
-    }
+
+        return (
+          <section className="py-8 container px-4 md:px-6">
+            {title && (
+              <h2 className="text-2xl font-bold mb-4 text-center">{title}</h2>
+            )}
+            <div className="aspect-video bg-muted flex items-center justify-center rounded-lg overflow-hidden">
+              {embedUrl ? (
+                <iframe
+                  src={embedUrl}
+                  className="w-full h-full"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title={title || 'Embedded video'}
+                />
+              ) : (
+                <p className="text-muted-foreground">Invalid video URL</p>
+              )}
+            </div>
+          </section>
+        );
+      },
+    },
+    Map: {
+      label: 'Map Embed',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        address: { type: 'text', label: 'Address or Location' },
+        zoom: { type: 'number', min: 1, max: 20 },
+        height: {
+          type: 'select',
+          options: [
+            { label: 'Small', value: '300px' },
+            { label: 'Medium', value: '450px' },
+            { label: 'Large', value: '600px' },
+          ],
+        },
+      },
+      defaultProps: {
+        address: 'New York, NY',
+        zoom: 12,
+        height: '450px',
+      },
+      render: ({ address, zoom, height }) => {
+        const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(address)}&t=&z=${zoom}&ie=UTF8&iwloc=&output=embed`;
+
+        return (
+          <section className="py-8 container px-4 md:px-6">
+            <div
+              className="w-full bg-muted rounded-lg overflow-hidden border"
+              style={{ height }}
+            >
+              <iframe
+                src={mapUrl}
+                className="w-full h-full"
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Store location map"
+              />
+            </div>
+          </section>
+        );
+      },
+    },
+    InstagramFeed: {
+      label: 'Instagram Feed',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        username: { type: 'text' },
+        postsCount: {
+          type: 'number',
+          min: 1,
+          max: 12,
+          label: 'Number of Posts',
+        },
+      },
+      defaultProps: {
+        username: 'instagram',
+        postsCount: 6,
+      },
+      render: ({ username, postsCount }) => (
+        <section className="py-8 container px-4 md:px-6">
+          <div className="p-8 bg-muted text-center rounded-lg border">
+            <Instagram
+              className="w-12 h-12 mx-auto mb-4 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <h3 className="text-lg font-semibold mb-2">Instagram Feed</h3>
+            <p className="text-muted-foreground mb-4">
+              @{username} - {postsCount} recent posts
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Connect your Instagram account to display real posts
+            </p>
+          </div>
+        </section>
+      ),
+    },
+    ContactForm: {
+      label: 'Contact Form',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        formName: { type: 'text', label: 'Form Name' },
+        fields: {
+          type: 'array',
+          label: 'Form Fields',
+          getItemSummary: (item: FormField) => item.label || 'Field',
+          arrayFields: {
+            id: { type: 'text', label: 'Field ID (unique)' },
+            label: { type: 'text', label: 'Field Label' },
+            type: {
+              type: 'select',
+              label: 'Field Type',
+              options: [
+                { label: 'Text', value: 'text' },
+                { label: 'Email', value: 'email' },
+                { label: 'Phone', value: 'phone' },
+                { label: 'Text Area', value: 'textarea' },
+                { label: 'Select Dropdown', value: 'select' },
+                { label: 'Checkbox', value: 'checkbox' },
+              ],
+            },
+            placeholder: { type: 'text', label: 'Placeholder (optional)' },
+            required: {
+              type: 'radio',
+              label: 'Required?',
+              options: [
+                { label: 'Yes', value: true },
+                { label: 'No', value: false },
+              ],
+            },
+            options: {
+              type: 'textarea',
+              label: 'Options (for select, one per line)',
+            },
+          },
+        },
+        submitButtonText: { type: 'text', label: 'Submit Button Text' },
+        successMessage: { type: 'textarea', label: 'Success Message' },
+        ...animationFields,
+      },
+      defaultProps: {
+        formName: 'Contact Form',
+        fields: [
+          {
+            id: 'name',
+            type: 'text',
+            label: 'Name',
+            placeholder: 'Your name',
+            required: true,
+          },
+          {
+            id: 'email',
+            type: 'email',
+            label: 'Email',
+            placeholder: 'your@email.com',
+            required: true,
+          },
+          {
+            id: 'phone',
+            type: 'phone',
+            label: 'Phone',
+            placeholder: '(123) 456-7890',
+            required: false,
+          },
+          {
+            id: 'message',
+            type: 'textarea',
+            label: 'Message',
+            placeholder: 'How can we help?',
+            required: true,
+          },
+        ],
+        submitButtonText: 'Send Message',
+        successMessage: "Thank you! We'll get back to you soon.",
+        animationType: 'fade-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: ({
+        formName,
+        fields,
+        submitButtonText,
+        successMessage,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }: ContactFormProps) => {
+        // Ensure each field has a unique ID and proper typing for FormField[]
+        const formFields: FormField[] = fields.map(
+          (field: Record<string, unknown>, index: number) => ({
+            id: (field.id as string) || `field-${index}`,
+            type: (field.type as FormField['type']) || 'text',
+            label: (field.label as string) || '',
+            placeholder: field.placeholder as string | undefined,
+            required: field.required as boolean | undefined,
+            // Convert options from textarea string to array
+            options: field.options
+              ? (field.options as string)
+                  .split('\n')
+                  .map((opt: string) => opt.trim())
+                  .filter(Boolean)
+              : undefined,
+          })
+        );
+
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <section className="py-12 container px-4 md:px-6">
+              <div className="max-w-md mx-auto p-8 border rounded-lg bg-card">
+                <h3 className="text-2xl font-bold mb-6">{formName}</h3>
+                <StorefrontForm
+                  formName={formName}
+                  fields={formFields}
+                  submitButtonText={submitButtonText}
+                  successMessage={successMessage}
+                  merchantId={''} // Placeholder as we can\'t access puck context here easily
+                />
+              </div>
+            </section>
+          </AnimatedWrapper>
+        );
+      },
+    },
+    SocialIcons: {
+      label: 'Social Icons',
+      permissions: { delete: true, duplicate: true },
+      inline: true,
+      fields: {
+        facebook: { type: 'text', label: 'Facebook URL' },
+        instagram: { type: 'text', label: 'Instagram URL' },
+        twitter: { type: 'text', label: 'Twitter URL' },
+        linkedin: { type: 'text', label: 'LinkedIn URL' },
+        youtube: { type: 'text', label: 'YouTube URL' },
+        size: {
+          type: 'select',
+          options: [
+            { label: 'Small', value: 'sm' },
+            { label: 'Medium', value: 'md' },
+            { label: 'Large', value: 'lg' },
+          ],
+        },
+        alignment: {
+          type: 'select',
+          options: [
+            { label: 'Left', value: 'left' },
+            { label: 'Center', value: 'center' },
+            { label: 'Right', value: 'right' },
+          ],
+        },
+      },
+      defaultProps: {
+        size: 'md',
+        alignment: 'center',
+      },
+      render: ({
+        facebook,
+        instagram,
+        twitter,
+        linkedin,
+        youtube,
+        size,
+        alignment,
+        puck,
+      }) => {
+        const sizeMap = {
+          sm: 'w-6 h-6',
+          md: 'w-8 h-8',
+          lg: 'w-10 h-10',
+        };
+
+        const socialIcons = [
+          { Icon: Facebook, url: facebook, name: 'Facebook' },
+          { Icon: Instagram, url: instagram, name: 'Instagram' },
+          { Icon: Twitter, url: twitter, name: 'Twitter' },
+          { Icon: Linkedin, url: linkedin, name: 'LinkedIn' },
+          { Icon: Youtube, url: youtube, name: 'YouTube' },
+        ].filter(({ url }) => url);
+
+        return (
+          <div
+            ref={puck.dragRef}
+            className={cn('flex gap-4 p-4', {
+              'justify-start': alignment === 'left',
+              'justify-center': alignment === 'center',
+              'justify-end': alignment === 'right',
+            })}
+          >
+            {socialIcons.map(({ Icon, url, name }, index) => (
+              <Link
+                key={index}
+                href={asRoute(url!)}
+                className="text-muted-foreground hover:text-primary transition-colors"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Follow us on ${name}`}
+              >
+                <Icon className={sizeMap[size ?? 'md']} />
+              </Link>
+            ))}
+          </div>
+        );
+      },
+    },
+    CodeEmbed: {
+      label: 'Custom Code',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        code: { type: 'textarea', label: 'HTML/JavaScript Code' },
+        language: {
+          type: 'select',
+          options: [
+            { label: 'HTML', value: 'html' },
+            { label: 'JavaScript', value: 'javascript' },
+          ],
+        },
+      },
+      defaultProps: {
+        code: '<div>Custom Code</div>',
+        language: 'html',
+      },
+      render: ({ code, language }) => (
+        <section className="py-8 container px-4 md:px-6">
+          <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+            <pre className="text-sm">
+              <code className={language ? `language-${language}` : ''}>
+                {code}
+              </code>
+            </pre>
+          </div>
+        </section>
+      ),
+    },
+    Search: {
+      label: 'Search Bar',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        placeholder: { type: 'text' },
+        showFilters: {
+          type: 'radio',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+      },
+      defaultProps: {
+        placeholder: 'Search products...',
+        showFilters: false,
+      },
+      render: ({ placeholder, showFilters }) => (
+        <section className="py-8 container px-4 md:px-6">
+          <div className="max-w-2xl mx-auto">
+            <div className="relative">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input className="pl-10 h-12 text-lg" placeholder={placeholder} />
+            </div>
+            {showFilters && (
+              <div className="flex gap-2 mt-4 flex-wrap">
+                <Button variant="outline" size="sm">
+                  All
+                </Button>
+                <Button variant="outline" size="sm">
+                  Category 1
+                </Button>
+                <Button variant="outline" size="sm">
+                  Category 2
+                </Button>
+                <Button variant="outline" size="sm">
+                  Category 3
+                </Button>
+              </div>
+            )}
+          </div>
+        </section>
+      ),
+    },
+    FAQ: {
+      label: 'FAQ Section',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        title: { type: 'text', label: 'Section Title' },
+        subtitle: { type: 'textarea', label: 'Subtitle (optional)' },
+        items: {
+          type: 'array',
+          label: 'FAQ Items',
+          getItemSummary: (item) => item.question || 'Question',
+          arrayFields: {
+            question: { type: 'text', label: 'Question' },
+            answer: { type: 'textarea', label: 'Answer' },
+          },
+        },
+        style: {
+          type: 'select',
+          label: 'Style',
+          options: [
+            { label: 'Accordion', value: 'accordion' },
+            { label: 'Grid', value: 'grid' },
+            { label: 'Simple List', value: 'list' },
+          ],
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        title: 'Frequently Asked Questions',
+        subtitle:
+          'Find answers to common questions about our products and services.',
+        style: 'accordion',
+        items: [
+          {
+            question: 'What payment methods do you accept?',
+            answer:
+              'We accept all major credit cards, PayPal, and bank transfers. All payments are processed securely.',
+          },
+          {
+            question: 'How long does shipping take?',
+            answer:
+              'Standard shipping takes 3-5 business days. Express shipping is available for 1-2 day delivery.',
+          },
+          {
+            question: 'What is your return policy?',
+            answer:
+              'We offer a 30-day return policy for all unused items in original packaging. Contact us to initiate a return.',
+          },
+          {
+            question: 'Do you ship internationally?',
+            answer:
+              'Yes, we ship to most countries worldwide. International shipping times vary by location.',
+          },
+        ],
+        animationType: 'fade-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: ({
+        title,
+        subtitle,
+        items,
+        style,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) => {
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <section className="py-12 md:py-16 container px-4 md:px-6">
+              <div className="max-w-3xl mx-auto text-center mb-10">
+                <h2 className="text-3xl font-bold mb-4">{title}</h2>
+                {subtitle && (
+                  <p className="text-muted-foreground text-lg">{subtitle}</p>
+                )}
+              </div>
+              {style === 'accordion' && (
+                <div className="max-w-2xl mx-auto space-y-3">
+                  {items.map(
+                    (
+                      item: { question: string; answer: string },
+                      index: number
+                    ) => (
+                      <details key={index} className="group border rounded-lg">
+                        <summary className="flex justify-between items-center cursor-pointer p-4 font-medium hover:bg-muted/50 transition-colors">
+                          {item.question}
+                          <span className="ml-2 transform group-open:rotate-180 transition-transform">
+                            ▼
+                          </span>
+                        </summary>
+                        <div className="p-4 pt-0 text-muted-foreground">
+                          {item.answer}
+                        </div>
+                      </details>
+                    )
+                  )}
+                </div>
+              )}
+              {style === 'grid' && (
+                <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+                  {items.map(
+                    (
+                      item: { question: string; answer: string },
+                      index: number
+                    ) => (
+                      <div
+                        key={index}
+                        className="p-6 border rounded-lg bg-card"
+                      >
+                        <h3 className="font-semibold text-lg mb-2">
+                          {item.question}
+                        </h3>
+                        <p className="text-muted-foreground">{item.answer}</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+              {style === 'list' && (
+                <div className="max-w-2xl mx-auto space-y-6">
+                  {items.map(
+                    (
+                      item: { question: string; answer: string },
+                      index: number
+                    ) => (
+                      <div key={index} className="border-b pb-6 last:border-0">
+                        <h3 className="font-semibold text-lg mb-2">
+                          {item.question}
+                        </h3>
+                        <p className="text-muted-foreground">{item.answer}</p>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </section>
+          </AnimatedWrapper>
+        );
+      },
+    },
+    AboutSection: {
+      label: 'About Section',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        title: { type: 'text', label: 'Section Title' },
+        content: { type: 'textarea', label: 'Main Content' },
+        image: {
+          type: 'custom',
+          label: 'Image',
+          render: ({ field, onChange, value }) => {
+            return (
+              <ImagePickerField
+                field={field}
+                onChange={(v) => onChange(v)}
+                value={value || ''}
+              />
+            );
+          },
+        },
+        imagePosition: {
+          type: 'select',
+          label: 'Image Position',
+          options: [
+            { label: 'Left', value: 'left' },
+            { label: 'Right', value: 'right' },
+            { label: 'Top', value: 'top' },
+            { label: 'Bottom', value: 'bottom' },
+          ],
+        },
+        showStats: {
+          type: 'radio',
+          label: 'Show Statistics',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        stats: {
+          type: 'array',
+          label: 'Statistics',
+          getItemSummary: (item) => item.label || 'Stat',
+          arrayFields: {
+            value: { type: 'text', label: 'Value (e.g., 10K+)' },
+            label: { type: 'text', label: 'Label' },
+          },
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        title: 'About Our Store',
+        content:
+          'We are passionate about bringing you the best products at competitive prices. Our journey began with a simple idea: make quality accessible to everyone.\n\nWith years of experience in the industry, we have built strong relationships with suppliers and manufacturers to ensure that every product meets our high standards.',
+        image:
+          'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
+        imagePosition: 'right',
+        showStats: true,
+        stats: [
+          { value: '10K+', label: 'Happy Customers' },
+          { value: '500+', label: 'Products' },
+          { value: '5', label: 'Years Experience' },
+          { value: '24/7', label: 'Support' },
+        ],
+        animationType: 'fade-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: ({
+        title,
+        content,
+        image,
+        imagePosition,
+        showStats,
+        stats,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) => {
+        const isHorizontal =
+          imagePosition === 'left' || imagePosition === 'right';
+        const imageFirst = imagePosition === 'left' || imagePosition === 'top';
+
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <section className="py-12 md:py-16 container px-4 md:px-6">
+              <div
+                className={cn(
+                  'flex gap-8 md:gap-12',
+                  isHorizontal
+                    ? 'flex-col md:flex-row items-center'
+                    : 'flex-col',
+                  imageFirst && isHorizontal && 'md:flex-row-reverse'
+                )}
+              >
+                {/* Content */}
+                <div
+                  className={cn('flex-1', isHorizontal ? '' : 'text-center')}
+                >
+                  <h2 className="text-3xl font-bold mb-6">{title}</h2>
+                  <div className="prose dark:prose-invert max-w-none">
+                    <p className="text-lg text-muted-foreground whitespace-pre-wrap">
+                      {content}
+                    </p>
+                  </div>
+                  {showStats && stats && stats.length > 0 && (
+                    <div
+                      className={cn(
+                        'grid grid-cols-2 md:grid-cols-4 gap-6 mt-8',
+                        !isHorizontal && 'max-w-2xl mx-auto'
+                      )}
+                    >
+                      {stats.map(
+                        (
+                          stat: { value: string; label: string },
+                          index: number
+                        ) => (
+                          <div key={index} className="text-center">
+                            <p
+                              className="text-3xl font-bold"
+                              style={{ color: 'var(--store-primary)' }}
+                            >
+                              {stat.value}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {stat.label}
+                            </p>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+                </div>
+                {/* Image */}
+                {image && (
+                  <div
+                    className={cn(
+                      'flex-1',
+                      !isHorizontal && 'max-w-2xl mx-auto w-full',
+                      imageFirst && !isHorizontal && 'order-first'
+                    )}
+                  >
+                    <div className="relative aspect-video md:aspect-square rounded-lg overflow-hidden">
+                      <Image
+                        src={image}
+                        alt={title}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          </AnimatedWrapper>
+        );
+      },
+    },
+    ContactSection: {
+      label: 'Contact Section',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        title: { type: 'text', label: 'Section Title' },
+        subtitle: { type: 'textarea', label: 'Subtitle (optional)' },
+        showMap: {
+          type: 'radio',
+          label: 'Show Map',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        mapAddress: { type: 'text', label: 'Map Address' },
+        contactInfo: {
+          type: 'array',
+          label: 'Contact Information',
+          getItemSummary: (item) => item.label || 'Contact',
+          arrayFields: {
+            icon: {
+              type: 'select',
+              label: 'Icon',
+              options: getIconOptions(),
+            },
+            label: { type: 'text', label: 'Label' },
+            value: { type: 'text', label: 'Value' },
+            link: { type: 'text', label: 'Link (optional)' },
+          },
+        },
+        showForm: {
+          type: 'radio',
+          label: 'Show Contact Form',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        formTitle: { type: 'text', label: 'Form Title' },
+        layout: {
+          type: 'select',
+          label: 'Layout',
+          options: [
+            { label: 'Side by Side', value: 'side-by-side' },
+            { label: 'Stacked', value: 'stacked' },
+          ],
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        title: 'Get In Touch',
+        subtitle:
+          'Have questions? We would love to hear from you. Send us a message and we will respond as soon as possible.',
+        showMap: false,
+        mapAddress: '',
+        contactInfo: [
+          {
+            icon: 'mail',
+            label: 'Email',
+            value: 'hello@example.com',
+            link: 'mailto:hello@example.com',
+          },
+          {
+            icon: 'phone',
+            label: 'Phone',
+            value: '+1 (555) 123-4567',
+            link: 'tel:+15551234567',
+          },
+          {
+            icon: 'map-pin',
+            label: 'Address',
+            value: '123 Business St, City, Country',
+            link: '',
+          },
+          {
+            icon: 'clock',
+            label: 'Hours',
+            value: 'Mon-Fri: 9AM - 6PM',
+            link: '',
+          },
+        ],
+        showForm: true,
+        formTitle: 'Send us a Message',
+        layout: 'side-by-side',
+        animationType: 'fade-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: ({
+        title,
+        subtitle,
+        showMap,
+        mapAddress,
+        contactInfo,
+        showForm,
+        formTitle,
+        layout,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) => {
+        const formFields: FormField[] = [
+          {
+            id: 'name',
+            type: 'text',
+            label: 'Your Name',
+            placeholder: 'John Doe',
+            required: true,
+          },
+          {
+            id: 'email',
+            type: 'email',
+            label: 'Email Address',
+            placeholder: 'john@example.com',
+            required: true,
+          },
+          {
+            id: 'subject',
+            type: 'text',
+            label: 'Subject',
+            placeholder: 'How can we help?',
+            required: false,
+          },
+          {
+            id: 'message',
+            type: 'textarea',
+            label: 'Message',
+            placeholder: 'Your message here...',
+            required: true,
+          },
+        ];
+
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <section className="py-12 md:py-16 container px-4 md:px-6">
+              <div className="max-w-4xl mx-auto text-center mb-10">
+                <h2 className="text-3xl font-bold mb-4">{title}</h2>
+                {subtitle && (
+                  <p className="text-muted-foreground text-lg">{subtitle}</p>
+                )}
+              </div>
+
+              <div
+                className={cn(
+                  'max-w-5xl mx-auto',
+                  layout === 'side-by-side'
+                    ? 'grid md:grid-cols-2 gap-8'
+                    : 'space-y-8'
+                )}
+              >
+                {/* Contact Info */}
+                <div
+                  className={cn(
+                    'space-y-6',
+                    layout === 'stacked' &&
+                      'grid md:grid-cols-2 gap-6 space-y-0'
+                  )}
+                >
+                  {contactInfo?.map(
+                    (
+                      info: {
+                        icon: string;
+                        label: string;
+                        value: string;
+                        link?: string;
+                      },
+                      index: number
+                    ) => (
+                      <div key={index} className="flex items-start gap-4">
+                        <div className="p-3 rounded-lg bg-[var(--store-primary)]/10">
+                          {renderIcon(info.icon, {
+                            className: 'w-5 h-5',
+                            style: { color: 'var(--store-primary)' },
+                          })}
+                        </div>
+                        <div>
+                          <p className="font-medium">{info.label}</p>
+                          {info.link ? (
+                            <Link
+                              href={asRoute(info.link)}
+                              className="text-muted-foreground hover:text-[var(--store-primary)] transition-colors"
+                            >
+                              {info.value}
+                            </Link>
+                          ) : (
+                            <p className="text-muted-foreground">
+                              {info.value}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  )}
+
+                  {showMap && mapAddress && (
+                    <div className="mt-6 rounded-lg overflow-hidden border">
+                      <iframe
+                        title="Business location map"
+                        width="100%"
+                        height="200"
+                        style={{ border: 0 }}
+                        loading="lazy"
+                        allowFullScreen
+                        referrerPolicy="no-referrer-when-downgrade"
+                        src={`https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${encodeURIComponent(mapAddress)}`}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Contact Form */}
+                {showForm && (
+                  <div className="p-6 md:p-8 border rounded-lg bg-card">
+                    <h3 className="text-xl font-bold mb-6">{formTitle}</h3>
+                    <StorefrontForm
+                      formName="contact"
+                      fields={formFields}
+                      submitButtonText="Send Message"
+                      successMessage="Thank you for your message! We will get back to you soon."
+                      merchantId=""
+                    />
+                  </div>
+                )}
+              </div>
+            </section>
+          </AnimatedWrapper>
+        );
+      },
+    },
+    LegalSection: {
+      label: 'Legal / Policy Section',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        title: { type: 'text', label: 'Page Title' },
+        lastUpdated: { type: 'text', label: 'Last Updated Date' },
+        sections: {
+          type: 'array',
+          label: 'Content Sections',
+          getItemSummary: (item) => item.heading || 'Section',
+          arrayFields: {
+            heading: { type: 'text', label: 'Section Heading' },
+            content: { type: 'textarea', label: 'Content' },
+          },
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        title: 'Privacy Policy',
+        lastUpdated: new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }),
+        sections: [
+          {
+            heading: 'Introduction',
+            content:
+              'This Privacy Policy describes how we collect, use, and protect your personal information when you use our services.',
+          },
+          {
+            heading: 'Information We Collect',
+            content:
+              'We collect information you provide directly to us, such as when you create an account, make a purchase, or contact us for support.',
+          },
+          {
+            heading: 'How We Use Your Information',
+            content:
+              'We use the information we collect to provide, maintain, and improve our services, process transactions, and communicate with you.',
+          },
+          {
+            heading: 'Contact Us',
+            content:
+              'If you have any questions about this Privacy Policy, please contact us at privacy@example.com.',
+          },
+        ],
+        animationType: 'fade-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: ({
+        title,
+        lastUpdated,
+        sections,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) => {
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <section className="py-12 md:py-16 container px-4 md:px-6">
+              <div className="max-w-3xl mx-auto">
+                <h1 className="text-4xl font-bold mb-4">{title}</h1>
+                {lastUpdated && (
+                  <p className="text-muted-foreground mb-8">
+                    Last updated: {lastUpdated}
+                  </p>
+                )}
+                <div className="prose dark:prose-invert max-w-none space-y-8">
+                  {sections?.map(
+                    (
+                      section: { heading: string; content: string },
+                      index: number
+                    ) => (
+                      <div key={index}>
+                        <h2 className="text-2xl font-semibold mb-3">
+                          {section.heading}
+                        </h2>
+                        <p className="text-muted-foreground whitespace-pre-wrap">
+                          {section.content}
+                        </p>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            </section>
+          </AnimatedWrapper>
+        );
+      },
+    },
+    CountdownTimer: {
+      label: 'Countdown Timer',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        endDate: { type: 'text', label: 'End Date (YYYY-MM-DD HH:MM)' },
+        title: { type: 'text', label: 'Title (optional)' },
+        subtitle: { type: 'text', label: 'Subtitle (optional)' },
+        expiredMessage: { type: 'text', label: 'Expired Message' },
+        style: {
+          type: 'select',
+          label: 'Style',
+          options: [
+            { label: 'Boxes', value: 'boxes' },
+            { label: 'Inline', value: 'inline' },
+            { label: 'Minimal', value: 'minimal' },
+          ],
+        },
+        showDays: {
+          type: 'radio',
+          label: 'Show Days',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        showHours: {
+          type: 'radio',
+          label: 'Show Hours',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        showMinutes: {
+          type: 'radio',
+          label: 'Show Minutes',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        showSeconds: {
+          type: 'radio',
+          label: 'Show Seconds',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 16)
+          .replace('T', ' '),
+        title: 'Limited Time Offer',
+        subtitle: 'Sale ends in:',
+        expiredMessage: 'This offer has expired',
+        style: 'boxes',
+        showDays: true,
+        showHours: true,
+        showMinutes: true,
+        showSeconds: true,
+        animationType: 'fade-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: function CountdownTimerRender({
+        endDate,
+        title,
+        subtitle,
+        expiredMessage,
+        style,
+        showDays,
+        showHours,
+        showMinutes,
+        showSeconds,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) {
+        const [timeLeft, setTimeLeft] = React.useState({
+          days: 0,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+        });
+        const [isExpired, setIsExpired] = React.useState(false);
+
+        React.useEffect(() => {
+          const calculateTimeLeft = () => {
+            const end = new Date(endDate).getTime();
+            const now = Date.now();
+            const diff = end - now;
+
+            if (diff <= 0) {
+              setIsExpired(true);
+              return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+            }
+
+            return {
+              days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+              hours: Math.floor(
+                (diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+              ),
+              minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+              seconds: Math.floor((diff % (1000 * 60)) / 1000),
+            };
+          };
+
+          setTimeLeft(calculateTimeLeft());
+          const timer = setInterval(() => {
+            setTimeLeft(calculateTimeLeft());
+          }, 1000);
+
+          return () => clearInterval(timer);
+        }, [endDate]);
+
+        const TimeUnit = ({
+          value,
+          label,
+        }: {
+          value: number;
+          label: string;
+        }) => {
+          if (style === 'boxes') {
+            return (
+              <div className="flex flex-col items-center">
+                <div className="bg-[var(--store-primary)] text-[var(--store-primary-text)] rounded-lg p-3 md:p-4 min-w-[60px] md:min-w-[80px]">
+                  <span className="text-2xl md:text-4xl font-bold">
+                    {String(value).padStart(2, '0')}
+                  </span>
+                </div>
+                <span className="text-xs md:text-sm text-muted-foreground mt-2 uppercase tracking-wide">
+                  {label}
+                </span>
+              </div>
+            );
+          }
+          if (style === 'minimal') {
+            return (
+              <span
+                className="text-2xl md:text-3xl font-bold"
+                style={{ color: 'var(--store-primary)' }}
+              >
+                {String(value).padStart(2, '0')}
+                <span className="text-sm text-muted-foreground ml-1">
+                  {label.charAt(0)}
+                </span>
+              </span>
+            );
+          }
+          return (
+            <span className="text-xl md:text-2xl font-semibold">
+              {value}{' '}
+              <span className="text-sm text-muted-foreground">{label}</span>
+            </span>
+          );
+        };
+
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <section className="py-8 md:py-12 container px-4 md:px-6">
+              <div className="text-center max-w-2xl mx-auto">
+                {title && (
+                  <h2 className="text-2xl md:text-3xl font-bold mb-2">
+                    {title}
+                  </h2>
+                )}
+                {subtitle && !isExpired && (
+                  <p className="text-muted-foreground mb-6">{subtitle}</p>
+                )}
+
+                {isExpired ? (
+                  <p className="text-xl text-muted-foreground">
+                    {expiredMessage}
+                  </p>
+                ) : (
+                  <div
+                    className={cn(
+                      'flex justify-center items-center',
+                      style === 'boxes' ? 'gap-3 md:gap-4' : 'gap-2 md:gap-4'
+                    )}
+                  >
+                    {showDays && (
+                      <TimeUnit value={timeLeft.days} label="Days" />
+                    )}
+                    {style === 'inline' && showDays && showHours && (
+                      <span className="text-2xl">:</span>
+                    )}
+                    {showHours && (
+                      <TimeUnit value={timeLeft.hours} label="Hours" />
+                    )}
+                    {style === 'inline' && showHours && showMinutes && (
+                      <span className="text-2xl">:</span>
+                    )}
+                    {showMinutes && (
+                      <TimeUnit value={timeLeft.minutes} label="Minutes" />
+                    )}
+                    {style === 'inline' && showMinutes && showSeconds && (
+                      <span className="text-2xl">:</span>
+                    )}
+                    {showSeconds && (
+                      <TimeUnit value={timeLeft.seconds} label="Seconds" />
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+          </AnimatedWrapper>
+        );
+      },
+    },
+    TrustBadges: {
+      label: 'Trust Badges',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        badges: {
+          type: 'array',
+          label: 'Badges',
+          getItemSummary: (item) => item.title || 'Badge',
+          arrayFields: {
+            icon: {
+              type: 'select',
+              label: 'Icon',
+              options: getIconOptions(),
+            },
+            title: { type: 'text', label: 'Title' },
+            description: { type: 'text', label: 'Description (optional)' },
+          },
+        },
+        layout: {
+          type: 'select',
+          label: 'Layout',
+          options: [
+            { label: 'Horizontal', value: 'horizontal' },
+            { label: 'Grid', value: 'grid' },
+          ],
+        },
+        style: {
+          type: 'select',
+          label: 'Style',
+          options: [
+            { label: 'Cards', value: 'cards' },
+            { label: 'Minimal', value: 'minimal' },
+            { label: 'Icons Only', value: 'icons-only' },
+          ],
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        badges: [
+          {
+            icon: 'shield-check',
+            title: 'Secure Payment',
+            description: '256-bit SSL encryption',
+          },
+          {
+            icon: 'truck',
+            title: 'Free Shipping',
+            description: 'On orders over $50',
+          },
+          {
+            icon: 'refresh-cw',
+            title: '30-Day Returns',
+            description: 'Money-back guarantee',
+          },
+          {
+            icon: 'headphones',
+            title: '24/7 Support',
+            description: 'We are here to help',
+          },
+        ],
+        layout: 'horizontal',
+        style: 'cards',
+        animationType: 'fade-in',
+        animationDuration: 'normal',
+        animationDelay: 0,
+        animationTrigger: 'scroll',
+      },
+      render: ({
+        badges,
+        layout,
+        style,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) => {
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <section className="py-8 md:py-12 container px-4 md:px-6">
+              <div
+                className={cn(
+                  layout === 'horizontal'
+                    ? 'flex flex-wrap justify-center gap-6 md:gap-8'
+                    : 'grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6'
+                )}
+              >
+                {badges?.map(
+                  (
+                    badge: {
+                      icon: string;
+                      title: string;
+                      description?: string;
+                    },
+                    index: number
+                  ) => (
+                    <div
+                      key={index}
+                      className={cn(
+                        'flex items-center',
+                        style === 'cards' &&
+                          'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
+                        style === 'minimal' && 'gap-3',
+                        style === 'icons-only' && 'flex-col text-center'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'rounded-full flex items-center justify-center',
+                          style === 'cards' &&
+                            'w-12 h-12 md:w-14 md:h-14 bg-[var(--store-primary)]/10 mb-3',
+                          style === 'minimal' &&
+                            'w-10 h-10 bg-[var(--store-primary)]/10',
+                          style === 'icons-only' &&
+                            'w-14 h-14 md:w-16 md:h-16 bg-[var(--store-primary)]/10'
+                        )}
+                      >
+                        {renderIcon(badge.icon, {
+                          className: cn(
+                            style === 'cards' && 'w-6 h-6 md:w-7 md:h-7',
+                            style === 'minimal' && 'w-5 h-5',
+                            style === 'icons-only' && 'w-7 h-7 md:w-8 md:h-8'
+                          ),
+                          style: { color: 'var(--store-primary)' },
+                        })}
+                      </div>
+                      {style !== 'icons-only' && (
+                        <div className={style === 'minimal' ? '' : ''}>
+                          <p
+                            className={cn(
+                              'font-semibold',
+                              style === 'cards' && 'text-sm md:text-base',
+                              style === 'minimal' && 'text-sm'
+                            )}
+                          >
+                            {badge.title}
+                          </p>
+                          {badge.description && style === 'cards' && (
+                            <p className="text-xs md:text-sm text-muted-foreground mt-1">
+                              {badge.description}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {style === 'icons-only' && (
+                        <p className="text-xs font-medium mt-2">
+                          {badge.title}
+                        </p>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+            </section>
+          </AnimatedWrapper>
+        );
+      },
+    },
+    AnnouncementBar: {
+      label: 'Announcement Bar',
+      permissions: { delete: true, duplicate: true },
+      fields: {
+        message: { type: 'text', label: 'Message' },
+        linkText: { type: 'text', label: 'Link Text (optional)' },
+        linkUrl: { type: 'text', label: 'Link URL (optional)' },
+        backgroundColor: {
+          type: 'text',
+          label: 'Background Color (hex or CSS variable)',
+        },
+        textColor: { type: 'text', label: 'Text Color (hex or CSS variable)' },
+        dismissible: {
+          type: 'radio',
+          label: 'Dismissible',
+          options: [
+            { label: 'Yes', value: true },
+            { label: 'No', value: false },
+          ],
+        },
+        ...animationFields,
+      },
+      defaultProps: {
+        message: 'Free shipping on all orders over $50!',
+        linkText: 'Shop Now',
+        linkUrl: '#products',
+        backgroundColor: 'var(--store-primary)',
+        textColor: 'var(--store-primary-text)',
+        dismissible: true,
+        animationType: 'slide-down',
+        animationDuration: 'fast',
+        animationDelay: 0,
+        animationTrigger: 'onload',
+      },
+      render: function AnnouncementBarRender({
+        message,
+        linkText,
+        linkUrl,
+        backgroundColor,
+        textColor,
+        dismissible,
+        animationType,
+        animationDuration,
+        animationDelay,
+        animationTrigger,
+      }) {
+        const [isDismissed, setIsDismissed] = React.useState(false);
+
+        React.useEffect(() => {
+          if (typeof window !== 'undefined') {
+            const dismissed = localStorage.getItem(
+              'baci-announcement-dismissed'
+            );
+            if (dismissed === 'true') {
+              setIsDismissed(true);
+            }
+          }
+        }, []);
+
+        const handleDismiss = () => {
+          setIsDismissed(true);
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('baci-announcement-dismissed', 'true');
+          }
+        };
+
+        if (isDismissed) return <></>;
+
+        return (
+          <AnimatedWrapper
+            animation={{
+              type: mapAnimationType(animationType),
+              duration: animationDuration as 'fast' | 'normal' | 'slow',
+              delay: animationDelay,
+              trigger:
+                animationTrigger === 'onload'
+                  ? 'immediate'
+                  : (animationTrigger as 'scroll' | 'immediate'),
+            }}
+          >
+            <div
+              className="relative py-2 px-4 text-center text-sm"
+              style={{
+                backgroundColor: backgroundColor || 'var(--store-primary)',
+                color: textColor || 'var(--store-primary-text)',
+              }}
+            >
+              <div className="container mx-auto flex items-center justify-center gap-2">
+                <span>{message}</span>
+                {linkText && linkUrl && (
+                  <Link
+                    href={asRoute(linkUrl)}
+                    className="font-semibold underline underline-offset-2 hover:no-underline"
+                  >
+                    {linkText}
+                  </Link>
+                )}
+              </div>
+              {dismissible && (
+                <button
+                  onClick={handleDismiss}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:opacity-70 transition-opacity"
+                  aria-label="Dismiss announcement"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </AnimatedWrapper>
+        );
+      },
+    },
+  },
 };

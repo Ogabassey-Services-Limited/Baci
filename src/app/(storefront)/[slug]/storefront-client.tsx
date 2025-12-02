@@ -1,54 +1,63 @@
-
 'use client';
 
-import { ThemedButton, ThemedCard, ThemedBadge, ThemedLink } from '@/components/themed';
-import { Logo } from '@/components/logo';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useMerchant } from '@/hooks/use-merchant';
-import { getBusinessTypeById } from '@/config/business-types';
-import { type Product } from '@/lib/products';
-import { getProductUrl } from '@/lib/seo-utils';
-import { dynamicRoutes } from '@/lib/routes';
-import { Loader2, ShoppingBag, Search, Plus, Minus, ChevronDown } from 'lucide-react';
-import { CardContent } from '@/components/ui/card';
-import { getCountryByCode } from '@/lib/countries';
-import { Input } from '@/components/ui/input';
-import { useState, useMemo, useEffect, useRef } from 'react';
+import Autoplay from 'embla-carousel-autoplay';
 import Fuse from 'fuse.js';
-import { useCart } from '@/hooks/use-cart';
-import { useToast } from '@/hooks/use-toast';
-import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
-import { Sheet, SheetTrigger } from '@/components/ui/sheet';
-import { Cart } from '@/components/cart';
-import { Button } from '@/components/ui/button';
-import { apiGet } from '@/lib/api-client';
+import {
+  ChevronDown,
+  Loader2,
+  Minus,
+  Plus,
+  Search,
+  ShoppingBag,
+} from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AppBody from '@/components/app-body';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Cart } from '@/components/cart';
+import { Logo } from '@/components/logo';
+import {
+  ThemedBadge,
+  ThemedButton,
+  ThemedCard,
+  ThemedLink,
+} from '@/components/themed';
+import { Button } from '@/components/ui/button';
+import { CardContent } from '@/components/ui/card';
 import {
   Carousel,
+  type CarouselApi,
   CarouselContent,
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-  type CarouselApi,
-} from "@/components/ui/carousel";
-import Autoplay from "embla-carousel-autoplay";
+} from '@/components/ui/carousel';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Sheet, SheetTrigger } from '@/components/ui/sheet';
+import { getBusinessTypeById } from '@/config/business-types';
+import { useCart } from '@/hooks/use-cart';
+import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
+import { apiGet } from '@/lib/api-client';
+import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
+import { getCountryByCode } from '@/lib/countries';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import type { Product } from '@/lib/products';
+import { dynamicRoutes } from '@/lib/routes';
+import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
-
 
 // New component to handle the layout and theming
 function ThemedStorefrontLayout({ children }: { children: React.ReactNode }) {
   const { merchant } = useMerchant();
   return <AppBody merchant={merchant}>{children}</AppBody>;
 }
-
 
 function StorefrontContent() {
   const { merchant } = useMerchant();
@@ -57,7 +66,7 @@ function StorefrontContent() {
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // New state for filtering
   const [filterBy, setFilterBy] = useState<'category' | 'brand'>('category');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -73,23 +82,24 @@ function StorefrontContent() {
     }
 
     setCurrent(api.selectedScrollSnap() + 1);
-    api.on("select", () => {
+    api.on('select', () => {
       setCurrent(api.selectedScrollSnap() + 1);
     });
   }, [api]);
 
-
   useEffect(() => {
     if (merchant?.id) {
       // Load products
-      apiGet<{ products: Product[] }>(`/api/storefront/products?merchant_id=${merchant.id}`)
+      apiGet<{ products: Product[] }>(
+        `/api/storefront/products?merchant_id=${merchant.id}`
+      )
         .then((data) => {
           if (data.products) {
             setProducts(data.products);
           }
           setIsLoading(false);
         })
-        .catch(err => {
+        .catch((err) => {
           console.error(err);
           setIsLoading(false);
         });
@@ -97,29 +107,31 @@ function StorefrontContent() {
   }, [merchant?.id]);
 
   const { availableCategories, availableBrands } = useMemo(() => {
-    const categories = new Set(products.map(p => p.category || 'General'));
-    const brands = new Set(products.map(p => p.brand).filter(Boolean));
+    const categories = new Set(products.map((p) => p.category || 'General'));
+    const brands = new Set(products.map((p) => p.brand).filter(Boolean));
     return {
       availableCategories: Array.from(categories),
       availableBrands: Array.from(brands),
     };
   }, [products]);
-  
-  const currentFilterOptions = filterBy === 'category' ? availableCategories : availableBrands;
-  const currentSelectedFilter = filterBy === 'category' ? selectedCategory : selectedBrand;
+
+  const currentFilterOptions =
+    filterBy === 'category' ? availableCategories : availableBrands;
+  const currentSelectedFilter =
+    filterBy === 'category' ? selectedCategory : selectedBrand;
 
   const handleFilterClick = (value: string) => {
     if (filterBy === 'category') {
-      setSelectedCategory(prev => prev === value ? null : value);
+      setSelectedCategory((prev) => (prev === value ? null : value));
     } else {
-      setSelectedBrand(prev => prev === value ? null : value);
+      setSelectedBrand((prev) => (prev === value ? null : value));
     }
   };
 
   const handleAddToCart = (product: Product) => {
     addToCart(product);
     toast({
-      title: "Added to cart!",
+      title: 'Added to cart!',
       description: `${product.name} has been added to your cart.`,
     });
   };
@@ -139,24 +151,28 @@ function StorefrontContent() {
     let filtered = products;
 
     if (searchQuery && fuse) {
-      filtered = fuse.search(searchQuery).map(result => result.item);
-    }
-    
-    if (filterBy === 'category' && selectedCategory) {
-      filtered = filtered.filter(p => (p.category || 'General') === selectedCategory);
-    }
-    
-    if (filterBy === 'brand' && selectedBrand) {
-      filtered = filtered.filter(p => p.brand === selectedBrand);
+      filtered = fuse.search(searchQuery).map((result) => result.item);
     }
 
-    return filtered.filter(p => p.status === 'active');
+    if (filterBy === 'category' && selectedCategory) {
+      filtered = filtered.filter(
+        (p) => (p.category || 'General') === selectedCategory
+      );
+    }
+
+    if (filterBy === 'brand' && selectedBrand) {
+      filtered = filtered.filter((p) => p.brand === selectedBrand);
+    }
+
+    return filtered.filter((p) => p.status === 'active');
   }, [searchQuery, fuse, products, filterBy, selectedCategory, selectedBrand]);
 
   if (!merchant) return null; // Should be handled by parent
 
   const formatCurrency = (amount: number) => {
-    const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+    const country = merchant?.country
+      ? getCountryByCode(merchant.country)
+      : undefined;
     const locale = country ? `en-${country.code}` : 'en-US';
     const currency = country ? country.currency : 'USD';
 
@@ -176,16 +192,24 @@ function StorefrontContent() {
     { key: 'legal', label: 'Legal and Dispute' },
   ];
 
-  const availableFooterLinks = footerLinks.filter(link => merchant.pages?.[link.key as keyof typeof merchant.pages]);
+  const availableFooterLinks = footerLinks.filter(
+    (link) => merchant.pages?.[link.key as keyof typeof merchant.pages]
+  );
 
-  const brandColors = merchant.brand_colors ? [merchant.brand_colors.primary, merchant.brand_colors.background, merchant.brand_colors.accent].filter(Boolean) : ['#3F51B5'];
+  const brandColors = merchant.brand_colors
+    ? [
+        merchant.brand_colors.primary,
+        merchant.brand_colors.background,
+        merchant.brand_colors.accent,
+      ].filter(Boolean)
+    : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
   // Ensure we have at least 3 images for hero carousel
   const fallbackHeroImages = [
     { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+1' },
     { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+2' },
-    { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+3' }
+    { imageUrl: 'https://via.placeholder.com/800x400?text=Slide+3' },
   ];
   const imagesForHero = [
     PlaceHolderImages[0] || fallbackHeroImages[0],
@@ -195,8 +219,8 @@ function StorefrontContent() {
   const heroSlides = imagesForHero.map((img, i) => ({
     ...img,
     headline: `Elevate Your Style, Slide ${i + 1}`,
-    description: "Discover our latest collection of premium apparel.",
-    cta: "Shop Now"
+    description: 'Discover our latest collection of premium apparel.',
+    cta: 'Shop Now',
   }));
 
   return (
@@ -205,11 +229,19 @@ function StorefrontContent() {
         <header className="px-4 lg:px-6 h-16 flex items-center gap-4 shadow-sm bg-card">
           <div className="flex items-center gap-2 font-semibold">
             {merchant.logo_url ? (
-              <Image src={merchant.logo_url} alt={`${merchant.business_name} logo`} width={32} height={32} className="rounded-sm object-contain" />
+              <Image
+                src={merchant.logo_url}
+                alt={`${merchant.business_name} logo`}
+                width={32}
+                height={32}
+                className="rounded-sm object-contain"
+              />
             ) : (
               <Logo />
             )}
-            <span className="hidden sm:inline-block">{merchant.business_name}</span>
+            <span className="hidden sm:inline-block">
+              {merchant.business_name}
+            </span>
           </div>
 
           <div className="flex-1 flex justify-center px-4">
@@ -230,9 +262,21 @@ function StorefrontContent() {
               <ThemedButton colorRole="primary">My Dashboard</ThemedButton>
             </Link>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="relative h-10 w-10">
+              <Button
+                variant="outline"
+                size="icon"
+                className="relative h-10 w-10"
+              >
                 <ShoppingBag className="w-5 h-5" />
-                {cartCount > 0 && <ThemedBadge colorRole="accent" variant="default" className="absolute -top-1 -right-1 h-5 w-5 text-xs justify-center rounded-full p-0">{cartCount}</ThemedBadge>}
+                {cartCount > 0 && (
+                  <ThemedBadge
+                    colorRole="accent"
+                    variant="default"
+                    className="absolute -top-1 -right-1 h-5 w-5 text-xs justify-center rounded-full p-0"
+                  >
+                    {cartCount}
+                  </ThemedBadge>
+                )}
                 <span className="sr-only">Cart</span>
               </Button>
             </SheetTrigger>
@@ -251,7 +295,13 @@ function StorefrontContent() {
             >
               <CarouselContent>
                 {heroSlides.map((slide, index) => {
-                  const heroImage = PlaceHolderImages.find(p => p.id === slide.id) || { imageUrl: slide.imageUrl, description: slide.headline, imageHint: 'store hero' };
+                  const heroImage = PlaceHolderImages.find(
+                    (p) => p.id === slide.id
+                  ) || {
+                    imageUrl: slide.imageUrl,
+                    description: slide.headline,
+                    imageHint: 'store hero',
+                  };
                   return (
                     <CarouselItem key={index}>
                       <div className="w-full h-[60vh] md:h-[70vh] relative">
@@ -270,10 +320,13 @@ function StorefrontContent() {
                           <p className="mt-4 max-w-2xl text-lg md:text-xl">
                             {slide.description}
                           </p>
-                          <ThemedButton asChild size="lg" className="mt-6" colorRole="accent">
-                            <Link href="#products">
-                              {slide.cta}
-                            </Link>
+                          <ThemedButton
+                            asChild
+                            size="lg"
+                            className="mt-6"
+                            colorRole="accent"
+                          >
+                            <Link href="#products">{slide.cta}</Link>
                           </ThemedButton>
                         </div>
                       </div>
@@ -290,8 +343,8 @@ function StorefrontContent() {
                   key={index}
                   onClick={() => api?.scrollTo(index)}
                   className={cn(
-                    "h-2 w-2 rounded-full transition-all",
-                    current - 1 === index ? "w-4 bg-white" : "bg-white/50"
+                    'h-2 w-2 rounded-full transition-all',
+                    current - 1 === index ? 'w-4 bg-white' : 'bg-white/50'
                   )}
                   aria-label={`Go to slide ${index + 1}`}
                 />
@@ -301,39 +354,54 @@ function StorefrontContent() {
 
           <section className="w-full py-12 md:py-24 lg:py-32" id="products">
             <div className="container px-4 md:px-6">
-                <div className="flex items-center justify-center gap-4 mb-8">
-                    <span className="text-lg font-medium text-muted-foreground">Shop by</span>
-                    <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="min-w-[150px] justify-between">
-                        <span className="capitalize">{filterBy}</span>
-                        <ChevronDown className="h-4 w-4" style={{ color: 'var(--store-primary)' }} />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onSelect={() => setFilterBy('category')}>Category</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setFilterBy('brand')}>Brand</DropdownMenuItem>
-                    </DropdownMenuContent>
-                    </DropdownMenu>
+              <div className="flex items-center justify-center gap-4 mb-8">
+                <span className="text-lg font-medium text-muted-foreground">
+                  Shop by
+                </span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="min-w-[150px] justify-between"
+                    >
+                      <span className="capitalize">{filterBy}</span>
+                      <ChevronDown
+                        className="h-4 w-4"
+                        style={{ color: 'var(--store-primary)' }}
+                      />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => setFilterBy('category')}>
+                      Category
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setFilterBy('brand')}>
+                      Brand
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {currentFilterOptions.length > 0 && (
+                <div className="flex justify-center gap-2 mb-8 flex-wrap">
+                  {currentFilterOptions.map((option) => (
+                    <ThemedButton
+                      key={option}
+                      variant={
+                        currentSelectedFilter === option ? 'default' : 'outline'
+                      }
+                      colorRole={
+                        currentSelectedFilter === option ? 'primary' : 'accent'
+                      }
+                      onClick={() => handleFilterClick(option)}
+                      size="sm"
+                      className="capitalize"
+                    >
+                      {option}
+                    </ThemedButton>
+                  ))}
                 </div>
-
-                {currentFilterOptions.length > 0 && (
-                    <div className="flex justify-center gap-2 mb-8 flex-wrap">
-                    {currentFilterOptions.map(option => (
-                        <ThemedButton
-                        key={option}
-                        variant={currentSelectedFilter === option ? 'default' : 'outline'}
-                        colorRole={currentSelectedFilter === option ? 'primary' : 'accent'}
-                        onClick={() => handleFilterClick(option)}
-                        size="sm"
-                        className="capitalize"
-                        >
-                        {option}
-                        </ThemedButton>
-                    ))}
-                    </div>
-                )}
-
+              )}
 
               {isLoading ? (
                 <div className="flex justify-center py-12">
@@ -342,10 +410,16 @@ function StorefrontContent() {
               ) : searchResults.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {searchResults.map((product, index) => {
-                    const cartItem = cart.find(item => item.id === product.id);
+                    const cartItem = cart.find(
+                      (item) => item.id === product.id
+                    );
 
                     return (
-                      <ThemedCard key={product.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col" accentPosition="top">
+                      <ThemedCard
+                        key={product.id}
+                        className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col"
+                        accentPosition="top"
+                      >
                         <Link href={getProductUrl(product)} className="block">
                           <Image
                             src={product.imageLarge}
@@ -358,28 +432,67 @@ function StorefrontContent() {
                           />
                         </Link>
                         <CardContent className="p-4 flex flex-col flex-1">
-                          <h3 className="font-semibold text-lg">{product.name}</h3>
-                          <p className="text-muted-foreground text-sm mt-1 truncate flex-1">{product.description}</p>
+                          <h3 className="font-semibold text-lg">
+                            {product.name}
+                          </h3>
+                          <p className="text-muted-foreground text-sm mt-1 truncate flex-1">
+                            {product.description}
+                          </p>
                           <div className="flex items-center justify-between mt-4">
-                            <p className="text-lg font-bold" style={{ color: 'var(--store-primary)' }}>{formatCurrency(product.price)}</p>
+                            <p
+                              className="text-lg font-bold"
+                              style={{ color: 'var(--store-primary)' }}
+                            >
+                              {formatCurrency(product.price)}
+                            </p>
                             {cartItem ? (
                               <div className="flex items-center gap-1">
-                                <ThemedButton colorRole="accent" size="icon" variant="outline" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity - 1)}>
+                                <ThemedButton
+                                  colorRole="accent"
+                                  size="icon"
+                                  variant="outline"
+                                  className="h-8 w-8"
+                                  onClick={() =>
+                                    updateQuantity(
+                                      product.id,
+                                      cartItem.quantity - 1
+                                    )
+                                  }
+                                >
                                   <Minus className="h-4 w-4" />
                                 </ThemedButton>
                                 <Input
                                   type="number"
                                   value={cartItem.quantity}
-                                  onChange={(e) => updateQuantity(product.id, parseInt(e.target.value, 10) || 0)}
+                                  onChange={(e) =>
+                                    updateQuantity(
+                                      product.id,
+                                      Number.parseInt(e.target.value, 10) || 0
+                                    )
+                                  }
                                   className="h-8 w-12 text-center remove-arrow"
                                   min="0"
                                 />
-                                <ThemedButton colorRole="accent" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, cartItem.quantity + 1)}>
+                                <ThemedButton
+                                  colorRole="accent"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() =>
+                                    updateQuantity(
+                                      product.id,
+                                      cartItem.quantity + 1
+                                    )
+                                  }
+                                >
                                   <Plus className="h-4 w-4" />
                                 </ThemedButton>
                               </div>
                             ) : (
-                              <ThemedButton colorRole="primary" size="sm" onClick={() => handleAddToCart(product)}>
+                              <ThemedButton
+                                colorRole="primary"
+                                size="sm"
+                                onClick={() => handleAddToCart(product)}
+                              >
                                 Add to Cart
                               </ThemedButton>
                             )}
@@ -392,7 +505,9 @@ function StorefrontContent() {
               ) : (
                 <div className="text-center text-muted-foreground py-16">
                   <h3 className="text-xl font-semibold">No products found</h3>
-                  <p>Your search for "{searchQuery}" did not match any products.</p>
+                  <p>
+                    Your search for "{searchQuery}" did not match any products.
+                  </p>
                 </div>
               )}
             </div>
@@ -401,20 +516,32 @@ function StorefrontContent() {
 
         <footer
           className="text-white"
-          style={{ backgroundColor: darkestColor, color: getContrastingTextColor(darkestColor) }}
+          style={{
+            backgroundColor: darkestColor,
+            color: getContrastingTextColor(darkestColor),
+          }}
         >
           <div className="container mx-auto py-8 px-4 md:px-6">
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <h3 className="text-lg font-semibold mb-4">{merchant.business_name}</h3>
-                <p className="text-sm opacity-80">&copy; {new Date().getFullYear()} {merchant.business_name}. All rights reserved.</p>
+                <h3 className="text-lg font-semibold mb-4">
+                  {merchant.business_name}
+                </h3>
+                <p className="text-sm opacity-80">
+                  &copy; {new Date().getFullYear()} {merchant.business_name}.
+                  All rights reserved.
+                </p>
               </div>
               {availableFooterLinks.length > 0 && (
                 <div className="lg:col-span-2">
                   <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
                   <nav className="grid grid-cols-2 gap-2">
                     {availableFooterLinks.map((link) => (
-                      <ThemedLink key={link.key} className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100" href={dynamicRoutes.page(link.key)}>
+                      <ThemedLink
+                        key={link.key}
+                        className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
+                        href={dynamicRoutes.page(link.key)}
+                      >
                         {link.label}
                       </ThemedLink>
                     ))}
@@ -436,7 +563,6 @@ function StorefrontContent() {
   );
 }
 
-
 export function Storefront() {
   const { merchant, loading } = useMerchant();
 
@@ -451,9 +577,13 @@ export function Storefront() {
   if (!merchant) {
     return (
       <div className="flex flex-col min-h-screen items-center justify-center bg-background text-center px-4">
-        <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl">Store Not Found</h1>
+        <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl">
+          Store Not Found
+        </h1>
         <p className="max-w-[600px] text-muted-foreground md:text-xl mt-4">
-          The store you're looking for doesn't exist or the URL is incorrect. Please double-check the address. If you're the store owner, make sure you have completed the onboarding process.
+          The store you're looking for doesn't exist or the URL is incorrect.
+          Please double-check the address. If you're the store owner, make sure
+          you have completed the onboarding process.
         </p>
         <Button asChild className="mt-8">
           <Link href="/">Return to Baci Home</Link>
@@ -466,16 +596,19 @@ export function Storefront() {
   const StoreTemplate = businessTypeConfig?.template;
 
   if (!StoreTemplate) {
-    return <div>Error: Store template not found for business type '{merchant.business_type}'.</div>;
+    return (
+      <div>
+        Error: Store template not found for business type '
+        {merchant.business_type}'.
+      </div>
+    );
   }
 
   return (
     <ThemedStorefrontLayout>
-        <StoreTemplate>
-            <StorefrontContent />
-        </StoreTemplate>
+      <StoreTemplate>
+        <StorefrontContent />
+      </StoreTemplate>
     </ThemedStorefrontLayout>
   );
 }
-
-    

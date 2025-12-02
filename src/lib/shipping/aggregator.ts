@@ -3,21 +3,22 @@
  * Fetches quotes from all providers and ranks them for display
  */
 
+import type { ShippingProviderRegistry } from './providers/base';
 import type {
-  ShippingQuote,
+  DeliveryTier,
   QuoteRequest,
   QuoteResponse,
-  DeliveryTier,
+  ShippingQuote,
 } from './types';
 import { mapToDeliveryTier, TIER_DISPLAY_NAMES } from './types';
-import { ShippingProviderRegistry } from './providers/base';
 
 // =============================================================================
 // CONFIGURATION
 // =============================================================================
 
 const DEFAULT_SHIPPING_FEE = Number(process.env.DEFAULT_SHIPPING_FEE) || 1500;
-const QUOTE_TTL_SECONDS = Number(process.env.SHIPPING_QUOTE_TTL_SECONDS) || 3600;
+const QUOTE_TTL_SECONDS =
+  Number(process.env.SHIPPING_QUOTE_TTL_SECONDS) || 3600;
 
 // =============================================================================
 // FALLBACK QUOTE
@@ -67,7 +68,7 @@ function calculateQuoteScore(quote: ShippingQuote): number {
 
   // Reliability bonus (carriers we trust)
   const trustedCarriers = ['DHL', 'FedEx', 'UPS', 'GIG Logistics'];
-  if (trustedCarriers.some(c => quote.carrierName.includes(c))) {
+  if (trustedCarriers.some((c) => quote.carrierName.includes(c))) {
     score -= 10;
   }
 
@@ -84,7 +85,7 @@ function calculateQuoteScore(quote: ShippingQuote): number {
  */
 function rankQuotes(quotes: ShippingQuote[]): RankedQuote[] {
   return quotes
-    .map(quote => ({
+    .map((quote) => ({
       ...quote,
       score: calculateQuoteScore(quote),
       tier: mapToDeliveryTier(quote.serviceTier, quote.estimatedDays),
@@ -105,35 +106,45 @@ function selectFeaturedQuotes(rankedQuotes: RankedQuote[]): ShippingQuote[] {
 
   // 1. Cheapest option
   const cheapest = rankedQuotes
-    .filter(q => !q.isStationPickup) // Prefer home delivery
+    .filter((q) => !q.isStationPickup) // Prefer home delivery
     .sort((a, b) => a.price - b.price)[0];
   if (cheapest && !usedIds.has(cheapest.id)) {
-    featured.push({ ...cheapest, displayName: `${TIER_DISPLAY_NAMES.economy.icon} Economy Delivery` });
+    featured.push({
+      ...cheapest,
+      displayName: `${TIER_DISPLAY_NAMES.economy.icon} Economy Delivery`,
+    });
     usedIds.add(cheapest.id);
   }
 
   // 2. Fastest option
   const fastest = rankedQuotes
-    .filter(q => !usedIds.has(q.id) && !q.isStationPickup)
+    .filter((q) => !usedIds.has(q.id) && !q.isStationPickup)
     .sort((a, b) => a.estimatedDays - b.estimatedDays)[0];
   if (fastest && !usedIds.has(fastest.id)) {
-    featured.push({ ...fastest, displayName: `${TIER_DISPLAY_NAMES.express.icon} Express Delivery` });
+    featured.push({
+      ...fastest,
+      displayName: `${TIER_DISPLAY_NAMES.express.icon} Express Delivery`,
+    });
     usedIds.add(fastest.id);
   }
 
   // 3. Recommended (best value - balance of price and speed)
   const recommended = rankedQuotes
-    .filter(q => !usedIds.has(q.id) && !q.isStationPickup)
+    .filter((q) => !usedIds.has(q.id) && !q.isStationPickup)
     .sort((a, b) => a.score - b.score)[0];
   if (recommended && !usedIds.has(recommended.id)) {
-    featured.push({ ...recommended, displayName: `${TIER_DISPLAY_NAMES.standard.icon} Standard Delivery` });
+    featured.push({
+      ...recommended,
+      displayName: `${TIER_DISPLAY_NAMES.standard.icon} Standard Delivery`,
+    });
     usedIds.add(recommended.id);
   }
 
   // If we still have less than 3 and there are station pickup options, add one
   if (featured.length < 3) {
-    const stationPickup = rankedQuotes
-      .filter(q => !usedIds.has(q.id) && q.isStationPickup)[0];
+    const stationPickup = rankedQuotes.filter(
+      (q) => !usedIds.has(q.id) && q.isStationPickup
+    )[0];
     if (stationPickup) {
       featured.push(stationPickup);
     }
@@ -147,15 +158,16 @@ function selectFeaturedQuotes(rankedQuotes: RankedQuote[]): ShippingQuote[] {
 // =============================================================================
 
 export class QuoteAggregator {
-  constructor(private registry: ShippingProviderRegistry) { }
+  constructor(private registry: ShippingProviderRegistry) {}
 
   /**
    * Get aggregated quotes from all enabled providers
    */
   async getQuotes(request: QuoteRequest): Promise<QuoteResponse> {
-    const providers = request.shipmentType === 'international'
-      ? this.registry.getInternational()
-      : this.registry.getDomestic();
+    const providers =
+      request.shipmentType === 'international'
+        ? this.registry.getInternational()
+        : this.registry.getDomestic();
 
     if (providers.length === 0) {
       return this.createFallbackResponse(request.sessionId);
@@ -163,7 +175,7 @@ export class QuoteAggregator {
 
     // Fetch from all providers in parallel
     const results = await Promise.allSettled(
-      providers.map(provider => provider.getQuotes(request))
+      providers.map((provider) => provider.getQuotes(request))
     );
 
     const allQuotes: ShippingQuote[] = [];
@@ -173,14 +185,21 @@ export class QuoteAggregator {
       if (result.status === 'fulfilled') {
         allQuotes.push(...result.value);
       } else {
-        warnings.push(`${providers[index].name}: ${result.reason?.message || 'Unknown error'}`);
-        console.error('[QuoteAggregator] Provider failed', { provider: providers[index].name, reason: result.reason });
+        warnings.push(
+          `${providers[index].name}: ${result.reason?.message || 'Unknown error'}`
+        );
+        console.error('[QuoteAggregator] Provider failed', {
+          provider: providers[index].name,
+          reason: result.reason,
+        });
       }
     });
 
     // If all providers failed, return fallback
     if (allQuotes.length === 0) {
-      console.warn('[QuoteAggregator] All providers failed, using fallback quote');
+      console.warn(
+        '[QuoteAggregator] All providers failed, using fallback quote'
+      );
       return this.createFallbackResponse(request.sessionId, warnings);
     }
 
@@ -208,7 +227,10 @@ export class QuoteAggregator {
   /**
    * Create a fallback response when no providers are available
    */
-  private createFallbackResponse(sessionId: string, warnings?: string[]): QuoteResponse {
+  private createFallbackResponse(
+    sessionId: string,
+    warnings?: string[]
+  ): QuoteResponse {
     const fallbackQuote = createFallbackQuote();
     return {
       quotes: {
@@ -229,7 +251,10 @@ export class QuoteAggregator {
 /**
  * Format price for display
  */
-export function formatShippingPrice(price: number, currency: string = 'NGN'): string {
+export function formatShippingPrice(
+  price: number,
+  currency: string = 'NGN'
+): string {
   return new Intl.NumberFormat('en-NG', {
     style: 'currency',
     currency,
@@ -255,7 +280,9 @@ export function formatDeliveryEstimate(
 /**
  * Group quotes by tier for display
  */
-export function groupQuotesByTier(quotes: ShippingQuote[]): Record<DeliveryTier, ShippingQuote[]> {
+export function groupQuotesByTier(
+  quotes: ShippingQuote[]
+): Record<DeliveryTier, ShippingQuote[]> {
   const grouped: Record<DeliveryTier, ShippingQuote[]> = {
     express: [],
     premium: [],
@@ -263,13 +290,13 @@ export function groupQuotesByTier(quotes: ShippingQuote[]): Record<DeliveryTier,
     economy: [],
   };
 
-  quotes.forEach(quote => {
+  quotes.forEach((quote) => {
     const tier = mapToDeliveryTier(quote.serviceTier, quote.estimatedDays);
     grouped[tier].push(quote);
   });
 
   // Sort each group by price
-  Object.keys(grouped).forEach(tier => {
+  Object.keys(grouped).forEach((tier) => {
     grouped[tier as DeliveryTier].sort((a, b) => a.price - b.price);
   });
 
@@ -280,6 +307,7 @@ export function groupQuotesByTier(quotes: ShippingQuote[]): Record<DeliveryTier,
  * Check if quotes have expired
  */
 export function hasQuotesExpired(expiresAt: string | Date): boolean {
-  const expiry = typeof expiresAt === 'string' ? new Date(expiresAt) : expiresAt;
+  const expiry =
+    typeof expiresAt === 'string' ? new Date(expiresAt) : expiresAt;
   return Date.now() > expiry.getTime();
 }

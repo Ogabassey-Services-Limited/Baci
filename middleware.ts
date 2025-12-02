@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+import { type CookieOptions, createServerClient } from '@supabase/ssr';
 import type { NextRequest } from 'next/server';
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { getSupabaseUrl, getSupabaseAnonKey, getRootDomain } from '@/env';
-import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { NextResponse } from 'next/server';
+import { getRootDomain, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { checkCsrfProtection } from '@/lib/csrf';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -24,12 +24,22 @@ export async function middleware(request: NextRequest) {
     // Add rate limit headers to response
     const response = NextResponse.next();
     response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-    response.headers.set('X-RateLimit-Remaining', rateLimitResult.remaining.toString());
-    response.headers.set('X-RateLimit-Reset', new Date(rateLimitResult.resetTime).toISOString());
+    response.headers.set(
+      'X-RateLimit-Remaining',
+      rateLimitResult.remaining.toString()
+    );
+    response.headers.set(
+      'X-RateLimit-Reset',
+      new Date(rateLimitResult.resetTime).toISOString()
+    );
   }
 
   // Apply CSRF protection to API routes (except webhooks and auth)
-  if (pathname.startsWith('/api/') && !pathname.startsWith('/api/webhooks/') && !pathname.startsWith('/api/auth/')) {
+  if (
+    pathname.startsWith('/api/') &&
+    !pathname.startsWith('/api/webhooks/') &&
+    !pathname.startsWith('/api/auth/')
+  ) {
     const csrfResult = await checkCsrfProtection(request);
 
     if (!csrfResult.valid && csrfResult.response) {
@@ -46,41 +56,37 @@ export async function middleware(request: NextRequest) {
   });
 
   // Create Supabase client for middleware to manage auth session
-  const supabase = createServerClient(
-    getSupabaseUrl(),
-    getSupabaseAnonKey(),
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          });
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          });
-        },
+  const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
+    cookies: {
+      get(name: string) {
+        return request.cookies.get(name)?.value;
       },
-    }
-  );
+      set(name: string, value: string, options: CookieOptions) {
+        request.cookies.set({
+          name,
+          value,
+          ...options,
+        });
+        response.cookies.set({
+          name,
+          value,
+          ...options,
+        });
+      },
+      remove(name: string, options: CookieOptions) {
+        request.cookies.set({
+          name,
+          value: '',
+          ...options,
+        });
+        response.cookies.set({
+          name,
+          value: '',
+          ...options,
+        });
+      },
+    },
+  });
 
   // Refresh the auth session to ensure cookies are up to date
   await supabase.auth.getSession();
@@ -99,7 +105,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check if it's a custom domain (not a subdomain of rootDomain)
-  const isCustomDomain = !hostname.endsWith(`.${rootDomain}`) && !hostname.includes('localhost');
+  const isCustomDomain =
+    !hostname.endsWith(`.${rootDomain}`) && !hostname.includes('localhost');
 
   if (isCustomDomain) {
     // Look up custom domain in database

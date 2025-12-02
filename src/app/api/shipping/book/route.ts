@@ -3,13 +3,16 @@
  * Book a shipment with the selected provider
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
-import { shippingService } from '@/lib/shipping';
-import type { BookingRequest, ShippingProviderCode } from '@/lib/shipping/types';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isValidUuid } from '@/lib/sanitize-core';
+import { shippingService } from '@/lib/shipping';
+import type {
+  BookingRequest,
+  ShippingProviderCode,
+} from '@/lib/shipping/types';
+import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
 // REQUEST VALIDATION
@@ -34,26 +37,32 @@ const BookingRequestSchema = z.object({
     stationId: z.number().optional(),
   }),
   // Sender info (optional - uses merchant address)
-  sender: z.object({
-    name: z.string().min(1),
-    email: z.string().email().optional(),
-    phone: z.string().min(1),
-    address: z.string().min(1),
-    city: z.string().min(1),
-    state: z.string().min(1),
-    country: z.string().default('Nigeria'),
-    countryCode: z.string().default('NG'),
-    postalCode: z.string().optional(),
-    stationId: z.number().optional(),
-  }).optional(),
+  sender: z
+    .object({
+      name: z.string().min(1),
+      email: z.string().email().optional(),
+      phone: z.string().min(1),
+      address: z.string().min(1),
+      city: z.string().min(1),
+      state: z.string().min(1),
+      country: z.string().default('Nigeria'),
+      countryCode: z.string().default('NG'),
+      postalCode: z.string().optional(),
+      stationId: z.number().optional(),
+    })
+    .optional(),
   // Items to ship (required)
-  items: z.array(z.object({
-    name: z.string().min(1),
-    quantity: z.number().int().positive(),
-    weight: z.number().positive(),
-    value: z.number().nonnegative(),
-    category: z.string().optional(),
-  })).min(1),
+  items: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        quantity: z.number().int().positive(),
+        weight: z.number().positive(),
+        value: z.number().nonnegative(),
+        category: z.string().optional(),
+      })
+    )
+    .min(1),
   // Special instructions
   instructions: z.string().optional(),
 });
@@ -68,12 +77,12 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Authenticate
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant
@@ -98,7 +107,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request',
-          details: parseResult.error.flatten().fieldErrors
+          details: parseResult.error.flatten().fieldErrors,
         },
         { status: 400 }
       );
@@ -115,15 +124,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (orderError || !order) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // Check if already shipped
     // Check if already shipped or being processed
-    if (['shipped', 'delivered', 'processing'].includes(order.shipping_status)) {
+    if (
+      ['shipped', 'delivered', 'processing'].includes(order.shipping_status)
+    ) {
       return NextResponse.json(
         { error: 'Order has already been shipped or is being processed' },
         { status: 400 }
@@ -155,7 +163,9 @@ export async function POST(request: NextRequest) {
     // Build sender info
     let senderInfo = data.sender;
     if (!senderInfo) {
-      const locationParts = (merchant.business_location || 'Lagos').split(',').map((s: string) => s.trim());
+      const locationParts = (merchant.business_location || 'Lagos')
+        .split(',')
+        .map((s: string) => s.trim());
       senderInfo = {
         name: merchant.business_name || 'Merchant',
         phone: merchant.phone || '',
@@ -215,7 +225,9 @@ export async function POST(request: NextRequest) {
       // Return error - inconsistent state is worse than failed booking
       return NextResponse.json(
         {
-          error: 'Shipment booked with provider but failed to save record. Contact support with tracking number: ' + result.trackingNumber,
+          error:
+            'Shipment booked with provider but failed to save record. Contact support with tracking number: ' +
+            result.trackingNumber,
           trackingNumber: result.trackingNumber,
         },
         { status: 500 }
@@ -241,23 +253,28 @@ export async function POST(request: NextRequest) {
       .update({ used: true })
       .eq('id', data.quoteId);
 
-    return NextResponse.json({
-      success: true,
-      shipment: {
-        id: shipment?.id,
-        trackingNumber: result.trackingNumber,
-        providerShipmentId: result.providerShipmentId,
-        carrier: result.carrierName,
-        status: result.status,
-        pickupScheduledAt: result.pickupScheduledAt,
-        labelUrl: result.labelUrl,
+    return NextResponse.json(
+      {
+        success: true,
+        shipment: {
+          id: shipment?.id,
+          trackingNumber: result.trackingNumber,
+          providerShipmentId: result.providerShipmentId,
+          carrier: result.carrierName,
+          status: result.status,
+          pickupScheduledAt: result.pickupScheduledAt,
+          labelUrl: result.labelUrl,
+        },
       },
-    }, { status: 201 });
-
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error booking shipment:', error);
     return NextResponse.json(
-      { error: 'Failed to book shipment', details: error instanceof Error ? error.message : 'Unknown error' },
+      {
+        error: 'Failed to book shipment',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }

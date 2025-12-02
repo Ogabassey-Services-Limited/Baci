@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { type NextRequest, NextResponse } from 'next/server';
 
 // Lazy initialization to avoid build-time errors
 function getSupabaseAdmin() {
@@ -45,7 +45,14 @@ interface PlatformEventRequest {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as PlatformEventRequest;
-    const { event_type, event_data, merchant_id, session_id, page_url, referrer } = body;
+    const {
+      event_type,
+      event_data,
+      merchant_id,
+      session_id,
+      page_url,
+      referrer,
+    } = body;
 
     if (!event_type) {
       return NextResponse.json(
@@ -62,17 +69,19 @@ export async function POST(request: NextRequest) {
       undefined;
 
     // Insert platform event
-    const { error } = await getSupabaseAdmin().from('platform_events').insert({
-      event_type,
-      event_data: event_data || {},
-      merchant_id: merchant_id || null,
-      session_id,
-      user_agent: userAgent,
-      ip_address: ipAddress,
-      referrer,
-      page_url,
-      event_timestamp: new Date().toISOString(),
-    });
+    const { error } = await getSupabaseAdmin()
+      .from('platform_events')
+      .insert({
+        event_type,
+        event_data: event_data || {},
+        merchant_id: merchant_id || null,
+        session_id,
+        user_agent: userAgent,
+        ip_address: ipAddress,
+        referrer,
+        page_url,
+        event_timestamp: new Date().toISOString(),
+      });
 
     if (error) {
       console.error('Failed to insert platform event:', error);
@@ -109,7 +118,9 @@ async function forwardToPlatformAnalytics(
   // Get platform settings
   const { data: settings } = await getSupabaseAdmin()
     .from('platform_settings')
-    .select('google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token')
+    .select(
+      'google_analytics_id, ga4_api_secret, facebook_pixel_id, facebook_capi_token'
+    )
     .single();
 
   if (!settings) return;
@@ -171,13 +182,14 @@ async function forwardToPlatformAnalytics(
         | 'Purchase'
         | 'InitiateCheckout';
 
-      const fbEventMap: Partial<Record<PlatformEventType, FacebookEventName>> = {
-        landing_page_view: 'PageView',
-        merchant_signup_completed: 'CompleteRegistration',
-        merchant_store_published: 'Lead',
-        platform_purchase: 'Purchase',
-        merchant_signup_started: 'InitiateCheckout',
-      };
+      const fbEventMap: Partial<Record<PlatformEventType, FacebookEventName>> =
+        {
+          landing_page_view: 'PageView',
+          merchant_signup_completed: 'CompleteRegistration',
+          merchant_store_published: 'Lead',
+          platform_purchase: 'Purchase',
+          merchant_signup_started: 'InitiateCheckout',
+        };
 
       const fbEvent = fbEventMap[eventType];
       if (fbEvent) {
@@ -187,7 +199,8 @@ async function forwardToPlatformAnalytics(
           fbEvent,
           {
             clientIpAddress:
-              request.headers.get('x-forwarded-for')?.split(',')[0] || undefined,
+              request.headers.get('x-forwarded-for')?.split(',')[0] ||
+              undefined,
             clientUserAgent: request.headers.get('user-agent') || undefined,
           },
           eventType === 'platform_purchase'

@@ -1,12 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { ArrowLeft, Package, Search } from 'lucide-react';
 import Link from 'next/link';
-import { Search, Package, ArrowLeft } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 export default function TrackPage() {
   const router = useRouter();
@@ -40,7 +46,8 @@ export default function TrackPage() {
             </div>
             <CardTitle className="text-2xl">Track Your Order</CardTitle>
             <CardDescription>
-              Enter your tracking number to see the delivery status of your shipment.
+              Enter your tracking number to see the delivery status of your
+              shipment.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -56,7 +63,11 @@ export default function TrackPage() {
                   autoComplete="off"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={!trackingNumber.trim() || isLoading}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={!trackingNumber.trim() || isLoading}
+              >
                 {isLoading ? 'Tracking...' : 'Track Shipment'}
               </Button>
             </form>
@@ -67,7 +78,10 @@ export default function TrackPage() {
         <p className="text-sm text-muted-foreground text-center">
           Your tracking number was sent to your email after placing an order.
           Can&apos;t find it?{' '}
-          <a href="mailto:support@usebaci.com" className="text-primary underline">
+          <a
+            href="mailto:support@usebaci.com"
+            className="text-primary underline"
+          >
             Contact Support
           </a>
         </p>

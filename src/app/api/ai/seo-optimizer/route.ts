@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
 import { generateText } from 'ai';
+import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { geminiFlash } from '@/ai/provider';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * AI SEO Optimizer API
@@ -67,7 +67,9 @@ function analyzeSEO(
 
   // Title analysis
   const titleLength = title.length;
-  const titleHasKeyword = title.toLowerCase().includes(focusKeyword.toLowerCase());
+  const titleHasKeyword = title
+    .toLowerCase()
+    .includes(focusKeyword.toLowerCase());
 
   if (titleLength < 30) {
     issues.push('Title is too short (< 30 chars)');
@@ -85,7 +87,9 @@ function analyzeSEO(
 
   // Description analysis
   const descLength = description.length;
-  const descHasKeyword = description.toLowerCase().includes(focusKeyword.toLowerCase());
+  const descHasKeyword = description
+    .toLowerCase()
+    .includes(focusKeyword.toLowerCase());
 
   if (descLength < 120) {
     issues.push('Meta description is too short (< 120 chars)');
@@ -113,11 +117,18 @@ function analyzeSEO(
 
   // Additional suggestions
   if (!title.match(/buy|shop|best|top|quality|premium/i)) {
-    suggestions.push('Consider adding power words like "Best", "Premium", or "Quality"');
+    suggestions.push(
+      'Consider adding power words like "Best", "Premium", or "Quality"'
+    );
   }
 
-  if (!description.includes('₦') && !description.match(/free shipping|discount|sale/i)) {
-    suggestions.push('Consider mentioning price or promotions in the description');
+  if (
+    !description.includes('₦') &&
+    !description.match(/free shipping|discount|sale/i)
+  ) {
+    suggestions.push(
+      'Consider mentioning price or promotions in the description'
+    );
   }
 
   return {
@@ -132,7 +143,9 @@ function analyzeSEO(
   };
 }
 
-async function generateSEOContent(product: Product): Promise<SEOOptimization['optimized']> {
+async function generateSEOContent(
+  product: Product
+): Promise<SEOOptimization['optimized']> {
   const prompt = `You are an expert SEO specialist for Nigerian e-commerce. Generate optimized SEO content for this product:
 
 Product Name: ${product.name}
@@ -198,8 +211,16 @@ Return ONLY valid JSON, no markdown or explanation.`;
       ? `${product.category} ${product.name.split(' ')[0]}`
       : product.name.split(' ').slice(0, 2).join(' ');
 
-    const metaTitle = `${product.name} | Buy ${product.brand || ''} ${product.category || 'Products'} in Nigeria`.substring(0, 60);
-    const metaDescription = `Shop ${product.name} at the best price in Nigeria. ${product.description.substring(0, 80)}... Order now with fast delivery!`.substring(0, 160);
+    const metaTitle =
+      `${product.name} | Buy ${product.brand || ''} ${product.category || 'Products'} in Nigeria`.substring(
+        0,
+        60
+      );
+    const metaDescription =
+      `Shop ${product.name} at the best price in Nigeria. ${product.description.substring(0, 80)}... Order now with fast delivery!`.substring(
+        0,
+        160
+      );
 
     return {
       meta_title: metaTitle,
@@ -227,7 +248,9 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Auth check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -240,7 +263,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const body = await request.json();
@@ -264,7 +290,9 @@ export async function POST(request: NextRequest) {
     // Fetch products
     const { data: products, error } = await supabase
       .from('products')
-      .select('id, name, description, category, brand, price, meta_title, meta_description, keywords')
+      .select(
+        'id, name, description, category, brand, price, meta_title, meta_description, keywords'
+      )
       .eq('merchant_id', merchant.id)
       .in('id', productIds);
 
@@ -307,8 +335,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate overall stats
-    const avgScore = optimizations.reduce((sum, o) => sum + o.optimized.seo_score, 0) / optimizations.length;
-    const productsNeedingWork = optimizations.filter(o => o.optimized.seo_score < 70).length;
+    const avgScore =
+      optimizations.reduce((sum, o) => sum + o.optimized.seo_score, 0) /
+      optimizations.length;
+    const productsNeedingWork = optimizations.filter(
+      (o) => o.optimized.seo_score < 70
+    ).length;
 
     return NextResponse.json({
       success: true,
@@ -338,7 +370,9 @@ export async function GET(_request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Auth check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -351,7 +385,10 @@ export async function GET(_request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get all active products
@@ -362,7 +399,7 @@ export async function GET(_request: NextRequest) {
       .eq('status', 'active');
 
     // Analyze each product
-    const analysis = (products || []).map(product => {
+    const analysis = (products || []).map((product) => {
       const hasTitle = !!product.meta_title;
       const hasDescription = !!product.meta_description;
       const hasKeywords = product.keywords && product.keywords.length > 0;
@@ -381,7 +418,10 @@ export async function GET(_request: NextRequest) {
 
       if (hasDescription) {
         score += 40;
-        if (product.meta_description.length < 120 || product.meta_description.length > 160) {
+        if (
+          product.meta_description.length < 120 ||
+          product.meta_description.length > 160
+        ) {
           issues.push('Description length not optimal');
         }
       } else {
@@ -407,12 +447,15 @@ export async function GET(_request: NextRequest) {
 
     // Summary stats
     const totalProducts = analysis.length;
-    const avgScore = totalProducts > 0
-      ? Math.round(analysis.reduce((sum, a) => sum + a.seoScore, 0) / totalProducts)
-      : 0;
-    const missingTitle = analysis.filter(a => !a.hasTitle).length;
-    const missingDescription = analysis.filter(a => !a.hasDescription).length;
-    const missingKeywords = analysis.filter(a => !a.hasKeywords).length;
+    const avgScore =
+      totalProducts > 0
+        ? Math.round(
+            analysis.reduce((sum, a) => sum + a.seoScore, 0) / totalProducts
+          )
+        : 0;
+    const missingTitle = analysis.filter((a) => !a.hasTitle).length;
+    const missingDescription = analysis.filter((a) => !a.hasDescription).length;
+    const missingKeywords = analysis.filter((a) => !a.hasKeywords).length;
 
     return NextResponse.json({
       summary: {
@@ -421,8 +464,8 @@ export async function GET(_request: NextRequest) {
         missingTitle,
         missingDescription,
         missingKeywords,
-        fullyOptimized: analysis.filter(a => a.seoScore === 100).length,
-        needsWork: analysis.filter(a => a.seoScore < 70).length,
+        fullyOptimized: analysis.filter((a) => a.seoScore === 100).length,
+        needsWork: analysis.filter((a) => a.seoScore < 70).length,
       },
       products: analysis.sort((a, b) => a.seoScore - b.seoScore), // Worst first
     });

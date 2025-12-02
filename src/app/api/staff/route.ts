@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server';
+import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
 export type StaffRole =
@@ -39,7 +39,9 @@ export async function GET() {
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -52,7 +54,10 @@ export async function GET() {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get staff members
@@ -65,7 +70,10 @@ export async function GET() {
 
     if (staffError) {
       console.error('Failed to fetch staff:', staffError);
-      return NextResponse.json({ error: 'Failed to fetch staff' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch staff' },
+        { status: 500 }
+      );
     }
 
     // Get role permissions for reference
@@ -79,7 +87,10 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Staff fetch error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -93,7 +104,9 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -106,7 +119,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Parse request body
@@ -163,7 +179,10 @@ export async function POST(request: NextRequest) {
 
         if (reactivateError) {
           console.error('Failed to reactivate staff:', reactivateError);
-          return NextResponse.json({ error: 'Failed to invite staff member' }, { status: 500 });
+          return NextResponse.json(
+            { error: 'Failed to invite staff member' },
+            { status: 500 }
+          );
         }
 
         return NextResponse.json({
@@ -200,7 +219,10 @@ export async function POST(request: NextRequest) {
 
     if (createError) {
       console.error('Failed to create staff:', createError);
-      return NextResponse.json({ error: 'Failed to invite staff member' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to invite staff member' },
+        { status: 500 }
+      );
     }
 
     // Build invitation URL
@@ -242,13 +264,19 @@ export async function POST(request: NextRequest) {
       emailType: 'team',
     }).catch((err) => console.error('Staff invitation email error:', err));
 
-    return NextResponse.json({
-      staff: newStaff,
-      inviteUrl,
-      message: 'Staff member invited successfully',
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        staff: newStaff,
+        inviteUrl,
+        message: 'Staff member invited successfully',
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Staff invite error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

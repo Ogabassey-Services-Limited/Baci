@@ -4,20 +4,20 @@
  * Provides a unified API for quotes, booking, tracking, and cancellation
  */
 
+import { QuoteAggregator } from './aggregator';
 import { ShippingProviderRegistry } from './providers/base';
 import { GiglProvider } from './providers/gigl';
-import { TopshipProvider } from './providers/topship';
 import { ShiipProvider } from './providers/shiip';
-import { QuoteAggregator } from './aggregator';
+import { TopshipProvider } from './providers/topship';
 import type {
+  BookingRequest,
+  CancellationResult,
   QuoteRequest,
   QuoteResponse,
-  BookingRequest,
   ShipmentBookingResult,
-  TrackingResult,
-  CancellationResult,
   ShippingProviderCode,
   ShippingQuote,
+  TrackingResult,
   UnifiedLocation,
 } from './types';
 
@@ -89,7 +89,8 @@ export class ShippingService {
       throw new Error(`Provider ${provider} not found`);
     }
 
-    console.log('[ShippingService] Booking shipment', { provider,
+    console.log('[ShippingService] Booking shipment', {
+      provider,
       orderId: request.orderId,
       quoteId: request.quoteId,
     });
@@ -134,11 +135,15 @@ export class ShippingService {
         const result = await p.trackShipment(trackingNumber);
         return result;
       } catch (error) {
-        errors.push(`${p.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        errors.push(
+          `${p.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
 
-    throw new Error(`Shipment not found. Tried providers: ${errors.join(', ')}`);
+    throw new Error(
+      `Shipment not found. Tried providers: ${errors.join(', ')}`
+    );
   }
 
   // ==========================================================================
@@ -157,7 +162,10 @@ export class ShippingService {
       throw new Error(`Provider ${provider} not found`);
     }
 
-    console.log('[ShippingService] Cancelling shipment', { provider, shipmentId });
+    console.log('[ShippingService] Cancelling shipment', {
+      provider,
+      shipmentId,
+    });
 
     return providerInstance.cancelShipment(shipmentId);
   }
@@ -185,7 +193,11 @@ export class ShippingService {
             }
           }
         } catch (error) {
-          console.error('[ShippingService] Failed to get locations from provider:', provider.name, error);
+          console.error(
+            '[ShippingService] Failed to get locations from provider:',
+            provider.name,
+            error
+          );
         }
       }
     }
@@ -218,7 +230,7 @@ export class ShippingService {
    * Get list of enabled providers
    */
   getEnabledProviders(): ShippingProviderCode[] {
-    return this.registry.getAll().map(p => p.code);
+    return this.registry.getAll().map((p) => p.code);
   }
 }
 
@@ -232,7 +244,10 @@ export const shippingService = new ShippingService();
 // RE-EXPORTS
 // =============================================================================
 
-export * from './types';
-export * from './status-mapper';
 export * from './aggregator';
-export { ShippingProviderRegistry, type ShippingProvider } from './providers/base';
+export {
+  type ShippingProvider,
+  ShippingProviderRegistry,
+} from './providers/base';
+export * from './status-mapper';
+export * from './types';

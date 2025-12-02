@@ -1,55 +1,23 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { format, formatDistanceToNow } from 'date-fns';
+import {
+  BarChart3,
+  Bell,
+  Clock,
+  Eye,
+  Loader2,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Search,
+  Send,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  Bell,
-  Plus,
-  Search,
-  MoreHorizontal,
-  Eye,
-  Trash2,
-  Clock,
-  Send,
-  Users,
-  BarChart3,
-  Loader2,
-  RefreshCw,
-} from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
-
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+import { useCallback, useEffect, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,18 +28,46 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
 // cn is available if needed for conditional classes
 import type {
-  NotificationWithStats,
-  NotificationType,
-  NotificationPriority,
   AdminNotificationFilters,
+  NotificationPriority,
+  NotificationType,
+  NotificationWithStats,
 } from '@/types/notifications';
 
 const typeStyles: Record<NotificationType, string> = {
   info: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  success: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  success:
+    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  warning:
+    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   error: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
 };
 
@@ -86,7 +82,9 @@ export default function AdminNotificationsPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [notifications, setNotifications] = useState<NotificationWithStats[]>([]);
+  const [notifications, setNotifications] = useState<NotificationWithStats[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -127,7 +125,9 @@ export default function AdminNotificationsPage() {
         params.set('search', searchQuery);
       }
 
-      const response = await fetch(`/api/admin/notifications?${params.toString()}`);
+      const response = await fetch(
+        `/api/admin/notifications?${params.toString()}`
+      );
       if (!response.ok) {
         throw new Error('Failed to fetch notifications');
       }
@@ -141,17 +141,22 @@ export default function AdminNotificationsPage() {
       const readRates = sent
         .map((n: NotificationWithStats) => n.stats?.read_rate || 0)
         .filter((r: number) => r > 0);
-      const avgRate = readRates.length > 0
-        ? readRates.reduce((a: number, b: number) => a + b, 0) / readRates.length
-        : 0;
+      const avgRate =
+        readRates.length > 0
+          ? readRates.reduce((a: number, b: number) => a + b, 0) /
+            readRates.length
+          : 0;
 
       setStats({
         totalSent: sent.length,
         avgReadRate: Math.round(avgRate),
         activeBanners: data.data.filter(
-          (n: NotificationWithStats) => n.sent_at && n.channels?.includes('banner') && !n.expires_at
+          (n: NotificationWithStats) =>
+            n.sent_at && n.channels?.includes('banner') && !n.expires_at
         ).length,
-        scheduled: data.data.filter((n: NotificationWithStats) => !n.sent_at && n.scheduled_for).length,
+        scheduled: data.data.filter(
+          (n: NotificationWithStats) => !n.sent_at && n.scheduled_for
+        ).length,
       });
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -199,10 +204,18 @@ export default function AdminNotificationsPage() {
 
   const getStatusBadge = (notification: NotificationWithStats) => {
     if (notification.sent_at) {
-      return <Badge variant="default" className="bg-green-600">Sent</Badge>;
+      return (
+        <Badge variant="default" className="bg-green-600">
+          Sent
+        </Badge>
+      );
     }
     if (notification.scheduled_for) {
-      return <Badge variant="outline" className="border-orange-500 text-orange-600">Scheduled</Badge>;
+      return (
+        <Badge variant="outline" className="border-orange-500 text-orange-600">
+          Scheduled
+        </Badge>
+      );
     }
     return <Badge variant="secondary">Draft</Badge>;
   };
@@ -260,7 +273,9 @@ export default function AdminNotificationsPage() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Banners</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Active Banners
+            </CardTitle>
             <Bell className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -305,7 +320,12 @@ export default function AdminNotificationsPage() {
             {/* Status Filter */}
             <Select
               value={filters.status || 'all'}
-              onValueChange={(value) => setFilters({ ...filters, status: value as AdminNotificationFilters['status'] })}
+              onValueChange={(value) =>
+                setFilters({
+                  ...filters,
+                  status: value as AdminNotificationFilters['status'],
+                })
+              }
             >
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Status" />
@@ -321,7 +341,13 @@ export default function AdminNotificationsPage() {
             {/* Type Filter */}
             <Select
               value={filters.type || 'all'}
-              onValueChange={(value) => setFilters({ ...filters, type: value === 'all' ? undefined : value as NotificationType })}
+              onValueChange={(value) =>
+                setFilters({
+                  ...filters,
+                  type:
+                    value === 'all' ? undefined : (value as NotificationType),
+                })
+              }
             >
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Type" />
@@ -338,7 +364,15 @@ export default function AdminNotificationsPage() {
             {/* Priority Filter */}
             <Select
               value={filters.priority || 'all'}
-              onValueChange={(value) => setFilters({ ...filters, priority: value === 'all' ? undefined : value as NotificationPriority })}
+              onValueChange={(value) =>
+                setFilters({
+                  ...filters,
+                  priority:
+                    value === 'all'
+                      ? undefined
+                      : (value as NotificationPriority),
+                })
+              }
             >
               <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Priority" />
@@ -363,7 +397,9 @@ export default function AdminNotificationsPage() {
               <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No notifications found</p>
               <Button asChild variant="link" className="mt-2">
-                <Link href="/admin/notifications/create">Create your first notification</Link>
+                <Link href="/admin/notifications/create">
+                  Create your first notification
+                </Link>
               </Button>
             </div>
           ) : (
@@ -378,7 +414,7 @@ export default function AdminNotificationsPage() {
                     <TableHead>Status</TableHead>
                     <TableHead>Read Rate</TableHead>
                     <TableHead>Date</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead className="w-[50px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -386,19 +422,27 @@ export default function AdminNotificationsPage() {
                     <TableRow key={notification.id}>
                       <TableCell>
                         <div className="max-w-[200px]">
-                          <p className="font-medium truncate">{notification.title}</p>
+                          <p className="font-medium truncate">
+                            {notification.title}
+                          </p>
                           <p className="text-xs text-muted-foreground truncate">
                             {notification.message}
                           </p>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={typeStyles[notification.notification_type]}>
+                        <Badge
+                          variant="outline"
+                          className={typeStyles[notification.notification_type]}
+                        >
                           {notification.notification_type}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={priorityStyles[notification.priority]}>
+                        <Badge
+                          variant="outline"
+                          className={priorityStyles[notification.priority]}
+                        >
                           {notification.priority}
                         </Badge>
                       </TableCell>
@@ -421,10 +465,19 @@ export default function AdminNotificationsPage() {
                       <TableCell>
                         <span className="text-sm text-muted-foreground">
                           {notification.sent_at
-                            ? formatDistanceToNow(new Date(notification.sent_at), { addSuffix: true })
+                            ? formatDistanceToNow(
+                                new Date(notification.sent_at),
+                                { addSuffix: true }
+                              )
                             : notification.scheduled_for
-                              ? format(new Date(notification.scheduled_for), 'MMM d, yyyy HH:mm')
-                              : formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                              ? format(
+                                  new Date(notification.scheduled_for),
+                                  'MMM d, yyyy HH:mm'
+                                )
+                              : formatDistanceToNow(
+                                  new Date(notification.created_at),
+                                  { addSuffix: true }
+                                )}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -435,7 +488,13 @@ export default function AdminNotificationsPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => router.push(`/admin/notifications/${notification.id}`)}>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                router.push(
+                                  `/admin/notifications/${notification.id}`
+                                )
+                              }
+                            >
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
@@ -457,7 +516,8 @@ export default function AdminNotificationsPage() {
               {/* Pagination */}
               <div className="flex items-center justify-between mt-4">
                 <p className="text-sm text-muted-foreground">
-                  Showing {page * limit + 1} to {Math.min((page + 1) * limit, totalCount)} of {totalCount}
+                  Showing {page * limit + 1} to{' '}
+                  {Math.min((page + 1) * limit, totalCount)} of {totalCount}
                 </p>
                 <div className="flex gap-2">
                   <Button
@@ -483,12 +543,16 @@ export default function AdminNotificationsPage() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+      <AlertDialog
+        open={!!deleteId}
+        onOpenChange={(open) => !open && setDeleteId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the notification.
+              This action cannot be undone. This will permanently delete the
+              notification.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -502,6 +566,6 @@ export default function AdminNotificationsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div >
+    </div>
   );
 }

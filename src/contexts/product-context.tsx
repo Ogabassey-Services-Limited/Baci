@@ -1,10 +1,17 @@
-
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
-import { type Product } from '@/lib/products';
-import { AIResponse, Change } from '@/app/dashboard/products/actions';
+import type React from 'react';
+import {
+  createContext,
+  type ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
+import type { AIResponse, Change } from '@/app/dashboard/products/actions';
 import { useToast } from '@/hooks/use-toast';
+import type { Product } from '@/lib/products';
 import { useAuth } from './auth-context'; // Import the useAuth hook
 
 export type WorkflowStep = 'view' | 'upload' | 'processing' | 'review';
@@ -51,7 +58,9 @@ interface ProductContextType {
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
-export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const ProductProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const { user, loading: authLoading } = useAuth(); // Use the auth context
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true); // Start as true
@@ -85,7 +94,6 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     setIsAddProductOpen(false);
     setEditingProduct(null);
   };
-
 
   const fetchProducts = useCallback(async () => {
     // **FIX**: Do not fetch if auth is still loading or if there's no user
@@ -121,7 +129,13 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       const data = await response.json();
       setProducts(data.products || []);
       setPagination(data.pagination);
-      setStats(data.stats || { inventoryValue: 0, outOfStockCount: 0, categoryCount: 0 });
+      setStats(
+        data.stats || {
+          inventoryValue: 0,
+          outOfStockCount: 0,
+          categoryCount: 0,
+        }
+      );
     } catch (error) {
       console.error('Error fetching products:', error);
       toast({
@@ -132,14 +146,23 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     } finally {
       setIsLoading(false);
     }
-  }, [pagination.page, pagination.limit, searchTerm, statusFilter, stockFilter, toast, authLoading, user]);
+  }, [
+    pagination.page,
+    pagination.limit,
+    searchTerm,
+    statusFilter,
+    stockFilter,
+    toast,
+    authLoading,
+    user,
+  ]);
 
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
 
   const setPage = (page: number) => {
-    setPagination(prev => ({ ...prev, page }));
+    setPagination((prev) => ({ ...prev, page }));
   };
 
   const addProduct = async (product: Product) => {
@@ -160,7 +183,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
       console.error('Error adding product:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to add product',
+        description:
+          error instanceof Error ? error.message : 'Failed to add product',
         variant: 'destructive',
       });
       throw error;
@@ -179,7 +203,9 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         throw new Error('Failed to update product');
       }
 
-      setProducts(prev => prev.map(p => p.id === product.id ? product : p));
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? product : p))
+      );
       await fetchProducts();
     } catch (error) {
       console.error('Error updating product:', error);
@@ -202,7 +228,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
         throw new Error('Failed to delete product');
       }
 
-      setProducts(prev => prev.filter(p => p.id !== productId));
+      setProducts((prev) => prev.filter((p) => p.id !== productId));
       await fetchProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
@@ -218,7 +244,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   const applyChanges = async (changesToApply: Change[]) => {
     toast({
       title: 'Catalog Updated!',
-      description: `${changesToApply.length} change(s) have been applied.`
+      description: `${changesToApply.length} change(s) have been applied.`,
     });
     setWorkflowStep('view');
     setAiResponse(null);
@@ -226,32 +252,34 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
   };
 
   return (
-    <ProductContext.Provider value={{
-      products,
-      isLoading: isLoading || authLoading, // Combine loading states
-      pagination,
-      stats,
-      statusFilter,
-      stockFilter,
-      setStatusFilter,
-      setStockFilter,
-      setPage,
-      refetchProducts: fetchProducts,
-      addProduct,
-      workflowStep,
-      setWorkflowStep,
-      aiResponse,
-      setAiResponse,
-      applyChanges,
-      searchTerm,
-      setSearchTerm,
-      updateProduct,
-      deleteProduct,
-      isAddProductOpen,
-      openAddProductDialog,
-      closeAddProductDialog,
-      editingProduct,
-    }}>
+    <ProductContext.Provider
+      value={{
+        products,
+        isLoading: isLoading || authLoading, // Combine loading states
+        pagination,
+        stats,
+        statusFilter,
+        stockFilter,
+        setStatusFilter,
+        setStockFilter,
+        setPage,
+        refetchProducts: fetchProducts,
+        addProduct,
+        workflowStep,
+        setWorkflowStep,
+        aiResponse,
+        setAiResponse,
+        applyChanges,
+        searchTerm,
+        setSearchTerm,
+        updateProduct,
+        deleteProduct,
+        isAddProductOpen,
+        openAddProductDialog,
+        closeAddProductDialog,
+        editingProduct,
+      }}
+    >
       {children}
     </ProductContext.Provider>
   );

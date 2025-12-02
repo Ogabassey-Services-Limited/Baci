@@ -1,18 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useMerchantSafe } from '@/hooks/use-merchant';
-import { useCurrency } from '@/hooks/use-currency';
-import { useCart } from '@/hooks/use-cart';
-import { useToast } from '@/hooks/use-toast';
-import { Product } from '@/lib/products';
-import { getProductUrl } from '@/lib/seo-utils';
-import { apiGet } from '@/lib/api-client';
+import { useEffect, useState } from 'react';
 import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Sparkles, Loader2 } from 'lucide-react';
+import { useCart } from '@/hooks/use-cart';
+import { useCurrency } from '@/hooks/use-currency';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
+import { apiGet } from '@/lib/api-client';
+import type { Product } from '@/lib/products';
+import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 
 interface RelatedProductsProps {
@@ -72,7 +72,11 @@ export function RelatedProducts({
     )
       .then((data) => {
         if (data.products) {
-          const related = findRelatedProducts(product, data.products, maxProducts);
+          const related = findRelatedProducts(
+            product,
+            data.products,
+            maxProducts
+          );
           setRelatedProducts(related);
         }
         setIsLoading(false);
@@ -117,7 +121,10 @@ export function RelatedProducts({
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
+            <Sparkles
+              className="w-5 h-5 text-muted-foreground"
+              aria-hidden="true"
+            />
             <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
               {title}
             </h2>
@@ -256,7 +263,11 @@ function findRelatedProducts(
     let score = 0;
 
     // Category match (highest priority)
-    if (p.category && currentProduct.category && p.category === currentProduct.category) {
+    if (
+      p.category &&
+      currentProduct.category &&
+      p.category === currentProduct.category
+    ) {
       score += 10;
     }
 
@@ -266,7 +277,8 @@ function findRelatedProducts(
     }
 
     // Price similarity
-    const priceDiff = Math.abs(p.price - currentProduct.price) / currentProduct.price;
+    const priceDiff =
+      Math.abs(p.price - currentProduct.price) / currentProduct.price;
     if (priceDiff <= 0.3) {
       score += 3;
     } else if (priceDiff <= 0.5) {

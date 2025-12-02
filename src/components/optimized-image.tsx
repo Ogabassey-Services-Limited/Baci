@@ -1,12 +1,12 @@
 'use client';
 
-import Image, { ImageProps } from 'next/image';
+import Image, { type ImageProps } from 'next/image';
 import { useState } from 'react';
 import {
+  getFallbackImage,
   getProductBlurPlaceholder,
   getResponsiveSizes,
   isValidImageUrl,
-  getFallbackImage,
 } from '@/lib/image-utils';
 
 /**
@@ -26,7 +26,8 @@ import {
 type FetchPriority = 'high' | 'low' | 'auto';
 type ImageLayout = 'grid' | 'full' | 'thumbnail' | 'hero';
 
-interface OptimizedImageProps extends Omit<ImageProps, 'placeholder' | 'blurDataURL'> {
+interface OptimizedImageProps
+  extends Omit<ImageProps, 'placeholder' | 'blurDataURL'> {
   /**
    * Fetch priority hint for the browser
    * - "high": Critical for LCP (hero images, product main image)
@@ -104,7 +105,9 @@ export function OptimizedImage({
   };
 
   // Validate src
-  const validSrc = isValidImageUrl(imgSrc as string) ? imgSrc : getFallbackImage(category);
+  const validSrc = isValidImageUrl(imgSrc as string)
+    ? imgSrc
+    : getFallbackImage(category);
 
   return (
     <Image
@@ -145,7 +148,12 @@ export function ProductCardImage(
   props: Omit<OptimizedImageProps, 'fetchPriority' | 'loading' | 'layout'>
 ) {
   return (
-    <OptimizedImage {...props} fetchPriority="low" loading="lazy" layout="grid" />
+    <OptimizedImage
+      {...props}
+      fetchPriority="low"
+      loading="lazy"
+      layout="grid"
+    />
   );
 }
 

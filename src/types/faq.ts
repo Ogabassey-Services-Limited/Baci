@@ -40,7 +40,8 @@ export function parseLegacyFAQ(content: string): FAQItem[] {
   }
 
   // Try markdown header format (### or **)
-  const mdPattern = /(?:###?\s*\*{0,2}|\*{2})(.+?)(?:\*{2})?\s*\n+([^#*]+?)(?=(?:###?|\*{2})|$)/gis;
+  const mdPattern =
+    /(?:###?\s*\*{0,2}|\*{2})(.+?)(?:\*{2})?\s*\n+([^#*]+?)(?=(?:###?|\*{2})|$)/gis;
   matches = content.matchAll(mdPattern);
   matchArray = Array.from(matches);
 
@@ -81,7 +82,9 @@ export function parseLegacyFAQ(content: string): FAQItem[] {
 /**
  * Group FAQs by category
  */
-export function groupFAQsByCategory(faqs: FAQItem[]): Record<string, FAQItem[]> {
+export function groupFAQsByCategory(
+  faqs: FAQItem[]
+): Record<string, FAQItem[]> {
   const grouped: Record<string, FAQItem[]> = {};
 
   for (const faq of faqs) {

@@ -7,16 +7,16 @@
  * providing a consistent currency display across all storefront pages.
  */
 
-import { useMemo, useCallback } from 'react';
-import { useMerchantSafe } from './use-merchant';
+import { useCallback, useMemo } from 'react';
 import {
-  formatCurrency as formatCurrencyUtil,
+  type CurrencyConfig,
   formatCurrencyCompact as formatCurrencyCompactUtil,
-  getCurrencySymbol as getCurrencySymbolUtil,
+  formatCurrency as formatCurrencyUtil,
   getCurrencyCode as getCurrencyCodeUtil,
   getCurrencyConfig,
-  type CurrencyConfig,
+  getCurrencySymbol as getCurrencySymbolUtil,
 } from '@/lib/currency';
+import { useMerchantSafe } from './use-merchant';
 
 export interface UseCurrencyReturn {
   /** Format amount as currency (e.g., "₦1,000.00") */
@@ -102,10 +102,7 @@ export function useCurrency(): UseCurrencyReturn {
 export function useCurrencyWithCountry(
   countryCode: string | null | undefined
 ): UseCurrencyReturn {
-  const config = useMemo(
-    () => getCurrencyConfig(countryCode),
-    [countryCode]
-  );
+  const config = useMemo(() => getCurrencyConfig(countryCode), [countryCode]);
 
   const formatCurrency = useCallback(
     (amount: number) => formatCurrencyUtil(amount, countryCode),

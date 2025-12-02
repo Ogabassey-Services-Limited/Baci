@@ -1,6 +1,25 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import {
+  ArrowLeft,
+  CheckCircle,
+  Clock,
+  Copy,
+  Info,
+  Loader2,
+  Mail,
+  MoreHorizontal,
+  RefreshCw,
+  Shield,
+  Trash2,
+  UserPlus,
+  Users,
+  XCircle,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -9,15 +28,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -34,6 +44,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -42,40 +62,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import {
-  UserPlus,
-  MoreHorizontal,
-  Mail,
-  Trash2,
-  RefreshCw,
-  Users,
-  Shield,
-  Copy,
-  CheckCircle,
-  Clock,
-  XCircle,
-  Loader2,
-  ArrowLeft,
-  Info,
-} from 'lucide-react';
-import Link from 'next/link';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from '@/components/ui/alert';
-import { StaffRole, StaffMember } from '@/types/staff';
-
-
+import { useToast } from '@/hooks/use-toast';
+import type { StaffMember, StaffRole } from '@/types/staff';
 
 const ROLE_LABELS: Record<StaffRole, string> = {
   admin: 'Administrator',
@@ -103,21 +97,30 @@ function getStatusBadge(status: string) {
   switch (status) {
     case 'active':
       return (
-        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+        <Badge
+          variant="outline"
+          className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+        >
           <CheckCircle className="h-3 w-3 mr-1" />
           Active
         </Badge>
       );
     case 'pending':
       return (
-        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+        <Badge
+          variant="outline"
+          className="bg-amber-500/10 text-amber-600 border-amber-500/20"
+        >
           <Clock className="h-3 w-3 mr-1" />
           Pending
         </Badge>
       );
     case 'suspended':
       return (
-        <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">
+        <Badge
+          variant="outline"
+          className="bg-red-500/10 text-red-600 border-red-500/20"
+        >
           <XCircle className="h-3 w-3 mr-1" />
           Suspended
         </Badge>
@@ -142,7 +145,10 @@ export default function TeamSettingsPage() {
   const [inviting, setInviting] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
-  const [staffToRemove, setStaffToRemove] = useState<{ id: string; email: string } | null>(null);
+  const [staffToRemove, setStaffToRemove] = useState<{
+    id: string;
+    email: string;
+  } | null>(null);
   const [inviteForm, setInviteForm] = useState({
     email: '',
     name: '',
@@ -211,7 +217,8 @@ export default function TeamSettingsPage() {
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to send invitation.',
+        description:
+          error instanceof Error ? error.message : 'Failed to send invitation.',
         variant: 'destructive',
       });
     } finally {
@@ -314,10 +321,12 @@ export default function TeamSettingsPage() {
       if (!response.ok) throw new Error('Failed to update status');
 
       toast({
-        title: newStatus === 'suspended' ? 'Staff Suspended' : 'Staff Reactivated',
-        description: newStatus === 'suspended'
-          ? 'This team member can no longer access the dashboard.'
-          : 'This team member can now access the dashboard again.',
+        title:
+          newStatus === 'suspended' ? 'Staff Suspended' : 'Staff Reactivated',
+        description:
+          newStatus === 'suspended'
+            ? 'This team member can no longer access the dashboard.'
+            : 'This team member can now access the dashboard again.',
       });
 
       fetchStaff();
@@ -367,7 +376,8 @@ export default function TeamSettingsPage() {
                 Team Members
               </CardTitle>
               <CardDescription>
-                {staff.length} team member{staff.length !== 1 ? 's' : ''} (excluding you)
+                {staff.length} team member{staff.length !== 1 ? 's' : ''}{' '}
+                (excluding you)
               </CardDescription>
             </div>
             <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
@@ -393,7 +403,12 @@ export default function TeamSettingsPage() {
                         type="email"
                         placeholder="staff@example.com"
                         value={inviteForm.email}
-                        onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                        onChange={(e) =>
+                          setInviteForm({
+                            ...inviteForm,
+                            email: e.target.value,
+                          })
+                        }
                         required
                       />
                     </div>
@@ -403,14 +418,21 @@ export default function TeamSettingsPage() {
                         id="name"
                         placeholder="John Doe"
                         value={inviteForm.name}
-                        onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
+                        onChange={(e) =>
+                          setInviteForm({ ...inviteForm, name: e.target.value })
+                        }
                       />
                     </div>
                     <div className="grid gap-2">
                       <Label htmlFor="role">Role *</Label>
                       <Select
                         value={inviteForm.role}
-                        onValueChange={(value) => setInviteForm({ ...inviteForm, role: value as StaffRole })}
+                        onValueChange={(value) =>
+                          setInviteForm({
+                            ...inviteForm,
+                            role: value as StaffRole,
+                          })
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select a role" />
@@ -431,7 +453,11 @@ export default function TeamSettingsPage() {
                     </div>
                   </div>
                   <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setInviteDialogOpen(false)}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setInviteDialogOpen(false)}
+                    >
                       Cancel
                     </Button>
                     <Button type="submit" disabled={inviting}>
@@ -474,7 +500,10 @@ export default function TeamSettingsPage() {
           {loading ? (
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+                <div
+                  key={i}
+                  className="flex items-center gap-4 p-4 border rounded-lg"
+                >
                   <Skeleton className="h-10 w-10 rounded-full" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-48" />
@@ -505,7 +534,7 @@ export default function TeamSettingsPage() {
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Joined</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead className="w-[50px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -513,9 +542,13 @@ export default function TeamSettingsPage() {
                     <TableRow key={member.id}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{member.name || member.email}</p>
+                          <p className="font-medium">
+                            {member.name || member.email}
+                          </p>
                           {member.name && (
-                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {member.email}
+                            </p>
                           )}
                         </div>
                       </TableCell>
@@ -523,13 +556,18 @@ export default function TeamSettingsPage() {
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger>
-                              <Badge variant="secondary" className="cursor-help">
+                              <Badge
+                                variant="secondary"
+                                className="cursor-help"
+                              >
                                 <Shield className="h-3 w-3 mr-1" />
                                 {ROLE_LABELS[member.role]}
                               </Badge>
                             </TooltipTrigger>
                             <TooltipContent>
-                              <p className="max-w-xs">{ROLE_DESCRIPTIONS[member.role]}</p>
+                              <p className="max-w-xs">
+                                {ROLE_DESCRIPTIONS[member.role]}
+                              </p>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
@@ -537,7 +575,9 @@ export default function TeamSettingsPage() {
                       <TableCell>{getStatusBadge(member.status)}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {member.status === 'pending' ? (
-                          <span className="text-amber-600">Invited {formatDate(member.invited_at)}</span>
+                          <span className="text-amber-600">
+                            Invited {formatDate(member.invited_at)}
+                          </span>
                         ) : (
                           formatDate(member.accepted_at)
                         )}
@@ -552,39 +592,58 @@ export default function TeamSettingsPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {member.status === 'pending' && (
-                              <DropdownMenuItem onClick={() => handleResendInvite(member.id)}>
+                              <DropdownMenuItem
+                                onClick={() => handleResendInvite(member.id)}
+                              >
                                 <RefreshCw className="h-4 w-4 mr-2" />
                                 Resend Invitation
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => {
-                              const newRole = prompt(
-                                `Change role for ${member.email}. Current: ${ROLE_LABELS[member.role]}\n\nAvailable roles:\n` +
-                                Object.entries(ROLE_LABELS).map(([k, v]) => `${k}: ${v}`).join('\n'),
-                                member.role
-                              );
-                              if (newRole && newRole in ROLE_LABELS) {
-                                handleUpdateRole(member.id, newRole as StaffRole);
-                              }
-                            }}>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                const newRole = prompt(
+                                  `Change role for ${member.email}. Current: ${ROLE_LABELS[member.role]}\n\nAvailable roles:\n` +
+                                    Object.entries(ROLE_LABELS)
+                                      .map(([k, v]) => `${k}: ${v}`)
+                                      .join('\n'),
+                                  member.role
+                                );
+                                if (newRole && newRole in ROLE_LABELS) {
+                                  handleUpdateRole(
+                                    member.id,
+                                    newRole as StaffRole
+                                  );
+                                }
+                              }}
+                            >
                               <Shield className="h-4 w-4 mr-2" />
                               Change Role
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {member.status === 'active' && (
-                              <DropdownMenuItem onClick={() => handleSuspend(member.id, member.status)}>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleSuspend(member.id, member.status)
+                                }
+                              >
                                 <XCircle className="h-4 w-4 mr-2" />
                                 Suspend Access
                               </DropdownMenuItem>
                             )}
                             {member.status === 'suspended' && (
-                              <DropdownMenuItem onClick={() => handleSuspend(member.id, member.status)}>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleSuspend(member.id, member.status)
+                                }
+                              >
                                 <CheckCircle className="h-4 w-4 mr-2" />
                                 Reactivate
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem
-                              onClick={() => handleRemoveStaff(member.id, member.email)}
+                              onClick={() =>
+                                handleRemoveStaff(member.id, member.email)
+                              }
                               className="text-red-600"
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
@@ -637,7 +696,9 @@ export default function TeamSettingsPage() {
           <DialogHeader>
             <DialogTitle>Remove Team Member</DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove <strong>{staffToRemove?.email}</strong> from your team? This action cannot be undone.
+              Are you sure you want to remove{' '}
+              <strong>{staffToRemove?.email}</strong> from your team? This
+              action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -650,10 +711,7 @@ export default function TeamSettingsPage() {
             >
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={confirmRemoveStaff}
-            >
+            <Button variant="destructive" onClick={confirmRemoveStaff}>
               <Trash2 className="h-4 w-4 mr-2" />
               Remove
             </Button>

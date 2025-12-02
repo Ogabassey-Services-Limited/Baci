@@ -1,24 +1,30 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { LoyaltyStatusCard } from '@/components/storefront/loyalty/loyalty-status-card';
-import { RewardsCatalog } from '@/components/storefront/loyalty/rewards-catalog';
-import { LoyaltyEnrollmentForm } from '@/components/storefront/loyalty/loyalty-enrollment-form';
-import { useLoyalty } from '@/hooks/use-loyalty';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import {
-  Sparkles,
+  Award,
   Gift,
   History,
-  Trophy,
-  TrendingUp,
+  Sparkles,
   TrendingDown,
-  Award,
+  TrendingUp,
+  Trophy,
 } from 'lucide-react';
+import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { LoyaltyEnrollmentForm } from '@/components/storefront/loyalty/loyalty-enrollment-form';
+import { LoyaltyStatusCard } from '@/components/storefront/loyalty/loyalty-status-card';
+import { RewardsCatalog } from '@/components/storefront/loyalty/rewards-catalog';
+import { Badge } from '@/components/ui/badge';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLoyalty } from '@/hooks/use-loyalty';
 
 export default function RewardsPage() {
   const params = useParams();
@@ -53,13 +59,8 @@ export default function RewardsPage() {
     fetchMerchant();
   }, [slug]);
 
-  const {
-    enrolled,
-    loading,
-    recentTransactions,
-    getTierInfo,
-    tier,
-  } = useLoyalty(merchantId || undefined, customerId || undefined);
+  const { enrolled, loading, recentTransactions, getTierInfo, tier } =
+    useLoyalty(merchantId || undefined, customerId || undefined);
 
   if (!merchantId) {
     return (
@@ -83,7 +84,8 @@ export default function RewardsPage() {
           </div>
           <h1 className="text-3xl font-bold mb-2">Rewards Program</h1>
           <p className="text-muted-foreground max-w-md mx-auto">
-            Sign in to your account to view your rewards, earn points, and redeem exclusive offers
+            Sign in to your account to view your rewards, earn points, and
+            redeem exclusive offers
           </p>
         </div>
 
@@ -109,10 +111,26 @@ export default function RewardsPage() {
           <h2 className="text-xl font-semibold mb-4">Member Benefits</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: Sparkles, title: 'Earn Points', description: 'Get points on every purchase' },
-              { icon: Gift, title: 'Redeem Rewards', description: 'Exchange points for discounts' },
-              { icon: Trophy, title: 'Unlock Tiers', description: 'Rise through member levels' },
-              { icon: Award, title: 'Exclusive Access', description: 'Early access to sales' },
+              {
+                icon: Sparkles,
+                title: 'Earn Points',
+                description: 'Get points on every purchase',
+              },
+              {
+                icon: Gift,
+                title: 'Redeem Rewards',
+                description: 'Exchange points for discounts',
+              },
+              {
+                icon: Trophy,
+                title: 'Unlock Tiers',
+                description: 'Rise through member levels',
+              },
+              {
+                icon: Award,
+                title: 'Exclusive Access',
+                description: 'Early access to sales',
+              },
             ].map((benefit, index) => (
               <Card key={index}>
                 <CardContent className="pt-6">
@@ -121,7 +139,9 @@ export default function RewardsPage() {
                       <benefit.icon className="h-6 w-6 text-purple-600" />
                     </div>
                     <h3 className="font-medium mb-1">{benefit.title}</h3>
-                    <p className="text-sm text-muted-foreground">{benefit.description}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {benefit.description}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -167,13 +187,17 @@ export default function RewardsPage() {
                   <Trophy className="h-5 w-5" />
                   {tier.charAt(0).toUpperCase() + tier.slice(1)} Member
                 </CardTitle>
-                <Badge className={`${tierInfo.colors.bg} ${tierInfo.colors.text}`}>
+                <Badge
+                  className={`${tierInfo.colors.bg} ${tierInfo.colors.text}`}
+                >
                   Current Tier
                 </Badge>
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-3">Your tier benefits:</p>
+              <p className="text-sm text-muted-foreground mb-3">
+                Your tier benefits:
+              </p>
               <ul className="space-y-2">
                 {tierInfo.benefits.map((benefit, index) => (
                   <li key={index} className="flex items-center gap-2 text-sm">
@@ -212,7 +236,9 @@ export default function RewardsPage() {
                   {recentTransactions.length === 0 ? (
                     <div className="text-center py-8">
                       <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">No transactions yet</p>
+                      <p className="text-muted-foreground">
+                        No transactions yet
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         Make a purchase to start earning points
                       </p>
@@ -243,14 +269,13 @@ export default function RewardsPage() {
                                 {transaction.description}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {new Date(transaction.created_at).toLocaleDateString(
-                                  'en-NG',
-                                  {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                  }
-                                )}
+                                {new Date(
+                                  transaction.created_at
+                                ).toLocaleDateString('en-NG', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
                               </p>
                             </div>
                           </div>

@@ -1,12 +1,24 @@
 'use client';
 
+import {
+  AlertCircle,
+  Check,
+  Loader2,
+  Search,
+  ShoppingCart,
+} from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Search, ShoppingCart, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 interface DomainResult {
   domain: string;
@@ -64,7 +76,10 @@ export function DomainSearch() {
         setWarning(data.warning);
       }
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred while searching';
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'An error occurred while searching';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -82,7 +97,8 @@ export function DomainSearch() {
         <CardHeader>
           <CardTitle>Search for a Domain</CardTitle>
           <CardDescription>
-            Find the perfect domain for your store. All prices shown are per year.
+            Find the perfect domain for your store. All prices shown are per
+            year.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -146,44 +162,56 @@ export function DomainSearch() {
           </h3>
 
           {/* Recommended domains first */}
-          {results.filter(r => r.recommended).length > 0 && (
+          {results.filter((r) => r.recommended).length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Recommended</h4>
-              {results.filter(r => r.recommended).map((result) => (
-                <DomainResultCard
-                  key={result.domain}
-                  result={result}
-                  onPurchase={handlePurchase}
-                />
-              ))}
+              <h4 className="text-sm font-medium text-muted-foreground">
+                Recommended
+              </h4>
+              {results
+                .filter((r) => r.recommended)
+                .map((result) => (
+                  <DomainResultCard
+                    key={result.domain}
+                    result={result}
+                    onPurchase={handlePurchase}
+                  />
+                ))}
             </div>
           )}
 
           {/* Popular domains */}
-          {results.filter(r => r.popular && !r.recommended).length > 0 && (
+          {results.filter((r) => r.popular && !r.recommended).length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">Popular</h4>
-              {results.filter(r => r.popular && !r.recommended).map((result) => (
-                <DomainResultCard
-                  key={result.domain}
-                  result={result}
-                  onPurchase={handlePurchase}
-                />
-              ))}
+              <h4 className="text-sm font-medium text-muted-foreground">
+                Popular
+              </h4>
+              {results
+                .filter((r) => r.popular && !r.recommended)
+                .map((result) => (
+                  <DomainResultCard
+                    key={result.domain}
+                    result={result}
+                    onPurchase={handlePurchase}
+                  />
+                ))}
             </div>
           )}
 
           {/* Other domains */}
-          {results.filter(r => !r.popular && !r.recommended).length > 0 && (
+          {results.filter((r) => !r.popular && !r.recommended).length > 0 && (
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-muted-foreground">More options</h4>
-              {results.filter(r => !r.popular && !r.recommended).map((result) => (
-                <DomainResultCard
-                  key={result.domain}
-                  result={result}
-                  onPurchase={handlePurchase}
-                />
-              ))}
+              <h4 className="text-sm font-medium text-muted-foreground">
+                More options
+              </h4>
+              {results
+                .filter((r) => !r.popular && !r.recommended)
+                .map((result) => (
+                  <DomainResultCard
+                    key={result.domain}
+                    result={result}
+                    onPurchase={handlePurchase}
+                  />
+                ))}
             </div>
           )}
         </div>
@@ -236,7 +264,9 @@ function DomainResultCard({
               </span>
             </div>
             {result.note && (
-              <p className="text-xs text-muted-foreground mt-1">{result.note}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {result.note}
+              </p>
             )}
           </div>
           <div className="text-right space-y-2">

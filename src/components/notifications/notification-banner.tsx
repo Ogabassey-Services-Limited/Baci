@@ -1,22 +1,32 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Info, CheckCircle, AlertTriangle, AlertCircle, ExternalLink } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle,
+  ExternalLink,
+  Info,
+  X,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { useNotifications } from '@/hooks/use-notifications';
-import type { NotificationType, ActiveBanner } from '@/types/notifications';
+import { cn } from '@/lib/utils';
+import type { ActiveBanner, NotificationType } from '@/types/notifications';
 
 interface NotificationBannerProps {
   className?: string;
 }
 
-const bannerStyles: Record<NotificationType, {
-  bg: string;
-  border: string;
-  icon: typeof Info;
-  iconColor: string;
-}> = {
+const bannerStyles: Record<
+  NotificationType,
+  {
+    bg: string;
+    border: string;
+    icon: typeof Info;
+    iconColor: string;
+  }
+> = {
   info: {
     bg: 'bg-blue-50 dark:bg-blue-950/50',
     border: 'border-blue-200 dark:border-blue-800',
@@ -122,7 +132,9 @@ export function NotificationBanner({ className }: NotificationBannerProps) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <h4 className="font-medium text-sm">{currentBanner.title}</h4>
-          <p className="text-sm text-muted-foreground mt-0.5">{currentBanner.message}</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {currentBanner.message}
+          </p>
 
           {/* Action button */}
           {currentBanner.action_url && currentBanner.action_label && (
@@ -157,7 +169,10 @@ export function NotificationBanner({ className }: NotificationBannerProps) {
 /**
  * BannerStack - Shows multiple banners stacked (optional alternative)
  */
-export function NotificationBannerStack({ className, maxBanners = 3 }: NotificationBannerProps & { maxBanners?: number }) {
+export function NotificationBannerStack({
+  className,
+  maxBanners = 3,
+}: NotificationBannerProps & { maxBanners?: number }) {
   const { activeBanners, dismissBanner, isLoading } = useNotifications();
   const [dismissingIds, setDismissingIds] = useState<Set<string>>(new Set());
 
@@ -199,11 +214,15 @@ export function NotificationBannerStack({ className, maxBanners = 3 }: Notificat
             )}
             role="alert"
           >
-            <Icon className={cn('h-5 w-5 flex-shrink-0 mt-0.5', style.iconColor)} />
+            <Icon
+              className={cn('h-5 w-5 flex-shrink-0 mt-0.5', style.iconColor)}
+            />
 
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-sm">{banner.title}</h4>
-              <p className="text-sm text-muted-foreground mt-0.5">{banner.message}</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {banner.message}
+              </p>
 
               {banner.action_url && banner.action_label && (
                 <Button

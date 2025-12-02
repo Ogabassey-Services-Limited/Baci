@@ -1,14 +1,21 @@
 'use client';
 
+import {
+  AlertCircle,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  ExternalLink,
+} from 'lucide-react';
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, Copy, Check, AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
 interface SetupStep {
@@ -66,25 +73,29 @@ export const platformInstructions: Record<string, PlatformInstructions> = {
     steps: [
       {
         title: 'Go to Google Analytics',
-        description: 'Sign in to your Google Analytics account or create one if you don\'t have one.',
+        description:
+          "Sign in to your Google Analytics account or create one if you don't have one.",
         link: 'https://analytics.google.com/',
         linkText: 'Open Google Analytics',
       },
       {
         title: 'Create or select a property',
-        description: 'Click Admin (gear icon) → Create Property, or select an existing GA4 property.',
+        description:
+          'Click Admin (gear icon) → Create Property, or select an existing GA4 property.',
       },
       {
         title: 'Find your Measurement ID',
-        description: 'Go to Admin → Data Streams → Select your web stream → Copy the Measurement ID (starts with G-).',
+        description:
+          'Go to Admin → Data Streams → Select your web stream → Copy the Measurement ID (starts with G-).',
       },
       {
         title: 'Paste your Measurement ID',
-        description: 'Enter the Measurement ID in the field above. It should look like: G-ABC123DEF4',
+        description:
+          'Enter the Measurement ID in the field above. It should look like: G-ABC123DEF4',
       },
     ],
     tips: [
-      'Make sure you\'re using a GA4 property, not Universal Analytics (UA-)',
+      "Make sure you're using a GA4 property, not Universal Analytics (UA-)",
       'Enable Enhanced Measurement in Data Streams for automatic event tracking',
       'Your data will appear in GA4 within 24-48 hours',
     ],
@@ -105,21 +116,25 @@ export const platformInstructions: Record<string, PlatformInstructions> = {
     steps: [
       {
         title: 'Go to Meta Events Manager',
-        description: 'Sign in to your Meta Business Suite and navigate to Events Manager.',
+        description:
+          'Sign in to your Meta Business Suite and navigate to Events Manager.',
         link: 'https://business.facebook.com/events_manager',
         linkText: 'Open Events Manager',
       },
       {
         title: 'Create or select a Pixel',
-        description: 'Click "Connect Data Sources" → "Web" → "Meta Pixel" if creating new, or select existing pixel.',
+        description:
+          'Click "Connect Data Sources" → "Web" → "Meta Pixel" if creating new, or select existing pixel.',
       },
       {
         title: 'Copy your Pixel ID',
-        description: 'Your Pixel ID is shown at the top of the pixel overview page. It\'s a 15-16 digit number.',
+        description:
+          "Your Pixel ID is shown at the top of the pixel overview page. It's a 15-16 digit number.",
       },
       {
         title: '(Optional) Generate CAPI Token',
-        description: 'For server-side tracking: Go to Settings → Generate Access Token. This helps track conversions even when browsers block cookies.',
+        description:
+          'For server-side tracking: Go to Settings → Generate Access Token. This helps track conversions even when browsers block cookies.',
       },
     ],
     tips: [
@@ -144,21 +159,25 @@ export const platformInstructions: Record<string, PlatformInstructions> = {
     steps: [
       {
         title: 'Go to TikTok Ads Manager',
-        description: 'Sign in to TikTok Ads Manager with your business account.',
+        description:
+          'Sign in to TikTok Ads Manager with your business account.',
         link: 'https://ads.tiktok.com/',
         linkText: 'Open TikTok Ads Manager',
       },
       {
         title: 'Navigate to Events',
-        description: 'Click Assets → Events → Web Events. Create a new pixel or select an existing one.',
+        description:
+          'Click Assets → Events → Web Events. Create a new pixel or select an existing one.',
       },
       {
         title: 'Copy your Pixel ID',
-        description: 'Your Pixel ID is shown in the pixel details. It\'s an alphanumeric code like C1234ABCD5678EFG.',
+        description:
+          "Your Pixel ID is shown in the pixel details. It's an alphanumeric code like C1234ABCD5678EFG.",
       },
       {
         title: '(Optional) Set up Events API',
-        description: 'For server-side tracking: Go to Settings → Generate Access Token in your pixel settings.',
+        description:
+          'For server-side tracking: Go to Settings → Generate Access Token in your pixel settings.',
       },
     ],
     tips: [
@@ -183,21 +202,25 @@ export const platformInstructions: Record<string, PlatformInstructions> = {
     steps: [
       {
         title: 'Go to Snapchat Ads Manager',
-        description: 'Sign in to Snapchat Ads Manager with your business account.',
+        description:
+          'Sign in to Snapchat Ads Manager with your business account.',
         link: 'https://ads.snapchat.com/',
         linkText: 'Open Snapchat Ads Manager',
       },
       {
         title: 'Navigate to Events Manager',
-        description: 'Click the menu icon → Events Manager. Create a new Snap Pixel or select an existing one.',
+        description:
+          'Click the menu icon → Events Manager. Create a new Snap Pixel or select an existing one.',
       },
       {
         title: 'Copy your Pixel ID',
-        description: 'Your Pixel ID is shown in the pixel setup. It\'s a UUID format string.',
+        description:
+          "Your Pixel ID is shown in the pixel setup. It's a UUID format string.",
       },
       {
         title: '(Optional) Set up CAPI',
-        description: 'For server-side tracking: Generate an API token in your pixel settings under Conversions API.',
+        description:
+          'For server-side tracking: Generate an API token in your pixel settings under Conversions API.',
       },
     ],
     tips: [
@@ -226,15 +249,18 @@ export const platformInstructions: Record<string, PlatformInstructions> = {
       },
       {
         title: 'Navigate to Events Manager',
-        description: 'Click Tools → Events Manager → Add event source → Install with pixel code.',
+        description:
+          'Click Tools → Events Manager → Add event source → Install with pixel code.',
       },
       {
         title: 'Copy your Pixel ID',
-        description: 'Your Pixel ID is shown in the installation code snippet. Look for the ID after "twq(\'config\',\'".',
+        description:
+          "Your Pixel ID is shown in the installation code snippet. Look for the ID after \"twq('config','\".",
       },
       {
         title: 'Set up conversion events',
-        description: 'Define which events (purchase, sign up, etc.) you want to track in Events Manager.',
+        description:
+          'Define which events (purchase, sign up, etc.) you want to track in Events Manager.',
       },
     ],
     tips: [
@@ -250,23 +276,35 @@ interface SetupInstructionsProps {
   className?: string;
 }
 
-export function SetupInstructions({ platform, className }: SetupInstructionsProps) {
+export function SetupInstructions({
+  platform,
+  className,
+}: SetupInstructionsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const instructions = platformInstructions[platform];
 
   if (!instructions) return null;
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className={cn('mt-2', className)}>
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className={cn('mt-2', className)}
+    >
       <CollapsibleTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground p-0 h-auto">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs text-muted-foreground hover:text-foreground p-0 h-auto"
+        >
           {isOpen ? (
             <>
               Hide setup instructions <ChevronUp className="w-3 h-3 ml-1" />
             </>
           ) : (
             <>
-              How to find your {instructions.pixelIdLabel}? <ChevronDown className="w-3 h-3 ml-1" />
+              How to find your {instructions.pixelIdLabel}?{' '}
+              <ChevronDown className="w-3 h-3 ml-1" />
             </>
           )}
         </Button>
@@ -286,7 +324,9 @@ export function SetupInstructions({ platform, className }: SetupInstructionsProp
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium">{step.title}</p>
-                  <p className="text-xs text-muted-foreground">{step.description}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {step.description}
+                  </p>
                   {step.link && (
                     <a
                       href={step.link}
@@ -294,7 +334,8 @@ export function SetupInstructions({ platform, className }: SetupInstructionsProp
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                     >
-                      {step.linkText || 'Learn more'} <ExternalLink className="w-3 h-3" />
+                      {step.linkText || 'Learn more'}{' '}
+                      <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
                 </div>
@@ -305,11 +346,15 @@ export function SetupInstructions({ platform, className }: SetupInstructionsProp
           <div className="pt-2 border-t">
             <p className="text-xs text-muted-foreground">
               <span className="font-medium">Expected format:</span>{' '}
-              <code className="bg-muted px-1 py-0.5 rounded">{instructions.pixelIdFormat}</code>
+              <code className="bg-muted px-1 py-0.5 rounded">
+                {instructions.pixelIdFormat}
+              </code>
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               <span className="font-medium">Example:</span>{' '}
-              <code className="bg-muted px-1 py-0.5 rounded">{instructions.pixelIdExample}</code>
+              <code className="bg-muted px-1 py-0.5 rounded">
+                {instructions.pixelIdExample}
+              </code>
               <CopyButton text={instructions.pixelIdExample} />
             </p>
           </div>

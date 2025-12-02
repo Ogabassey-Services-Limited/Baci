@@ -66,7 +66,11 @@ declare module 'zeptomail' {
   export class SendMailClient {
     constructor(config: SendMailClientConfig);
     sendMail(params: SendMailParams): Promise<SendMailResponse>;
-    sendMailWithTemplate(params: SendMailWithTemplateParams): Promise<SendMailResponse>;
-    mailBatchWithTemplate(params: BatchMailWithTemplateParams): Promise<SendMailResponse>;
+    sendMailWithTemplate(
+      params: SendMailWithTemplateParams
+    ): Promise<SendMailResponse>;
+    mailBatchWithTemplate(
+      params: BatchMailWithTemplateParams
+    ): Promise<SendMailResponse>;
   }
 }

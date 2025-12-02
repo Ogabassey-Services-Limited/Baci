@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 /**
  * Facebook Conversions API (CAPI) Implementation
@@ -72,7 +72,14 @@ interface FacebookEvent {
   event_time: number;
   event_id: string;
   event_source_url?: string;
-  action_source: 'website' | 'app' | 'email' | 'phone_call' | 'chat' | 'physical_store' | 'other';
+  action_source:
+    | 'website'
+    | 'app'
+    | 'email'
+    | 'phone_call'
+    | 'chat'
+    | 'physical_store'
+    | 'other';
   user_data: Record<string, string | undefined>;
   custom_data?: Record<string, unknown>;
   opt_out?: boolean;
@@ -106,7 +113,9 @@ function hashPhone(phone: string): string {
 /**
  * Build hashed user data object for Facebook
  */
-function buildUserData(userData: FacebookUserData): Record<string, string | undefined> {
+function buildUserData(
+  userData: FacebookUserData
+): Record<string, string | undefined> {
   const hashed: Record<string, string | undefined> = {};
 
   if (userData.email) {
@@ -157,13 +166,16 @@ function buildUserData(userData: FacebookUserData): Record<string, string | unde
 /**
  * Build custom data object for Facebook
  */
-function buildCustomData(customData: FacebookCustomData): Record<string, unknown> {
+function buildCustomData(
+  customData: FacebookCustomData
+): Record<string, unknown> {
   const data: Record<string, unknown> = {};
 
   if (customData.value !== undefined) data.value = customData.value;
   if (customData.currency) data.currency = customData.currency;
   if (customData.contentName) data.content_name = customData.contentName;
-  if (customData.contentCategory) data.content_category = customData.contentCategory;
+  if (customData.contentCategory)
+    data.content_category = customData.contentCategory;
   if (customData.contentIds) data.content_ids = customData.contentIds;
   if (customData.contentType) data.content_type = customData.contentType;
   if (customData.contents) data.contents = customData.contents;
@@ -220,7 +232,8 @@ export async function sendFacebookCAPIEvent(
           data: [event],
           access_token: accessToken,
           // Enable test mode in development
-          ...(process.env.NODE_ENV === 'development' && process.env.FB_TEST_EVENT_CODE
+          ...(process.env.NODE_ENV === 'development' &&
+          process.env.FB_TEST_EVENT_CODE
             ? { test_event_code: process.env.FB_TEST_EVENT_CODE }
             : {}),
         }),
@@ -261,7 +274,12 @@ export const facebookCAPI = {
     orderId: string,
     value: number,
     currency: string,
-    products: Array<{ id: string; name: string; quantity: number; price: number }>,
+    products: Array<{
+      id: string;
+      name: string;
+      quantity: number;
+      price: number;
+    }>,
     eventSourceUrl?: string
   ) => {
     return sendFacebookCAPIEvent(

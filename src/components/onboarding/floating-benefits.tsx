@@ -1,15 +1,15 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Brain,
-  Zap,
-  PenTool,
-  Palette,
-  Globe,
-  ShieldCheck,
   Feather,
-  TrendingUp
+  Globe,
+  Palette,
+  PenTool,
+  ShieldCheck,
+  TrendingUp,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -29,7 +29,15 @@ interface BenefitPillProps {
   className?: string;
 }
 
-function BenefitPill({ icon: Icon, label, color, delay, x, y, className }: BenefitPillProps) {
+function BenefitPill({
+  icon: Icon,
+  label,
+  color,
+  delay,
+  x,
+  y,
+  className,
+}: BenefitPillProps) {
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.5 }}
@@ -41,27 +49,34 @@ function BenefitPill({ icon: Icon, label, color, delay, x, y, className }: Benef
       transition={{
         duration: 0.8,
         delay: delay,
-        ease: "easeOut",
+        ease: 'easeOut',
         y: {
           duration: 4,
-          repeat: Infinity,
-          ease: "easeInOut",
-          repeatType: "reverse",
-          delay: delay
-        }
+          repeat: Number.POSITIVE_INFINITY,
+          ease: 'easeInOut',
+          repeatType: 'reverse',
+          delay: delay,
+        },
       }}
       className={cn(
-        "absolute hidden xl:flex items-center gap-2.5 px-4 py-2.5 rounded-full",
-        "bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-white/40 dark:border-white/10",
-        "shadow-sm dark:shadow-none z-10",
+        'absolute hidden xl:flex items-center gap-2.5 px-4 py-2.5 rounded-full',
+        'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-white/40 dark:border-white/10',
+        'shadow-sm dark:shadow-none z-10',
         className
       )}
       style={{ left: x, top: y }}
     >
-      <div className={cn("p-1.5 rounded-full bg-opacity-10", color.replace('text-', 'bg-'))}>
-        <Icon className={cn("w-4 h-4", color)} />
+      <div
+        className={cn(
+          'p-1.5 rounded-full bg-opacity-10',
+          color.replace('text-', 'bg-')
+        )}
+      >
+        <Icon className={cn('w-4 h-4', color)} />
       </div>
-      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{label}</span>
+      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+        {label}
+      </span>
     </motion.div>
   );
 }
@@ -93,7 +108,7 @@ function NetworkLines() {
         className="text-purple-500"
         initial={{ pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, ease: "easeInOut" }}
+        transition={{ duration: 2, ease: 'easeInOut' }}
       />
       <motion.path
         d="M 5 38 Q 12 50 8 62"
@@ -104,7 +119,7 @@ function NetworkLines() {
         className="text-amber-500"
         initial={{ pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.3, ease: "easeInOut" }}
+        transition={{ duration: 2, delay: 0.3, ease: 'easeInOut' }}
       />
       <motion.path
         d="M 8 62 Q 15 75 5 85"
@@ -115,7 +130,7 @@ function NetworkLines() {
         className="text-orange-500"
         initial={{ pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.6, ease: "easeInOut" }}
+        transition={{ duration: 2, delay: 0.6, ease: 'easeInOut' }}
       />
       <motion.path
         d="M 5 85 Q 2 92 10 95"
@@ -126,7 +141,7 @@ function NetworkLines() {
         className="text-pink-500"
         initial={{ pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.9, ease: "easeInOut" }}
+        transition={{ duration: 2, delay: 0.9, ease: 'easeInOut' }}
       />
 
       {/* Connections Right - Scattered Paths */}
@@ -139,7 +154,7 @@ function NetworkLines() {
         className="text-blue-500"
         initial={{ pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.2, ease: "easeInOut" }}
+        transition={{ duration: 2, delay: 0.2, ease: 'easeInOut' }}
       />
       <motion.path
         d="M 82 38 Q 75 50 88 62"
@@ -150,7 +165,7 @@ function NetworkLines() {
         className="text-emerald-500"
         initial={{ pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.5, ease: "easeInOut" }}
+        transition={{ duration: 2, delay: 0.5, ease: 'easeInOut' }}
       />
       <motion.path
         d="M 88 62 Q 95 75 84 85"
@@ -161,7 +176,7 @@ function NetworkLines() {
         className="text-indigo-500"
         initial={{ pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.8, ease: "easeInOut" }}
+        transition={{ duration: 2, delay: 0.8, ease: 'easeInOut' }}
       />
       <motion.path
         d="M 84 85 Q 80 92 90 95"
@@ -172,7 +187,7 @@ function NetworkLines() {
         className="text-cyan-500"
         initial={{ pathLength: 0, opacity: 0 }}
         animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 1.1, ease: "easeInOut" }}
+        transition={{ duration: 2, delay: 1.1, ease: 'easeInOut' }}
       />
     </svg>
   );
@@ -180,7 +195,10 @@ function NetworkLines() {
 
 export function OnboardingBackground() {
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+    <div
+      className="absolute inset-0 overflow-hidden pointer-events-none"
+      aria-hidden="true"
+    >
       <NetworkLines />
 
       {/* Benefits - Left Side (4 items, scattered) */}
@@ -262,12 +280,12 @@ export function OnboardingBackground() {
       {/* Decorative Nodes */}
       <motion.div
         animate={{ opacity: [0.2, 0.5, 0.2] }}
-        transition={{ duration: 4, repeat: Infinity }}
+        transition={{ duration: 4, repeat: Number.POSITIVE_INFINITY }}
         className="absolute top-1/3 left-[15%] w-2 h-2 rounded-full bg-purple-400/50 hidden xl:block"
       />
       <motion.div
         animate={{ opacity: [0.2, 0.5, 0.2] }}
-        transition={{ duration: 5, repeat: Infinity, delay: 1 }}
+        transition={{ duration: 5, repeat: Number.POSITIVE_INFINITY, delay: 1 }}
         className="absolute bottom-1/3 right-[15%] w-3 h-3 rounded-full bg-blue-400/50 hidden xl:block"
       />
     </div>

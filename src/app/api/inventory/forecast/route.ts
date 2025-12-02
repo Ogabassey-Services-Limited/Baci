@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -54,14 +56,20 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
     const productId = searchParams.get('productId');
     const lowStockOnly = searchParams.get('lowStockOnly') === 'true';
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100);
+    const page = Number.parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.min(
+      Number.parseInt(searchParams.get('limit') || '20', 10),
+      100
+    );
     const offset = (page - 1) * limit;
 
     // If specific product requested
@@ -76,7 +84,10 @@ export async function GET(request: NextRequest) {
 
       if (error) {
         console.error('Error calculating forecast:', error);
-        return NextResponse.json({ error: 'Failed to calculate forecast' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Failed to calculate forecast' },
+          { status: 500 }
+        );
       }
 
       const forecast = forecastRaw as ForecastData | null;
@@ -99,7 +110,11 @@ export async function GET(request: NextRequest) {
           predictedStockoutDate: forecast?.predicted_stockout_date,
           reorderQuantity: forecast?.reorder_quantity || 0,
           salesTrend: forecast?.sales_trend || 'stable',
-          status: getStockStatus(forecast?.current_stock || 0, forecast?.days_of_stock ?? null, product?.low_stock_threshold || 5),
+          status: getStockStatus(
+            forecast?.current_stock || 0,
+            forecast?.days_of_stock ?? null,
+            product?.low_stock_threshold || 5
+          ),
         },
       });
     }
@@ -117,12 +132,18 @@ export async function GET(request: NextRequest) {
       query = query.lte('stock', 10); // Approximate filter, will be refined
     }
 
-    const { data: products, error: productsError, count } = await query
-      .range(offset, offset + limit - 1);
+    const {
+      data: products,
+      error: productsError,
+      count,
+    } = await query.range(offset, offset + limit - 1);
 
     if (productsError) {
       console.error('Error fetching products:', productsError);
-      return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch products' },
+        { status: 500 }
+      );
     }
 
     // Calculate forecast for each product
@@ -138,7 +159,11 @@ export async function GET(request: NextRequest) {
 
       const forecast = forecastRaw as ForecastData | null;
       const daysOfStock = forecast?.days_of_stock ?? 999;
-      const status = getStockStatus(product.stock, daysOfStock, product.low_stock_threshold || 5);
+      const status = getStockStatus(
+        product.stock,
+        daysOfStock,
+        product.low_stock_threshold || 5
+      );
 
       // If lowStockOnly, filter out healthy items
       if (lowStockOnly && status === 'healthy') {
@@ -166,10 +191,10 @@ export async function GET(request: NextRequest) {
     // Calculate summary stats
     const summary = {
       totalProducts: count || 0,
-      outOfStock: forecasts.filter(f => f.status === 'out_of_stock').length,
-      critical: forecasts.filter(f => f.status === 'critical').length,
-      warning: forecasts.filter(f => f.status === 'warning').length,
-      healthy: forecasts.filter(f => f.status === 'healthy').length,
+      outOfStock: forecasts.filter((f) => f.status === 'out_of_stock').length,
+      critical: forecasts.filter((f) => f.status === 'critical').length,
+      warning: forecasts.filter((f) => f.status === 'warning').length,
+      healthy: forecasts.filter((f) => f.status === 'healthy').length,
     };
 
     return NextResponse.json({
@@ -184,7 +209,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Inventory forecast error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -194,7 +222,8 @@ function getStockStatus(
   threshold: number
 ): 'healthy' | 'warning' | 'critical' | 'out_of_stock' {
   if (stock <= 0) return 'out_of_stock';
-  if (stock <= threshold || (daysOfStock !== null && daysOfStock <= 7)) return 'critical';
+  if (stock <= threshold || (daysOfStock !== null && daysOfStock <= 7))
+    return 'critical';
   if (daysOfStock !== null && daysOfStock <= 14) return 'warning';
   return 'healthy';
 }

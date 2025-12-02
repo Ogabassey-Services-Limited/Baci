@@ -4,13 +4,13 @@
  */
 
 import type {
+  BookingRequest,
+  CancellationResult,
+  QuoteRequest,
+  ShipmentBookingResult,
   ShippingProviderCode,
   ShippingQuote,
-  QuoteRequest,
-  BookingRequest,
-  ShipmentBookingResult,
   TrackingResult,
-  CancellationResult,
   UnifiedLocation,
 } from '../types';
 
@@ -85,7 +85,9 @@ export abstract class BaseShippingProvider implements ShippingProvider {
   abstract readonly supportsDomestic: boolean;
 
   abstract getQuotes(request: QuoteRequest): Promise<ShippingQuote[]>;
-  abstract bookShipment(request: BookingRequest): Promise<ShipmentBookingResult>;
+  abstract bookShipment(
+    request: BookingRequest
+  ): Promise<ShipmentBookingResult>;
   abstract trackShipment(trackingNumber: string): Promise<TrackingResult>;
   abstract cancelShipment(shipmentId: string): Promise<CancellationResult>;
 
@@ -195,10 +197,10 @@ export class ShippingProviderRegistry {
   }
 
   getDomestic(): ShippingProvider[] {
-    return this.getAll().filter(p => p.supportsDomestic);
+    return this.getAll().filter((p) => p.supportsDomestic);
   }
 
   getInternational(): ShippingProvider[] {
-    return this.getAll().filter(p => p.supportsInternational);
+    return this.getAll().filter((p) => p.supportsInternational);
   }
 }

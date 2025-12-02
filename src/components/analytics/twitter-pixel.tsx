@@ -66,7 +66,11 @@ export const twitterEvents = {
   /**
    * Track product view
    */
-  viewContent: (productId: string, value?: number, currency: string = 'USD') => {
+  viewContent: (
+    productId: string,
+    value?: number,
+    currency: string = 'USD'
+  ) => {
     if (typeof window === 'undefined' || !window.twq) return;
 
     window.twq('track', 'ViewContent', {
@@ -94,7 +98,11 @@ export const twitterEvents = {
   /**
    * Track checkout initiation
    */
-  initiateCheckout: (value: number, currency: string = 'USD', productIds: string[] = []) => {
+  initiateCheckout: (
+    value: number,
+    currency: string = 'USD',
+    productIds: string[] = []
+  ) => {
     if (typeof window === 'undefined' || !window.twq) return;
 
     window.twq('track', 'InitiateCheckout', {
@@ -107,7 +115,13 @@ export const twitterEvents = {
   /**
    * Track purchase completion
    */
-  purchase: (orderId: string, value: number, currency: string = 'USD', productIds: string[] = [], numItems?: number) => {
+  purchase: (
+    orderId: string,
+    value: number,
+    currency: string = 'USD',
+    productIds: string[] = [],
+    numItems?: number
+  ) => {
     if (typeof window === 'undefined' || !window.twq) return;
 
     window.twq('track', 'Purchase', {
@@ -143,7 +157,11 @@ export const twitterEvents = {
   /**
    * Track add to wishlist
    */
-  addToWishlist: (productId: string, value?: number, currency: string = 'USD') => {
+  addToWishlist: (
+    productId: string,
+    value?: number,
+    currency: string = 'USD'
+  ) => {
     if (typeof window === 'undefined' || !window.twq) return;
 
     window.twq('track', 'AddToWishlist', {
@@ -157,6 +175,10 @@ export const twitterEvents = {
 // Extend Window type for Twitter
 declare global {
   interface Window {
-    twq?: (action: string, event: string, params?: Record<string, unknown>) => void;
+    twq?: (
+      action: string,
+      event: string,
+      params?: Record<string, unknown>
+    ) => void;
   }
 }

@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/domains
@@ -26,7 +26,10 @@ export async function GET() {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get all domains for this merchant
@@ -37,13 +40,19 @@ export async function GET() {
       .order('created_at', { ascending: false });
 
     if (domainsError) {
-      return NextResponse.json({ error: domainsError.message }, { status: 500 });
+      return NextResponse.json(
+        { error: domainsError.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ domains });
   } catch (error) {
     console.error('Error fetching domains:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -69,7 +78,10 @@ export async function POST(request: Request) {
     // to prevent ReDoS (exponential backtracking) vulnerability
     const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
     if (!domainRegex.test(domain)) {
-      return NextResponse.json({ error: 'Invalid domain format' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid domain format' },
+        { status: 400 }
+      );
     }
 
     // Check if domain already exists
@@ -94,15 +106,18 @@ export async function POST(request: Request) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Extract TLD from domain
-    let tld = '.' + domain.split('.').slice(-1)[0];
+    let tld = `.${domain.split('.').slice(-1)[0]}`;
     if (domain.includes('.ng')) {
       const parts = domain.split('.');
       if (parts.length >= 3) {
-        tld = '.' + parts.slice(-2).join('.');
+        tld = `.${parts.slice(-2).join('.')}`;
       }
     }
 
@@ -140,6 +155,9 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error('Error adding domain:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

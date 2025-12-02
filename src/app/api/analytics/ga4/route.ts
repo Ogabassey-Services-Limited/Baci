@@ -1,12 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import type { GA4UserData } from '@/lib/ga4-measurement-protocol';
 import {
-  ga4MeasurementProtocol,
   extractClientIdFromCookie,
+  ga4MeasurementProtocol,
   generateClientId,
 } from '@/lib/ga4-measurement-protocol';
-import type { GA4UserData } from '@/lib/ga4-measurement-protocol';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * GA4 Measurement Protocol API Endpoint
@@ -20,12 +20,7 @@ import type { GA4UserData } from '@/lib/ga4-measurement-protocol';
  */
 
 interface GA4EventRequest {
-  event:
-    | 'purchase'
-    | 'begin_checkout'
-    | 'add_to_cart'
-    | 'view_item'
-    | 'search';
+  event: 'purchase' | 'begin_checkout' | 'add_to_cart' | 'view_item' | 'search';
   merchantId: string;
   userData?: {
     email?: string;
@@ -70,7 +65,10 @@ export async function POST(request: NextRequest) {
 
     if (merchantError || !merchant) {
       console.error('Failed to fetch merchant:', merchantError);
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const measurementId = merchant.google_analytics_id as string | null;
@@ -104,9 +102,16 @@ export async function POST(request: NextRequest) {
 
     switch (event) {
       case 'purchase':
-        if (!eventData.products || !eventData.value || !eventData.transactionId) {
+        if (
+          !eventData.products ||
+          !eventData.value ||
+          !eventData.transactionId
+        ) {
           return NextResponse.json(
-            { error: 'Purchase event requires products, value, and transactionId' },
+            {
+              error:
+                'Purchase event requires products, value, and transactionId',
+            },
             { status: 400 }
           );
         }

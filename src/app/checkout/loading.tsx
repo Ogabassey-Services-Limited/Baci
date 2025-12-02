@@ -1,4 +1,7 @@
-import { CheckoutFormSkeleton, OrderSummarySkeleton } from '@/components/ui/skeletons';
+import {
+  CheckoutFormSkeleton,
+  OrderSummarySkeleton,
+} from '@/components/ui/skeletons';
 
 /**
  * Loading state for checkout page

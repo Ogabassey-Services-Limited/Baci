@@ -47,7 +47,7 @@ export async function GET() {
     };
 
     // Build response
-    const providers = enabledProviders.map(code => ({
+    const providers = enabledProviders.map((code) => ({
       code,
       ...providerInfo[code as keyof typeof providerInfo],
       available: status[code] ?? false,
@@ -58,7 +58,6 @@ export async function GET() {
       status,
       timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
     console.error('Error getting provider status:', error);
     return NextResponse.json(

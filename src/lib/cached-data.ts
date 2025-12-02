@@ -1,6 +1,6 @@
-import { unstable_cache } from 'next/cache';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseUrl, getSupabaseAnonKey } from '@/env';
+import { unstable_cache } from 'next/cache';
+import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 
 /**
  * Create a Supabase client for cached queries.
@@ -20,9 +20,9 @@ function getPublicSupabaseClient() {
 
 // Cache durations in seconds
 const CACHE_DURATIONS = {
-  storefront: 60,    // 1 minute for frequently changing content
-  products: 300,     // 5 minutes for product data
-  static: 3600,      // 1 hour for rarely changing data
+  storefront: 60, // 1 minute for frequently changing content
+  products: 300, // 5 minutes for product data
+  static: 3600, // 1 hour for rarely changing data
 } as const;
 
 /**
@@ -113,12 +113,15 @@ export const getCachedMerchantById = unstable_cache(
  * Uses 5 minute cache for product listings
  */
 export const getCachedProducts = unstable_cache(
-  async (merchantId: string, options?: {
-    limit?: number;
-    offset?: number;
-    categoryId?: string;
-    featured?: boolean;
-  }) => {
+  async (
+    merchantId: string,
+    options?: {
+      limit?: number;
+      offset?: number;
+      categoryId?: string;
+      featured?: boolean;
+    }
+  ) => {
     const supabase = getPublicSupabaseClient();
 
     let query = supabase
@@ -169,7 +172,10 @@ export const getCachedProducts = unstable_cache(
     }
 
     if (options?.offset) {
-      query = query.range(options.offset, options.offset + (options.limit || 20) - 1);
+      query = query.range(
+        options.offset,
+        options.offset + (options.limit || 20) - 1
+      );
     }
 
     const { data, error } = await query;
@@ -351,10 +357,13 @@ export const getCachedPageConfig = unstable_cache(
  * Cached product reviews
  */
 export const getCachedProductReviews = unstable_cache(
-  async (productId: string, options?: {
-    limit?: number;
-    offset?: number;
-  }) => {
+  async (
+    productId: string,
+    options?: {
+      limit?: number;
+      offset?: number;
+    }
+  ) => {
     const supabase = getPublicSupabaseClient();
 
     let query = supabase
@@ -380,7 +389,10 @@ export const getCachedProductReviews = unstable_cache(
     }
 
     if (options?.offset) {
-      query = query.range(options.offset, options.offset + (options.limit || 10) - 1);
+      query = query.range(
+        options.offset,
+        options.offset + (options.limit || 10) - 1
+      );
     }
 
     const { data, error } = await query;
@@ -425,7 +437,7 @@ export const getCachedProductRatingStats = unstable_cache(
     const averageRating = sumRatings / totalReviews;
 
     const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    data.forEach(r => {
+    data.forEach((r) => {
       const rating = r.rating as 1 | 2 | 3 | 4 | 5;
       if (rating >= 1 && rating <= 5) {
         distribution[rating]++;

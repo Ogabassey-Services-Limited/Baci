@@ -1,4 +1,3 @@
-
 /**
  * Themed Components Library
  *
@@ -18,10 +17,9 @@
  * ```
  */
 
+export { ThemedBadge } from './themed-badge';
 export { ThemedButton } from './themed-button';
 export { ThemedCard } from './themed-card';
-export { ThemedBadge } from './themed-badge';
-export { ThemedLink } from './themed-link';
 export { ThemedInput } from './themed-input';
+export { ThemedLink } from './themed-link';
 export { ThemedSheetContent } from './themed-sheet';
-

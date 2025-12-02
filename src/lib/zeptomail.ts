@@ -26,7 +26,13 @@ function getClient(): SendMailClient {
 const DEFAULT_FROM_DOMAIN = process.env.ZEPTOMAIL_FROM_DOMAIN || 'usebaci.com';
 
 // Email type to sender address mapping
-export type EmailType = 'orders' | 'welcome' | 'notifications' | 'team' | 'newsletter' | 'noreply';
+export type EmailType =
+  | 'orders'
+  | 'welcome'
+  | 'notifications'
+  | 'team'
+  | 'newsletter'
+  | 'noreply';
 
 const EMAIL_SENDERS: Record<EmailType, { prefix: string; name: string }> = {
   orders: { prefix: 'orders', name: 'Baci Orders' },
@@ -37,7 +43,10 @@ const EMAIL_SENDERS: Record<EmailType, { prefix: string; name: string }> = {
   noreply: { prefix: 'noreply', name: 'Baci' },
 };
 
-function getSenderAddress(emailType: EmailType = 'noreply', customName?: string): { address: string; name: string } {
+function getSenderAddress(
+  emailType: EmailType = 'noreply',
+  customName?: string
+): { address: string; name: string } {
   const sender = EMAIL_SENDERS[emailType] || EMAIL_SENDERS.noreply;
   return {
     address: `${sender.prefix}@${DEFAULT_FROM_DOMAIN}`,
@@ -94,7 +103,11 @@ interface ZeptoMailError {
 /**
  * Parse ZeptoMail error response
  */
-function parseError(error: unknown): { message: string; code?: string; details?: unknown } {
+function parseError(error: unknown): {
+  message: string;
+  code?: string;
+  details?: unknown;
+} {
   if (error instanceof Error) {
     return { message: error.message };
   }
@@ -132,7 +145,10 @@ const RETRY_CONFIG = {
  */
 function isRetryableError(errorCode?: string): boolean {
   if (!errorCode) return false;
-  return RETRY_CONFIG.retryableCodes.includes(errorCode) || errorCode.startsWith('TM_5');
+  return (
+    RETRY_CONFIG.retryableCodes.includes(errorCode) ||
+    errorCode.startsWith('TM_5')
+  );
 }
 
 /**
@@ -163,7 +179,8 @@ export async function sendEmail({
     };
   }
 
-  let lastError: { message: string; code?: string; details?: unknown } | null = null;
+  let lastError: { message: string; code?: string; details?: unknown } | null =
+    null;
 
   for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
@@ -201,9 +218,14 @@ export async function sendEmail({
       lastError = parseError(error);
 
       // Only retry on retryable errors
-      if (attempt < RETRY_CONFIG.maxRetries && isRetryableError(lastError.code)) {
-        const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt);
-        console.warn(`ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`);
+      if (
+        attempt < RETRY_CONFIG.maxRetries &&
+        isRetryableError(lastError.code)
+      ) {
+        const delay = RETRY_CONFIG.baseDelayMs * 2 ** attempt;
+        console.warn(
+          `ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`
+        );
         await sleep(delay);
         continue;
       }
@@ -248,7 +270,8 @@ export async function sendEmailWithTemplate({
     };
   }
 
-  let lastError: { message: string; code?: string; details?: unknown } | null = null;
+  let lastError: { message: string; code?: string; details?: unknown } | null =
+    null;
 
   for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
@@ -284,9 +307,14 @@ export async function sendEmailWithTemplate({
     } catch (error) {
       lastError = parseError(error);
 
-      if (attempt < RETRY_CONFIG.maxRetries && isRetryableError(lastError.code)) {
-        const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt);
-        console.warn(`ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`);
+      if (
+        attempt < RETRY_CONFIG.maxRetries &&
+        isRetryableError(lastError.code)
+      ) {
+        const delay = RETRY_CONFIG.baseDelayMs * 2 ** attempt;
+        console.warn(
+          `ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`
+        );
         await sleep(delay);
         continue;
       }
@@ -331,7 +359,8 @@ export async function sendBatchEmailWithTemplate({
     };
   }
 
-  let lastError: { message: string; code?: string; details?: unknown } | null = null;
+  let lastError: { message: string; code?: string; details?: unknown } | null =
+    null;
 
   for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
@@ -357,9 +386,14 @@ export async function sendBatchEmailWithTemplate({
     } catch (error) {
       lastError = parseError(error);
 
-      if (attempt < RETRY_CONFIG.maxRetries && isRetryableError(lastError.code)) {
-        const delay = RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt);
-        console.warn(`ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`);
+      if (
+        attempt < RETRY_CONFIG.maxRetries &&
+        isRetryableError(lastError.code)
+      ) {
+        const delay = RETRY_CONFIG.baseDelayMs * 2 ** attempt;
+        console.warn(
+          `ZeptoMail retry ${attempt + 1}/${RETRY_CONFIG.maxRetries} after ${delay}ms: ${lastError.message}`
+        );
         await sleep(delay);
         continue;
       }

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { generateProductSlug } from '@/lib/seo-utils';
+import { createClient } from '@/lib/supabase/server';
 
 interface CSVRow {
   name: string;
@@ -17,10 +17,12 @@ interface CSVRow {
  * Parse CSV text into rows
  */
 function parseCSV(csvText: string): CSVRow[] {
-  const lines = csvText.split('\n').filter(line => line.trim());
+  const lines = csvText.split('\n').filter((line) => line.trim());
   if (lines.length < 2) return [];
 
-  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  const headers = lines[0]
+    .split(',')
+    .map((h) => h.trim().replace(/^"|"$/g, ''));
   const rows: CSVRow[] = [];
 
   for (let i = 1; i < lines.length; i++) {
@@ -51,7 +53,6 @@ function parseCSV(csvText: string): CSVRow[] {
   return rows;
 }
 
-
 /**
  * POST /api/products/bulk-import
  * Bulk import products from CSV file
@@ -78,7 +79,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Parse form data
@@ -94,7 +98,10 @@ export async function POST(request: NextRequest) {
     const rows = parseCSV(csvText);
 
     if (rows.length === 0) {
-      return NextResponse.json({ error: 'No valid rows found in CSV' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'No valid rows found in CSV' },
+        { status: 400 }
+      );
     }
 
     // Import products
@@ -113,15 +120,20 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        const price = parseFloat(row.price);
-        if (isNaN(price) || price < 0) {
+        const price = Number.parseFloat(row.price);
+        if (Number.isNaN(price) || price < 0) {
           errors.push(`Row ${i + 2}: Invalid price value`);
           failedCount++;
           continue;
         }
 
-        const stockQuantity = row.stock_quantity ? parseInt(row.stock_quantity, 10) : null;
-        if (stockQuantity !== null && (isNaN(stockQuantity) || stockQuantity < 0)) {
+        const stockQuantity = row.stock_quantity
+          ? Number.parseInt(row.stock_quantity, 10)
+          : null;
+        if (
+          stockQuantity !== null &&
+          (Number.isNaN(stockQuantity) || stockQuantity < 0)
+        ) {
           errors.push(`Row ${i + 2}: Invalid stock quantity`);
           failedCount++;
           continue;

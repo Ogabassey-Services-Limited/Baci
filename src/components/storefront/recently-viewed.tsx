@@ -1,19 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Clock, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
-import { useMerchantSafe } from '@/hooks/use-merchant';
-import { useCurrency } from '@/hooks/use-currency';
-import { useCart } from '@/hooks/use-cart';
-import { useToast } from '@/hooks/use-toast';
-import { Product } from '@/lib/products';
-import { getProductUrl } from '@/lib/seo-utils';
-import { apiGet } from '@/lib/api-client';
+import { useEffect, useState } from 'react';
 import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight, Clock, Loader2 } from 'lucide-react';
+import { useCart } from '@/hooks/use-cart';
+import { useCurrency } from '@/hooks/use-currency';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
+import { useToast } from '@/hooks/use-toast';
+import { apiGet } from '@/lib/api-client';
+import type { Product } from '@/lib/products';
+import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 
 interface RecentlyViewedProductsProps {
@@ -118,7 +118,10 @@ export function RecentlyViewedProducts({
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
-            <Clock className="w-5 h-5 text-muted-foreground" aria-hidden="true" />
+            <Clock
+              className="w-5 h-5 text-muted-foreground"
+              aria-hidden="true"
+            />
             <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
               {title}
             </h2>

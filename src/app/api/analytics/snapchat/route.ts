@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
-import { snapchatCAPI } from '@/lib/snapchat-capi';
+import { type NextRequest, NextResponse } from 'next/server';
 import type { SnapchatUserData } from '@/lib/snapchat-capi';
+import { snapchatCAPI } from '@/lib/snapchat-capi';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Snapchat Conversions API Endpoint
@@ -58,7 +58,10 @@ export async function POST(request: NextRequest) {
 
     if (merchantError || !merchant) {
       console.error('Failed to fetch merchant:', merchantError);
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const pixelId = merchant.snapchat_pixel_id as string | null;
@@ -90,9 +93,16 @@ export async function POST(request: NextRequest) {
 
     switch (event) {
       case 'purchase':
-        if (!eventData.products || !eventData.value || !eventData.transactionId) {
+        if (
+          !eventData.products ||
+          !eventData.value ||
+          !eventData.transactionId
+        ) {
           return NextResponse.json(
-            { error: 'Purchase event requires products, value, and transactionId' },
+            {
+              error:
+                'Purchase event requires products, value, and transactionId',
+            },
             { status: 400 }
           );
         }

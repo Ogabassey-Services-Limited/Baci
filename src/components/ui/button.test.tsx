@@ -1,6 +1,5 @@
 // src/components/ui/button.test.tsx
 
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import Link from 'next/link';
 import { Button } from './button';
@@ -20,9 +19,15 @@ describe('Button', () => {
   });
 
   it('should apply the specified variant and size classes', () => {
-    render(<Button variant="destructive" size="lg">Delete</Button>);
+    render(
+      <Button variant="destructive" size="lg">
+        Delete
+      </Button>
+    );
     const buttonElement = screen.getByRole('button', { name: /delete/i });
-    expect(buttonElement).toHaveClass('bg-destructive text-destructive-foreground');
+    expect(buttonElement).toHaveClass(
+      'bg-destructive text-destructive-foreground'
+    );
     expect(buttonElement).toHaveClass('h-12');
   });
 

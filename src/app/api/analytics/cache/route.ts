@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 import { cache } from '@/lib/cache';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * DELETE /api/analytics/cache
@@ -29,7 +29,10 @@ export async function DELETE() {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Delete all cache entries for this merchant (using wildcards)
@@ -57,7 +60,8 @@ export async function GET() {
   try {
     return NextResponse.json({
       size: cache.size(),
-      message: 'Cache is running with in-memory storage. For production, consider Redis.',
+      message:
+        'Cache is running with in-memory storage. For production, consider Redis.',
     });
   } catch (error) {
     console.error('Error getting cache stats:', error);

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Blog Posts API - List and Create
@@ -13,7 +13,11 @@ import { z } from 'zod';
 // Validation schema for creating a blog post
 const createPostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200),
-  slug: z.string().min(1).max(200).regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
+  slug: z
+    .string()
+    .min(1)
+    .max(200)
+    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase alphanumeric with hyphens'),
   content: z.string().min(1, 'Content is required'),
   excerpt: z.string().max(300).optional(),
   featured_image_url: z.string().url().optional().nullable(),
@@ -69,7 +73,9 @@ function generateSeoDescription(content: string, maxLength = 155): string {
   // Find the last complete word within maxLength
   const truncated = plainText.substring(0, maxLength);
   const lastSpace = truncated.lastIndexOf(' ');
-  return lastSpace > 0 ? truncated.substring(0, lastSpace) + '...' : truncated + '...';
+  return lastSpace > 0
+    ? `${truncated.substring(0, lastSpace)}...`
+    : `${truncated}...`;
 }
 
 // Auto-generate excerpt from content
@@ -79,7 +85,9 @@ function generateExcerpt(content: string, maxLength = 300): string {
 
   const truncated = plainText.substring(0, maxLength);
   const lastSpace = truncated.lastIndexOf(' ');
-  return lastSpace > 0 ? truncated.substring(0, lastSpace) + '...' : truncated + '...';
+  return lastSpace > 0
+    ? `${truncated.substring(0, lastSpace)}...`
+    : `${truncated}...`;
 }
 
 // Extract keywords from title and content
@@ -89,28 +97,90 @@ function extractKeywords(title: string, content: string): string[] {
 
   // Common stop words to exclude
   const stopWords = new Set([
-    'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
-    'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
-    'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
-    'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'this',
-    'that', 'these', 'those', 'it', 'its', 'you', 'your', 'we', 'our',
-    'they', 'their', 'i', 'my', 'me', 'he', 'she', 'him', 'her', 'as',
-    'if', 'then', 'than', 'so', 'just', 'only', 'also', 'very', 'too',
+    'the',
+    'a',
+    'an',
+    'and',
+    'or',
+    'but',
+    'in',
+    'on',
+    'at',
+    'to',
+    'for',
+    'of',
+    'with',
+    'by',
+    'from',
+    'is',
+    'are',
+    'was',
+    'were',
+    'be',
+    'been',
+    'being',
+    'have',
+    'has',
+    'had',
+    'do',
+    'does',
+    'did',
+    'will',
+    'would',
+    'could',
+    'should',
+    'may',
+    'might',
+    'must',
+    'shall',
+    'can',
+    'this',
+    'that',
+    'these',
+    'those',
+    'it',
+    'its',
+    'you',
+    'your',
+    'we',
+    'our',
+    'they',
+    'their',
+    'i',
+    'my',
+    'me',
+    'he',
+    'she',
+    'him',
+    'her',
+    'as',
+    'if',
+    'then',
+    'than',
+    'so',
+    'just',
+    'only',
+    'also',
+    'very',
+    'too',
   ]);
 
   // Get meaningful words from title (higher priority)
-  const keywords = titleWords.filter(word =>
-    word.length > 3 && !stopWords.has(word)
+  const keywords = titleWords.filter(
+    (word) => word.length > 3 && !stopWords.has(word)
   );
 
   // Add frequent words from content (limit to 10 total)
-  const contentWords = plainText.split(/\s+/).filter(word =>
-    word.length > 4 && !stopWords.has(word) && !keywords.includes(word)
-  );
+  const contentWords = plainText
+    .split(/\s+/)
+    .filter(
+      (word) =>
+        word.length > 4 && !stopWords.has(word) && !keywords.includes(word)
+    );
 
   // Count word frequency
   const wordCount: Record<string, number> = {};
-  contentWords.forEach(word => {
+  contentWords.forEach((word) => {
     wordCount[word] = (wordCount[word] || 0) + 1;
   });
 
@@ -129,7 +199,10 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -142,7 +215,10 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Parse query params
@@ -150,10 +226,10 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const category = searchParams.get('category');
     const search = searchParams.get('search');
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const limit = Number.parseInt(searchParams.get('limit') || '20', 10);
+    const offset = Number.parseInt(searchParams.get('offset') || '0', 10);
     const sortBy = searchParams.get('sortBy') || 'created_at';
-    const sortOrder = searchParams.get('sortOrder') === 'asc' ? true : false;
+    const sortOrder = searchParams.get('sortOrder') === 'asc';
 
     // Build query
     let query = supabase
@@ -196,7 +272,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Blog posts GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -206,7 +285,10 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -219,7 +301,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Check if blog feature is enabled
@@ -231,7 +316,10 @@ export async function POST(request: NextRequest) {
 
     if (!features?.blog_enabled) {
       return NextResponse.json(
-        { error: 'Blog feature is not enabled. Enable it in Settings > Features.' },
+        {
+          error:
+            'Blog feature is not enabled. Enable it in Settings > Features.',
+        },
         { status: 403 }
       );
     }
@@ -281,9 +369,14 @@ export async function POST(request: NextRequest) {
     // Auto-generate SEO fields if not provided
     const autoExcerpt = postData.excerpt || generateExcerpt(postData.content);
     const autoSeoTitle = postData.seo_title || postData.title.substring(0, 70);
-    const autoSeoDescription = postData.seo_description || generateSeoDescription(postData.content);
-    const autoKeywords = postData.keywords?.length ? postData.keywords : extractKeywords(postData.title, postData.content);
-    const autoFocusKeyword = postData.focus_keyword || (autoKeywords.length > 0 ? autoKeywords[0] : undefined);
+    const autoSeoDescription =
+      postData.seo_description || generateSeoDescription(postData.content);
+    const autoKeywords = postData.keywords?.length
+      ? postData.keywords
+      : extractKeywords(postData.title, postData.content);
+    const autoFocusKeyword =
+      postData.focus_keyword ||
+      (autoKeywords.length > 0 ? autoKeywords[0] : undefined);
 
     // Prepare insert data
     const insertData = {
@@ -307,7 +400,8 @@ export async function POST(request: NextRequest) {
       focus_keyword: autoFocusKeyword,
       word_count: wordCount,
       reading_time_minutes: readingTime,
-      published_at: postData.status === 'published' ? new Date().toISOString() : null,
+      published_at:
+        postData.status === 'published' ? new Date().toISOString() : null,
     };
 
     const { data: newPost, error: insertError } = await supabase
@@ -324,6 +418,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newPost, { status: 201 });
   } catch (error) {
     console.error('Blog posts POST error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

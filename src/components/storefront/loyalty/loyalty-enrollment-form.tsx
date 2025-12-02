@@ -1,13 +1,13 @@
 'use client';
 
+import { Check, Gift, Sparkles, Trophy, Users } from 'lucide-react';
 import { useState } from 'react';
-import { useLoyalty } from '@/hooks/use-loyalty';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useLoyalty } from '@/hooks/use-loyalty';
 import { useToast } from '@/hooks/use-toast';
-import { Sparkles, Gift, Check, Users, Trophy } from 'lucide-react';
 
 interface LoyaltyEnrollmentFormProps {
   merchantId: string;
@@ -154,7 +154,8 @@ export function LoyaltyEnrollmentForm({
             />
             {data?.settings?.referral_bonus_referee ? (
               <p className="text-xs text-muted-foreground mt-1">
-                Get {data.settings.referral_bonus_referee} extra points with a valid referral code
+                Get {data.settings.referral_bonus_referee} extra points with a
+                valid referral code
               </p>
             ) : null}
           </div>
@@ -168,7 +169,8 @@ export function LoyaltyEnrollmentForm({
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
-            By joining, you agree to receive marketing communications from {merchantName}
+            By joining, you agree to receive marketing communications from{' '}
+            {merchantName}
           </p>
         </div>
       </CardContent>

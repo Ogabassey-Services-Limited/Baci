@@ -2,7 +2,7 @@
 
 import Script from 'next/script';
 import { useEffect, useState } from 'react';
-import { initializeConsentMode, applyStoredConsent } from '@/lib/consent-mode';
+import { applyStoredConsent, initializeConsentMode } from '@/lib/consent-mode';
 
 interface GoogleAnalyticsProps {
   measurementId: string;
@@ -105,7 +105,7 @@ export function sendEnhancedConversion(userData: {
     const dataBuffer = encoder.encode(data.toLowerCase().trim());
     const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   };
 
   // Build enhanced conversion data
@@ -139,9 +139,11 @@ export function sendEnhancedConversion(userData: {
     return enhancedData;
   };
 
-  buildUserData().then(enhancedData => {
-    if (window.gtag) {
-      window.gtag('set', 'user_data', enhancedData);
-    }
-  }).catch(console.error);
+  buildUserData()
+    .then((enhancedData) => {
+      if (window.gtag) {
+        window.gtag('set', 'user_data', enhancedData);
+      }
+    })
+    .catch(console.error);
 }

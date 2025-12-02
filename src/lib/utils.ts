@@ -1,8 +1,8 @@
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { type ClassValue, clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 /**
@@ -10,16 +10,70 @@ export function cn(...inputs: ClassValue[]) {
  * Based on SecLists and HaveIBeenPwned data
  */
 const COMMON_PASSWORDS = new Set([
-  'password', '123456', '12345678', 'qwerty', 'abc123', 'monkey', '1234567',
-  'letmein', 'trustno1', 'dragon', 'baseball', 'iloveyou', 'master', 'sunshine',
-  'ashley', 'bailey', 'shadow', '123123', '654321', 'superman', 'qazwsx',
-  'michael', 'football', 'password1', 'password123', 'batman', 'login',
-  'welcome', 'admin', 'princess', 'qwerty123', '1q2w3e4r', 'passw0rd',
-  '1234567890', 'welcome1', 'p@ssw0rd', 'hello', 'charlie', 'donald',
-  'password1!', 'qwerty1', '123qwe', 'zxcvbnm', '121212', '000000',
-  'access', 'flower', 'hottie', 'loveme', 'zaq1zaq1', 'password2',
-  'killer', 'soccer', 'fuckyou', 'jennifer', 'hunter', 'buster',
-  'soccer1', 'hockey', 'george', 'andrew', 'harley', 'summer', 'love',
+  'password',
+  '123456',
+  '12345678',
+  'qwerty',
+  'abc123',
+  'monkey',
+  '1234567',
+  'letmein',
+  'trustno1',
+  'dragon',
+  'baseball',
+  'iloveyou',
+  'master',
+  'sunshine',
+  'ashley',
+  'bailey',
+  'shadow',
+  '123123',
+  '654321',
+  'superman',
+  'qazwsx',
+  'michael',
+  'football',
+  'password1',
+  'password123',
+  'batman',
+  'login',
+  'welcome',
+  'admin',
+  'princess',
+  'qwerty123',
+  '1q2w3e4r',
+  'passw0rd',
+  '1234567890',
+  'welcome1',
+  'p@ssw0rd',
+  'hello',
+  'charlie',
+  'donald',
+  'password1!',
+  'qwerty1',
+  '123qwe',
+  'zxcvbnm',
+  '121212',
+  '000000',
+  'access',
+  'flower',
+  'hottie',
+  'loveme',
+  'zaq1zaq1',
+  'password2',
+  'killer',
+  'soccer',
+  'fuckyou',
+  'jennifer',
+  'hunter',
+  'buster',
+  'soccer1',
+  'hockey',
+  'george',
+  'andrew',
+  'harley',
+  'summer',
+  'love',
 ]);
 
 /**
@@ -60,8 +114,13 @@ export const checkPasswordStrength = (password: string): number => {
 
   // Check for keyboard patterns and repeated characters
   const hasRepeatingChars = /(.)\1{2,}/.test(password); // aaa, 111
-  const hasSequentialChars = /(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|012|123|234|345|456|567|678|789)/i.test(password);
-  const hasKeyboardPattern = /(qwerty|asdf|zxcv|qazwsx|1qaz|2wsx)/i.test(password);
+  const hasSequentialChars =
+    /(abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz|012|123|234|345|456|567|678|789)/i.test(
+      password
+    );
+  const hasKeyboardPattern = /(qwerty|asdf|zxcv|qazwsx|1qaz|2wsx)/i.test(
+    password
+  );
 
   // Penalize patterns
   if (hasRepeatingChars || hasSequentialChars || hasKeyboardPattern) {
@@ -82,7 +141,9 @@ export const checkPasswordStrength = (password: string): number => {
  * @returns A promise that resolves to a data URI string.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function streamToDataURI(stream: ReadableStream<any>): Promise<string> {
+export async function streamToDataURI(
+  stream: ReadableStream<any>
+): Promise<string> {
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let done = false;
@@ -108,7 +169,7 @@ export async function streamToDataURI(stream: ReadableStream<any>): Promise<stri
   }
 
   if (chunks.length === 0) {
-    throw new Error("No image data found in the stream.");
+    throw new Error('No image data found in the stream.');
   }
 
   // Concatenate all chunks into a single Uint8Array

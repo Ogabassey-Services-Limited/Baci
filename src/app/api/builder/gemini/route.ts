@@ -1,51 +1,64 @@
 import { generateObject } from 'ai';
-import { z } from 'zod';
-import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
-    geminiPro,
-    checkRateLimit,
-    AI_RATE_LIMITS,
-    withRetry,
-    sanitizePromptInput,
+  AI_RATE_LIMITS,
+  checkRateLimit,
+  geminiPro,
+  sanitizePromptInput,
+  withRetry,
 } from '@/ai/provider';
+import { createClient } from '@/lib/supabase/server';
 
 // Puck configuration schema for structured output
 const PuckComponentSchema = z.object({
-    type: z.string(),
-    props: z.record(z.string(), z.any()),
+  type: z.string(),
+  props: z.record(z.string(), z.any()),
 });
 
-const PuckThemeColorsSchema = z.object({
+const PuckThemeColorsSchema = z
+  .object({
     primary: z.string().optional(),
     accent: z.string().optional(),
-    header: z.object({
+    header: z
+      .object({
         background: z.string().optional(),
         text: z.string().optional(),
         iconColor: z.string().optional(),
 
         searchBorder: z.string().optional(),
         searchBackground: z.string().optional(),
-    }).optional(),
-    footer: z.object({
+      })
+      .optional(),
+    footer: z
+      .object({
         background: z.string().optional(),
         text: z.string().optional(),
         linkColor: z.string().optional(),
         linkHoverColor: z.string().optional(),
-    }).optional(),
-}).passthrough();
+      })
+      .optional(),
+  })
+  .passthrough();
 
-const PuckConfigSchema = z.object({
+const PuckConfigSchema = z
+  .object({
     content: z.array(PuckComponentSchema),
-    root: z.object({
+    root: z
+      .object({
         title: z.string().optional(),
-    }).passthrough(),
+      })
+      .passthrough(),
     zones: z.record(z.string(), z.any()).optional(),
-    theme: z.object({
+    theme: z
+      .object({
         colors: PuckThemeColorsSchema.optional(),
-    }).passthrough().optional(),
-}).passthrough();
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
 
 // System prompt for the AI builder
 const SYSTEM_PROMPT = `You are an expert website builder AI assistant with deep knowledge of e-commerce storefronts, UX/UI design, and modern web technologies.
@@ -114,54 +127,62 @@ The configuration includes a powerful theme system that controls ALL visual styl
 Remember: You're helping merchants create beautiful, functional storefronts. Be creative but professional.`;
 
 export async function POST(req: Request) {
-    try {
-        // Auth check
-        const cookieStore = await cookies();
-        const supabase = createClient(cookieStore);
-        const { data: { user } } = await supabase.auth.getUser();
+  try {
+    // Auth check
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Rate limiting
+    const rateLimit = checkRateLimit(
+      `builder:${user.id}`,
+      AI_RATE_LIMITS.builder
+    );
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          details: `Please wait ${Math.ceil(rateLimit.resetIn / 1000)} seconds before trying again.`,
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(Math.ceil(rateLimit.resetIn / 1000)),
+          },
         }
+      );
+    }
 
-        // Rate limiting
-        const rateLimit = checkRateLimit(`builder:${user.id}`, AI_RATE_LIMITS.builder);
-        if (!rateLimit.allowed) {
-            return NextResponse.json(
-                {
-                    error: 'Rate limit exceeded',
-                    details: `Please wait ${Math.ceil(rateLimit.resetIn / 1000)} seconds before trying again.`,
-                },
-                {
-                    status: 429,
-                    headers: {
-                        'X-RateLimit-Remaining': '0',
-                        'X-RateLimit-Reset': String(Math.ceil(rateLimit.resetIn / 1000)),
-                    },
-                }
-            );
-        }
+    const { prompt, currentConfig } = await req.json();
 
-        const { prompt, currentConfig } = await req.json();
+    if (!prompt) {
+      return NextResponse.json(
+        { error: 'Prompt is required' },
+        { status: 400 }
+      );
+    }
 
-        if (!prompt) {
-            return NextResponse.json({ error: 'Prompt is required' }, { status: 400 });
-        }
+    // Sanitize the user prompt
+    const sanitizedPrompt = sanitizePromptInput(prompt, 1000).value;
 
-        // Sanitize the user prompt
-        const sanitizedPrompt = sanitizePromptInput(prompt, 1000).value;
+    if (!sanitizedPrompt) {
+      return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
+    }
 
-        if (!sanitizedPrompt) {
-            return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
-        }
-
-        // Generate the updated config using Vercel AI SDK with retry logic
-        const result = await withRetry(async () => {
-            return await generateObject({
-                model: geminiPro,
-                schema: PuckConfigSchema,
-                system: SYSTEM_PROMPT,
-                prompt: `Current Configuration:
+    // Generate the updated config using Vercel AI SDK with retry logic
+    const result = await withRetry(async () => {
+      return await generateObject({
+        model: geminiPro,
+        schema: PuckConfigSchema,
+        system: SYSTEM_PROMPT,
+        prompt: `Current Configuration:
 \`\`\`json
 ${JSON.stringify(currentConfig, null, 2)}
 \`\`\`
@@ -169,85 +190,89 @@ ${JSON.stringify(currentConfig, null, 2)}
 User Request: ${sanitizedPrompt}
 
 Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`,
-            });
-        });
+      });
+    });
 
-        let updatedConfig = result.object;
+    let updatedConfig = result.object;
 
-        // Deep merge theme if it exists
-        let mergedTheme = currentConfig.theme || {};
-        if (updatedConfig.theme) {
-            if (updatedConfig.theme.colors) {
-                const existingColors = mergedTheme.colors || {};
-                mergedTheme = {
-                    ...mergedTheme,
-                    colors: {
-                        ...existingColors,
-                        ...updatedConfig.theme.colors,
-                        header: {
-                            ...(existingColors.header || {}),
-                            ...(updatedConfig.theme.colors.header || {}),
-                        },
-                        footer: {
-                            ...(existingColors.footer || {}),
-                            ...(updatedConfig.theme.colors.footer || {}),
-                        },
-                    },
-                };
-            }
-        }
-
-        // Ensure all components have unique IDs
-        if (updatedConfig.content && Array.isArray(updatedConfig.content)) {
-            const contentWithIds = updatedConfig.content.map((component, index) => ({
-                ...component,
-                props: {
-                    ...component.props,
-                    id: component.props?.id || `${component.type.toLowerCase()}-${Date.now()}-${index}`
-                }
-            }));
-            updatedConfig = {
-                ...updatedConfig,
-                theme: mergedTheme,
-                content: contentWithIds,
-            };
-        }
-
-        // Validate the structure
-        if (!updatedConfig.content || !Array.isArray(updatedConfig.content)) {
-            throw new Error('Invalid configuration structure: missing or invalid content array');
-        }
-
-        if (!updatedConfig.root) {
-            updatedConfig.root = currentConfig.root || { title: 'Home' };
-        }
-
-        if (!updatedConfig.zones) {
-            updatedConfig.zones = currentConfig.zones || {};
-        }
-
-        return NextResponse.json(
-            { config: updatedConfig },
-            {
-                headers: {
-                    'X-RateLimit-Remaining': String(rateLimit.remaining),
-                },
-            }
-        );
-    } catch (error) {
-        // Log full error details server-side for debugging
-        console.error('Gemini AI Builder Error:', error);
-        console.error('Error details:', {
-            message: error instanceof Error ? error.message : 'Unknown error',
-            stack: error instanceof Error ? error.stack : undefined,
-        });
-        // Return generic error message to client to avoid exposing internal details
-        return NextResponse.json(
-            {
-                error: 'Failed to process AI request',
-                details: 'An unexpected error occurred. Please try again later.'
+    // Deep merge theme if it exists
+    let mergedTheme = currentConfig.theme || {};
+    if (updatedConfig.theme) {
+      if (updatedConfig.theme.colors) {
+        const existingColors = mergedTheme.colors || {};
+        mergedTheme = {
+          ...mergedTheme,
+          colors: {
+            ...existingColors,
+            ...updatedConfig.theme.colors,
+            header: {
+              ...(existingColors.header || {}),
+              ...(updatedConfig.theme.colors.header || {}),
             },
-            { status: 500 }
-        );
+            footer: {
+              ...(existingColors.footer || {}),
+              ...(updatedConfig.theme.colors.footer || {}),
+            },
+          },
+        };
+      }
     }
+
+    // Ensure all components have unique IDs
+    if (updatedConfig.content && Array.isArray(updatedConfig.content)) {
+      const contentWithIds = updatedConfig.content.map((component, index) => ({
+        ...component,
+        props: {
+          ...component.props,
+          id:
+            component.props?.id ||
+            `${component.type.toLowerCase()}-${Date.now()}-${index}`,
+        },
+      }));
+      updatedConfig = {
+        ...updatedConfig,
+        theme: mergedTheme,
+        content: contentWithIds,
+      };
+    }
+
+    // Validate the structure
+    if (!updatedConfig.content || !Array.isArray(updatedConfig.content)) {
+      throw new Error(
+        'Invalid configuration structure: missing or invalid content array'
+      );
+    }
+
+    if (!updatedConfig.root) {
+      updatedConfig.root = currentConfig.root || { title: 'Home' };
+    }
+
+    if (!updatedConfig.zones) {
+      updatedConfig.zones = currentConfig.zones || {};
+    }
+
+    return NextResponse.json(
+      { config: updatedConfig },
+      {
+        headers: {
+          'X-RateLimit-Remaining': String(rateLimit.remaining),
+        },
+      }
+    );
+  } catch (error) {
+    // Log full error details server-side for debugging
+    console.error('Gemini AI Builder Error:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    // Return generic error message to client to avoid exposing internal details
+    return NextResponse.json(
+      {
+        error: 'Failed to process AI request',
+        details: 'An unexpected error occurred. Please try again later.',
+      },
+      { status: 500 }
+    );
+  }
 }

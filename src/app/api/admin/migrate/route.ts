@@ -1,6 +1,6 @@
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 
 /**
  * Extract Supabase project reference from URL for dashboard links
@@ -18,7 +18,9 @@ export async function POST() {
     const supabase = createClient(cookieStore);
 
     // Step 1: Authentication check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -31,7 +33,10 @@ export async function POST() {
       .single();
 
     if (!merchant?.is_platform_admin) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
     }
 
     // Check if migration has been applied by querying for social_media column
@@ -46,7 +51,10 @@ export async function POST() {
       : 'https://supabase.com/dashboard (find your project)';
 
     if (checkError) {
-      if (checkError.message.includes('column') && checkError.message.includes('social_media')) {
+      if (
+        checkError.message.includes('column') &&
+        checkError.message.includes('social_media')
+      ) {
         return NextResponse.json({
           status: 'not_applied',
           message: 'Migration has not been applied yet.',
@@ -94,6 +102,7 @@ This migration will:
 
 export async function GET() {
   return NextResponse.json({
-    message: 'Use POST to check migration status (requires admin authentication)',
+    message:
+      'Use POST to check migration status (requires admin authentication)',
   });
 }

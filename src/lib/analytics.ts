@@ -1,296 +1,330 @@
 'use client';
 
-import { Product } from '@/lib/products';
+import type { Product } from '@/lib/products';
 
 // Types for analytics events
 interface EcommerceItem {
-    item_id: string;
-    item_name: string;
-    item_category?: string;
-    item_brand?: string;
-    price: number;
-    quantity?: number;
-    item_variant?: string;
+  item_id: string;
+  item_name: string;
+  item_category?: string;
+  item_brand?: string;
+  price: number;
+  quantity?: number;
+  item_variant?: string;
 }
 
 interface ViewItemParams {
-    currency: string;
-    value: number;
-    items: EcommerceItem[];
+  currency: string;
+  value: number;
+  items: EcommerceItem[];
 }
 
 interface AddToCartParams {
-    currency: string;
-    value: number;
-    items: EcommerceItem[];
+  currency: string;
+  value: number;
+  items: EcommerceItem[];
 }
 
 interface PurchaseParams {
-    transaction_id: string;
-    currency: string;
-    value: number;
-    tax?: number;
-    shipping?: number;
-    items: EcommerceItem[];
+  transaction_id: string;
+  currency: string;
+  value: number;
+  tax?: number;
+  shipping?: number;
+  items: EcommerceItem[];
 }
 
 // Window type extension for gtag and fbq is in consent-mode.ts
 
 // Check if analytics cookies are allowed
 export function isAnalyticsAllowed(): boolean {
-    if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') return false;
 
-    try {
-        const consent = localStorage.getItem('baci-cookie-consent');
-        if (!consent) return false;
+  try {
+    const consent = localStorage.getItem('baci-cookie-consent');
+    if (!consent) return false;
 
-        const parsed = JSON.parse(consent);
-        return parsed.analytics === true;
-    } catch {
-        return false;
-    }
+    const parsed = JSON.parse(consent);
+    return parsed.analytics === true;
+  } catch {
+    return false;
+  }
 }
 
 // Convert product to ecommerce item format
-function productToItem(product: Product, quantity: number = 1, variant?: string): EcommerceItem {
-    return {
-        item_id: product.id,
-        item_name: product.name,
-        item_category: product.category || undefined,
-        price: product.price,
-        quantity,
-        item_variant: variant,
-    };
+function productToItem(
+  product: Product,
+  quantity: number = 1,
+  variant?: string
+): EcommerceItem {
+  return {
+    item_id: product.id,
+    item_name: product.name,
+    item_category: product.category || undefined,
+    price: product.price,
+    quantity,
+    item_variant: variant,
+  };
 }
 
 // GA4 Event Tracking
 function sendGA4Event(eventName: string, params: object) {
-    if (!isAnalyticsAllowed()) return;
-    if (typeof window === 'undefined' || !window.gtag) return;
+  if (!isAnalyticsAllowed()) return;
+  if (typeof window === 'undefined' || !window.gtag) return;
 
-    window.gtag('event', eventName, params);
+  window.gtag('event', eventName, params);
 }
 
 // Facebook Pixel Event Tracking
 function sendFBEvent(eventName: string, params?: object) {
-    if (!isAnalyticsAllowed()) return;
-    if (typeof window === 'undefined' || !window.fbq) return;
+  if (!isAnalyticsAllowed()) return;
+  if (typeof window === 'undefined' || !window.fbq) return;
 
-    if (params) {
-        window.fbq('track', eventName, params);
-    } else {
-        window.fbq('track', eventName);
-    }
+  if (params) {
+    window.fbq('track', eventName, params);
+  } else {
+    window.fbq('track', eventName);
+  }
 }
 
 // Analytics tracking functions
 export const analytics = {
-    // Page view
-    pageView: (url: string, title?: string) => {
-        // GA4 - page_view is automatic with gtag.js, but can be manual
-        sendGA4Event('page_view', {
-            page_location: url,
-            page_title: title,
-        });
+  // Page view
+  pageView: (url: string, title?: string) => {
+    // GA4 - page_view is automatic with gtag.js, but can be manual
+    sendGA4Event('page_view', {
+      page_location: url,
+      page_title: title,
+    });
 
-        // FB Pixel - PageView is automatic, but can track custom
-        sendFBEvent('PageView');
-    },
+    // FB Pixel - PageView is automatic, but can track custom
+    sendFBEvent('PageView');
+  },
 
-    // View product details
-    viewItem: (product: Product, currency: string = 'USD') => {
-        const params: ViewItemParams = {
-            currency,
-            value: product.price,
-            items: [productToItem(product)],
-        };
+  // View product details
+  viewItem: (product: Product, currency: string = 'USD') => {
+    const params: ViewItemParams = {
+      currency,
+      value: product.price,
+      items: [productToItem(product)],
+    };
 
-        sendGA4Event('view_item', params);
+    sendGA4Event('view_item', params);
 
-        sendFBEvent('ViewContent', {
-            content_ids: [product.id],
-            content_name: product.name,
-            content_type: 'product',
-            content_category: product.category || '',
-            value: product.price,
-            currency,
-        });
-    },
+    sendFBEvent('ViewContent', {
+      content_ids: [product.id],
+      content_name: product.name,
+      content_type: 'product',
+      content_category: product.category || '',
+      value: product.price,
+      currency,
+    });
+  },
 
-    // Add to cart
-    addToCart: (product: Product, quantity: number = 1, currency: string = 'USD', variant?: string) => {
-        const params: AddToCartParams = {
-            currency,
-            value: product.price * quantity,
-            items: [productToItem(product, quantity, variant)],
-        };
+  // Add to cart
+  addToCart: (
+    product: Product,
+    quantity: number = 1,
+    currency: string = 'USD',
+    variant?: string
+  ) => {
+    const params: AddToCartParams = {
+      currency,
+      value: product.price * quantity,
+      items: [productToItem(product, quantity, variant)],
+    };
 
-        sendGA4Event('add_to_cart', params);
+    sendGA4Event('add_to_cart', params);
 
-        sendFBEvent('AddToCart', {
-            content_ids: [product.id],
-            content_name: product.name,
-            content_type: 'product',
-            value: product.price * quantity,
-            currency,
-            num_items: quantity,
-        });
-    },
+    sendFBEvent('AddToCart', {
+      content_ids: [product.id],
+      content_name: product.name,
+      content_type: 'product',
+      value: product.price * quantity,
+      currency,
+      num_items: quantity,
+    });
+  },
 
-    // Remove from cart
-    removeFromCart: (product: Product, quantity: number = 1, currency: string = 'USD') => {
-        sendGA4Event('remove_from_cart', {
-            currency,
-            value: product.price * quantity,
-            items: [productToItem(product, quantity)],
-        });
-        // No standard FB event for remove from cart
-    },
+  // Remove from cart
+  removeFromCart: (
+    product: Product,
+    quantity: number = 1,
+    currency: string = 'USD'
+  ) => {
+    sendGA4Event('remove_from_cart', {
+      currency,
+      value: product.price * quantity,
+      items: [productToItem(product, quantity)],
+    });
+    // No standard FB event for remove from cart
+  },
 
-    // View cart / Begin checkout
-    beginCheckout: (products: Array<{ product: Product; quantity: number }>, currency: string = 'USD') => {
-        const value = products.reduce((sum, { product, quantity }) => sum + product.price * quantity, 0);
-        const items = products.map(({ product, quantity }) => productToItem(product, quantity));
+  // View cart / Begin checkout
+  beginCheckout: (
+    products: Array<{ product: Product; quantity: number }>,
+    currency: string = 'USD'
+  ) => {
+    const value = products.reduce(
+      (sum, { product, quantity }) => sum + product.price * quantity,
+      0
+    );
+    const items = products.map(({ product, quantity }) =>
+      productToItem(product, quantity)
+    );
 
-        sendGA4Event('begin_checkout', {
-            currency,
-            value,
-            items,
-        });
+    sendGA4Event('begin_checkout', {
+      currency,
+      value,
+      items,
+    });
 
-        sendFBEvent('InitiateCheckout', {
-            content_ids: products.map(p => p.product.id),
-            content_type: 'product',
-            value,
-            currency,
-            num_items: products.reduce((sum, p) => sum + p.quantity, 0),
-        });
-    },
+    sendFBEvent('InitiateCheckout', {
+      content_ids: products.map((p) => p.product.id),
+      content_type: 'product',
+      value,
+      currency,
+      num_items: products.reduce((sum, p) => sum + p.quantity, 0),
+    });
+  },
 
-    // Add payment info (optional step)
-    addPaymentInfo: (paymentType: string, currency: string = 'USD', value: number = 0) => {
-        sendGA4Event('add_payment_info', {
-            currency,
-            value,
-            payment_type: paymentType,
-        });
+  // Add payment info (optional step)
+  addPaymentInfo: (
+    paymentType: string,
+    currency: string = 'USD',
+    value: number = 0
+  ) => {
+    sendGA4Event('add_payment_info', {
+      currency,
+      value,
+      payment_type: paymentType,
+    });
 
-        sendFBEvent('AddPaymentInfo', {
-            currency,
-            value,
-        });
-    },
+    sendFBEvent('AddPaymentInfo', {
+      currency,
+      value,
+    });
+  },
 
-    // Purchase complete
-    purchase: (
-        orderId: string,
-        products: Array<{ product: Product; quantity: number }>,
-        total: number,
-        currency: string = 'USD',
-        tax?: number,
-        shipping?: number
-    ) => {
-        const items = products.map(({ product, quantity }) => productToItem(product, quantity));
+  // Purchase complete
+  purchase: (
+    orderId: string,
+    products: Array<{ product: Product; quantity: number }>,
+    total: number,
+    currency: string = 'USD',
+    tax?: number,
+    shipping?: number
+  ) => {
+    const items = products.map(({ product, quantity }) =>
+      productToItem(product, quantity)
+    );
 
-        const params: PurchaseParams = {
-            transaction_id: orderId,
-            currency,
-            value: total,
-            tax,
-            shipping,
-            items,
-        };
+    const params: PurchaseParams = {
+      transaction_id: orderId,
+      currency,
+      value: total,
+      tax,
+      shipping,
+      items,
+    };
 
-        sendGA4Event('purchase', params);
+    sendGA4Event('purchase', params);
 
-        sendFBEvent('Purchase', {
-            content_ids: products.map(p => p.product.id),
-            content_type: 'product',
-            value: total,
-            currency,
-            num_items: products.reduce((sum, p) => sum + p.quantity, 0),
-        });
-    },
+    sendFBEvent('Purchase', {
+      content_ids: products.map((p) => p.product.id),
+      content_type: 'product',
+      value: total,
+      currency,
+      num_items: products.reduce((sum, p) => sum + p.quantity, 0),
+    });
+  },
 
-    // Search
-    search: (searchTerm: string) => {
-        sendGA4Event('search', {
-            search_term: searchTerm,
-        });
+  // Search
+  search: (searchTerm: string) => {
+    sendGA4Event('search', {
+      search_term: searchTerm,
+    });
 
-        sendFBEvent('Search', {
-            search_string: searchTerm,
-        });
-    },
+    sendFBEvent('Search', {
+      search_string: searchTerm,
+    });
+  },
 
-    // View item list (category page)
-    viewItemList: (
-        listId: string,
-        listName: string,
-        products: Product[],
-        _currency: string = 'USD'
-    ) => {
-        const items = products.map((product, index) => ({
-            ...productToItem(product),
-            index,
-            item_list_id: listId,
-            item_list_name: listName,
-        }));
+  // View item list (category page)
+  viewItemList: (
+    listId: string,
+    listName: string,
+    products: Product[],
+    _currency: string = 'USD'
+  ) => {
+    const items = products.map((product, index) => ({
+      ...productToItem(product),
+      index,
+      item_list_id: listId,
+      item_list_name: listName,
+    }));
 
-        sendGA4Event('view_item_list', {
-            item_list_id: listId,
-            item_list_name: listName,
-            items,
-        });
+    sendGA4Event('view_item_list', {
+      item_list_id: listId,
+      item_list_name: listName,
+      items,
+    });
 
-        // FB doesn't have a specific event for this, but we can use ViewContent
-        sendFBEvent('ViewContent', {
-            content_ids: products.map(p => p.id),
-            content_type: 'product_group',
-            content_category: listName,
-        });
-    },
+    // FB doesn't have a specific event for this, but we can use ViewContent
+    sendFBEvent('ViewContent', {
+      content_ids: products.map((p) => p.id),
+      content_type: 'product_group',
+      content_category: listName,
+    });
+  },
 
-    // Click on product in list
-    selectItem: (product: Product, listId?: string, listName?: string, index?: number) => {
-        sendGA4Event('select_item', {
-            item_list_id: listId,
-            item_list_name: listName,
-            items: [{
-                ...productToItem(product),
-                index,
-            }],
-        });
-    },
+  // Click on product in list
+  selectItem: (
+    product: Product,
+    listId?: string,
+    listName?: string,
+    index?: number
+  ) => {
+    sendGA4Event('select_item', {
+      item_list_id: listId,
+      item_list_name: listName,
+      items: [
+        {
+          ...productToItem(product),
+          index,
+        },
+      ],
+    });
+  },
 
-    // Add to wishlist
-    addToWishlist: (product: Product, currency: string = 'USD') => {
-        sendGA4Event('add_to_wishlist', {
-            currency,
-            value: product.price,
-            items: [productToItem(product)],
-        });
+  // Add to wishlist
+  addToWishlist: (product: Product, currency: string = 'USD') => {
+    sendGA4Event('add_to_wishlist', {
+      currency,
+      value: product.price,
+      items: [productToItem(product)],
+    });
 
-        sendFBEvent('AddToWishlist', {
-            content_ids: [product.id],
-            content_name: product.name,
-            content_category: product.category || '',
-            value: product.price,
-            currency,
-        });
-    },
+    sendFBEvent('AddToWishlist', {
+      content_ids: [product.id],
+      content_name: product.name,
+      content_category: product.category || '',
+      value: product.price,
+      currency,
+    });
+  },
 
-    // Sign up / Lead
-    signUp: (method?: string) => {
-        sendGA4Event('sign_up', { method });
-        sendFBEvent('CompleteRegistration');
-    },
+  // Sign up / Lead
+  signUp: (method?: string) => {
+    sendGA4Event('sign_up', { method });
+    sendFBEvent('CompleteRegistration');
+  },
 
-    // Contact / Lead form submission
-    generateLead: (value?: number, currency: string = 'USD') => {
-        sendGA4Event('generate_lead', { value, currency });
-        sendFBEvent('Lead', { value, currency });
-    },
+  // Contact / Lead form submission
+  generateLead: (value?: number, currency: string = 'USD') => {
+    sendGA4Event('generate_lead', { value, currency });
+    sendFBEvent('Lead', { value, currency });
+  },
 };
 
 export default analytics;

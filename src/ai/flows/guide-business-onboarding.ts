@@ -1,32 +1,56 @@
 'use server';
 
-import { generateObject, generateText, experimental_generateImage } from 'ai';
-import { geminiFlash, gemini25FlashImage, imagen3, withRetry, sanitizePromptInput } from '@/ai/provider';
+import { experimental_generateImage, generateObject } from 'ai';
 import { z } from 'zod';
+import {
+  geminiFlash,
+  imagen3,
+  sanitizePromptInput,
+  withRetry,
+} from '@/ai/provider';
 import { logger } from '@/lib/logger';
-
 
 const _GuideBusinessOnboardingInputSchema = z.object({
   businessName: z.string().describe("The user's business name."),
-  businessType: z.string().describe('The type of business the user is onboarding.'),
-  brandPreferences: z.string().describe("The user's favorite color to influence branding."),
+  businessType: z
+    .string()
+    .describe('The type of business the user is onboarding.'),
+  brandPreferences: z
+    .string()
+    .describe("The user's favorite color to influence branding."),
   logoUrl: z
     .string()
     .url()
     .optional()
     .describe(
-      "A URL to a company logo, which will be used for color extraction."
+      'A URL to a company logo, which will be used for color extraction.'
     ),
-  task: z.enum(['generate_logos', 'extract_colors', 'generate_names']).describe("The specific task for the flow to perform."),
-  description: z.string().optional().describe('Business description for name generation.'),
-  tone: z.string().optional().describe('Desired tone for business name generation.'),
+  task: z
+    .enum(['generate_logos', 'extract_colors', 'generate_names'])
+    .describe('The specific task for the flow to perform.'),
+  description: z
+    .string()
+    .optional()
+    .describe('Business description for name generation.'),
+  tone: z
+    .string()
+    .optional()
+    .describe('Desired tone for business name generation.'),
 });
-type GuideBusinessOnboardingInput = z.infer<typeof _GuideBusinessOnboardingInputSchema>;
+type GuideBusinessOnboardingInput = z.infer<
+  typeof _GuideBusinessOnboardingInputSchema
+>;
 
 const BrandColorsSchema = z.object({
   primary: z.string().describe('The primary color, most dominant in the logo.'),
-  background: z.string().describe('The background color, should be light and suitable for a page background. Prefer white or off-white.'),
-  accent: z.string().describe('An accent color for highlights and calls-to-action.'),
+  background: z
+    .string()
+    .describe(
+      'The background color, should be light and suitable for a page background. Prefer white or off-white.'
+    ),
+  accent: z
+    .string()
+    .describe('An accent color for highlights and calls-to-action.'),
 });
 type _BrandColors = z.infer<typeof BrandColorsSchema>;
 
@@ -34,13 +58,18 @@ const _GuideBusinessOnboardingOutputSchema = z.object({
   logos: z
     .array(z.string())
     .optional()
-    .describe(
-      'An array of data URIs for the generated logos.'
-    ),
-  brandColors: BrandColorsSchema.optional().describe('A list of 3 brand colors in hex format (e.g., #RRGGBB).'),
-  businessNames: z.array(z.string()).optional().describe('Generated business name suggestions.'),
+    .describe('An array of data URIs for the generated logos.'),
+  brandColors: BrandColorsSchema.optional().describe(
+    'A list of 3 brand colors in hex format (e.g., #RRGGBB).'
+  ),
+  businessNames: z
+    .array(z.string())
+    .optional()
+    .describe('Generated business name suggestions.'),
 });
-type GuideBusinessOnboardingOutput = z.infer<typeof _GuideBusinessOnboardingOutputSchema>;
+type GuideBusinessOnboardingOutput = z.infer<
+  typeof _GuideBusinessOnboardingOutputSchema
+>;
 
 export async function guideBusinessOnboarding(
   input: GuideBusinessOnboardingInput
@@ -49,7 +78,10 @@ export async function guideBusinessOnboarding(
     if (!input.logoUrl) {
       throw new Error('logoUrl is required for color extraction.');
     }
-    logger.info({ message: 'Extracting colors from logo.', flow: 'guideBusinessOnboarding' });
+    logger.info({
+      message: 'Extracting colors from logo.',
+      flow: 'guideBusinessOnboarding',
+    });
 
     try {
       const { object } = await withRetry(async () => {
@@ -68,21 +100,18 @@ INSTRUCTIONS:
 IMPORTANT:
 - Look at the actual colors IN THE LOGO IMAGE.
 - Return colors as they appear in the logo, unless a background color must be generated.
-- Ensure the background color is very light for good readability.`
+- Ensure the background color is very light for good readability.`,
             },
             {
               role: 'user',
-              content: [
-                { type: 'image', image: input.logoUrl! }
-              ]
-            }
-          ]
+              content: [{ type: 'image', image: input.logoUrl! }],
+            },
+          ],
         });
       });
 
       logger.info({ message: 'Colors extracted successfully', colors: object });
       return { brandColors: object };
-
     } catch (error) {
       logger.error({ message: 'Color extraction failed', error });
       throw new Error('Failed to extract brand colors.');
@@ -90,12 +119,18 @@ IMPORTANT:
   }
 
   if (input.task === 'generate_logos') {
-    logger.info({ message: 'Generating logo with Gemini 2.5 Flash Image', flow: 'guideBusinessOnboarding' });
+    logger.info({
+      message: 'Generating logo with Gemini 2.5 Flash Image',
+      flow: 'guideBusinessOnboarding',
+    });
 
     // Sanitize user inputs
     const businessName = sanitizePromptInput(input.businessName, 100).value;
     const businessType = sanitizePromptInput(input.businessType, 50).value;
-    const brandPreferences = sanitizePromptInput(input.brandPreferences, 50).value;
+    const brandPreferences = sanitizePromptInput(
+      input.brandPreferences,
+      50
+    ).value;
 
     try {
       const prompt = `Generate a professional, modern, and minimalist logo image for a business.
@@ -131,10 +166,14 @@ Please generate the logo image now.`;
 
       logger.info({ message: 'Logo generated successfully with Imagen 3' });
       return { logos: [logoDataUri] };
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error({ message: 'Logo generation failed', error: errorMessage, stack: error instanceof Error ? error.stack : undefined });
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      logger.error({
+        message: 'Logo generation failed',
+        error: errorMessage,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       console.error('Logo generation error details:', error);
       throw new Error(`Failed to generate logo: ${errorMessage}`);
     }
@@ -145,7 +184,10 @@ Please generate the logo image now.`;
       throw new Error('description is required for name generation.');
     }
 
-    logger.info({ message: 'Generating business names', flow: 'guideBusinessOnboarding' });
+    logger.info({
+      message: 'Generating business names',
+      flow: 'guideBusinessOnboarding',
+    });
 
     const description = sanitizePromptInput(input.description, 200).value;
     const tone = input.tone || 'Modern';
@@ -155,7 +197,9 @@ Please generate the logo image now.`;
         return await generateObject({
           model: geminiFlash,
           schema: z.object({
-            businessNames: z.array(z.string()).describe('Array of 6 creative business name suggestions'),
+            businessNames: z
+              .array(z.string())
+              .describe('Array of 6 creative business name suggestions'),
           }),
           messages: [
             {
@@ -173,19 +217,21 @@ REQUIREMENTS:
 - Avoid generic names
 - Consider domain availability trends (short, unique)
 
-OUTPUT: Return exactly 6 names as an array.`
+OUTPUT: Return exactly 6 names as an array.`,
             },
             {
               role: 'user',
-              content: `Business Description: ${description}\nTone: ${tone}\n\nGenerate 6 creative business name suggestions.`
-            }
-          ]
+              content: `Business Description: ${description}\nTone: ${tone}\n\nGenerate 6 creative business name suggestions.`,
+            },
+          ],
         });
       });
 
-      logger.info({ message: 'Business names generated successfully', names: object.businessNames });
+      logger.info({
+        message: 'Business names generated successfully',
+        names: object.businessNames,
+      });
       return { businessNames: object.businessNames };
-
     } catch (error) {
       logger.error({ message: 'Name generation failed', error });
       throw new Error('Failed to generate business names.');

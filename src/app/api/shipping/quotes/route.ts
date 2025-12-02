@@ -3,12 +3,12 @@
  * GET aggregated shipping quotes from all providers
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { shippingService } from '@/lib/shipping';
 import type { QuoteRequest } from '@/lib/shipping/types';
-import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
 // REQUEST VALIDATION
@@ -29,26 +29,32 @@ const QuoteRequestSchema = z.object({
     stationId: z.number().optional(),
   }),
   // Sender info (optional - uses merchant address)
-  sender: z.object({
-    name: z.string().min(1),
-    email: z.string().email().optional(),
-    phone: z.string().min(1),
-    address: z.string().min(1),
-    city: z.string().min(1),
-    state: z.string().min(1),
-    country: z.string().default('Nigeria'),
-    countryCode: z.string().default('NG'),
-    postalCode: z.string().optional(),
-    stationId: z.number().optional(),
-  }).optional(),
+  sender: z
+    .object({
+      name: z.string().min(1),
+      email: z.string().email().optional(),
+      phone: z.string().min(1),
+      address: z.string().min(1),
+      city: z.string().min(1),
+      state: z.string().min(1),
+      country: z.string().default('Nigeria'),
+      countryCode: z.string().default('NG'),
+      postalCode: z.string().optional(),
+      stationId: z.number().optional(),
+    })
+    .optional(),
   // Items (required)
-  items: z.array(z.object({
-    name: z.string().min(1),
-    quantity: z.number().int().positive(),
-    weight: z.number().positive(),
-    value: z.number().nonnegative(),
-    category: z.string().optional(),
-  })).min(1),
+  items: z
+    .array(
+      z.object({
+        name: z.string().min(1),
+        quantity: z.number().int().positive(),
+        weight: z.number().positive(),
+        value: z.number().nonnegative(),
+        category: z.string().optional(),
+      })
+    )
+    .min(1),
   // Session ID for quote caching
   sessionId: z.string().optional(),
   // Shipment type
@@ -69,7 +75,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request',
-          details: parseResult.error.flatten().fieldErrors
+          details: parseResult.error.flatten().fieldErrors,
         },
         { status: 400 }
       );
@@ -83,7 +89,9 @@ export async function POST(request: NextRequest) {
     if (!senderInfo) {
       const cookieStore = await cookies();
       const supabase = createClient(cookieStore);
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (user) {
         const { data: merchant } = await supabase
@@ -94,7 +102,9 @@ export async function POST(request: NextRequest) {
 
         if (merchant) {
           // Parse business location (format: "City, State" or just "City")
-          const locationParts = (merchant.business_location || 'Lagos').split(',').map((s: string) => s.trim());
+          const locationParts = (merchant.business_location || 'Lagos')
+            .split(',')
+            .map((s: string) => s.trim());
           senderInfo = {
             name: merchant.business_name || 'Merchant',
             phone: merchant.phone || '',
@@ -143,9 +153,8 @@ export async function POST(request: NextRequest) {
 
     // Store all quotes (for later reference during booking)
     for (const quote of response.quotes.all) {
-      await supabase
-        .from('shipping_quotes')
-        .upsert({
+      await supabase.from('shipping_quotes').upsert(
+        {
           id: quote.id,
           session_id: response.sessionId,
           provider: quote.provider,
@@ -165,11 +174,12 @@ export async function POST(request: NextRequest) {
           provider_metadata: quote.rawResponse,
           expires_at: quote.expiresAt.toISOString(),
           quote_request: quoteRequest,
-        }, { onConflict: 'id' });
+        },
+        { onConflict: 'id' }
+      );
     }
 
     return NextResponse.json(response);
-
   } catch (error) {
     console.error('Error getting shipping quotes:', error);
     return NextResponse.json(
@@ -221,7 +231,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform to ShippingQuote format
-    const transformedQuotes = quotes.map(q => ({
+    const transformedQuotes = quotes.map((q) => ({
       id: q.id,
       provider: q.provider,
       serviceTier: q.service_tier,
@@ -249,7 +259,6 @@ export async function GET(request: NextRequest) {
       sessionId,
       expiresAt: quotes[0]?.expires_at,
     });
-
   } catch (error) {
     console.error('Error fetching cached quotes:', error);
     return NextResponse.json(

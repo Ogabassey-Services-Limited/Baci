@@ -1,42 +1,79 @@
 'use server';
 
 import { generateObject } from 'ai';
-import { geminiFlash, withRetry, sanitizePromptInput } from '@/ai/provider';
 import { z } from 'zod';
-import { logger } from '@/lib/logger';
+import { geminiFlash, sanitizePromptInput, withRetry } from '@/ai/provider';
 import { getCategoryConfigFromBusinessType } from '@/lib/category-configs';
+import { logger } from '@/lib/logger';
 
 const _AutofillProductDetailsInputSchema = z.object({
-  productName: z.string().describe("The name of the product to generate details for."),
-  businessType: z.string().describe("The merchant's business category (e.g., 'fashion', 'electronics')."),
+  productName: z
+    .string()
+    .describe('The name of the product to generate details for.'),
+  businessType: z
+    .string()
+    .describe(
+      "The merchant's business category (e.g., 'fashion', 'electronics')."
+    ),
 });
 
-type AutofillProductDetailsInput = z.infer<typeof _AutofillProductDetailsInputSchema>;
+type AutofillProductDetailsInput = z.infer<
+  typeof _AutofillProductDetailsInputSchema
+>;
 
 const VariantSuggestionSchema = z.object({
-  attribute: z.string().describe("The name of the variant attribute, e.g., 'Color', 'Size', 'Storage'."),
-  options: z.array(z.string()).describe("A list of suggested option values for this attribute, e.g., ['Small', 'Medium', 'Large'].")
+  attribute: z
+    .string()
+    .describe(
+      "The name of the variant attribute, e.g., 'Color', 'Size', 'Storage'."
+    ),
+  options: z
+    .array(z.string())
+    .describe(
+      "A list of suggested option values for this attribute, e.g., ['Small', 'Medium', 'Large']."
+    ),
 });
 
 const ProductDetailsSchema = z.object({
-  suggestedName: z.string().describe("A standardized, professional product name. e.g., 'samsung s24' should become 'Samsung Galaxy S24'."),
-  description: z.string().describe("A compelling, concise product description (2-3 sentences)."),
-  category: z.string().describe("The most suitable category for the product."),
-  brand: z.string().describe("The brand of the product. This could be the merchant's own brand or a popular brand if applicable."),
-  suggestedVariants: z.array(VariantSuggestionSchema).optional().describe("An array of suggested variant attributes and their options, if applicable.")
+  suggestedName: z
+    .string()
+    .describe(
+      "A standardized, professional product name. e.g., 'samsung s24' should become 'Samsung Galaxy S24'."
+    ),
+  description: z
+    .string()
+    .describe('A compelling, concise product description (2-3 sentences).'),
+  category: z.string().describe('The most suitable category for the product.'),
+  brand: z
+    .string()
+    .describe(
+      "The brand of the product. This could be the merchant's own brand or a popular brand if applicable."
+    ),
+  suggestedVariants: z
+    .array(VariantSuggestionSchema)
+    .optional()
+    .describe(
+      'An array of suggested variant attributes and their options, if applicable.'
+    ),
 });
 
 const _AutofillProductDetailsOutputSchema = z.object({
   details: ProductDetailsSchema,
-  metadata: z.object({
-    inputTruncation: z.object({
-      productName: z.boolean(),
-      businessType: z.boolean(),
-    }).optional(),
-  }).optional(),
+  metadata: z
+    .object({
+      inputTruncation: z
+        .object({
+          productName: z.boolean(),
+          businessType: z.boolean(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
-type AutofillProductDetailsOutput = z.infer<typeof _AutofillProductDetailsOutputSchema>;
+type AutofillProductDetailsOutput = z.infer<
+  typeof _AutofillProductDetailsOutputSchema
+>;
 
 export async function autofillProductDetails(
   input: AutofillProductDetailsInput
@@ -67,9 +104,13 @@ export async function autofillProductDetails(
 
   const categoryConfig = getCategoryConfigFromBusinessType(businessType);
 
-  const possibleVariantAttributesWithLabels = categoryConfig.variantAttributes?.map(attr =>
-    `${attr.label}${attr.options ? ` (Options: ${attr.options.join(', ')})` : ''}`
-  ).join('; ') || 'None';
+  const possibleVariantAttributesWithLabels =
+    categoryConfig.variantAttributes
+      ?.map(
+        (attr) =>
+          `${attr.label}${attr.options ? ` (Options: ${attr.options.join(', ')})` : ''}`
+      )
+      .join('; ') || 'None';
 
   const existingCategories = categoryConfig.productCategories || [];
 
@@ -105,13 +146,16 @@ export async function autofillProductDetails(
       });
     });
 
-    logger.info({ message: 'Product details autofilled successfully', details: object });
+    logger.info({
+      message: 'Product details autofilled successfully',
+      details: object,
+    });
 
     // Debug logging for variant suggestions
     if (object.suggestedVariants && object.suggestedVariants.length > 0) {
       logger.info({
         message: 'AI Variant Suggestions Detail',
-        suggestions: object.suggestedVariants
+        suggestions: object.suggestedVariants,
       });
     }
 
@@ -121,7 +165,6 @@ export async function autofillProductDetails(
         inputTruncation: truncationInfo,
       },
     };
-
   } catch (error) {
     logger.error({ message: 'Product autofill generation failed', error });
     throw new Error('Failed to generate product details.');

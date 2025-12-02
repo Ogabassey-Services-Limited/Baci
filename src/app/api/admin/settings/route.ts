@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -58,7 +58,10 @@ async function checkPlatformAdmin(supabase: ReturnType<typeof createClient>) {
     .single();
 
   if (!merchant?.is_platform_admin) {
-    return { isAdmin: false, error: 'Forbidden - Platform admin access required' };
+    return {
+      isAdmin: false,
+      error: 'Forbidden - Platform admin access required',
+    };
   }
 
   return { isAdmin: true, error: null };
@@ -72,7 +75,10 @@ export async function GET() {
     // Check admin access
     const { isAdmin, error } = await checkPlatformAdmin(supabase);
     if (!isAdmin) {
-      return NextResponse.json({ error }, { status: error === 'Unauthorized' ? 401 : 403 });
+      return NextResponse.json(
+        { error },
+        { status: error === 'Unauthorized' ? 401 : 403 }
+      );
     }
 
     // Get platform settings (singleton row)
@@ -107,7 +113,10 @@ export async function PUT(request: NextRequest) {
     // Check admin access
     const { isAdmin, error } = await checkPlatformAdmin(supabase);
     if (!isAdmin) {
-      return NextResponse.json({ error }, { status: error === 'Unauthorized' ? 401 : 403 });
+      return NextResponse.json(
+        { error },
+        { status: error === 'Unauthorized' ? 401 : 403 }
+      );
     }
 
     const body = await request.json();

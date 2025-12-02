@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Clock, Truck, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { Truck, Clock, Zap } from 'lucide-react';
 
 interface ShippingOption {
   id: string;
@@ -67,7 +67,9 @@ export function ShippingSelector({
           params.set('weight', cartWeight.toString());
         }
 
-        const response = await fetch(`/api/storefront/shipping/rates?${params}`);
+        const response = await fetch(
+          `/api/storefront/shipping/rates?${params}`
+        );
 
         if (!response.ok) {
           throw new Error('Failed to fetch shipping options');
@@ -78,8 +80,9 @@ export function ShippingSelector({
 
         // Auto-select cheapest option if none selected
         if (data.options?.length > 0 && !selectedId) {
-          const cheapest = data.options.reduce((min: ShippingOption, opt: ShippingOption) =>
-            opt.price < min.price ? opt : min
+          const cheapest = data.options.reduce(
+            (min: ShippingOption, opt: ShippingOption) =>
+              opt.price < min.price ? opt : min
           );
           onSelect(cheapest);
         }
@@ -94,7 +97,9 @@ export function ShippingSelector({
             provider: 'standard',
             name: 'Standard Delivery',
             description: 'Delivery within 3-7 business days',
-            price: destinationState?.toLowerCase().includes('lagos') ? 1500 : 2500,
+            price: destinationState?.toLowerCase().includes('lagos')
+              ? 1500
+              : 2500,
             estimated_days_min: 3,
             estimated_days_max: 7,
           },
@@ -103,7 +108,9 @@ export function ShippingSelector({
             provider: 'express',
             name: 'Express Delivery',
             description: 'Delivery within 1-3 business days',
-            price: destinationState?.toLowerCase().includes('lagos') ? 2500 : 4000,
+            price: destinationState?.toLowerCase().includes('lagos')
+              ? 2500
+              : 4000,
             estimated_days_min: 1,
             estimated_days_max: 3,
             is_express: true,
@@ -120,7 +127,15 @@ export function ShippingSelector({
 
     fetchShippingOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [merchantId, destinationState, destinationCity, cartTotal, cartWeight]);
+  }, [
+    merchantId,
+    destinationState,
+    destinationCity,
+    cartTotal,
+    cartWeight,
+    onSelect,
+    selectedId,
+  ]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -208,7 +223,11 @@ export function ShippingSelector({
           >
             <CardContent className="p-4">
               <div className="flex items-center gap-4">
-                <RadioGroupItem value={option.id} id={option.id} className="sr-only" />
+                <RadioGroupItem
+                  value={option.id}
+                  id={option.id}
+                  className="sr-only"
+                />
 
                 <div className="flex-shrink-0">
                   {option.is_express ? (
@@ -231,7 +250,9 @@ export function ShippingSelector({
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">{option.description}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {option.description}
+                  </p>
                   <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
                     <span>Est. {getDeliveryEstimate(option)}</span>
@@ -242,7 +263,9 @@ export function ShippingSelector({
                   {option.price === 0 ? (
                     <span className="font-semibold text-green-600">FREE</span>
                   ) : (
-                    <span className="font-semibold">{formatCurrency(option.price)}</span>
+                    <span className="font-semibold">
+                      {formatCurrency(option.price)}
+                    </span>
                   )}
                 </div>
               </div>

@@ -1,7 +1,7 @@
 'use client';
 
-import { cn } from '@/lib/utils';
 import { Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CheckoutProgressProps {
   currentStep: number;
@@ -51,7 +51,8 @@ export function CheckoutProgress({
                   <div
                     className={cn(
                       'flex h-8 w-8 items-center justify-center rounded-full border-2 bg-background transition-colors',
-                      isCompleted && 'border-primary bg-primary text-primary-foreground',
+                      isCompleted &&
+                        'border-primary bg-primary text-primary-foreground',
                       isCurrent && 'border-primary',
                       !isCompleted && !isCurrent && 'border-muted'
                     )}
@@ -87,7 +88,9 @@ export function CheckoutProgress({
                       {step.label}
                     </p>
                     {step.description && (
-                      <p className="text-xs text-muted-foreground">{step.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {step.description}
+                      </p>
                     )}
                   </div>
                 </div>

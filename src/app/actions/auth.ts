@@ -1,9 +1,9 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
 
 export type AuthActionState = {
   error: string | null;
@@ -24,7 +24,7 @@ const forgotPasswordSchema = z.object({
  * Works with useActionState for progressive enhancement
  */
 export async function loginAction(
-  prevState: AuthActionState,
+  _prevState: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
   const rawData = {
@@ -55,7 +55,10 @@ export async function loginAction(
     }
   } catch (e) {
     const error = e as Error;
-    return { error: error.message || 'An unexpected error occurred', success: false };
+    return {
+      error: error.message || 'An unexpected error occurred',
+      success: false,
+    };
   }
 
   // Redirect on success - this will throw and interrupt the response
@@ -66,7 +69,7 @@ export async function loginAction(
  * Server action for password reset request
  */
 export async function forgotPasswordAction(
-  prevState: AuthActionState,
+  _prevState: AuthActionState,
   formData: FormData
 ): Promise<AuthActionState> {
   const email = formData.get('email');
@@ -85,9 +88,12 @@ export async function forgotPasswordAction(
     // Get origin from request headers or use env variable
     const origin = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
-    const { error } = await supabase.auth.resetPasswordForEmail(result.data.email, {
-      redirectTo: `${origin}/reset-password`,
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      result.data.email,
+      {
+        redirectTo: `${origin}/reset-password`,
+      }
+    );
 
     if (error) {
       return { error: error.message, success: false };
@@ -96,6 +102,9 @@ export async function forgotPasswordAction(
     return { error: null, success: true };
   } catch (e) {
     const error = e as Error;
-    return { error: error.message || 'An unexpected error occurred', success: false };
+    return {
+      error: error.message || 'An unexpected error occurred',
+      success: false,
+    };
   }
 }

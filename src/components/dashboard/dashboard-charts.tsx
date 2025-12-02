@@ -1,20 +1,20 @@
 'use client';
 
 import {
-  Bar,
-  BarChart,
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   XAxis,
   YAxis,
 } from 'recharts';
+import type { ChartConfig } from '@/components/ui/chart';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import type { ChartConfig } from '@/components/ui/chart';
 
 interface ChartDataPoint {
   month: string;
@@ -33,8 +33,16 @@ export function RevenueSparkline({ data, config }: DashboardChartsProps) {
       <AreaChart data={data}>
         <defs>
           <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+            <stop
+              offset="5%"
+              stopColor="hsl(var(--primary))"
+              stopOpacity={0.3}
+            />
+            <stop
+              offset="95%"
+              stopColor="hsl(var(--primary))"
+              stopOpacity={0}
+            />
           </linearGradient>
         </defs>
         <Area
@@ -54,7 +62,11 @@ export function RevenueBarChart({ data, config }: DashboardChartsProps) {
   return (
     <ChartContainer config={config} className="h-full w-full">
       <BarChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+        <CartesianGrid
+          strokeDasharray="3 3"
+          vertical={false}
+          stroke="rgba(255,255,255,0.1)"
+        />
         <XAxis
           dataKey="month"
           tickLine={false}

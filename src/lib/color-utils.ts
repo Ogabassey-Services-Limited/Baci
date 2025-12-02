@@ -1,4 +1,3 @@
-
 /**
  * Color utility functions for accessibility and theming
  */
@@ -12,9 +11,9 @@
  */
 function getLuminance(r: number, g: number, b: number): number {
   // Convert to 0-1 range
-  const [rs, gs, bs] = [r, g, b].map(val => {
+  const [rs, gs, bs] = [r, g, b].map((val) => {
     const v = val / 255;
-    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   });
 
   // Calculate luminance using WCAG formula
@@ -26,21 +25,25 @@ function getLuminance(r: number, g: number, b: number): number {
  * @param hex - Hex color string (e.g., "#FF0000" or "FF0000")
  * @returns RGB object with r, g, b values
  */
-export function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+export function hexToRgb(
+  hex: string
+): { r: number; g: number; b: number } | null {
   // Remove # if present
   const cleanHex = hex.replace('#', '');
 
   // Handle 3-digit hex
   if (cleanHex.length === 3) {
-    const [r, g, b] = cleanHex.split('').map(char => parseInt(char + char, 16));
+    const [r, g, b] = cleanHex
+      .split('')
+      .map((char) => Number.parseInt(char + char, 16));
     return { r, g, b };
   }
 
   // Handle 6-digit hex
   if (cleanHex.length === 6) {
-    const r = parseInt(cleanHex.substring(0, 2), 16);
-    const g = parseInt(cleanHex.substring(2, 4), 16);
-    const b = parseInt(cleanHex.substring(4, 6), 16);
+    const r = Number.parseInt(cleanHex.substring(0, 2), 16);
+    const g = Number.parseInt(cleanHex.substring(2, 4), 16);
+    const b = Number.parseInt(cleanHex.substring(4, 6), 16);
     return { r, g, b };
   }
 
@@ -53,22 +56,21 @@ export function hexToRgb(hex: string): { r: number; g: number; b: number } | nul
  * @returns The darkest hex color string from the array.
  */
 export function findDarkestColor(colors: string[]): string {
-    let darkestColor = colors[0];
-    let minLuminance = 1;
+  let darkestColor = colors[0];
+  let minLuminance = 1;
 
-    for (const color of colors) {
-        const rgb = hexToRgb(color);
-        if (rgb) {
-            const luminance = getLuminance(rgb.r, rgb.g, rgb.b);
-            if (luminance < minLuminance) {
-                minLuminance = luminance;
-                darkestColor = color;
-            }
-        }
+  for (const color of colors) {
+    const rgb = hexToRgb(color);
+    if (rgb) {
+      const luminance = getLuminance(rgb.r, rgb.g, rgb.b);
+      if (luminance < minLuminance) {
+        minLuminance = luminance;
+        darkestColor = color;
+      }
     }
-    return darkestColor;
+  }
+  return darkestColor;
 }
-
 
 /**
  * Calculate contrast ratio between two colors (WCAG formula)
@@ -119,9 +121,7 @@ export function getContrastingTextColor(bgColor: string): string {
 
   // HSP (Highly Sensitive Poo) equation from http://alienryderflex.com/hsp.html
   const hsp = Math.sqrt(
-    0.299 * (rgb.r * rgb.r) +
-    0.587 * (rgb.g * rgb.g) +
-    0.114 * (rgb.b * rgb.b)
+    0.299 * (rgb.r * rgb.r) + 0.587 * (rgb.g * rgb.g) + 0.114 * (rgb.b * rgb.b)
   );
 
   // Using the HSP value, determine whether the color is light or dark
@@ -168,12 +168,15 @@ export function meetsWCAGAALarge(bgColor: string, textColor: string): boolean {
  * @param amount - Amount to darken (negative) or lighten (positive), range -1 to 1
  * @returns New hex color
  */
-export function adjustColorBrightness(hexColor: string, amount: number): string {
+export function adjustColorBrightness(
+  hexColor: string,
+  amount: number
+): string {
   const rgb = hexToRgb(hexColor);
   if (!rgb) return hexColor;
 
   const adjust = (value: number) => {
-    const adjusted = Math.round(value + (255 * amount));
+    const adjusted = Math.round(value + 255 * amount);
     return Math.max(0, Math.min(255, adjusted));
   };
 

@@ -1,10 +1,13 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { AboutPageClient } from './about-page-client';
-import { generateAboutPageJsonLd, MerchantAboutPage } from '@/types/about-page';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { createClient } from '@/lib/supabase/server';
+import {
+  generateAboutPageJsonLd,
+  type MerchantAboutPage,
+} from '@/types/about-page';
+import { AboutPageClient } from './about-page-client';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -27,7 +30,9 @@ async function getMerchant(slug: string) {
   return merchant;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const merchant = await getMerchant(slug);
 
@@ -38,7 +43,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
-  const description = aboutPage.story || aboutPage.mission || `Learn more about ${merchant.business_name}`;
+  const description =
+    aboutPage.story ||
+    aboutPage.mission ||
+    `Learn more about ${merchant.business_name}`;
 
   return {
     title: `About Us | ${merchant.business_name}`,
@@ -83,7 +91,9 @@ export default async function AboutPage({ params }: PageProps) {
       {/* nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(jsonLd as Record<string, unknown>) }}
+        dangerouslySetInnerHTML={{
+          __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
+        }}
       />
       <AboutPageClient
         merchant={merchant}

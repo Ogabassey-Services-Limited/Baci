@@ -1,21 +1,21 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import Link from 'next/link';
 import {
-  Package,
-  Truck,
+  AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   Clock,
-  MapPin,
-  ArrowLeft,
   Loader2,
-  AlertCircle,
+  MapPin,
+  Package,
+  Truck,
   XCircle,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+import { use, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 // =============================================================================
@@ -51,12 +51,15 @@ interface TrackingResult {
 // STATUS CONFIG
 // =============================================================================
 
-const STATUS_CONFIG: Record<string, {
-  icon: typeof Package;
-  color: string;
-  bgColor: string;
-  label: string;
-}> = {
+const STATUS_CONFIG: Record<
+  string,
+  {
+    icon: typeof Package;
+    color: string;
+    bgColor: string;
+    label: string;
+  }
+> = {
   pending: {
     icon: Clock,
     color: 'text-gray-500',
@@ -136,7 +139,9 @@ export default function TrackingPage({
   useEffect(() => {
     const fetchTracking = async () => {
       try {
-        const response = await fetch(`/api/shipping/track/${encodeURIComponent(trackingNumber)}`);
+        const response = await fetch(
+          `/api/shipping/track/${encodeURIComponent(trackingNumber)}`
+        );
         const data = await response.json();
 
         if (!response.ok) {
@@ -145,7 +150,9 @@ export default function TrackingPage({
 
         setTracking(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to track shipment');
+        setError(
+          err instanceof Error ? err.message : 'Failed to track shipment'
+        );
       } finally {
         setLoading(false);
       }
@@ -257,7 +264,8 @@ export default function TrackingPage({
                 <MapPin className="h-4 w-4" />
                 <span>
                   Delivering to {tracking.shipment.receiverCity}
-                  {tracking.shipment.receiverState && `, ${tracking.shipment.receiverState}`}
+                  {tracking.shipment.receiverState &&
+                    `, ${tracking.shipment.receiverState}`}
                 </span>
               </div>
             )}
@@ -300,7 +308,12 @@ export default function TrackingPage({
 
                       {/* Content */}
                       <div className="flex-1 pb-6">
-                        <p className={cn('font-medium', index === 0 && 'text-primary')}>
+                        <p
+                          className={cn(
+                            'font-medium',
+                            index === 0 && 'text-primary'
+                          )}
+                        >
                           {event.description || event.status}
                         </p>
                         {event.location && (
@@ -326,7 +339,10 @@ export default function TrackingPage({
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground text-center">
               Need help with your delivery?{' '}
-              <a href="mailto:support@usebaci.com" className="text-primary underline">
+              <a
+                href="mailto:support@usebaci.com"
+                className="text-primary underline"
+              >
                 Contact Support
               </a>
             </p>

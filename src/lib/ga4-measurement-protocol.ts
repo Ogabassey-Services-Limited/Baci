@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 /**
  * Google Analytics 4 Measurement Protocol (Server-Side)
@@ -66,7 +66,9 @@ export function generateClientId(): string {
 /**
  * Extract client ID from GA cookie
  */
-export function extractClientIdFromCookie(gaCookie: string | undefined): string {
+export function extractClientIdFromCookie(
+  gaCookie: string | undefined
+): string {
   if (!gaCookie) return generateClientId();
   // GA cookie format: GA1.1.123456789.1234567890
   const parts = gaCookie.split('.');
@@ -168,7 +170,13 @@ export const ga4MeasurementProtocol = {
     transactionId: string,
     value: number,
     currency: string,
-    products: Array<{ id: string; name: string; price: number; quantity: number; category?: string }>
+    products: Array<{
+      id: string;
+      name: string;
+      price: number;
+      quantity: number;
+      category?: string;
+    }>
   ) => {
     return sendGA4Event(measurementId, apiSecret, 'purchase', userData, {
       transaction_id: transactionId,
@@ -193,7 +201,12 @@ export const ga4MeasurementProtocol = {
     userData: GA4UserData,
     value: number,
     currency: string,
-    products: Array<{ id: string; name: string; price: number; quantity: number }>
+    products: Array<{
+      id: string;
+      name: string;
+      price: number;
+      quantity: number;
+    }>
   ) => {
     return sendGA4Event(measurementId, apiSecret, 'begin_checkout', userData, {
       value,

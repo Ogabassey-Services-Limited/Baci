@@ -1,50 +1,50 @@
 'use client';
 
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
+import Link from '@tiptap/extension-link';
 import Placeholder from '@tiptap/extension-placeholder';
+import TextAlign from '@tiptap/extension-text-align';
 import Typography from '@tiptap/extension-typography';
 import Underline from '@tiptap/extension-underline';
-import TextAlign from '@tiptap/extension-text-align';
-import { useCallback, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Bold,
-  Italic,
-  Underline as UnderlineIcon,
-  Strikethrough,
   Code,
-  List,
-  ListOrdered,
-  Quote,
   Heading1,
   Heading2,
   Heading3,
   ImageIcon,
+  Italic,
   Link as LinkIcon,
-  Undo,
-  Redo,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Minus,
-  Upload,
+  List,
+  ListOrdered,
   Loader2,
+  Minus,
+  Quote,
+  Redo,
   ShoppingBag,
+  Strikethrough,
+  Underline as UnderlineIcon,
+  Undo,
+  Upload,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useCallback, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 import { ProductEmbedPicker } from './product-embed';
 
 interface Product {
@@ -96,7 +96,8 @@ export function BlogEditor({
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: 'text-primary underline underline-offset-4 hover:text-primary/80',
+          class:
+            'text-primary underline underline-offset-4 hover:text-primary/80',
         },
       }),
       Image.configure({
@@ -119,7 +120,7 @@ export function BlogEditor({
         class:
           'prose prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[400px] px-4 py-3',
       },
-      handleDrop: (view, event, slice, moved) => {
+      handleDrop: (_view, event, _slice, moved) => {
         if (!moved && event.dataTransfer?.files?.length) {
           const file = event.dataTransfer.files[0];
           if (file.type.startsWith('image/')) {
@@ -130,7 +131,7 @@ export function BlogEditor({
         }
         return false;
       },
-      handlePaste: (view, event) => {
+      handlePaste: (_view, event) => {
         const items = event.clipboardData?.items;
         if (items) {
           for (const item of items) {
@@ -294,21 +295,27 @@ export function BlogEditor({
         <ToolbarDivider />
 
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 1 }).run()
+          }
           isActive={editor.isActive('heading', { level: 1 })}
           title="Heading 1"
         >
           <Heading1 className="w-4 h-4" />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 2 }).run()
+          }
           isActive={editor.isActive('heading', { level: 2 })}
           title="Heading 2"
         >
           <Heading2 className="w-4 h-4" />
         </ToolbarButton>
         <ToolbarButton
-          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          onClick={() =>
+            editor.chain().focus().toggleHeading({ level: 3 }).run()
+          }
           isActive={editor.isActive('heading', { level: 3 })}
           title="Heading 3"
         >
@@ -420,7 +427,10 @@ export function BlogEditor({
         >
           <LinkIcon className="w-4 h-4" />
         </ToolbarButton>
-        <ToolbarButton onClick={() => setIsImageDialogOpen(true)} title="Add Image">
+        <ToolbarButton
+          onClick={() => setIsImageDialogOpen(true)}
+          title="Add Image"
+        >
           <ImageIcon className="w-4 h-4" />
         </ToolbarButton>
         {onImageUpload && (
@@ -429,14 +439,21 @@ export function BlogEditor({
             disabled={isUploading}
             title="Upload Image"
           >
-            {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {isUploading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4" />
+            )}
           </ToolbarButton>
         )}
 
         {showProductEmbed && onProductsChange && (
           <>
             <ToolbarDivider />
-            <ToolbarButton onClick={() => setIsProductDialogOpen(true)} title="Embed Products">
+            <ToolbarButton
+              onClick={() => setIsProductDialogOpen(true)}
+              title="Embed Products"
+            >
               <ShoppingBag className="w-4 h-4" />
             </ToolbarButton>
           </>
@@ -450,7 +467,6 @@ export function BlogEditor({
         className="hidden"
         onChange={handleFileSelect}
       />
-
 
       <EditorContent editor={editor} />
 
@@ -490,7 +506,10 @@ export function BlogEditor({
                 Remove Link
               </Button>
             )}
-            <Button variant="outline" onClick={() => setIsLinkDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsLinkDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={addLink}>Add Link</Button>
@@ -540,7 +559,10 @@ export function BlogEditor({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsImageDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsImageDialogOpen(false)}
+            >
               Cancel
             </Button>
             <Button onClick={addImage} disabled={!imageUrl}>

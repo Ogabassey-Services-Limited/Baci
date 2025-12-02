@@ -1,4 +1,7 @@
-import { ProductDetailSkeleton, StorefrontHeaderSkeleton } from '@/components/ui/skeletons';
+import {
+  ProductDetailSkeleton,
+  StorefrontHeaderSkeleton,
+} from '@/components/ui/skeletons';
 
 /**
  * Loading state for category product detail pages

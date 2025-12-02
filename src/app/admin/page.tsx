@@ -1,42 +1,48 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { AnalyticsCard } from '@/components/analytics/analytics-card';
 import {
-  DollarSign,
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  Banknote,
   Building2,
+  CheckCircle,
+  DollarSign,
+  RefreshCw,
   TrendingUp,
   Users,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
-  ArrowRight,
-  Activity,
-  Banknote,
   Wallet,
+  XCircle,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Area,
   AreaChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Cell,
-  PieChart,
-  Pie,
-  Legend,
 } from 'recharts';
-import { useToast } from '@/hooks/use-toast';
-import Link from 'next/link';
+import { AnalyticsCard } from '@/components/analytics/analytics-card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
-import { PlatformAnalytics } from '@/types/analytics';
+import type { PlatformAnalytics } from '@/types/analytics';
 
 const HEALTH_COLORS = {
   healthy: '#10b981',
@@ -54,9 +60,9 @@ function formatCurrency(value: number): string {
   });
 
   if (value >= 1000000) {
-    return formatter.format(value / 1000000) + 'M';
+    return `${formatter.format(value / 1000000)}M`;
   } else if (value >= 1000) {
-    return formatter.format(value / 1000) + 'K';
+    return `${formatter.format(value / 1000)}K`;
   }
   return formatter.format(value);
 }
@@ -77,31 +83,34 @@ export default function AdminDashboardPage() {
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const { toast } = useToast();
 
-  const fetchAnalytics = useCallback(async (showRefreshToast = false) => {
-    try {
-      if (showRefreshToast) setRefreshing(true);
-      const response = await fetch(`/api/admin/analytics?period=${period}`);
-      if (!response.ok) throw new Error('Failed to fetch analytics');
-      const data = await response.json();
-      setAnalytics(data);
-      if (showRefreshToast) {
+  const fetchAnalytics = useCallback(
+    async (showRefreshToast = false) => {
+      try {
+        if (showRefreshToast) setRefreshing(true);
+        const response = await fetch(`/api/admin/analytics?period=${period}`);
+        if (!response.ok) throw new Error('Failed to fetch analytics');
+        const data = await response.json();
+        setAnalytics(data);
+        if (showRefreshToast) {
+          toast({
+            title: 'Data Refreshed',
+            description: 'Platform analytics have been updated.',
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch analytics:', error);
         toast({
-          title: 'Data Refreshed',
-          description: 'Platform analytics have been updated.',
+          title: 'Error',
+          description: 'Failed to load platform analytics.',
+          variant: 'destructive',
         });
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load platform analytics.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [period, toast]);
+    },
+    [period, toast]
+  );
 
   const handleRefreshViews = async () => {
     try {
@@ -111,7 +120,8 @@ export default function AdminDashboardPage() {
 
       toast({
         title: 'Views Refreshing',
-        description: 'Analytics views are being refreshed. This may take a moment.',
+        description:
+          'Analytics views are being refreshed. This may take a moment.',
       });
 
       // Poll for completion instead of fixed delay
@@ -141,7 +151,6 @@ export default function AdminDashboardPage() {
         clearInterval(pollInterval);
         setRefreshing(false);
       }, 30000);
-
     } catch (error) {
       console.error('Failed to refresh views:', error);
       toast({
@@ -157,19 +166,41 @@ export default function AdminDashboardPage() {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
-  const healthData = analytics ? [
-    { name: 'Healthy', value: analytics.merchantHealth.healthy, color: HEALTH_COLORS.healthy },
-    { name: 'At Risk', value: analytics.merchantHealth.atRisk, color: HEALTH_COLORS.atRisk },
-    { name: 'Churned', value: analytics.merchantHealth.churned, color: HEALTH_COLORS.churned },
-    { name: 'New', value: analytics.merchantHealth.new, color: HEALTH_COLORS.new },
-  ].filter(d => d.value > 0) : [];
+  const healthData = analytics
+    ? [
+        {
+          name: 'Healthy',
+          value: analytics.merchantHealth.healthy,
+          color: HEALTH_COLORS.healthy,
+        },
+        {
+          name: 'At Risk',
+          value: analytics.merchantHealth.atRisk,
+          color: HEALTH_COLORS.atRisk,
+        },
+        {
+          name: 'Churned',
+          value: analytics.merchantHealth.churned,
+          color: HEALTH_COLORS.churned,
+        },
+        {
+          name: 'New',
+          value: analytics.merchantHealth.new,
+          color: HEALTH_COLORS.new,
+        },
+      ].filter((d) => d.value > 0)
+    : [];
 
-  const chartData = analytics?.dailyGmv.map(d => ({
-    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    gmv: d.gmv,
-    orders: d.orders,
-    merchants: d.merchants,
-  })) || [];
+  const chartData =
+    analytics?.dailyGmv.map((d) => ({
+      date: new Date(d.date).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      }),
+      gmv: d.gmv,
+      orders: d.orders,
+      merchants: d.merchants,
+    })) || [];
 
   return (
     <div className="space-y-6">
@@ -201,7 +232,9 @@ export default function AdminDashboardPage() {
             onClick={handleRefreshViews}
             disabled={refreshing}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'motion-safe:animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${refreshing ? 'motion-safe:animate-spin' : ''}`}
+            />
             Refresh
           </Button>
         </div>
@@ -210,15 +243,13 @@ export default function AdminDashboardPage() {
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {loading ? (
-          <>
-            {[...Array(4)].map((_, i) => (
-              <Card key={i} className="p-6">
-                <Skeleton className="h-4 w-24 mb-4" />
-                <Skeleton className="h-8 w-32 mb-2" />
-                <Skeleton className="h-4 w-20" />
-              </Card>
-            ))}
-          </>
+          [...Array(4)].map((_, i) => (
+            <Card key={i} className="p-6">
+              <Skeleton className="h-4 w-24 mb-4" />
+              <Skeleton className="h-8 w-32 mb-2" />
+              <Skeleton className="h-4 w-20" />
+            </Card>
+          ))
         ) : analytics ? (
           <>
             <AnalyticsCard
@@ -256,15 +287,13 @@ export default function AdminDashboardPage() {
       {/* Platform Revenue Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         {loading ? (
-          <>
-            {[...Array(3)].map((_, i) => (
-              <Card key={i} className="p-6">
-                <Skeleton className="h-4 w-24 mb-4" />
-                <Skeleton className="h-8 w-32 mb-2" />
-                <Skeleton className="h-4 w-20" />
-              </Card>
-            ))}
-          </>
+          [...Array(3)].map((_, i) => (
+            <Card key={i} className="p-6">
+              <Skeleton className="h-4 w-24 mb-4" />
+              <Skeleton className="h-8 w-32 mb-2" />
+              <Skeleton className="h-4 w-20" />
+            </Card>
+          ))
         ) : analytics ? (
           <>
             <Card className="border-emerald-500/20 bg-emerald-500/5">
@@ -273,11 +302,15 @@ export default function AdminDashboardPage() {
                   <Banknote className="h-6 w-6 text-emerald-500" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground font-medium">Platform Revenue</p>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Platform Revenue
+                  </p>
                   <p className="text-2xl font-bold text-emerald-600">
                     {formatCurrency(analytics.summary.platformRevenue)}
                   </p>
-                  <p className="text-xs text-muted-foreground">Fees collected from GMV</p>
+                  <p className="text-xs text-muted-foreground">
+                    Fees collected from GMV
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -287,11 +320,15 @@ export default function AdminDashboardPage() {
                   <DollarSign className="h-6 w-6 text-orange-500" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground font-medium">Processor Fees</p>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Processor Fees
+                  </p>
                   <p className="text-2xl font-bold text-orange-600">
                     {formatCurrency(analytics.summary.processorFees)}
                   </p>
-                  <p className="text-xs text-muted-foreground">Payment processor costs</p>
+                  <p className="text-xs text-muted-foreground">
+                    Payment processor costs
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -301,11 +338,15 @@ export default function AdminDashboardPage() {
                   <Wallet className="h-6 w-6 text-blue-500" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-muted-foreground font-medium">Net to Merchants</p>
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Net to Merchants
+                  </p>
                   <p className="text-2xl font-bold text-blue-600">
                     {formatCurrency(analytics.summary.netToMerchants)}
                   </p>
-                  <p className="text-xs text-muted-foreground">After platform & processor fees</p>
+                  <p className="text-xs text-muted-foreground">
+                    After platform & processor fees
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -319,7 +360,9 @@ export default function AdminDashboardPage() {
         <Card className="glass lg:col-span-2">
           <CardHeader>
             <CardTitle>Platform GMV Over Time</CardTitle>
-            <CardDescription>Daily gross merchandise value across all merchants</CardDescription>
+            <CardDescription>
+              Daily gross merchandise value across all merchants
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -327,14 +370,30 @@ export default function AdminDashboardPage() {
             ) : (
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%" debounce={100}>
-                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <AreaChart
+                    data={chartData}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
                     <defs>
                       <linearGradient id="colorGmv" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                        <stop
+                          offset="5%"
+                          stopColor="#6366f1"
+                          stopOpacity={0.3}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#6366f1"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="currentColor" className="text-muted/20" />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="currentColor"
+                      className="text-muted/20"
+                    />
                     <XAxis
                       dataKey="date"
                       stroke="currentColor"
@@ -356,8 +415,12 @@ export default function AdminDashboardPage() {
                         if (active && payload && payload.length) {
                           return (
                             <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
-                              <p className="text-xs font-medium text-muted-foreground mb-1">{label}</p>
-                              <p className="text-lg font-bold">{formatCurrency(payload[0].value as number)}</p>
+                              <p className="text-xs font-medium text-muted-foreground mb-1">
+                                {label}
+                              </p>
+                              <p className="text-lg font-bold">
+                                {formatCurrency(payload[0].value as number)}
+                              </p>
                             </div>
                           );
                         }
@@ -414,7 +477,9 @@ export default function AdminDashboardPage() {
                           return (
                             <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
                               <p className="text-sm font-medium">{data.name}</p>
-                              <p className="text-lg font-bold">{data.value} merchants</p>
+                              <p className="text-lg font-bold">
+                                {data.value} merchants
+                              </p>
                             </div>
                           );
                         }
@@ -426,7 +491,9 @@ export default function AdminDashboardPage() {
                       height={36}
                       iconType="circle"
                       formatter={(value) => (
-                        <span className="text-xs font-medium text-muted-foreground ml-1">{value}</span>
+                        <span className="text-xs font-medium text-muted-foreground ml-1">
+                          {value}
+                        </span>
                       )}
                     />
                   </PieChart>
@@ -449,7 +516,9 @@ export default function AdminDashboardPage() {
               <CheckCircle className="h-5 w-5 text-emerald-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{analytics?.merchantHealth.healthy || 0}</p>
+              <p className="text-2xl font-bold">
+                {analytics?.merchantHealth.healthy || 0}
+              </p>
               <p className="text-sm text-muted-foreground">Healthy Merchants</p>
             </div>
           </CardContent>
@@ -460,7 +529,9 @@ export default function AdminDashboardPage() {
               <AlertTriangle className="h-5 w-5 text-amber-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{analytics?.merchantHealth.atRisk || 0}</p>
+              <p className="text-2xl font-bold">
+                {analytics?.merchantHealth.atRisk || 0}
+              </p>
               <p className="text-sm text-muted-foreground">At Risk</p>
             </div>
           </CardContent>
@@ -471,7 +542,9 @@ export default function AdminDashboardPage() {
               <XCircle className="h-5 w-5 text-red-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{analytics?.merchantHealth.churned || 0}</p>
+              <p className="text-2xl font-bold">
+                {analytics?.merchantHealth.churned || 0}
+              </p>
               <p className="text-sm text-muted-foreground">Churned</p>
             </div>
           </CardContent>
@@ -482,8 +555,12 @@ export default function AdminDashboardPage() {
               <Users className="h-5 w-5 text-indigo-500" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{analytics?.merchantHealth.new || 0}</p>
-              <p className="text-sm text-muted-foreground">New (No Sales Yet)</p>
+              <p className="text-2xl font-bold">
+                {analytics?.merchantHealth.new || 0}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                New (No Sales Yet)
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -520,13 +597,18 @@ export default function AdminDashboardPage() {
           ) : analytics?.topMerchants.length ? (
             <div className="space-y-4">
               {analytics.topMerchants.slice(0, 5).map((merchant, index) => (
-                <div key={merchant.id} className="flex items-center gap-4 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                <div
+                  key={merchant.id}
+                  className="flex items-center gap-4 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
                     {index + 1}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{merchant.name}</p>
-                    <p className="text-sm text-muted-foreground">{merchant.orders} orders</p>
+                    <p className="text-sm text-muted-foreground">
+                      {merchant.orders} orders
+                    </p>
                   </div>
                   <Badge variant="secondary" className="text-sm font-semibold">
                     {formatCurrency(merchant.gmv)}

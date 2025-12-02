@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { type NextRequest, NextResponse } from 'next/server';
 
 /**
  * Crawler Log API
@@ -34,7 +34,10 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!botName || !urlPath) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing required fields' },
+        { status: 400 }
+      );
     }
 
     const supabase = getServiceClient();
@@ -48,7 +51,12 @@ export async function POST(request: NextRequest) {
     let merchantId: string | null = null;
     const pathParts = urlPath.split('/').filter(Boolean);
 
-    if (pathParts.length > 0 && !['dashboard', 'api', 'auth', 'login', 'onboarding'].includes(pathParts[0])) {
+    if (
+      pathParts.length > 0 &&
+      !['dashboard', 'api', 'auth', 'login', 'onboarding'].includes(
+        pathParts[0]
+      )
+    ) {
       const potentialSlug = pathParts[0];
 
       // Try to find merchant by slug
@@ -90,11 +98,14 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const merchantId = searchParams.get('merchantId');
-    const days = parseInt(searchParams.get('days') || '7', 10);
+    const days = Number.parseInt(searchParams.get('days') || '7', 10);
 
     const supabase = getServiceClient();
     if (!supabase) {
-      return NextResponse.json({ error: 'Service unavailable' }, { status: 503 });
+      return NextResponse.json(
+        { error: 'Service unavailable' },
+        { status: 503 }
+      );
     }
 
     const startDate = new Date();
@@ -151,6 +162,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Crawler stats error:', error);
-    return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch stats' },
+      { status: 500 }
+    );
   }
 }

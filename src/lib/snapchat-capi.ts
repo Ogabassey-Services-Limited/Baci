@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 /**
  * Snapchat Conversions API (Server-Side)
@@ -70,24 +70,35 @@ export async function sendSnapchatEvent(
   // Build hashed user data
   const hashedData: Record<string, string> = {};
   if (userData.email) hashedData.hashed_email = hashData(userData.email);
-  if (userData.phone) hashedData.hashed_phone_number = hashData(userData.phone.replace(/[^\d]/g, ''));
-  if (userData.ipAddress) hashedData.hashed_ip_address = hashData(userData.ipAddress);
+  if (userData.phone)
+    hashedData.hashed_phone_number = hashData(
+      userData.phone.replace(/[^\d]/g, '')
+    );
+  if (userData.ipAddress)
+    hashedData.hashed_ip_address = hashData(userData.ipAddress);
 
   const payload = {
     pixel_id: pixelId,
     timestamp: timestamp.toString(),
     event_type: eventName,
     event_conversion_type: eventConversionType,
-    event_tag: eventId || `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+    event_tag:
+      eventId || `${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
     ...hashedData,
     ...(userData.userAgent && { user_agent: userData.userAgent }),
     ...(userData.clickId && { click_id: userData.clickId }),
-    ...(eventData?.price !== undefined && { price: eventData.price.toString() }),
+    ...(eventData?.price !== undefined && {
+      price: eventData.price.toString(),
+    }),
     ...(eventData?.currency && { currency: eventData.currency }),
-    ...(eventData?.transactionId && { transaction_id: eventData.transactionId }),
+    ...(eventData?.transactionId && {
+      transaction_id: eventData.transactionId,
+    }),
     ...(eventData?.itemIds && { item_ids: JSON.stringify(eventData.itemIds) }),
     ...(eventData?.searchString && { search_string: eventData.searchString }),
-    ...(eventData?.numberOfItems !== undefined && { number_items: eventData.numberOfItems.toString() }),
+    ...(eventData?.numberOfItems !== undefined && {
+      number_items: eventData.numberOfItems.toString(),
+    }),
   };
 
   try {
@@ -95,7 +106,7 @@ export async function sendSnapchatEvent(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(payload),
     });
@@ -109,7 +120,10 @@ export async function sendSnapchatEvent(
     return { success: true };
   } catch (error) {
     console.error('Snapchat CAPI request failed:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error',
+    };
   }
 }
 

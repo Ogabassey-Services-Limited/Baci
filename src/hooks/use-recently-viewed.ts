@@ -7,9 +7,9 @@
  * removing old entries and maintaining a configurable max size.
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useMerchantSafe } from './use-merchant';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Product } from '@/lib/products';
+import { useMerchantSafe } from './use-merchant';
 
 // Re-export Product type for consumers of this hook
 export type { Product };

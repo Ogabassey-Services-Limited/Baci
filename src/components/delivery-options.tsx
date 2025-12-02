@@ -1,14 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Loader2, Truck, Clock, Shield, MapPin, ChevronDown, ChevronUp } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
+import {
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Loader2,
+  MapPin,
+  Shield,
+  Truck,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { apiPost } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 
 // =============================================================================
 // TYPES
@@ -79,7 +87,9 @@ export function DeliveryOptions({
 }: DeliveryOptionsProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [quoteResponse, setQuoteResponse] = useState<QuoteResponse | null>(null);
+  const [quoteResponse, setQuoteResponse] = useState<QuoteResponse | null>(
+    null
+  );
   const [showAllOptions, setShowAllOptions] = useState(false);
 
   // Fetch quotes when receiver info changes
@@ -104,7 +114,7 @@ export function DeliveryOptions({
             country: receiver.country || 'Nigeria',
             countryCode: receiver.countryCode || 'NG',
           },
-          items: items.map(item => ({
+          items: items.map((item) => ({
             name: item.name,
             quantity: item.quantity,
             weight: item.weight || 1,
@@ -129,7 +139,19 @@ export function DeliveryOptions({
 
     const debounce = setTimeout(fetchQuotes, 500);
     return () => clearTimeout(debounce);
-  }, [receiver.address, receiver.city, receiver.state, receiver.name, receiver.phone, receiver.email, receiver.country, receiver.countryCode, items, onSelect, selectedQuoteId]);
+  }, [
+    receiver.address,
+    receiver.city,
+    receiver.state,
+    receiver.name,
+    receiver.phone,
+    receiver.email,
+    receiver.country,
+    receiver.countryCode,
+    items,
+    onSelect,
+    selectedQuoteId,
+  ]);
 
   // Format delivery estimate
   const formatDeliveryTime = (quote: ShippingQuote) => {
@@ -141,9 +163,12 @@ export function DeliveryOptions({
 
   // Get badge for quote type
   const getQuoteBadge = (quote: ShippingQuote, index: number) => {
-    if (index === 0) return { label: 'Best Value', variant: 'default' as const };
-    if (quote.estimatedDays <= 2) return { label: 'Fastest', variant: 'secondary' as const };
-    if (quote.isStationPickup) return { label: 'Pickup Point', variant: 'outline' as const };
+    if (index === 0)
+      return { label: 'Best Value', variant: 'default' as const };
+    if (quote.estimatedDays <= 2)
+      return { label: 'Fastest', variant: 'secondary' as const };
+    if (quote.isStationPickup)
+      return { label: 'Pickup Point', variant: 'outline' as const };
     return null;
   };
 
@@ -153,7 +178,9 @@ export function DeliveryOptions({
         <CardContent className="p-6">
           <div className="flex items-center justify-center gap-3 py-8">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            <p className="text-muted-foreground">Finding best delivery options...</p>
+            <p className="text-muted-foreground">
+              Finding best delivery options...
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -199,7 +226,8 @@ export function DeliveryOptions({
               </>
             ) : (
               <>
-                {quotes.all.length - quotes.featured.length} more options <ChevronDown className="ml-1 h-4 w-4" />
+                {quotes.all.length - quotes.featured.length} more options{' '}
+                <ChevronDown className="ml-1 h-4 w-4" />
               </>
             )}
           </Button>
@@ -209,7 +237,7 @@ export function DeliveryOptions({
       <RadioGroup
         value={selectedQuoteId}
         onValueChange={(id) => {
-          const quote = quotes.all.find(q => q.id === id);
+          const quote = quotes.all.find((q) => q.id === id);
           if (quote) {
             onSelect(quote, sessionId);
           }
@@ -225,11 +253,15 @@ export function DeliveryOptions({
               key={quote.id}
               htmlFor={quote.id}
               className={cn(
-                "flex cursor-pointer rounded-lg border p-4 transition-all hover:bg-muted/50",
-                isSelected ? "border-primary bg-primary/5" : "border-border"
+                'flex cursor-pointer rounded-lg border p-4 transition-all hover:bg-muted/50',
+                isSelected ? 'border-primary bg-primary/5' : 'border-border'
               )}
             >
-              <RadioGroupItem value={quote.id} id={quote.id} className="sr-only" />
+              <RadioGroupItem
+                value={quote.id}
+                id={quote.id}
+                className="sr-only"
+              />
 
               <div className="flex-1">
                 <div className="flex items-start justify-between">
@@ -260,9 +292,13 @@ export function DeliveryOptions({
                       <div className="flex items-start gap-1 text-sm text-amber-600 mt-2">
                         <MapPin className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
                         <div>
-                          <p className="font-medium">Pickup at: {quote.stationName}</p>
+                          <p className="font-medium">
+                            Pickup at: {quote.stationName}
+                          </p>
                           {quote.stationAddress && (
-                            <p className="text-xs text-muted-foreground">{quote.stationAddress}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {quote.stationAddress}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -270,9 +306,13 @@ export function DeliveryOptions({
                   </div>
 
                   <div className="text-right">
-                    <p className="font-semibold text-lg">{formatCurrency(quote.price)}</p>
+                    <p className="font-semibold text-lg">
+                      {formatCurrency(quote.price)}
+                    </p>
                     {quote.pickupIncluded && (
-                      <p className="text-xs text-muted-foreground">Free pickup</p>
+                      <p className="text-xs text-muted-foreground">
+                        Free pickup
+                      </p>
                     )}
                   </div>
                 </div>
@@ -280,8 +320,10 @@ export function DeliveryOptions({
 
               <div
                 className={cn(
-                  "ml-4 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                  isSelected ? "border-primary bg-primary" : "border-muted-foreground/30"
+                  'ml-4 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors',
+                  isSelected
+                    ? 'border-primary bg-primary'
+                    : 'border-muted-foreground/30'
                 )}
               >
                 {isSelected && (
@@ -311,7 +353,10 @@ interface DeliverySummaryProps {
   formatCurrency: (value: number) => string;
 }
 
-export function DeliverySummary({ quote, formatCurrency }: DeliverySummaryProps) {
+export function DeliverySummary({
+  quote,
+  formatCurrency,
+}: DeliverySummaryProps) {
   const formatDeliveryTime = (q: ShippingQuote) => {
     if (q.minDays && q.maxDays && q.minDays !== q.maxDays) {
       return `${q.minDays}-${q.maxDays} business days`;

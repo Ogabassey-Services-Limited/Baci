@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 /**
  * Storefront Feature Settings (Public)
@@ -140,7 +140,9 @@ export function useStorefrontFeatures({
   slug,
   autoFetch = true,
 }: UseStorefrontFeaturesOptions) {
-  const [features, setFeatures] = useState<StorefrontFeatures>(DEFAULT_STOREFRONT_FEATURES);
+  const [features, setFeatures] = useState<StorefrontFeatures>(
+    DEFAULT_STOREFRONT_FEATURES
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -200,7 +202,9 @@ export function useStorefrontFeatures({
  * Hook for merchant dashboard to manage feature settings
  */
 export function useMerchantFeatures() {
-  const [settings, setSettings] = useState<MerchantFeatureSettings | null>(null);
+  const [settings, setSettings] = useState<MerchantFeatureSettings | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -248,7 +252,9 @@ export function useMerchantFeatures() {
         setSettings(result);
         return true;
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to update settings');
+        setError(
+          err instanceof Error ? err.message : 'Failed to update settings'
+        );
         return false;
       } finally {
         setIsSaving(false);
@@ -289,7 +295,11 @@ export function useMerchantFeatures() {
     orderTrackingEnabled: settings?.order_tracking_enabled ?? true,
     discountCodesEnabled: settings?.discount_codes_enabled ?? true,
     guestCheckoutEnabled: settings?.guest_checkout_enabled ?? true,
-    shippingProviders: settings?.shipping_providers ?? ['gigl', 'topship', 'shiip'],
+    shippingProviders: settings?.shipping_providers ?? [
+      'gigl',
+      'topship',
+      'shiip',
+    ],
     freeShippingThreshold: settings?.free_shipping_threshold ?? null,
     blogEnabled: settings?.blog_enabled ?? false,
     autoBlogEnabled: settings?.auto_blog_enabled ?? false,

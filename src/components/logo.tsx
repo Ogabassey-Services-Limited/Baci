@@ -1,18 +1,24 @@
-import Image from "next/image";
-import { cn } from "@/lib/utils";
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 interface LogoProps {
   className?: string;
   width?: number;
   height?: number;
-  variant?: "default" | "light" | "auto";
+  variant?: 'default' | 'light' | 'auto';
   priority?: boolean;
 }
 
-export function Logo({ className, width = 100, height = 31, variant = "auto", priority = false }: LogoProps) {
-  if (variant === "light") {
+export function Logo({
+  className,
+  width = 100,
+  height = 31,
+  variant = 'auto',
+  priority = false,
+}: LogoProps) {
+  if (variant === 'light') {
     return (
-      <div className={cn("relative", className)} style={{ width, height }}>
+      <div className={cn('relative', className)} style={{ width, height }}>
         <Image
           src="/baci-logo-dark.svg"
           alt="Baci Logo"
@@ -20,14 +26,14 @@ export function Logo({ className, width = 100, height = 31, variant = "auto", pr
           sizes={`${width}px`}
           className="object-contain"
           priority={priority}
-          loading={priority ? "eager" : "lazy"}
+          loading={priority ? 'eager' : 'lazy'}
         />
       </div>
     );
   }
 
   return (
-    <div className={cn("relative", className)} style={{ width, height }}>
+    <div className={cn('relative', className)} style={{ width, height }}>
       <Image
         src="/baci-logo.svg"
         alt="Baci Logo"
@@ -35,7 +41,7 @@ export function Logo({ className, width = 100, height = 31, variant = "auto", pr
         sizes={`${width}px`}
         className="object-contain dark:hidden"
         priority={priority}
-        loading={priority ? "eager" : "lazy"}
+        loading={priority ? 'eager' : 'lazy'}
       />
       <Image
         src="/baci-logo-dark.svg"
@@ -44,7 +50,7 @@ export function Logo({ className, width = 100, height = 31, variant = "auto", pr
         sizes={`${width}px`}
         className="object-contain hidden dark:block"
         priority={priority}
-        loading={priority ? "eager" : "lazy"}
+        loading={priority ? 'eager' : 'lazy'}
       />
     </div>
   );

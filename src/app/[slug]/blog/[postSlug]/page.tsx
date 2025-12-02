@@ -1,15 +1,15 @@
-import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import { ArrowLeft, Calendar, Clock, Tag, User } from 'lucide-react';
+import { marked } from 'marked';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Clock, User, ArrowLeft, Share2, Tag } from 'lucide-react';
-import { generateBlogPostSchema } from '@/lib/seo-utils';
-import { marked } from 'marked';
 import { asRoute } from '@/lib/routes';
+import { generateBlogPostSchema } from '@/lib/seo-utils';
+import { createClient } from '@/lib/supabase/server';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
@@ -58,7 +58,9 @@ async function getPostData(merchantSlug: string, postSlug: string) {
   // Get related posts (same category or matching tags)
   let relatedQuery = supabase
     .from('blog_posts')
-    .select('id, title, slug, excerpt, featured_image_url, category, published_at, reading_time_minutes')
+    .select(
+      'id, title, slug, excerpt, featured_image_url, category, published_at, reading_time_minutes'
+    )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .neq('id', post.id)
@@ -73,7 +75,9 @@ async function getPostData(merchantSlug: string, postSlug: string) {
   return { merchant, post, relatedPosts: relatedPosts || [] };
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug, postSlug } = await params;
   const data = await getPostData(slug, postSlug);
 
@@ -83,7 +87,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const { merchant, post } = data;
   const title = post.seo_title || post.title;
-  const description = post.seo_description || post.excerpt || post.content.substring(0, 160);
+  const description =
+    post.seo_description || post.excerpt || post.content.substring(0, 160);
   const url = `https://${merchant.slug}.usebaci.com/blog/${post.slug}`;
 
   return {
@@ -100,7 +105,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       modifiedTime: post.updated_at,
       authors: [post.author_name],
       tags: post.tags,
-      images: post.featured_image_url ? [{ url: post.featured_image_url, alt: post.featured_image_alt || post.title }] : [],
+      images: post.featured_image_url
+        ? [
+            {
+              url: post.featured_image_url,
+              alt: post.featured_image_alt || post.title,
+            },
+          ]
+        : [],
     },
     twitter: {
       card: 'summary_large_image',
@@ -138,7 +150,8 @@ export default async function BlogPostPage({ params }: PageProps) {
   const baseUrl = `https://${merchant.slug}.usebaci.com`;
   const blogSchema = generateBlogPostSchema({
     title: post.seo_title || post.title,
-    description: post.seo_description || post.excerpt || post.content.substring(0, 160),
+    description:
+      post.seo_description || post.excerpt || post.content.substring(0, 160),
     url: `${baseUrl}/blog/${post.slug}`,
     image: post.featured_image_url || `${baseUrl}/og-image.png`,
     datePublished: post.published_at,
@@ -201,7 +214,10 @@ export default async function BlogPostPage({ params }: PageProps) {
         {/* Header */}
         <header className="border-b bg-card">
           <div className="container mx-auto px-4 py-4">
-            <Link href={asRoute(`/${slug}/blog`)} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+            <Link
+              href={asRoute(`/${slug}/blog`)}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            >
               <ArrowLeft className="w-4 h-4" />
               Back to Blog
             </Link>
@@ -228,7 +244,9 @@ export default async function BlogPostPage({ params }: PageProps) {
                   {post.category}
                 </Badge>
               )}
-              <h1 className="text-3xl md:text-4xl font-bold mb-4">{post.title}</h1>
+              <h1 className="text-3xl md:text-4xl font-bold mb-4">
+                {post.title}
+              </h1>
 
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
@@ -260,7 +278,9 @@ export default async function BlogPostPage({ params }: PageProps) {
 
               {post.author_bio && (
                 <div className="mt-4 p-4 bg-muted rounded-lg">
-                  <p className="text-sm text-muted-foreground">{post.author_bio}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {post.author_bio}
+                  </p>
                 </div>
               )}
             </header>
@@ -285,7 +305,9 @@ export default async function BlogPostPage({ params }: PageProps) {
 
             {/* Share */}
             <div className="flex items-center gap-4 mb-12 pb-8 border-b">
-              <span className="text-sm text-muted-foreground">Share this article:</span>
+              <span className="text-sm text-muted-foreground">
+                Share this article:
+              </span>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" asChild>
                   <a
@@ -323,7 +345,10 @@ export default async function BlogPostPage({ params }: PageProps) {
                 <h2 className="text-2xl font-bold mb-6">Related Articles</h2>
                 <div className="grid gap-6 md:grid-cols-3">
                   {relatedPosts.map((related) => (
-                    <Link key={related.id} href={`/${slug}/blog/${related.slug}`}>
+                    <Link
+                      key={related.id}
+                      href={`/${slug}/blog/${related.slug}`}
+                    >
                       <Card className="h-full hover:shadow-lg transition-shadow group">
                         {related.featured_image_url && (
                           <div className="aspect-video overflow-hidden rounded-t-lg">
@@ -347,10 +372,16 @@ export default async function BlogPostPage({ params }: PageProps) {
                         <CardContent>
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             {related.published_at && (
-                              <span>{new Date(related.published_at).toLocaleDateString()}</span>
+                              <span>
+                                {new Date(
+                                  related.published_at
+                                ).toLocaleDateString()}
+                              </span>
                             )}
                             {related.reading_time_minutes && (
-                              <span>{related.reading_time_minutes} min read</span>
+                              <span>
+                                {related.reading_time_minutes} min read
+                              </span>
                             )}
                           </div>
                         </CardContent>

@@ -4,12 +4,12 @@
  */
 
 export type CacheStrategy =
-  | 'no-cache'           // Don't cache (auth, dashboard)
-  | 'short'              // 1 minute cache (dynamic data)
-  | 'medium'             // 5 minutes cache (frequently updated)
-  | 'long'               // 1 hour cache (rarely updated)
-  | 'static'             // 1 day cache (static content)
-  | 'immutable';         // 1 year cache (versioned assets)
+  | 'no-cache' // Don't cache (auth, dashboard)
+  | 'short' // 1 minute cache (dynamic data)
+  | 'medium' // 5 minutes cache (frequently updated)
+  | 'long' // 1 hour cache (rarely updated)
+  | 'static' // 1 day cache (static content)
+  | 'immutable'; // 1 year cache (versioned assets)
 
 /**
  * Get cache control header value for a strategy

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { unstable_cache } from 'next/cache';
+import { type NextRequest, NextResponse } from 'next/server';
 
 /**
  * Google Places API Reviews Route
@@ -61,15 +61,20 @@ const getCachedReviews = unstable_cache(
       throw new Error('Google Places API key not configured');
     }
 
-    const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
+    const url = new URL(
+      'https://maps.googleapis.com/maps/api/place/details/json'
+    );
     url.searchParams.set('place_id', placeId);
     url.searchParams.set('key', apiKey);
-    url.searchParams.set('fields', 'name,rating,user_ratings_total,reviews,url');
+    url.searchParams.set(
+      'fields',
+      'name,rating,user_ratings_total,reviews,url'
+    );
     url.searchParams.set('reviews_sort', 'newest'); // Get newest reviews
 
     const response = await fetch(url.toString(), {
       headers: {
-        'Accept': 'application/json',
+        Accept: 'application/json',
       },
     });
 
@@ -80,13 +85,15 @@ const getCachedReviews = unstable_cache(
     const data: GooglePlaceDetails = await response.json();
 
     if (data.status !== 'OK') {
-      throw new Error(data.error_message || `Google Places API status: ${data.status}`);
+      throw new Error(
+        data.error_message || `Google Places API status: ${data.status}`
+      );
     }
 
     const result = data.result;
 
     // Format reviews for our frontend
-    const reviews: FormattedReview[] = (result.reviews || []).map(review => ({
+    const reviews: FormattedReview[] = (result.reviews || []).map((review) => ({
       authorName: review.author_name,
       authorUrl: review.author_url,
       authorPhoto: review.profile_photo_url,
@@ -141,7 +148,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Google Places API error:', error);
 
-    const message = error instanceof Error ? error.message : 'Failed to fetch reviews';
+    const message =
+      error instanceof Error ? error.message : 'Failed to fetch reviews';
 
     // Don't expose API key errors to client
     if (message.includes('API key')) {
@@ -151,9 +159,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

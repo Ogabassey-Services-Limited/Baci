@@ -65,10 +65,15 @@ Generate the enhanced product image.`,
     });
 
     // Extract enhanced image from response
-    const imageFile = result.files?.find(f => f.mediaType?.startsWith('image/'));
+    const imageFile = result.files?.find((f) =>
+      f.mediaType?.startsWith('image/')
+    );
 
     if (!imageFile || !imageFile.base64) {
-      logger.error({ message: 'No enhanced image returned from AI', files: result.files });
+      logger.error({
+        message: 'No enhanced image returned from AI',
+        files: result.files,
+      });
       throw new Error('AI did not return an enhanced image.');
     }
 
@@ -77,7 +82,6 @@ Generate the enhanced product image.`,
 
     logger.info({ message: 'Product image enhancement successful' });
     return { enhancedPhotoDataUri: enhancedDataUri };
-
   } catch (error) {
     logger.error({ message: 'Product image enhancement failed', error });
     throw new Error('Failed to enhance product image. Please try again.');

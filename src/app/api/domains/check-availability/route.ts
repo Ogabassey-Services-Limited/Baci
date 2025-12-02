@@ -1,8 +1,12 @@
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import {
+  getAllTLDs,
+  getDomainPricing,
+  getResalePrice,
+} from '@/config/domain-pricing';
 import { checkDomainAvailability } from '@/lib/go54';
-import { getDomainPricing, getResalePrice, getAllTLDs } from '@/config/domain-pricing';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * POST /api/domains/check-availability
@@ -23,7 +27,10 @@ export async function POST(request: Request) {
     const { searchTerm, tlds } = await request.json();
 
     if (!searchTerm) {
-      return NextResponse.json({ error: 'Search term is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Search term is required' },
+        { status: 400 }
+      );
     }
 
     // Validate search term (alphanumeric and hyphens only)
@@ -40,32 +47,34 @@ export async function POST(request: Request) {
 
     try {
       // Check availability via Go54 API
-      await checkDomainAvailability(
-        searchTerm,
-        tldsToCheck
-      );
+      await checkDomainAvailability(searchTerm, tldsToCheck);
 
       // Enhance results with pricing information
-      const resultsWithPricing = tldsToCheck.map((tld: string) => {
-        const pricing = getDomainPricing(tld);
-        if (!pricing) {
-          return null;
-        }
+      const resultsWithPricing = tldsToCheck
+        .map((tld: string) => {
+          const pricing = getDomainPricing(tld);
+          if (!pricing) {
+            return null;
+          }
 
-        const sellPrice = getResalePrice(pricing.registration, pricing.category);
+          const sellPrice = getResalePrice(
+            pricing.registration,
+            pricing.category
+          );
 
-        return {
-          domain: `${searchTerm}${tld}`,
-          tld,
-          available: true, // Will be updated from API response
-          price: sellPrice,
-          originalPrice: pricing.registration,
-          renewalPrice: getResalePrice(pricing.renewal, pricing.category),
-          category: pricing.category,
-          popular: pricing.popular || false,
-          recommended: pricing.recommended || false,
-        };
-      }).filter(Boolean);
+          return {
+            domain: `${searchTerm}${tld}`,
+            tld,
+            available: true, // Will be updated from API response
+            price: sellPrice,
+            originalPrice: pricing.registration,
+            renewalPrice: getResalePrice(pricing.renewal, pricing.category),
+            category: pricing.category,
+            popular: pricing.popular || false,
+            recommended: pricing.recommended || false,
+          };
+        })
+        .filter(Boolean);
 
       return NextResponse.json({
         searchTerm,
@@ -75,25 +84,30 @@ export async function POST(request: Request) {
       console.error('Go54 API Error:', apiError);
 
       // Return pricing data even if API fails (for testing without credentials)
-      const fallbackResults = tldsToCheck.map((tld: string) => {
-        const pricing = getDomainPricing(tld);
-        if (!pricing) return null;
+      const fallbackResults = tldsToCheck
+        .map((tld: string) => {
+          const pricing = getDomainPricing(tld);
+          if (!pricing) return null;
 
-        const sellPrice = getResalePrice(pricing.registration, pricing.category);
+          const sellPrice = getResalePrice(
+            pricing.registration,
+            pricing.category
+          );
 
-        return {
-          domain: `${searchTerm}${tld}`,
-          tld,
-          available: true, // Assume available when API is unavailable
-          price: sellPrice,
-          originalPrice: pricing.registration,
-          renewalPrice: getResalePrice(pricing.renewal, pricing.category),
-          category: pricing.category,
-          popular: pricing.popular || false,
-          recommended: pricing.recommended || false,
-          note: 'Availability check unavailable - Go54 API not configured',
-        };
-      }).filter(Boolean);
+          return {
+            domain: `${searchTerm}${tld}`,
+            tld,
+            available: true, // Assume available when API is unavailable
+            price: sellPrice,
+            originalPrice: pricing.registration,
+            renewalPrice: getResalePrice(pricing.renewal, pricing.category),
+            category: pricing.category,
+            popular: pricing.popular || false,
+            recommended: pricing.recommended || false,
+            note: 'Availability check unavailable - Go54 API not configured',
+          };
+        })
+        .filter(Boolean);
 
       return NextResponse.json({
         searchTerm,
@@ -103,6 +117,9 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error('Error checking domain availability:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

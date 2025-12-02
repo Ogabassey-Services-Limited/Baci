@@ -1,14 +1,10 @@
 'use client';
 
+import { HelpCircle, Search } from 'lucide-react';
 import { useState } from 'react';
-import { FAQItem, groupFAQsByCategory } from '@/types/faq';
-import { StorefrontHeader } from '@/components/storefront/header';
-import { StorefrontFooter } from '@/components/storefront/footer';
-import { MerchantProvider } from '@/hooks/use-merchant';
-import { StorefrontProvider } from '@/contexts/storefront-context';
 import AppBody from '@/components/app-body';
-import { Input } from '@/components/ui/input';
-import { sanitizeHtml } from '@/lib/sanitize';
+import { StorefrontFooter } from '@/components/storefront/footer';
+import { StorefrontHeader } from '@/components/storefront/header';
 import {
   Accordion,
   AccordionContent,
@@ -16,7 +12,11 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
-import { HelpCircle, Search } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { StorefrontProvider } from '@/contexts/storefront-context';
+import { MerchantProvider } from '@/hooks/use-merchant';
+import { sanitizeHtml } from '@/lib/sanitize';
+import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
 
 interface FAQPageClientProps {
   merchant: {
@@ -38,17 +38,21 @@ interface FAQPageClientProps {
   legacyContent?: string;
 }
 
-export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClientProps) {
+export function FAQPageClient({
+  merchant,
+  faqItems,
+  legacyContent,
+}: FAQPageClientProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const hasStructuredFAQs = faqItems.length > 0;
 
   // Filter FAQs based on search
   const filteredFAQs = searchQuery
     ? faqItems.filter(
-      faq =>
-        faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+        (faq) =>
+          faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : faqItems;
 
   // Group FAQs by category
@@ -58,7 +62,9 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
-        <AppBody merchant={merchant as Parameters<typeof AppBody>[0]["merchant"]}>
+        <AppBody
+          merchant={merchant as Parameters<typeof AppBody>[0]['merchant']}
+        >
           <div className="flex flex-col min-h-screen">
             <StorefrontHeader />
 
@@ -75,7 +81,8 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
                     Frequently Asked Questions
                   </h1>
                   <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-                    Find answers to common questions about {merchant.business_name}
+                    Find answers to common questions about{' '}
+                    {merchant.business_name}
                   </p>
 
                   {/* Search */}
@@ -104,9 +111,14 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
                           No questions found matching "{searchQuery}"
                         </p>
                       </div>
-                    ) : categories.length === 1 && categories[0] === 'General' ? (
+                    ) : categories.length === 1 &&
+                      categories[0] === 'General' ? (
                       /* Single category - no tabs */
-                      <Accordion type="single" collapsible className="space-y-4">
+                      <Accordion
+                        type="single"
+                        collapsible
+                        className="space-y-4"
+                      >
                         {filteredFAQs.map((faq, index) => (
                           <AccordionItem
                             key={faq.id || index}
@@ -138,7 +150,11 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
                                 {groupedFAQs[category].length}
                               </Badge>
                             </div>
-                            <Accordion type="single" collapsible className="space-y-3">
+                            <Accordion
+                              type="single"
+                              collapsible
+                              className="space-y-3"
+                            >
                               {groupedFAQs[category].map((faq, index) => (
                                 <AccordionItem
                                   key={faq.id || `${category}-${index}`}
@@ -169,14 +185,18 @@ export function FAQPageClient({ merchant, faqItems, legacyContent }: FAQPageClie
                   <div className="max-w-3xl mx-auto">
                     <div
                       className="prose prose-lg dark:prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(legacyContent) }} // nosemgrep
+                      dangerouslySetInnerHTML={{
+                        __html: sanitizeHtml(legacyContent),
+                      }} // nosemgrep
                     />
                   </div>
                 ) : null}
 
                 {/* Still have questions? */}
                 <div className="max-w-3xl mx-auto mt-16 text-center p-8 bg-muted/30 rounded-2xl">
-                  <h2 className="text-2xl font-bold mb-3">Still have questions?</h2>
+                  <h2 className="text-2xl font-bold mb-3">
+                    Still have questions?
+                  </h2>
                   <p className="text-muted-foreground mb-4">
                     Can't find what you're looking for? We're here to help.
                   </p>

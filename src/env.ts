@@ -1,4 +1,3 @@
-
 // src/env.ts
 
 /**
@@ -10,7 +9,9 @@
 export const getSupabaseUrl = (): string => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!url) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_URL is not defined in your environment variables.');
+    throw new Error(
+      'NEXT_PUBLIC_SUPABASE_URL is not defined in your environment variables.'
+    );
   }
   return url;
 };
@@ -18,7 +19,9 @@ export const getSupabaseUrl = (): string => {
 export const getSupabaseAnonKey = (): string => {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!key) {
-    throw new Error('NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined in your environment variables.');
+    throw new Error(
+      'NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined in your environment variables.'
+    );
   }
   return key;
 };
@@ -27,7 +30,9 @@ export const getSupabaseAnonKey = (): string => {
 export const getKorapaySecretKey = (): string | undefined => {
   const key = process.env.KORAPAY_SECRET_KEY;
   if (!key && typeof window === 'undefined') {
-    console.warn('KORAPAY_SECRET_KEY is not defined. Payment processing will not work.');
+    console.warn(
+      'KORAPAY_SECRET_KEY is not defined. Payment processing will not work.'
+    );
   }
   return key;
 };
@@ -35,7 +40,9 @@ export const getKorapaySecretKey = (): string | undefined => {
 export const getKorapayPublicKey = (): string | undefined => {
   const key = process.env.KORAPAY_PUBLIC_KEY;
   if (!key && typeof window === 'undefined') {
-    console.warn('KORAPAY_PUBLIC_KEY is not defined. Payment checkout will not work.');
+    console.warn(
+      'KORAPAY_PUBLIC_KEY is not defined. Payment checkout will not work.'
+    );
   }
   return key;
 };
@@ -43,7 +50,9 @@ export const getKorapayPublicKey = (): string | undefined => {
 export const getZeptoMailToken = (): string | undefined => {
   const token = process.env.ZEPTOMAIL_TOKEN;
   if (!token && typeof window === 'undefined') {
-    console.warn('ZEPTOMAIL_TOKEN is not defined. Email sending will not work.');
+    console.warn(
+      'ZEPTOMAIL_TOKEN is not defined. Email sending will not work.'
+    );
   }
   return token;
 };
@@ -51,7 +60,9 @@ export const getZeptoMailToken = (): string | undefined => {
 export const getGeminiApiKey = (): string | undefined => {
   const key = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
   if (!key && typeof window === 'undefined') {
-    console.warn('GOOGLE_GENAI_API_KEY/GEMINI_API_KEY is not defined. AI features will not work.');
+    console.warn(
+      'GOOGLE_GENAI_API_KEY/GEMINI_API_KEY is not defined. AI features will not work.'
+    );
   }
   return key;
 };
@@ -69,7 +80,10 @@ export const isProduction = (): boolean => {
  * Call this in your app initialization to get early warnings.
  * This function only warns and does not throw to avoid breaking the app.
  */
-export const validateEnvironment = (): { valid: boolean; warnings: string[] } => {
+export const validateEnvironment = (): {
+  valid: boolean;
+  warnings: string[];
+} => {
   const warnings: string[] = [];
 
   // Check required variables

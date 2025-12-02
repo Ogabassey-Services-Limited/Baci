@@ -95,7 +95,11 @@ export const snapchatEvents = {
   /**
    * Track checkout initiation
    */
-  startCheckout: (value: number, currency: string = 'USD', productIds: string[] = []) => {
+  startCheckout: (
+    value: number,
+    currency: string = 'USD',
+    productIds: string[] = []
+  ) => {
     if (typeof window === 'undefined' || !window.snaptr) return;
 
     window.snaptr('track', 'START_CHECKOUT', {
@@ -108,7 +112,12 @@ export const snapchatEvents = {
   /**
    * Track purchase completion
    */
-  purchase: (orderId: string, value: number, currency: string = 'USD', productIds: string[] = []) => {
+  purchase: (
+    orderId: string,
+    value: number,
+    currency: string = 'USD',
+    productIds: string[] = []
+  ) => {
     if (typeof window === 'undefined' || !window.snaptr) return;
 
     window.snaptr('track', 'PURCHASE', {
@@ -162,7 +171,11 @@ export const snapchatEvents = {
 declare global {
   interface Window {
     snaptr?: {
-      (action: 'init', pixelId: string, userData?: Record<string, string>): void;
+      (
+        action: 'init',
+        pixelId: string,
+        userData?: Record<string, string>
+      ): void;
       (action: 'track', event: string, params?: Record<string, unknown>): void;
     };
   }

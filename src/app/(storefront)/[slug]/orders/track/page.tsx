@@ -1,32 +1,44 @@
 'use client';
 
-import { useState } from 'react';
-import Image from 'next/image';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import {
-  Package,
-  CreditCard,
-  Truck,
   CheckCircle2,
-  XCircle,
   Clock,
-  Search,
+  CreditCard,
   ExternalLink,
-  MapPin,
-  Phone,
   Mail,
+  MapPin,
+  Package,
+  Phone,
+  Search,
+  Truck,
+  XCircle,
 } from 'lucide-react';
+import Image from 'next/image';
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 
 interface TimelineEvent {
   status: 'completed' | 'current' | 'pending' | 'failed';
   title: string;
   description: string;
   timestamp: string;
-  icon: 'order' | 'payment' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  icon:
+    | 'order'
+    | 'payment'
+    | 'processing'
+    | 'shipped'
+    | 'delivered'
+    | 'cancelled';
 }
 
 interface OrderItem {
@@ -172,7 +184,10 @@ export default function OrderTrackPage() {
           <form onSubmit={handleTrackOrder} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="orderNumber" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="orderNumber"
+                  className="block text-sm font-medium mb-1"
+                >
                   Order Number
                 </label>
                 <Input
@@ -184,7 +199,10 @@ export default function OrderTrackPage() {
                 />
               </div>
               <div>
-                <label htmlFor="email" className="block text-sm font-medium mb-1">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium mb-1"
+                >
                   Email Address
                 </label>
                 <Input
@@ -248,14 +266,20 @@ export default function OrderTrackPage() {
                 </div>
                 {orderData.estimated_delivery && (
                   <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Estimated Delivery</p>
+                    <p className="text-sm text-muted-foreground">
+                      Estimated Delivery
+                    </p>
                     <p className="font-medium">
-                      {new Date(orderData.estimated_delivery.min).toLocaleDateString('en-NG', {
+                      {new Date(
+                        orderData.estimated_delivery.min
+                      ).toLocaleDateString('en-NG', {
                         month: 'short',
                         day: 'numeric',
                       })}{' '}
                       -{' '}
-                      {new Date(orderData.estimated_delivery.max).toLocaleDateString('en-NG', {
+                      {new Date(
+                        orderData.estimated_delivery.max
+                      ).toLocaleDateString('en-NG', {
                         month: 'short',
                         day: 'numeric',
                       })}
@@ -287,14 +311,19 @@ export default function OrderTrackPage() {
                         </div>
                         {index < orderData.timeline.length - 1 && (
                           <div
-                            className={`absolute top-10 w-0.5 h-full ${event.status === 'completed' ? 'bg-green-500' : 'bg-gray-200'
-                              }`}
+                            className={`absolute top-10 w-0.5 h-full ${
+                              event.status === 'completed'
+                                ? 'bg-green-500'
+                                : 'bg-gray-200'
+                            }`}
                           />
                         )}
                       </div>
                       <div className="flex-1 pt-1">
                         <p className="font-medium">{event.title}</p>
-                        <p className="text-sm text-muted-foreground">{event.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {event.description}
+                        </p>
                         {event.timestamp && (
                           <p className="text-xs text-muted-foreground mt-1">
                             {formatDate(event.timestamp)}
@@ -308,9 +337,12 @@ export default function OrderTrackPage() {
 
               {orderData.shipping_tracking && (
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <p className="font-medium text-blue-900">Tracking Information</p>
+                  <p className="font-medium text-blue-900">
+                    Tracking Information
+                  </p>
                   <p className="text-sm text-blue-700 mt-1">
-                    {orderData.shipping_tracking.provider}: {orderData.shipping_tracking.tracking_number}
+                    {orderData.shipping_tracking.provider}:{' '}
+                    {orderData.shipping_tracking.tracking_number}
                   </p>
                   <Button
                     variant="link"
@@ -322,7 +354,8 @@ export default function OrderTrackPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      Track with carrier <ExternalLink className="ml-1 h-3 w-3" />
+                      Track with carrier{' '}
+                      <ExternalLink className="ml-1 h-3 w-3" />
                     </a>
                   </Button>
                 </div>
@@ -352,13 +385,20 @@ export default function OrderTrackPage() {
                     <div className="flex-1">
                       <p className="font-medium">{item.product_name}</p>
                       {item.variant_name && (
-                        <p className="text-sm text-muted-foreground">{item.variant_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {item.variant_name}
+                        </p>
                       )}
-                      <p className="text-sm text-muted-foreground">Qty: {item.quantity}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Qty: {item.quantity}
+                      </p>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">
-                        {formatCurrency(item.total_price, orderData.order.currency)}
+                        {formatCurrency(
+                          item.total_price,
+                          orderData.order.currency
+                        )}
                       </p>
                     </div>
                   </div>
@@ -370,22 +410,43 @@ export default function OrderTrackPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>{formatCurrency(orderData.order.subtotal, orderData.order.currency)}</span>
+                  <span>
+                    {formatCurrency(
+                      orderData.order.subtotal,
+                      orderData.order.currency
+                    )}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span>{formatCurrency(orderData.order.shipping_cost, orderData.order.currency)}</span>
+                  <span>
+                    {formatCurrency(
+                      orderData.order.shipping_cost,
+                      orderData.order.currency
+                    )}
+                  </span>
                 </div>
                 {orderData.order.discount_amount > 0 && (
                   <div className="flex justify-between text-green-600">
                     <span>Discount</span>
-                    <span>-{formatCurrency(orderData.order.discount_amount, orderData.order.currency)}</span>
+                    <span>
+                      -
+                      {formatCurrency(
+                        orderData.order.discount_amount,
+                        orderData.order.currency
+                      )}
+                    </span>
                   </div>
                 )}
                 <Separator />
                 <div className="flex justify-between font-medium text-base">
                   <span>Total</span>
-                  <span>{formatCurrency(orderData.order.total, orderData.order.currency)}</span>
+                  <span>
+                    {formatCurrency(
+                      orderData.order.total,
+                      orderData.order.currency
+                    )}
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -406,7 +467,8 @@ export default function OrderTrackPage() {
                   {orderData.shipping_address.address}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {orderData.shipping_address.city}, {orderData.shipping_address.state}
+                  {orderData.shipping_address.city},{' '}
+                  {orderData.shipping_address.state}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {orderData.shipping_address.country}
@@ -437,11 +499,12 @@ export default function OrderTrackPage() {
                     {orderData.merchant.support_phone}
                   </a>
                 )}
-                {!orderData.merchant.support_email && !orderData.merchant.support_phone && (
-                  <p className="text-sm text-muted-foreground">
-                    Contact {orderData.merchant.name} for support
-                  </p>
-                )}
+                {!orderData.merchant.support_email &&
+                  !orderData.merchant.support_phone && (
+                    <p className="text-sm text-muted-foreground">
+                      Contact {orderData.merchant.name} for support
+                    </p>
+                  )}
               </CardContent>
             </Card>
           </div>

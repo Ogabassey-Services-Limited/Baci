@@ -1,9 +1,28 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Database,
+  HardDrive,
+  RefreshCw,
+  XCircle,
+  Zap,
+} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -12,20 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Database,
-  RefreshCw,
-  CheckCircle,
-  AlertTriangle,
-  XCircle,
-  Activity,
-  HardDrive,
-  Zap,
-  Clock,
-} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 
 interface HealthCheck {
   check_name: string;
@@ -65,19 +71,28 @@ function getStatusBadge(status: string) {
   switch (status) {
     case 'healthy':
       return (
-        <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20" variant="outline">
+        <Badge
+          className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+          variant="outline"
+        >
           Healthy
         </Badge>
       );
     case 'warning':
       return (
-        <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20" variant="outline">
+        <Badge
+          className="bg-amber-500/10 text-amber-600 border-amber-500/20"
+          variant="outline"
+        >
           Warning
         </Badge>
       );
     case 'critical':
       return (
-        <Badge className="bg-red-500/10 text-red-600 border-red-500/20" variant="outline">
+        <Badge
+          className="bg-red-500/10 text-red-600 border-red-500/20"
+          variant="outline"
+        >
           Critical
         </Badge>
       );
@@ -133,7 +148,7 @@ export default function SystemHealthPage() {
 
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [toast]);
 
   const refreshAnalyticsViews = async () => {
     try {
@@ -159,16 +174,19 @@ export default function SystemHealthPage() {
   useEffect(() => {
     const abort = fetchHealth();
     return () => {
-      abort.then(cleanup => cleanup && cleanup());
+      abort.then((cleanup) => cleanup?.());
     };
   }, [fetchHealth]);
 
   // Calculate overall health score
-  const healthScore = health?.health && health.health.length > 0
-    ? Math.round(
-      (health.health.filter((h) => h.status === 'healthy').length / health.health.length) * 100
-    )
-    : 0;
+  const healthScore =
+    health?.health && health.health.length > 0
+      ? Math.round(
+          (health.health.filter((h) => h.status === 'healthy').length /
+            health.health.length) *
+            100
+        )
+      : 0;
 
   return (
     <div className="space-y-6">
@@ -182,11 +200,15 @@ export default function SystemHealthPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={fetchHealth} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'motion-safe:animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${loading ? 'motion-safe:animate-spin' : ''}`}
+            />
             Refresh Status
           </Button>
           <Button onClick={refreshAnalyticsViews} disabled={refreshingViews}>
-            <Zap className={`h-4 w-4 mr-2 ${refreshingViews ? 'animate-pulse' : ''}`} />
+            <Zap
+              className={`h-4 w-4 mr-2 ${refreshingViews ? 'animate-pulse' : ''}`}
+            />
             Refresh Analytics Views
           </Button>
         </div>
@@ -196,7 +218,9 @@ export default function SystemHealthPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="md:col-span-1">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Overall Health Score</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Overall Health Score
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -215,8 +239,9 @@ export default function SystemHealthPage() {
                 </div>
                 <Progress value={healthScore} className="h-2" />
                 <p className="text-xs text-muted-foreground">
-                  {health?.health.filter((h) => h.status === 'healthy').length || 0} of{' '}
-                  {health?.health.length || 0} checks passing
+                  {health?.health.filter((h) => h.status === 'healthy')
+                    .length || 0}{' '}
+                  of {health?.health.length || 0} checks passing
                 </p>
               </div>
             )}
@@ -235,7 +260,9 @@ export default function SystemHealthPage() {
                 <Database className="h-12 w-12 text-primary" />
                 <div>
                   <p className="text-section-title">Supabase</p>
-                  <p className="text-sm text-muted-foreground">PostgreSQL Database</p>
+                  <p className="text-sm text-muted-foreground">
+                    PostgreSQL Database
+                  </p>
                 </div>
               </div>
             )}
@@ -274,13 +301,18 @@ export default function SystemHealthPage() {
       <Card className="glass">
         <CardHeader>
           <CardTitle>Health Checks</CardTitle>
-          <CardDescription>Status of various database and system checks</CardDescription>
+          <CardDescription>
+            Status of various database and system checks
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+                <div
+                  key={i}
+                  className="flex items-center gap-4 p-4 border rounded-lg"
+                >
                   <Skeleton className="h-6 w-6 rounded-full" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-48" />
@@ -300,7 +332,9 @@ export default function SystemHealthPage() {
                   {getStatusIcon(check.status)}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium">{check.check_name}</p>
-                    <p className="text-sm text-muted-foreground truncate">{check.message}</p>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {check.message}
+                    </p>
                   </div>
                   {getStatusBadge(check.status)}
                 </div>
@@ -310,7 +344,9 @@ export default function SystemHealthPage() {
             <div className="text-center py-8 text-muted-foreground">
               <Activity className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="font-medium">No health check data available</p>
-              <p className="text-sm">Health check functions may not be set up in the database.</p>
+              <p className="text-sm">
+                Health check functions may not be set up in the database.
+              </p>
             </div>
           )}
         </CardContent>
@@ -320,12 +356,15 @@ export default function SystemHealthPage() {
       <Card className="glass">
         <CardHeader>
           <CardTitle>Index Recommendations</CardTitle>
-          <CardDescription>Suggested database indexes to improve performance</CardDescription>
+          <CardDescription>
+            Suggested database indexes to improve performance
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
             <Skeleton className="h-[200px] w-full" />
-          ) : health?.indexRecommendations && health.indexRecommendations.length > 0 ? (
+          ) : health?.indexRecommendations &&
+            health.indexRecommendations.length > 0 ? (
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -339,9 +378,15 @@ export default function SystemHealthPage() {
                 <TableBody>
                   {health.indexRecommendations.map((rec, index) => (
                     <TableRow key={index}>
-                      <TableCell className="font-mono text-sm">{rec.table_name}</TableCell>
-                      <TableCell className="font-mono text-sm">{rec.index_name}</TableCell>
-                      <TableCell className="text-muted-foreground">{rec.reason}</TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {rec.table_name}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">
+                        {rec.index_name}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {rec.reason}
+                      </TableCell>
                       <TableCell>{getPriorityBadge(rec.priority)}</TableCell>
                     </TableRow>
                   ))}
@@ -352,7 +397,9 @@ export default function SystemHealthPage() {
             <div className="text-center py-8 text-muted-foreground">
               <HardDrive className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="font-medium">No index recommendations</p>
-              <p className="text-sm">Your database indexes are optimally configured.</p>
+              <p className="text-sm">
+                Your database indexes are optimally configured.
+              </p>
             </div>
           )}
         </CardContent>
@@ -366,12 +413,17 @@ export default function SystemHealthPage() {
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               Missing Indexes
             </CardTitle>
-            <CardDescription>These indexes should be created for better performance</CardDescription>
+            <CardDescription>
+              These indexes should be created for better performance
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {health.missingIndexes.map((index, i) => (
-                <div key={i} className="p-3 bg-amber-500/5 rounded-lg border border-amber-500/20">
+                <div
+                  key={i}
+                  className="p-3 bg-amber-500/5 rounded-lg border border-amber-500/20"
+                >
                   <code className="text-sm font-mono">{index}</code>
                 </div>
               ))}
@@ -396,7 +448,9 @@ export default function SystemHealthPage() {
             >
               <Zap className="h-6 w-6" />
               <span>Refresh Analytics Views</span>
-              <span className="text-xs text-muted-foreground">Update materialized views</span>
+              <span className="text-xs text-muted-foreground">
+                Update materialized views
+              </span>
             </Button>
             <Button
               variant="outline"
@@ -406,7 +460,9 @@ export default function SystemHealthPage() {
             >
               <Activity className="h-6 w-6" />
               <span>Run Health Check</span>
-              <span className="text-xs text-muted-foreground">Check database status</span>
+              <span className="text-xs text-muted-foreground">
+                Check database status
+              </span>
             </Button>
             <Button
               variant="outline"
@@ -414,13 +470,16 @@ export default function SystemHealthPage() {
               onClick={() => {
                 toast({
                   title: 'Coming Soon',
-                  description: 'Database backup feature is not yet implemented.',
+                  description:
+                    'Database backup feature is not yet implemented.',
                 });
               }}
             >
               <HardDrive className="h-6 w-6" />
               <span>View Backups</span>
-              <span className="text-xs text-muted-foreground">Managed by Supabase</span>
+              <span className="text-xs text-muted-foreground">
+                Managed by Supabase
+              </span>
             </Button>
           </div>
         </CardContent>

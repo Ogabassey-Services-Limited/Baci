@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -31,20 +33,33 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
     const customerId = searchParams.get('customerId');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100);
+    const page = Number.parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.min(
+      Number.parseInt(searchParams.get('limit') || '20', 10),
+      100
+    );
     const offset = (page - 1) * limit;
 
     if (!customerId) {
-      return NextResponse.json({ error: 'customerId is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'customerId is required' },
+        { status: 400 }
+      );
     }
 
-    const { data: transactions, error, count } = await supabase
+    const {
+      data: transactions,
+      error,
+      count,
+    } = await supabase
       .from('points_transactions')
       .select('*', { count: 'exact' })
       .eq('merchant_id', merchant.id)
@@ -54,7 +69,10 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching transactions:', error);
-      return NextResponse.json({ error: 'Failed to fetch transactions' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch transactions' },
+        { status: 500 }
+      );
     }
 
     // Get customer's current balance
@@ -67,7 +85,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       transactions,
-      customerStats: loyalty || { points_balance: 0, lifetime_points: 0, current_tier: 'Bronze' },
+      customerStats: loyalty || {
+        points_balance: 0,
+        lifetime_points: 0,
+        current_tier: 'Bronze',
+      },
       pagination: {
         page,
         limit,
@@ -77,7 +99,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Points transactions GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -86,7 +111,9 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -98,7 +125,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const body = await request.json();
@@ -138,19 +168,28 @@ export async function POST(request: NextRequest) {
           merchant_id: merchant.id,
           points_balance: 0,
           lifetime_points: 0,
-          referral_code: Math.random().toString(36).substring(2, 10).toUpperCase(),
+          referral_code: Math.random()
+            .toString(36)
+            .substring(2, 10)
+            .toUpperCase(),
         })
         .select()
         .single();
 
       if (createError) {
         console.error('Error creating loyalty record:', createError);
-        return NextResponse.json({ error: 'Failed to create loyalty record' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Failed to create loyalty record' },
+          { status: 500 }
+        );
       }
       loyalty = newLoyalty;
     } else if (loyaltyError) {
       console.error('Error fetching loyalty:', loyaltyError);
-      return NextResponse.json({ error: 'Failed to fetch loyalty record' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch loyalty record' },
+        { status: 500 }
+      );
     }
 
     // Check for negative balance
@@ -163,9 +202,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Update points balance
-    const newLifetime = points > 0
-      ? (loyalty?.lifetime_points || 0) + points
-      : loyalty?.lifetime_points || 0;
+    const newLifetime =
+      points > 0
+        ? (loyalty?.lifetime_points || 0) + points
+        : loyalty?.lifetime_points || 0;
 
     const { error: updateError } = await supabase
       .from('customer_loyalty')
@@ -178,7 +218,10 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('Error updating points:', updateError);
-      return NextResponse.json({ error: 'Failed to update points' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to update points' },
+        { status: 500 }
+      );
     }
 
     // Record transaction
@@ -191,7 +234,9 @@ export async function POST(request: NextRequest) {
         points: points,
         balance_after: newBalance,
         source: 'admin_adjust',
-        description: reason || `Manual adjustment by merchant: ${points > 0 ? '+' : ''}${points} points`,
+        description:
+          reason ||
+          `Manual adjustment by merchant: ${points > 0 ? '+' : ''}${points} points`,
       });
 
     if (txError) {
@@ -207,6 +252,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Points POST error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

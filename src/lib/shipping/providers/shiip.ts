@@ -3,17 +3,17 @@
  * Multi-carrier aggregator with 30+ delivery partners
  */
 
-import { BaseShippingProvider } from './base';
-import type {
-  ShippingQuote,
-  QuoteRequest,
-  BookingRequest,
-  ShipmentBookingResult,
-  TrackingResult,
-  TrackingEvent,
-  CancellationResult,
-} from '../types';
 import { mapShiipStatus } from '../status-mapper';
+import type {
+  BookingRequest,
+  CancellationResult,
+  QuoteRequest,
+  ShipmentBookingResult,
+  ShippingQuote,
+  TrackingEvent,
+  TrackingResult,
+} from '../types';
+import { BaseShippingProvider } from './base';
 
 // =============================================================================
 // CONFIGURATION
@@ -21,16 +21,24 @@ import { mapShiipStatus } from '../status-mapper';
 
 const SHIIP_API_KEY = process.env.SHIIP_API_KEY;
 const SHIIP_USER_ID = process.env.SHIIP_USER_ID;
-const SHIIP_BASE_URL = process.env.SHIIP_USE_SANDBOX === 'true'
-  ? (process.env.SHIIP_SANDBOX_URL || 'https://delivery-staging.apiideraos.com/api/v2/token')
-  : (process.env.SHIIP_BASE_URL || 'https://delivery.apiideraos.com/api/v2/token');
+const SHIIP_BASE_URL =
+  process.env.SHIIP_USE_SANDBOX === 'true'
+    ? process.env.SHIIP_SANDBOX_URL ||
+      'https://delivery-staging.apiideraos.com/api/v2/token'
+    : process.env.SHIIP_BASE_URL ||
+      'https://delivery.apiideraos.com/api/v2/token';
 
 // =============================================================================
 // SHIIP-SPECIFIC TYPES
 // =============================================================================
 
 interface ShiipQuoteRequest {
-  type: 'interstate' | 'intrastate' | 'international' | 'international_us' | 'frozen-international';
+  type:
+    | 'interstate'
+    | 'intrastate'
+    | 'international'
+    | 'international_us'
+    | 'frozen-international';
   toAddress: {
     city: string;
     state: string;
@@ -58,14 +66,14 @@ interface ShiipQuoteRequest {
 }
 
 interface ShiipRate {
-  name: string;              // Carrier name (e.g., "Dellyman", "GIG", "Uber")
+  name: string; // Carrier name (e.g., "Dellyman", "GIG", "Uber")
   logo?: string;
   price: number;
   currency: string;
   delivery_eta?: string;
-  redis_key: string;         // Required for booking
-  rate_id: string;           // Required for booking
-  user_id: string;           // Required for booking
+  redis_key: string; // Required for booking
+  rate_id: string; // Required for booking
+  user_id: string; // Required for booking
 }
 
 interface ShiipQuoteResponse {
@@ -142,18 +150,18 @@ interface ShiipTrackingResponse {
 
 // Known Shiip carrier names and their display names
 const SHIIP_CARRIER_DISPLAY_NAMES: Record<string, string> = {
-  'dellyman': 'Dellyman',
-  'gig': 'GIG Logistics',
+  dellyman: 'Dellyman',
+  gig: 'GIG Logistics',
   'gig logistics': 'GIG Logistics',
-  'uber': 'Uber Direct',
-  'kwik': 'Kwik',
-  'sendbox': 'Sendbox',
-  'redstar': 'Red Star Express',
-  'abc': 'ABC Transport',
-  'dhl': 'DHL',
-  'fedex': 'FedEx',
-  'ups': 'UPS',
-  'aramex': 'Aramex',
+  uber: 'Uber Direct',
+  kwik: 'Kwik',
+  sendbox: 'Sendbox',
+  redstar: 'Red Star Express',
+  abc: 'ABC Transport',
+  dhl: 'DHL',
+  fedex: 'FedEx',
+  ups: 'UPS',
+  aramex: 'Aramex',
 };
 
 // =============================================================================
@@ -163,7 +171,7 @@ const SHIIP_CARRIER_DISPLAY_NAMES: Record<string, string> = {
 export class ShiipProvider extends BaseShippingProvider {
   readonly code = 'SHIIP' as const;
   readonly name = 'Shiip';
-  readonly displayName = 'Shiip';  // Hidden from customers
+  readonly displayName = 'Shiip'; // Hidden from customers
   readonly supportsInternational = true;
   readonly supportsDomestic = true;
 
@@ -178,7 +186,7 @@ export class ShiipProvider extends BaseShippingProvider {
 
     return {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${SHIIP_API_KEY}`,
+      Authorization: `Bearer ${SHIIP_API_KEY}`,
     };
   }
 
@@ -204,7 +212,11 @@ export class ShiipProvider extends BaseShippingProvider {
     // Nigeria domestic
     if (senderCountry === 'NG' || senderCountry === 'Nigeria') {
       // Same state = intrastate, different state = interstate
-      if (senderState && receiverState && senderState.toLowerCase() === receiverState.toLowerCase()) {
+      if (
+        senderState &&
+        receiverState &&
+        senderState.toLowerCase() === receiverState.toLowerCase()
+      ) {
         return 'intrastate';
       }
       return 'interstate';
@@ -213,7 +225,11 @@ export class ShiipProvider extends BaseShippingProvider {
     return 'interstate';
   }
 
-  private parseDeliveryEta(eta?: string): { estimatedDays: number; minDays?: number; maxDays?: number } {
+  private parseDeliveryEta(eta?: string): {
+    estimatedDays: number;
+    minDays?: number;
+    maxDays?: number;
+  } {
     if (!eta) {
       return { estimatedDays: 3 };
     }
@@ -228,8 +244,8 @@ export class ShiipProvider extends BaseShippingProvider {
     // Hours format
     const hoursMatch = eta.match(/(\d+)\s*-\s*(\d+)\s*hours?/i);
     if (hoursMatch) {
-      const minHours = parseInt(hoursMatch[1], 10);
-      const maxHours = parseInt(hoursMatch[2], 10);
+      const minHours = Number.parseInt(hoursMatch[1], 10);
+      const maxHours = Number.parseInt(hoursMatch[2], 10);
       return {
         estimatedDays: Math.ceil(maxHours / 24),
         minDays: Math.ceil(minHours / 24),
@@ -240,8 +256,8 @@ export class ShiipProvider extends BaseShippingProvider {
     // Days format
     const daysMatch = eta.match(/(\d+)\s*-\s*(\d+)\s*days?/i);
     if (daysMatch) {
-      const min = parseInt(daysMatch[1], 10);
-      const max = parseInt(daysMatch[2], 10);
+      const min = Number.parseInt(daysMatch[1], 10);
+      const max = Number.parseInt(daysMatch[2], 10);
       return {
         estimatedDays: Math.round((min + max) / 2),
         minDays: min,
@@ -252,7 +268,7 @@ export class ShiipProvider extends BaseShippingProvider {
     // Single number
     const singleMatch = eta.match(/(\d+)/);
     if (singleMatch) {
-      const days = parseInt(singleMatch[1], 10);
+      const days = Number.parseInt(singleMatch[1], 10);
       // If small number, might be hours
       if (days <= 48 && lower.includes('hour')) {
         return { estimatedDays: Math.ceil(days / 24) };
@@ -263,7 +279,11 @@ export class ShiipProvider extends BaseShippingProvider {
     return { estimatedDays: 3 };
   }
 
-  private calculateDefaultDimensions(weight: number): { width: number; length: number; height: number } {
+  private calculateDefaultDimensions(weight: number): {
+    width: number;
+    length: number;
+    height: number;
+  } {
     // Estimate dimensions based on weight (rough approximation)
     if (weight <= 1) {
       return { width: 20, length: 20, height: 10 };
@@ -293,7 +313,10 @@ export class ShiipProvider extends BaseShippingProvider {
       );
 
       // Calculate total weight and dimensions
-      const totalWeight = request.items.reduce((sum, item) => sum + item.weight * item.quantity, 0);
+      const totalWeight = request.items.reduce(
+        (sum, item) => sum + item.weight * item.quantity,
+        0
+      );
       const dimensions = this.calculateDefaultDimensions(totalWeight);
 
       const payload: ShiipQuoteRequest = {
@@ -316,34 +339,44 @@ export class ShiipProvider extends BaseShippingProvider {
           email: request.receiver.email,
           phone: request.receiver.phone,
         },
-        parcels: [{
-          width: dimensions.width,
-          length: dimensions.length,
-          height: dimensions.height,
-          weight: totalWeight,
-        }],
+        parcels: [
+          {
+            width: dimensions.width,
+            length: dimensions.length,
+            height: dimensions.height,
+            weight: totalWeight,
+          },
+        ],
       };
 
-      const response = await this.safeFetch(`${SHIIP_BASE_URL}/tariffs/allprice`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify(payload),
-      });
+      const response = await this.safeFetch(
+        `${SHIIP_BASE_URL}/tariffs/allprice`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.text();
-        this.log('error', 'Shiip quote request failed', { status: response.status, error });
+        this.log('error', 'Shiip quote request failed', {
+          status: response.status,
+          error,
+        });
         return [];
       }
 
       const result: ShiipQuoteResponse = await response.json();
 
       if (!result.status || !result.data || result.data.length === 0) {
-        this.log('warn', 'No Shiip quotes returned', { message: result.message });
+        this.log('warn', 'No Shiip quotes returned', {
+          message: result.message,
+        });
         return [];
       }
 
-      return result.data.map(rate => {
+      return result.data.map((rate) => {
         const carrierName = this.getCarrierDisplayName(rate.name);
         const deliveryEta = this.parseDeliveryEta(rate.delivery_eta);
 
@@ -382,7 +415,9 @@ export class ShiipProvider extends BaseShippingProvider {
     // Parse the provider rate ID to get booking keys
     // The providerRateId contains JSON with redis_key, rate_id, user_id
     if (!request.providerRateId) {
-      throw new Error('Missing rate data for Shiip booking. Please select a quote first.');
+      throw new Error(
+        'Missing rate data for Shiip booking. Please select a quote first.'
+      );
     }
 
     let rateData: { redis_key: string; rate_id: string; user_id: string };
@@ -396,12 +431,15 @@ export class ShiipProvider extends BaseShippingProvider {
     } catch (error) {
       this.log('error', 'Failed to parse Shiip rate data', {
         providerRateId: request.providerRateId,
-        error: String(error)
+        error: String(error),
       });
       throw new Error('Invalid rate data for Shiip booking');
     }
 
-    const totalWeight = request.items.reduce((sum, item) => sum + item.weight * item.quantity, 0);
+    const totalWeight = request.items.reduce(
+      (sum, item) => sum + item.weight * item.quantity,
+      0
+    );
     const dimensions = this.calculateDefaultDimensions(totalWeight);
 
     const payload: ShiipBookingRequest = {
@@ -428,14 +466,19 @@ export class ShiipProvider extends BaseShippingProvider {
         phone: request.receiver.phone,
         postalCode: request.receiver.postalCode,
       },
-      parcels: [{
-        width: dimensions.width,
-        length: dimensions.length,
-        height: dimensions.height,
-        weight: totalWeight,
-        description: request.items.map(i => i.name).join(', '),
-        value: request.items.reduce((sum, i) => sum + i.value * i.quantity, 0),
-      }],
+      parcels: [
+        {
+          width: dimensions.width,
+          length: dimensions.length,
+          height: dimensions.height,
+          weight: totalWeight,
+          description: request.items.map((i) => i.name).join(', '),
+          value: request.items.reduce(
+            (sum, i) => sum + i.value * i.quantity,
+            0
+          ),
+        },
+      ],
       metadata: {
         orderId: request.orderId,
       },
@@ -449,7 +492,10 @@ export class ShiipProvider extends BaseShippingProvider {
 
     if (!response.ok) {
       const error = await response.text();
-      this.log('error', 'Shiip booking failed', { status: response.status, error });
+      this.log('error', 'Shiip booking failed', {
+        status: response.status,
+        error,
+      });
       throw new Error('Failed to book Shiip shipment');
     }
 
@@ -467,7 +513,9 @@ export class ShiipProvider extends BaseShippingProvider {
         body: JSON.stringify({ reference: result.data.reference }),
       });
     } catch (error) {
-      this.log('warn', 'Failed to request Shiip pickup', { error: String(error) });
+      this.log('warn', 'Failed to request Shiip pickup', {
+        error: String(error),
+      });
       // Don't fail the booking, pickup can be requested later
     }
 
@@ -504,7 +552,7 @@ export class ShiipProvider extends BaseShippingProvider {
       throw new Error('Shipment not found');
     }
 
-    const events: TrackingEvent[] = (result.data.events || []).map(event => ({
+    const events: TrackingEvent[] = (result.data.events || []).map((event) => ({
       status: event.status,
       description: event.description,
       location: event.location,
@@ -526,7 +574,9 @@ export class ShiipProvider extends BaseShippingProvider {
       actualDelivery: result.data.delivered_at
         ? new Date(result.data.delivered_at)
         : undefined,
-      events: events.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()),
+      events: events.sort(
+        (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
+      ),
     };
   }
 
@@ -545,7 +595,10 @@ export class ShiipProvider extends BaseShippingProvider {
 
     if (!response.ok) {
       const error = await response.text();
-      this.log('error', 'Shiip cancellation failed', { status: response.status, error });
+      this.log('error', 'Shiip cancellation failed', {
+        status: response.status,
+        error,
+      });
       return {
         success: false,
         message: 'Failed to cancel shipment',
@@ -556,7 +609,9 @@ export class ShiipProvider extends BaseShippingProvider {
 
     return {
       success: result.status === true,
-      message: result.message || (result.status ? 'Shipment cancelled' : 'Cancellation failed'),
+      message:
+        result.message ||
+        (result.status ? 'Shipment cancelled' : 'Cancellation failed'),
     };
   }
 
@@ -574,12 +629,15 @@ export class ShiipProvider extends BaseShippingProvider {
         parcels: [{ width: 10, length: 10, height: 10, weight: 1 }],
       };
 
-      const response = await this.safeFetch(`${SHIIP_BASE_URL}/tariffs/allprice`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify(testRequest),
-        timeout: 10000, // 10 second timeout for health check
-      });
+      const response = await this.safeFetch(
+        `${SHIIP_BASE_URL}/tariffs/allprice`,
+        {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(testRequest),
+          timeout: 10000, // 10 second timeout for health check
+        }
+      );
 
       return response.ok;
     } catch {

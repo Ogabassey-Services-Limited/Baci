@@ -1,11 +1,11 @@
 'use client';
 
+import { Check, Loader2, Tag, X } from 'lucide-react';
 import { useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Tag, X, Check, Loader2 } from 'lucide-react';
 
 interface DiscountResult {
   valid: boolean;
@@ -121,7 +121,9 @@ export function DiscountCodeInput({
                 </Badge>
               </div>
               {appliedDiscount.description && (
-                <p className="text-xs text-green-600">{appliedDiscount.description}</p>
+                <p className="text-xs text-green-600">
+                  {appliedDiscount.description}
+                </p>
               )}
             </div>
           </div>
@@ -165,16 +167,10 @@ export function DiscountCodeInput({
           disabled={loading || !code.trim()}
           variant="outline"
         >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            'Apply'
-          )}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
         </Button>
       </div>
-      {error && (
-        <p className="text-sm text-red-500">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
   );
 }

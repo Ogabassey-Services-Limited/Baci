@@ -25,8 +25,7 @@ export const routes = {
   storefront: (slug: string) => `/${slug}` as Route,
 
   /** Category page: /{slug}/{category} */
-  category: (slug: string, category: string) =>
-    `/${slug}/${category}` as Route,
+  category: (slug: string, category: string) => `/${slug}/${category}` as Route,
 
   /** Product detail via /products path: /{slug}/products/{productSlug} */
   product: (slug: string, productSlug: string) =>
@@ -38,7 +37,9 @@ export const routes = {
 
   /** Search page: /{slug}/search?q={query} */
   search: (slug: string, query?: string) =>
-    query ? `/${slug}/search?q=${encodeURIComponent(query)}` as Route : `/${slug}/search` as Route,
+    query
+      ? (`/${slug}/search?q=${encodeURIComponent(query)}` as Route)
+      : (`/${slug}/search` as Route),
 
   /** Cart page: /{slug}/cart */
   cart: (slug: string) => `/${slug}/cart` as Route,
@@ -64,8 +65,7 @@ export const routes = {
   dashboardOrders: '/dashboard/orders' as Route,
 
   /** Single order */
-  dashboardOrder: (orderId: string) =>
-    `/dashboard/orders/${orderId}` as Route,
+  dashboardOrder: (orderId: string) => `/dashboard/orders/${orderId}` as Route,
 
   /** Customers list */
   dashboardCustomers: '/dashboard/customers' as Route,
@@ -87,8 +87,7 @@ export const routes = {
   dashboardDomains: '/dashboard/domains' as Route,
 
   /** Single domain */
-  dashboardDomain: (domain: string) =>
-    `/dashboard/domains/${domain}` as Route,
+  dashboardDomain: (domain: string) => `/dashboard/domains/${domain}` as Route,
 
   /** Reviews moderation */
   dashboardReviews: '/dashboard/reviews' as Route,
@@ -110,8 +109,7 @@ export const routes = {
   builder: '/builder' as Route,
 
   /** Edit specific page */
-  builderPage: (pageSlug: string) =>
-    `/builder/${pageSlug}` as Route,
+  builderPage: (pageSlug: string) => `/builder/${pageSlug}` as Route,
 
   // ============================================================
   // Auth Routes
@@ -208,8 +206,7 @@ export const dynamicRoutes = {
   blogPost: (postSlug: string) => `/blog/${postSlug}` as Route,
 
   /** Order tracking: /track/{trackingNumber} */
-  tracking: (trackingNumber: string) =>
-    `/track/${trackingNumber}` as Route,
+  tracking: (trackingNumber: string) => `/track/${trackingNumber}` as Route,
 
   /** Invite acceptance: /invite/{token} */
   invite: (token: string) => `/invite/${token}` as Route,

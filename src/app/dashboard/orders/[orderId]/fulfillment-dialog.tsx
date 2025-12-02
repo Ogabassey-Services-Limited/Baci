@@ -1,16 +1,28 @@
-
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Loader2 } from 'lucide-react';
-import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 
 // Mock types for now - in a real app, these would be imported
 type OrderItem = {
@@ -18,7 +30,7 @@ type OrderItem = {
   name: string;
   quantity: number;
   product: {
-    fulfillmentFields?: { name: string }[]
+    fulfillmentFields?: { name: string }[];
   };
 };
 type FulfillmentData = { [key: string]: string[][] };
@@ -49,11 +61,18 @@ interface FulfillmentDialogProps {
 }
 
 // --- Component ---
-export default function FulfillmentDialog({ isOpen, onClose, orderItems, onConfirm }: FulfillmentDialogProps) {
+export default function FulfillmentDialog({
+  isOpen,
+  onClose,
+  orderItems,
+  onConfirm,
+}: FulfillmentDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
 
-  const itemsWithFields = orderItems.filter(item =>
-    item.product.fulfillmentFields && item.product.fulfillmentFields.length > 0
+  const itemsWithFields = orderItems.filter(
+    (item) =>
+      item.product.fulfillmentFields &&
+      item.product.fulfillmentFields.length > 0
   );
 
   const form = useForm<FulfillmentFormValues>({
@@ -64,24 +83,31 @@ export default function FulfillmentDialog({ isOpen, onClose, orderItems, onConfi
   useEffect(() => {
     if (isOpen) {
       form.reset({
-        groups: itemsWithFields.map(item => ({
+        groups: itemsWithFields.map((item) => ({
           itemId: item.id,
           fields: Array.from({ length: item.quantity }).flatMap(() =>
-            item.product.fulfillmentFields!.map(field => ({ name: field.name, value: '' }))
+            item.product.fulfillmentFields?.map((field) => ({
+              name: field.name,
+              value: '',
+            }))
           ),
         })),
       });
     }
-  }, [isOpen, orderItems, form, itemsWithFields]);
-
+  }, [isOpen, form, itemsWithFields]);
 
   const onSubmit = async (data: FulfillmentFormValues) => {
     setIsSaving(true);
     const formattedData: FulfillmentData = {};
 
-    data.groups.forEach(group => {
-      const item = itemsWithFields.find(i => i.id === group.itemId);
-      if (!item || !item.product.fulfillmentFields || item.product.fulfillmentFields.length === 0) return;
+    data.groups.forEach((group) => {
+      const item = itemsWithFields.find((i) => i.id === group.itemId);
+      if (
+        !item ||
+        !item.product.fulfillmentFields ||
+        item.product.fulfillmentFields.length === 0
+      )
+        return;
 
       const numFields = item.product.fulfillmentFields.length;
       const units: string[][] = [];
@@ -90,7 +116,7 @@ export default function FulfillmentDialog({ isOpen, onClose, orderItems, onConfi
       for (let i = 0; i < numUnits; i++) {
         const unitFields: string[] = [];
         for (let j = 0; j < numFields; j++) {
-          const fieldIndex = (i * numFields) + j;
+          const fieldIndex = i * numFields + j;
           unitFields.push(group.fields[fieldIndex].value);
         }
         units.push(unitFields);
@@ -108,49 +134,78 @@ export default function FulfillmentDialog({ isOpen, onClose, orderItems, onConfi
         <DialogHeader>
           <DialogTitle>Enter Fulfillment Details</DialogTitle>
           <DialogDescription>
-            Some items in this order require additional information before fulfillment.
+            Some items in this order require additional information before
+            fulfillment.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="space-y-6 py-4"
+          >
             <div className="max-h-[60vh] overflow-y-auto px-1">
               {itemsWithFields.map((item, itemIndex) => (
-                <div key={item.id} className="space-y-4 mb-6 p-4 border rounded-lg">
+                <div
+                  key={item.id}
+                  className="space-y-4 mb-6 p-4 border rounded-lg"
+                >
                   <h3 className="font-semibold text-lg">{item.name}</h3>
-                  {Array.from({ length: item.quantity }).map((_, quantityIndex) => (
-                    <div key={quantityIndex} className="space-y-4 p-3 bg-muted/50 rounded-md">
-                      <p className="font-medium text-sm">Unit {quantityIndex + 1}</p>
-                      {item.product.fulfillmentFields?.map((field, fieldIndex) => {
-                        const formFieldIndex = (quantityIndex * item.product.fulfillmentFields!.length) + fieldIndex;
-                        const fieldName = `groups.${itemIndex}.fields.${formFieldIndex}.value`;
+                  {Array.from({ length: item.quantity }).map(
+                    (_, quantityIndex) => (
+                      <div
+                        key={quantityIndex}
+                        className="space-y-4 p-3 bg-muted/50 rounded-md"
+                      >
+                        <p className="font-medium text-sm">
+                          Unit {quantityIndex + 1}
+                        </p>
+                        {item.product.fulfillmentFields?.map(
+                          (field, fieldIndex) => {
+                            const formFieldIndex =
+                              quantityIndex *
+                              (item.product.fulfillmentFields?.length ?? 0) +
+                              fieldIndex;
+                            const fieldName = `groups.${itemIndex}.fields.${formFieldIndex}.value`;
 
-                        return (
-                          <FormField
-                            key={`${item.id}-${quantityIndex}-${field.name}`}
-                            control={form.control}
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            name={fieldName as any}
-                            render={({ field: formField }) => (
-                              <FormItem className="grid grid-cols-3 items-center gap-x-4 gap-y-1">
-                                <Label htmlFor={fieldName} className="text-right col-span-1">{field.name}</Label>
-                                <div className="col-span-2">
-                                  <FormControl>
-                                    <Input id={fieldName} {...formField} />
-                                  </FormControl>
-                                  <FormMessage className="mt-1" />
-                                </div>
-                              </FormItem>
-                            )}
-                          />
-                        );
-                      })}
-                    </div>
-                  ))}
+                            return (
+                              <FormField
+                                key={`${item.id}-${quantityIndex}-${field.name}`}
+                                control={form.control}
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                name={fieldName as any}
+                                render={({ field: formField }) => (
+                                  <FormItem className="grid grid-cols-3 items-center gap-x-4 gap-y-1">
+                                    <Label
+                                      htmlFor={fieldName}
+                                      className="text-right col-span-1"
+                                    >
+                                      {field.name}
+                                    </Label>
+                                    <div className="col-span-2">
+                                      <FormControl>
+                                        <Input id={fieldName} {...formField} />
+                                      </FormControl>
+                                      <FormMessage className="mt-1" />
+                                    </div>
+                                  </FormItem>
+                                )}
+                              />
+                            );
+                          }
+                        )}
+                      </div>
+                    )
+                  )}
                 </div>
               ))}
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={isSaving}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isSaving}>

@@ -1,28 +1,26 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { format, formatDistanceToNow } from 'date-fns';
+import {
+  Archive,
+  Calendar,
+  CheckCircle,
+  Clock,
+  Edit,
+  ExternalLink,
+  FileText,
+  Loader2,
+  MoreHorizontal,
+  PenTool,
+  Plus,
+  Rss,
+  Search,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import Link from 'next/link';
-import { asRoute } from '@/lib/routes';
-import { useDebounce } from '@/hooks/use-debounce';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,28 +31,35 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useMerchantFeatures } from '@/hooks/use-merchant-features';
-import {
-  Loader2,
-  MoreHorizontal,
-  Plus,
-  FileText,
-  Eye as _Eye,
-  Edit,
-  Trash2,
-  Search,
-  Clock,
-  CheckCircle,
-  Archive,
-  Rss,
-  ExternalLink,
-  PenTool,
-  Sparkles,
-  Calendar,
-} from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
+import { asRoute } from '@/lib/routes';
 
 interface BlogPost {
   id: string;
@@ -158,7 +163,10 @@ export default function BlogPage() {
     }
   };
 
-  const updatePostStatus = async (postId: string, status: 'draft' | 'published' | 'archived') => {
+  const updatePostStatus = async (
+    postId: string,
+    status: 'draft' | 'published' | 'archived'
+  ) => {
     try {
       const response = await fetch(`/api/merchant/blog/posts/${postId}`, {
         method: 'PATCH',
@@ -176,7 +184,12 @@ export default function BlogPage() {
       );
 
       toast({
-        title: status === 'published' ? 'Post Published' : status === 'archived' ? 'Post Archived' : 'Post Unpublished',
+        title:
+          status === 'published'
+            ? 'Post Published'
+            : status === 'archived'
+              ? 'Post Archived'
+              : 'Post Unpublished',
         description: `The blog post has been ${status === 'published' ? 'published' : status === 'archived' ? 'archived' : 'moved to drafts'}.`,
       });
     } catch (error) {
@@ -228,7 +241,9 @@ export default function BlogPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Blog</h1>
-          <p className="text-muted-foreground">Create and manage blog posts for your store</p>
+          <p className="text-muted-foreground">
+            Create and manage blog posts for your store
+          </p>
         </div>
 
         <Card>
@@ -239,8 +254,8 @@ export default function BlogPage() {
               </div>
               <h2 className="text-2xl font-bold mb-2">Blog Feature</h2>
               <p className="text-muted-foreground mb-6">
-                Create blog posts to drive traffic, improve SEO, and rank on Google Discover.
-                Enable the blog feature to get started.
+                Create blog posts to drive traffic, improve SEO, and rank on
+                Google Discover. Enable the blog feature to get started.
               </p>
               <Button asChild>
                 <Link href="/dashboard/settings/features">
@@ -259,7 +274,9 @@ export default function BlogPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Blog</h1>
-          <p className="text-muted-foreground">Create and manage blog posts for your store</p>
+          <p className="text-muted-foreground">
+            Create and manage blog posts for your store
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {merchant?.slug && (
@@ -302,19 +319,25 @@ export default function BlogPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Published</CardDescription>
-            <CardTitle className="text-2xl text-green-600">{stats.published}</CardTitle>
+            <CardTitle className="text-2xl text-green-600">
+              {stats.published}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Drafts</CardDescription>
-            <CardTitle className="text-2xl text-yellow-600">{stats.drafts}</CardTitle>
+            <CardTitle className="text-2xl text-yellow-600">
+              {stats.drafts}
+            </CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Views</CardDescription>
-            <CardTitle className="text-2xl">{stats.totalViews.toLocaleString()}</CardTitle>
+            <CardTitle className="text-2xl">
+              {stats.totalViews.toLocaleString()}
+            </CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -453,19 +476,25 @@ export default function BlogPage() {
                       )}
                       <DropdownMenuSeparator />
                       {post.status === 'draft' && (
-                        <DropdownMenuItem onClick={() => updatePostStatus(post.id, 'published')}>
+                        <DropdownMenuItem
+                          onClick={() => updatePostStatus(post.id, 'published')}
+                        >
                           <CheckCircle className="w-4 h-4 mr-2" />
                           Publish
                         </DropdownMenuItem>
                       )}
                       {post.status === 'published' && (
-                        <DropdownMenuItem onClick={() => updatePostStatus(post.id, 'draft')}>
+                        <DropdownMenuItem
+                          onClick={() => updatePostStatus(post.id, 'draft')}
+                        >
                           <Clock className="w-4 h-4 mr-2" />
                           Unpublish
                         </DropdownMenuItem>
                       )}
                       {post.status !== 'archived' && (
-                        <DropdownMenuItem onClick={() => updatePostStatus(post.id, 'archived')}>
+                        <DropdownMenuItem
+                          onClick={() => updatePostStatus(post.id, 'archived')}
+                        >
                           <Archive className="w-4 h-4 mr-2" />
                           Archive
                         </DropdownMenuItem>
@@ -488,12 +517,16 @@ export default function BlogPage() {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deletePostId} onOpenChange={() => setDeletePostId(null)}>
+      <AlertDialog
+        open={!!deletePostId}
+        onOpenChange={() => setDeletePostId(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Blog Post</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this blog post? This action cannot be undone.
+              Are you sure you want to delete this blog post? This action cannot
+              be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

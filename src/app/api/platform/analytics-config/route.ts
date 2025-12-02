@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
 
 // Lazy initialization to avoid build-time errors
 function getSupabaseAdmin() {

@@ -1,16 +1,20 @@
-
 import type { Metadata, Viewport } from 'next';
-import { headers } from 'next/headers';
 import { Inter } from 'next/font/google';
+import { headers } from 'next/headers';
 import './globals.css';
-import { Toaster } from '@/components/ui/toaster';
-import { Analytics } from "@vercel/analytics/next"
-import { SpeedInsights } from "@vercel/speed-insights/next"
-import { Providers } from '@/contexts/providers';
-import { CsrfInitializer } from '@/components/csrf-initializer';
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter';
+import { CsrfInitializer } from '@/components/csrf-initializer';
+import { Toaster } from '@/components/ui/toaster';
 import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
-import { generateSoftwareApplicationSchema, generateOrganizationSchema, generateWebSiteSchema, type OrganizationData } from '@/lib/seo-utils';
+import { Providers } from '@/contexts/providers';
+import {
+  generateOrganizationSchema,
+  generateSoftwareApplicationSchema,
+  generateWebSiteSchema,
+  type OrganizationData,
+} from '@/lib/seo-utils';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -28,7 +32,16 @@ export const metadata: Metadata = {
   description: PLATFORM_CONFIG.description,
   applicationName: PLATFORM_CONFIG.name,
   authors: [{ name: PLATFORM_CONFIG.name }],
-  keywords: ['ai', 'ecommerce', 'store builder', 'online store', 'nextjs', 'react', 'business', 'retail'],
+  keywords: [
+    'ai',
+    'ecommerce',
+    'store builder',
+    'online store',
+    'nextjs',
+    'react',
+    'business',
+    'retail',
+  ],
   // Favicon configuration - comprehensive setup for all devices
   icons: {
     icon: [
@@ -131,8 +144,8 @@ export default async function RootLayout({
     `${PLATFORM_CONFIG.url}/search?q={search_term_string}`
   );
 
-  const softwareApplicationSchema = generateSoftwareApplicationSchema(PLATFORM_PRICING);
-
+  const softwareApplicationSchema =
+    generateSoftwareApplicationSchema(PLATFORM_PRICING);
 
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
@@ -147,7 +160,10 @@ export default async function RootLayout({
           Using dns-prefetch instead of preconnect to avoid "unused preconnect" warnings
           dns-prefetch is less aggressive but still helps with connection setup
         */}
-        <link rel="dns-prefetch" href="https://dtbqucrqfbycfpmfwtie.supabase.co" />
+        <link
+          rel="dns-prefetch"
+          href="https://dtbqucrqfbycfpmfwtie.supabase.co"
+        />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
         <link rel="dns-prefetch" href="https://res.cloudinary.com" />
 
@@ -156,7 +172,9 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           nonce={nonce}
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationSchema),
+          }}
         />
         {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
         <script
@@ -168,7 +186,9 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           nonce={nonce}
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(softwareApplicationSchema),
+          }}
         />
       </head>
       <body className={inter.variable} suppressHydrationWarning>

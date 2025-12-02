@@ -10,7 +10,10 @@
  * - 100 messages/second
  */
 
-import { USAGE_THRESHOLDS, type RealtimeUsageStats } from '@/types/notifications';
+import {
+  type RealtimeUsageStats,
+  USAGE_THRESHOLDS,
+} from '@/types/notifications';
 
 /**
  * Get current usage statistics from Supabase
@@ -82,14 +85,18 @@ export function isCriticalUsage(stats: RealtimeUsageStats): boolean {
 /**
  * Get warning message based on current usage
  */
-export function getUsageWarningMessage(stats: RealtimeUsageStats): string | null {
+export function getUsageWarningMessage(
+  stats: RealtimeUsageStats
+): string | null {
   const warnings: string[] = [];
 
   if (stats.connection_usage_percent >= USAGE_THRESHOLDS.CRITICAL_PERCENT) {
     warnings.push(
       `CRITICAL: Concurrent connections at ${stats.connection_usage_percent}% of limit`
     );
-  } else if (stats.connection_usage_percent >= USAGE_THRESHOLDS.WARNING_PERCENT) {
+  } else if (
+    stats.connection_usage_percent >= USAGE_THRESHOLDS.WARNING_PERCENT
+  ) {
     warnings.push(
       `Warning: Concurrent connections at ${stats.connection_usage_percent}% of limit`
     );

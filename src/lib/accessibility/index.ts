@@ -32,27 +32,26 @@
  * ```
  */
 
+export {
+  accessiblePalettes,
+  auditColorContrast,
+  checkColorContrast,
+  commonContrastIssues,
+  getAccessibleColor,
+  getContrastRatio,
+  getRelativeLuminance,
+  parseColor,
+} from './color-contrast';
 // Re-export all utilities
 export {
-  generateAltText,
-  batchGenerateAltText,
-  isDecorativeImage,
-  generateProductAltText,
-  validateAltText,
   type AltTextResult,
+  batchGenerateAltText,
   type GenerateAltTextOptions,
+  generateAltText,
+  generateProductAltText,
+  isDecorativeImage,
+  validateAltText,
 } from './generate-alt-text';
-
-export {
-  getRelativeLuminance,
-  getContrastRatio,
-  parseColor,
-  checkColorContrast,
-  getAccessibleColor,
-  auditColorContrast,
-  commonContrastIssues,
-  accessiblePalettes,
-} from './color-contrast';
 
 /**
  * Announce a message to screen readers using a live region
@@ -103,7 +102,8 @@ export function trapFocus(container: HTMLElement): () => void {
     '[contenteditable]',
   ].join(',');
 
-  const focusableElements = container.querySelectorAll<HTMLElement>(focusableSelectors);
+  const focusableElements =
+    container.querySelectorAll<HTMLElement>(focusableSelectors);
   const firstFocusable = focusableElements[0];
   const lastFocusable = focusableElements[focusableElements.length - 1];
 
@@ -115,11 +115,9 @@ export function trapFocus(container: HTMLElement): () => void {
         e.preventDefault();
         lastFocusable?.focus();
       }
-    } else {
-      if (document.activeElement === lastFocusable) {
-        e.preventDefault();
-        firstFocusable?.focus();
-      }
+    } else if (document.activeElement === lastFocusable) {
+      e.preventDefault();
+      firstFocusable?.focus();
     }
   }
 
@@ -140,7 +138,9 @@ export function trapFocus(container: HTMLElement): () => void {
  * @param triggerElement - The element that opened the modal
  * @returns Function to restore focus when modal closes
  */
-export function manageFocusReturn(triggerElement: HTMLElement | null): () => void {
+export function manageFocusReturn(
+  triggerElement: HTMLElement | null
+): () => void {
   const previouslyFocused = document.activeElement as HTMLElement;
 
   return () => {
@@ -186,16 +186,25 @@ export function getAccessibleName(element: HTMLElement): string {
   // Check aria-labelledby
   const labelledBy = element.getAttribute('aria-labelledby');
   if (labelledBy) {
-    const labelElements = labelledBy.split(' ').map(id => document.getElementById(id));
-    const labelText = labelElements.map(el => el?.textContent || '').join(' ').trim();
+    const labelElements = labelledBy
+      .split(' ')
+      .map((id) => document.getElementById(id));
+    const labelText = labelElements
+      .map((el) => el?.textContent || '')
+      .join(' ')
+      .trim();
     if (labelText) return labelText;
   }
 
   // Check associated label (for form controls)
-  if (element instanceof HTMLInputElement ||
+  if (
+    element instanceof HTMLInputElement ||
     element instanceof HTMLSelectElement ||
-    element instanceof HTMLTextAreaElement) {
-    const label = document.querySelector<HTMLLabelElement>(`label[for="${element.id}"]`);
+    element instanceof HTMLTextAreaElement
+  ) {
+    const label = document.querySelector<HTMLLabelElement>(
+      `label[for="${element.id}"]`
+    );
     if (label) return label.textContent?.trim() || '';
   }
 
@@ -241,8 +250,8 @@ export const wcagChecklist = {
   ],
   understandable: [
     '3.1.1 Language of Page: Page language is specified',
-    '3.2.1 On Focus: Focus changes don\'t trigger unexpected context changes',
-    '3.2.2 On Input: Input changes don\'t trigger unexpected context changes',
+    "3.2.1 On Focus: Focus changes don't trigger unexpected context changes",
+    "3.2.2 On Input: Input changes don't trigger unexpected context changes",
     '3.3.1 Error Identification: Errors are clearly identified and described',
     '3.3.2 Labels or Instructions: Form inputs have labels or instructions',
   ],

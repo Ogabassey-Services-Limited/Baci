@@ -1,20 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent } from '@/components/ui/card';
+import { Loader2, Package, Search, ShoppingCart } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Package, Loader2, ShoppingCart } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 
 interface Product {
@@ -51,7 +51,7 @@ export function ProductEmbedPicker({
     }
   }, [open]);
 
-  const fetchProducts = async (query = '') => {
+  async function fetchProducts(query = '') {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -69,7 +69,7 @@ export function ProductEmbedPicker({
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -127,9 +127,10 @@ export function ProductEmbedPicker({
               {products.map((product) => (
                 <div
                   key={product.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors ${
-                    selected.has(product.id) ? 'border-primary bg-primary/5' : ''
-                  }`}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors ${selected.has(product.id)
+                      ? 'border-primary bg-primary/5'
+                      : ''
+                    }`}
                   onClick={() => toggleProduct(product.id)}
                 >
                   <Checkbox
@@ -151,11 +152,12 @@ export function ProductEmbedPicker({
                     <p className="font-medium truncate">{product.name}</p>
                     <p className="text-sm text-muted-foreground">
                       {formatCurrency(product.price)}
-                      {product.compare_at_price && product.compare_at_price > product.price && (
-                        <span className="ml-2 line-through text-xs">
-                          {formatCurrency(product.compare_at_price)}
-                        </span>
-                      )}
+                      {product.compare_at_price &&
+                        product.compare_at_price > product.price && (
+                          <span className="ml-2 line-through text-xs">
+                            {formatCurrency(product.compare_at_price)}
+                          </span>
+                        )}
                     </p>
                   </div>
                 </div>
@@ -169,7 +171,11 @@ export function ProductEmbedPicker({
             <span>
               {selected.size} product{selected.size > 1 ? 's' : ''} selected
             </span>
-            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelected(new Set())}
+            >
               Clear
             </Button>
           </div>
@@ -194,15 +200,22 @@ interface ProductCardProps {
   onAddToCart?: (productId: string) => void;
 }
 
-export function ProductCard({ product, merchantSlug, onAddToCart }: ProductCardProps) {
-  const hasDiscount = product.compare_at_price && product.compare_at_price > product.price;
+export function ProductCard({
+  product,
+  merchantSlug,
+  onAddToCart,
+}: ProductCardProps) {
+  const hasDiscount =
+    product.compare_at_price && product.compare_at_price > product.price;
   const discountPercentage = hasDiscount
     ? Math.round((1 - product.price / product.compare_at_price!) * 100)
     : 0;
 
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
-      <a href={merchantSlug ? `/${merchantSlug}/products/${product.slug}` : '#'}>
+      <a
+        href={merchantSlug ? `/${merchantSlug}/products/${product.slug}` : '#'}
+      >
         <div className="aspect-square relative overflow-hidden bg-muted">
           {product.images?.[0] ? (
             <img
@@ -223,13 +236,19 @@ export function ProductCard({ product, merchantSlug, onAddToCart }: ProductCardP
         </div>
       </a>
       <CardContent className="p-4">
-        <a href={merchantSlug ? `/${merchantSlug}/products/${product.slug}` : '#'}>
+        <a
+          href={
+            merchantSlug ? `/${merchantSlug}/products/${product.slug}` : '#'
+          }
+        >
           <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors">
             {product.name}
           </h3>
         </a>
         <div className="flex items-center gap-2 mt-2">
-          <span className="font-bold text-lg">{formatCurrency(product.price)}</span>
+          <span className="font-bold text-lg">
+            {formatCurrency(product.price)}
+          </span>
           {hasDiscount && (
             <span className="text-sm text-muted-foreground line-through">
               {formatCurrency(product.compare_at_price!)}
@@ -260,19 +279,22 @@ interface ProductGridProps {
   onAddToCart?: (productId: string) => void;
 }
 
-export function ProductGrid({ products, merchantSlug, onAddToCart }: ProductGridProps) {
+export function ProductGrid({
+  products,
+  merchantSlug,
+  onAddToCart,
+}: ProductGridProps) {
   if (products.length === 0) return null;
 
   return (
     <div className="my-8 not-prose">
       <div
-        className={`grid gap-4 ${
-          products.length === 1
+        className={`grid gap-4 ${products.length === 1
             ? 'grid-cols-1 max-w-sm mx-auto'
             : products.length === 2
-            ? 'grid-cols-2 max-w-xl mx-auto'
-            : 'grid-cols-2 md:grid-cols-3'
-        }`}
+              ? 'grid-cols-2 max-w-xl mx-auto'
+              : 'grid-cols-2 md:grid-cols-3'
+          }`}
       >
         {products.map((product) => (
           <ProductCard

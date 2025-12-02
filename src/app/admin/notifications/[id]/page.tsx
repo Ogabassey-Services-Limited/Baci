@@ -1,46 +1,24 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { format, formatDistanceToNow } from 'date-fns';
 import {
-  ArrowLeft,
-  Bell,
-  Users,
-  Clock,
-  CheckCircle,
-  Eye,
-  Trash2,
-  Send,
-  Loader2,
-  Info,
-  AlertTriangle,
   AlertCircle,
+  AlertTriangle,
+  ArrowLeft,
   BarChart3,
+  Bell,
+  CheckCircle,
+  Clock,
+  Eye,
+  Info,
+  Loader2,
+  Send,
+  Trash2,
+  Users,
 } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
-
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-import type { NotificationWithStats, NotificationType } from '@/types/notifications';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { use, useEffect, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +29,30 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+import type {
+  NotificationType,
+  NotificationWithStats,
+} from '@/types/notifications';
 
 interface DeliveryRecord {
   id: string;
@@ -64,12 +66,13 @@ interface DeliveryRecord {
   } | null;
 }
 
-const typeStyles: Record<NotificationType, { bg: string; icon: typeof Info }> = {
-  info: { bg: 'bg-blue-100 text-blue-800', icon: Info },
-  success: { bg: 'bg-green-100 text-green-800', icon: CheckCircle },
-  warning: { bg: 'bg-yellow-100 text-yellow-800', icon: AlertTriangle },
-  error: { bg: 'bg-red-100 text-red-800', icon: AlertCircle },
-};
+const typeStyles: Record<NotificationType, { bg: string; icon: typeof Info }> =
+  {
+    info: { bg: 'bg-blue-100 text-blue-800', icon: Info },
+    success: { bg: 'bg-green-100 text-green-800', icon: CheckCircle },
+    warning: { bg: 'bg-yellow-100 text-yellow-800', icon: AlertTriangle },
+    error: { bg: 'bg-red-100 text-red-800', icon: AlertCircle },
+  };
 
 export default function NotificationDetailsPage({
   params,
@@ -80,7 +83,8 @@ export default function NotificationDetailsPage({
   const router = useRouter();
   const { toast } = useToast();
 
-  const [notification, setNotification] = useState<NotificationWithStats | null>(null);
+  const [notification, setNotification] =
+    useState<NotificationWithStats | null>(null);
   const [deliveries, setDeliveries] = useState<DeliveryRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -119,7 +123,7 @@ export default function NotificationDetailsPage({
     fetchNotification();
     return () => abortController.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, toast]);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -179,10 +183,18 @@ export default function NotificationDetailsPage({
 
   const getStatusBadge = () => {
     if (notification.sent_at) {
-      return <Badge variant="default" className="bg-green-600">Sent</Badge>;
+      return (
+        <Badge variant="default" className="bg-green-600">
+          Sent
+        </Badge>
+      );
     }
     if (notification.scheduled_for) {
-      return <Badge variant="outline" className="border-orange-500 text-orange-600">Scheduled</Badge>;
+      return (
+        <Badge variant="outline" className="border-orange-500 text-orange-600">
+          Scheduled
+        </Badge>
+      );
     }
     return <Badge variant="secondary">Draft</Badge>;
   };
@@ -199,11 +211,16 @@ export default function NotificationDetailsPage({
           </Button>
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{notification.title}</h1>
+              <h1 className="text-2xl font-bold tracking-tight">
+                {notification.title}
+              </h1>
               {getStatusBadge()}
             </div>
             <p className="text-muted-foreground">
-              Created {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+              Created{' '}
+              {formatDistanceToNow(new Date(notification.created_at), {
+                addSuffix: true,
+              })}
             </p>
           </div>
         </div>
@@ -230,7 +247,9 @@ export default function NotificationDetailsPage({
               <Send className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{notification.stats?.total_sent || 0}</div>
+              <div className="text-2xl font-bold">
+                {notification.stats?.total_sent || 0}
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -239,7 +258,9 @@ export default function NotificationDetailsPage({
               <Eye className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{notification.stats?.total_read || 0}</div>
+              <div className="text-2xl font-bold">
+                {notification.stats?.total_read || 0}
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -248,7 +269,9 @@ export default function NotificationDetailsPage({
               <CheckCircle className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{notification.stats?.total_dismissed || 0}</div>
+              <div className="text-2xl font-bold">
+                {notification.stats?.total_dismissed || 0}
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -257,8 +280,13 @@ export default function NotificationDetailsPage({
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{notification.stats?.read_rate || 0}%</div>
-              <Progress value={notification.stats?.read_rate || 0} className="mt-2" />
+              <div className="text-2xl font-bold">
+                {notification.stats?.read_rate || 0}%
+              </div>
+              <Progress
+                value={notification.stats?.read_rate || 0}
+                className="mt-2"
+              />
             </CardContent>
           </Card>
         </div>
@@ -272,12 +300,18 @@ export default function NotificationDetailsPage({
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-start gap-3 p-4 border rounded-lg bg-muted/30">
-              <TypeIcon className={cn('h-5 w-5 mt-0.5', typeStyle.bg.split(' ')[1])} />
+              <TypeIcon
+                className={cn('h-5 w-5 mt-0.5', typeStyle.bg.split(' ')[1])}
+              />
               <div className="flex-1">
                 <h4 className="font-medium">{notification.title}</h4>
-                <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {notification.message}
+                </p>
                 {notification.action_label && (
-                  <p className="text-sm text-primary mt-2">{notification.action_label}</p>
+                  <p className="text-sm text-primary mt-2">
+                    {notification.action_label}
+                  </p>
                 )}
               </div>
             </div>
@@ -291,13 +325,19 @@ export default function NotificationDetailsPage({
               </div>
               <div>
                 <p className="text-muted-foreground">Priority</p>
-                <p className="font-medium capitalize">{notification.priority}</p>
+                <p className="font-medium capitalize">
+                  {notification.priority}
+                </p>
               </div>
               <div>
                 <p className="text-muted-foreground">Channels</p>
                 <div className="flex gap-1 flex-wrap">
                   {notification.channels?.map((channel) => (
-                    <Badge key={channel} variant="secondary" className="text-xs">
+                    <Badge
+                      key={channel}
+                      variant="secondary"
+                      className="text-xs"
+                    >
                       {channel === 'in_app' ? 'In-App' : 'Banner'}
                     </Badge>
                   ))}
@@ -346,14 +386,20 @@ export default function NotificationDetailsPage({
               <div>
                 <p className="text-muted-foreground">Created</p>
                 <p className="font-medium">
-                  {format(new Date(notification.created_at), 'MMM d, yyyy HH:mm')}
+                  {format(
+                    new Date(notification.created_at),
+                    'MMM d, yyyy HH:mm'
+                  )}
                 </p>
               </div>
               {notification.sent_at && (
                 <div>
                   <p className="text-muted-foreground">Sent</p>
                   <p className="font-medium">
-                    {format(new Date(notification.sent_at), 'MMM d, yyyy HH:mm')}
+                    {format(
+                      new Date(notification.sent_at),
+                      'MMM d, yyyy HH:mm'
+                    )}
                   </p>
                 </div>
               )}
@@ -363,7 +409,10 @@ export default function NotificationDetailsPage({
                   <div className="flex items-center gap-1">
                     <Clock className="h-4 w-4" />
                     <span className="font-medium">
-                      {format(new Date(notification.scheduled_for), 'MMM d, yyyy HH:mm')}
+                      {format(
+                        new Date(notification.scheduled_for),
+                        'MMM d, yyyy HH:mm'
+                      )}
                     </span>
                   </div>
                 </div>
@@ -372,7 +421,10 @@ export default function NotificationDetailsPage({
                 <div>
                   <p className="text-muted-foreground">Expires</p>
                   <p className="font-medium">
-                    {format(new Date(notification.expires_at), 'MMM d, yyyy HH:mm')}
+                    {format(
+                      new Date(notification.expires_at),
+                      'MMM d, yyyy HH:mm'
+                    )}
                   </p>
                 </div>
               )}
@@ -406,27 +458,36 @@ export default function NotificationDetailsPage({
                   <TableRow key={delivery.id}>
                     <TableCell>
                       <span className="font-medium">
-                        {delivery.merchants?.business_name || 'Unknown Merchant'}
+                        {delivery.merchants?.business_name ||
+                          'Unknown Merchant'}
                       </span>
                     </TableCell>
                     <TableCell>
-                      {formatDistanceToNow(new Date(delivery.created_at), { addSuffix: true })}
+                      {formatDistanceToNow(new Date(delivery.created_at), {
+                        addSuffix: true,
+                      })}
                     </TableCell>
                     <TableCell>
                       {delivery.read_at
-                        ? formatDistanceToNow(new Date(delivery.read_at), { addSuffix: true })
+                        ? formatDistanceToNow(new Date(delivery.read_at), {
+                            addSuffix: true,
+                          })
                         : '-'}
                     </TableCell>
                     <TableCell>
                       {delivery.dismissed_at
-                        ? formatDistanceToNow(new Date(delivery.dismissed_at), { addSuffix: true })
+                        ? formatDistanceToNow(new Date(delivery.dismissed_at), {
+                            addSuffix: true,
+                          })
                         : '-'}
                     </TableCell>
                     <TableCell>
                       {delivery.dismissed_at ? (
                         <Badge variant="secondary">Dismissed</Badge>
                       ) : delivery.read_at ? (
-                        <Badge variant="default" className="bg-green-600">Read</Badge>
+                        <Badge variant="default" className="bg-green-600">
+                          Read
+                        </Badge>
                       ) : (
                         <Badge variant="outline">Unread</Badge>
                       )}
@@ -444,7 +505,8 @@ export default function NotificationDetailsPage({
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the notification.
+              This action cannot be undone. This will permanently delete the
+              notification.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

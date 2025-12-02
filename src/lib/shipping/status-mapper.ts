@@ -11,61 +11,65 @@ import type { NormalizedShipmentStatus } from './types';
 
 const GIGL_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
   // Created / Booked
-  'SHIPMENT_CREATED': 'booked',
-  'Created': 'booked',
-  'CREATED': 'booked',
-  'Pending': 'pending',
-  'PENDING': 'pending',
+  SHIPMENT_CREATED: 'booked',
+  Created: 'booked',
+  CREATED: 'booked',
+  Pending: 'pending',
+  PENDING: 'pending',
 
   // Pickup
-  'ASSIGNED_FOR_PICKUP': 'pickup_scheduled',
-  'AssignedForPickup': 'pickup_scheduled',
-  'PICKUP_SCHEDULED': 'pickup_scheduled',
-  'PICKED_UP': 'picked_up',
-  'PickedUp': 'picked_up',
-  'Collected': 'picked_up',
-  'COLLECTED': 'picked_up',
+  ASSIGNED_FOR_PICKUP: 'pickup_scheduled',
+  AssignedForPickup: 'pickup_scheduled',
+  PICKUP_SCHEDULED: 'pickup_scheduled',
+  PICKED_UP: 'picked_up',
+  PickedUp: 'picked_up',
+  Collected: 'picked_up',
+  COLLECTED: 'picked_up',
 
   // Transit
-  'IN_TRANSIT': 'in_transit',
-  'InTransit': 'in_transit',
-  'Processing': 'in_transit',
-  'PROCESSING': 'in_transit',
-  'Departed': 'in_transit',
-  'DEPARTED': 'in_transit',
-  'Arrived': 'in_transit',
-  'ARRIVED': 'in_transit',
+  IN_TRANSIT: 'in_transit',
+  InTransit: 'in_transit',
+  Processing: 'in_transit',
+  PROCESSING: 'in_transit',
+  Departed: 'in_transit',
+  DEPARTED: 'in_transit',
+  Arrived: 'in_transit',
+  ARRIVED: 'in_transit',
 
   // Out for Delivery
-  'OUT_FOR_DELIVERY': 'out_for_delivery',
-  'OutForDelivery': 'out_for_delivery',
-  'OnDelivery': 'out_for_delivery',
-  'ON_DELIVERY': 'out_for_delivery',
+  OUT_FOR_DELIVERY: 'out_for_delivery',
+  OutForDelivery: 'out_for_delivery',
+  OnDelivery: 'out_for_delivery',
+  ON_DELIVERY: 'out_for_delivery',
 
   // Delivered
-  'DELIVERED': 'delivered',
-  'Delivered': 'delivered',
-  'COMPLETED': 'delivered',
-  'Completed': 'delivered',
+  DELIVERED: 'delivered',
+  Delivered: 'delivered',
+  COMPLETED: 'delivered',
+  Completed: 'delivered',
 
   // Cancelled / Failed
-  'CANCELLED': 'cancelled',
-  'Cancelled': 'cancelled',
-  'CANCELED': 'cancelled',
-  'FAILED': 'failed',
-  'Failed': 'failed',
-  'DeliveryFailed': 'failed',
-  'DELIVERY_FAILED': 'failed',
+  CANCELLED: 'cancelled',
+  Cancelled: 'cancelled',
+  CANCELED: 'cancelled',
+  FAILED: 'failed',
+  Failed: 'failed',
+  DeliveryFailed: 'failed',
+  DELIVERY_FAILED: 'failed',
 
   // Returned
-  'RETURNED': 'returned',
-  'Returned': 'returned',
-  'ReturnedToSender': 'returned',
-  'RETURNED_TO_SENDER': 'returned',
+  RETURNED: 'returned',
+  Returned: 'returned',
+  ReturnedToSender: 'returned',
+  RETURNED_TO_SENDER: 'returned',
 };
 
 export function mapGiglStatus(status: string): NormalizedShipmentStatus {
-  return GIGL_STATUS_MAP[status] || GIGL_STATUS_MAP[status.toUpperCase()] || 'pending';
+  return (
+    GIGL_STATUS_MAP[status] ||
+    GIGL_STATUS_MAP[status.toUpperCase()] ||
+    'pending'
+  );
 }
 
 // =============================================================================
@@ -74,61 +78,65 @@ export function mapGiglStatus(status: string): NormalizedShipmentStatus {
 
 const TOPSHIP_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
   // Draft / Pending
-  'Draft': 'pending',
-  'draft': 'pending',
-  'DRAFT': 'pending',
+  Draft: 'pending',
+  draft: 'pending',
+  DRAFT: 'pending',
 
   // Confirmed / Booked
-  'Confirmed': 'booked',
-  'confirmed': 'booked',
-  'CONFIRMED': 'booked',
+  Confirmed: 'booked',
+  confirmed: 'booked',
+  CONFIRMED: 'booked',
 
   // Pickup
-  'AwaitingPickUp': 'pickup_scheduled',
-  'awaitingpickup': 'pickup_scheduled',
-  'AWAITING_PICKUP': 'pickup_scheduled',
-  'PickupInProgress': 'pickup_scheduled',
-  'pickupinprogress': 'pickup_scheduled',
-  'PICKUP_IN_PROGRESS': 'pickup_scheduled',
-  'SuccessfullyPicked': 'picked_up',
-  'successfullypicked': 'picked_up',
-  'SUCCESSFULLY_PICKED': 'picked_up',
+  AwaitingPickUp: 'pickup_scheduled',
+  awaitingpickup: 'pickup_scheduled',
+  AWAITING_PICKUP: 'pickup_scheduled',
+  PickupInProgress: 'pickup_scheduled',
+  pickupinprogress: 'pickup_scheduled',
+  PICKUP_IN_PROGRESS: 'pickup_scheduled',
+  SuccessfullyPicked: 'picked_up',
+  successfullypicked: 'picked_up',
+  SUCCESSFULLY_PICKED: 'picked_up',
 
   // Transit
-  'InTransit': 'in_transit',
-  'intransit': 'in_transit',
-  'IN_TRANSIT': 'in_transit',
+  InTransit: 'in_transit',
+  intransit: 'in_transit',
+  IN_TRANSIT: 'in_transit',
 
   // Out for Delivery
-  'DeliveryInProgress': 'out_for_delivery',
-  'deliveryinprogress': 'out_for_delivery',
-  'DELIVERY_IN_PROGRESS': 'out_for_delivery',
-  'OutForDelivery': 'out_for_delivery',
+  DeliveryInProgress: 'out_for_delivery',
+  deliveryinprogress: 'out_for_delivery',
+  DELIVERY_IN_PROGRESS: 'out_for_delivery',
+  OutForDelivery: 'out_for_delivery',
 
   // Delivered
-  'Delivered': 'delivered',
-  'delivered': 'delivered',
-  'DELIVERED': 'delivered',
+  Delivered: 'delivered',
+  delivered: 'delivered',
+  DELIVERED: 'delivered',
 
   // Cancelled
-  'Cancelled': 'cancelled',
-  'cancelled': 'cancelled',
-  'CANCELLED': 'cancelled',
+  Cancelled: 'cancelled',
+  cancelled: 'cancelled',
+  CANCELLED: 'cancelled',
 
   // Failed
-  'DeliveryFailed': 'failed',
-  'deliveryfailed': 'failed',
-  'DELIVERY_FAILED': 'failed',
-  'Failed': 'failed',
+  DeliveryFailed: 'failed',
+  deliveryfailed: 'failed',
+  DELIVERY_FAILED: 'failed',
+  Failed: 'failed',
 
   // Returned
-  'Returned': 'returned',
-  'returned': 'returned',
-  'RETURNED': 'returned',
+  Returned: 'returned',
+  returned: 'returned',
+  RETURNED: 'returned',
 };
 
 export function mapTopshipStatus(status: string): NormalizedShipmentStatus {
-  return TOPSHIP_STATUS_MAP[status] || TOPSHIP_STATUS_MAP[status.toLowerCase()] || 'pending';
+  return (
+    TOPSHIP_STATUS_MAP[status] ||
+    TOPSHIP_STATUS_MAP[status.toLowerCase()] ||
+    'pending'
+  );
 }
 
 // =============================================================================
@@ -137,65 +145,69 @@ export function mapTopshipStatus(status: string): NormalizedShipmentStatus {
 
 const SHIIP_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
   // Pending
-  'pending': 'pending',
-  'Pending': 'pending',
-  'PENDING': 'pending',
+  pending: 'pending',
+  Pending: 'pending',
+  PENDING: 'pending',
 
   // Booked / Confirmed
-  'booked': 'booked',
-  'Booked': 'booked',
-  'BOOKED': 'booked',
-  'confirmed': 'booked',
-  'Confirmed': 'booked',
+  booked: 'booked',
+  Booked: 'booked',
+  BOOKED: 'booked',
+  confirmed: 'booked',
+  Confirmed: 'booked',
 
   // Pickup
-  'assigned': 'pickup_scheduled',
-  'Assigned': 'pickup_scheduled',
-  'ASSIGNED': 'pickup_scheduled',
+  assigned: 'pickup_scheduled',
+  Assigned: 'pickup_scheduled',
+  ASSIGNED: 'pickup_scheduled',
   'picked up': 'picked_up',
   'Picked Up': 'picked_up',
-  'PICKED_UP': 'picked_up',
-  'pickedup': 'picked_up',
+  PICKED_UP: 'picked_up',
+  pickedup: 'picked_up',
 
   // Transit
   'in progress': 'in_transit',
   'In Progress': 'in_transit',
-  'IN_PROGRESS': 'in_transit',
+  IN_PROGRESS: 'in_transit',
   'in transit': 'in_transit',
   'In Transit': 'in_transit',
-  'intransit': 'in_transit',
+  intransit: 'in_transit',
 
   // Out for Delivery
   'out for delivery': 'out_for_delivery',
   'Out For Delivery': 'out_for_delivery',
-  'OUT_FOR_DELIVERY': 'out_for_delivery',
+  OUT_FOR_DELIVERY: 'out_for_delivery',
 
   // Delivered
-  'delivered': 'delivered',
-  'Delivered': 'delivered',
-  'DELIVERED': 'delivered',
-  'completed': 'delivered',
-  'Completed': 'delivered',
+  delivered: 'delivered',
+  Delivered: 'delivered',
+  DELIVERED: 'delivered',
+  completed: 'delivered',
+  Completed: 'delivered',
 
   // Cancelled
-  'cancelled': 'cancelled',
-  'Cancelled': 'cancelled',
-  'CANCELLED': 'cancelled',
-  'canceled': 'cancelled',
+  cancelled: 'cancelled',
+  Cancelled: 'cancelled',
+  CANCELLED: 'cancelled',
+  canceled: 'cancelled',
 
   // Failed
-  'failed': 'failed',
-  'Failed': 'failed',
-  'FAILED': 'failed',
+  failed: 'failed',
+  Failed: 'failed',
+  FAILED: 'failed',
 
   // Returned
-  'returned': 'returned',
-  'Returned': 'returned',
-  'RETURNED': 'returned',
+  returned: 'returned',
+  Returned: 'returned',
+  RETURNED: 'returned',
 };
 
 export function mapShiipStatus(status: string): NormalizedShipmentStatus {
-  return SHIIP_STATUS_MAP[status] || SHIIP_STATUS_MAP[status.toLowerCase()] || 'pending';
+  return (
+    SHIIP_STATUS_MAP[status] ||
+    SHIIP_STATUS_MAP[status.toLowerCase()] ||
+    'pending'
+  );
 }
 
 // =============================================================================
@@ -226,7 +238,13 @@ export function mapProviderStatus(
  * Check if a status is considered "active" (shipment is in progress)
  */
 export function isActiveStatus(status: NormalizedShipmentStatus): boolean {
-  return ['booked', 'pickup_scheduled', 'picked_up', 'in_transit', 'out_for_delivery'].includes(status);
+  return [
+    'booked',
+    'pickup_scheduled',
+    'picked_up',
+    'in_transit',
+    'out_for_delivery',
+  ].includes(status);
 }
 
 /**

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -131,7 +131,11 @@ export async function GET(request: NextRequest) {
       orderTrackingEnabled: settings.order_tracking_enabled ?? true,
       discountCodesEnabled: settings.discount_codes_enabled ?? true,
       guestCheckoutEnabled: settings.guest_checkout_enabled ?? true,
-      shippingProviders: settings.shipping_providers ?? ['gigl', 'topship', 'shiip'],
+      shippingProviders: settings.shipping_providers ?? [
+        'gigl',
+        'topship',
+        'shiip',
+      ],
       freeShippingThreshold: settings.free_shipping_threshold,
       collectPhone: settings.checkout_collect_phone ?? true,
       requireAccount: settings.checkout_require_account ?? false,
@@ -155,6 +159,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(publicFeatures);
   } catch (error) {
     console.error('Storefront features GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

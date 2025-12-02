@@ -1,5 +1,3 @@
-
-
 export interface BrandColors {
   primary: string;
   background: string;

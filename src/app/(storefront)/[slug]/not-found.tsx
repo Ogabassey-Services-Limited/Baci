@@ -1,8 +1,8 @@
 'use client';
 
+import { ArrowLeft, Home, Search } from 'lucide-react';
 import Link from 'next/link';
 import { ThemedButton } from '@/components/themed';
-import { Home, Search, ArrowLeft } from 'lucide-react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 
 export default function StorefrontNotFound() {
@@ -40,19 +40,28 @@ export default function StorefrontNotFound() {
         </h1>
 
         <p className="text-muted-foreground text-lg">
-          We couldn&apos;t find what you&apos;re looking for.
-          The page may have been moved, deleted, or never existed.
+          We couldn&apos;t find what you&apos;re looking for. The page may have
+          been moved, deleted, or never existed.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
           <Link href="/">
-            <ThemedButton colorRole="primary" size="lg" className="w-full sm:w-auto">
+            <ThemedButton
+              colorRole="primary"
+              size="lg"
+              className="w-full sm:w-auto"
+            >
               <Home className="mr-2 h-4 w-4" />
               Back to {storeName}
             </ThemedButton>
           </Link>
           <Link href="/#products">
-            <ThemedButton colorRole="accent" variant="outline" size="lg" className="w-full sm:w-auto">
+            <ThemedButton
+              colorRole="accent"
+              variant="outline"
+              size="lg"
+              className="w-full sm:w-auto"
+            >
               <Search className="mr-2 h-4 w-4" />
               Browse Products
             </ThemedButton>

@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
+import { type NextRequest, NextResponse } from 'next/server';
 
 /**
  * Blog RSS Feed API
@@ -91,7 +91,9 @@ const getCachedFeed = unstable_cache(
     // Get published blog posts
     const { data: posts, error: postsError } = await supabase
       .from('blog_posts')
-      .select('id, title, slug, content, excerpt, featured_image_url, category, author_name, published_at, updated_at')
+      .select(
+        'id, title, slug, content, excerpt, featured_image_url, category, author_name, published_at, updated_at'
+      )
       .eq('merchant_id', merchant.id)
       .eq('status', 'published')
       .order('published_at', { ascending: false })
@@ -114,7 +116,7 @@ const getCachedFeed = unstable_cache(
   }
 );
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const { merchantSlug } = await params;
 
@@ -132,9 +134,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const feedUrl = `${baseUrl}/api/blog/feed/${merchant.slug}`;
 
     // Build date for the channel
-    const lastBuildDate = posts.length > 0
-      ? new Date(posts[0].published_at).toUTCString()
-      : new Date().toUTCString();
+    const lastBuildDate =
+      posts.length > 0
+        ? new Date(posts[0].published_at).toUTCString()
+        : new Date().toUTCString();
 
     // Generate RSS XML
     const rss = `<?xml version="1.0" encoding="UTF-8"?>
@@ -151,17 +154,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     <lastBuildDate>${lastBuildDate}</lastBuildDate>
     <atom:link href="${escapeXml(feedUrl)}" rel="self" type="application/rss+xml"/>
     <generator>Baci E-commerce Platform</generator>
-    ${merchant.logo_url ? `<image>
+    ${
+      merchant.logo_url
+        ? `<image>
       <url>${escapeXml(merchant.logo_url)}</url>
       <title>${escapeXml(merchant.business_name)}</title>
       <link>${escapeXml(storeUrl)}</link>
-    </image>` : ''}
-    ${posts.map(post => {
-      const postUrl = `${storeUrl}/blog/${post.slug}`;
-      const pubDate = new Date(post.published_at).toUTCString();
-      const excerpt = post.excerpt || stripHtml(post.content).substring(0, 300);
+    </image>`
+        : ''
+    }
+    ${posts
+      .map((post) => {
+        const postUrl = `${storeUrl}/blog/${post.slug}`;
+        const pubDate = new Date(post.published_at).toUTCString();
+        const excerpt =
+          post.excerpt || stripHtml(post.content).substring(0, 300);
 
-      return `
+        return `
     <item>
       <title>${escapeXml(post.title)}</title>
       <link>${escapeXml(postUrl)}</link>
@@ -171,13 +180,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       <content:encoded><![CDATA[${post.content}]]></content:encoded>
       <dc:creator>${escapeXml(post.author_name)}</dc:creator>
       ${post.category ? `<category>${escapeXml(post.category)}</category>` : ''}
-      ${post.featured_image_url ? `
+      ${
+        post.featured_image_url
+          ? `
       <enclosure url="${escapeXml(post.featured_image_url)}" type="image/jpeg"/>
       <media:content url="${escapeXml(post.featured_image_url)}" medium="image">
         <media:title>${escapeXml(post.title)}</media:title>
-      </media:content>` : ''}
+      </media:content>`
+          : ''
+      }
     </item>`;
-    }).join('')}
+      })
+      .join('')}
   </channel>
 </rss>`;
 

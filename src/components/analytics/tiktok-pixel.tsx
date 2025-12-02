@@ -66,7 +66,12 @@ export const tiktokEvents = {
   /**
    * Track product view
    */
-  viewContent: (productId: string, productName: string, price: number, currency: string = 'USD') => {
+  viewContent: (
+    productId: string,
+    productName: string,
+    price: number,
+    currency: string = 'USD'
+  ) => {
     if (typeof window === 'undefined' || !window.ttq) return;
 
     window.ttq.track('ViewContent', {
@@ -81,7 +86,13 @@ export const tiktokEvents = {
   /**
    * Track add to cart
    */
-  addToCart: (productId: string, productName: string, price: number, quantity: number = 1, currency: string = 'USD') => {
+  addToCart: (
+    productId: string,
+    productName: string,
+    price: number,
+    quantity: number = 1,
+    currency: string = 'USD'
+  ) => {
     if (typeof window === 'undefined' || !window.ttq) return;
 
     window.ttq.track('AddToCart', {
@@ -98,7 +109,11 @@ export const tiktokEvents = {
   /**
    * Track checkout initiation
    */
-  initiateCheckout: (value: number, currency: string = 'USD', productIds: string[] = []) => {
+  initiateCheckout: (
+    value: number,
+    currency: string = 'USD',
+    productIds: string[] = []
+  ) => {
     if (typeof window === 'undefined' || !window.ttq) return;
 
     window.ttq.track('InitiateCheckout', {
@@ -112,15 +127,20 @@ export const tiktokEvents = {
   /**
    * Track purchase completion
    */
-  purchase: (orderId: string, value: number, currency: string = 'USD', products: Array<{ id: string; price: number; quantity: number }>) => {
+  purchase: (
+    _orderId: string,
+    value: number,
+    currency: string,
+    products: Array<{ id: string; price: number; quantity: number }>
+  ) => {
     if (typeof window === 'undefined' || !window.ttq) return;
 
     window.ttq.track('CompletePayment', {
-      content_ids: products.map(p => p.id),
+      content_ids: products.map((p) => p.id),
       content_type: 'product',
       value,
       currency,
-      contents: products.map(p => ({
+      contents: products.map((p) => ({
         content_id: p.id,
         price: p.price,
         quantity: p.quantity,

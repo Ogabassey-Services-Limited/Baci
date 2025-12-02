@@ -1,12 +1,12 @@
-import AppBody from '@/components/app-body';
-import { PlatformHeader } from '@/components/platform/header';
-import { PlatformFooter } from '@/components/platform/footer';
-import { Metadata } from 'next';
+import { createClient } from '@supabase/supabase-js';
+import { ArrowLeft, Calendar, Clock, Eye } from 'lucide-react';
+import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
-import Image from 'next/image';
-import { Clock, Eye, ArrowLeft, Calendar } from 'lucide-react';
+import AppBody from '@/components/app-body';
+import { PlatformFooter } from '@/components/platform/footer';
+import { PlatformHeader } from '@/components/platform/header';
 import { asRoute } from '@/lib/routes';
 
 interface BlogPost {
@@ -64,7 +64,9 @@ async function getBlogPost(slug: string): Promise<BlogPost | null> {
   return post;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const post = await getBlogPost(slug);
 
@@ -175,7 +177,9 @@ export default async function BlogPostPage({ params }: PageProps) {
                 <div>
                   <p className="font-medium">{post.author_name}</p>
                   {post.author_title && (
-                    <p className="text-sm text-muted-foreground">{post.author_title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {post.author_title}
+                    </p>
                   )}
                 </div>
               </div>
@@ -235,7 +239,9 @@ export default async function BlogPostPage({ params }: PageProps) {
                   <div>
                     <p className="font-medium text-lg">{post.author_name}</p>
                     {post.author_title && (
-                      <p className="text-sm text-muted-foreground mb-2">{post.author_title}</p>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {post.author_title}
+                      </p>
                     )}
                     <p className="text-muted-foreground">{post.author_bio}</p>
                   </div>

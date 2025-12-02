@@ -31,7 +31,11 @@ function formatPercentage(value: number): string {
  */
 function formatDateRange(from?: Date, to?: Date): string {
   if (!from || !to) return 'All Time';
-  const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  };
   return `${from.toLocaleDateString('en-US', options)} - ${to.toLocaleDateString('en-US', options)}`;
 }
 
@@ -49,7 +53,7 @@ function escapeCSVField(field: string): string {
 
   // Prevent formula injection: prefix with single quote if starts with =, +, -, @, tab, or CR
   if (/^[=+\-@\t\r]/.test(escaped)) {
-    escaped = "'" + escaped;
+    escaped = `'${escaped}`;
   }
 
   // Escape existing double quotes by doubling them
@@ -83,14 +87,30 @@ export function exportAnalyticsAsCSV(
   csvRows.push('Metric,Value,Change');
 
   if (summary) {
-    csvRows.push(`Total Revenue,${formatCurrency(summary.revenue?.value || 0)},${formatPercentage(summary.revenue?.change || 0)}`);
-    csvRows.push(`Total Sales,${summary.sales?.value || 0},${formatPercentage(summary.sales?.change || 0)}`);
-    csvRows.push(`Total Customers,${summary.customers?.value || 0},${formatPercentage(summary.customers?.change || 0)}`);
-    csvRows.push(`Average Order Value,${formatCurrency(summary.aov?.value || 0)},${formatPercentage(summary.aov?.change || 0)}`);
-    csvRows.push(`Customer Lifetime Value,${formatCurrency(summary.ltv?.value || 0)},${formatPercentage(summary.ltv?.change || 0)}`);
-    csvRows.push(`Gross Margin,${summary.grossMargin?.value || 0}%,${formatPercentage(summary.grossMargin?.change || 0)}`);
-    csvRows.push(`Refund Rate,${(summary.refundRate?.value || 0).toFixed(2)}%,${formatPercentage(summary.refundRate?.change || 0)}`);
-    csvRows.push(`Active Now,${summary.activeNow?.value || 0},${formatPercentage(summary.activeNow?.change || 0)}`);
+    csvRows.push(
+      `Total Revenue,${formatCurrency(summary.revenue?.value || 0)},${formatPercentage(summary.revenue?.change || 0)}`
+    );
+    csvRows.push(
+      `Total Sales,${summary.sales?.value || 0},${formatPercentage(summary.sales?.change || 0)}`
+    );
+    csvRows.push(
+      `Total Customers,${summary.customers?.value || 0},${formatPercentage(summary.customers?.change || 0)}`
+    );
+    csvRows.push(
+      `Average Order Value,${formatCurrency(summary.aov?.value || 0)},${formatPercentage(summary.aov?.change || 0)}`
+    );
+    csvRows.push(
+      `Customer Lifetime Value,${formatCurrency(summary.ltv?.value || 0)},${formatPercentage(summary.ltv?.change || 0)}`
+    );
+    csvRows.push(
+      `Gross Margin,${summary.grossMargin?.value || 0}%,${formatPercentage(summary.grossMargin?.change || 0)}`
+    );
+    csvRows.push(
+      `Refund Rate,${(summary.refundRate?.value || 0).toFixed(2)}%,${formatPercentage(summary.refundRate?.change || 0)}`
+    );
+    csvRows.push(
+      `Active Now,${summary.activeNow?.value || 0},${formatPercentage(summary.activeNow?.change || 0)}`
+    );
   }
 
   csvRows.push(''); // Empty line
@@ -100,7 +120,9 @@ export function exportAnalyticsAsCSV(
     csvRows.push('RECENT SALES');
     csvRows.push('Customer,Email,Amount');
     recentSales.forEach((sale) => {
-      csvRows.push(`${escapeCSVField(sale.name)},${escapeCSVField(sale.email)},${formatCurrency(sale.amount)}`);
+      csvRows.push(
+        `${escapeCSVField(sale.name)},${escapeCSVField(sale.email)},${formatCurrency(sale.amount)}`
+      );
     });
     csvRows.push(''); // Empty line
   }
@@ -111,7 +133,9 @@ export function exportAnalyticsAsCSV(
     csvRows.push('Date,Revenue');
 
     chartData.forEach((item) => {
-      csvRows.push(`${escapeCSVField(item.date)},${formatCurrency(item.revenue)}`);
+      csvRows.push(
+        `${escapeCSVField(item.date)},${formatCurrency(item.revenue)}`
+      );
     });
   }
 
@@ -157,7 +181,11 @@ export function exportAnalyticsAsPDF(
   // Date range
   doc.setFontSize(10);
   doc.setTextColor(150);
-  doc.text(`Period: ${formatDateRange(dateRange?.from, dateRange?.to)}`, 14, 37);
+  doc.text(
+    `Period: ${formatDateRange(dateRange?.from, dateRange?.to)}`,
+    14,
+    37
+  );
   doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 43);
 
   let yPosition = 55;
@@ -170,14 +198,46 @@ export function exportAnalyticsAsPDF(
     yPosition += 5;
 
     const summaryData = [
-      ['Total Revenue', formatCurrency(summary.revenue?.value || 0), formatPercentage(summary.revenue?.change || 0)],
-      ['Total Sales', String(summary.sales?.value || 0), formatPercentage(summary.sales?.change || 0)],
-      ['Total Customers', String(summary.customers?.value || 0), formatPercentage(summary.customers?.change || 0)],
-      ['Average Order Value', formatCurrency(summary.aov?.value || 0), formatPercentage(summary.aov?.change || 0)],
-      ['Customer LTV', formatCurrency(summary.ltv?.value || 0), formatPercentage(summary.ltv?.change || 0)],
-      ['Gross Margin', `${summary.grossMargin?.value || 0}%`, formatPercentage(summary.grossMargin?.change || 0)],
-      ['Refund Rate', `${(summary.refundRate?.value || 0).toFixed(2)}%`, formatPercentage(summary.refundRate?.change || 0)],
-      ['Active Now', String(summary.activeNow?.value || 0), formatPercentage(summary.activeNow?.change || 0)],
+      [
+        'Total Revenue',
+        formatCurrency(summary.revenue?.value || 0),
+        formatPercentage(summary.revenue?.change || 0),
+      ],
+      [
+        'Total Sales',
+        String(summary.sales?.value || 0),
+        formatPercentage(summary.sales?.change || 0),
+      ],
+      [
+        'Total Customers',
+        String(summary.customers?.value || 0),
+        formatPercentage(summary.customers?.change || 0),
+      ],
+      [
+        'Average Order Value',
+        formatCurrency(summary.aov?.value || 0),
+        formatPercentage(summary.aov?.change || 0),
+      ],
+      [
+        'Customer LTV',
+        formatCurrency(summary.ltv?.value || 0),
+        formatPercentage(summary.ltv?.change || 0),
+      ],
+      [
+        'Gross Margin',
+        `${summary.grossMargin?.value || 0}%`,
+        formatPercentage(summary.grossMargin?.change || 0),
+      ],
+      [
+        'Refund Rate',
+        `${(summary.refundRate?.value || 0).toFixed(2)}%`,
+        formatPercentage(summary.refundRate?.change || 0),
+      ],
+      [
+        'Active Now',
+        String(summary.activeNow?.value || 0),
+        formatPercentage(summary.activeNow?.change || 0),
+      ],
     ];
 
     autoTable(doc, {
@@ -189,7 +249,8 @@ export function exportAnalyticsAsPDF(
       headStyles: { fillColor: [59, 130, 246] },
     });
 
-    yPosition = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? yPosition) + 15;
+    yPosition =
+      ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? yPosition) + 15;
   }
 
   // Recent Sales Table
@@ -214,7 +275,8 @@ export function exportAnalyticsAsPDF(
       headStyles: { fillColor: [59, 130, 246] },
     });
 
-    yPosition = ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? yPosition) + 15;
+    yPosition =
+      ((doc as JsPDFWithAutoTable).lastAutoTable?.finalY ?? yPosition) + 15;
   }
 
   // Add new page if needed
@@ -231,10 +293,7 @@ export function exportAnalyticsAsPDF(
     yPosition += 5;
 
     const chartDataFormatted = chartData.map((item) => {
-      return [
-        item.date,
-        formatCurrency(item.revenue),
-      ];
+      return [item.date, formatCurrency(item.revenue)];
     });
 
     autoTable(doc, {

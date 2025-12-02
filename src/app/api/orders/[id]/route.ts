@@ -1,11 +1,10 @@
-
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 // GET /api/orders/[id] - Get a single order
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -14,12 +13,12 @@ export async function GET(
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant record
@@ -45,10 +44,7 @@ export async function GET(
       .single();
 
     if (orderError || !order) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     return NextResponse.json({ order });
@@ -73,12 +69,12 @@ export async function PATCH(
     const body = await request.json();
 
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant record
@@ -104,19 +100,11 @@ export async function PATCH(
       .single();
 
     if (checkError || !existingOrder) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // Extract updatable fields
-    const {
-      payment_status,
-      shipping_status,
-      notes,
-      shipping_address,
-    } = body;
+    const { payment_status, shipping_status, notes, shipping_address } = body;
 
     // Build update object with only provided fields
     const updates: Record<string, unknown> = {};

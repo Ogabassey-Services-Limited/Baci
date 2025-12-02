@@ -1,7 +1,7 @@
 'use client';
 
-import { Product } from '@/lib/products';
 import { analytics } from '@/lib/analytics';
+import type { Product } from '@/lib/products';
 
 /**
  * Event Tracking System for Baci
@@ -88,7 +88,9 @@ function getEventMetadata(): Partial<BaseEvent> {
 }
 
 // Send event to our API (stores in Supabase)
-async function sendEvent(event: BaseEvent | ProductEvent | PurchaseEvent | SearchEvent): Promise<void> {
+async function sendEvent(
+  event: BaseEvent | ProductEvent | PurchaseEvent | SearchEvent
+): Promise<void> {
   try {
     const response = await fetch('/api/events', {
       method: 'POST',
@@ -116,7 +118,11 @@ export const trackEvent = {
   /**
    * Track product view
    */
-  productView: (merchantId: string, product: Product, currency: string = 'USD') => {
+  productView: (
+    merchantId: string,
+    product: Product,
+    currency: string = 'USD'
+  ) => {
     // Store in Supabase for merchant dashboard
     sendEvent({
       event_type: 'product_view',
@@ -135,7 +141,12 @@ export const trackEvent = {
   /**
    * Track add to cart
    */
-  addToCart: (merchantId: string, product: Product, quantity: number = 1, currency: string = 'USD') => {
+  addToCart: (
+    merchantId: string,
+    product: Product,
+    quantity: number = 1,
+    currency: string = 'USD'
+  ) => {
     sendEvent({
       event_type: 'add_to_cart',
       merchant_id: merchantId,
@@ -153,7 +164,12 @@ export const trackEvent = {
   /**
    * Track remove from cart
    */
-  removeFromCart: (merchantId: string, product: Product, quantity: number = 1, currency: string = 'USD') => {
+  removeFromCart: (
+    merchantId: string,
+    product: Product,
+    quantity: number = 1,
+    currency: string = 'USD'
+  ) => {
     sendEvent({
       event_type: 'remove_from_cart',
       merchant_id: merchantId,
@@ -176,7 +192,10 @@ export const trackEvent = {
     products: Array<{ product: Product; quantity: number }>,
     currency: string = 'USD'
   ) => {
-    const total = products.reduce((sum, { product, quantity }) => sum + product.price * quantity, 0);
+    const total = products.reduce(
+      (sum, { product, quantity }) => sum + product.price * quantity,
+      0
+    );
 
     sendEvent({
       event_type: 'begin_checkout',
@@ -209,7 +228,10 @@ export const trackEvent = {
     shipping?: number,
     tax?: number
   ) => {
-    const subtotal = products.reduce((sum, { product, quantity }) => sum + product.price * quantity, 0);
+    const subtotal = products.reduce(
+      (sum, { product, quantity }) => sum + product.price * quantity,
+      0
+    );
 
     sendEvent({
       event_type: 'purchase',
@@ -249,7 +271,11 @@ export const trackEvent = {
   /**
    * Track add to wishlist
    */
-  addToWishlist: (merchantId: string, product: Product, currency: string = 'USD') => {
+  addToWishlist: (
+    merchantId: string,
+    product: Product,
+    currency: string = 'USD'
+  ) => {
     sendEvent({
       event_type: 'add_to_wishlist',
       merchant_id: merchantId,

@@ -1,10 +1,56 @@
 'use client';
 
-import { useState, useMemo, useEffect, useActionState, useTransition } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useForm, FormProvider, useFormContext, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { User } from '@supabase/supabase-js';
+import { extend } from 'colord';
+import a11yPlugin from 'colord/plugins/a11y';
+import ColorThief from 'colorthief';
+import {
+  AlertCircle,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  Mail,
+  Maximize2,
+  Pencil,
+  Shuffle,
+  Sparkles,
+  Upload,
+} from 'lucide-react';
+import Image from 'next/image';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  useActionState,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from 'react';
+import {
+  FormProvider,
+  useForm,
+  useFormContext,
+  useWatch,
+} from 'react-hook-form';
+import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
+import {
+  type ServerActionState,
+  sendMagicLink,
+  submitOnboarding,
+} from '@/app/onboarding/actions';
+import {
+  trackMerchantSignupCompleted,
+  trackMerchantSignupStarted,
+} from '@/components/analytics/platform-analytics-provider';
+import { BusinessNameGeneratorModal } from '@/components/business-name-generator-modal';
+import { LogoGeneratorModal } from '@/components/logo-generator-modal';
+import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import {
   FormControl,
   FormField,
@@ -12,6 +58,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -19,70 +72,64 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Input } from '@/components/ui/input';
 import { TypingPlaceholderInput } from '@/components/ui/typing-placeholder-input';
-
-import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, Upload, CheckCircle, Mail, KeyRound, Eye, EyeOff, AlertCircle, Pencil, Shuffle, ChevronDown, ChevronUp } from 'lucide-react';
-import Image from 'next/image';
+import { getAllBusinessTypes } from '@/config/business-types';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
-import { cn, checkPasswordStrength } from '@/lib/utils';
-import { getAllBusinessTypes } from '@/config/business-types';
-import type { BrandColors } from '@/types';
-import { createClient } from '@/lib/supabase/client';
-import { User } from '@supabase/supabase-js';
-import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
-import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/onboarding/actions';
-import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
-import ColorThief from 'colorthief';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { OnboardingFormValues, onboardingSchema, step3Schema } from '@/schemas/onboarding';
-import { OnboardingPuckPreview } from './onboarding-puck-preview';
-import { ColorPicker } from './color-picker';
-import { extend } from 'colord';
-import a11yPlugin from 'colord/plugins/a11y';
 import { uploadImage } from '@/lib/storage';
+import { createClient } from '@/lib/supabase/client';
+import { checkPasswordStrength, cn } from '@/lib/utils';
 import {
-  trackMerchantSignupStarted,
-  trackMerchantSignupCompleted,
-} from '@/components/analytics/platform-analytics-provider';
-import { BusinessNameGeneratorModal } from '@/components/business-name-generator-modal';
-import { LogoGeneratorModal } from '@/components/logo-generator-modal';
-import { Maximize2 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  type OnboardingFormValues,
+  onboardingSchema,
+  step3Schema,
+} from '@/schemas/onboarding';
+import type { BrandColors } from '@/types';
+import { ColorPicker } from './color-picker';
+import { OnboardingPuckPreview } from './onboarding-puck-preview';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 extend([a11yPlugin]);
 
-
 // --- Step Components ---
 
-const premiumInputClass = "bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all shadow-sm";
+const premiumInputClass =
+  'bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all shadow-sm';
 
-function StepIndicator({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) {
+function StepIndicator({
+  currentStep,
+  totalSteps,
+}: {
+  currentStep: number;
+  totalSteps: number;
+}) {
   // Calculate progress with a minimum of 15% for step 1 to show visual feedback
   const baseProgress = ((currentStep - 1) / (totalSteps - 1)) * 100;
   const progress = currentStep === 1 ? 15 : baseProgress;
   return (
     <div className="flex items-center gap-4">
-      <Progress value={progress} className="w-full" aria-label="Onboarding progress" />
-      <span className="text-sm text-muted-foreground whitespace-nowrap" aria-live="polite">
+      <Progress
+        value={progress}
+        className="w-full"
+        aria-label="Onboarding progress"
+      />
+      <span
+        className="text-sm text-muted-foreground whitespace-nowrap"
+        aria-live="polite"
+      >
         Step {currentStep} of {totalSteps}
       </span>
     </div>
   );
 }
 
-function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => void; }) {
+function Step1_BusinessDetails({
+  onKeyDown,
+}: {
+  onKeyDown: (
+    e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>
+  ) => void;
+}) {
   const { control, watch, setValue } = useFormContext<OnboardingFormValues>();
   const businessTypeValue = watch('businessType');
   const businessTypes = useMemo(() => getAllBusinessTypes(), []);
@@ -90,16 +137,28 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
   const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
 
   return (
-    <div className='space-y-4'>
+    <div className="space-y-4">
       <FormField
         control={control}
         name="businessType"
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-lg">What's the nature of your business?</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value} name="businessType" >
+            <FormLabel className="text-lg">
+              What's the nature of your business?
+            </FormLabel>
+            <Select
+              onValueChange={field.onChange}
+              defaultValue={field.value}
+              name="businessType"
+            >
               <FormControl>
-                <SelectTrigger onKeyDown={onKeyDown} className={cn(premiumInputClass, !field.value && "text-muted-foreground")}>
+                <SelectTrigger
+                  onKeyDown={onKeyDown}
+                  className={cn(
+                    premiumInputClass,
+                    !field.value && 'text-muted-foreground'
+                  )}
+                >
                   <SelectValue placeholder="e.g., Fashion, Electronics, Art..." />
                 </SelectTrigger>
               </FormControl>
@@ -107,11 +166,11 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
                 {businessTypes.map((type) => {
                   // Emoji mapping for business types
                   const emojiMap: Record<string, string> = {
-                    'fashion': '👗',
-                    'electronics': '💻',
+                    fashion: '👗',
+                    electronics: '💻',
                     'home-goods': '🏠',
                     'health-beauty': '💄',
-                    'handmade': '🎨',
+                    handmade: '🎨',
                     'food-beverage': '🍔',
                     'hair-extensions': '💇‍♀️',
                   };
@@ -143,7 +202,12 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
               <FormControl>
                 <TypingPlaceholderInput
                   staticPrefix="e.g., "
-                  placeholders={["Pet Services", "Consulting", "Event Planning", "Tutoring"]}
+                  placeholders={[
+                    'Pet Services',
+                    'Consulting',
+                    'Event Planning',
+                    'Tutoring',
+                  ]}
                   {...field}
                   onKeyDown={onKeyDown}
                   name="otherBusinessType"
@@ -161,11 +225,19 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
         name="businessName"
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-lg">What is your business name?</FormLabel>
+            <FormLabel className="text-lg">
+              What is your business name?
+            </FormLabel>
             <FormControl>
               <TypingPlaceholderInput
                 staticPrefix="e.g., "
-                placeholders={["Amara's Fashion", "Tech Haven", "The Coffee Spot", "Green Grocer", "Urban Styles"]}
+                placeholders={[
+                  "Amara's Fashion",
+                  'Tech Haven',
+                  'The Coffee Spot',
+                  'Green Grocer',
+                  'Urban Styles',
+                ]}
                 {...field}
                 onKeyDown={onKeyDown}
                 name="businessName"
@@ -201,7 +273,6 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
   );
 }
 
-
 function Step2_Branding() {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
@@ -211,12 +282,16 @@ function Step2_Branding() {
   const businessType = watch('businessType');
   const logoUrl = watch('logoUrl'); // Now watching for the uploaded URL
   const brandColorsString = watch('brandColors');
-  const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
+  const brandColors: BrandColors | null = brandColorsString
+    ? JSON.parse(brandColorsString)
+    : null;
 
   const [isGenerating, setIsGenerating] = useState(false); // Tracks AI generation
   const [isExtracting, setIsExtracting] = useState(false);
   const [isUploading, setIsUploading] = useState(false); // New state for tracking upload
-  const [currentLogoDataUri, setCurrentLogoDataUri] = useState<string | null>(null); // To store data URI for client-side ops
+  const [currentLogoDataUri, setCurrentLogoDataUri] = useState<string | null>(
+    null
+  ); // To store data URI for client-side ops
   const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
 
@@ -224,7 +299,7 @@ function Step2_Branding() {
 
   // Effect to keep currentLogoDataUri updated for client-side operations
   useEffect(() => {
-    if (logoUrl && logoUrl.startsWith('data:')) {
+    if (logoUrl?.startsWith('data:')) {
       setCurrentLogoDataUri(logoUrl);
     } else if (logoUrl && !currentLogoDataUri) {
       // Fallback for remote URLs if local data URI isn't set (e.g. page refresh)
@@ -234,7 +309,9 @@ function Step2_Branding() {
     }
   }, [logoUrl, currentLogoDataUri]);
 
-  const extractColorsFromImage = (imageDataUri: string): Promise<BrandColors> => {
+  const extractColorsFromImage = (
+    imageDataUri: string
+  ): Promise<BrandColors> => {
     return new Promise((resolve, reject) => {
       const colorThief = new ColorThief();
       const img = document.createElement('img');
@@ -244,13 +321,18 @@ function Step2_Branding() {
       img.onload = async () => {
         try {
           const palette = colorThief.getPalette(img, 8); // Get more colors to filter from
-          const toHex = (rgb: number[]) => `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`;
+          const toHex = (rgb: number[]) =>
+            `#${rgb.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 
           // Helper: Check if color is too neutral (white/black/gray)
           const isNeutral = (rgb: number[]) => {
             const [r, g, b] = rgb;
             const brightness = (r + g + b) / 3;
-            const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(r - b));
+            const maxDiff = Math.max(
+              Math.abs(r - g),
+              Math.abs(g - b),
+              Math.abs(r - b)
+            );
 
             // Too bright (near white) or too dark (near black) or low color variance (gray)
             return brightness > 240 || brightness < 20 || maxDiff < 15;
@@ -266,7 +348,7 @@ function Step2_Branding() {
           };
 
           // Filter out neutral colors
-          const vibrantColors = palette.filter(color => !isNeutral(color));
+          const vibrantColors = palette.filter((color) => !isNeutral(color));
 
           // Sort by saturation (most colorful first)
           vibrantColors.sort((a, b) => getSaturation(b) - getSaturation(a));
@@ -278,7 +360,7 @@ function Step2_Branding() {
           resolve({
             primary: toHex(primaryRgb),
             background: '#FFFFFF',
-            accent: toHex(accentRgb)
+            accent: toHex(accentRgb),
           });
         } catch (e) {
           reject(e);
@@ -308,7 +390,11 @@ function Step2_Branding() {
         }
       } catch (e) {
         logger.error({ error: e as Error, message: 'Logo upload failed.' });
-        toast({ title: 'Upload failed', description: (e as Error).message, variant: 'destructive' });
+        toast({
+          title: 'Upload failed',
+          description: (e as Error).message,
+          variant: 'destructive',
+        });
         // Keep local URI even if upload fails so user can see it
         setValue('logoUrl', dataUri, { shouldValidate: true });
       } finally {
@@ -319,10 +405,15 @@ function Step2_Branding() {
     const extractionPromise = (async () => {
       try {
         const colors = await extractColorsFromImage(dataUri);
-        setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
+        setValue('brandColors', JSON.stringify(colors), {
+          shouldValidate: true,
+        });
         toast({ title: 'Brand colors extracted!' });
       } catch (e) {
-        logger.error({ error: e as Error, message: 'Color extraction failed.' });
+        logger.error({
+          error: e as Error,
+          message: 'Color extraction failed.',
+        });
         // Don't fail hard, let user pick colors manually
         setValue('brandColors', '', { shouldValidate: true });
       } finally {
@@ -333,7 +424,9 @@ function Step2_Branding() {
     await Promise.all([uploadPromise, extractionPromise]);
   };
 
-  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -349,26 +442,39 @@ function Step2_Branding() {
     setIsGeneratorModalOpen(false);
     setIsGenerating(true);
     setValue('brandPreferences', favoriteColor); // Save preference
-    toast({ title: 'Designing your logo...', description: 'This usually takes 10-15 seconds.' });
+    toast({
+      title: 'Designing your logo...',
+      description: 'This usually takes 10-15 seconds.',
+    });
 
     try {
       const result = await guideBusinessOnboarding({
         businessName,
         businessType,
         brandPreferences: favoriteColor,
-        task: 'generate_logos'
+        task: 'generate_logos',
       });
 
       if (result.logos && result.logos.length > 0) {
         const generatedLogoUri = result.logos[0];
         await processNewLogo(generatedLogoUri);
-        toast({ title: 'Logo Generated!', description: 'We\'ve also extracted your brand colors.' });
+        toast({
+          title: 'Logo Generated!',
+          description: "We've also extracted your brand colors.",
+        });
       } else {
         throw new Error('No logo was returned.');
       }
     } catch (error) {
-      logger.error({ error: error as Error, message: 'Logo generation failed' });
-      toast({ title: 'Generation Failed', description: 'Please try again or upload a logo.', variant: 'destructive' });
+      logger.error({
+        error: error as Error,
+        message: 'Logo generation failed',
+      });
+      toast({
+        title: 'Generation Failed',
+        description: 'Please try again or upload a logo.',
+        variant: 'destructive',
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -377,7 +483,9 @@ function Step2_Branding() {
   const handleColorChange = (role: keyof BrandColors, newColor: string) => {
     if (brandColors) {
       const updatedColors = { ...brandColors, [role]: newColor };
-      setValue('brandColors', JSON.stringify(updatedColors), { shouldValidate: true });
+      setValue('brandColors', JSON.stringify(updatedColors), {
+        shouldValidate: true,
+      });
     }
   };
 
@@ -388,7 +496,9 @@ function Step2_Branding() {
       background: brandColors.primary,
       accent: brandColors.background,
     };
-    setValue('brandColors', JSON.stringify(remappedColors), { shouldValidate: true });
+    setValue('brandColors', JSON.stringify(remappedColors), {
+      shouldValidate: true,
+    });
   };
 
   return (
@@ -396,12 +506,18 @@ function Step2_Branding() {
       {/* Top: Full-width Store Preview (Only appears when branding exists) */}
       {brandColors && (
         <div className="w-full animate-in fade-in slide-in-from-top-4 duration-700">
-          <div className={cn(
-            "relative rounded-xl border border-white/10 bg-muted/5 transition-all duration-500 ease-in-out overflow-hidden",
-            isPreviewExpanded ? "h-auto" : "h-[280px]"
-          )}>
-
-            <div className={cn("w-full transition-opacity duration-500", isPreviewExpanded ? "opacity-100" : "opacity-90")}>
+          <div
+            className={cn(
+              'relative rounded-xl border border-white/10 bg-muted/5 transition-all duration-500 ease-in-out overflow-hidden',
+              isPreviewExpanded ? 'h-auto' : 'h-[280px]'
+            )}
+          >
+            <div
+              className={cn(
+                'w-full transition-opacity duration-500',
+                isPreviewExpanded ? 'opacity-100' : 'opacity-90'
+              )}
+            >
               <OnboardingPuckPreview
                 businessName={businessName}
                 businessType={businessType}
@@ -446,14 +562,26 @@ function Step2_Branding() {
         <div className="space-y-6">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <FormLabel className="text-lg font-semibold">Logo & Brand</FormLabel>
-              {isGenerating && <span className="text-xs text-muted-foreground animate-pulse">AI is working...</span>}
+              <FormLabel className="text-lg font-semibold">
+                Logo & Brand
+              </FormLabel>
+              {isGenerating && (
+                <span className="text-xs text-muted-foreground animate-pulse">
+                  AI is working...
+                </span>
+              )}
             </div>
 
             {/* Logo Canvas Area */}
-            <div className={cn("relative aspect-square w-full rounded-xl border border-white/10 overflow-hidden bg-muted/10 flex flex-col items-center justify-center transition-all shadow-inner", (currentLogoDataUri || logoUrl) ? 'bg-white/5' : 'border-dashed border-muted-foreground/20 hover:bg-muted/20')}>
-
-              {(currentLogoDataUri || logoUrl) ? (
+            <div
+              className={cn(
+                'relative aspect-square w-full rounded-xl border border-white/10 overflow-hidden bg-muted/10 flex flex-col items-center justify-center transition-all shadow-inner',
+                currentLogoDataUri || logoUrl
+                  ? 'bg-white/5'
+                  : 'border-dashed border-muted-foreground/20 hover:bg-muted/20'
+              )}
+            >
+              {currentLogoDataUri || logoUrl ? (
                 <Dialog>
                   <div className="relative w-full h-full p-8 group">
                     <Image
@@ -466,7 +594,11 @@ function Step2_Branding() {
                     {/* Overlay Controls */}
                     <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                       <DialogTrigger asChild>
-                        <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-md border-none">
+                        <Button
+                          size="icon"
+                          variant="secondary"
+                          className="h-8 w-8 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-md border-none"
+                        >
                           <Maximize2 className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
@@ -476,7 +608,9 @@ function Step2_Branding() {
                     {isUploading && (
                       <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-2">
                         <Loader2 className="w-3 h-3 text-white animate-spin" />
-                        <span className="text-xs text-white font-medium">Saving...</span>
+                        <span className="text-xs text-white font-medium">
+                          Saving...
+                        </span>
                       </div>
                     )}
                   </div>
@@ -484,7 +618,12 @@ function Step2_Branding() {
                   {/* Fullscreen Preview */}
                   <DialogContent className="max-w-3xl w-full aspect-video border-none bg-transparent shadow-none p-0 flex items-center justify-center">
                     <div className="relative w-full h-full min-h-[60vh]">
-                      <Image src={currentLogoDataUri || logoUrl} alt="Logo Fullscreen" fill className="object-contain" />
+                      <Image
+                        src={currentLogoDataUri || logoUrl}
+                        alt="Logo Fullscreen"
+                        fill
+                        className="object-contain"
+                      />
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -492,10 +631,16 @@ function Step2_Branding() {
                 /* Empty State / Upload Trigger */
                 <div className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer group">
                   <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                    {isGenerating ? <Loader2 className="w-8 h-8 animate-spin text-primary" /> : <Upload className="w-8 h-8 text-muted-foreground/50" />}
+                    {isGenerating ? (
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    ) : (
+                      <Upload className="w-8 h-8 text-muted-foreground/50" />
+                    )}
                   </div>
                   <p className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">
-                    {isGenerating ? "Generating Logo..." : "Click to Upload Image"}
+                    {isGenerating
+                      ? 'Generating Logo...'
+                      : 'Click to Upload Image'}
                   </p>
                   <Input
                     type="file"
@@ -513,15 +658,27 @@ function Step2_Branding() {
           {brandColors && (
             <div className="bg-muted/30 p-5 rounded-xl border border-white/5 space-y-4 animate-in slide-in-from-top-2 fade-in duration-500">
               <div className="flex items-center justify-between">
-                <span className='text-sm font-semibold text-muted-foreground'>Extracted Palette</span>
-                <Button type="button" variant="ghost" size="sm" onClick={handleShuffleColors} disabled={isLoading} className="h-7 text-xs hover:bg-white/10">
+                <span className="text-sm font-semibold text-muted-foreground">
+                  Extracted Palette
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleShuffleColors}
+                  disabled={isLoading}
+                  className="h-7 text-xs hover:bg-white/10"
+                >
                   <Shuffle className="mr-1.5 h-3 w-3" />
                   Shuffle
                 </Button>
               </div>
               <div className="flex items-center justify-between gap-4 px-2">
                 {(['primary', 'background', 'accent'] as const).map((role) => (
-                  <div key={role} className="flex flex-col items-center gap-2 group">
+                  <div
+                    key={role}
+                    className="flex flex-col items-center gap-2 group"
+                  >
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
@@ -529,17 +686,27 @@ function Step2_Branding() {
                           className="w-12 h-12 rounded-full shadow-sm border-2 border-white/10 ring-2 ring-transparent hover:ring-primary/20 transition-all cursor-pointer relative overflow-hidden"
                           aria-label={`Edit ${role} color`}
                         >
-                          <div className="w-full h-full" style={{ backgroundColor: brandColors[role] }} />
+                          <div
+                            className="w-full h-full"
+                            style={{ backgroundColor: brandColors[role] }}
+                          />
                           <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <Pencil className="w-4 h-4 text-white" />
                           </div>
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0 border-none shadow-xl">
-                        <ColorPicker color={brandColors[role]} onChange={(newColor) => handleColorChange(role, newColor)} />
+                        <ColorPicker
+                          color={brandColors[role]}
+                          onChange={(newColor) =>
+                            handleColorChange(role, newColor)
+                          }
+                        />
                       </PopoverContent>
                     </Popover>
-                    <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">{role}</span>
+                    <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
+                      {role}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -554,10 +721,14 @@ function Step2_Branding() {
             <div className="text-left space-y-4">
               <div className="flex items-center gap-2 text-amber-400">
                 <Sparkles className="w-5 h-5" />
-                <h3 className="font-semibold text-lg text-foreground">Need a Logo?</h3>
+                <h3 className="font-semibold text-lg text-foreground">
+                  Need a Logo?
+                </h3>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Don't have a logo yet? No problem. Our AI can design a unique, minimalist logo tailored to <strong>{businessName}</strong> in seconds.
+                Don't have a logo yet? No problem. Our AI can design a unique,
+                minimalist logo tailored to <strong>{businessName}</strong> in
+                seconds.
               </p>
               <ul className="text-xs text-muted-foreground space-y-2 list-disc pl-4">
                 <li>Instant generation</li>
@@ -587,10 +758,14 @@ function Step2_Branding() {
       {/* Error Messages for Hidden Fields */}
       <div className="space-y-2">
         {form.formState.errors.logoUrl && (
-          <p className="text-[0.8rem] font-medium text-destructive">{form.formState.errors.logoUrl.message}</p>
+          <p className="text-[0.8rem] font-medium text-destructive">
+            {form.formState.errors.logoUrl.message}
+          </p>
         )}
         {form.formState.errors.brandColors && (
-          <p className="text-[0.8rem] font-medium text-destructive">{form.formState.errors.brandColors.message}</p>
+          <p className="text-[0.8rem] font-medium text-destructive">
+            {form.formState.errors.brandColors.message}
+          </p>
         )}
       </div>
     </div>
@@ -598,12 +773,21 @@ function Step2_Branding() {
 }
 
 // ... (Step3_Account, OnboardingNavigation, OnboardingForm)
-function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; onMagicLinkSent: () => void; user: User | null }) {
+function Step3_Account({
+  onKeyDown,
+  onMagicLinkSent,
+  user,
+}: {
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onMagicLinkSent: () => void;
+  user: User | null;
+}) {
   const form = useFormContext<OnboardingFormValues>();
   const { control, watch } = form;
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [magicLinkSubmitting, setMagicLinkSubmitting] = useState<boolean>(false);
+  const [magicLinkSubmitting, setMagicLinkSubmitting] =
+    useState<boolean>(false);
   const { toast } = useToast();
 
   const password = watch('password') || '';
@@ -625,7 +809,11 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
     if (result.success) {
       onMagicLinkSent();
     } else {
-      toast({ title: 'Failed to send magic link', description: result.message, variant: 'destructive' });
+      toast({
+        title: 'Failed to send magic link',
+        description: result.message,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -636,7 +824,8 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
           <CheckCircle className="h-4 w-4" />
           <AlertTitle>Logged In</AlertTitle>
           <AlertDescription>
-            You are logged in as <strong>{user.email}</strong>. Click "Create My Store" below to continue.
+            You are logged in as <strong>{user.email}</strong>. Click "Create My
+            Store" below to continue.
           </AlertDescription>
         </Alert>
       ) : (
@@ -676,14 +865,26 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
             <div className="flex-1 h-px bg-border" />
           </div>
 
-          <Button type="button" variant="outline" className="w-full" onClick={handleMagicLinkRequest} disabled={magicLinkSubmitting}>
-            {magicLinkSubmitting && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
-            {magicLinkSubmitting ? 'Sending Magic Link...' : 'Continue with Magic Link'}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleMagicLinkRequest}
+            disabled={magicLinkSubmitting}
+          >
+            {magicLinkSubmitting && (
+              <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+            )}
+            {magicLinkSubmitting
+              ? 'Sending Magic Link...'
+              : 'Continue with Magic Link'}
           </Button>
 
           <div className="flex items-center gap-4 my-4">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">OR CREATE PASSWORD</span>
+            <span className="text-xs text-muted-foreground">
+              OR CREATE PASSWORD
+            </span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
@@ -697,7 +898,7 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                   <div className="relative">
                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      type={showPassword ? "text" : "password"}
+                      type={showPassword ? 'text' : 'password'}
                       placeholder="Create a strong password"
                       {...field}
                       value={field.value || ''}
@@ -710,8 +911,21 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                       autoCapitalize="off"
                       data-form-type="password"
                     />
-                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"}>
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </FormControl>
@@ -732,7 +946,7 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                     <div className="relative">
                       <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        type={showConfirmPassword ? "text" : "password"}
+                        type={showConfirmPassword ? 'text' : 'password'}
                         placeholder="Re-enter your password"
                         {...field}
                         value={field.value || ''}
@@ -745,8 +959,25 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                         autoCapitalize="off"
                         data-form-type="password"
                       />
-                      <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)} aria-label={showConfirmPassword ? "Hide password" : "Show password"}>
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                        aria-label={
+                          showConfirmPassword
+                            ? 'Hide password'
+                            : 'Show password'
+                        }
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </FormControl>
@@ -761,7 +992,14 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
   );
 }
 
-function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoading, isStepValid }: {
+function OnboardingNavigation({
+  currentStep,
+  totalSteps,
+  onNext,
+  onPrev,
+  isLoading,
+  isStepValid,
+}: {
   currentStep: number;
   totalSteps: number;
   onNext: () => void;
@@ -773,8 +1011,34 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
 
   return (
     <div className="flex justify-between pt-4">
-      {currentStep > 1 ? (<Button type="button" variant="outline" onClick={onPrev} disabled={isLoading}>Previous</Button>) : <div />}
-      {isLastStep ? (<Button type="submit" disabled={isLoading || !isStepValid} id="submit-button">{isLoading && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />} Create My Store</Button>) : (<Button type="button" onClick={onNext} disabled={isLoading}>Next</Button>)}
+      {currentStep > 1 ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onPrev}
+          disabled={isLoading}
+        >
+          Previous
+        </Button>
+      ) : (
+        <div />
+      )}
+      {isLastStep ? (
+        <Button
+          type="submit"
+          disabled={isLoading || !isStepValid}
+          id="submit-button"
+        >
+          {isLoading && (
+            <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+          )}{' '}
+          Create My Store
+        </Button>
+      ) : (
+        <Button type="button" onClick={onNext} disabled={isLoading}>
+          Next
+        </Button>
+      )}
     </div>
   );
 }
@@ -782,12 +1046,15 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
 // --- Main Form Component ---
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
-  const [submissionState, formAction, isPending] = useActionState<ServerActionState, FormData>(submitOnboarding, { message: '', success: false });
+  const [submissionState, formAction, isPending] = useActionState<
+    ServerActionState,
+    FormData
+  >(submitOnboarding, { message: '', success: false });
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [isSubmitting, startTransition] = useTransition();
   const [user, setUser] = useState<User | null>(null);
   const { toast } = useToast();
-  const router = useRouter();
+  const _router = useRouter();
   const totalSteps = 3;
   const searchParams = useSearchParams();
 
@@ -796,10 +1063,22 @@ export default function OnboardingForm() {
     mode: 'onBlur',
     reValidateMode: 'onBlur',
     shouldUnregister: false,
-    defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '', logoUrl: '', brandColors: '' },
+    defaultValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+      businessName: '',
+      businessType: '',
+      otherBusinessType: '',
+      brandPreferences: '',
+      logoUrl: '',
+      brandColors: '',
+    },
   });
 
-  const { formState: { errors } } = form;
+  const {
+    formState: { errors },
+  } = form;
 
   useEffect(() => {
     // Check for existing session
@@ -822,7 +1101,12 @@ export default function OnboardingForm() {
         // Defer state update to avoid cascading renders
         queueMicrotask(() => {
           setStep(3);
-          toast({ title: "Welcome back!", description: "You are now logged in. Please click 'Create My Store' to finish.", duration: 5000 });
+          toast({
+            title: 'Welcome back!',
+            description:
+              "You are now logged in. Please click 'Create My Store' to finish.",
+            duration: 5000,
+          });
         });
       }
     }
@@ -831,7 +1115,11 @@ export default function OnboardingForm() {
   useEffect(() => {
     if (submissionState.success) {
       localStorage.removeItem('onboardingForm');
-      toast({ title: 'Store Created!', description: 'Your e-commerce store is ready. Redirecting you to the dashboard...' });
+      toast({
+        title: 'Store Created!',
+        description:
+          'Your e-commerce store is ready. Redirecting you to the dashboard...',
+      });
 
       // Track merchant signup completed for platform analytics
       if (submissionState.merchantId) {
@@ -843,7 +1131,10 @@ export default function OnboardingForm() {
       // Refresh the client session to sync with server-side auth, then redirect
       const supabase = createClient();
       supabase.auth.getSession().then(({ data: { session }, error }) => {
-        console.log('Session check after signup:', { hasSession: !!session, error });
+        console.log('Session check after signup:', {
+          hasSession: !!session,
+          error,
+        });
         if (session) {
           console.log('Session found, redirecting to dashboard');
           window.location.href = '/dashboard';
@@ -852,9 +1143,9 @@ export default function OnboardingForm() {
           toast({
             title: 'Session Error',
             description: 'Please try logging in manually',
-            variant: 'destructive'
+            variant: 'destructive',
           });
-          setTimeout(() => window.location.href = '/login', 2000);
+          setTimeout(() => (window.location.href = '/login'), 2000);
         }
       });
     } else if (submissionState.message) {
@@ -870,19 +1161,31 @@ export default function OnboardingForm() {
         });
       }
       if (!fieldErrors || Object.keys(fieldErrors).length === 0) {
-        toast({ title: 'An error occurred', description: submissionState.message, variant: 'destructive' });
+        toast({
+          title: 'An error occurred',
+          description: submissionState.message,
+          variant: 'destructive',
+        });
       }
     }
-  }, [submissionState, form, toast, router]);
+  }, [submissionState, form, toast]);
 
   const handleNext = async () => {
     let isValidStep = false;
     if (step === 1) {
-      isValidStep = await form.trigger(['businessName', 'businessType', 'otherBusinessType']);
+      isValidStep = await form.trigger([
+        'businessName',
+        'businessType',
+        'otherBusinessType',
+      ]);
     } else if (step === 2) {
       isValidStep = await form.trigger(['logoUrl', 'brandColors']);
       if (!isValidStep) {
-        toast({ title: 'Branding Incomplete', description: 'Please upload a logo to extract brand colors.', variant: 'destructive' });
+        toast({
+          title: 'Branding Incomplete',
+          description: 'Please upload a logo to extract brand colors.',
+          variant: 'destructive',
+        });
       }
     }
 
@@ -895,13 +1198,17 @@ export default function OnboardingForm() {
           business_type: values.businessType,
         });
       }
-      setStep(s => s + 1);
+      setStep((s) => s + 1);
     }
   };
 
-  const handlePrev = () => { if (step > 1) setStep(s => s - 1); };
+  const handlePrev = () => {
+    if (step > 1) setStep((s) => s - 1);
+  };
 
-  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => {
+  const handleKeyDown = async (
+    e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>
+  ) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (step < totalSteps) {
@@ -920,7 +1227,7 @@ export default function OnboardingForm() {
         businessType: values.businessType,
         otherBusinessType: values.otherBusinessType,
         brandPreferences: values.brandPreferences,
-        email: values.email
+        email: values.email,
       },
       logoDataUri: values.logoUrl,
       brandColors: values.brandColors,
@@ -954,18 +1261,30 @@ export default function OnboardingForm() {
 
   const formEmail = useWatch({ control: form.control, name: 'email' });
   const formPassword = useWatch({ control: form.control, name: 'password' });
-  const formConfirmPassword = useWatch({ control: form.control, name: 'confirmPassword' });
+  const formConfirmPassword = useWatch({
+    control: form.control,
+    name: 'confirmPassword',
+  });
 
   const isStep3Valid = useMemo(() => {
     if (step !== 3) return true;
     if (user) return true; // Skip validation if user is logged in
-    const validationData = { email: formEmail, password: formPassword, confirmPassword: formConfirmPassword };
+    const validationData = {
+      email: formEmail,
+      password: formPassword,
+      confirmPassword: formConfirmPassword,
+    };
     const result = step3Schema.safeParse(validationData);
     return result.success;
   }, [formEmail, formPassword, formConfirmPassword, step, user]);
 
   const isCurrentStepValid = useMemo(() => {
-    if (step === 1) return !errors.businessName && !errors.businessType && !errors.otherBusinessType;
+    if (step === 1)
+      return (
+        !errors.businessName &&
+        !errors.businessType &&
+        !errors.otherBusinessType
+      );
     if (step === 2) return !errors.logoUrl && !errors.brandColors; // Updated to logoUrl
     if (step === 3) return isStep3Valid;
     return false;
@@ -974,32 +1293,56 @@ export default function OnboardingForm() {
   return (
     <div className="space-y-8">
       <header>
-        <h2 className="text-2xl font-bold text-center font-headline">Welcome to Baci</h2>
-        <p className="text-muted-foreground text-center">Let's set up your store in a few simple steps.</p>
+        <h2 className="text-2xl font-bold text-center font-headline">
+          Welcome to Baci
+        </h2>
+        <p className="text-muted-foreground text-center">
+          Let's set up your store in a few simple steps.
+        </p>
       </header>
       <StepIndicator currentStep={step} totalSteps={totalSteps} />
       <FormProvider {...form}>
-        <form onSubmit={handleFormSubmit} aria-label="Store onboarding form" noValidate>
+        <form
+          onSubmit={handleFormSubmit}
+          aria-label="Store onboarding form"
+          noValidate
+        >
           <input type="hidden" {...form.register('logoUrl')} />
           <input type="hidden" {...form.register('brandColors')} />
-          <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
+          <div
+            role="region"
+            aria-live="polite"
+            aria-atomic="true"
+            className="min-h-[250px]"
+          >
             {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
             {step === 2 && <Step2_Branding />}
-            {step === 3 && (
-              magicLinkSent ? (
+            {step === 3 &&
+              (magicLinkSent ? (
                 <Alert className="mt-4">
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>Magic Link Sent!</AlertTitle>
                   <AlertDescription>
-                    Please check your email for a link to sign in. You can close this window.
+                    Please check your email for a link to sign in. You can close
+                    this window.
                   </AlertDescription>
                 </Alert>
               ) : (
-                <Step3_Account onKeyDown={handleKeyDown} onMagicLinkSent={handleMagicLinkSent} user={user} />
-              )
-            )}
+                <Step3_Account
+                  onKeyDown={handleKeyDown}
+                  onMagicLinkSent={handleMagicLinkSent}
+                  user={user}
+                />
+              ))}
           </div>
-          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending || isSubmitting} isStepValid={isCurrentStepValid} />
+          <OnboardingNavigation
+            currentStep={step}
+            totalSteps={totalSteps}
+            onNext={handleNext}
+            onPrev={handlePrev}
+            isLoading={isPending || isSubmitting}
+            isStepValid={isCurrentStepValid}
+          />
         </form>
       </FormProvider>
     </div>

@@ -1,9 +1,16 @@
-
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -22,16 +29,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
 import { useMerchant } from '@/hooks/use-merchant';
-import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
+import { useToast } from '@/hooks/use-toast';
 
 const pagesSchema = z.object({
   about: z.string().optional(),
@@ -44,13 +43,44 @@ const pagesSchema = z.object({
 
 type PagesFormValues = z.infer<typeof pagesSchema>;
 
-const pageFields: { name: keyof PagesFormValues, label: string, description: string }[] = [
-    { name: 'about', label: 'About Us', description: 'Tell your customers your story. What makes your brand special?' },
-    { name: 'contact', label: 'Contact Information', description: 'How can customers get in touch? Provide an email, phone number, or address.' },
-    { name: 'privacy', label: 'Privacy Policy', description: 'Explain how you collect, use, and protect customer data.' },
-    { name: 'terms', label: 'Terms and Conditions', description: 'Set the rules for using your store and making purchases.' },
-    { name: 'faq', label: 'Frequently Asked Questions', description: 'Answer common questions your customers might have.' },
-    { name: 'legal', label: 'Legal and Dispute', description: 'Provide information on legal policies and how disputes are handled.' },
+const pageFields: {
+  name: keyof PagesFormValues;
+  label: string;
+  description: string;
+}[] = [
+  {
+    name: 'about',
+    label: 'About Us',
+    description:
+      'Tell your customers your story. What makes your brand special?',
+  },
+  {
+    name: 'contact',
+    label: 'Contact Information',
+    description:
+      'How can customers get in touch? Provide an email, phone number, or address.',
+  },
+  {
+    name: 'privacy',
+    label: 'Privacy Policy',
+    description: 'Explain how you collect, use, and protect customer data.',
+  },
+  {
+    name: 'terms',
+    label: 'Terms and Conditions',
+    description: 'Set the rules for using your store and making purchases.',
+  },
+  {
+    name: 'faq',
+    label: 'Frequently Asked Questions',
+    description: 'Answer common questions your customers might have.',
+  },
+  {
+    name: 'legal',
+    label: 'Legal and Dispute',
+    description:
+      'Provide information on legal policies and how disputes are handled.',
+  },
 ];
 
 export default function PagesSettingsPage() {
@@ -61,12 +91,12 @@ export default function PagesSettingsPage() {
   const form = useForm<PagesFormValues>({
     resolver: zodResolver(pagesSchema),
     defaultValues: {
-        about: '',
-        contact: '',
-        privacy: '',
-        terms: '',
-        faq: '',
-        legal: '',
+      about: '',
+      contact: '',
+      privacy: '',
+      terms: '',
+      faq: '',
+      legal: '',
     },
   });
 
@@ -78,7 +108,7 @@ export default function PagesSettingsPage() {
 
   async function onSubmit(data: PagesFormValues) {
     setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
     updateMerchant({ pages: data });
     setIsSaving(false);
     toast({
@@ -88,7 +118,11 @@ export default function PagesSettingsPage() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 motion-safe:animate-spin" /></div>
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+      </div>
+    );
   }
 
   return (
@@ -97,28 +131,36 @@ export default function PagesSettingsPage() {
         <CardHeader>
           <CardTitle>Store Pages</CardTitle>
           <CardDescription>
-            Manage the content for your store's informational pages like "About Us" and "Privacy Policy". Links will appear in your footer if content is provided.
+            Manage the content for your store's informational pages like "About
+            Us" and "Privacy Policy". Links will appear in your footer if
+            content is provided.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-               <Accordion type="single" collapsible className="w-full">
+              <Accordion type="single" collapsible className="w-full">
                 {pageFields.map((page) => (
-                   <AccordionItem value={page.name} key={page.name}>
+                  <AccordionItem value={page.name} key={page.name}>
                     <AccordionTrigger>{page.label}</AccordionTrigger>
                     <AccordionContent>
-                       <FormField
+                      <FormField
                         control={form.control}
                         name={page.name}
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="sr-only">{page.label}</FormLabel>
+                            <FormLabel className="sr-only">
+                              {page.label}
+                            </FormLabel>
                             <FormControl>
-                              <Textarea placeholder={`Content for your ${page.label} page...`} {...field} className="min-h-[200px]"/>
+                              <Textarea
+                                placeholder={`Content for your ${page.label} page...`}
+                                {...field}
+                                className="min-h-[200px]"
+                              />
                             </FormControl>
                             <FormDescription>
-                                {page.description}
+                              {page.description}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -128,9 +170,11 @@ export default function PagesSettingsPage() {
                   </AccordionItem>
                 ))}
               </Accordion>
-             
+
               <Button type="submit" disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />}
+                {isSaving && (
+                  <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+                )}
                 Save Page Content
               </Button>
             </form>

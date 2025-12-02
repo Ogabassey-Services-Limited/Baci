@@ -1,9 +1,11 @@
-
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { registerDomain, type ContactInfo } from '@/lib/go54';
-import { getDomainPricing, calculateDomainPrice } from '@/config/domain-pricing';
+import {
+  calculateDomainPrice,
+  getDomainPricing,
+} from '@/config/domain-pricing';
+import { type ContactInfo, registerDomain } from '@/lib/go54';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * POST /api/domains/purchase
@@ -27,13 +29,22 @@ export async function POST(request: Request) {
     // to prevent ReDoS (exponential backtracking) vulnerability
     const domainRegex = /^[a-z0-9]+([.-][a-z0-9]+)*\.[a-z]{2,}$/i;
     if (!domainRegex.test(domain)) {
-      return NextResponse.json({ error: 'Invalid domain format' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid domain format' },
+        { status: 400 }
+      );
     }
 
     // Extract TLD and get pricing
-    let tld = '.' + domain.split('.').slice(-1)[0];
-    if (domain.endsWith('.com.ng') || domain.endsWith('.org.ng') || domain.endsWith('.net.ng') || domain.endsWith('.edu.ng') || domain.endsWith('.name.ng')) {
-      tld = '.' + domain.split('.').slice(-2).join('.');
+    let tld = `.${domain.split('.').slice(-1)[0]}`;
+    if (
+      domain.endsWith('.com.ng') ||
+      domain.endsWith('.org.ng') ||
+      domain.endsWith('.net.ng') ||
+      domain.endsWith('.edu.ng') ||
+      domain.endsWith('.name.ng')
+    ) {
+      tld = `.${domain.split('.').slice(-2).join('.')}`;
     }
 
     const pricing = getDomainPricing(tld);
@@ -43,7 +54,10 @@ export async function POST(request: Request) {
 
     const priceCalculation = calculateDomainPrice(tld, years);
     if (!priceCalculation) {
-      return NextResponse.json({ error: 'Unable to calculate price' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Unable to calculate price' },
+        { status: 400 }
+      );
     }
 
     // Get merchant
@@ -54,7 +68,10 @@ export async function POST(request: Request) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // TODO: Verify payment via Paystack before proceeding
@@ -78,10 +95,14 @@ export async function POST(request: Request) {
 
     // Prepare contact information
     // Validate required contact information before proceeding
-    const resolvedFirstname = contactInfo?.firstname || merchant.business_name?.split(' ')[0] || '';
-    const resolvedLastname = contactInfo?.lastname || merchant.business_name?.split(' ')[1] || '';
-    const resolvedFullname = contactInfo?.fullname || merchant.business_name || '';
-    const resolvedEmail = contactInfo?.email || merchant.email || user.email || '';
+    const resolvedFirstname =
+      contactInfo?.firstname || merchant.business_name?.split(' ')[0] || '';
+    const resolvedLastname =
+      contactInfo?.lastname || merchant.business_name?.split(' ')[1] || '';
+    const resolvedFullname =
+      contactInfo?.fullname || merchant.business_name || '';
+    const resolvedEmail =
+      contactInfo?.email || merchant.email || user.email || '';
     const resolvedAddress1 = contactInfo?.address1 || '';
     const resolvedCity = contactInfo?.city || '';
     const resolvedState = contactInfo?.state || '';
@@ -101,7 +122,10 @@ export async function POST(request: Request) {
       !resolvedPhonenumber
     ) {
       return NextResponse.json(
-        { error: 'Missing required contact information. Please provide all required fields.' },
+        {
+          error:
+            'Missing required contact information. Please provide all required fields.',
+        },
         { status: 400 }
       );
     }
@@ -194,19 +218,24 @@ export async function POST(request: Request) {
       });
     } catch (go54Error: unknown) {
       console.error('Go54 registration error:', go54Error);
-      const errorMessage = go54Error instanceof Error ? go54Error.message : 'Unknown error';
+      const errorMessage =
+        go54Error instanceof Error ? go54Error.message : 'Unknown error';
 
       return NextResponse.json(
         {
           error: 'Failed to register domain with Go54',
           details: errorMessage,
-          suggestion: 'Please ensure Go54 API credentials are configured and account has sufficient balance',
+          suggestion:
+            'Please ensure Go54 API credentials are configured and account has sufficient balance',
         },
         { status: 500 }
       );
     }
   } catch (error) {
     console.error('Error purchasing domain:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

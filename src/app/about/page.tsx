@@ -1,9 +1,9 @@
-import AppBody from '@/components/app-body';
-import { PlatformHeader } from '@/components/platform/header';
-import { PlatformFooter } from '@/components/platform/footer';
-import { Button } from '@/components/ui/button';
+import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Metadata } from 'next';
+import AppBody from '@/components/app-body';
+import { PlatformFooter } from '@/components/platform/footer';
+import { PlatformHeader } from '@/components/platform/header';
+import { Button } from '@/components/ui/button';
 
 export const metadata: Metadata = {
   title: 'About Us - Baci',
@@ -22,23 +22,28 @@ export default function AboutPage() {
                 Empowering Entrepreneurship
               </h1>
               <p className="text-xl text-muted-foreground">
-                We're on a mission to make e-commerce accessible to everyone in Africa.
+                We're on a mission to make e-commerce accessible to everyone in
+                Africa.
               </p>
             </div>
 
             <div className="prose dark:prose-invert max-w-none space-y-8">
               <p className="text-lg leading-relaxed">
-                Baci was founded with a simple belief: <strong>Technology should open doors, not close them.</strong>
+                Baci was founded with a simple belief:{' '}
+                <strong>Technology should open doors, not close them.</strong>
               </p>
               <p className="text-lg leading-relaxed">
-                For too long, starting an online business in Africa meant navigating complex technical barriers,
-                expensive developer fees, and payment systems that didn't work for local markets. We built Baci
-                to change that.
+                For too long, starting an online business in Africa meant
+                navigating complex technical barriers, expensive developer fees,
+                and payment systems that didn't work for local markets. We built
+                Baci to change that.
               </p>
               <p className="text-lg leading-relaxed">
-                By leveraging the latest in Artificial Intelligence, we've automated the hardest parts of building
-                a store. From generating product descriptions to designing your brand identity, Baci handles the
-                heavy lifting so you can focus on what you do best: <strong>selling great products.</strong>
+                By leveraging the latest in Artificial Intelligence, we've
+                automated the hardest parts of building a store. From generating
+                product descriptions to designing your brand identity, Baci
+                handles the heavy lifting so you can focus on what you do best:{' '}
+                <strong>selling great products.</strong>
               </p>
             </div>
 

@@ -66,9 +66,39 @@ export function initializeConsentMode(): void {
   // Set region-specific defaults (stricter for EU/EEA)
   window.gtag('consent', 'default', {
     ...DEFAULT_CONSENT,
-    region: ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR',
-             'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL',
-             'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'GB', 'IS', 'LI', 'NO'],
+    region: [
+      'AT',
+      'BE',
+      'BG',
+      'HR',
+      'CY',
+      'CZ',
+      'DK',
+      'EE',
+      'FI',
+      'FR',
+      'DE',
+      'GR',
+      'HU',
+      'IE',
+      'IT',
+      'LV',
+      'LT',
+      'LU',
+      'MT',
+      'NL',
+      'PL',
+      'PT',
+      'RO',
+      'SK',
+      'SI',
+      'ES',
+      'SE',
+      'GB',
+      'IS',
+      'LI',
+      'NO',
+    ],
   });
 }
 
@@ -108,7 +138,11 @@ export function updateConsentMode(preferences: {
 /**
  * Get current consent state from localStorage
  */
-export function getStoredConsent(): { analytics: boolean; marketing: boolean; functional: boolean } | null {
+export function getStoredConsent(): {
+  analytics: boolean;
+  marketing: boolean;
+  functional: boolean;
+} | null {
   if (typeof window === 'undefined') return null;
 
   try {

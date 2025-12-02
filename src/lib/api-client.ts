@@ -5,14 +5,14 @@
  * Get CSRF token from cookie
  */
 function getCsrfToken(): string | null {
-    if (typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
 
-    const cookies = document.cookie.split(';');
-    const csrfCookie = cookies.find(c => c.trim().startsWith('csrf-token='));
+  const cookies = document.cookie.split(';');
+  const csrfCookie = cookies.find((c) => c.trim().startsWith('csrf-token='));
 
-    if (!csrfCookie) return null;
+  if (!csrfCookie) return null;
 
-    return csrfCookie.split('=')[1];
+  return csrfCookie.split('=')[1];
 }
 
 /**
@@ -20,125 +20,131 @@ function getCsrfToken(): string | null {
  * Use this instead of fetch() for all state-changing API calls
  */
 export async function fetchWithCsrf(
-    url: string,
-    options: RequestInit = {}
+  url: string,
+  options: RequestInit = {}
 ): Promise<Response> {
-    const csrfToken = getCsrfToken();
+  const csrfToken = getCsrfToken();
 
-    // Add CSRF token to headers for state-changing methods
-    const method = options.method?.toUpperCase() || 'GET';
-    const needsCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
+  // Add CSRF token to headers for state-changing methods
+  const method = options.method?.toUpperCase() || 'GET';
+  const needsCsrf = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
-    const headers = new Headers(options.headers);
+  const headers = new Headers(options.headers);
 
-    if (needsCsrf && csrfToken) {
-        headers.set('x-csrf-token', csrfToken);
-    }
+  if (needsCsrf && csrfToken) {
+    headers.set('x-csrf-token', csrfToken);
+  }
 
-    // Always set content-type for JSON requests
-    if (options.body && !headers.has('content-type')) {
-        headers.set('content-type', 'application/json');
-    }
+  // Always set content-type for JSON requests
+  if (options.body && !headers.has('content-type')) {
+    headers.set('content-type', 'application/json');
+  }
 
-    return fetch(url, {
-        ...options,
-        headers,
-        credentials: 'include', // Include cookies for authentication
-    });
+  return fetch(url, {
+    ...options,
+    headers,
+    credentials: 'include', // Include cookies for authentication
+  });
 }
 
 /**
  * POST request with CSRF protection
  */
 export async function apiPost<T = unknown>(
-    url: string,
-    data?: unknown
+  url: string,
+  data?: unknown
 ): Promise<T> {
-    const response = await fetchWithCsrf(url, {
-        method: 'POST',
-        body: data ? JSON.stringify(data) : undefined,
-    });
+  const response = await fetchWithCsrf(url, {
+    method: 'POST',
+    body: data ? JSON.stringify(data) : undefined,
+  });
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(error.error || error.message || 'Request failed');
-    }
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || error.message || 'Request failed');
+  }
 
-    return response.json();
+  return response.json();
 }
 
 /**
  * PUT request with CSRF protection
  */
 export async function apiPut<T = unknown>(
-    url: string,
-    data?: unknown
+  url: string,
+  data?: unknown
 ): Promise<T> {
-    const response = await fetchWithCsrf(url, {
-        method: 'PUT',
-        body: data ? JSON.stringify(data) : undefined,
-    });
+  const response = await fetchWithCsrf(url, {
+    method: 'PUT',
+    body: data ? JSON.stringify(data) : undefined,
+  });
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(error.error || error.message || 'Request failed');
-    }
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || error.message || 'Request failed');
+  }
 
-    return response.json();
+  return response.json();
 }
 
 /**
  * PATCH request with CSRF protection
  */
 export async function apiPatch<T = unknown>(
-    url: string,
-    data?: unknown
+  url: string,
+  data?: unknown
 ): Promise<T> {
-    const response = await fetchWithCsrf(url, {
-        method: 'PATCH',
-        body: data ? JSON.stringify(data) : undefined,
-    });
+  const response = await fetchWithCsrf(url, {
+    method: 'PATCH',
+    body: data ? JSON.stringify(data) : undefined,
+  });
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(error.error || error.message || 'Request failed');
-    }
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || error.message || 'Request failed');
+  }
 
-    return response.json();
+  return response.json();
 }
 
 /**
  * DELETE request with CSRF protection
  */
-export async function apiDelete<T = unknown>(
-    url: string
-): Promise<T> {
-    const response = await fetchWithCsrf(url, {
-        method: 'DELETE',
-    });
+export async function apiDelete<T = unknown>(url: string): Promise<T> {
+  const response = await fetchWithCsrf(url, {
+    method: 'DELETE',
+  });
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(error.error || error.message || 'Request failed');
-    }
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || error.message || 'Request failed');
+  }
 
-    return response.json();
+  return response.json();
 }
 
 /**
  * GET request (no CSRF needed but uses same error handling)
  */
-export async function apiGet<T = unknown>(
-    url: string
-): Promise<T> {
-    const response = await fetch(url, {
-        credentials: 'include', // Include cookies for authentication
-    });
+export async function apiGet<T = unknown>(url: string): Promise<T> {
+  const response = await fetch(url, {
+    credentials: 'include', // Include cookies for authentication
+  });
 
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(error.error || error.message || 'Request failed');
-    }
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || error.message || 'Request failed');
+  }
 
-    return response.json();
+  return response.json();
 }

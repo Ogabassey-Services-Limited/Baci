@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { GoogleAnalytics } from './google-analytics';
 import { FacebookPixel } from './facebook-pixel';
-import { TikTokPixel } from './tiktok-pixel';
+import { GoogleAnalytics } from './google-analytics';
 import { SnapchatPixel } from './snapchat-pixel';
+import { TikTokPixel } from './tiktok-pixel';
 import { TwitterPixel } from './twitter-pixel';
 
 /**
@@ -26,7 +26,9 @@ interface PlatformAnalyticsSettings {
 }
 
 export function PlatformAnalyticsProvider() {
-  const [settings, setSettings] = useState<PlatformAnalyticsSettings | null>(null);
+  const [settings, setSettings] = useState<PlatformAnalyticsSettings | null>(
+    null
+  );
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -113,7 +115,9 @@ export function trackMerchantSignupStarted(metadata?: Record<string, unknown>) {
     });
   }
   if (window.fbq) {
-    window.fbq('track', 'InitiateCheckout', { content_name: 'merchant_signup' });
+    window.fbq('track', 'InitiateCheckout', {
+      content_name: 'merchant_signup',
+    });
   }
 
   // Server-side

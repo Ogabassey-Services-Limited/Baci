@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Blog Post API - Single Post Operations
@@ -14,7 +14,12 @@ import { z } from 'zod';
 // Validation schema for updating a blog post
 const updatePostSchema = z.object({
   title: z.string().min(1).max(200).optional(),
-  slug: z.string().min(1).max(200).regex(/^[a-z0-9-]+$/).optional(),
+  slug: z
+    .string()
+    .min(1)
+    .max(200)
+    .regex(/^[a-z0-9-]+$/)
+    .optional(),
   content: z.string().min(1).optional(),
   excerpt: z.string().max(300).optional().nullable(),
   featured_image_url: z.string().url().optional().nullable(),
@@ -48,14 +53,17 @@ function calculateWordCount(content: string): number {
   return content.split(/\s+/).filter(Boolean).length;
 }
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -68,7 +76,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get blog post
@@ -90,7 +101,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(post);
   } catch (error) {
     console.error('Blog post GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -101,7 +115,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -114,7 +131,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get existing post
@@ -163,11 +183,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Recalculate reading time and word count if content changed
     if (updateData.content) {
       updateData.word_count = calculateWordCount(updateData.content as string);
-      updateData.reading_time_minutes = calculateReadingTime(updateData.content as string);
+      updateData.reading_time_minutes = calculateReadingTime(
+        updateData.content as string
+      );
     }
 
     // Set published_at if status is changing to published
-    if (updateData.status === 'published' && existingPost.status !== 'published') {
+    if (
+      updateData.status === 'published' &&
+      existingPost.status !== 'published'
+    ) {
       updateData.published_at = new Date().toISOString();
     }
 
@@ -188,18 +213,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(updatedPost);
   } catch (error) {
     console.error('Blog post PATCH error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -212,7 +243,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Delete post
@@ -230,6 +264,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Blog post DELETE error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

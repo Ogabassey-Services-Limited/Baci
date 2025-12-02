@@ -1,11 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { CheckCheck, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import { NotificationBell, LoadingSpinner } from '@/components/ui/animated-icons';
-
+import { CheckCheck, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import { useState } from 'react';
+import {
+  LoadingSpinner,
+  NotificationBell,
+} from '@/components/ui/animated-icons';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -13,10 +16,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 import { useNotifications } from '@/hooks/use-notifications';
-import type { MerchantNotificationWithDetails, NotificationType } from '@/types/notifications';
+import { cn } from '@/lib/utils';
+import type {
+  MerchantNotificationWithDetails,
+  NotificationType,
+} from '@/types/notifications';
 
 interface NotificationCenterProps {
   className?: string;
@@ -24,8 +29,10 @@ interface NotificationCenterProps {
 
 const typeStyles: Record<NotificationType, string> = {
   info: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  success: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  success:
+    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  warning:
+    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   error: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
 };
 
@@ -47,18 +54,15 @@ const typeDotStyles: Record<NotificationType, string> = {
  */
 export function NotificationCenter({ className }: NotificationCenterProps) {
   const [open, setOpen] = useState(false);
-  const {
-    notifications,
-    unreadCount,
-    isLoading,
-    markAsRead,
-    markAllAsRead,
-  } = useNotifications();
+  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } =
+    useNotifications();
 
   // Show only the 5 most recent notifications in the dropdown
   const recentNotifications = notifications.slice(0, 5);
 
-  const handleNotificationClick = async (notification: MerchantNotificationWithDetails) => {
+  const handleNotificationClick = async (
+    notification: MerchantNotificationWithDetails
+  ) => {
     if (!notification.read_at) {
       await markAsRead(notification.id);
     }
@@ -81,7 +85,10 @@ export function NotificationCenter({ className }: NotificationCenterProps) {
         <Button
           variant="outline"
           size="icon"
-          className={cn('relative h-11 w-11 min-w-[44px] min-h-[44px]', className)}
+          className={cn(
+            'relative h-11 w-11 min-w-[44px] min-h-[44px]',
+            className
+          )}
           aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
         >
           <NotificationBell hasNotification={unreadCount > 0} size={20} />
@@ -151,7 +158,8 @@ interface NotificationItemProps {
 
 function NotificationItem({ notification, onClick }: NotificationItemProps) {
   const isUnread = !notification.read_at;
-  const notificationType = notification.notification?.notification_type || 'info';
+  const notificationType =
+    notification.notification?.notification_type || 'info';
 
   return (
     <button
@@ -175,10 +183,21 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <p className={cn('text-sm font-medium truncate', isUnread && 'font-semibold')}>
+            <p
+              className={cn(
+                'text-sm font-medium truncate',
+                isUnread && 'font-semibold'
+              )}
+            >
               {notification.notification?.title}
             </p>
-            <Badge variant="outline" className={cn('text-xs flex-shrink-0', typeStyles[notificationType])}>
+            <Badge
+              variant="outline"
+              className={cn(
+                'text-xs flex-shrink-0',
+                typeStyles[notificationType]
+              )}
+            >
               {notificationType}
             </Badge>
           </div>
@@ -189,7 +208,9 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
 
           <div className="flex items-center justify-between mt-1.5">
             <span className="text-xs text-muted-foreground">
-              {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+              {formatDistanceToNow(new Date(notification.created_at), {
+                addSuffix: true,
+              })}
             </span>
 
             {notification.notification?.action_url && (

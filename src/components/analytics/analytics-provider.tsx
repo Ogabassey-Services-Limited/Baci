@@ -1,11 +1,11 @@
 'use client';
 
-import { GoogleAnalytics } from './google-analytics';
-import { FacebookPixel } from './facebook-pixel';
-import { TikTokPixel } from './tiktok-pixel';
-import { SnapchatPixel } from './snapchat-pixel';
-import { TwitterPixel } from './twitter-pixel';
 import { useMerchant } from '@/hooks/use-merchant';
+import { FacebookPixel } from './facebook-pixel';
+import { GoogleAnalytics } from './google-analytics';
+import { SnapchatPixel } from './snapchat-pixel';
+import { TikTokPixel } from './tiktok-pixel';
+import { TwitterPixel } from './twitter-pixel';
 
 /**
  * Analytics Provider Component
@@ -25,31 +25,31 @@ import { useMerchant } from '@/hooks/use-merchant';
  */
 
 interface MerchantWithAnalytics {
-    google_analytics_id?: string;
-    facebook_pixel_id?: string;
-    tiktok_pixel_id?: string;
-    snapchat_pixel_id?: string;
-    twitter_pixel_id?: string;
+  google_analytics_id?: string;
+  facebook_pixel_id?: string;
+  tiktok_pixel_id?: string;
+  snapchat_pixel_id?: string;
+  twitter_pixel_id?: string;
 }
 
 export function AnalyticsProvider() {
-    const { merchant } = useMerchant();
+  const { merchant } = useMerchant();
 
-    // Get analytics IDs from merchant settings
-    const merchantData = merchant as MerchantWithAnalytics | null;
-    const gaId = merchantData?.google_analytics_id;
-    const fbPixelId = merchantData?.facebook_pixel_id;
-    const tiktokPixelId = merchantData?.tiktok_pixel_id;
-    const snapchatPixelId = merchantData?.snapchat_pixel_id;
-    const twitterPixelId = merchantData?.twitter_pixel_id;
+  // Get analytics IDs from merchant settings
+  const merchantData = merchant as MerchantWithAnalytics | null;
+  const gaId = merchantData?.google_analytics_id;
+  const fbPixelId = merchantData?.facebook_pixel_id;
+  const tiktokPixelId = merchantData?.tiktok_pixel_id;
+  const snapchatPixelId = merchantData?.snapchat_pixel_id;
+  const twitterPixelId = merchantData?.twitter_pixel_id;
 
-    return (
-        <>
-            {gaId && <GoogleAnalytics measurementId={gaId} />}
-            {fbPixelId && <FacebookPixel pixelId={fbPixelId} />}
-            {tiktokPixelId && <TikTokPixel pixelId={tiktokPixelId} />}
-            {snapchatPixelId && <SnapchatPixel pixelId={snapchatPixelId} />}
-            {twitterPixelId && <TwitterPixel pixelId={twitterPixelId} />}
-        </>
-    );
+  return (
+    <>
+      {gaId && <GoogleAnalytics measurementId={gaId} />}
+      {fbPixelId && <FacebookPixel pixelId={fbPixelId} />}
+      {tiktokPixelId && <TikTokPixel pixelId={tiktokPixelId} />}
+      {snapchatPixelId && <SnapchatPixel pixelId={snapchatPixelId} />}
+      {twitterPixelId && <TwitterPixel pixelId={twitterPixelId} />}
+    </>
+  );
 }

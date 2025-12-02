@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { type NextRequest, NextResponse } from 'next/server';
 
 /**
  * Platform Blog Posts API - Public Read-Only
@@ -19,8 +19,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const tag = searchParams.get('tag');
-    const limit = parseInt(searchParams.get('limit') || '20', 10);
-    const offset = parseInt(searchParams.get('offset') || '0', 10);
+    const limit = Number.parseInt(searchParams.get('limit') || '20', 10);
+    const offset = Number.parseInt(searchParams.get('offset') || '0', 10);
     const slug = searchParams.get('slug');
 
     // If slug is provided, fetch single post
@@ -46,7 +46,10 @@ export async function GET(request: NextRequest) {
     // Build query for listing posts
     let query = supabase
       .from('blog_posts')
-      .select('id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, author_image_url, reading_time_minutes, published_at, view_count', { count: 'exact' })
+      .select(
+        'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, author_image_url, reading_time_minutes, published_at, view_count',
+        { count: 'exact' }
+      )
       .eq('is_platform_post', true)
       .eq('status', 'published');
 
@@ -81,6 +84,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Blog posts GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

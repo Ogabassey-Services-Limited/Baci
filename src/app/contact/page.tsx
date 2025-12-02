@@ -1,12 +1,12 @@
+import { Mail, MapPin, Phone } from 'lucide-react';
+import type { Metadata } from 'next';
 import AppBody from '@/components/app-body';
-import { PlatformHeader } from '@/components/platform/header';
 import { PlatformFooter } from '@/components/platform/footer';
+import { PlatformHeader } from '@/components/platform/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Metadata } from 'next';
-import { Mail, MapPin, Phone } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 export const metadata: Metadata = {
   title: 'Contact Us - Baci',
@@ -22,9 +22,12 @@ export default function ContactPage() {
           <section className="container px-4 md:px-6">
             <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
               <div>
-                <h1 className="text-4xl font-bold tracking-tight mb-6">Get in touch</h1>
+                <h1 className="text-4xl font-bold tracking-tight mb-6">
+                  Get in touch
+                </h1>
                 <p className="text-lg text-muted-foreground mb-8">
-                  Have questions about Baci? Our team is here to help. Fill out the form and we'll get back to you as soon as possible.
+                  Have questions about Baci? Our team is here to help. Fill out
+                  the form and we'll get back to you as soon as possible.
                 </p>
 
                 <div className="space-y-6">
@@ -72,7 +75,11 @@ export default function ContactPage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" placeholder="john@example.com" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="john@example.com"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="message">Message</Label>

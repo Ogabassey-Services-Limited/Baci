@@ -1,37 +1,42 @@
 'use client';
 
-import dynamic from 'next/dynamic';
+import { motion } from 'framer-motion';
 import {
   Activity,
+  ArrowRight,
+  ArrowUp,
+  Clock,
   CreditCard,
   DollarSign,
-  Users,
-  ArrowUp,
+  ShoppingBag,
   Sparkles,
   TrendingUp,
-  ShoppingBag,
-  Clock,
-  ArrowRight
+  Users,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-
-import { Button } from '@/components/ui/button';
+import dynamic from 'next/dynamic';
+import { useEffect, useState } from 'react';
 import { BentoCard } from '@/components/ui/bento-card';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
 import type { ChartConfig } from '@/components/ui/chart';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useMerchant } from '@/hooks/use-merchant';
 // import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 // Dynamically import chart wrapper components (correct pattern)
 const RevenueSparkline = dynamic(
-  () => import('@/components/dashboard/dashboard-charts').then((mod) => mod.RevenueSparkline),
+  () =>
+    import('@/components/dashboard/dashboard-charts').then(
+      (mod) => mod.RevenueSparkline
+    ),
   { ssr: false, loading: () => <Skeleton className="h-full w-full" /> }
 );
 
 const RevenueBarChart = dynamic(
-  () => import('@/components/dashboard/dashboard-charts').then((mod) => mod.RevenueBarChart),
+  () =>
+    import('@/components/dashboard/dashboard-charts').then(
+      (mod) => mod.RevenueBarChart
+    ),
   { ssr: false, loading: () => <Skeleton className="h-full w-full" /> }
 );
 
@@ -65,10 +70,34 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 const recentSales = [
-  { id: '1', name: 'Olivia Martin', email: 'olivia.martin@email.com', amount: 1999.00, status: 'Completed' },
-  { id: '2', name: 'Jackson Lee', email: 'jackson.lee@email.com', amount: 39.00, status: 'Processing' },
-  { id: '3', name: 'Isabella Nguyen', email: 'isabella.nguyen@email.com', amount: 299.00, status: 'Completed' },
-  { id: '4', name: 'William Kim', email: 'will@email.com', amount: 99.00, status: 'Failed' },
+  {
+    id: '1',
+    name: 'Olivia Martin',
+    email: 'olivia.martin@email.com',
+    amount: 1999.0,
+    status: 'Completed',
+  },
+  {
+    id: '2',
+    name: 'Jackson Lee',
+    email: 'jackson.lee@email.com',
+    amount: 39.0,
+    status: 'Processing',
+  },
+  {
+    id: '3',
+    name: 'Isabella Nguyen',
+    email: 'isabella.nguyen@email.com',
+    amount: 299.0,
+    status: 'Completed',
+  },
+  {
+    id: '4',
+    name: 'William Kim',
+    email: 'will@email.com',
+    amount: 99.0,
+    status: 'Failed',
+  },
 ];
 
 export default function DashboardPage() {
@@ -130,12 +159,19 @@ export default function DashboardPage() {
               <Sparkles className="h-8 w-8" />
             </div>
             <div className="space-y-2 flex-1">
-              <h3 className="text-xl font-semibold">Good morning, {merchant?.business_name || 'Merchant'}! 🚀</h3>
+              <h3 className="text-xl font-semibold">
+                Good morning, {merchant?.business_name || 'Merchant'}! 🚀
+              </h3>
               <p className="text-muted-foreground leading-relaxed">
-                Your store is performing exceptionally well today. Revenue is up <span className="text-green-500 font-medium">+20.1%</span> compared to last week, driven by a surge in mobile traffic. Consider restocking your top-selling items to maintain momentum.
+                Your store is performing exceptionally well today. Revenue is up{' '}
+                <span className="text-green-500 font-medium">+20.1%</span>{' '}
+                compared to last week, driven by a surge in mobile traffic.
+                Consider restocking your top-selling items to maintain momentum.
               </p>
             </div>
-            <Button variant="outline" className="shrink-0">View Insights</Button>
+            <Button variant="outline" className="shrink-0">
+              View Insights
+            </Button>
           </div>
         </BentoCard>
       </motion.div>
@@ -185,7 +221,9 @@ export default function DashboardPage() {
               <div className="h-2 flex-1 bg-muted rounded-full overflow-hidden">
                 <div className="h-full bg-blue-500 w-[65%]" />
               </div>
-              <span className="text-xs text-muted-foreground">65% fulfilled</span>
+              <span className="text-xs text-muted-foreground">
+                65% fulfilled
+              </span>
             </div>
           </BentoCard>
         </motion.div>
@@ -208,7 +246,10 @@ export default function DashboardPage() {
             </div>
             <div className="mt-4 flex -space-x-2">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium">
+                <div
+                  key={i}
+                  className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium"
+                >
                   {String.fromCharCode(64 + i)}
                 </div>
               ))}
@@ -241,7 +282,12 @@ export default function DashboardPage() {
                   key={i}
                   initial={{ height: 0 }}
                   animate={{ height: `${h}%` }}
-                  transition={{ duration: 1, repeat: Infinity, repeatType: "reverse", delay: i * 0.1 }}
+                  transition={{
+                    duration: 1,
+                    repeat: Number.POSITIVE_INFINITY,
+                    repeatType: 'reverse',
+                    delay: i * 0.1,
+                  }}
                   className="w-full bg-primary/20 rounded-t-sm"
                 />
               ))}
@@ -256,7 +302,11 @@ export default function DashboardPage() {
           transition={{ duration: 0.5, delay: 0.5 }}
           className="col-span-1 md:col-span-2 lg:col-span-3 row-span-2"
         >
-          <BentoCard title="Revenue Overview" icon={TrendingUp} className="h-full min-h-[400px]">
+          <BentoCard
+            title="Revenue Overview"
+            icon={TrendingUp}
+            className="h-full min-h-[400px]"
+          >
             <div className="h-full w-full pt-4">
               <RevenueBarChart data={monthlyChartData} config={chartConfig} />
             </div>
@@ -273,29 +323,44 @@ export default function DashboardPage() {
           <BentoCard title="Recent Sales" icon={CreditCard} className="h-full">
             <div className="space-y-4 mt-2">
               {recentSales.map((sale) => (
-                <div key={sale.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                <div
+                  key={sale.id}
+                  className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                >
                   <div className="flex items-center gap-3">
                     <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
                       {sale.name.charAt(0)}
                     </div>
                     <div className="space-y-0.5">
-                      <p className="text-sm font-medium leading-none">{sale.name}</p>
-                      <p className="text-xs text-muted-foreground">{sale.email}</p>
+                      <p className="text-sm font-medium leading-none">
+                        {sale.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {sale.email}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-medium">+${sale.amount}</p>
-                    <p className={cn(
-                      "text-[10px] font-medium",
-                      sale.status === 'Completed' ? "text-green-500" :
-                        sale.status === 'Processing' ? "text-blue-500" : "text-red-500"
-                    )}>
+                    <p
+                      className={cn(
+                        'text-[10px] font-medium',
+                        sale.status === 'Completed'
+                          ? 'text-green-500'
+                          : sale.status === 'Processing'
+                            ? 'text-blue-500'
+                            : 'text-red-500'
+                      )}
+                    >
                       {sale.status}
                     </p>
                   </div>
                 </div>
               ))}
-              <Button variant="ghost" className="w-full text-xs text-muted-foreground hover:text-foreground">
+              <Button
+                variant="ghost"
+                className="w-full text-xs text-muted-foreground hover:text-foreground"
+              >
                 View All Transactions <ArrowRight className="ml-1 h-3 w-3" />
               </Button>
             </div>

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -31,19 +33,26 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100);
+    const page = Number.parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.min(
+      Number.parseInt(searchParams.get('limit') || '20', 10),
+      100
+    );
     const tier = searchParams.get('tier');
     const search = searchParams.get('search');
     const offset = (page - 1) * limit;
 
     let query = supabase
       .from('customer_loyalty')
-      .select(`
+      .select(
+        `
         id,
         points_balance,
         lifetime_points,
@@ -58,7 +67,9 @@ export async function GET(request: NextRequest) {
           phone,
           store_credit
         )
-      `, { count: 'exact' })
+      `,
+        { count: 'exact' }
+      )
       .eq('merchant_id', merchant.id)
       .order('lifetime_points', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -71,15 +82,21 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching customer loyalty:', error);
-      return NextResponse.json({ error: 'Failed to fetch data' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch data' },
+        { status: 500 }
+      );
     }
 
     // Filter by search if provided (client-side for simplicity)
     let filteredData = loyaltyData || [];
     if (search) {
       const searchLower = search.toLowerCase();
-      filteredData = filteredData.filter(item => {
-        const customer = item.customers as { name?: string; email?: string } | null;
+      filteredData = filteredData.filter((item) => {
+        const customer = item.customers as {
+          name?: string;
+          email?: string;
+        } | null;
         return (
           customer?.name?.toLowerCase().includes(searchLower) ||
           customer?.email?.toLowerCase().includes(searchLower)
@@ -94,8 +111,9 @@ export async function GET(request: NextRequest) {
       .eq('merchant_id', merchant.id);
 
     const tierDistribution: Record<string, number> = {};
-    (tierCounts || []).forEach(item => {
-      tierDistribution[item.current_tier] = (tierDistribution[item.current_tier] || 0) + 1;
+    (tierCounts || []).forEach((item) => {
+      tierDistribution[item.current_tier] =
+        (tierDistribution[item.current_tier] || 0) + 1;
     });
 
     return NextResponse.json({
@@ -113,6 +131,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Customer loyalty GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

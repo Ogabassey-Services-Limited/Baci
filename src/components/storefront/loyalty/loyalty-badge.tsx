@@ -1,11 +1,11 @@
 'use client';
 
-import { useLoyalty } from '@/hooks/use-loyalty';
-import { Badge } from '@/components/ui/badge';
 import { Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { useLoyalty } from '@/hooks/use-loyalty';
 import { asRoute } from '@/lib/routes';
+import { cn } from '@/lib/utils';
 
 interface LoyaltyBadgeProps {
   merchantId?: string;
@@ -38,7 +38,10 @@ export function LoyaltyBadge({
 
   if (compact) {
     return (
-      <Link href={asRoute(rewardsHref)} className={cn('flex items-center gap-1', className)}>
+      <Link
+        href={asRoute(rewardsHref)}
+        className={cn('flex items-center gap-1', className)}
+      >
         <Badge
           variant="outline"
           className={cn(
@@ -49,7 +52,9 @@ export function LoyaltyBadge({
           )}
         >
           <Sparkles className="h-3 w-3" />
-          {showPoints ? pointsBalance.toLocaleString() : tier.charAt(0).toUpperCase() + tier.slice(1)}
+          {showPoints
+            ? pointsBalance.toLocaleString()
+            : tier.charAt(0).toUpperCase() + tier.slice(1)}
         </Badge>
       </Link>
     );

@@ -56,7 +56,9 @@ interface CAPIEventData {
  *
  * The server will handle hashing user data and communicating with Facebook.
  */
-export async function sendCAPIEvent(data: CAPIEventData): Promise<{ success: boolean; eventId?: string }> {
+export async function sendCAPIEvent(
+  data: CAPIEventData
+): Promise<{ success: boolean; eventId?: string }> {
   try {
     const response = await fetch('/api/analytics/facebook-capi', {
       method: 'POST',
@@ -65,7 +67,8 @@ export async function sendCAPIEvent(data: CAPIEventData): Promise<{ success: boo
       },
       body: JSON.stringify({
         ...data,
-        eventSourceUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+        eventSourceUrl:
+          typeof window !== 'undefined' ? window.location.href : undefined,
       }),
     });
 
@@ -90,7 +93,12 @@ export async function sendCAPIEvent(data: CAPIEventData): Promise<{ success: boo
 export async function trackPurchaseWithCAPI(
   merchantId: string,
   orderId: string,
-  products: Array<{ id: string; name: string; quantity: number; price: number }>,
+  products: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+  }>,
   total: number,
   currency: string,
   userData: CAPIEventData['userData']
@@ -119,7 +127,12 @@ export async function trackPurchaseWithCAPI(
  */
 export async function trackCheckoutWithCAPI(
   merchantId: string,
-  products: Array<{ id: string; name: string; quantity: number; price: number }>,
+  products: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+  }>,
   total: number,
   currency: string,
   userData: CAPIEventData['userData']

@@ -7,8 +7,8 @@
  * All animations respect prefers-reduced-motion via Framer Motion's built-in support.
  */
 
-import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { type ReactNode, forwardRef } from 'react';
+import { AnimatePresence, motion, type Variants } from 'framer-motion';
+import { forwardRef, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 // Animation variants for different icon types
@@ -17,7 +17,7 @@ const spinVariants: Variants = {
     rotate: 360,
     transition: {
       duration: 1,
-      repeat: Infinity,
+      repeat: Number.POSITIVE_INFINITY,
       ease: 'linear',
     },
   },
@@ -28,7 +28,7 @@ const pulseVariants: Variants = {
     scale: [1, 1.1, 1],
     transition: {
       duration: 1.5,
-      repeat: Infinity,
+      repeat: Number.POSITIVE_INFINITY,
       ease: 'easeInOut',
     },
   },
@@ -39,7 +39,7 @@ const bounceVariants: Variants = {
     y: [0, -4, 0],
     transition: {
       duration: 0.6,
-      repeat: Infinity,
+      repeat: Number.POSITIVE_INFINITY,
       ease: 'easeInOut',
     },
   },
@@ -50,7 +50,7 @@ const shakeVariants: Variants = {
     x: [0, -2, 2, -2, 0],
     transition: {
       duration: 0.4,
-      repeat: Infinity,
+      repeat: Number.POSITIVE_INFINITY,
       repeatDelay: 2,
     },
   },
@@ -91,8 +91,21 @@ interface AnimatedIconWrapperProps {
  * Animated Icon Wrapper
  * Wraps any icon with animation effects
  */
-export const AnimatedIcon = forwardRef<HTMLDivElement, AnimatedIconWrapperProps>(
-  ({ children, animation = 'none', hoverEffect = 'scale', className, onClick, ariaLabel }, ref) => {
+export const AnimatedIcon = forwardRef<
+  HTMLDivElement,
+  AnimatedIconWrapperProps
+>(
+  (
+    {
+      children,
+      animation = 'none',
+      hoverEffect = 'scale',
+      className,
+      onClick,
+      ariaLabel,
+    },
+    ref
+  ) => {
     const getAnimationVariants = () => {
       switch (animation) {
         case 'spin':
@@ -150,7 +163,7 @@ AnimatedIcon.displayName = 'AnimatedIcon';
  */
 export function LoadingSpinner({
   size = 24,
-  className
+  className,
 }: {
   size?: number;
   className?: string;
@@ -159,7 +172,11 @@ export function LoadingSpinner({
     <motion.div
       className={cn('inline-flex', className)}
       animate={{ rotate: 360 }}
-      transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+      transition={{
+        duration: 1,
+        repeat: Number.POSITIVE_INFINITY,
+        ease: 'linear',
+      }}
     >
       <svg
         width={size}
@@ -183,7 +200,7 @@ export function LoadingSpinner({
 export function SuccessCheck({
   size = 24,
   className,
-  delay = 0
+  delay = 0,
 }: {
   size?: number;
   className?: string;
@@ -229,7 +246,7 @@ export function SuccessCheck({
 export function NotificationBell({
   hasNotification = false,
   size = 24,
-  className
+  className,
 }: {
   hasNotification?: boolean;
   size?: number;
@@ -278,7 +295,7 @@ export function HeartIcon({
   liked = false,
   size = 24,
   className,
-  onToggle
+  onToggle,
 }: {
   liked?: boolean;
   size?: number;
@@ -287,7 +304,10 @@ export function HeartIcon({
 }) {
   return (
     <motion.button
-      className={cn('focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm', className)}
+      className={cn(
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm',
+        className
+      )}
       whileTap={{ scale: 0.85 }}
       onClick={onToggle}
       aria-label={liked ? 'Unlike' : 'Like'}
@@ -318,7 +338,7 @@ export function HeartIcon({
 export function CartIcon({
   count = 0,
   size = 24,
-  className
+  className,
 }: {
   count?: number;
   size?: number;
@@ -368,7 +388,7 @@ export function QuantityButton({
   type,
   onClick,
   disabled = false,
-  className
+  className,
 }: {
   type: 'plus' | 'minus';
   onClick: () => void;
@@ -422,7 +442,7 @@ export function MenuToggle({
   isOpen = false,
   onClick,
   size = 24,
-  className
+  className,
 }: {
   isOpen?: boolean;
   onClick: () => void;
@@ -441,20 +461,36 @@ export function MenuToggle({
       aria-label={isOpen ? 'Close menu' : 'Open menu'}
       aria-expanded={isOpen}
     >
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+      >
         <motion.line
-          x1="3" y1="6" x2="21" y2="6"
+          x1="3"
+          y1="6"
+          x2="21"
+          y2="6"
           animate={isOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }}
           transition={{ duration: 0.2 }}
           style={{ transformOrigin: 'center' }}
         />
         <motion.line
-          x1="3" y1="12" x2="21" y2="12"
+          x1="3"
+          y1="12"
+          x2="21"
+          y2="12"
           animate={isOpen ? { opacity: 0, x: -10 } : { opacity: 1, x: 0 }}
           transition={{ duration: 0.2 }}
         />
         <motion.line
-          x1="3" y1="18" x2="21" y2="18"
+          x1="3"
+          y1="18"
+          x2="21"
+          y2="18"
           animate={isOpen ? { rotate: -45, y: -6 } : { rotate: 0, y: 0 }}
           transition={{ duration: 0.2 }}
           style={{ transformOrigin: 'center' }}
@@ -470,7 +506,7 @@ export function MenuToggle({
 export function ChevronToggle({
   isExpanded = false,
   size = 20,
-  className
+  className,
 }: {
   isExpanded?: boolean;
   size?: number;

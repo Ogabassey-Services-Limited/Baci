@@ -1,7 +1,7 @@
 'use client';
 
+import { ExternalLink, Quote, Star } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Star, Quote, ExternalLink } from 'lucide-react';
 import { escapeHtml } from '@/lib/sanitize-core';
 
 /**
@@ -47,7 +47,13 @@ interface GoogleReviewsSectionProps {
   className?: string;
 }
 
-function StarRating({ rating, size = 'md' }: { rating: number; size?: 'sm' | 'md' | 'lg' }) {
+function StarRating({
+  rating,
+  size = 'md',
+}: {
+  rating: number;
+  size?: 'sm' | 'md' | 'lg';
+}) {
   const sizeClasses = {
     sm: 'w-3 h-3',
     md: 'w-5 h-5',
@@ -63,8 +69,8 @@ function StarRating({ rating, size = 'md' }: { rating: number; size?: 'sm' | 'md
             star <= rating
               ? 'fill-yellow-400 text-yellow-400'
               : star - 0.5 <= rating
-              ? 'fill-yellow-400/50 text-yellow-400'
-              : 'text-gray-300 dark:text-gray-600'
+                ? 'fill-yellow-400/50 text-yellow-400'
+                : 'text-gray-300 dark:text-gray-600'
           }`}
         />
       ))}
@@ -82,10 +88,14 @@ function ReviewCard({ review }: { review: GoogleReview }) {
 
   return (
     <article className="bg-white dark:bg-slate-950 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-md transition-shadow h-full flex flex-col">
-      <Quote className="w-8 h-8 text-accent/20 mb-4 flex-shrink-0" aria-hidden="true" />
+      <Quote
+        className="w-8 h-8 text-accent/20 mb-4 flex-shrink-0"
+        aria-hidden="true"
+      />
 
       <p className="text-muted-foreground mb-4 flex-grow leading-relaxed">
-        &ldquo;{displayText}{isLong && !expanded && '...'}&rdquo;
+        &ldquo;{displayText}
+        {isLong && !expanded && '...'}&rdquo;
         {isLong && (
           <button
             onClick={() => setExpanded(!expanded)}
@@ -118,7 +128,9 @@ function ReviewCard({ review }: { review: GoogleReview }) {
           </div>
           <div className="flex items-center gap-2">
             <StarRating rating={review.rating} size="sm" />
-            <span className="text-xs text-muted-foreground">{review.relativeTime}</span>
+            <span className="text-xs text-muted-foreground">
+              {review.relativeTime}
+            </span>
           </div>
         </div>
       </div>
@@ -139,7 +151,8 @@ export function GoogleReviewsSection({
   const [error, setError] = useState<string | null>(null);
 
   // Use env var for Baci's own Place ID if not provided
-  const effectivePlaceId = placeId || process.env.NEXT_PUBLIC_BACI_GOOGLE_PLACE_ID;
+  const effectivePlaceId =
+    placeId || process.env.NEXT_PUBLIC_BACI_GOOGLE_PLACE_ID;
 
   useEffect(() => {
     if (!enabled || !effectivePlaceId) {
@@ -147,7 +160,9 @@ export function GoogleReviewsSection({
       return;
     }
 
-    fetch(`/api/google-places/reviews?placeId=${encodeURIComponent(effectivePlaceId)}`)
+    fetch(
+      `/api/google-places/reviews?placeId=${encodeURIComponent(effectivePlaceId)}`
+    )
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch reviews');
         return res.json();
@@ -233,7 +248,9 @@ export function GoogleReviewsSection({
           </div>
 
           {subtitle && (
-            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">{subtitle}</p>
+            <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
+              {subtitle}
+            </p>
           )}
 
           {/* Google attribution */}
@@ -260,14 +277,19 @@ export function GoogleReviewsSection({
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            <span className="text-sm text-muted-foreground">Reviews from Google</span>
+            <span className="text-sm text-muted-foreground">
+              Reviews from Google
+            </span>
           </div>
         </div>
 
         {/* Reviews Grid */}
         <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {displayedReviews.map((review, i) => (
-            <ReviewCard key={`${review.authorName}-${review.timestamp}-${i}`} review={review} />
+            <ReviewCard
+              key={`${review.authorName}-${review.timestamp}-${i}`}
+              review={review}
+            />
           ))}
         </div>
 

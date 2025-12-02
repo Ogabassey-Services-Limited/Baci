@@ -1,27 +1,27 @@
 'use client';
 
+import {
+  Clock,
+  Loader2,
+  Mail,
+  MapPin,
+  MessageSquare,
+  Phone,
+  Send,
+} from 'lucide-react';
 import { useState } from 'react';
-import { StorefrontHeader } from '@/components/storefront/header';
-import { StorefrontFooter } from '@/components/storefront/footer';
-import { MerchantProvider } from '@/hooks/use-merchant';
-import { StorefrontProvider } from '@/contexts/storefront-context';
 import AppBody from '@/components/app-body';
+import { StorefrontFooter } from '@/components/storefront/footer';
+import { StorefrontHeader } from '@/components/storefront/header';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { StorefrontProvider } from '@/contexts/storefront-context';
+import { MerchantProvider } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { sanitizeHtml } from '@/lib/sanitize';
-import {
-  Mail,
-  Phone,
-  MapPin,
-  Clock,
-  Send,
-  MessageSquare,
-  Loader2,
-} from 'lucide-react';
 
 interface ContactPageClientProps {
   merchant: {
@@ -54,7 +54,10 @@ interface ContactPageClientProps {
   legacyContent?: string;
 }
 
-export function ContactPageClient({ merchant, legacyContent }: ContactPageClientProps) {
+export function ContactPageClient({
+  merchant,
+  legacyContent,
+}: ContactPageClientProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
@@ -99,12 +102,15 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
     }
   };
 
-  const hasContactDetails = merchant.email || merchant.phone || merchant.address;
+  const hasContactDetails =
+    merchant.email || merchant.phone || merchant.address;
 
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
-        <AppBody merchant={merchant as Parameters<typeof AppBody>[0]["merchant"]}>
+        <AppBody
+          merchant={merchant as Parameters<typeof AppBody>[0]['merchant']}
+        >
           <div className="flex flex-col min-h-screen">
             <StorefrontHeader />
 
@@ -131,7 +137,9 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
                 <div className="grid lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
                   {/* Contact Form */}
                   <div>
-                    <h2 className="text-2xl font-bold mb-6">Send us a message</h2>
+                    <h2 className="text-2xl font-bold mb-6">
+                      Send us a message
+                    </h2>
                     <form onSubmit={handleSubmit} className="space-y-6">
                       <div className="grid sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -154,7 +162,10 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
                             placeholder="your@email.com"
                             value={formData.email}
                             onChange={(e) =>
-                              setFormData({ ...formData, email: e.target.value })
+                              setFormData({
+                                ...formData,
+                                email: e.target.value,
+                              })
                             }
                             required
                           />
@@ -167,7 +178,10 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
                           placeholder="What's this about?"
                           value={formData.subject}
                           onChange={(e) =>
-                            setFormData({ ...formData, subject: e.target.value })
+                            setFormData({
+                              ...formData,
+                              subject: e.target.value,
+                            })
                           }
                           required
                         />
@@ -180,7 +194,10 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
                           rows={6}
                           value={formData.message}
                           onChange={(e) =>
-                            setFormData({ ...formData, message: e.target.value })
+                            setFormData({
+                              ...formData,
+                              message: e.target.value,
+                            })
                           }
                           required
                         />
@@ -219,7 +236,9 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
                                 <Mail className="h-5 w-5 text-primary" />
                               </div>
                               <div>
-                                <p className="text-sm text-muted-foreground">Email</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Email
+                                </p>
                                 <a
                                   href={`mailto:${merchant.email}`}
                                   className="font-medium hover:text-primary transition-colors"
@@ -238,7 +257,9 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
                                 <Phone className="h-5 w-5 text-primary" />
                               </div>
                               <div>
-                                <p className="text-sm text-muted-foreground">Phone</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Phone
+                                </p>
                                 <a
                                   href={`tel:${merchant.phone}`}
                                   className="font-medium hover:text-primary transition-colors"
@@ -257,8 +278,12 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
                                 <MapPin className="h-5 w-5 text-primary" />
                               </div>
                               <div>
-                                <p className="text-sm text-muted-foreground">Address</p>
-                                <p className="font-medium">{merchant.address}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  Address
+                                </p>
+                                <p className="font-medium">
+                                  {merchant.address}
+                                </p>
                               </div>
                             </CardContent>
                           </Card>
@@ -276,43 +301,57 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
                               <div className="grid grid-cols-2 gap-2 text-sm ml-14">
                                 {merchant.business_hours.monday && (
                                   <div>
-                                    <span className="text-muted-foreground">Mon:</span>{' '}
+                                    <span className="text-muted-foreground">
+                                      Mon:
+                                    </span>{' '}
                                     {merchant.business_hours.monday}
                                   </div>
                                 )}
                                 {merchant.business_hours.tuesday && (
                                   <div>
-                                    <span className="text-muted-foreground">Tue:</span>{' '}
+                                    <span className="text-muted-foreground">
+                                      Tue:
+                                    </span>{' '}
                                     {merchant.business_hours.tuesday}
                                   </div>
                                 )}
                                 {merchant.business_hours.wednesday && (
                                   <div>
-                                    <span className="text-muted-foreground">Wed:</span>{' '}
+                                    <span className="text-muted-foreground">
+                                      Wed:
+                                    </span>{' '}
                                     {merchant.business_hours.wednesday}
                                   </div>
                                 )}
                                 {merchant.business_hours.thursday && (
                                   <div>
-                                    <span className="text-muted-foreground">Thu:</span>{' '}
+                                    <span className="text-muted-foreground">
+                                      Thu:
+                                    </span>{' '}
                                     {merchant.business_hours.thursday}
                                   </div>
                                 )}
                                 {merchant.business_hours.friday && (
                                   <div>
-                                    <span className="text-muted-foreground">Fri:</span>{' '}
+                                    <span className="text-muted-foreground">
+                                      Fri:
+                                    </span>{' '}
                                     {merchant.business_hours.friday}
                                   </div>
                                 )}
                                 {merchant.business_hours.saturday && (
                                   <div>
-                                    <span className="text-muted-foreground">Sat:</span>{' '}
+                                    <span className="text-muted-foreground">
+                                      Sat:
+                                    </span>{' '}
                                     {merchant.business_hours.saturday}
                                   </div>
                                 )}
                                 {merchant.business_hours.sunday && (
                                   <div>
-                                    <span className="text-muted-foreground">Sun:</span>{' '}
+                                    <span className="text-muted-foreground">
+                                      Sun:
+                                    </span>{' '}
                                     {merchant.business_hours.sunday}
                                   </div>
                                 )}
@@ -327,7 +366,9 @@ export function ContactPageClient({ merchant, legacyContent }: ContactPageClient
                     {legacyContent && (
                       <div
                         className="prose prose-sm dark:prose-invert max-w-none"
-                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(legacyContent) }} // nosemgrep
+                        dangerouslySetInnerHTML={{
+                          __html: sanitizeHtml(legacyContent),
+                        }} // nosemgrep
                       />
                     )}
                   </div>

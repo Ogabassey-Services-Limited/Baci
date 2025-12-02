@@ -37,10 +37,10 @@ export interface ShippingAddress {
 export interface ShipmentItem {
   name: string;
   quantity: number;
-  weight: number;        // kg
-  value: number;         // Naira
-  category?: string;     // For Topship categories
-  hsCode?: string;       // For international shipments
+  weight: number; // kg
+  value: number; // Naira
+  category?: string; // For Topship categories
+  hsCode?: string; // For international shipments
   description?: string;
 }
 
@@ -51,28 +51,28 @@ export interface ShipmentItem {
 export interface QuoteRequest {
   sessionId: string;
   merchantId?: string;
-  sender?: ShippingAddress;      // Uses merchant address if not provided
+  sender?: ShippingAddress; // Uses merchant address if not provided
   receiver: ShippingAddress;
   items: ShipmentItem[];
   shipmentType: 'domestic' | 'international';
 }
 
 export interface ShippingQuote {
-  id: string;                           // UUID for DB storage
+  id: string; // UUID for DB storage
   provider: ShippingProviderCode;
-  serviceTier: string;                  // Budget, Express, Premium, etc.
-  carrierName: string;                  // Actual carrier: DHL, FedEx, GIG Logistics
-  displayName: string;                  // Customer-facing name: "Express Delivery"
+  serviceTier: string; // Budget, Express, Premium, etc.
+  carrierName: string; // Actual carrier: DHL, FedEx, GIG Logistics
+  displayName: string; // Customer-facing name: "Express Delivery"
   estimatedDays: number;
   minDays?: number;
   maxDays?: number;
-  price: number;                        // Naira (normalized, includes insurance)
+  price: number; // Naira (normalized, includes insurance)
   currency: 'NGN' | string;
   pickupIncluded: boolean;
   insuranceIncluded: boolean;
-  providerRateId?: string;              // For booking (Shiip redis_key, etc.)
+  providerRateId?: string; // For booking (Shiip redis_key, etc.)
   expiresAt: Date;
-  rawResponse?: unknown;                // Raw provider response for debugging
+  rawResponse?: unknown; // Raw provider response for debugging
 
   // Station pickup (for areas without home delivery)
   isStationPickup?: boolean;
@@ -87,12 +87,12 @@ export interface ShippingQuote {
 
 export interface QuoteResponse {
   quotes: {
-    featured: ShippingQuote[];          // Top 3: cheapest, fastest, recommended
-    all: ShippingQuote[];               // All available quotes
+    featured: ShippingQuote[]; // Top 3: cheapest, fastest, recommended
+    all: ShippingQuote[]; // All available quotes
   };
   sessionId: string;
   expiresAt: string;
-  warnings?: string[];                  // Any provider errors/warnings
+  warnings?: string[]; // Any provider errors/warnings
 }
 
 // =============================================================================
@@ -103,7 +103,7 @@ export interface BookingRequest {
   orderId: string;
   quoteId: string;
   merchantId?: string;
-  providerRateId?: string;              // Provider-specific rate ID for booking
+  providerRateId?: string; // Provider-specific rate ID for booking
   sender: ShippingAddress;
   receiver: ShippingAddress;
   items: ShipmentItem[];
@@ -136,7 +136,7 @@ export interface TrackingEvent {
   description: string;
   location?: string;
   timestamp: Date;
-  rawStatus?: string;                   // Original status from provider
+  rawStatus?: string; // Original status from provider
 }
 
 export interface TrackingResult {
@@ -168,18 +168,19 @@ export type NormalizedShipmentStatus =
   | 'failed'
   | 'returned';
 
-export const SHIPMENT_STATUS_LABELS: Record<NormalizedShipmentStatus, string> = {
-  pending: 'Pending',
-  booked: 'Booked',
-  pickup_scheduled: 'Pickup Scheduled',
-  picked_up: 'Picked Up',
-  in_transit: 'In Transit',
-  out_for_delivery: 'Out for Delivery',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  failed: 'Failed',
-  returned: 'Returned',
-};
+export const SHIPMENT_STATUS_LABELS: Record<NormalizedShipmentStatus, string> =
+  {
+    pending: 'Pending',
+    booked: 'Booked',
+    pickup_scheduled: 'Pickup Scheduled',
+    picked_up: 'Picked Up',
+    in_transit: 'In Transit',
+    out_for_delivery: 'Out for Delivery',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled',
+    failed: 'Failed',
+    returned: 'Returned',
+  };
 
 // =============================================================================
 // CANCELLATION TYPES
@@ -268,8 +269,8 @@ export interface NigerianState {
 
 export interface NigerianCity {
   name: string;
-  stationId?: number;       // GIGL station ID
-  stationName?: string;     // GIGL station name
+  stationId?: number; // GIGL station ID
+  stationName?: string; // GIGL station name
 }
 
 export interface UnifiedLocation {
@@ -289,7 +290,7 @@ export interface UnifiedLocation {
 export interface ProviderConfig {
   code: ShippingProviderCode;
   name: string;
-  displayName: string;                  // What customers see
+  displayName: string; // What customers see
   enabled: boolean;
   supportsInternational: boolean;
   supportsDomestic: boolean;
@@ -307,7 +308,7 @@ export const PROVIDER_CONFIGS: Record<ShippingProviderCode, ProviderConfig> = {
   TOPSHIP: {
     code: 'TOPSHIP',
     name: 'Topship',
-    displayName: 'Topship',              // Hidden from customers - show carrier name instead
+    displayName: 'Topship', // Hidden from customers - show carrier name instead
     enabled: true,
     supportsInternational: true,
     supportsDomestic: true,
@@ -315,7 +316,7 @@ export const PROVIDER_CONFIGS: Record<ShippingProviderCode, ProviderConfig> = {
   SHIIP: {
     code: 'SHIIP',
     name: 'Shiip',
-    displayName: 'Shiip',                // Hidden from customers - show carrier name instead
+    displayName: 'Shiip', // Hidden from customers - show carrier name instead
     enabled: true,
     supportsInternational: true,
     supportsDomestic: true,
@@ -328,7 +329,10 @@ export const PROVIDER_CONFIGS: Record<ShippingProviderCode, ProviderConfig> = {
 
 export type DeliveryTier = 'express' | 'standard' | 'economy' | 'premium';
 
-export const TIER_DISPLAY_NAMES: Record<DeliveryTier, { name: string; icon: string }> = {
+export const TIER_DISPLAY_NAMES: Record<
+  DeliveryTier,
+  { name: string; icon: string }
+> = {
   express: { name: 'Express Delivery', icon: '⚡' },
   standard: { name: 'Standard Delivery', icon: '⭐' },
   economy: { name: 'Economy Delivery', icon: '💰' },
@@ -336,21 +340,39 @@ export const TIER_DISPLAY_NAMES: Record<DeliveryTier, { name: string; icon: stri
 };
 
 // Map provider service tiers to unified tiers
-export function mapToDeliveryTier(serviceTier: string, estimatedDays: number): DeliveryTier {
+export function mapToDeliveryTier(
+  serviceTier: string,
+  estimatedDays: number
+): DeliveryTier {
   const tier = serviceTier.toLowerCase();
 
   // Express/fast options
-  if (tier.includes('express') || tier.includes('fast') || tier.includes('priority') || estimatedDays <= 2) {
+  if (
+    tier.includes('express') ||
+    tier.includes('fast') ||
+    tier.includes('priority') ||
+    estimatedDays <= 2
+  ) {
     return 'express';
   }
 
   // Premium options (FedEx, DHL, etc.)
-  if (tier.includes('fedex') || tier.includes('dhl') || tier.includes('ups') || tier.includes('premium')) {
+  if (
+    tier.includes('fedex') ||
+    tier.includes('dhl') ||
+    tier.includes('ups') ||
+    tier.includes('premium')
+  ) {
     return 'premium';
   }
 
   // Budget/economy options
-  if (tier.includes('budget') || tier.includes('economy') || tier.includes('lastmile') || estimatedDays >= 5) {
+  if (
+    tier.includes('budget') ||
+    tier.includes('economy') ||
+    tier.includes('lastmile') ||
+    estimatedDays >= 5
+  ) {
     return 'economy';
   }
 

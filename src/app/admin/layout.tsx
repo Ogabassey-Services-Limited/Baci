@@ -1,26 +1,26 @@
 'use client';
 
-import Link from 'next/link';
-import type { Route } from 'next';
-import { Suspense, useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
 import {
-  User,
-  Menu,
-  Settings,
+  BarChart3,
+  Bell,
+  Building2,
+  Database,
   LayoutDashboard,
   Loader2,
   LogOut,
+  Menu,
   PanelLeftClose,
   PanelLeftOpen,
-  BarChart3,
-  Users,
-  Database,
+  Settings,
   Shield,
-  Building2,
-  Bell,
+  User,
+  Users,
 } from 'lucide-react';
-
+import type { Route } from 'next';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,12 +31,16 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Logo } from '@/components/logo';
-import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/auth-context';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
 
 export default function AdminLayout({
   children,
@@ -99,7 +103,11 @@ export default function AdminLayout({
     router.push('/login');
   };
 
-  const navItems: { href: Route; icon: typeof LayoutDashboard; label: string }[] = [
+  const navItems: {
+    href: Route;
+    icon: typeof LayoutDashboard;
+    label: string;
+  }[] = [
     {
       href: '/admin' as Route,
       icon: LayoutDashboard,
@@ -138,7 +146,9 @@ export default function AdminLayout({
       <div className="flex min-h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 motion-safe:animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Verifying admin access...</p>
+          <p className="text-sm text-muted-foreground">
+            Verifying admin access...
+          </p>
         </div>
       </div>
     );
@@ -150,18 +160,35 @@ export default function AdminLayout({
   }
 
   return (
-    <div className={cn("grid min-h-screen w-full transition-all", isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]")}>
+    <div
+      className={cn(
+        'grid min-h-screen w-full transition-all',
+        isCollapsed
+          ? 'md:grid-cols-[80px_1fr]'
+          : 'md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]'
+      )}
+    >
       {/* Sidebar */}
       <div className="hidden border-r bg-card md:block">
         <div className="flex h-full max-h-screen flex-col">
           {/* Logo */}
-          <div className={cn("flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6", isCollapsed && "justify-center")}>
-            <Link href="/admin" className="flex items-center gap-2 font-semibold">
+          <div
+            className={cn(
+              'flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6',
+              isCollapsed && 'justify-center'
+            )}
+          >
+            <Link
+              href="/admin"
+              className="flex items-center gap-2 font-semibold"
+            >
               <Logo />
               {!isCollapsed && (
                 <span className="flex items-center gap-1.5">
                   <Shield className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-primary">Admin</span>
+                  <span className="text-sm font-medium text-primary">
+                    Admin
+                  </span>
                 </span>
               )}
             </Link>
@@ -170,9 +197,14 @@ export default function AdminLayout({
           {/* Navigation */}
           <div className="flex-1 overflow-y-auto">
             <TooltipProvider>
-              <nav className="grid items-start px-2 text-sm font-medium lg:px-4 mt-2" aria-label="Admin navigation">
+              <nav
+                className="grid items-start px-2 text-sm font-medium lg:px-4 mt-2"
+                aria-label="Admin navigation"
+              >
                 {navItems.map((item) => {
-                  const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href !== '/admin' && pathname.startsWith(item.href));
                   return (
                     <Link
                       key={item.label}
@@ -191,7 +223,11 @@ export default function AdminLayout({
                             {!isCollapsed && <span>{item.label}</span>}
                           </div>
                         </TooltipTrigger>
-                        {isCollapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
+                        {isCollapsed && (
+                          <TooltipContent side="right">
+                            {item.label}
+                          </TooltipContent>
+                        )}
                       </Tooltip>
                     </Link>
                   );
@@ -215,7 +251,11 @@ export default function AdminLayout({
                         {!isCollapsed && <span>Merchant Dashboard</span>}
                       </div>
                     </TooltipTrigger>
-                    {isCollapsed && <TooltipContent side="right">Merchant Dashboard</TooltipContent>}
+                    {isCollapsed && (
+                      <TooltipContent side="right">
+                        Merchant Dashboard
+                      </TooltipContent>
+                    )}
                   </Tooltip>
                 </Link>
               </nav>
@@ -242,13 +282,19 @@ export default function AdminLayout({
           size="icon"
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={cn(
-            "fixed top-1/2 -translate-y-1/2 z-20 hidden md:flex rounded-full",
-            isCollapsed ? "left-[68px]" : "left-[208px] lg:left-[268px]",
-            "bg-primary hover:bg-primary/90 text-primary-foreground transition-all"
+            'fixed top-1/2 -translate-y-1/2 z-20 hidden md:flex rounded-full',
+            isCollapsed ? 'left-[68px]' : 'left-[208px] lg:left-[268px]',
+            'bg-primary hover:bg-primary/90 text-primary-foreground transition-all'
           )}
         >
-          {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
-          <span className="sr-only">{isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
+          {isCollapsed ? (
+            <PanelLeftOpen className="h-5 w-5" />
+          ) : (
+            <PanelLeftClose className="h-5 w-5" />
+          )}
+          <span className="sr-only">
+            {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          </span>
         </Button>
 
         {/* Header */}
@@ -256,20 +302,32 @@ export default function AdminLayout({
           {/* Mobile menu */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="shrink-0 md:hidden">
+              <Button
+                variant="outline"
+                size="icon"
+                className="shrink-0 md:hidden"
+              >
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Toggle navigation menu</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col">
-              <nav className="grid gap-2 text-lg font-medium" aria-label="Mobile admin navigation">
-                <Link href="/admin" className="flex items-center gap-2 text-lg font-semibold mb-4">
+              <nav
+                className="grid gap-2 text-lg font-medium"
+                aria-label="Mobile admin navigation"
+              >
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-2 text-lg font-semibold mb-4"
+                >
                   <Logo />
                   <Shield className="h-4 w-4 text-primary" />
                   <span className="text-sm text-primary">Admin</span>
                 </Link>
                 {navItems.map((item) => {
-                  const isActive = pathname === item.href || (item.href !== '/admin' && pathname.startsWith(item.href));
+                  const isActive =
+                    pathname === item.href ||
+                    (item.href !== '/admin' && pathname.startsWith(item.href));
                   return (
                     <Link
                       key={item.label}
@@ -314,14 +372,21 @@ export default function AdminLayout({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{user?.email || 'Admin Account'}</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                {user?.email || 'Admin Account'}
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
+              <DropdownMenuItem
+                onClick={() => router.push('/dashboard/settings')}
+              >
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="text-red-500 focus:bg-red-100 focus:text-red-700">
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="text-red-500 focus:bg-red-100 focus:text-red-700"
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 <span>Logout</span>
               </DropdownMenuItem>
@@ -330,8 +395,17 @@ export default function AdminLayout({
         </header>
 
         {/* Main content */}
-        <main id="main-content" className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-auto bg-muted/30">
-          <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 motion-safe:animate-spin" /></div>}>
+        <main
+          id="main-content"
+          className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-y-auto bg-muted/30"
+        >
+          <Suspense
+            fallback={
+              <div className="flex flex-1 items-center justify-center">
+                <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+              </div>
+            }
+          >
             {children}
           </Suspense>
         </main>

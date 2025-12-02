@@ -1,20 +1,30 @@
-import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import { Calendar, Clock, Rss, User } from 'lucide-react';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, User, ArrowRight, Rss } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { asRoute } from '@/lib/routes';
+import { createClient } from '@/lib/supabase/server';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ category?: string; page?: string }>;
 }
 
-async function getMerchantAndPosts(merchantSlug: string, category?: string, page = 1) {
+async function getMerchantAndPosts(
+  merchantSlug: string,
+  category?: string,
+  page = 1
+) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const limit = 12;
@@ -41,7 +51,10 @@ async function getMerchantAndPosts(merchantSlug: string, category?: string, page
   // Build posts query
   let query = supabase
     .from('blog_posts')
-    .select('id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count', { count: 'exact' })
+    .select(
+      'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count',
+      { count: 'exact' }
+    )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .order('published_at', { ascending: false })
@@ -61,7 +74,9 @@ async function getMerchantAndPosts(merchantSlug: string, category?: string, page
     .eq('status', 'published')
     .not('category', 'is', null);
 
-  const uniqueCategories = [...new Set(categories?.map((c) => c.category).filter(Boolean))];
+  const uniqueCategories = [
+    ...new Set(categories?.map((c) => c.category).filter(Boolean)),
+  ];
 
   return {
     merchant,
@@ -73,7 +88,9 @@ async function getMerchantAndPosts(merchantSlug: string, category?: string, page
   };
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const data = await getMerchantAndPosts(slug);
 
@@ -100,7 +117,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function BlogPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { category, page } = await searchParams;
-  const currentPage = parseInt(page || '1', 10);
+  const currentPage = Number.parseInt(page || '1', 10);
 
   const data = await getMerchantAndPosts(slug, category, currentPage);
 
@@ -117,10 +134,15 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-between">
             <div>
-              <Link href={`/${slug}`} className="text-sm text-muted-foreground hover:text-foreground mb-2 inline-block">
+              <Link
+                href={`/${slug}`}
+                className="text-sm text-muted-foreground hover:text-foreground mb-2 inline-block"
+              >
                 &larr; Back to store
               </Link>
-              <h1 className="text-3xl font-bold">{merchant.business_name} Blog</h1>
+              <h1 className="text-3xl font-bold">
+                {merchant.business_name} Blog
+              </h1>
               <p className="text-muted-foreground mt-2">
                 Latest articles, news, and insights
               </p>
@@ -143,13 +165,24 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
         {categories.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-8">
             <Link href={asRoute(`/${slug}/blog`)}>
-              <Badge variant={!category ? 'default' : 'outline'} className="cursor-pointer">
+              <Badge
+                variant={!category ? 'default' : 'outline'}
+                className="cursor-pointer"
+              >
                 All
               </Badge>
             </Link>
             {categories.map((cat) => (
-              <Link key={cat} href={asRoute(`/${slug}/blog?category=${encodeURIComponent(cat)}`)}>
-                <Badge variant={category === cat ? 'default' : 'outline'} className="cursor-pointer">
+              <Link
+                key={cat}
+                href={asRoute(
+                  `/${slug}/blog?category=${encodeURIComponent(cat)}`
+                )}
+              >
+                <Badge
+                  variant={category === cat ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                >
                   {cat}
                 </Badge>
               </Link>
@@ -162,7 +195,9 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
           <Card className="text-center py-12">
             <CardContent>
               <p className="text-muted-foreground">
-                {category ? `No posts found in "${category}" category.` : 'No blog posts yet. Check back soon!'}
+                {category
+                  ? `No posts found in "${category}" category.`
+                  : 'No blog posts yet. Check back soon!'}
               </p>
             </CardContent>
           </Card>
@@ -199,12 +234,16 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <User className="w-3.5 h-3.5" />
-                        <span className="truncate max-w-[100px]">{post.author_name}</span>
+                        <span className="truncate max-w-[100px]">
+                          {post.author_name}
+                        </span>
                       </div>
                       {post.published_at && (
                         <div className="flex items-center gap-1">
                           <Calendar className="w-3.5 h-3.5" />
-                          <span>{new Date(post.published_at).toLocaleDateString()}</span>
+                          <span>
+                            {new Date(post.published_at).toLocaleDateString()}
+                          </span>
                         </div>
                       )}
                       {post.reading_time_minutes && (
@@ -226,7 +265,11 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
           <div className="flex justify-center gap-2 mt-8">
             {currentPage > 1 && (
               <Button variant="outline" asChild>
-                <Link href={asRoute(`/${slug}/blog?${category ? `category=${category}&` : ''}page=${currentPage - 1}`)}>
+                <Link
+                  href={asRoute(
+                    `/${slug}/blog?${category ? `category=${category}&` : ''}page=${currentPage - 1}`
+                  )}
+                >
                   Previous
                 </Link>
               </Button>
@@ -236,7 +279,11 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
             </span>
             {currentPage < totalPages && (
               <Button variant="outline" asChild>
-                <Link href={asRoute(`/${slug}/blog?${category ? `category=${category}&` : ''}page=${currentPage + 1}`)}>
+                <Link
+                  href={asRoute(
+                    `/${slug}/blog?${category ? `category=${category}&` : ''}page=${currentPage + 1}`
+                  )}
+                >
                   Next
                 </Link>
               </Button>
