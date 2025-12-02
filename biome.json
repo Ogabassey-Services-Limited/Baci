@@ -24,7 +24,13 @@
     "lineWidth": 80,
     "lineEnding": "lf"
   },
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {
@@ -142,7 +148,9 @@
         "useArrayLiterals": "error",
         "useConsistentArrayType": {
           "level": "error",
-          "options": { "syntax": "shorthand" }
+          "options": {
+            "syntax": "shorthand"
+          }
         }
       },
       "suspicious": {
@@ -186,11 +194,22 @@
         "useNamespaceKeyword": "error",
         "noWith": "error",
         "noVar": "error",
-        "noConsole": { "level": "off", "options": { "allow": ["log"] } }
+        "noConsole": {
+          "level": "off",
+          "options": {
+            "allow": [
+              "log"
+            ]
+          }
+        }
       }
     }
   },
   "javascript": {
+    "globals": [
+      "Deno",
+      "ColorThief"
+    ],
     "formatter": {
       "quoteStyle": "single",
       "jsxQuoteStyle": "double",
