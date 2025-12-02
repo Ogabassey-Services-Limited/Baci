@@ -180,9 +180,9 @@ export default function NewBlogPostPage() {
   // Calculate word count from HTML content
   const getTextContent = (html: string) => {
     if (typeof window === 'undefined') return '';
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    return div.textContent || div.innerText || '';
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
   };
   const wordCount = getTextContent(formData.content).split(/\s+/).filter(Boolean).length;
   const readingTime = Math.ceil(wordCount / 200);
