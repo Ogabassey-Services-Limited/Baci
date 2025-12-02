@@ -174,6 +174,22 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           const excerpt =
             post.excerpt || stripHtml(post.content).substring(0, 300);
 
+          // SECURITY: Sanitize HTML content to prevent XSS in RSS readers
+          // Allow safe formatting tags but remove scripts, iframes, etc.
+          const sanitizedContent = sanitizeHtml(post.content, {
+            allowedTags: [
+              'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+              'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'a', 'img',
+            ],
+            allowedAttributes: {
+              a: ['href', 'title', 'rel'],
+              img: ['src', 'alt', 'title', 'width', 'height'],
+            },
+            allowedSchemes: ['http', 'https', 'mailto'],
+            // Disallow data: URIs and javascript: protocol
+            allowProtocolRelative: false,
+          });
+
           return `
     <item>
       <title>${escapeXml(post.title)}</title>
@@ -181,7 +197,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       <guid isPermaLink="true">${escapeXml(postUrl)}</guid>
       <pubDate>${pubDate}</pubDate>
       <description>${escapeXml(excerpt)}</description>
-      <content:encoded><![CDATA[${post.content.replace(/]]>/g, ']]]]><![CDATA[>')}]]></content:encoded>
+      <content:encoded><![CDATA[${sanitizedContent.replace(/]]>/g, ']]]]><![CDATA[>')}]]></content:encoded>
       <dc:creator>${escapeXml(post.author_name)}</dc:creator>
       ${post.category ? `<category>${escapeXml(post.category)}</category>` : ''}
       ${post.featured_image_url

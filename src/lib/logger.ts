@@ -5,7 +5,7 @@ type LogLevel = 'info' | 'warn' | 'error';
 
 interface LogPayload {
   message: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: Logger needs to handle any type
   [key: string]: any;
 }
 
@@ -104,24 +104,26 @@ function sanitizeForLogging(obj: unknown, depth = 0): unknown {
   return sanitized;
 }
 
-/**
- * Convert an Error object into a sanitized serializable object for logging
- */
 function sanitizeErrorForLogging(
   error: Error,
   depth = 0
 ): Record<string, unknown> {
-  // Only keep common fields and sanitize any extra (custom) fields
+  // SECURITY FIX: Sanitize message and stack to prevent token leakage
+  // Error messages may contain sensitive data like "Failed with token: sk_live_123"
   const base: Record<string, unknown> = {
     name: error.name,
-    message: error.message,
-    stack: error.stack,
+    message: typeof error.message === 'string'
+      ? (sanitizeForLogging(error.message, depth + 1) as string)
+      : error.message,
+    stack: typeof error.stack === 'string'
+      ? (sanitizeForLogging(error.stack, depth + 1) as string)
+      : error.stack,
   };
 
   // Attach and sanitize custom fields (excluding built-in ones)
   for (const key of Object.keys(error)) {
     if (key !== 'name' && key !== 'message' && key !== 'stack') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: Error properties can be any type
       base[key] = sanitizeForLogging((error as any)[key], depth + 1);
     }
   }
@@ -145,9 +147,9 @@ const log = (level: LogLevel, payload: LogPayload | Error) => {
     // Safely extract message from sanitized payload
     const sanitizedMessage =
       typeof sanitizedPayload === 'object' &&
-      sanitizedPayload !== null &&
-      'message' in sanitizedPayload &&
-      typeof sanitizedPayload.message === 'string'
+        sanitizedPayload !== null &&
+        'message' in sanitizedPayload &&
+        typeof sanitizedPayload.message === 'string'
         ? sanitizedPayload.message
         : '';
 

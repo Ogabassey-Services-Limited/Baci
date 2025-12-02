@@ -24,6 +24,11 @@ export async function processFavicon(
   const isSvg = file.type === 'image/svg+xml';
   const buffer = Buffer.from(await file.arrayBuffer());
 
+  // Validate merchantId to prevent path traversal
+  if (!merchantId || !/^[a-f0-9-]{36}$/i.test(merchantId)) {
+    throw new Error('Invalid merchant ID format');
+  }
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
@@ -33,12 +38,17 @@ export async function processFavicon(
     apple_touch_url: '',
   };
 
-  // If SVG, upload as-is and also convert to PNG sizes
+  // If SVG, sanitize first, then upload and convert to PNG sizes
   if (isSvg) {
+    // CRITICAL: Sanitize SVG to prevent XSS attacks
+    const svgString = buffer.toString('utf-8');
+    const sanitizedSvgString = sanitizeSVG(svgString);
+    const sanitizedBuffer = Buffer.from(sanitizedSvgString, 'utf-8');
+
     const svgPath = `${merchantId}/icon.svg`;
-    const { data: svgData, error: svgError } = await supabase.storage
+    const { data: _svgData, error: svgError } = await supabase.storage
       .from('favicons')
-      .upload(svgPath, buffer, {
+      .upload(svgPath, sanitizedBuffer, {
         contentType: 'image/svg+xml',
         upsert: true,
       });

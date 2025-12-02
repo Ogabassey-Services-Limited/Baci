@@ -867,7 +867,9 @@ export function constructCanonicalUrl(
       // Only keep allowed parameters
       if (allowedParams.includes(key)) {
         if (Array.isArray(value)) {
-          value.forEach((v) => params.append(key, v));
+          for (const v of value) {
+            params.append(key, v);
+          }
         } else if (value !== undefined) {
           params.append(key, value as string);
         }
@@ -912,40 +914,41 @@ interface BlogPostSchemaData {
 export function generateBlogPostSchema(
   data: BlogPostSchemaData
 ): Record<string, unknown> {
+  // SECURITY FIX: Sanitize all inputs to prevent XSS (consistent with other schema functions)
   const schema: Record<string, unknown> = {
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
-    headline: data.title,
-    description: data.description,
-    url: data.url,
+    headline: escapeHtml(data.title),
+    description: escapeHtml(data.description),
+    url: escapeHtml(data.url),
     datePublished: data.datePublished,
     dateModified: data.dateModified || data.datePublished,
     author: {
       '@type': 'Person',
-      name: data.author.name,
-      ...(data.author.url && { url: data.author.url }),
-      ...(data.author.jobTitle && { jobTitle: data.author.jobTitle }),
-      ...(data.author.description && { description: data.author.description }),
+      name: escapeHtml(data.author.name),
+      ...(data.author.url && { url: escapeHtml(data.author.url) }),
+      ...(data.author.jobTitle && { jobTitle: escapeHtml(data.author.jobTitle) }),
+      ...(data.author.description && { description: escapeHtml(data.author.description) }),
     },
     publisher: {
       '@type': 'Organization',
-      name: data.publisher.name,
-      url: data.publisher.url,
+      name: escapeHtml(data.publisher.name),
+      url: escapeHtml(data.publisher.url),
       logo: {
         '@type': 'ImageObject',
-        url: data.publisher.logo,
+        url: escapeHtml(data.publisher.logo),
       },
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': data.url,
+      '@id': escapeHtml(data.url),
     },
   };
 
   if (data.image) {
     schema.image = {
       '@type': 'ImageObject',
-      url: data.image,
+      url: escapeHtml(data.image),
     };
   }
 
@@ -954,11 +957,12 @@ export function generateBlogPostSchema(
   }
 
   if (data.keywords && data.keywords.length > 0) {
-    schema.keywords = data.keywords.join(', ');
+    // Sanitize each keyword
+    schema.keywords = data.keywords.map(k => escapeHtml(k)).join(', ');
   }
 
   if (data.category) {
-    schema.articleSection = data.category;
+    schema.articleSection = escapeHtml(data.category);
   }
 
   if (data.readingTime) {
