@@ -280,10 +280,10 @@ export function auditColorContrast(
       suggestedColor: result.passes
         ? undefined
         : getAccessibleColor(
-          pair.foreground,
-          pair.background,
-          pair.isLargeText
-        ),
+            pair.foreground,
+            pair.background,
+            pair.isLargeText
+          ),
     };
   });
 }

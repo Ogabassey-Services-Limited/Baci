@@ -73,10 +73,11 @@ export function FileUpload() {
       <div className="w-full max-w-sm space-y-4 mb-8">
         <div
           {...getRootProps()}
-          className={`p-10 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDragActive
-            ? 'border-primary bg-primary/10'
-            : 'border-border hover:border-primary/50'
-            }`}
+          className={`p-10 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+            isDragActive
+              ? 'border-primary bg-primary/10'
+              : 'border-border hover:border-primary/50'
+          }`}
         >
           <input {...getInputProps()} />
           <div className="flex flex-col items-center justify-center gap-4">

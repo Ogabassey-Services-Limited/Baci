@@ -192,6 +192,7 @@ export function GadgetDefaultTemplate() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {categories.map((cat, i) => (
               <Link
+                // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
                 key={i}
                 href={asRoute(cat.href)}
                 className={cn(

@@ -22,73 +22,71 @@ interface PageProps {
   searchParams: Promise<{ category?: string; page?: string }>;
 }
 
-const getMerchantAndPosts = cache(async (
-  merchantSlug: string,
-  category?: string,
-  page = 1
-) => {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
-  const limit = 12;
-  const offset = (page - 1) * limit;
+const getMerchantAndPosts = cache(
+  async (merchantSlug: string, category?: string, page = 1) => {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const limit = 12;
+    const offset = (page - 1) * limit;
 
-  // Get merchant
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id, business_name, slug, logo_url')
-    .eq('slug', merchantSlug)
-    .single();
+    // Get merchant
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('id, business_name, slug, logo_url')
+      .eq('slug', merchantSlug)
+      .single();
 
-  if (!merchant) return null;
+    if (!merchant) return null;
 
-  // Check if blog is enabled
-  const { data: features } = await supabase
-    .from('merchant_feature_settings')
-    .select('blog_enabled')
-    .eq('merchant_id', merchant.id)
-    .single();
+    // Check if blog is enabled
+    const { data: features } = await supabase
+      .from('merchant_feature_settings')
+      .select('blog_enabled')
+      .eq('merchant_id', merchant.id)
+      .single();
 
-  if (!features?.blog_enabled) return null;
+    if (!features?.blog_enabled) return null;
 
-  // Build posts query
-  let query = supabase
-    .from('blog_posts')
-    .select(
-      'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count',
-      { count: 'exact' }
-    )
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    // Build posts query
+    let query = supabase
+      .from('blog_posts')
+      .select(
+        'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count',
+        { count: 'exact' }
+      )
+      .eq('merchant_id', merchant.id)
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
-  if (category) {
-    query = query.eq('category', category);
+    if (category) {
+      query = query.eq('category', category);
+    }
+
+    const { data: posts, count } = await query;
+
+    // Get unique categories
+    const { data: categories } = await supabase
+      .from('blog_posts')
+      .select('category')
+      .eq('merchant_id', merchant.id)
+      .eq('status', 'published')
+      .not('category', 'is', null);
+
+    const uniqueCategories = [
+      ...new Set(categories?.map((c) => c.category).filter(Boolean)),
+    ];
+
+    return {
+      merchant,
+      posts: posts || [],
+      totalPosts: count || 0,
+      categories: uniqueCategories,
+      currentPage: page,
+      totalPages: Math.ceil((count || 0) / limit),
+    };
   }
-
-  const { data: posts, count } = await query;
-
-  // Get unique categories
-  const { data: categories } = await supabase
-    .from('blog_posts')
-    .select('category')
-    .eq('merchant_id', merchant.id)
-    .eq('status', 'published')
-    .not('category', 'is', null);
-
-  const uniqueCategories = [
-    ...new Set(categories?.map((c) => c.category).filter(Boolean)),
-  ];
-
-  return {
-    merchant,
-    posts: posts || [],
-    totalPosts: count || 0,
-    categories: uniqueCategories,
-    currentPage: page,
-    totalPages: Math.ceil((count || 0) / limit),
-  };
-});
+);
 
 export async function generateMetadata({
   params,

@@ -36,7 +36,9 @@ function rgbToHex(rgb) {
 function getLuminance([r, g, b]) {
   const a = [r, g, b].map((v) => {
     const channel = v / 255;
-    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    return channel <= 0.03928
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4;
   });
   return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
 }

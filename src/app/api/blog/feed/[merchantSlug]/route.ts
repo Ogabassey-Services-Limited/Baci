@@ -159,38 +159,56 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     <lastBuildDate>${lastBuildDate}</lastBuildDate>
     <atom:link href="${escapeXml(feedUrl)}" rel="self" type="application/rss+xml"/>
     <generator>Baci E-commerce Platform</generator>
-    ${merchant.logo_url
+    ${
+      merchant.logo_url
         ? `<image>
       <url>${escapeXml(merchant.logo_url)}</url>
       <title>${escapeXml(merchant.business_name)}</title>
       <link>${escapeXml(storeUrl)}</link>
     </image>`
         : ''
-      }
+    }
     ${posts
-        .map((post) => {
-          const postUrl = `${storeUrl}/blog/${post.slug}`;
-          const pubDate = new Date(post.published_at).toUTCString();
-          const excerpt =
-            post.excerpt || stripHtml(post.content).substring(0, 300);
+      .map((post) => {
+        const postUrl = `${storeUrl}/blog/${post.slug}`;
+        const pubDate = new Date(post.published_at).toUTCString();
+        const excerpt =
+          post.excerpt || stripHtml(post.content).substring(0, 300);
 
-          // SECURITY: Sanitize HTML content to prevent XSS in RSS readers
-          // Allow safe formatting tags but remove scripts, iframes, etc.
-          const sanitizedContent = sanitizeHtml(post.content, {
-            allowedTags: [
-              'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-              'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'a', 'img',
-            ],
-            allowedAttributes: {
-              a: ['href', 'title', 'rel'],
-              img: ['src', 'alt', 'title', 'width', 'height'],
-            },
-            allowedSchemes: ['http', 'https', 'mailto'],
-            // Disallow data: URIs and javascript: protocol
-            allowProtocolRelative: false,
-          });
+        // SECURITY: Sanitize HTML content to prevent XSS in RSS readers
+        // Allow safe formatting tags but remove scripts, iframes, etc.
+        const sanitizedContent = sanitizeHtml(post.content, {
+          allowedTags: [
+            'p',
+            'br',
+            'strong',
+            'em',
+            'u',
+            'h1',
+            'h2',
+            'h3',
+            'h4',
+            'h5',
+            'h6',
+            'ul',
+            'ol',
+            'li',
+            'blockquote',
+            'pre',
+            'code',
+            'a',
+            'img',
+          ],
+          allowedAttributes: {
+            a: ['href', 'title', 'rel'],
+            img: ['src', 'alt', 'title', 'width', 'height'],
+          },
+          allowedSchemes: ['http', 'https', 'mailto'],
+          // Disallow data: URIs and javascript: protocol
+          allowProtocolRelative: false,
+        });
 
-          return `
+        return `
     <item>
       <title>${escapeXml(post.title)}</title>
       <link>${escapeXml(postUrl)}</link>
@@ -200,17 +218,18 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       <content:encoded><![CDATA[${sanitizedContent.replace(/]]>/g, ']]]]><![CDATA[>')}]]></content:encoded>
       <dc:creator>${escapeXml(post.author_name)}</dc:creator>
       ${post.category ? `<category>${escapeXml(post.category)}</category>` : ''}
-      ${post.featured_image_url
-              ? `
+      ${
+        post.featured_image_url
+          ? `
       <enclosure url="${escapeXml(post.featured_image_url)}" type="image/jpeg"/>
       <media:content url="${escapeXml(post.featured_image_url)}" medium="image">
         <media:title>${escapeXml(post.title)}</media:title>
       </media:content>`
-              : ''
-            }
+          : ''
+      }
     </item>`;
-        })
-        .join('')}
+      })
+      .join('')}
   </channel>
 </rss>`;
 

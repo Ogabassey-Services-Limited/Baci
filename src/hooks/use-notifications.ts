@@ -361,6 +361,7 @@ export function useNotifications(): UseNotificationsReturn {
  */
 export function useNotificationsSafe(): UseNotificationsReturn | null {
   try {
+    // biome-ignore lint/correctness/useHookAtTopLevel: Safe wrapper for conditional usage
     return useNotifications();
   } catch {
     return null;

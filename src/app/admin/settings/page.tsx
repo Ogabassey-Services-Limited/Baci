@@ -611,7 +611,7 @@ export default function PlatformSettingsPage() {
                         ₦
                         {(
                           (settings.payment_processor_fee_percentage / 100) *
-                          10000 +
+                            10000 +
                           settings.payment_processor_fee_flat
                         ).toFixed(2)}
                       </span>

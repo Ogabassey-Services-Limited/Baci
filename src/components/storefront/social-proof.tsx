@@ -88,6 +88,7 @@ export function LowStockBadge({
 // =============================================================================
 
 export function ViewerCount({
+  // biome-ignore lint/correctness/noUnusedFunctionParameters: Future use
   productId,
   initialCount,
   className,

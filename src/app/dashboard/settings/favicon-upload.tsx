@@ -3,9 +3,9 @@
 import { Loader2, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
+import { uploadFavicon } from '@/app/dashboard/settings/actions';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
-import { uploadFavicon } from '@/app/dashboard/settings/actions';
 // import { createClient } from '@/lib/supabase/client'; // Not needed anymore
 
 export function FaviconUpload() {
@@ -73,7 +73,10 @@ export function FaviconUpload() {
       console.error('Favicon upload failed:', error);
       toast({
         title: 'Upload failed',
-        description: error instanceof Error ? error.message : 'Could not update favicon. Please try again.',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Could not update favicon. Please try again.',
         variant: 'destructive',
       });
     } finally {

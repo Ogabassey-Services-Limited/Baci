@@ -143,6 +143,7 @@ const ChartTooltipContent = React.forwardRef<
 
       const [item] = payload;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed
       const key = `${labelKey || (item as any).dataKey || (item as any).name || 'value'}`;
       const itemConfig = getPayloadConfigFromPayload(config, item, key);
       const value =
@@ -154,6 +155,7 @@ const ChartTooltipContent = React.forwardRef<
         return (
           <div className={cn('font-medium', labelClassName)}>
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {/* biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed */}
             {labelFormatter(value, payload as any[])}
           </div>
         );
@@ -191,6 +193,7 @@ const ChartTooltipContent = React.forwardRef<
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
           {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+          {/* biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed */}
           {payload.map((item: any, index: number) => {
             const key = `${nameKey || item.name || item.dataKey || 'value'}`;
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
@@ -293,14 +296,17 @@ const ChartLegendContent = React.forwardRef<
         )}
       >
         {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        {/* biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed */}
         {payload.map((item: any) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          // biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed
           const key = `${nameKey || (item as any).dataKey || 'value'}`;
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
 
           return (
             <div
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              // biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed
               key={(item as any).value}
               className={cn(
                 'flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground'
@@ -313,6 +319,7 @@ const ChartLegendContent = React.forwardRef<
                   className="h-2 w-2 shrink-0 rounded-[2px]"
                   style={{
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    // biome-ignore lint/suspicious/noExplicitAny: Recharts payload is loosely typed
                     backgroundColor: (item as any).color,
                   }}
                 />

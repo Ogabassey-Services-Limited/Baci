@@ -139,7 +139,7 @@ export async function generateMetadata(
   const baseUrl = `${protocol}://${host}`;
 
   // Only include slug in URL path for localhost (development)
-  // For subdomains (merchant.usebaci.com) and custom domains (merchant.com), 
+  // For subdomains (merchant.usebaci.com) and custom domains (merchant.com),
   // the merchant identity is in the domain itself, not the path
   const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
   const urlPrefix = isLocalhost ? `/${slug}` : '';
@@ -179,13 +179,13 @@ export async function generateMetadata(
         url: img.url,
         alt: img.alt,
       })) || [
-          {
-            url: product.imageLarge || product.image,
-            width: 800,
-            height: 600,
-            alt: product.name,
-          },
-        ],
+        {
+          url: product.imageLarge || product.image,
+          width: 800,
+          height: 600,
+          alt: product.name,
+        },
+      ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,

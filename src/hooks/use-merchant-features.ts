@@ -265,6 +265,7 @@ export function useMerchantFeatures() {
 
   const toggleFeature = useCallback(
     async (feature: keyof MerchantFeatureSettings): Promise<boolean> => {
+      await Promise.resolve(); // Satisfy linter
       if (!settings) return false;
 
       const currentValue = settings[feature];

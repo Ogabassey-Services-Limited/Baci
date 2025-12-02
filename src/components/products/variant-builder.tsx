@@ -361,10 +361,10 @@ export function VariantBuilder({
       const updated = variants.map((v) =>
         v.attributes.color === color
           ? {
-            ...v,
-            primary_image: enhancedPhotoDataUri,
-            images: [enhancedPhotoDataUri],
-          }
+              ...v,
+              primary_image: enhancedPhotoDataUri,
+              images: [enhancedPhotoDataUri],
+            }
           : v
       );
       setVariants(updated);
@@ -578,8 +578,8 @@ export function VariantBuilder({
                         value={
                           variantWithSpec?.price_override != null
                             ? new Intl.NumberFormat('en-US').format(
-                              variantWithSpec.price_override
-                            )
+                                variantWithSpec.price_override
+                              )
                             : ''
                         }
                         onChange={(e) => {

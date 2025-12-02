@@ -43,9 +43,9 @@ export function StorefrontProductGrid({
   const storefrontContext = useStorefrontSafe();
   const searchQuery = storefrontContext?.searchQuery || '';
   const selectedCategory = storefrontContext?.selectedCategory || 'All';
-  // biome-ignore lint/suspicious/noEmptyBlockStatements: No-op fallback when storefront context unavailable
+
   const setSelectedCategory =
-    storefrontContext?.setSelectedCategory || (() => { });
+    storefrontContext?.setSelectedCategory || (() => void 0);
 
   const isPreviewMode = !merchantContext;
   const [products, setProducts] = useState<Product[]>(() => {
@@ -261,10 +261,10 @@ export function StorefrontProductGrid({
 
   const brandColors = merchant?.brand_colors
     ? [
-      merchant.brand_colors.primary,
-      merchant.brand_colors.background,
-      merchant.brand_colors.accent,
-    ].filter(Boolean)
+        merchant.brand_colors.primary,
+        merchant.brand_colors.background,
+        merchant.brand_colors.accent,
+      ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -324,10 +324,11 @@ export function StorefrontProductGrid({
                             selectedCategory === option ? 'All' : option
                           )
                         }
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === option
-                          ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
-                          : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
-                          }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          selectedCategory === option
+                            ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
+                            : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
+                        }`}
                       >
                         {option}
                       </button>

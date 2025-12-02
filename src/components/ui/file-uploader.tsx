@@ -141,6 +141,7 @@ export function FileUploader({
           </div>
           <ul className="list-disc list-inside space-y-1 text-xs">
             {errors.map((err, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: Error messages are strings and order doesn't matter for display
               <li key={`${err}-${i}`}>{err}</li>
             ))}
           </ul>

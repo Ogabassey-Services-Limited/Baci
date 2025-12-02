@@ -66,12 +66,13 @@ function StarRating({
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
-          className={`${sizeClasses[size]} ${star <= rating
-            ? 'fill-yellow-400 text-yellow-400'
-            : star - 0.5 <= rating
-              ? 'fill-yellow-400/50 text-yellow-400'
-              : 'text-gray-300 dark:text-gray-600'
-            }`}
+          className={`${sizeClasses[size]} ${
+            star <= rating
+              ? 'fill-yellow-400 text-yellow-400'
+              : star - 0.5 <= rating
+                ? 'fill-yellow-400/50 text-yellow-400'
+                : 'text-gray-300 dark:text-gray-600'
+          }`}
         />
       ))}
     </div>

@@ -3,13 +3,13 @@
 import Autoplay from 'embla-carousel-autoplay';
 import Fuse from 'fuse.js';
 import { Loader2, Minus, Plus, Search, ShoppingBag } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AppBody from '@/components/app-body';
 import { Cart } from '@/components/cart';
 import { Logo } from '@/components/logo';
-import dynamic from 'next/dynamic';
 
 const GadgetCustomTemplateOgabassey = dynamic(
   () =>
@@ -34,6 +34,7 @@ const PremiumDefaultTemplate = dynamic(
     ),
   { loading: () => <div className="h-screen w-full bg-white" /> }
 );
+
 import {
   ThemedBadge,
   ThemedButton,
@@ -170,10 +171,10 @@ export function StorefrontContent() {
 
   const brandColors = merchant.brand_colors
     ? [
-      merchant.brand_colors.primary,
-      merchant.brand_colors.background,
-      merchant.brand_colors.accent,
-    ].filter(Boolean)
+        merchant.brand_colors.primary,
+        merchant.brand_colors.background,
+        merchant.brand_colors.accent,
+      ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -489,7 +490,7 @@ export function StorefrontContent() {
         </footer>
         <Cart />
       </Sheet>
-    </div >
+    </div>
   );
 }
 

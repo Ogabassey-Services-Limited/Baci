@@ -179,6 +179,7 @@ export function LoadingSpinner({
       }}
     >
       <svg
+        aria-hidden="true"
         width={size}
         height={size}
         viewBox="0 0 24 24"
@@ -208,6 +209,7 @@ export function SuccessCheck({
 }) {
   return (
     <motion.svg
+      aria-hidden="true"
       width={size}
       height={size}
       viewBox="0 0 24 24"
@@ -260,6 +262,7 @@ export function NotificationBell({
         transition={{ duration: 0.5 }}
       >
         <svg
+          aria-hidden="true"
           width={size}
           height={size}
           viewBox="0 0 24 24"
@@ -314,6 +317,7 @@ export function HeartIcon({
       type="button"
     >
       <motion.svg
+        aria-hidden="true"
         width={size}
         height={size}
         viewBox="0 0 24 24"
@@ -347,6 +351,7 @@ export function CartIcon({
   return (
     <div className="relative">
       <motion.svg
+        aria-hidden="true"
         width={size}
         height={size}
         viewBox="0 0 24 24"
@@ -411,6 +416,7 @@ export function QuantityButton({
       aria-label={type === 'plus' ? 'Increase quantity' : 'Decrease quantity'}
     >
       <motion.svg
+        aria-hidden="true"
         width={16}
         height={16}
         viewBox="0 0 24 24"
@@ -462,6 +468,7 @@ export function MenuToggle({
       aria-expanded={isOpen}
     >
       <svg
+        aria-hidden="true"
         width={size}
         height={size}
         viewBox="0 0 24 24"
@@ -514,6 +521,7 @@ export function ChevronToggle({
 }) {
   return (
     <motion.svg
+      aria-hidden="true"
       width={size}
       height={size}
       viewBox="0 0 24 24"

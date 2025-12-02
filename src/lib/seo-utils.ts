@@ -927,8 +927,12 @@ export function generateBlogPostSchema(
       '@type': 'Person',
       name: escapeHtml(data.author.name),
       ...(data.author.url && { url: escapeHtml(data.author.url) }),
-      ...(data.author.jobTitle && { jobTitle: escapeHtml(data.author.jobTitle) }),
-      ...(data.author.description && { description: escapeHtml(data.author.description) }),
+      ...(data.author.jobTitle && {
+        jobTitle: escapeHtml(data.author.jobTitle),
+      }),
+      ...(data.author.description && {
+        description: escapeHtml(data.author.description),
+      }),
     },
     publisher: {
       '@type': 'Organization',
@@ -958,7 +962,7 @@ export function generateBlogPostSchema(
 
   if (data.keywords && data.keywords.length > 0) {
     // Sanitize each keyword
-    schema.keywords = data.keywords.map(k => escapeHtml(k)).join(', ');
+    schema.keywords = data.keywords.map((k) => escapeHtml(k)).join(', ');
   }
 
   if (data.category) {

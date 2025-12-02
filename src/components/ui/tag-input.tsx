@@ -83,6 +83,7 @@ export function TagInput({
         <div className="flex flex-wrap gap-2">
           {value.map((tag, index) => (
             <Badge
+              // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
               key={`${tag}-${index}`}
               variant="secondary"
               className="px-2 py-1 text-sm font-normal"

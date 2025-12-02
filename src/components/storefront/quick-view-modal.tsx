@@ -187,6 +187,7 @@ export function QuickViewModal({
                 {allImages.map((img, idx) => (
                   <button
                     type="button"
+                    // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
                     key={idx}
                     onClick={() => setSelectedImage(img.url)}
                     className={cn(

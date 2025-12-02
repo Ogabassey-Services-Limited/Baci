@@ -169,7 +169,7 @@ export function NewsletterWidget({
 
   // Full widget
   return (
-    <div
+    <aside
       className={cn(
         'fixed z-40 w-80 max-w-[calc(100vw-2rem)]',
         'bg-background border border-border rounded-xl shadow-xl',
@@ -180,7 +180,6 @@ export function NewsletterWidget({
       style={{
         contain: 'layout style paint',
       }}
-      role="complementary"
       aria-label="Newsletter signup"
     >
       {/* Close and minimize buttons */}
@@ -192,6 +191,7 @@ export function NewsletterWidget({
           aria-label="Minimize"
         >
           <svg
+            aria-hidden="true"
             className="w-4 h-4"
             fill="none"
             stroke="currentColor"
@@ -274,6 +274,6 @@ export function NewsletterWidget({
           No spam, unsubscribe anytime.
         </p>
       </div>
-    </div>
+    </aside>
   );
 }

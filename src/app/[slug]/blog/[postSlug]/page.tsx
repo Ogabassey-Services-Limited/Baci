@@ -5,6 +5,7 @@ import { cookies } from 'next/headers';
 import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,8 +13,6 @@ import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { generateBlogPostSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
-
-import { cache } from 'react';
 
 interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
@@ -113,11 +112,11 @@ export async function generateMetadata({
       tags: post.tags,
       images: post.featured_image_url
         ? [
-          {
-            url: post.featured_image_url,
-            alt: post.featured_image_alt || post.title,
-          },
-        ]
+            {
+              url: post.featured_image_url,
+              alt: post.featured_image_alt || post.title,
+            },
+          ]
         : [],
     },
     twitter: {

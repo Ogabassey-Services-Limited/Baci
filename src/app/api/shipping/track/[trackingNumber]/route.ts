@@ -103,6 +103,7 @@ export async function GET(
       statusLabel: getStatusLabel(trackingResult.status),
       estimatedDelivery: trackingResult.estimatedDelivery?.toISOString(),
       actualDelivery: trackingResult.actualDelivery?.toISOString(),
+      // biome-ignore lint/suspicious/noExplicitAny: External API response is loosely typed
       events: trackingResult.events.map((e: any) => ({
         status: e.status,
         description: e.description,
@@ -112,12 +113,12 @@ export async function GET(
       // Include additional shipment details if we have them
       shipment: shipment
         ? {
-          id: shipment.id,
-          orderId: shipment.order_id,
-          receiverCity: shipment.receiver_address?.city,
-          receiverState: shipment.receiver_address?.state,
-          estimatedDays: shipment.estimated_delivery_days,
-        }
+            id: shipment.id,
+            orderId: shipment.order_id,
+            receiverCity: shipment.receiver_address?.city,
+            receiverState: shipment.receiver_address?.state,
+            estimatedDays: shipment.estimated_delivery_days,
+          }
         : undefined,
     });
   } catch (error) {

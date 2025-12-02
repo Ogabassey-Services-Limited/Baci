@@ -158,6 +158,7 @@ export function SearchAutocomplete({
       aria-haspopup="listbox"
       aria-controls={listboxId}
       aria-owns={listboxId}
+      tabIndex={-1}
     >
       <div className="relative">
         <Search
@@ -201,6 +202,7 @@ export function SearchAutocomplete({
           <div className="max-h-96 overflow-y-auto p-2">
             {/* Product suggestions */}
             {suggestions.length > 0 && (
+              // biome-ignore lint/a11y/useSemanticElements: role="group" is correct for listbox groups
               <div
                 className="mb-2"
                 role="group"
@@ -262,6 +264,7 @@ export function SearchAutocomplete({
 
             {/* Popular searches */}
             {popularSearches.length > 0 && (
+              // biome-ignore lint/a11y/useSemanticElements: role="group" is correct for listbox groups
               <div role="group" aria-labelledby="popular-searches-label">
                 <div
                   id="popular-searches-label"

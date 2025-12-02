@@ -604,9 +604,9 @@ export default function TeamSettingsPage() {
                               onClick={() => {
                                 const newRole = prompt(
                                   `Change role for ${member.email}. Current: ${ROLE_LABELS[member.role]}\n\nAvailable roles:\n` +
-                                  Object.entries(ROLE_LABELS)
-                                    .map(([k, v]) => `${k}: ${v}`)
-                                    .join('\n'),
+                                    Object.entries(ROLE_LABELS)
+                                      .map(([k, v]) => `${k}: ${v}`)
+                                      .join('\n'),
                                   member.role
                                 );
                                 if (newRole && newRole in ROLE_LABELS) {

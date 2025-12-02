@@ -155,9 +155,9 @@ export default function NewBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean)
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,

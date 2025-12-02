@@ -112,12 +112,14 @@ function sanitizeErrorForLogging(
   // Error messages may contain sensitive data like "Failed with token: sk_live_123"
   const base: Record<string, unknown> = {
     name: error.name,
-    message: typeof error.message === 'string'
-      ? (sanitizeForLogging(error.message, depth + 1) as string)
-      : error.message,
-    stack: typeof error.stack === 'string'
-      ? (sanitizeForLogging(error.stack, depth + 1) as string)
-      : error.stack,
+    message:
+      typeof error.message === 'string'
+        ? (sanitizeForLogging(error.message, depth + 1) as string)
+        : error.message,
+    stack:
+      typeof error.stack === 'string'
+        ? (sanitizeForLogging(error.stack, depth + 1) as string)
+        : error.stack,
   };
 
   // Attach and sanitize custom fields (excluding built-in ones)
@@ -147,9 +149,9 @@ const log = (level: LogLevel, payload: LogPayload | Error) => {
     // Safely extract message from sanitized payload
     const sanitizedMessage =
       typeof sanitizedPayload === 'object' &&
-        sanitizedPayload !== null &&
-        'message' in sanitizedPayload &&
-        typeof sanitizedPayload.message === 'string'
+      sanitizedPayload !== null &&
+      'message' in sanitizedPayload &&
+      typeof sanitizedPayload.message === 'string'
         ? sanitizedPayload.message
         : '';
 
