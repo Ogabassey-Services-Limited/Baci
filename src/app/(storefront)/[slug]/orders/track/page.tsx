@@ -33,12 +33,12 @@ interface TimelineEvent {
   description: string;
   timestamp: string;
   icon:
-    | 'order'
-    | 'payment'
-    | 'processing'
-    | 'shipped'
-    | 'delivered'
-    | 'cancelled';
+  | 'order'
+  | 'payment'
+  | 'processing'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled';
 }
 
 interface OrderItem {
@@ -299,8 +299,12 @@ export default function OrderTrackPage() {
               <div className="relative">
                 {orderData.timeline.map((event, index) => {
                   const Icon = iconMap[event.icon];
+                  // Use composite key: timestamp+title is stable and unique
+                  const stableKey = event.timestamp
+                    ? `${event.timestamp}-${event.title}`
+                    : `${event.title}-${index}`;
                   return (
-                    <div key={index} className="flex gap-4 pb-8 last:pb-0">
+                    <div key={stableKey} className="flex gap-4 pb-8 last:pb-0">
                       <div className="relative flex flex-col items-center">
                         <div
                           className={`w-10 h-10 rounded-full flex items-center justify-center ${getStatusColor(
@@ -311,11 +315,10 @@ export default function OrderTrackPage() {
                         </div>
                         {index < orderData.timeline.length - 1 && (
                           <div
-                            className={`absolute top-10 w-0.5 h-full ${
-                              event.status === 'completed'
+                            className={`absolute top-10 w-0.5 h-full ${event.status === 'completed'
                                 ? 'bg-green-500'
                                 : 'bg-gray-200'
-                            }`}
+                              }`}
                           />
                         )}
                       </div>

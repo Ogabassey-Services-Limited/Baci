@@ -198,10 +198,10 @@ function StorefrontContent() {
 
   const brandColors = merchant.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -302,8 +302,10 @@ function StorefrontContent() {
                     description: slide.headline,
                     imageHint: 'store hero',
                   };
+                  // Use stable key: slide.imageUrl is unique
+                  const stableKey = slide.imageUrl || `slide-${index}`;
                   return (
-                    <CarouselItem key={index}>
+                    <CarouselItem key={stableKey}>
                       <div className="w-full h-[60vh] md:h-[70vh] relative">
                         <Image
                           src={heroImage.imageUrl}
@@ -338,17 +340,21 @@ function StorefrontContent() {
               <CarouselNext className="absolute right-4 top-1/2 -translate-y-1/2 z-10 hidden md:flex" />
             </Carousel>
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
-              {heroSlides.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => api?.scrollTo(index)}
-                  className={cn(
-                    'h-2 w-2 rounded-full transition-all',
-                    current - 1 === index ? 'w-4 bg-white' : 'bg-white/50'
-                  )}
-                  aria-label={`Go to slide ${index + 1}`}
-                />
-              ))}
+              {heroSlides.map((slide, index) => {
+                // Use stable key for indicator buttons
+                const stableKey = slide.imageUrl || `indicator-${index}`;
+                return (
+                  <button
+                    key={stableKey}
+                    onClick={() => api?.scrollTo(index)}
+                    className={cn(
+                      'h-2 w-2 rounded-full transition-all',
+                      current - 1 === index ? 'w-4 bg-white' : 'bg-white/50'
+                    )}
+                    aria-label={`Go to slide ${index + 1}`}
+                  />
+                );
+              })}
             </div>
           </section>
 
