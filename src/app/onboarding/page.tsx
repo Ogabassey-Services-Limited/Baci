@@ -2,7 +2,6 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Logo } from '@/components/logo';
 import { OnboardingBackground } from '@/components/onboarding/floating-benefits';
 import OnboardingClient from '@/components/onboarding-client';
 
@@ -30,25 +29,9 @@ export default function OnboardingPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="relative z-10 w-full max-w-2xl p-4"
+        className="relative z-10 w-full"
       >
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl">
-          {/* Glass Shine Effect */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
-
-          <div className="relative p-8">
-            <div className="flex flex-col items-center text-center mb-6">
-              <Link
-                href="/"
-                className="mb-4 transition-transform hover:scale-105"
-              >
-                <Logo />
-              </Link>
-            </div>
-
-            <OnboardingClient />
-          </div>
-        </div>
+        <OnboardingClient />
 
         <motion.p
           initial={{ opacity: 0 }}

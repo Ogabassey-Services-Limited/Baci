@@ -8,23 +8,23 @@ import ColorThief from 'colorthief';
 import {
   AlertCircle,
   CheckCircle,
-  ChevronDown,
-  ChevronUp,
+  Eraser,
   Eye,
   EyeOff,
   KeyRound,
   Loader2,
   Mail,
   Maximize2,
+  Minimize2,
   Pencil,
-  Eraser,
+  RefreshCw,
   Shuffle,
   Sparkles,
   Upload,
   Wand2,
-  X,
 } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   useActionState,
@@ -50,10 +50,10 @@ import {
   trackMerchantSignupStarted,
 } from '@/components/analytics/platform-analytics-provider';
 import { BusinessNameGeneratorModal } from '@/components/business-name-generator-modal';
+import { Logo } from '@/components/logo';
 import { LogoGeneratorModal } from '@/components/logo-generator-modal';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 import {
   FormControl,
   FormField,
@@ -81,7 +81,7 @@ import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { uploadImage } from '@/lib/storage';
 import { createClient } from '@/lib/supabase/client';
-import { checkPasswordStrength, cn } from '@/lib/utils';
+import { checkPasswordStrength, cn, getContrastColor } from '@/lib/utils';
 import {
   type OnboardingFormValues,
   onboardingSchema,
@@ -310,7 +310,6 @@ function Step2_Branding() {
     null
   ); // To store data URI for client-side ops
   const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
-  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
 
   const isLoading = isGenerating || isExtracting || isUploading;
 
@@ -482,19 +481,26 @@ function Step2_Branding() {
     const file = event.target.files?.[0];
     if (file) {
       setIsUploading(true); // Immediate feedback
+
+      // Instant preview using Object URL
+      const objectUrl = URL.createObjectURL(file);
+      setCurrentLogoDataUri(objectUrl);
+
       const reader = new FileReader();
 
       reader.onloadend = async () => {
         const dataUri = reader.result as string;
         await processNewLogo(dataUri);
+        URL.revokeObjectURL(objectUrl); // Cleanup object URL after processing
       };
 
       reader.onerror = () => {
         setIsUploading(false);
+        URL.revokeObjectURL(objectUrl);
         toast({
           title: 'Failed to read file',
           description: 'Please try another image.',
-          variant: 'destructive'
+          variant: 'destructive',
         });
       };
 
@@ -567,67 +573,11 @@ function Step2_Branding() {
 
   return (
     <div className="space-y-8">
-      {/* Top: Full-width Store Preview (Only appears when branding exists) */}
-      {brandColors && (
-        <div className="w-full animate-in fade-in slide-in-from-top-4 duration-700">
-          <div
-            className={cn(
-              'relative rounded-xl border border-white/10 bg-muted/5 transition-all duration-500 ease-in-out',
-              isPreviewExpanded
-                ? 'h-auto overflow-hidden'
-                : 'h-[280px] overflow-y-auto'
-            )}
-          >
-            <div
-              className={cn(
-                'w-full transition-opacity duration-500',
-                isPreviewExpanded ? 'opacity-100' : 'opacity-90'
-              )}
-            >
-              <OnboardingPuckPreview
-                businessName={businessName}
-                businessType={businessType}
-                logoDataUri={currentLogoDataUri || logoUrl || undefined}
-                brandColors={brandColors}
-              />
-            </div>
-
-            {/* Gradient Overlay when collapsed */}
-            {!isPreviewExpanded && (
-              <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none z-10" />
-            )}
-
-            {/* Expand/Collapse Button */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="h-8 gap-2 rounded-full shadow-lg bg-background/80 backdrop-blur-md border border-white/10 hover:bg-background transition-all"
-                onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
-              >
-                {isPreviewExpanded ? (
-                  <>
-                    <ChevronUp className="w-3.5 h-3.5" />
-                    Show Less
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="w-3.5 h-3.5" />
-                    Expand Preview
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-8 md:grid-cols-2">
+      <div className={cn('grid gap-8', 'grid-cols-1 lg:grid-cols-2')}>
         {/* Left Column: Logo Canvas & Palette */}
         <div className="space-y-6">
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between h-7">
               <FormLabel className="text-lg font-semibold">
                 Logo & Brand
               </FormLabel>
@@ -648,51 +598,45 @@ function Step2_Branding() {
               )}
             >
               {currentLogoDataUri || logoUrl ? (
-                <Dialog>
-                  <div className="relative w-full h-full p-8 group">
-                    <Image
-                      src={currentLogoDataUri || logoUrl}
-                      alt="Logo"
-                      fill
-                      className="object-contain p-8 transition-transform duration-500 group-hover:scale-105"
-                    />
+                <div className="relative w-full h-full p-4 group cursor-pointer">
+                  <Image
+                    src={currentLogoDataUri || logoUrl}
+                    alt="Logo"
+                    fill
+                    priority
+                    unoptimized
+                    className="object-contain p-4 transition-all duration-300 group-hover:scale-95 group-hover:opacity-50 group-hover:blur-[1px]"
+                  />
 
-                    {/* Overlay Controls */}
-                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <DialogTrigger asChild>
-                        <Button
-                          size="icon"
-                          variant="secondary"
-                          className="h-8 w-8 rounded-full bg-black/50 hover:bg-black/70 text-white backdrop-blur-md border-none"
-                        >
-                          <Maximize2 className="h-4 w-4" />
-                        </Button>
-                      </DialogTrigger>
+                  {/* Hover Overlay */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-95 group-hover:scale-100 bg-black/60 backdrop-blur-[2px] rounded-xl">
+                    <div className="bg-white/10 backdrop-blur-md p-3 rounded-full mb-2 shadow-lg border border-white/20">
+                      <RefreshCw className="w-6 h-6 text-white" />
                     </div>
-
-                    {/* Status Indicators */}
-                    {isUploading && (
-                      <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-2">
-                        <Loader2 className="w-3 h-3 text-white animate-spin" />
-                        <span className="text-xs text-white font-medium">
-                          Saving...
-                        </span>
-                      </div>
-                    )}
+                    <span className="text-xs font-semibold text-white tracking-wide">
+                      Replace Logo
+                    </span>
                   </div>
 
-                  {/* Fullscreen Preview */}
-                  <DialogContent className="max-w-3xl w-full aspect-video border-none bg-transparent shadow-none p-0 flex items-center justify-center">
-                    <div className="relative w-full h-full min-h-[60vh]">
-                      <Image
-                        src={currentLogoDataUri || logoUrl}
-                        alt="Logo Fullscreen"
-                        fill
-                        className="object-contain"
-                      />
+                  {/* Hidden Input for Replacement */}
+                  <Input
+                    type="file"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    disabled={isLoading}
+                  />
+
+                  {/* Status Indicators */}
+                  {isUploading && (
+                    <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-2 z-30">
+                      <Loader2 className="w-3 h-3 text-white animate-spin" />
+                      <span className="text-xs text-white font-medium">
+                        Saving...
+                      </span>
                     </div>
-                  </DialogContent>
-                </Dialog>
+                  )}
+                </div>
               ) : (
                 /* Empty State / Upload Trigger */
                 <div className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer group">
@@ -718,118 +662,133 @@ function Step2_Branding() {
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Color Palette (Appears below logo) */}
-          {brandColors && (
-            <div className="bg-muted/30 p-5 rounded-xl border border-white/5 space-y-4 animate-in slide-in-from-top-2 fade-in duration-500">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-muted-foreground">
-                  Extracted Palette
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleShuffleColors}
-                  disabled={isLoading}
-                  className="h-7 text-xs hover:bg-white/10"
-                >
-                  <Shuffle className="mr-1.5 h-3 w-3" />
-                  Shuffle
-                </Button>
-              </div>
-              <div className="flex items-center justify-between gap-4 px-2">
-                {(['primary', 'background', 'accent'] as const).map((role) => (
-                  <div
-                    key={role}
-                    className="flex flex-col items-center gap-2 group"
-                  >
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          className="w-12 h-12 rounded-full shadow-sm border-2 border-white/10 ring-2 ring-transparent hover:ring-primary/20 transition-all cursor-pointer relative overflow-hidden"
-                          aria-label={`Edit ${role} color`}
-                        >
-                          <div
-                            className="w-full h-full"
-                            style={{ backgroundColor: brandColors[role] }}
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <Pencil className="w-4 h-4 text-white drop-shadow-md" />
-                          </div>
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 border-none shadow-xl">
-                        <ColorPicker
-                          color={brandColors[role]}
-                          onChange={(newColor) =>
-                            handleColorChange(role, newColor)
-                          }
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
-                      {role}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+            {/* Remove Background Button (Moved) */}
+            {(currentLogoDataUri || logoUrl) && (
+              <Button
+                type="button"
+                onClick={handleRemoveBackground}
+                disabled={isUploading}
+                variant="outline"
+                className="w-full border-dashed border-2 hover:border-solid hover:bg-muted/50 h-9"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Eraser className="mr-2 h-4 w-4" />
+                    Remove Background
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Right Column: Generator Controls */}
-        <div className="space-y-6">
-          {/* Generator Control Card */}
-          <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-5 flex flex-col justify-between gap-4 shadow-sm h-full min-h-[200px]">
-            {currentLogoDataUri || logoUrl ? (
-              <>
-                <div className="text-left space-y-4">
-                  <div className="flex items-center gap-2 text-blue-400">
-                    <Wand2 className="w-5 h-5" />
-                    <h3 className="font-semibold text-lg text-foreground">
-                      Refine Logo
-                    </h3>
-                  </div>
+        <div className="space-y-6 mt-12">
+          {currentLogoDataUri || logoUrl ? (
+            <>
+              <div className="flex items-center gap-2 text-blue-400 h-7">
+                <Wand2 className="w-5 h-5" />
+                <h3 className="font-semibold text-lg text-foreground pt-1">
+                  Refine Logo
+                </h3>
+              </div>
+
+              {/* Generator Control Card */}
+              <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-5 flex flex-col gap-4 shadow-sm h-full min-h-[200px]">
+                <div className="text-left space-y-2">
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Make your logo pop by removing the background. This creates a
-                    clean, transparent look perfect for any website header.
+                    Make the Logo pop by removing the background.
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  onClick={handleRemoveBackground}
-                  disabled={isUploading}
-                  className="w-full bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black font-medium mt-auto border border-primary/10 shadow-sm"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Eraser className="mr-2 h-4 w-4" />
-                      Remove Background
-                    </>
-                  )}
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="text-left space-y-4">
-                  <div className="flex items-center gap-2 text-amber-400">
-                    <Sparkles className="w-5 h-5" />
-                    <h3 className="font-semibold text-lg text-foreground">
-                      Need a Logo?
-                    </h3>
+
+                {brandColors && (
+                  <div className="mt-4 pt-2 border-t border-white/10 animate-in slide-in-from-top-2 fade-in duration-500 space-y-3">
+                    <div className="flex items-center justify-center gap-4 px-2">
+                      {(['primary', 'background', 'accent'] as const).map(
+                        (role) => (
+                          <div
+                            key={role}
+                            className="flex flex-col items-center gap-2 group"
+                          >
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="w-12 h-12 rounded-full shadow-sm border-2 border-white/10 ring-2 ring-transparent hover:ring-primary/20 transition-all cursor-pointer relative overflow-hidden"
+                                  aria-label={`Edit ${role} color`}
+                                >
+                                  <div
+                                    className="w-full h-full"
+                                    style={{
+                                      backgroundColor: brandColors[role],
+                                    }}
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <Pencil
+                                      className={cn(
+                                        'w-4 h-4 drop-shadow-md',
+                                        getContrastColor(brandColors[role]) ===
+                                          'black'
+                                          ? 'text-black'
+                                          : 'text-white'
+                                      )}
+                                    />
+                                  </div>
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0 border-none shadow-xl">
+                                <ColorPicker
+                                  color={brandColors[role]}
+                                  onChange={(newColor) =>
+                                    handleColorChange(role, newColor)
+                                  }
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
+                              {role}
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleShuffleColors}
+                      disabled={isLoading}
+                      className="w-full h-9 text-xs"
+                    >
+                      <Shuffle className="mr-1.5 h-3 w-3" />
+                      Shuffle
+                    </Button>
                   </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-amber-400 h-7">
+                <Sparkles className="w-5 h-5" />
+                <h3 className="font-semibold text-lg text-foreground pt-1">
+                  Need a Logo?
+                </h3>
+              </div>
+
+              {/* Generator Control Card */}
+              <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-5 flex flex-col gap-4 shadow-sm h-full min-h-[200px]">
+                <div className="text-left space-y-4">
                   <p className="text-sm text-muted-foreground leading-relaxed">
-                    Don't have a logo yet? No problem. Our AI can design a unique,
-                    minimalist logo tailored to <strong>{businessName}</strong> in
-                    seconds.
+                    Don't have a logo yet? No problem. Our AI can design a
+                    unique, minimalist logo tailored to{' '}
+                    <strong>{businessName}</strong> in seconds.
                   </p>
                   <ul className="text-xs text-muted-foreground space-y-2 list-disc pl-4">
                     <li>Instant generation</li>
@@ -851,20 +810,20 @@ function Step2_Branding() {
                     Generate with AI
                   </Button>
                 </LogoGeneratorModal>
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
       {/* Error Messages for Hidden Fields */}
       <div className="space-y-2">
-        {form.formState.errors.logoUrl && (
+        {form.formState.errors?.logoUrl && (
           <p className="text-[0.8rem] font-medium text-destructive">
             {form.formState.errors.logoUrl.message}
           </p>
         )}
-        {form.formState.errors.brandColors && (
+        {form.formState.errors?.brandColors && (
           <p className="text-[0.8rem] font-medium text-destructive">
             {form.formState.errors.brandColors.message}
           </p>
@@ -1148,6 +1107,7 @@ function OnboardingNavigation({
 // --- Main Form Component ---
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
   const [submissionState, formAction, isPending] = useActionState<
     ServerActionState,
     FormData
@@ -1370,6 +1330,20 @@ export default function OnboardingForm() {
     name: 'confirmPassword',
   });
 
+  // Watch fields for Preview
+  const brandColors = useWatch({ control: form.control, name: 'brandColors' });
+  const businessName = useWatch({
+    control: form.control,
+    name: 'businessName',
+  });
+  const businessType = useWatch({
+    control: form.control,
+    name: 'businessType',
+  });
+  const logoUrl = useWatch({ control: form.control, name: 'logoUrl' });
+
+  const showPreview = step === 2 && !!brandColors;
+
   const isStep3Valid = useMemo(() => {
     if (step !== 3) return true;
     if (user) return true; // Skip validation if user is logged in
@@ -1395,59 +1369,154 @@ export default function OnboardingForm() {
   }, [step, errors, isStep3Valid]);
 
   return (
-    <div className="space-y-8">
-      <header>
-        <h2 className="text-2xl font-bold text-center font-headline">
-          Welcome to Baci
-        </h2>
-        <p className="text-muted-foreground text-center">
-          Let's set up your store in a few simple steps.
-        </p>
-      </header>
-      <StepIndicator currentStep={step} totalSteps={totalSteps} />
-      <FormProvider {...form}>
-        <form
-          onSubmit={handleFormSubmit}
-          aria-label="Store onboarding form"
-          noValidate
+    <div
+      className={cn(
+        'transition-all duration-500 ease-in-out w-full',
+        showPreview
+          ? 'max-w-[90rem] px-4 md:px-8 h-[calc(100vh-1rem)] flex items-center justify-center'
+          : 'max-w-2xl mx-auto px-4 py-8'
+      )}
+    >
+      <div
+        className={cn('flex flex-col lg:flex-row gap-8 items-center w-full')}
+      >
+        {/* Main Card */}
+        <div
+          className={cn(
+            'relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl transition-all duration-500',
+            showPreview
+              ? 'w-full lg:w-1/2 xl:w-[45%] h-[550px] overflow-hidden'
+              : 'w-full'
+          )}
         >
-          <input type="hidden" {...form.register('logoUrl')} />
-          <input type="hidden" {...form.register('brandColors')} />
-          <section
-            aria-live="polite"
-            aria-atomic="true"
-            className="min-h-[250px]"
+          {/* Glass Shine Effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+
+          <div
+            className={cn(
+              'relative transition-all duration-500',
+              showPreview
+                ? 'p-6 h-full flex flex-col justify-center scale-[0.85] origin-center'
+                : 'p-8'
+            )}
           >
-            {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
-            {step === 2 && <Step2_Branding />}
-            {step === 3 &&
-              (magicLinkSent ? (
-                <Alert className="mt-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Magic Link Sent!</AlertTitle>
-                  <AlertDescription>
-                    Please check your email for a link to sign in. You can close
-                    this window.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <Step3_Account
-                  onKeyDown={handleKeyDown}
-                  onMagicLinkSent={handleMagicLinkSent}
-                  user={user}
-                />
-              ))}
-          </section>
-          <OnboardingNavigation
-            currentStep={step}
-            totalSteps={totalSteps}
-            onNext={handleNext}
-            onPrev={handlePrev}
-            isLoading={isPending || isSubmitting}
-            isStepValid={isCurrentStepValid}
-          />
-        </form>
-      </FormProvider>
+            <div className="flex flex-col items-center text-center mb-6 mt-4">
+              <Link
+                href="/"
+                className="mb-4 transition-transform hover:scale-105"
+              >
+                <Logo />
+              </Link>
+            </div>
+
+            <div className="space-y-4">
+              <header>
+                <h2 className="text-2xl font-bold text-center font-headline">
+                  Welcome to Baci
+                </h2>
+                <p className="text-muted-foreground text-center">
+                  Let's set up your store in a few simple steps.
+                </p>
+              </header>
+              <StepIndicator currentStep={step} totalSteps={totalSteps} />
+              <FormProvider {...form}>
+                <form
+                  onSubmit={handleFormSubmit}
+                  aria-label="Store onboarding form"
+                  noValidate
+                >
+                  <input type="hidden" {...form.register('logoUrl')} />
+                  <input type="hidden" {...form.register('brandColors')} />
+                  <section
+                    aria-live="polite"
+                    aria-atomic="true"
+                    className="min-h-[250px]"
+                  >
+                    {step === 1 && (
+                      <Step1_BusinessDetails onKeyDown={handleKeyDown} />
+                    )}
+                    {step === 2 && <Step2_Branding />}
+                    {step === 3 &&
+                      (magicLinkSent ? (
+                        <Alert className="mt-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Magic Link Sent!</AlertTitle>
+                          <AlertDescription>
+                            Please check your email for a link to sign in. You
+                            can close this window.
+                          </AlertDescription>
+                        </Alert>
+                      ) : (
+                        <Step3_Account
+                          onKeyDown={handleKeyDown}
+                          onMagicLinkSent={handleMagicLinkSent}
+                          user={user}
+                        />
+                      ))}
+                  </section>
+                  <OnboardingNavigation
+                    currentStep={step}
+                    totalSteps={totalSteps}
+                    onNext={handleNext}
+                    onPrev={handlePrev}
+                    isLoading={isPending || isSubmitting}
+                    isStepValid={isCurrentStepValid}
+                  />
+                </form>
+              </FormProvider>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview Pane (Outside) */}
+        {/* Preview Pane (Outside) */}
+        {showPreview && (
+          <div
+            className={cn(
+              'transition-all duration-500 ease-in-out',
+              isPreviewExpanded
+                ? 'fixed inset-0 z-50 bg-background/95 backdrop-blur-xl p-8 flex items-center justify-center'
+                : 'hidden lg:block w-full lg:w-1/2 xl:w-[55%] flex items-center justify-center animate-in fade-in slide-in-from-right-8 duration-700'
+            )}
+          >
+            <div
+              className={cn(
+                'relative rounded-2xl border border-white/10 bg-muted/5 overflow-y-auto shadow-2xl backdrop-blur-sm transition-all duration-500',
+                isPreviewExpanded
+                  ? 'w-full max-w-[90vw] h-[90vh]'
+                  : 'w-full h-[550px]'
+              )}
+            >
+              {/* Expand/Collapse Button */}
+              <Button
+                variant="secondary"
+                size="sm"
+                className="absolute top-4 right-4 z-50 rounded-full shadow-lg border border-white/10 bg-background/80 backdrop-blur-md hover:bg-background"
+                onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
+              >
+                {isPreviewExpanded ? (
+                  <>
+                    <Minimize2 className="mr-2 h-4 w-4" />
+                    Collapse
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="mr-2 h-4 w-4" />
+                    Expand
+                  </>
+                )}
+              </Button>
+
+              <OnboardingPuckPreview
+                businessName={businessName}
+                businessType={businessType}
+                logoDataUri={logoUrl || undefined}
+                brandColors={brandColors ? JSON.parse(brandColors) : undefined}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

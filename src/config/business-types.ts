@@ -381,7 +381,9 @@ export function getAllBusinessTypeIds(): string[] {
  * ```
  */
 export function getAllBusinessTypes(): BusinessTypeConfigType[] {
-  return Object.values(BUSINESS_TYPES);
+  return Object.values(BUSINESS_TYPES).sort((a, b) =>
+    a.label.localeCompare(b.label)
+  );
 }
 
 /**

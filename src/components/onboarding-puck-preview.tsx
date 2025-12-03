@@ -2,7 +2,15 @@
 
 import type { Data } from '@measured/puck';
 import { Render } from '@measured/puck';
-import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Loader2 } from 'lucide-react';
+import {
+  Component,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { builderConfig } from '@/components/builder/config';
 import {
   deriveThemeFromColors,
@@ -62,129 +70,67 @@ class PreviewErrorBoundary extends Component<
 /**
  * Apply theme CSS variables to a specific element (scoped, not global)
  */
-function applyThemeToElement(element: HTMLElement, brandColors: BrandColors) {
+/**
+ * Get theme CSS variables as a style object
+ */
+function getThemeStyles(brandColors: BrandColors): React.CSSProperties {
   const theme = deriveThemeFromColors(brandColors);
 
-  // Apply all theme variables to the scoped element
-  // Colors
-  element.style.setProperty('--theme-primary', theme.colors.primary);
-  element.style.setProperty('--theme-secondary', theme.colors.secondary);
-  element.style.setProperty('--theme-accent', theme.colors.accent);
-  element.style.setProperty('--theme-background', theme.colors.background);
-  element.style.setProperty('--theme-foreground', theme.colors.foreground);
-  element.style.setProperty('--theme-muted', theme.colors.muted);
-  element.style.setProperty(
-    '--theme-muted-foreground',
-    theme.colors.mutedForeground
-  );
-  element.style.setProperty('--theme-border', theme.colors.border);
+  return {
+    // Colors
+    '--theme-primary': theme.colors.primary,
+    '--theme-secondary': theme.colors.secondary,
+    '--theme-accent': theme.colors.accent,
+    '--theme-background': theme.colors.background,
+    '--theme-foreground': theme.colors.foreground,
+    '--theme-muted': theme.colors.muted,
+    '--theme-muted-foreground': theme.colors.mutedForeground,
+    '--theme-border': theme.colors.border,
 
-  // Header colors
-  element.style.setProperty(
-    '--theme-header-bg',
-    theme.colors.header.background
-  );
-  element.style.setProperty('--theme-header-text', theme.colors.header.text);
-  element.style.setProperty(
-    '--theme-header-icon',
-    theme.colors.header.iconColor
-  );
-  element.style.setProperty(
-    '--theme-header-search-border',
-    theme.colors.header.searchBorder
-  );
-  element.style.setProperty(
-    '--theme-header-search-bg',
-    theme.colors.header.searchBackground
-  );
+    // Header colors
+    '--theme-header-bg': theme.colors.header.background,
+    '--theme-header-text': theme.colors.header.text,
+    '--theme-header-icon': theme.colors.header.iconColor,
+    '--theme-header-search-border': theme.colors.header.searchBorder,
+    '--theme-header-search-bg': theme.colors.header.searchBackground,
 
-  // Footer colors
-  element.style.setProperty(
-    '--theme-footer-bg',
-    theme.colors.footer.background
-  );
-  element.style.setProperty('--theme-footer-text', theme.colors.footer.text);
-  element.style.setProperty(
-    '--theme-footer-link',
-    theme.colors.footer.linkColor
-  );
-  element.style.setProperty(
-    '--theme-footer-link-hover',
-    theme.colors.footer.linkHoverColor
-  );
+    // Footer colors
+    '--theme-footer-bg': theme.colors.footer.background,
+    '--theme-footer-text': theme.colors.footer.text,
+    '--theme-footer-link': theme.colors.footer.linkColor,
+    '--theme-footer-link-hover': theme.colors.footer.linkHoverColor,
 
-  // Button colors
-  element.style.setProperty(
-    '--theme-button-primary-bg',
-    theme.colors.button.primary.background
-  );
-  element.style.setProperty(
-    '--theme-button-primary-text',
-    theme.colors.button.primary.text
-  );
-  element.style.setProperty(
-    '--theme-button-primary-hover',
-    theme.colors.button.primary.hover
-  );
-  element.style.setProperty(
-    '--theme-button-secondary-bg',
-    theme.colors.button.secondary.background
-  );
-  element.style.setProperty(
-    '--theme-button-secondary-text',
-    theme.colors.button.secondary.text
-  );
-  element.style.setProperty(
-    '--theme-button-secondary-hover',
-    theme.colors.button.secondary.hover
-  );
-  element.style.setProperty(
-    '--theme-button-accent-bg',
-    theme.colors.button.accent.background
-  );
-  element.style.setProperty(
-    '--theme-button-accent-text',
-    theme.colors.button.accent.text
-  );
-  element.style.setProperty(
-    '--theme-button-accent-hover',
-    theme.colors.button.accent.hover
-  );
+    // Button colors
+    '--theme-button-primary-bg': theme.colors.button.primary.background,
+    '--theme-button-primary-text': theme.colors.button.primary.text,
+    '--theme-button-primary-hover': theme.colors.button.primary.hover,
+    '--theme-button-secondary-bg': theme.colors.button.secondary.background,
+    '--theme-button-secondary-text': theme.colors.button.secondary.text,
+    '--theme-button-secondary-hover': theme.colors.button.secondary.hover,
+    '--theme-button-accent-bg': theme.colors.button.accent.background,
+    '--theme-button-accent-text': theme.colors.button.accent.text,
+    '--theme-button-accent-hover': theme.colors.button.accent.hover,
 
-  // Card colors
-  element.style.setProperty('--theme-card-bg', theme.colors.card.background);
-  element.style.setProperty('--theme-card-border', theme.colors.card.border);
-  element.style.setProperty('--theme-card-text', theme.colors.card.text);
+    // Card colors
+    '--theme-card-bg': theme.colors.card.background,
+    '--theme-card-border': theme.colors.card.border,
+    '--theme-card-text': theme.colors.card.text,
 
-  // Input colors
-  element.style.setProperty('--theme-input-bg', theme.colors.input.background);
-  element.style.setProperty('--theme-input-border', theme.colors.input.border);
-  element.style.setProperty('--theme-input-text', theme.colors.input.text);
-  element.style.setProperty(
-    '--theme-input-placeholder',
-    theme.colors.input.placeholder
-  );
-  element.style.setProperty(
-    '--theme-input-focus-border',
-    theme.colors.input.focusBorder
-  );
+    // Input colors
+    '--theme-input-bg': theme.colors.input.background,
+    '--theme-input-border': theme.colors.input.border,
+    '--theme-input-text': theme.colors.input.text,
+    '--theme-input-placeholder': theme.colors.input.placeholder,
+    '--theme-input-focus-border': theme.colors.input.focusBorder,
 
-  // Store variables for ThemedButton/ThemedCard compatibility
-  element.style.setProperty('--store-primary', brandColors.primary);
-  element.style.setProperty('--store-accent', brandColors.accent);
-  element.style.setProperty('--store-background', brandColors.background);
-  element.style.setProperty(
-    '--store-primary-text',
-    theme.colors.button.primary.text
-  );
-  element.style.setProperty(
-    '--store-accent-text',
-    theme.colors.button.accent.text
-  );
-  element.style.setProperty(
-    '--store-background-text',
-    theme.colors.button.secondary.text
-  );
+    // Store variables for ThemedButton/ThemedCard compatibility
+    '--store-primary': brandColors.primary,
+    '--store-accent': brandColors.accent,
+    '--store-background': brandColors.background,
+    '--store-primary-text': theme.colors.button.primary.text,
+    '--store-accent-text': theme.colors.button.accent.text,
+    '--store-background-text': theme.colors.button.secondary.text,
+  } as React.CSSProperties;
 }
 
 /**
@@ -321,6 +267,7 @@ export function OnboardingPuckPreview({
 }: OnboardingPuckPreviewProps) {
   const previewRef = useRef<HTMLDivElement>(null);
   const [puckData, setPuckData] = useState<Data | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Generate Puck data asynchronously
   useEffect(() => {
@@ -332,6 +279,7 @@ export function OnboardingPuckPreview({
     }
 
     const loadData = async () => {
+      setIsLoading(true);
       try {
         const data = await generatePreviewTemplate({
           businessName: businessName || 'Your Store',
@@ -351,6 +299,10 @@ export function OnboardingPuckPreview({
         if (isMounted) {
           setPuckData(null);
         }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -361,11 +313,10 @@ export function OnboardingPuckPreview({
     };
   }, [businessName, businessType, logoDataUri, brandColors]);
 
-  // Apply theme to scoped container
-  useEffect(() => {
-    if (previewRef.current && brandColors) {
-      applyThemeToElement(previewRef.current, brandColors);
-    }
+  // Memoize theme styles to avoid manual DOM manipulation
+  const themeStyles = useMemo(() => {
+    if (!brandColors) return {};
+    return getThemeStyles(brandColors);
   }, [brandColors]);
 
   if (!brandColors || !puckData) {
@@ -378,6 +329,13 @@ export function OnboardingPuckPreview({
 
   return (
     <div className="relative p-4 rounded-lg border border-dashed bg-muted/20 overflow-hidden">
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-background/50 backdrop-blur-sm transition-opacity duration-200">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      )}
+
       {/* Live Preview Badge */}
       <div className="absolute top-16 right-6 z-50 bg-amber-500 text-black text-[10px] px-3 py-1.5 rounded-full font-semibold shadow-lg">
         Live Store Preview
@@ -386,7 +344,10 @@ export function OnboardingPuckPreview({
       <div
         ref={previewRef}
         className="scale-[0.8] origin-top-left w-[125%] -translate-x-1 -translate-y-1 bg-background rounded-md shadow-lg"
-        style={{ backgroundColor: 'var(--theme-background)' }}
+        style={{
+          backgroundColor: 'var(--theme-background)',
+          ...themeStyles,
+        }}
       >
         <PreviewErrorBoundary>
           <Render config={builderConfig} data={puckData} />

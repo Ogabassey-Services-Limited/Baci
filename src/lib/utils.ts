@@ -186,3 +186,34 @@ export async function streamToDataURI(
 
   return `data:${mimeType};base64,${base64String}`;
 }
+
+/**
+ * Determine if text should be black or white based on background color
+ * Uses relative luminance formula (Rec. 601)
+ */
+export function getContrastColor(hexColor: string): 'black' | 'white' {
+  // Handle invalid input gracefully
+  if (!hexColor || typeof hexColor !== 'string') return 'white';
+
+  // Remove hash if present
+  const hex = hexColor.replace('#', '');
+
+  // Handle shorthand hex (e.g. #FFF)
+  const fullHex =
+    hex.length === 3
+      ? hex
+          .split('')
+          .map((char) => char + char)
+          .join('')
+      : hex;
+
+  // Parse RGB
+  const r = Number.parseInt(fullHex.substring(0, 2), 16);
+  const g = Number.parseInt(fullHex.substring(2, 4), 16);
+  const b = Number.parseInt(fullHex.substring(4, 6), 16);
+
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+  return luminance > 0.5 ? 'black' : 'white';
+}
