@@ -26,8 +26,15 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const tag = searchParams.get('tag');
-    const limit = Number.parseInt(searchParams.get('limit') || '20', 10);
-    const offset = Number.parseInt(searchParams.get('offset') || '0', 10);
+    // Validate numeric params: clamp to safe range, default on NaN
+    const limit = Math.min(
+      Math.max(Number.parseInt(searchParams.get('limit') || '20', 10) || 20, 1),
+      100
+    );
+    const offset = Math.max(
+      Number.parseInt(searchParams.get('offset') || '0', 10) || 0,
+      0
+    );
     const slug = searchParams.get('slug');
 
     // If slug is provided, fetch single post
@@ -44,8 +51,12 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Post not found' }, { status: 404 });
       }
 
-      // Increment view count (fire and forget)
-      supabase.rpc('increment_blog_post_views', { p_post_id: post.id });
+      // Increment view count (fire and forget with silent error handling)
+      void Promise.resolve(
+        supabase.rpc('increment_blog_post_views', { p_post_id: post.id })
+      ).catch(() => {
+        // Silently ignore view count errors - non-critical
+      });
 
       return NextResponse.json(post);
     }

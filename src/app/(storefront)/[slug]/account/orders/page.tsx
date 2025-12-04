@@ -1,11 +1,13 @@
 'use client';
 
 import {
+  AlertCircle,
   ArrowLeft,
   Calendar,
   ChevronRight,
   Loader2,
   Package,
+  RefreshCw,
   Truck,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -82,6 +84,7 @@ export default function CustomerOrdersPage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -94,6 +97,7 @@ export default function CustomerOrdersPage() {
   const fetchOrders = useCallback(async () => {
     if (!customer || !merchant) return;
 
+    setOrdersError(null);
     try {
       const response = await fetch(
         `/api/storefront/orders?merchantSlug=${merchant.slug}`
@@ -102,9 +106,14 @@ export default function CustomerOrdersPage() {
 
       if (response.ok) {
         setOrders(data.orders || []);
+      } else {
+        const errorMsg = data.error || `Failed to load orders (${response.status})`;
+        console.error('Failed to fetch orders:', errorMsg);
+        setOrdersError(errorMsg);
       }
     } catch (error) {
       console.error('Failed to fetch orders:', error);
+      setOrdersError('Unable to connect. Please check your internet connection.');
     } finally {
       setIsLoadingOrders(false);
     }
@@ -147,7 +156,7 @@ export default function CustomerOrdersPage() {
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Link
-            href="/account"
+            href={asRoute('/account')}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -169,6 +178,18 @@ export default function CustomerOrdersPage() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
+        ) : ordersError ? (
+          <Card className="border-destructive/50">
+            <CardContent className="p-12 text-center">
+              <AlertCircle className="h-16 w-16 mx-auto mb-4 text-destructive/50" />
+              <h3 className="text-lg font-semibold mb-2">Unable to load orders</h3>
+              <p className="text-muted-foreground mb-6">{ordersError}</p>
+              <Button onClick={() => fetchOrders()} variant="outline">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
         ) : orders.length === 0 ? (
           <Card>
             <CardContent className="p-12 text-center">
@@ -178,7 +199,7 @@ export default function CustomerOrdersPage() {
                 When you place an order, it will appear here
               </p>
               <Button asChild>
-                <Link href="/">Start Shopping</Link>
+                <Link href={asRoute('/')}>Start Shopping</Link>
               </Button>
             </CardContent>
           </Card>
@@ -261,9 +282,11 @@ export default function CustomerOrdersPage() {
                           </Link>
                         </Button>
                       )}
-                      <Button variant="ghost" size="sm">
-                        View Details
-                        <ChevronRight className="h-4 w-4 ml-1" />
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={asRoute(`/account/orders/${order.id}`)}>
+                          View Details
+                          <ChevronRight className="h-4 w-4 ml-1" />
+                        </Link>
                       </Button>
                     </div>
                   </div>

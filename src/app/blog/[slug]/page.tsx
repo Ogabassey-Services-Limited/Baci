@@ -59,8 +59,12 @@ async function getBlogPost(slug: string): Promise<BlogPost | null> {
     return null;
   }
 
-  // Increment view count (fire and forget)
-  supabase.rpc('increment_blog_post_views', { p_post_id: post.id });
+  // Increment view count (fire and forget with silent error handling)
+  void Promise.resolve(
+    supabase.rpc('increment_blog_post_views', { p_post_id: post.id })
+  ).catch(() => {
+    // Silently ignore view count errors - non-critical
+  });
 
   return post;
 }

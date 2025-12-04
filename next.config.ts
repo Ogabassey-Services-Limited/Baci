@@ -89,8 +89,8 @@ const nextConfig: NextConfig = {
     // Replaces <link> tags with <style> tags for faster FCP/LCP
     inlineCss: true,
 
-    // Enable optimized CSS bundling
-    optimizeCss: true,
+    // Note: optimizeCss is disabled as it relies on Critters and is
+    // incompatible with App Router streaming. Use stable CSS pipeline instead.
 
     // Server Actions configuration
     serverActions: {

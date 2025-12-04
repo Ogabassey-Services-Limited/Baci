@@ -65,7 +65,7 @@ export default function AccountPage() {
 
   const handleLogout = async () => {
     await logout();
-    router.push('/');
+    router.push(asRoute('/'));
   };
 
   if (merchantLoading || authLoading) {
@@ -92,7 +92,7 @@ export default function AccountPage() {
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="font-semibold text-lg">
+          <Link href={asRoute('/')} className="font-semibold text-lg">
             {merchant?.business_name || 'Store'}
           </Link>
           <Button variant="ghost" size="sm" onClick={handleLogout}>
@@ -189,7 +189,7 @@ export default function AccountPage() {
                 Start shopping and your orders will appear here
               </p>
               <Button asChild>
-                <Link href="/">Browse Products</Link>
+                <Link href={asRoute('/')}>Browse Products</Link>
               </Button>
             </CardContent>
           </Card>

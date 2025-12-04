@@ -33,11 +33,12 @@ export default function AdminTemplatesPage() {
                   src={template.previewImage}
                   alt={template.name}
                   fill
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                   className="object-cover"
                 />
               ) : (
                 <div className="flex items-center justify-center h-full text-muted-foreground">
-                  <LayoutTemplate className="h-10 w-10" />
+                  <LayoutTemplate className="h-10 w-10" aria-hidden="true" />
                 </div>
               )}
               {template.isPremium && (
@@ -46,7 +47,7 @@ export default function AdminTemplatesPage() {
                     variant="secondary"
                     className="bg-amber-100 text-amber-800 hover:bg-amber-100"
                   >
-                    <Lock className="w-3 h-3 mr-1" /> Premium
+                    <Lock className="w-3 h-3 mr-1" aria-hidden="true" /> Premium
                   </Badge>
                 </div>
               )}

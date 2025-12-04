@@ -156,8 +156,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'No path provided' }, { status: 400 });
     }
 
-    // Ensure the path belongs to this merchant
-    if (!path.startsWith(`blog/${merchant.id}/`)) {
+    // Ensure the path belongs to this merchant and prevent path traversal
+    const expectedPrefix = `blog/${merchant.id}/`;
+    // Reject paths with traversal sequences or that don't match expected format
+    if (
+      typeof path !== 'string' ||
+      path.includes('..') ||
+      path.includes('//') ||
+      !path.startsWith(expectedPrefix) ||
+      path.split('/').length !== 3
+    ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 

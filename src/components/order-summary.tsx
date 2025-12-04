@@ -66,9 +66,8 @@ export function OrderSummary({
                 <span>{formatCurrency(shippingFee)}</span>
               )
             ) : (
-              <span className="text-muted-foreground text-sm flex items-center gap-1">
-                <Loader2 className="h-3 w-3 motion-safe:animate-spin" />
-                Calculating...
+              <span className="text-muted-foreground text-sm">
+                Select shipping option
               </span>
             )}
           </div>

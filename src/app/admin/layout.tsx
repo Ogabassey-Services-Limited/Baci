@@ -407,8 +407,14 @@ export default function AdminLayout({
         >
           <Suspense
             fallback={
-              <div className="flex flex-1 items-center justify-center">
+              <div
+                className="flex flex-1 items-center justify-center"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
                 <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+                <span className="sr-only">Loading admin content...</span>
               </div>
             }
           >

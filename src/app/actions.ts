@@ -25,10 +25,11 @@ export async function getLandingMetrics(): Promise<LandingMetrics> {
       .from('orders')
       .select('*', { count: 'exact', head: true });
 
-    // Calculate total sales from orders
+    // Calculate total sales from orders using SQL aggregation for efficiency
     const { data: salesData, error: salesError } = await supabase
       .from('orders')
-      .select('total');
+      .select('total.sum()')
+      .single();
 
     if (merchantError) {
       console.error('Error fetching merchant count:', merchantError);
@@ -40,14 +41,11 @@ export async function getLandingMetrics(): Promise<LandingMetrics> {
       console.error('Error fetching sales total:', salesError);
     }
 
-    // Calculate total sales
-    const totalSales =
-      salesData?.reduce((sum, order) => {
-        return sum + (Number(order.total) || 0);
-      }, 0) || 0;
+    // Calculate total sales from aggregated result
+    const totalSales = Number(salesData?.sum) || 0;
 
     // Format sales display
-    let salesDisplay: string | number = '0';
+    let salesDisplay: string | number;
     if (totalSales >= 1000000) {
       salesDisplay = `${(totalSales / 1000000).toFixed(1)}M`;
     } else if (totalSales >= 1000) {

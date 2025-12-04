@@ -61,6 +61,21 @@ function stripHtml(html: string): string {
   }).trim();
 }
 
+// Infer image MIME type from URL extension
+function getImageMimeType(url: string): string {
+  const ext = url.split('.').pop()?.toLowerCase().split('?')[0];
+  const mimeTypes: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    avif: 'image/avif',
+  };
+  return mimeTypes[ext || ''] || 'image/jpeg';
+}
+
 // Create anonymous Supabase client for public access
 function getPublicClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -207,6 +222,13 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           allowedSchemes: ['http', 'https', 'mailto'],
           // Disallow data: URIs and javascript: protocol
           allowProtocolRelative: false,
+          // Add rel="noopener noreferrer" to all links for security
+          transformTags: {
+            a: (tagName, attribs) => ({
+              tagName,
+              attribs: { ...attribs, rel: 'noopener noreferrer' },
+            }),
+          },
         });
 
         return `
@@ -222,7 +244,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       ${
         post.featured_image_url
           ? `
-      <enclosure url="${escapeXml(post.featured_image_url)}" type="image/jpeg"/>
+      <enclosure url="${escapeXml(post.featured_image_url)}" type="${getImageMimeType(post.featured_image_url)}"/>
       <media:content url="${escapeXml(post.featured_image_url)}" medium="image">
         <media:title>${escapeXml(post.title)}</media:title>
       </media:content>`

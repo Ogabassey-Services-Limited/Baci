@@ -186,7 +186,7 @@ export function StorefrontProductGrid({
       const cats = new Set(
         products
           .map((p) => p.category)
-          .filter((c): c is string => !!c && c !== 'General')
+          .filter((c): c is string => !!c)
       );
       return Array.from(cats);
     } else if (filterType === 'brand') {
@@ -299,10 +299,10 @@ export function StorefrontProductGrid({
 
   const brandColors = merchant?.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -351,7 +351,7 @@ export function StorefrontProductGrid({
                     <option value="price">Shop by Price</option>
                   </select>
                 </div>
-                {filterOptions.length > 0 && (
+                {filterOptions.length > 0 ? (
                   <div className="flex gap-2 flex-wrap">
                     {filterOptions.map((option) => (
                       <button
@@ -362,15 +362,19 @@ export function StorefrontProductGrid({
                             selectedCategory === option ? 'All' : option
                           )
                         }
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          selectedCategory === option
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === option
                             ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
                             : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
-                        }`}
+                          }`}
                       >
                         {option}
                       </button>
                     ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground italic">
+                    No {filterType === 'category' ? 'categories' : 'brands'}{' '}
+                    found.
                   </div>
                 )}
               </div>

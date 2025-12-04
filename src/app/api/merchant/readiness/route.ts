@@ -81,8 +81,9 @@ export async function GET() {
       .eq('merchant_id', merchant.id)
       .eq('status', 'published');
 
-    // Get feature settings
-    await supabase
+    // Get feature settings (if needed in future for conditional setup items)
+    // Currently the result is not used, but the query validates merchant access
+    const { data: _featureSettings } = await supabase
       .from('merchant_feature_settings')
       .select('*')
       .eq('merchant_id', merchant.id)

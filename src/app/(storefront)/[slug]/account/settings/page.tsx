@@ -57,30 +57,38 @@ export default function CustomerSettingsPage() {
     e.preventDefault();
     setIsSaving(true);
 
-    const result = await updateCustomer({
-      full_name: fullName,
-      phone: phone || undefined,
-    });
-
-    if (result.success) {
-      toast({
-        title: 'Settings saved',
-        description: 'Your profile has been updated.',
+    try {
+      const result = await updateCustomer({
+        full_name: fullName,
+        phone: phone || undefined,
       });
-    } else {
+
+      if (result.success) {
+        toast({
+          title: 'Settings saved',
+          description: 'Your profile has been updated.',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to save settings',
+          variant: 'destructive',
+        });
+      }
+    } catch {
       toast({
         title: 'Error',
-        description: result.error || 'Failed to save settings',
+        description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsSaving(false);
     }
-
-    setIsSaving(false);
   };
 
   const handleLogout = async () => {
     await logout();
-    router.push('/');
+    router.push(asRoute('/'));
   };
 
   if (merchantLoading || authLoading) {
@@ -104,7 +112,7 @@ export default function CustomerSettingsPage() {
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Link
-            href="/account"
+            href={asRoute('/account')}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />

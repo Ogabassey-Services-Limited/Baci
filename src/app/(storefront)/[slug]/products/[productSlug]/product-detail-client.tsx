@@ -520,12 +520,16 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                           onChange={(e) =>
                             updateQuantity(
                               product.id,
-                              Number.parseInt(e.target.value, 10) || 0,
+                              Math.max(
+                                Number.parseInt(e.target.value, 10) ||
+                                  (product.minimum_order_quantity || 1),
+                                product.minimum_order_quantity || 1
+                              ),
                               selectedVariant?.id
                             )
                           }
                           className="h-10 w-16 text-center text-base remove-arrow"
-                          min="0"
+                          min={product.minimum_order_quantity || 1}
                           aria-label={`Quantity for ${product.name}`}
                         />
                         <ThemedButton

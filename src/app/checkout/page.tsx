@@ -15,7 +15,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FormProvider, useForm, useFormContext } from 'react-hook-form';
+import { FormProvider, useForm, useFormContext, useWatch } from 'react-hook-form';
 import {
   type Country as CountryCode,
   isValidPhoneNumber,
@@ -404,20 +404,20 @@ function Step1_Shipping({
   onShippingSelect: (quote: ShippingQuote, sessionId: string) => void;
   selectedQuote: ShippingQuote | null;
 }) {
-  const { control, setValue, watch } = useFormContext<ShippingFormValues>();
+  const { control, setValue } = useFormContext<ShippingFormValues>();
   const { merchant } = useMerchant();
   const { cart } = useCart();
 
   const country = merchant?.country ? getCountryByCode(merchant.country) : null;
   const isNigerian = country?.code === 'NG' || !country;
 
-  // Watch form values for shipping options
-  const watchCity = watch('city');
-  const watchState = watch('state');
-  const watchAddress = watch('address');
-  const watchPhone = watch('phone');
-  const watchFirstName = watch('firstName');
-  const watchLastName = watch('lastName');
+  // Use useWatch instead of watch - watch doesn't trigger re-renders in nested components!
+  const watchCity = useWatch({ control, name: 'city' });
+  const watchState = useWatch({ control, name: 'state' });
+  const watchAddress = useWatch({ control, name: 'address' });
+  const watchPhone = useWatch({ control, name: 'phone' });
+  const watchFirstName = useWatch({ control, name: 'firstName' });
+  const watchLastName = useWatch({ control, name: 'lastName' });
 
   return (
     <div className="space-y-4">
@@ -534,11 +534,20 @@ function Step1_Shipping({
                   field.onChange(place.formattedAddress);
                   // If Google Maps returns Lagos as both city and state, clear city to force user input
                   if (place.city === 'Lagos' && place.state === 'Lagos') {
-                    setValue('city', '');
+                    setValue('city', '', {
+                      shouldValidate: false,
+                      shouldDirty: true,
+                    });
                   } else {
-                    setValue('city', place.city);
+                    setValue('city', place.city, {
+                      shouldValidate: false,
+                      shouldDirty: true,
+                    });
                   }
-                  setValue('state', place.state);
+                  setValue('state', place.state, {
+                    shouldValidate: false,
+                    shouldDirty: true,
+                  });
                 }}
               />
             </FormControl>
@@ -557,11 +566,9 @@ function Step1_Shipping({
               <FormLabel>City</FormLabel>
               <FormControl>
                 <ThemedInput
-                  placeholder="e.g. Lagos, Ikeja"
+                  placeholder="e.g. Ikeja, Lekki, Yaba"
+                  autoComplete="new-password"
                   {...field}
-                  id="city"
-                  name="city"
-                  autoComplete="address-level2"
                 />
               </FormControl>
               <FormMessage />
@@ -577,26 +584,14 @@ function Step1_Shipping({
               <FormControl>
                 <ThemedInput
                   placeholder="e.g. Lagos"
+                  autoComplete="new-password"
                   {...field}
-                  id="state"
-                  name="state"
-                  autoComplete="address-level1"
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-      </div>
-
-      {/* Debug Info */}
-      <div className="text-xs text-red-500 p-2 border border-red-200 rounded mb-4 bg-red-50">
-        <p>DEBUG INFO:</p>
-        <p>City: "{watchCity}"</p>
-        <p>State: "{watchState}"</p>
-        <p>isNigerian: {String(isNigerian)}</p>
-        <p>Merchant Country: "{merchant?.country}"</p>
-        <p>Country Code: "{country?.code}"</p>
       </div>
 
       {/* Shipping Options - Show when address is complete */}
@@ -721,11 +716,10 @@ function Step2_Payment({
               key={gateway.id}
               type="button"
               onClick={() => onGatewaySelect(gateway.id)}
-              className={`w-full rounded-lg border p-4 text-left transition-all ${
-                selectedGateway === gateway.id
-                  ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                  : 'border-border bg-card hover:border-primary/50'
-              }`}
+              className={`w-full rounded-lg border p-4 text-left transition-all ${selectedGateway === gateway.id
+                ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                : 'border-border bg-card hover:border-primary/50'
+                }`}
             >
               <div className="flex items-center gap-4">
                 <div
@@ -753,6 +747,7 @@ function Step2_Payment({
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
+                      aria-hidden="true"
                     >
                       <path
                         strokeLinecap="round"
@@ -970,13 +965,16 @@ function CheckoutPageContent() {
       city: '',
       state: '',
     },
-    mode: 'onBlur',
+    mode: 'onSubmit', // Only validate on submit - best practice for checkout
   });
 
   useEffect(() => {
     // If user changes, autofill email and name fields from user metadata or customer data
     if (user) {
-      shippingForm.setValue('email', user.email || '');
+      shippingForm.setValue('email', user.email || '', {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
 
       // First, try to fill from customer data (more up-to-date)
       if (customerData) {
@@ -984,15 +982,25 @@ function CheckoutPageContent() {
         if (customerData.full_name) {
           const nameParts = customerData.full_name.split(' ');
           if (nameParts.length > 0) {
-            shippingForm.setValue('firstName', nameParts[0]);
+            shippingForm.setValue('firstName', nameParts[0], {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
             if (nameParts.length > 1) {
-              shippingForm.setValue('lastName', nameParts.slice(1).join(' '));
+              shippingForm.setValue(
+                'lastName',
+                nameParts.slice(1).join(' '),
+                { shouldValidate: true, shouldDirty: true }
+              );
             }
           }
         }
 
         if (customerData.phone) {
-          shippingForm.setValue('phone', customerData.phone);
+          shippingForm.setValue('phone', customerData.phone, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
         }
 
         // Use default saved address if available
@@ -1000,19 +1008,38 @@ function CheckoutPageContent() {
           (a) => a.is_default
         );
         if (defaultAddress) {
-          shippingForm.setValue('address', defaultAddress.address);
-          shippingForm.setValue('city', defaultAddress.city);
-          shippingForm.setValue('state', defaultAddress.state);
+          shippingForm.setValue('address', defaultAddress.address, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+          shippingForm.setValue('city', defaultAddress.city, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+          shippingForm.setValue('state', defaultAddress.state, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
           if (defaultAddress.phone) {
-            shippingForm.setValue('phone', defaultAddress.phone);
+            shippingForm.setValue('phone', defaultAddress.phone, {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
           }
           // Override name with address name if different
           if (defaultAddress.full_name) {
             const nameParts = defaultAddress.full_name.split(' ');
             if (nameParts.length > 0) {
-              shippingForm.setValue('firstName', nameParts[0]);
+              shippingForm.setValue('firstName', nameParts[0], {
+                shouldValidate: true,
+                shouldDirty: true,
+              });
               if (nameParts.length > 1) {
-                shippingForm.setValue('lastName', nameParts.slice(1).join(' '));
+                shippingForm.setValue(
+                  'lastName',
+                  nameParts.slice(1).join(' '),
+                  { shouldValidate: true, shouldDirty: true }
+                );
               }
             }
           }
@@ -1022,20 +1049,33 @@ function CheckoutPageContent() {
         const metadata = user.user_metadata;
         if (metadata) {
           if (metadata.first_name) {
-            shippingForm.setValue('firstName', metadata.first_name);
+            shippingForm.setValue('firstName', metadata.first_name, {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
           } else if (metadata.full_name) {
             // Try to split full_name if first_name is not available
             const nameParts = metadata.full_name.split(' ');
             if (nameParts.length > 0) {
-              shippingForm.setValue('firstName', nameParts[0]);
+              shippingForm.setValue('firstName', nameParts[0], {
+                shouldValidate: true,
+                shouldDirty: true,
+              });
               if (nameParts.length > 1) {
-                shippingForm.setValue('lastName', nameParts.slice(1).join(' '));
+                shippingForm.setValue(
+                  'lastName',
+                  nameParts.slice(1).join(' '),
+                  { shouldValidate: true, shouldDirty: true }
+                );
               }
             }
           }
 
           if (metadata.last_name) {
-            shippingForm.setValue('lastName', metadata.last_name);
+            shippingForm.setValue('lastName', metadata.last_name, {
+              shouldValidate: true,
+              shouldDirty: true,
+            });
           }
         }
       }
@@ -1472,13 +1512,13 @@ function CheckoutPageContent() {
                               {selectedGateway === 'pod'
                                 ? 'Place Order'
                                 : `Pay ${new Intl.NumberFormat('en-NG', {
-                                    style: 'currency',
-                                    currency: 'NGN',
-                                  }).format(
-                                    cartTotal +
-                                      (shippingFee || 0) -
-                                      discountAmount
-                                  )}`}
+                                  style: 'currency',
+                                  currency: 'NGN',
+                                }).format(
+                                  cartTotal +
+                                  (shippingFee || 0) -
+                                  discountAmount
+                                )}`}
                             </ThemedButton>
                           </div>
                         </div>
@@ -1525,6 +1565,7 @@ function CheckoutPageContent() {
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"

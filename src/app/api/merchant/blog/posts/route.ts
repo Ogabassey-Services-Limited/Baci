@@ -38,7 +38,7 @@ const createPostSchema = z.object({
 // Calculate reading time based on word count
 function calculateReadingTime(content: string): number {
   const wordsPerMinute = 200;
-  const wordCount = content.split(/\s+/).length;
+  const wordCount = calculateWordCount(content);
   return Math.ceil(wordCount / wordsPerMinute);
 }
 
@@ -247,7 +247,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`title.ilike.%${search}%,content.ilike.%${search}%`);
+      // Sanitize search input to prevent filter injection (escape %, _, \)
+      const sanitized = search.replace(/[%_\\]/g, '\\$&');
+      query = query.or(`title.ilike.%${sanitized}%,content.ilike.%${sanitized}%`);
     }
 
     // Apply sorting

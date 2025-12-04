@@ -19,10 +19,28 @@ import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
+// Validate redirect URL to prevent open redirect vulnerabilities
+function sanitizeRedirect(redirect: string | null): string {
+  const defaultRedirect = '/account';
+  if (!redirect) return defaultRedirect;
+
+  // Only allow relative paths starting with /
+  // Reject absolute URLs, protocol-relative URLs, and javascript: URLs
+  if (
+    !redirect.startsWith('/') ||
+    redirect.startsWith('//') ||
+    redirect.includes(':')
+  ) {
+    return defaultRedirect;
+  }
+
+  return redirect;
+}
+
 export default function CustomerLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/account';
+  const redirectTo = sanitizeRedirect(searchParams.get('redirect'));
 
   const { merchant, loading: merchantLoading } = useMerchant();
   const {
@@ -152,7 +170,7 @@ export default function CustomerLoginPage() {
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Link
-            href="/"
+            href={asRoute('/')}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -171,6 +189,7 @@ export default function CustomerLoginPage() {
                 alt={merchant.business_name}
                 width={48}
                 height={48}
+                sizes="48px"
                 className="h-12 w-auto mx-auto mb-2"
                 unoptimized
               />
@@ -244,25 +263,28 @@ export default function CustomerLoginPage() {
                     className="flex gap-2 justify-center"
                     onPaste={handlePaste}
                   >
-                    {code.map((digit, index) => (
-                      <Input
-                        key={`otp-input-${index}`}
-                        ref={(el) => {
-                          codeInputRefs.current[index] = el;
-                        }}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) =>
-                          handleCodeChange(index, e.target.value)
-                        }
-                        onKeyDown={(e) => handleKeyDown(index, e)}
-                        className="w-12 h-14 text-center text-2xl font-mono"
-                        disabled={isVerifying}
-                        autoFocus={index === 0}
-                      />
-                    ))}
+                    {(['d1', 'd2', 'd3', 'd4', 'd5', 'd6'] as const).map(
+                      (slot, index) => (
+                        <Input
+                          key={slot}
+                          ref={(el) => {
+                            codeInputRefs.current[index] = el;
+                          }}
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={1}
+                          value={code[index]}
+                          onChange={(e) =>
+                            handleCodeChange(index, e.target.value)
+                          }
+                          onKeyDown={(e) => handleKeyDown(index, e)}
+                          className="w-12 h-14 text-center text-2xl font-mono"
+                          disabled={isVerifying}
+                          autoFocus={index === 0}
+                          aria-label={`Digit ${index + 1} of 6`}
+                        />
+                      )
+                    )}
                   </div>
                 </div>
 

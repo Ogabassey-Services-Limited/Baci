@@ -25,7 +25,6 @@ export function FloatingControls() {
   const { selectedItem } = state.ui;
   const { config } = state;
 
-  if (!selectedItem) return null;
   if (!selectedItem || !selectedItem.props) return null;
 
   // Safety check: Ensure config and components exist

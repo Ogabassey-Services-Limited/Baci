@@ -107,19 +107,36 @@ export default function CustomerAddressesPage() {
   };
 
   const handleDelete = async (addressId: string) => {
-    const newAddresses = addresses.filter((a) => a.id !== addressId);
-    const result = await updateCustomer({ saved_addresses: newAddresses });
+    // Confirm deletion with user before proceeding
+    if (
+      !window.confirm(
+        'Are you sure you want to delete this address? This action cannot be undone.'
+      )
+    ) {
+      return;
+    }
 
-    if (result.success) {
-      setAddresses(newAddresses);
-      toast({
-        title: 'Address deleted',
-        description: 'The address has been removed from your account.',
-      });
-    } else {
+    const newAddresses = addresses.filter((a) => a.id !== addressId);
+    try {
+      const result = await updateCustomer({ saved_addresses: newAddresses });
+
+      if (result.success) {
+        setAddresses(newAddresses);
+        toast({
+          title: 'Address deleted',
+          description: 'The address has been removed from your account.',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: result.error || 'Failed to delete address',
+          variant: 'destructive',
+        });
+      }
+    } catch {
       toast({
         title: 'Error',
-        description: result.error || 'Failed to delete address',
+        description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
       });
     }
@@ -223,7 +240,7 @@ export default function CustomerAddressesPage() {
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Link
-            href="/account"
+            href={asRoute('/account')}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />

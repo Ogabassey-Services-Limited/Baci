@@ -1,7 +1,7 @@
 'use client';
 
 import { Check, Clock, Loader2, Package, Truck } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useCurrency } from '@/hooks/use-currency';
 import { apiPost } from '@/lib/api-client';
@@ -69,12 +69,38 @@ export function ShippingOptions({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Use ref for onSelect to avoid re-fetching when it changes
+  const onSelectRef = useRef(onSelect);
+  onSelectRef.current = onSelect;
+
+  // Track if we've already auto-selected
+  const hasAutoSelected = useRef(false);
+
+  // Store cartItems in ref to use in effect without causing re-runs
+  const cartItemsRef = useRef(cartItems);
+  cartItemsRef.current = cartItems;
+
+  // Create stable key for cartItems to only trigger when content actually changes
+  const cartItemsKey = JSON.stringify(cartItems.map(i => ({ n: i.name, q: i.quantity, p: i.price })));
+
+  // Track if we've already fetched for current address
+  const lastFetchKey = useRef<string>('');
+
   useEffect(() => {
     if (!receiverCity || !receiverState) return;
+
+    // Create a key for this specific fetch request
+    const fetchKey = `${receiverCity}-${receiverState}-${receiverAddress}-${cartItemsKey}`;
+
+    // Skip if we've already fetched for this exact configuration
+    if (lastFetchKey.current === fetchKey && quotes.length > 0) {
+      return;
+    }
 
     const fetchQuotes = async () => {
       setIsLoading(true);
       setError(null);
+      lastFetchKey.current = fetchKey;
 
       try {
         const response = await apiPost<QuotesResponse>('/api/shipping/quotes', {
@@ -87,7 +113,7 @@ export function ShippingOptions({
             country: 'Nigeria',
             countryCode: 'NG',
           },
-          items: cartItems.map((item) => ({
+          items: cartItemsRef.current.map((item) => ({
             name: item.name,
             quantity: item.quantity,
             weight: 1, // Default weight 1kg per item
@@ -103,12 +129,13 @@ export function ShippingOptions({
           console.warn('Shipping quote warnings:', response.warnings);
         }
 
-        // Auto-select cheapest if none selected
-        if (!selectedQuoteId && response.quotes.featured.length > 0) {
+        // Auto-select cheapest only on first load
+        if (!hasAutoSelected.current && response.quotes.all.length > 0) {
           const cheapest = response.quotes.all.reduce((min, q) =>
             q.price < min.price ? q : min
           );
-          onSelect(cheapest, response.sessionId);
+          onSelectRef.current(cheapest, response.sessionId);
+          hasAutoSelected.current = true;
         }
       } catch (err) {
         console.error('Failed to fetch shipping quotes:', err);
@@ -125,11 +152,8 @@ export function ShippingOptions({
     receiverCity,
     receiverState,
     receiverAddress,
-    receiverPhone,
-    receiverName,
-    cartItems.map,
-    onSelect,
-    selectedQuoteId,
+    cartItemsKey,
+    quotes.length,
   ]);
 
   const formatDeliveryTime = (quote: ShippingQuote) => {
@@ -197,13 +221,26 @@ export function ShippingOptions({
       {quotes.map((quote) => (
         <Card
           key={quote.id}
+          role="button"
+          tabIndex={0}
           className={cn(
             'cursor-pointer transition-all border-2',
             selectedQuoteId === quote.id
               ? 'border-primary bg-primary/5'
               : 'border-transparent hover:border-muted-foreground/20'
           )}
-          onClick={() => onSelect(quote, sessionId)}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onSelect(quote, sessionId);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              onSelect(quote, sessionId);
+            }
+          }}
         >
           <CardContent className="p-4">
             <div className="flex items-center justify-between">

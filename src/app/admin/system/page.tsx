@@ -178,15 +178,12 @@ export default function SystemHealthPage() {
     };
   }, [fetchHealth]);
 
-  // Calculate overall health score
+  // Calculate overall health score with safe fallback array
+  const checks = health?.health ?? [];
+  const passingChecks = checks.filter((h) => h.status === 'healthy').length;
+  const totalChecks = checks.length;
   const healthScore =
-    health?.health && health.health.length > 0
-      ? Math.round(
-          (health.health.filter((h) => h.status === 'healthy').length /
-            health.health.length) *
-            100
-        )
-      : 0;
+    totalChecks > 0 ? Math.round((passingChecks / totalChecks) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -239,9 +236,7 @@ export default function SystemHealthPage() {
                 </div>
                 <Progress value={healthScore} className="h-2" />
                 <p className="text-xs text-muted-foreground">
-                  {health?.health.filter((h) => h.status === 'healthy')
-                    .length || 0}{' '}
-                  of {health?.health.length || 0} checks passing
+                  {passingChecks} of {totalChecks} checks passing
                 </p>
               </div>
             )}
