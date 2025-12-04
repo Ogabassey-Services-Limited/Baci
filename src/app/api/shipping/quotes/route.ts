@@ -146,6 +146,7 @@ export async function POST(request: NextRequest) {
 
     // Get quotes from all providers
     const response = await shippingService.getQuotes(quoteRequest);
+    console.log('Shipping Quotes Response:', JSON.stringify(response, null, 2));
 
     // Store quotes in database for later retrieval during booking
     const cookieStore = await cookies();

@@ -33,7 +33,7 @@ function verifyWebhookSignature(
   const secrets: Record<string, string | undefined> = {
     gigl: process.env.GIGL_WEBHOOK_SECRET,
     topship: process.env.TOPSHIP_WEBHOOK_SECRET,
-    shiip: process.env.SHIIP_WEBHOOK_SECRET,
+
   };
 
   const secret = secrets[provider.toLowerCase()];
@@ -141,29 +141,7 @@ function parseTopshipWebhook(payload: unknown): WebhookEvent | null {
   };
 }
 
-function parseShiipWebhook(payload: unknown): WebhookEvent | null {
-  const data = payload as {
-    reference?: string;
-    tracking_number?: string;
-    status?: string;
-    message?: string;
-    location?: string;
-    timestamp?: string;
-    created_at?: string;
-  };
 
-  if (!data.reference && !data.tracking_number) return null;
-
-  return {
-    trackingNumber: data.tracking_number || '',
-    providerShipmentId: data.reference,
-    status: data.status || '',
-    description: data.message,
-    location: data.location,
-    timestamp: new Date(data.timestamp || data.created_at || Date.now()),
-    rawPayload: payload,
-  };
-}
 
 function parseWebhookPayload(
   provider: string,
@@ -174,8 +152,7 @@ function parseWebhookPayload(
       return parseGiglWebhook(payload);
     case 'TOPSHIP':
       return parseTopshipWebhook(payload);
-    case 'SHIIP':
-      return parseShiipWebhook(payload);
+
     default:
       return null;
   }

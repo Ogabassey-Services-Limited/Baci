@@ -139,83 +139,14 @@ export function mapTopshipStatus(status: string): NormalizedShipmentStatus {
   );
 }
 
-// =============================================================================
-// SHIIP STATUS MAPPING
-// =============================================================================
 
-const SHIIP_STATUS_MAP: Record<string, NormalizedShipmentStatus> = {
-  // Pending
-  pending: 'pending',
-  Pending: 'pending',
-  PENDING: 'pending',
-
-  // Booked / Confirmed
-  booked: 'booked',
-  Booked: 'booked',
-  BOOKED: 'booked',
-  confirmed: 'booked',
-  Confirmed: 'booked',
-
-  // Pickup
-  assigned: 'pickup_scheduled',
-  Assigned: 'pickup_scheduled',
-  ASSIGNED: 'pickup_scheduled',
-  'picked up': 'picked_up',
-  'Picked Up': 'picked_up',
-  PICKED_UP: 'picked_up',
-  pickedup: 'picked_up',
-
-  // Transit
-  'in progress': 'in_transit',
-  'In Progress': 'in_transit',
-  IN_PROGRESS: 'in_transit',
-  'in transit': 'in_transit',
-  'In Transit': 'in_transit',
-  intransit: 'in_transit',
-
-  // Out for Delivery
-  'out for delivery': 'out_for_delivery',
-  'Out For Delivery': 'out_for_delivery',
-  OUT_FOR_DELIVERY: 'out_for_delivery',
-
-  // Delivered
-  delivered: 'delivered',
-  Delivered: 'delivered',
-  DELIVERED: 'delivered',
-  completed: 'delivered',
-  Completed: 'delivered',
-
-  // Cancelled
-  cancelled: 'cancelled',
-  Cancelled: 'cancelled',
-  CANCELLED: 'cancelled',
-  canceled: 'cancelled',
-
-  // Failed
-  failed: 'failed',
-  Failed: 'failed',
-  FAILED: 'failed',
-
-  // Returned
-  returned: 'returned',
-  Returned: 'returned',
-  RETURNED: 'returned',
-};
-
-export function mapShiipStatus(status: string): NormalizedShipmentStatus {
-  return (
-    SHIIP_STATUS_MAP[status] ||
-    SHIIP_STATUS_MAP[status.toLowerCase()] ||
-    'pending'
-  );
-}
 
 // =============================================================================
 // GENERIC STATUS MAPPER
 // =============================================================================
 
 export function mapProviderStatus(
-  provider: 'GIGL' | 'TOPSHIP' | 'SHIIP',
+  provider: 'GIGL' | 'TOPSHIP',
   status: string
 ): NormalizedShipmentStatus {
   switch (provider) {
@@ -223,8 +154,6 @@ export function mapProviderStatus(
       return mapGiglStatus(status);
     case 'TOPSHIP':
       return mapTopshipStatus(status);
-    case 'SHIIP':
-      return mapShiipStatus(status);
     default:
       return 'pending';
   }

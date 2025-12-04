@@ -7,7 +7,7 @@
 import { QuoteAggregator } from './aggregator';
 import { ShippingProviderRegistry } from './providers/base';
 import { GiglProvider } from './providers/gigl';
-import { ShiipProvider } from './providers/shiip';
+
 import { TopshipProvider } from './providers/topship';
 import type {
   BookingRequest,
@@ -30,7 +30,7 @@ const registry = new ShippingProviderRegistry();
 // Register providers
 registry.register(new GiglProvider());
 registry.register(new TopshipProvider());
-registry.register(new ShiipProvider());
+
 
 // Create aggregator
 const aggregator = new QuoteAggregator(registry);

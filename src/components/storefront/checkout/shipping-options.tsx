@@ -1,0 +1,313 @@
+'use client';
+
+import { Check, Clock, Loader2, Package, Truck } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { useCurrency } from '@/hooks/use-currency';
+import { apiPost } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
+
+interface ShippingQuote {
+  id: string;
+  provider: 'GIGL' | 'TOPSHIP';
+  serviceTier: string;
+  carrierName: string;
+  displayName: string;
+  estimatedDays: number;
+  minDays?: number;
+  maxDays?: number;
+  price: number;
+  currency: string;
+  pickupIncluded: boolean;
+  insuranceIncluded: boolean;
+  isStationPickup?: boolean;
+  stationName?: string;
+  stationAddress?: string;
+  providerRateId?: string;
+}
+
+interface QuotesResponse {
+  quotes: {
+    featured: ShippingQuote[];
+    all: ShippingQuote[];
+  };
+  sessionId: string;
+  expiresAt: string;
+  warnings?: string[];
+}
+
+interface ShippingOptionsProps {
+  receiverCity: string;
+  receiverState: string;
+  receiverAddress: string;
+  receiverPhone: string;
+  receiverName: string;
+  cartItems: {
+    name: string;
+    quantity: number;
+    price: number;
+  }[];
+  onSelect: (quote: ShippingQuote, sessionId: string) => void;
+  selectedQuoteId?: string;
+  className?: string;
+}
+
+export function ShippingOptions({
+  receiverCity,
+  receiverState,
+  receiverAddress,
+  receiverPhone,
+  receiverName,
+  cartItems,
+  onSelect,
+  selectedQuoteId,
+  className,
+}: ShippingOptionsProps) {
+  const { formatCurrency } = useCurrency();
+  const [quotes, setQuotes] = useState<ShippingQuote[]>([]);
+  const [sessionId, setSessionId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!receiverCity || !receiverState) return;
+
+    const fetchQuotes = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const response = await apiPost<QuotesResponse>('/api/shipping/quotes', {
+          receiver: {
+            name: receiverName || 'Customer',
+            phone: receiverPhone || '',
+            address: receiverAddress || receiverCity,
+            city: receiverCity,
+            state: receiverState,
+            country: 'Nigeria',
+            countryCode: 'NG',
+          },
+          items: cartItems.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            weight: 1, // Default weight 1kg per item
+            value: item.price,
+          })),
+          shipmentType: 'domestic',
+        });
+
+        setQuotes(response.quotes.all);
+        setSessionId(response.sessionId);
+
+        if (response.warnings && response.warnings.length > 0) {
+          console.warn('Shipping quote warnings:', response.warnings);
+        }
+
+        // Auto-select cheapest if none selected
+        if (
+          !selectedQuoteId &&
+          response.quotes.featured.length > 0
+        ) {
+          const cheapest = response.quotes.all.reduce((min, q) =>
+            q.price < min.price ? q : min
+          );
+          onSelect(cheapest, response.sessionId);
+        }
+      } catch (err) {
+        console.error('Failed to fetch shipping quotes:', err);
+        setError('Unable to get shipping options. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Debounce
+    const timer = setTimeout(fetchQuotes, 500);
+    return () => clearTimeout(timer);
+  }, [
+    receiverCity,
+    receiverState,
+    receiverAddress,
+    receiverPhone,
+    receiverName,
+    // Use stringified cart items to avoid re-fetching on new array reference
+    JSON.stringify(cartItems),
+  ]);
+
+  const formatDeliveryTime = (quote: ShippingQuote) => {
+    if (quote.minDays && quote.maxDays && quote.minDays !== quote.maxDays) {
+      return `${quote.minDays}-${quote.maxDays} days`;
+    }
+    return `${quote.estimatedDays} day${quote.estimatedDays !== 1 ? 's' : ''}`;
+  };
+
+  const getProviderLogo = (provider: string) => {
+    switch (provider) {
+      case 'GIGL':
+        return 'GIG';
+      case 'TOPSHIP':
+        return 'TS';
+
+      default:
+        return provider.slice(0, 2);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className={cn('flex items-center justify-center py-8', className)}>
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+        <span className="text-muted-foreground">
+          Finding best shipping options...
+        </span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className={cn(
+          'p-4 bg-destructive/10 text-destructive rounded-lg',
+          className
+        )}
+      >
+        {error}
+      </div>
+    );
+  }
+
+  if (quotes.length === 0) {
+    return (
+      <div
+        className={cn(
+          'p-4 bg-muted text-muted-foreground rounded-lg text-center',
+          className
+        )}
+      >
+        <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <p>Enter your address to see shipping options</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn('space-y-3', className)}>
+      <h4 className="font-medium text-sm text-muted-foreground">
+        Select Shipping Option
+      </h4>
+      {quotes.map((quote) => (
+        <Card
+          key={quote.id}
+          className={cn(
+            'cursor-pointer transition-all border-2',
+            selectedQuoteId === quote.id
+              ? 'border-primary bg-primary/5'
+              : 'border-transparent hover:border-muted-foreground/20'
+          )}
+          onClick={() => onSelect(quote, sessionId)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {/* Provider badge */}
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-xs font-bold">
+                  {getProviderLogo(quote.provider)}
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold">{quote.carrierName}</p>
+                    {selectedQuoteId === quote.id && (
+                      <Check className="h-4 w-4 text-primary" />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {formatDeliveryTime(quote)}
+                    </span>
+                    {quote.isStationPickup && (
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">
+                        Station Pickup
+                      </span>
+                    )}
+                    {quote.insuranceIncluded && (
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded">
+                        Insured
+                      </span>
+                    )}
+                  </div>
+                  {quote.isStationPickup && quote.stationName && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Pickup: {quote.stationName}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-right">
+                <p className="font-bold text-lg">
+                  {formatCurrency(quote.price)}
+                </p>
+                {quote.pickupIncluded && (
+                  <p className="text-xs text-green-600">Free pickup</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Simple shipping display for Step 2 (payment confirmation)
+ */
+export function SelectedShippingDisplay({
+  quote,
+  className,
+}: {
+  quote: ShippingQuote | null;
+  className?: string;
+}) {
+  const { formatCurrency } = useCurrency();
+
+  if (!quote) {
+    return (
+      <Card className={className}>
+        <CardContent className="p-4 flex items-center gap-4">
+          <Truck className="h-6 w-6 text-muted-foreground" />
+          <div className="flex-1">
+            <p className="font-semibold text-muted-foreground">
+              No shipping selected
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Go back to select shipping
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className={className}>
+      <CardContent className="p-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Truck className="h-6 w-6 text-muted-foreground" />
+          <div>
+            <p className="font-semibold">{quote.carrierName}</p>
+            <p className="text-sm text-muted-foreground">
+              Est. {quote.estimatedDays} business day
+              {quote.estimatedDays !== 1 ? 's' : ''}
+              {quote.isStationPickup && ' (Station Pickup)'}
+            </p>
+          </div>
+        </div>
+        <p className="font-semibold">{formatCurrency(quote.price)}</p>
+      </CardContent>
+    </Card>
+  );
+}

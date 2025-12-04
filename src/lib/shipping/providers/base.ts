@@ -1,6 +1,6 @@
 /**
  * Base Shipping Provider Interface
- * All providers (GIGL, Topship, Shiip) must implement this interface
+ * All providers (GIGL, Topship) must implement this interface
  */
 
 import type {

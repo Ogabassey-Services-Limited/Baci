@@ -1,13 +1,13 @@
 /**
  * Shipping Provider Types
- * Unified interfaces for GIGL, Topship, and Shiip integration
+ * Unified interfaces for GIGL and Topship integration
  */
 
 // =============================================================================
 // PROVIDER CODES
 // =============================================================================
 
-export type ShippingProviderCode = 'GIGL' | 'TOPSHIP' | 'SHIIP';
+export type ShippingProviderCode = 'GIGL' | 'TOPSHIP';
 
 // =============================================================================
 // ADDRESS TYPES
@@ -70,7 +70,7 @@ export interface ShippingQuote {
   currency: 'NGN' | string;
   pickupIncluded: boolean;
   insuranceIncluded: boolean;
-  providerRateId?: string; // For booking (Shiip redis_key, etc.)
+  providerRateId?: string; // For booking with provider
   expiresAt: Date;
   rawResponse?: unknown; // Raw provider response for debugging
 
@@ -169,18 +169,18 @@ export type NormalizedShipmentStatus =
   | 'returned';
 
 export const SHIPMENT_STATUS_LABELS: Record<NormalizedShipmentStatus, string> =
-  {
-    pending: 'Pending',
-    booked: 'Booked',
-    pickup_scheduled: 'Pickup Scheduled',
-    picked_up: 'Picked Up',
-    in_transit: 'In Transit',
-    out_for_delivery: 'Out for Delivery',
-    delivered: 'Delivered',
-    cancelled: 'Cancelled',
-    failed: 'Failed',
-    returned: 'Returned',
-  };
+{
+  pending: 'Pending',
+  booked: 'Booked',
+  pickup_scheduled: 'Pickup Scheduled',
+  picked_up: 'Picked Up',
+  in_transit: 'In Transit',
+  out_for_delivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  failed: 'Failed',
+  returned: 'Returned',
+};
 
 // =============================================================================
 // CANCELLATION TYPES
@@ -313,14 +313,7 @@ export const PROVIDER_CONFIGS: Record<ShippingProviderCode, ProviderConfig> = {
     supportsInternational: true,
     supportsDomestic: true,
   },
-  SHIIP: {
-    code: 'SHIIP',
-    name: 'Shiip',
-    displayName: 'Shiip', // Hidden from customers - show carrier name instead
-    enabled: true,
-    supportsInternational: true,
-    supportsDomestic: true,
-  },
+
 };
 
 // =============================================================================

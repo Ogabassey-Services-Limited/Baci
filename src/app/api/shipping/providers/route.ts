@@ -36,14 +36,7 @@ export async function GET() {
         hasStationPickup: false,
         description: 'Aggregator with access to DHL, FedEx, UPS, and more',
       },
-      SHIIP: {
-        name: 'Shiip',
-        displayName: 'Multiple Carriers',
-        supportsDomestic: true,
-        supportsInternational: true,
-        hasStationPickup: false,
-        description: 'Aggregator with 30+ delivery partners',
-      },
+
     };
 
     // Build response

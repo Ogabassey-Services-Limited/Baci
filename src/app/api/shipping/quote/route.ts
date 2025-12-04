@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
       senderCity: _senderCity,
       cartValue,
       items,
+      merchantId,
     } = await request.json();
 
     // Check if GIGL is configured
@@ -67,6 +68,8 @@ export async function POST(request: NextRequest) {
     // Get merchant's location (sender)
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+
+    // Get current user (customer) for shipping label
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -74,7 +77,20 @@ export async function POST(request: NextRequest) {
     let senderStationId = CITY_TO_STATION.default;
     let senderCoords = { latitude: 6.5244, longitude: 3.3792 }; // Lagos default
 
-    if (user) {
+    if (merchantId) {
+      const { data: merchant } = await supabase
+        .from('merchants')
+        .select('business_location')
+        .eq('id', merchantId)
+        .single();
+
+      if (merchant?.business_location) {
+        senderStationId = getStationIdFromCity(merchant.business_location);
+        senderCoords = getCoordinatesForCity(merchant.business_location);
+      }
+    } else if (user) {
+      // Fallback to user session if no merchantId provided (legacy support)
+      // This assumes the user IS the merchant, which is only true in dashboard
       const { data: merchant } = await supabase
         .from('merchants')
         .select('business_location')
