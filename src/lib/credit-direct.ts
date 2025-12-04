@@ -201,9 +201,21 @@ export function buildCheckoutConfig(params: {
     signature: params.signature,
     transaction: params.transaction,
     isLive: params.isLive,
-    onSuccess: params.onSuccess || (() => {}),
-    onClose: params.onClose || (() => {}),
-    onPopup: params.onPopup || (() => {}),
+    onSuccess:
+      params.onSuccess ||
+      (() => {
+        /* default no-op */
+      }),
+    onClose:
+      params.onClose ||
+      (() => {
+        /* default no-op */
+      }),
+    onPopup:
+      params.onPopup ||
+      (() => {
+        /* default no-op */
+      }),
   };
 }
 

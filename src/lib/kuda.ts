@@ -212,14 +212,14 @@ export async function getBillersByType(
 /**
  * Get airtime providers
  */
-export async function getAirtimeProviders(): Promise<Biller[]> {
+export function getAirtimeProviders(): Promise<Biller[]> {
   return getBillersByType('Airtime');
 }
 
 /**
  * Get data providers
  */
-export async function getDataProviders(): Promise<Biller[]> {
+export function getDataProviders(): Promise<Biller[]> {
   return getBillersByType('Internet Data');
 }
 
@@ -591,7 +591,7 @@ export async function transferFunds(
  * Pay out merchant commission
  * Transfers accumulated VTU commission to merchant's bank account
  */
-export async function payoutMerchantCommission(
+export function payoutMerchantCommission(
   merchantBankDetails: {
     accountNumber: string;
     bankCode: string;

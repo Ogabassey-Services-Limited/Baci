@@ -161,6 +161,7 @@ export function AirtimeRewards({
 
           return (
             <button
+              type="button"
               key={reward.id}
               onClick={() => canAfford && setSelectedReward(reward)}
               disabled={!canAfford}

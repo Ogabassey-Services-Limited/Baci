@@ -162,6 +162,7 @@ export function AirtimeAddon({
     <div className={cn('border rounded-lg overflow-hidden', className)}>
       {/* Header - Always visible */}
       <button
+        type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full p-4 flex items-center justify-between bg-gradient-to-r from-green-50 to-emerald-50 hover:from-green-100 hover:to-emerald-100 transition-colors"
       >
@@ -204,6 +205,7 @@ export function AirtimeAddon({
                 <div className="flex flex-wrap gap-2 mt-2">
                   {quickAmounts.map((amt) => (
                     <button
+                      type="button"
                       key={amt}
                       onClick={() => handleQuickAmountSelect(amt)}
                       className={cn(

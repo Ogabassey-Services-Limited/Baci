@@ -44,7 +44,7 @@ export async function sendEmail({
 /**
  * Send order confirmation email
  */
-export async function sendOrderConfirmation(
+export function sendOrderConfirmation(
   to: string,
   orderDetails: {
     orderId: string;

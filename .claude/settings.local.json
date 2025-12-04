@@ -63,7 +63,9 @@
       "Bash(gh pr view:*)",
       "Bash(gh run view:*)",
       "Bash(npm run format:*)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(brew --prefix gh:*)",
+      "Bash(gh run list:*)"
     ],
     "deny": [],
     "ask": []

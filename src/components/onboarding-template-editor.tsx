@@ -247,10 +247,11 @@ export function OnboardingTemplateEditor({
           </SheetHeader>
           <div className="grid gap-4 py-4">
             {TEMPLATES.map((template) => (
-              <div
+              <button
+                type="button"
                 key={template.id}
                 className={cn(
-                  'relative flex flex-col gap-2 rounded-lg border p-4 hover:bg-muted/50 cursor-pointer transition-all',
+                  'relative flex flex-col gap-2 rounded-lg border p-4 hover:bg-muted/50 cursor-pointer transition-all text-left',
                   selectedTemplateId === template.id &&
                     'border-primary bg-muted/20 ring-1 ring-primary'
                 )}
@@ -277,7 +278,7 @@ export function OnboardingTemplateEditor({
                     <Check className="w-4 h-4 text-primary" />
                   </div>
                 )}
-              </div>
+              </button>
             ))}
           </div>
         </SheetContent>
