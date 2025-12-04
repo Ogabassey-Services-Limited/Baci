@@ -97,6 +97,7 @@ export default function CustomerOrdersPage() {
   const fetchOrders = useCallback(async () => {
     if (!customer || !merchant) return;
 
+    setIsLoadingOrders(true);
     setOrdersError(null);
     try {
       const response = await fetch(

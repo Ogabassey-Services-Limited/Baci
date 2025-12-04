@@ -49,7 +49,10 @@ export default function CustomerSettingsPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      router.push(asRoute('/account/login?redirect=/account/settings'));
+      const redirectPath = asRoute('/account/settings');
+      router.push(
+        asRoute(`/account/login?redirect=${encodeURIComponent(redirectPath)}`)
+      );
     }
   }, [authLoading, isAuthenticated, router]);
 
@@ -75,7 +78,8 @@ export default function CustomerSettingsPage() {
           variant: 'destructive',
         });
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to update customer settings:', error);
       toast({
         title: 'Error',
         description: 'An unexpected error occurred. Please try again.',

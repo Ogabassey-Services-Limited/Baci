@@ -47,7 +47,23 @@ export async function GET(request: NextRequest) {
         .eq('slug', slug)
         .single();
 
-      if (error || !post) {
+      if (error) {
+        // PGRST116 = "no rows returned" - this is a true 404
+        if ((error as { code?: string }).code === 'PGRST116') {
+          return NextResponse.json(
+            { error: 'Post not found' },
+            { status: 404 }
+          );
+        }
+        // Other errors are server errors - don't expose internal details
+        console.error('Error fetching blog post:', error);
+        return NextResponse.json(
+          { error: 'Failed to fetch blog post' },
+          { status: 500 }
+        );
+      }
+
+      if (!post) {
         return NextResponse.json({ error: 'Post not found' }, { status: 404 });
       }
 
@@ -90,7 +106,11 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching blog posts:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      // Don't expose internal DB error messages to clients
+      return NextResponse.json(
+        { error: 'Failed to fetch blog posts' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

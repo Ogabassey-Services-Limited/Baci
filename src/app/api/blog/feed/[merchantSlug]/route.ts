@@ -122,7 +122,9 @@ const getCachedFeed = unstable_cache(
 
     if (postsError) {
       console.error('Error fetching blog posts for feed:', postsError);
-      return null;
+      // Throw on posts error to return 500 (server error) instead of 404
+      // Missing merchant should stay 404, but DB failures should be 500
+      throw postsError;
     }
 
     return {

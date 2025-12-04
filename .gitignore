@@ -46,6 +46,9 @@ firestore-debug.log
 # MCP config (contains secrets)
 .mcp.json
 .idx/mcp.json
+
+# Claude Code local settings (may contain credentials)
+.claude/settings.local.json
 src_backup_*.tar.gz
 knip-results.json
 .gemini/bin/

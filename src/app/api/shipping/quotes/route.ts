@@ -19,7 +19,7 @@ const QuoteRequestSchema = z.object({
   receiver: z.object({
     name: z.string().min(1),
     email: z.string().email().optional(),
-    phone: z.string().min(1),
+    phone: z.string().optional(), // Optional for quote calculation, required for actual booking
     address: z.string().min(1),
     city: z.string().min(1),
     state: z.string().min(1),
@@ -136,6 +136,7 @@ export async function POST(request: NextRequest) {
       sender: senderInfo,
       receiver: {
         ...data.receiver,
+        phone: data.receiver.phone || '', // Default to empty string for type safety
         country: data.receiver.country || 'Nigeria',
         countryCode: data.receiver.countryCode || 'NG',
       },
