@@ -1,7 +1,5 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
-
 import {
   Award,
   Coins,
@@ -16,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
   Card,

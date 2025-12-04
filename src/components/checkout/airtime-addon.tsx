@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Phone, Loader2, Check, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, Loader2, Phone, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +23,11 @@ interface NetworkProvider {
 interface AirtimeAddonProps {
   merchantSlug: string;
   quickAmounts?: number[];
-  onAirtimeAdded?: (amount: number, phoneNumber: string, provider: string) => void;
+  onAirtimeAdded?: (
+    amount: number,
+    phoneNumber: string,
+    provider: string
+  ) => void;
   className?: string;
 }
 
@@ -46,7 +50,7 @@ export function AirtimeAddon({
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   const [detectedProvider, setDetectedProvider] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, _setIsLoading] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +93,7 @@ export function AirtimeAddon({
 
   const getFinalAmount = () => {
     if (selectedAmount) return selectedAmount;
-    const parsed = Number.parseInt(customAmount);
+    const parsed = Number.parseInt(customAmount, 10);
     return parsed >= 50 && parsed <= 50000 ? parsed : 0;
   };
 
@@ -155,7 +159,7 @@ export function AirtimeAddon({
   const amount = getFinalAmount();
 
   return (
-    <div className={cn("border rounded-lg overflow-hidden", className)}>
+    <div className={cn('border rounded-lg overflow-hidden', className)}>
       {/* Header - Always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
@@ -203,10 +207,10 @@ export function AirtimeAddon({
                       key={amt}
                       onClick={() => handleQuickAmountSelect(amt)}
                       className={cn(
-                        "px-4 py-2 rounded-full text-sm font-medium transition-colors",
+                        'px-4 py-2 rounded-full text-sm font-medium transition-colors',
                         selectedAmount === amt
-                          ? "bg-green-500 text-white"
-                          : "bg-muted hover:bg-muted/80"
+                          ? 'bg-green-500 text-white'
+                          : 'bg-muted hover:bg-muted/80'
                       )}
                     >
                       ₦{amt.toLocaleString()}

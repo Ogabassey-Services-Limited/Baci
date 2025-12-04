@@ -1,7 +1,5 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
-
 import { formatDistanceToNow } from 'date-fns';
 import {
   CheckCircle,
@@ -17,6 +15,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StarRating } from '@/components/storefront/star-rating';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -172,10 +171,10 @@ export default function ReviewsPage() {
         prev.map((r) =>
           r.id === selectedReview.id
             ? {
-              ...r,
-              merchant_response: responseText,
-              merchant_response_at: new Date().toISOString(),
-            }
+                ...r,
+                merchant_response: responseText,
+                merchant_response_at: new Date().toISOString(),
+              }
             : r
         )
       );
@@ -262,8 +261,8 @@ export default function ReviewsPage() {
       averageRating:
         reviews.length > 0
           ? (
-            reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-          ).toFixed(1)
+              reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+            ).toFixed(1)
           : '0.0',
     }),
     [reviews]

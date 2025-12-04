@@ -1,7 +1,5 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
-
 import {
   AlertCircle as AlertCircleIcon,
   AlertTriangle,
@@ -31,6 +29,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';

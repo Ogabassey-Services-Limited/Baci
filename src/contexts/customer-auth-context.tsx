@@ -2,11 +2,11 @@
 
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useState,
-  type ReactNode,
 } from 'react';
 
 export interface CustomerUser {
@@ -59,7 +59,9 @@ interface CustomerAuthContextType {
   logout: () => Promise<void>;
   // Customer data actions
   refreshCustomer: () => Promise<void>;
-  updateCustomer: (data: Partial<Customer>) => Promise<{ success: boolean; error?: string }>;
+  updateCustomer: (
+    data: Partial<Customer>
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 const CustomerAuthContext = createContext<CustomerAuthContextType | null>(null);
@@ -69,7 +71,10 @@ interface CustomerAuthProviderProps {
   merchantSlug: string;
 }
 
-export function CustomerAuthProvider({ children, merchantSlug }: CustomerAuthProviderProps) {
+export function CustomerAuthProvider({
+  children,
+  merchantSlug,
+}: CustomerAuthProviderProps) {
   const [user, setUser] = useState<CustomerUser | null>(null);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -106,68 +111,74 @@ export function CustomerAuthProvider({ children, merchantSlug }: CustomerAuthPro
   }, [checkSession]);
 
   // Send OTP code
-  const sendOtp = useCallback(async (email: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const response = await fetch('/api/storefront/auth/send-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, merchantSlug }),
-      });
+  const sendOtp = useCallback(
+    async (email: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const response = await fetch('/api/storefront/auth/send-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, merchantSlug }),
+        });
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Failed to send code' };
+        if (!response.ok) {
+          return { success: false, error: data.error || 'Failed to send code' };
+        }
+
+        // Set OTP state with 10 minute expiry
+        setOtpState({
+          email,
+          codeSent: true,
+          expiresAt: Date.now() + 10 * 60 * 1000,
+        });
+
+        return { success: true };
+      } catch (error) {
+        console.error('Send OTP error:', error);
+        return { success: false, error: 'Network error. Please try again.' };
       }
-
-      // Set OTP state with 10 minute expiry
-      setOtpState({
-        email,
-        codeSent: true,
-        expiresAt: Date.now() + 10 * 60 * 1000,
-      });
-
-      return { success: true };
-    } catch (error) {
-      console.error('Send OTP error:', error);
-      return { success: false, error: 'Network error. Please try again.' };
-    }
-  }, [merchantSlug]);
+    },
+    [merchantSlug]
+  );
 
   // Verify OTP code
-  const verifyOtp = useCallback(async (code: string): Promise<{ success: boolean; error?: string }> => {
-    if (!otpState?.email) {
-      return { success: false, error: 'Please enter your email first' };
-    }
-
-    try {
-      const response = await fetch('/api/storefront/auth/verify-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: otpState.email,
-          token: code,
-          merchantSlug,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Verification failed' };
+  const verifyOtp = useCallback(
+    async (code: string): Promise<{ success: boolean; error?: string }> => {
+      if (!otpState?.email) {
+        return { success: false, error: 'Please enter your email first' };
       }
 
-      // Set user and customer from response
-      setUser(data.user);
-      setCustomer(data.customer);
-      setOtpState(null);
+      try {
+        const response = await fetch('/api/storefront/auth/verify-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: otpState.email,
+            token: code,
+            merchantSlug,
+          }),
+        });
 
-      return { success: true };
-    } catch (error) {
-      console.error('Verify OTP error:', error);
-      return { success: false, error: 'Network error. Please try again.' };
-    }
-  }, [otpState?.email, merchantSlug]);
+        const data = await response.json();
+
+        if (!response.ok) {
+          return { success: false, error: data.error || 'Verification failed' };
+        }
+
+        // Set user and customer from response
+        setUser(data.user);
+        setCustomer(data.customer);
+        setOtpState(null);
+
+        return { success: true };
+      } catch (error) {
+        console.error('Verify OTP error:', error);
+        return { success: false, error: 'Network error. Please try again.' };
+      }
+    },
+    [otpState?.email, merchantSlug]
+  );
 
   // Logout
   const logout = useCallback(async () => {
@@ -189,34 +200,37 @@ export function CustomerAuthProvider({ children, merchantSlug }: CustomerAuthPro
   }, [user, checkSession]);
 
   // Update customer data
-  const updateCustomer = useCallback(async (
-    data: Partial<Customer>
-  ): Promise<{ success: boolean; error?: string }> => {
-    if (!customer) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
-    try {
-      const response = await fetch('/api/storefront/customer', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, merchantSlug }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        return { success: false, error: result.error || 'Update failed' };
+  const updateCustomer = useCallback(
+    async (
+      data: Partial<Customer>
+    ): Promise<{ success: boolean; error?: string }> => {
+      if (!customer) {
+        return { success: false, error: 'Not authenticated' };
       }
 
-      // Update local state
-      setCustomer((prev) => prev ? { ...prev, ...data } : null);
-      return { success: true };
-    } catch (error) {
-      console.error('Update customer error:', error);
-      return { success: false, error: 'Network error. Please try again.' };
-    }
-  }, [customer, merchantSlug]);
+      try {
+        const response = await fetch('/api/storefront/customer', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...data, merchantSlug }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          return { success: false, error: result.error || 'Update failed' };
+        }
+
+        // Update local state
+        setCustomer((prev) => (prev ? { ...prev, ...data } : null));
+        return { success: true };
+      } catch (error) {
+        console.error('Update customer error:', error);
+        return { success: false, error: 'Network error. Please try again.' };
+      }
+    },
+    [customer, merchantSlug]
+  );
 
   return (
     <CustomerAuthContext.Provider
@@ -241,7 +255,9 @@ export function CustomerAuthProvider({ children, merchantSlug }: CustomerAuthPro
 export function useCustomerAuth() {
   const context = useContext(CustomerAuthContext);
   if (!context) {
-    throw new Error('useCustomerAuth must be used within a CustomerAuthProvider');
+    throw new Error(
+      'useCustomerAuth must be used within a CustomerAuthProvider'
+    );
   }
   return context;
 }

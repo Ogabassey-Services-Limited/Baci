@@ -8,12 +8,12 @@ interface TimelineEvent {
   description: string;
   timestamp: string;
   icon:
-  | 'order'
-  | 'payment'
-  | 'processing'
-  | 'shipped'
-  | 'delivered'
-  | 'cancelled';
+    | 'order'
+    | 'payment'
+    | 'processing'
+    | 'shipped'
+    | 'delivered'
+    | 'cancelled';
 }
 
 // GET - Track order by order number or ID

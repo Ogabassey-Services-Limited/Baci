@@ -66,8 +66,12 @@ export async function GET(request: NextRequest) {
         const placePrediction = item.placePrediction;
         return {
           placeId: placePrediction.placeId,
-          mainText: placePrediction.structuredFormat?.mainText?.text || placePrediction.text?.text || '',
-          secondaryText: placePrediction.structuredFormat?.secondaryText?.text || '',
+          mainText:
+            placePrediction.structuredFormat?.mainText?.text ||
+            placePrediction.text?.text ||
+            '',
+          secondaryText:
+            placePrediction.structuredFormat?.secondaryText?.text || '',
           fullText: placePrediction.text?.text || '',
         };
       });

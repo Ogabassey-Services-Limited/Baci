@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import {
-  NetworkProvider,
-  getAirtimeDenominations,
   detectNetworkProvider,
+  getAirtimeDenominations,
+  NetworkProvider,
 } from '@/lib/kuda';
 
 // GET /api/vtu/providers - Get available network providers and denominations
-export async function GET() {
+export function GET() {
   try {
     const providers = [
       {

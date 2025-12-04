@@ -5,10 +5,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useCurrency } from '@/hooks/use-currency';
@@ -19,8 +24,14 @@ import { asRoute } from '@/lib/routes';
 export default function CustomerSettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { merchant, loading: merchantLoading } = useMerchant();
-  const { customer, isAuthenticated, isLoading: authLoading, logout, updateCustomer } = useCustomerAuth();
+  const { loading: merchantLoading } = useMerchant();
+  const {
+    customer,
+    isAuthenticated,
+    isLoading: authLoading,
+    logout,
+    updateCustomer,
+  } = useCustomerAuth();
   const { currencySymbol } = useCurrency();
 
   const [fullName, setFullName] = useState('');
@@ -119,9 +130,7 @@ export default function CustomerSettingsPage() {
                 <User className="h-5 w-5" />
                 Profile Information
               </CardTitle>
-              <CardDescription>
-                Update your personal details
-              </CardDescription>
+              <CardDescription>Update your personal details</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSave} className="space-y-4">
@@ -149,7 +158,8 @@ export default function CustomerSettingsPage() {
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Email cannot be changed. Contact support if you need to update it.
+                    Email cannot be changed. Contact support if you need to
+                    update it.
                   </p>
                 </div>
 
@@ -190,19 +200,28 @@ export default function CustomerSettingsPage() {
             <CardContent>
               <dl className="grid grid-cols-2 gap-4">
                 <div>
-                  <dt className="text-sm text-muted-foreground">Member Since</dt>
+                  <dt className="text-sm text-muted-foreground">
+                    Member Since
+                  </dt>
                   <dd className="text-lg font-medium">
                     {customer.created_at
-                      ? new Date(customer.created_at).toLocaleDateString('en-US', {
-                          month: 'long',
-                          year: 'numeric',
-                        })
+                      ? new Date(customer.created_at).toLocaleDateString(
+                          'en-US',
+                          {
+                            month: 'long',
+                            year: 'numeric',
+                          }
+                        )
                       : 'N/A'}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-muted-foreground">Total Orders</dt>
-                  <dd className="text-lg font-medium">{customer.total_orders || 0}</dd>
+                  <dt className="text-sm text-muted-foreground">
+                    Total Orders
+                  </dt>
+                  <dd className="text-lg font-medium">
+                    {customer.total_orders || 0}
+                  </dd>
                 </div>
                 <div>
                   <dt className="text-sm text-muted-foreground">Total Spent</dt>
@@ -212,7 +231,9 @@ export default function CustomerSettingsPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm text-muted-foreground">Store Credit</dt>
+                  <dt className="text-sm text-muted-foreground">
+                    Store Credit
+                  </dt>
                   <dd className="text-lg font-medium">
                     {currencySymbol}
                     {(customer.store_credit || 0).toLocaleString()}
@@ -225,7 +246,9 @@ export default function CustomerSettingsPage() {
           {/* Danger Zone */}
           <Card className="border-destructive/50">
             <CardHeader>
-              <CardTitle className="text-lg text-destructive">Sign Out</CardTitle>
+              <CardTitle className="text-lg text-destructive">
+                Sign Out
+              </CardTitle>
               <CardDescription>
                 Sign out of your account on this device
               </CardDescription>

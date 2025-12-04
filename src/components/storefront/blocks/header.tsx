@@ -1,7 +1,16 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { LogOut, Menu, Package, Search, Settings, ShoppingBag, User, X } from 'lucide-react';
+import {
+  LogOut,
+  Menu,
+  Package,
+  Search,
+  Settings,
+  ShoppingBag,
+  User,
+  X,
+} from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -301,8 +310,8 @@ export function Header({
             )}
 
             {/* Customer Account */}
-            {showAccount && (
-              customerSession?.authenticated && customerSession.customer ? (
+            {showAccount &&
+              (customerSession?.authenticated && customerSession.customer ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -325,19 +334,28 @@ export function Header({
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link href={asRoute('/account')} className="cursor-pointer">
+                      <Link
+                        href={asRoute('/account')}
+                        className="cursor-pointer"
+                      >
                         <User className="mr-2 h-4 w-4" />
                         My Account
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href={asRoute('/account/orders')} className="cursor-pointer">
+                      <Link
+                        href={asRoute('/account/orders')}
+                        className="cursor-pointer"
+                      >
                         <Package className="mr-2 h-4 w-4" />
                         Orders
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link href={asRoute('/account/settings')} className="cursor-pointer">
+                      <Link
+                        href={asRoute('/account/settings')}
+                        className="cursor-pointer"
+                      >
                         <Settings className="mr-2 h-4 w-4" />
                         Settings
                       </Link>
@@ -361,8 +379,7 @@ export function Header({
                 >
                   <Link href={asRoute('/account/login')}>Sign in</Link>
                 </Button>
-              )
-            )}
+              ))}
 
             {showCart && (
               <SheetTrigger asChild>
@@ -447,7 +464,8 @@ export function Header({
                 {/* Mobile Account Links */}
                 {showAccount && (
                   <div className="pt-4 border-t space-y-4">
-                    {customerSession?.authenticated && customerSession.customer ? (
+                    {customerSession?.authenticated &&
+                    customerSession.customer ? (
                       <>
                         <div className="text-sm text-muted-foreground">
                           Signed in as {customerSession.customer.email}

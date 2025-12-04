@@ -7,7 +7,7 @@
  * Integration docs: https://github.com/lenda-saas/vanilla-javascript-for-checkout
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 // ============================================================================
 // Types
@@ -244,7 +244,9 @@ export function isAmountEligible(
 export function getPrivateKey(): string {
   const key = process.env.CREDIT_DIRECT_PRIVATE_KEY;
   if (!key) {
-    throw new Error('CREDIT_DIRECT_PRIVATE_KEY environment variable is not set');
+    throw new Error(
+      'CREDIT_DIRECT_PRIVATE_KEY environment variable is not set'
+    );
   }
   return key;
 }

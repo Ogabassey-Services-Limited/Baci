@@ -139,8 +139,6 @@ export function mapTopshipStatus(status: string): NormalizedShipmentStatus {
   );
 }
 
-
-
 // =============================================================================
 // GENERIC STATUS MAPPER
 // =============================================================================

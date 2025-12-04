@@ -1,6 +1,5 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
 import { formatDistanceToNow } from 'date-fns';
 import {
   AlertCircle,
@@ -16,6 +15,7 @@ import {
 import Link from 'next/link';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -33,24 +33,24 @@ import type {
 } from '@/types/notifications';
 
 const typeStyles: Record<NotificationType, { bg: string; icon: typeof Info }> =
-{
-  info: {
-    bg: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-    icon: Info,
-  },
-  success: {
-    bg: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-    icon: CheckCircle,
-  },
-  warning: {
-    bg: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-    icon: AlertTriangle,
-  },
-  error: {
-    bg: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-    icon: AlertCircle,
-  },
-};
+  {
+    info: {
+      bg: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      icon: Info,
+    },
+    success: {
+      bg: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      icon: CheckCircle,
+    },
+    warning: {
+      bg: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+      icon: AlertTriangle,
+    },
+    error: {
+      bg: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      icon: AlertCircle,
+    },
+  };
 
 export default function NotificationsPage() {
   const {

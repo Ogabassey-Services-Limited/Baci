@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { FormProvider, useForm, useFormContext } from 'react-hook-form';
 import {
   type Country as CountryCode,
@@ -23,6 +23,7 @@ import {
 import { z } from 'zod';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { trackPlatformPurchase } from '@/components/analytics/platform-analytics-provider';
+import { CheckoutThemeProvider } from '@/components/checkout-theme-provider';
 import { OrderSummary } from '@/components/order-summary';
 import { CheckoutProgress } from '@/components/storefront/checkout/checkout-progress';
 import { DiscountCodeInput } from '@/components/storefront/checkout/discount-code-input';
@@ -30,10 +31,8 @@ import {
   SelectedShippingDisplay,
   ShippingOptions,
 } from '@/components/storefront/checkout/shipping-options';
-import { CheckoutThemeProvider } from '@/components/checkout-theme-provider';
 import { ThemedButton, ThemedInput } from '@/components/themed';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   FormControl,
   FormField,
@@ -49,10 +48,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/api-client';
 import { getCountryByCode } from '@/lib/countries';
 import { trackEvent } from '@/lib/event-tracking';
-import {
-  trackServerSideBeginCheckout,
-  trackServerSidePurchase,
-} from '@/lib/server-side-analytics';
+import { trackServerSideBeginCheckout } from '@/lib/server-side-analytics';
 import { createClient } from '@/lib/supabase/client';
 
 const DEFAULT_SHIPPING_FEE = Number.parseFloat(
@@ -170,7 +166,10 @@ function Step0_Auth({
     }
   };
 
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleOtpKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
     if (e.key === 'Backspace' && !otpCode[index] && index > 0) {
       otpInputRefs.current[index - 1]?.focus();
     }
@@ -240,7 +239,10 @@ function Step0_Auth({
           </div>
 
           <FormProvider {...form}>
-            <form onSubmit={form.handleSubmit(handleSendOtp)} className="space-y-4">
+            <form
+              onSubmit={form.handleSubmit(handleSendOtp)}
+              className="space-y-4"
+            >
               <FormField
                 control={form.control}
                 name="email"
@@ -266,9 +268,7 @@ function Step0_Auth({
                 )}
               />
 
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {error && <p className="text-sm text-destructive">{error}</p>}
 
               <ThemedButton
                 type="submit"
@@ -289,7 +289,9 @@ function Step0_Auth({
               <span className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-background px-2 text-muted-foreground">Or</span>
+              <span className="bg-background px-2 text-muted-foreground">
+                Or
+              </span>
             </div>
           </div>
 
@@ -316,7 +318,9 @@ function Step0_Auth({
               {otpCode.map((digit, index) => (
                 <input
                   key={index}
-                  ref={(el) => { otpInputRefs.current[index] = el; }}
+                  ref={(el) => {
+                    otpInputRefs.current[index] = el;
+                  }}
                   type="text"
                   inputMode="numeric"
                   maxLength={1}
@@ -325,7 +329,6 @@ function Step0_Auth({
                   onKeyDown={(e) => handleOtpKeyDown(index, e)}
                   className="w-12 h-14 text-center text-2xl font-mono border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-background"
                   disabled={isLoading}
-                  autoFocus={index === 0}
                 />
               ))}
             </div>
@@ -375,7 +378,6 @@ function Step0_Auth({
   );
 }
 
-
 interface ShippingQuote {
   id: string;
   provider: 'GIGL' | 'TOPSHIP';
@@ -398,11 +400,9 @@ interface ShippingQuote {
 function Step1_Shipping({
   onShippingSelect,
   selectedQuote,
-  shippingSessionId,
 }: {
   onShippingSelect: (quote: ShippingQuote, sessionId: string) => void;
   selectedQuote: ShippingQuote | null;
-  shippingSessionId: string;
 }) {
   const { control, setValue, watch } = useFormContext<ShippingFormValues>();
   const { merchant } = useMerchant();
@@ -647,7 +647,9 @@ function Step2_Payment({
   selectedQuote: ShippingQuote | null;
   paymentSettings: PaymentGatewaySettings;
   selectedGateway: 'paystack' | 'korapay' | 'pod' | 'credit_direct';
-  onGatewaySelect: (gateway: 'paystack' | 'korapay' | 'pod' | 'credit_direct') => void;
+  onGatewaySelect: (
+    gateway: 'paystack' | 'korapay' | 'pod' | 'credit_direct'
+  ) => void;
   orderTotal: number;
 }) {
   const availableGateways: Array<{
@@ -711,23 +713,32 @@ function Step2_Payment({
 
       {availableGateways.length > 0 ? (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Select payment method:</p>
+          <p className="text-sm text-muted-foreground">
+            Select payment method:
+          </p>
           {availableGateways.map((gateway) => (
             <button
               key={gateway.id}
               type="button"
               onClick={() => onGatewaySelect(gateway.id)}
-              className={`w-full rounded-lg border p-4 text-left transition-all ${selectedGateway === gateway.id
-                ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                : 'border-border bg-card hover:border-primary/50'
-                }`}
+              className={`w-full rounded-lg border p-4 text-left transition-all ${
+                selectedGateway === gateway.id
+                  ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                  : 'border-border bg-card hover:border-primary/50'
+              }`}
             >
               <div className="flex items-center gap-4">
                 <div
                   className="flex h-10 w-10 items-center justify-center rounded-lg text-white font-bold text-sm"
                   style={{ backgroundColor: gateway.color }}
                 >
-                  {gateway.id === 'paystack' ? 'PS' : gateway.id === 'korapay' ? 'KP' : gateway.id === 'credit_direct' ? 'CD' : 'POD'}
+                  {gateway.id === 'paystack'
+                    ? 'PS'
+                    : gateway.id === 'korapay'
+                      ? 'KP'
+                      : gateway.id === 'credit_direct'
+                        ? 'CD'
+                        : 'POD'}
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold">{gateway.name}</p>
@@ -737,8 +748,18 @@ function Step2_Payment({
                 </div>
                 {selectedGateway === gateway.id && (
                   <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center">
-                    <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    <svg
+                      className="h-3 w-3 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={3}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                 )}
@@ -805,7 +826,7 @@ function CheckoutPageContent() {
   const [formIsLoading, setFormIsLoading] = useState(false);
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
-  const [isGuestCheckout, setIsGuestCheckout] = useState(false);
+  const [_isGuestCheckout, setIsGuestCheckout] = useState(false);
   const [shippingFee, setShippingFee] = useState<number | null>(null);
   const [selectedShippingQuote, setSelectedShippingQuote] =
     useState<ShippingQuote | null>(null);
@@ -813,11 +834,13 @@ function CheckoutPageContent() {
   const [appliedDiscount, setAppliedDiscount] = useState<DiscountResult | null>(
     null
   );
-  const [paymentSettings, setPaymentSettings] = useState<PaymentGatewaySettings>(
-    DEFAULT_PAYMENT_SETTINGS
-  );
-  const [selectedGateway, setSelectedGateway] = useState<'paystack' | 'korapay' | 'pod' | 'credit_direct'>('paystack');
-  const [creditDirectScriptLoaded, setCreditDirectScriptLoaded] = useState(false);
+  const [paymentSettings, setPaymentSettings] =
+    useState<PaymentGatewaySettings>(DEFAULT_PAYMENT_SETTINGS);
+  const [selectedGateway, setSelectedGateway] = useState<
+    'paystack' | 'korapay' | 'pod' | 'credit_direct'
+  >('paystack');
+  const [creditDirectScriptLoaded, setCreditDirectScriptLoaded] =
+    useState(false);
   const totalSteps = 2;
   const supabase = createClient();
 
@@ -837,17 +860,21 @@ function CheckoutPageContent() {
       script.type = 'application/javascript';
       script.async = true;
       script.onload = () => setCreditDirectScriptLoaded(true);
-      script.onerror = () => console.error('Failed to load Credit Direct checkout script');
+      script.onerror = () =>
+        console.error('Failed to load Credit Direct checkout script');
       document.body.appendChild(script);
     }
   }, [paymentSettings.creditDirectEnabled, creditDirectScriptLoaded]);
 
   // Handle shipping quote selection
-  const handleShippingSelect = useCallback((quote: ShippingQuote, sessionId: string) => {
-    setSelectedShippingQuote(quote);
-    setShippingSessionId(sessionId);
-    setShippingFee(quote.price);
-  }, []);
+  const handleShippingSelect = useCallback(
+    (quote: ShippingQuote, sessionId: string) => {
+      setSelectedShippingQuote(quote);
+      setShippingSessionId(sessionId);
+      setShippingFee(quote.price);
+    },
+    []
+  );
 
   // Calculate discount amount
   const discountAmount = appliedDiscount
@@ -857,7 +884,7 @@ function CheckoutPageContent() {
     : 0;
 
   // Calculate loyalty points (1 point per 100 NGN spent)
-  const loyaltyPointsEarned = Math.floor((cartTotal - discountAmount) / 100);
+  const _loyaltyPointsEarned = Math.floor((cartTotal - discountAmount) / 100);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -906,7 +933,8 @@ function CheckoutPageContent() {
             creditDirectMinAmount: data.creditDirectMinAmount ?? 10000,
             creditDirectMaxAmount: data.creditDirectMaxAmount ?? 500000,
             preferredLocalGateway: data.preferredLocalGateway || 'paystack',
-            preferredInternationalGateway: data.preferredInternationalGateway || 'korapay',
+            preferredInternationalGateway:
+              data.preferredInternationalGateway || 'korapay',
           });
           // Set initial selected gateway based on preference
           const preferred = data.preferredLocalGateway || 'paystack';
@@ -968,7 +996,9 @@ function CheckoutPageContent() {
         }
 
         // Use default saved address if available
-        const defaultAddress = customerData.saved_addresses?.find((a) => a.is_default);
+        const defaultAddress = customerData.saved_addresses?.find(
+          (a) => a.is_default
+        );
         if (defaultAddress) {
           shippingForm.setValue('address', defaultAddress.address);
           shippingForm.setValue('city', defaultAddress.city);
@@ -1019,7 +1049,10 @@ function CheckoutPageContent() {
     }
   }, [cartCount, pageLoading, router]);
 
-  const handleAuthSuccess = (authedUser: SupabaseUser, customer?: CustomerData) => {
+  const handleAuthSuccess = (
+    authedUser: SupabaseUser,
+    customer?: CustomerData
+  ) => {
     setUser(authedUser);
     if (customer) {
       setCustomerData(customer);
@@ -1123,35 +1156,32 @@ function CheckoutPageContent() {
       const { order, paystackAuthUrl } = await apiPost<{
         order: Record<string, unknown>;
         paystackAuthUrl?: string;
-      }>(
-        '/api/orders',
-        {
-          merchant_id: merchantData.id,
-          customer_email: data.email,
-          customer_name: `${data.firstName} ${data.lastName}`,
-          customer_phone: data.phone,
-          items: orderItems,
-          subtotal,
-          shipping_fee: finalShippingFee,
-          payment_method: selectedGateway,
-          payment_status: 'pending', // Changed from 'paid'
-          shipping_status: 'pending',
-          shipping_address: {
-            firstName: data.firstName,
-            lastName: data.lastName,
-            address: data.address,
-            city: data.city,
-            state: data.state,
-          },
-          source: 'online_store',
-          // Use selected shipping provider or fallback to GIGL
-          shipping_provider: selectedShippingQuote?.provider || 'GIGL',
-          shipping_quote_id: selectedShippingQuote?.id,
-          shipping_session_id: shippingSessionId,
-          shipping_carrier: selectedShippingQuote?.carrierName,
-          shipping_service_tier: selectedShippingQuote?.serviceTier,
-        }
-      );
+      }>('/api/orders', {
+        merchant_id: merchantData.id,
+        customer_email: data.email,
+        customer_name: `${data.firstName} ${data.lastName}`,
+        customer_phone: data.phone,
+        items: orderItems,
+        subtotal,
+        shipping_fee: finalShippingFee,
+        payment_method: selectedGateway,
+        payment_status: 'pending', // Changed from 'paid'
+        shipping_status: 'pending',
+        shipping_address: {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+        },
+        source: 'online_store',
+        // Use selected shipping provider or fallback to GIGL
+        shipping_provider: selectedShippingQuote?.provider || 'GIGL',
+        shipping_quote_id: selectedShippingQuote?.id,
+        shipping_session_id: shippingSessionId,
+        shipping_carrier: selectedShippingQuote?.carrierName,
+        shipping_service_tier: selectedShippingQuote?.serviceTier,
+      });
 
       // Store order data for success page (fallback)
       const orderData = {
@@ -1190,10 +1220,13 @@ function CheckoutPageContent() {
 
           if (!signResponse.ok) {
             const errorData = await signResponse.json();
-            throw new Error(errorData.error || 'Failed to initialize Credit Direct checkout');
+            throw new Error(
+              errorData.error || 'Failed to initialize Credit Direct checkout'
+            );
           }
 
-          const { signature, publicKey, sessionId, isLive } = await signResponse.json();
+          const { signature, publicKey, sessionId, isLive } =
+            await signResponse.json();
 
           // Build transaction object for Credit Direct
           const transaction = {
@@ -1249,7 +1282,9 @@ function CheckoutPageContent() {
           toast({
             variant: 'destructive',
             title: 'BNPL Checkout Failed',
-            description: (creditDirectError as Error).message || 'Failed to start Credit Direct checkout',
+            description:
+              (creditDirectError as Error).message ||
+              'Failed to start Credit Direct checkout',
           });
           setFormIsLoading(false);
           return;
@@ -1315,7 +1350,6 @@ function CheckoutPageContent() {
       {/* Main Content Container */}
       <div className="relative z-10 w-full max-w-6xl">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
           {/* Left Column: Checkout Form */}
           <div className="lg:col-span-7">
             <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl">
@@ -1327,11 +1361,17 @@ function CheckoutPageContent() {
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-3">
                     <Link href="/cart">
-                      <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full hover:bg-white/10"
+                      >
                         <ArrowLeft className="h-5 w-5" />
                       </Button>
                     </Link>
-                    <h1 className="text-2xl font-bold tracking-tight">Checkout</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                      Checkout
+                    </h1>
                   </div>
                   <div className="text-sm font-medium text-muted-foreground">
                     Step {step + 1} of {totalSteps + 1}
@@ -1343,9 +1383,12 @@ function CheckoutPageContent() {
                   <CheckoutProgress
                     currentStep={step + 1}
                     steps={[
-                      { label: 'Authentication', description: 'Sign in or Sign up' },
+                      {
+                        label: 'Authentication',
+                        description: 'Sign in or Sign up',
+                      },
                       { label: 'Shipping', description: 'Delivery details' },
-                      { label: 'Payment', description: 'Complete order' }
+                      { label: 'Payment', description: 'Complete order' },
                     ]}
                   />
                 </div>
@@ -1360,7 +1403,9 @@ function CheckoutPageContent() {
                     transition={{ duration: 0.3 }}
                   >
                     <div className="space-y-6">
-                      <h2 className="text-xl font-semibold">{getStepTitle()}</h2>
+                      <h2 className="text-xl font-semibold">
+                        {getStepTitle()}
+                      </h2>
 
                       {step === 0 && (
                         <Step0_Auth
@@ -1376,7 +1421,6 @@ function CheckoutPageContent() {
                             <Step1_Shipping
                               onShippingSelect={handleShippingSelect}
                               selectedQuote={selectedShippingQuote}
-                              shippingSessionId={shippingSessionId}
                             />
                             <div className="flex justify-end pt-4">
                               <ThemedButton
@@ -1399,7 +1443,9 @@ function CheckoutPageContent() {
                             paymentSettings={paymentSettings}
                             selectedGateway={selectedGateway}
                             onGatewaySelect={setSelectedGateway}
-                            orderTotal={cartTotal + (shippingFee ?? 0) - discountAmount}
+                            orderTotal={
+                              cartTotal + (shippingFee ?? 0) - discountAmount
+                            }
                           />
                           <div className="flex gap-3 pt-4">
                             <Button
@@ -1410,7 +1456,9 @@ function CheckoutPageContent() {
                               Back
                             </Button>
                             <ThemedButton
-                              onClick={shippingForm.handleSubmit(onShippingSubmit)}
+                              onClick={shippingForm.handleSubmit(
+                                onShippingSubmit
+                              )}
                               disabled={formIsLoading}
                               className="flex-1 h-11 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
                             >
@@ -1421,10 +1469,16 @@ function CheckoutPageContent() {
                               ) : (
                                 <CreditCard className="mr-2 h-4 w-4" />
                               )}
-                              {selectedGateway === 'pod' ? 'Place Order' : `Pay ${new Intl.NumberFormat('en-NG', {
-                                style: 'currency',
-                                currency: 'NGN',
-                              }).format(cartTotal + (shippingFee || 0) - discountAmount)}`}
+                              {selectedGateway === 'pod'
+                                ? 'Place Order'
+                                : `Pay ${new Intl.NumberFormat('en-NG', {
+                                    style: 'currency',
+                                    currency: 'NGN',
+                                  }).format(
+                                    cartTotal +
+                                      (shippingFee || 0) -
+                                      discountAmount
+                                  )}`}
                             </ThemedButton>
                           </div>
                         </div>
@@ -1466,8 +1520,18 @@ function CheckoutPageContent() {
                 <div className="mt-8 grid grid-cols-2 gap-4 text-xs text-muted-foreground">
                   <div className="flex items-center gap-2 bg-white/30 dark:bg-black/20 p-3 rounded-xl">
                     <div className="p-1.5 bg-green-100 dark:bg-green-900/30 rounded-full text-green-600">
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                        />
                       </svg>
                     </div>
                     <span>Secure Checkout</span>
@@ -1482,7 +1546,6 @@ function CheckoutPageContent() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
     </div>

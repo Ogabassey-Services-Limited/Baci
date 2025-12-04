@@ -36,7 +36,6 @@ export async function GET() {
         hasStationPickup: false,
         description: 'Aggregator with access to DHL, FedEx, UPS, and more',
       },
-
     };
 
     // Build response

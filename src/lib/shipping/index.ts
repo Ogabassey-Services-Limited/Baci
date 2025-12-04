@@ -31,7 +31,6 @@ const registry = new ShippingProviderRegistry();
 registry.register(new GiglProvider());
 registry.register(new TopshipProvider());
 
-
 // Create aggregator
 const aggregator = new QuoteAggregator(registry);
 

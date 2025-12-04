@@ -15,10 +15,7 @@ export async function POST(request: Request) {
     const { email, merchantSlug } = body;
 
     if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
     if (!merchantSlug) {
@@ -48,10 +45,7 @@ export async function POST(request: Request) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Store not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 
     if (!merchant.is_published) {

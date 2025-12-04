@@ -255,7 +255,8 @@ export default function CustomersPage() {
                   <AddressAutocomplete
                     value={newCustomer.address}
                     onChange={(val) => {
-                      const value = typeof val === 'string' ? val : val.target.value;
+                      const value =
+                        typeof val === 'string' ? val : val.target.value;
                       setNewCustomer({ ...newCustomer, address: value });
                     }}
                     onSelect={(place: PlaceDetails) => {

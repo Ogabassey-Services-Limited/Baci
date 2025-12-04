@@ -16,6 +16,10 @@ import {
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import type {
+  SetupItem,
+  StoreReadiness,
+} from '@/app/api/merchant/readiness/route';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -27,7 +31,6 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import type { SetupItem, StoreReadiness } from '@/app/api/merchant/readiness/route';
 
 const categoryIcons = {
   payments: CreditCard,
@@ -68,22 +71,22 @@ export function SetupChecklist({
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
+    const fetchReadiness = async () => {
+      try {
+        const response = await fetch('/api/merchant/readiness');
+        if (response.ok) {
+          const data = await response.json();
+          setReadiness(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch readiness:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchReadiness();
   }, []);
-
-  const fetchReadiness = async () => {
-    try {
-      const response = await fetch('/api/merchant/readiness');
-      if (response.ok) {
-        const data = await response.json();
-        setReadiness(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch readiness:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePublish = async () => {
     if (!readiness?.isReady) {
@@ -111,7 +114,7 @@ export function SetupChecklist({
       } else {
         throw new Error('Failed to publish');
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: 'destructive',
         title: 'Failed to publish',
@@ -153,7 +156,7 @@ export function SetupChecklist({
   const requiredIncomplete = incompleteItems.filter(
     (item) => item.priority === 'required'
   );
-  const recommendedIncomplete = incompleteItems.filter(
+  const _recommendedIncomplete = incompleteItems.filter(
     (item) => item.priority === 'recommended'
   );
 
@@ -262,7 +265,9 @@ export function SetupChecklist({
             onClick={() => setShowAll(!showAll)}
             className="mt-4 text-sm text-primary hover:underline flex items-center gap-1"
           >
-            {showAll ? 'Show less' : `Show ${incompleteItems.length - 3} more items`}
+            {showAll
+              ? 'Show less'
+              : `Show ${incompleteItems.length - 3} more items`}
             <ArrowRight
               className={cn(
                 'h-3 w-3 transition-transform',
@@ -318,7 +323,9 @@ function SetupItemRow({ item }: { item: SetupItem }) {
       <div
         className={cn(
           'shrink-0 h-8 w-8 rounded-lg flex items-center justify-center',
-          item.completed ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+          item.completed
+            ? 'bg-green-100 text-green-700'
+            : 'bg-gray-100 text-gray-600'
         )}
       >
         <Icon className="h-4 w-4" />

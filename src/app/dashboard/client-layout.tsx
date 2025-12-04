@@ -26,12 +26,12 @@ import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
-import { Logo } from '@/components/logo';
 import { BagIcon } from '@/components/bag-icon';
-import { BagLoader } from '@/components/ui/bag-loader';
+import { Logo } from '@/components/logo';
 import { NotificationBanner } from '@/components/notifications/notification-banner';
 import { NotificationCenter } from '@/components/notifications/notification-center';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -55,6 +55,7 @@ import { useToast } from '@/hooks/use-toast';
 import { COUNTRIES, getCountryByCode } from '@/lib/countries';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
+import { getDashboardMetrics } from './actions';
 
 // The original layout is now a client component to prevent hydration errors.
 
@@ -72,9 +73,9 @@ const StoreLink = ({
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
     : cn(
-      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
-      isCollapsed && 'justify-center'
-    );
+        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
+        isCollapsed && 'justify-center'
+      );
 
   const isReady = !merchantLoading && storeUrl !== '#';
 
@@ -194,7 +195,6 @@ export default function DashboardClientLayout({
     }
   }, [user, merchant, authLoading, merchantLoading, router, toast]);
 
-
   // Auto-collapse sidebar on main content interaction
   useEffect(() => {
     const mainContent = document.getElementById('main-content');
@@ -228,6 +228,16 @@ export default function DashboardClientLayout({
     };
   }, [isCollapsed]);
 
+  const [ordersCount, setOrdersCount] = useState(0);
+
+  useEffect(() => {
+    if (merchant?.id) {
+      getDashboardMetrics(merchant.id).then((metrics) => {
+        setOrdersCount(metrics.orders.value);
+      });
+    }
+  }, [merchant?.id]);
+
   const selectedCountry = merchant?.country
     ? getCountryByCode(merchant.country)
     : null;
@@ -260,68 +270,68 @@ export default function DashboardClientLayout({
     label: string;
     badge?: number;
   }[] = [
-      {
-        href: '/dashboard' as Route,
-        icon: LayoutDashboard,
-        label: 'Dashboard',
-      },
-      {
-        href: '/dashboard/analytics' as Route,
-        icon: BarChart3,
-        label: 'Analytics',
-      },
-      {
-        href: '/dashboard/orders' as Route,
-        icon: ShoppingCart,
-        label: 'Orders',
-        badge: 6,
-      },
-      {
-        href: '/dashboard/products' as Route,
-        icon: Package,
-        label: 'Products',
-      },
-      {
-        href: '/dashboard/customers' as Route,
-        icon: Users,
-        label: 'Customers',
-      },
-      {
-        href: '/dashboard/loyalty' as Route,
-        icon: Gift,
-        label: 'Loyalty',
-      },
-      {
-        href: '/dashboard/wallet' as Route,
-        icon: Wallet,
-        label: 'Wallet',
-      },
-      {
-        href: '/dashboard/seo' as Route,
-        icon: Search,
-        label: 'SEO',
-      },
-      {
-        href: '/dashboard/pages' as Route,
-        icon: FileText,
-        label: 'Pages',
-      },
-      {
-        icon: Paintbrush,
-        label: 'Customize Website',
-        href: '/builder' as Route,
-      },
-      {
-        href: '/dashboard/integrations' as Route,
-        icon: Plug,
-        label: 'Integrations',
-      },
-      {
-        href: '/dashboard/settings' as Route,
-        icon: Settings,
-        label: 'Settings',
-      },
-    ];
+    {
+      href: '/dashboard' as Route,
+      icon: LayoutDashboard,
+      label: 'Dashboard',
+    },
+    {
+      href: '/dashboard/analytics' as Route,
+      icon: BarChart3,
+      label: 'Analytics',
+    },
+    {
+      href: '/dashboard/orders' as Route,
+      icon: ShoppingCart,
+      label: 'Orders',
+      badge: ordersCount > 0 ? ordersCount : undefined,
+    },
+    {
+      href: '/dashboard/products' as Route,
+      icon: Package,
+      label: 'Products',
+    },
+    {
+      href: '/dashboard/customers' as Route,
+      icon: Users,
+      label: 'Customers',
+    },
+    {
+      href: '/dashboard/loyalty' as Route,
+      icon: Gift,
+      label: 'Loyalty',
+    },
+    {
+      href: '/dashboard/wallet' as Route,
+      icon: Wallet,
+      label: 'Wallet',
+    },
+    {
+      href: '/dashboard/seo' as Route,
+      icon: Search,
+      label: 'SEO',
+    },
+    {
+      href: '/dashboard/pages' as Route,
+      icon: FileText,
+      label: 'Pages',
+    },
+    {
+      icon: Paintbrush,
+      label: 'Customize Website',
+      href: '/builder' as Route,
+    },
+    {
+      href: '/dashboard/integrations' as Route,
+      icon: Plug,
+      label: 'Integrations',
+    },
+    {
+      href: '/dashboard/settings' as Route,
+      icon: Settings,
+      label: 'Settings',
+    },
+  ];
 
   // While checking auth OR if auth has succeeded but we are still waiting for the merchant,
   // show a full-page loading screen. This prevents content flashes and incorrect redirects.
@@ -524,6 +534,11 @@ export default function DashboardClientLayout({
                         >
                           <item.icon className="h-5 w-5" />
                           {item.label}
+                          {item.badge && (
+                            <Badge className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent text-accent-foreground px-1.5 text-[10px]">
+                              {item.badge}
+                            </Badge>
+                          )}
                         </Link>
                       );
                     })}

@@ -1,11 +1,19 @@
 'use client';
 
-import { ArrowLeft, Edit2, Loader2, MapPin, Plus, Star, Trash2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit2,
+  Loader2,
+  MapPin,
+  Plus,
+  Star,
+  Trash2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -17,7 +25,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCustomerAuth, type SavedAddress } from '@/contexts/customer-auth-context';
+import {
+  type SavedAddress,
+  useCustomerAuth,
+} from '@/contexts/customer-auth-context';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
@@ -38,13 +49,21 @@ export default function CustomerAddressesPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { merchant, loading: merchantLoading } = useMerchant();
-  const { customer, isAuthenticated, isLoading: authLoading, updateCustomer } = useCustomerAuth();
+  const {
+    customer,
+    isAuthenticated,
+    isLoading: authLoading,
+    updateCustomer,
+  } = useCustomerAuth();
 
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
-  const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(null);
+  const [editingAddress, setEditingAddress] = useState<SavedAddress | null>(
+    null
+  );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [formData, setFormData] = useState<Omit<SavedAddress, 'id'>>(emptyAddress);
+  const [formData, setFormData] =
+    useState<Omit<SavedAddress, 'id'>>(emptyAddress);
 
   // Initialize addresses from customer data
   useEffect(() => {
@@ -130,9 +149,7 @@ export default function CustomerAddressesPage() {
     if (editingAddress) {
       // Update existing
       newAddresses = addresses.map((a) =>
-        a.id === editingAddress.id
-          ? { ...formData, id: editingAddress.id }
-          : a
+        a.id === editingAddress.id ? { ...formData, id: editingAddress.id } : a
       );
     } else {
       // Add new
@@ -153,7 +170,9 @@ export default function CustomerAddressesPage() {
     if (formData.is_default) {
       newAddresses = newAddresses.map((a) => ({
         ...a,
-        is_default: a.id === (editingAddress?.id || newAddresses[newAddresses.length - 1].id),
+        is_default:
+          a.id ===
+          (editingAddress?.id || newAddresses[newAddresses.length - 1].id),
       }));
     }
 
@@ -330,7 +349,9 @@ export default function CustomerAddressesPage() {
                 id="label"
                 placeholder="e.g., Home, Office"
                 value={formData.label}
-                onChange={(e) => setFormData({ ...formData, label: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, label: e.target.value })
+                }
               />
             </div>
 
@@ -340,7 +361,9 @@ export default function CustomerAddressesPage() {
                 id="full_name"
                 placeholder="John Doe"
                 value={formData.full_name}
-                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, full_name: e.target.value })
+                }
                 required
               />
             </div>
@@ -352,7 +375,9 @@ export default function CustomerAddressesPage() {
                 type="tel"
                 placeholder="+1 (555) 000-0000"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
                 required
               />
             </div>
@@ -363,7 +388,9 @@ export default function CustomerAddressesPage() {
                 id="address"
                 placeholder="123 Main Street, Apt 4"
                 value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, address: e.target.value })
+                }
                 required
               />
             </div>
@@ -375,7 +402,9 @@ export default function CustomerAddressesPage() {
                   id="city"
                   placeholder="New York"
                   value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, city: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -385,7 +414,9 @@ export default function CustomerAddressesPage() {
                   id="state"
                   placeholder="NY"
                   value={formData.state}
-                  onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, state: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -398,7 +429,9 @@ export default function CustomerAddressesPage() {
                   id="postal_code"
                   placeholder="10001"
                   value={formData.postal_code}
-                  onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, postal_code: e.target.value })
+                  }
                 />
               </div>
               <div className="grid gap-2">
@@ -407,7 +440,9 @@ export default function CustomerAddressesPage() {
                   id="country"
                   placeholder="United States"
                   value={formData.country}
-                  onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, country: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -418,7 +453,9 @@ export default function CustomerAddressesPage() {
                 type="checkbox"
                 className="rounded border-gray-300"
                 checked={formData.is_default}
-                onChange={(e) => setFormData({ ...formData, is_default: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({ ...formData, is_default: e.target.checked })
+                }
               />
               <span className="text-sm">Set as default shipping address</span>
             </label>

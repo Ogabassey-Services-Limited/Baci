@@ -82,7 +82,7 @@ export async function GET() {
       .eq('status', 'published');
 
     // Get feature settings
-    const { data: featureSettings } = await supabase
+    await supabase
       .from('merchant_feature_settings')
       .select('*')
       .eq('merchant_id', merchant.id)
@@ -95,7 +95,11 @@ export async function GET() {
         id: 'bank_account',
         label: 'Add bank account',
         description: 'Required to receive payments via Paystack',
-        completed: !!(merchant.bank_code && merchant.bank_account_number && merchant.paystack_subaccount_code),
+        completed: !!(
+          merchant.bank_code &&
+          merchant.bank_account_number &&
+          merchant.paystack_subaccount_code
+        ),
         href: '/dashboard/settings/payments',
         priority: 'required',
         category: 'payments',
@@ -169,7 +173,9 @@ export async function GET() {
         id: 'hero_carousel',
         label: 'Set up hero carousel',
         description: 'Add eye-catching banners to your homepage',
-        completed: Array.isArray(merchant.hero_slides) && merchant.hero_slides.length > 0,
+        completed:
+          Array.isArray(merchant.hero_slides) &&
+          merchant.hero_slides.length > 0,
         href: '/dashboard/settings',
         priority: 'recommended',
         category: 'marketing',
@@ -194,7 +200,9 @@ export async function GET() {
         id: 'analytics',
         label: 'Set up analytics',
         description: 'Track visitors and conversions',
-        completed: !!(merchant.google_analytics_id || merchant.facebook_pixel_id),
+        completed: !!(
+          merchant.google_analytics_id || merchant.facebook_pixel_id
+        ),
         href: '/dashboard/settings',
         priority: 'optional',
         category: 'marketing',
@@ -212,9 +220,15 @@ export async function GET() {
 
     // Calculate stats
     const requiredItems = items.filter((item) => item.priority === 'required');
-    const recommendedItems = items.filter((item) => item.priority === 'recommended');
-    const completedRequired = requiredItems.filter((item) => item.completed).length;
-    const completedRecommended = recommendedItems.filter((item) => item.completed).length;
+    const recommendedItems = items.filter(
+      (item) => item.priority === 'recommended'
+    );
+    const completedRequired = requiredItems.filter(
+      (item) => item.completed
+    ).length;
+    const completedRecommended = recommendedItems.filter(
+      (item) => item.completed
+    ).length;
     const totalCompleted = items.filter((item) => item.completed).length;
 
     const readiness: StoreReadiness = {

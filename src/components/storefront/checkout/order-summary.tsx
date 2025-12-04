@@ -11,8 +11,8 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
-import { DiscountCodeInput } from './discount-code-input';
 import { useCurrency } from '@/hooks/use-currency';
+import { DiscountCodeInput } from './discount-code-input';
 
 interface CartItem {
   id: string;

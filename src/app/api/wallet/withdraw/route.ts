@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { payoutMerchantCommission } from '@/lib/kuda';
+import { createClient } from '@/lib/supabase/server';
 
 const MIN_WITHDRAWAL_AMOUNT = 1000; // ₦1,000 minimum
 
@@ -28,20 +28,30 @@ export async function POST(request: Request) {
     // Get merchant with bank details
     const { data: merchant } = await supabase
       .from('merchants')
-      .select('id, business_name, bank_account_number, bank_code, bank_account_name')
+      .select(
+        'id, business_name, bank_account_number, bank_code, bank_account_name'
+      )
       .eq('user_id', user.id)
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Check bank details
-    if (!merchant.bank_account_number || !merchant.bank_code || !merchant.bank_account_name) {
+    if (
+      !merchant.bank_account_number ||
+      !merchant.bank_code ||
+      !merchant.bank_account_name
+    ) {
       return NextResponse.json(
         {
           error: 'Bank details not configured',
-          message: 'Please add your bank account details in Settings > Payments',
+          message:
+            'Please add your bank account details in Settings > Payments',
         },
         { status: 400 }
       );
@@ -99,7 +109,8 @@ export async function POST(request: Request) {
       console.error('Debit failed:', debitError, debitResult);
       return NextResponse.json(
         {
-          error: debitResult?.[0]?.error_message || 'Failed to process withdrawal',
+          error:
+            debitResult?.[0]?.error_message || 'Failed to process withdrawal',
         },
         { status: 400 }
       );
@@ -108,7 +119,7 @@ export async function POST(request: Request) {
     const transactionId = debitResult[0].transaction_id;
 
     // Execute bank transfer via Kuda
-    let transferResult;
+    let transferResult: Awaited<ReturnType<typeof payoutMerchantCommission>>;
     try {
       transferResult = await payoutMerchantCommission(
         {
@@ -127,7 +138,9 @@ export async function POST(request: Request) {
         p_success: false,
         p_transfer_reference: null,
         p_transfer_message:
-          transferError instanceof Error ? transferError.message : 'Transfer failed',
+          transferError instanceof Error
+            ? transferError.message
+            : 'Transfer failed',
       });
 
       return NextResponse.json(

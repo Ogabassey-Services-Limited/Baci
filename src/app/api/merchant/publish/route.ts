@@ -49,7 +49,11 @@ export async function POST() {
     const missingItems: string[] = [];
 
     // Bank account required for payments
-    if (!merchant.bank_code || !merchant.bank_account_number || !merchant.paystack_subaccount_code) {
+    if (
+      !merchant.bank_code ||
+      !merchant.bank_account_number ||
+      !merchant.paystack_subaccount_code
+    ) {
       missingItems.push('Bank account details');
     }
 

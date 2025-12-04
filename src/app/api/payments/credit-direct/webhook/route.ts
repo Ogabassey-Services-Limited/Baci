@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
+  type CreditDirectWebhookPayload,
   calculateMerchantAmount,
   calculatePlatformFee,
   getWebhookSecret,
   parseWebhookPayload,
   verifyWebhookSignature,
-  type CreditDirectWebhookPayload,
 } from '@/lib/credit-direct';
 import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -87,7 +87,9 @@ export async function POST(request: NextRequest) {
     // We store this in order notes when the checkout is initiated
     const { data: orders, error: orderError } = await supabase
       .from('orders')
-      .select('id, merchant_id, total, payment_status, customer_email, customer_name, notes')
+      .select(
+        'id, merchant_id, total, payment_status, customer_email, customer_name, notes'
+      )
       .eq('payment_method', 'credit_direct')
       .ilike('notes', `%${payload.checkoutTransactionId}%`);
 
@@ -117,7 +119,9 @@ export async function POST(request: NextRequest) {
     if (!order && payload.metaData) {
       const { data: orderById } = await supabase
         .from('orders')
-        .select('id, merchant_id, total, payment_status, customer_email, customer_name, notes')
+        .select(
+          'id, merchant_id, total, payment_status, customer_email, customer_name, notes'
+        )
         .eq('id', payload.metaData)
         .single();
       if (orderById) {

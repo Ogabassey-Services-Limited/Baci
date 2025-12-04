@@ -1,7 +1,16 @@
 'use client';
 
+import {
+  AlertCircle,
+  Building2,
+  Check,
+  CreditCard,
+  Globe,
+  Loader2,
+  Wallet,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { CreditCard, Loader2, Building2, Globe, Check, AlertCircle, Wallet } from 'lucide-react';
+import { MerchantBankForm } from '@/components/merchant-bank-form';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -12,7 +21,6 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -20,9 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
 import { useMerchant } from '@/hooks/use-merchant';
-import { MerchantBankForm } from '@/components/merchant-bank-form';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 interface PaymentGatewaySettings {
@@ -52,7 +60,8 @@ const DEFAULT_SETTINGS: PaymentGatewaySettings = {
 export default function PaymentSettingsPage() {
   const { toast } = useToast();
   const { merchant, loading: merchantLoading } = useMerchant();
-  const [settings, setSettings] = useState<PaymentGatewaySettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] =
+    useState<PaymentGatewaySettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -66,7 +75,8 @@ export default function PaymentSettingsPage() {
             paystack_enabled: data.paystack_enabled ?? true,
             korapay_enabled: data.korapay_enabled ?? true,
             preferred_local_gateway: data.preferred_local_gateway || 'paystack',
-            preferred_international_gateway: data.preferred_international_gateway || 'korapay',
+            preferred_international_gateway:
+              data.preferred_international_gateway || 'korapay',
             // Credit Direct BNPL
             credit_direct_enabled: data.credit_direct_enabled ?? false,
             credit_direct_public_key: data.credit_direct_public_key || '',
@@ -101,7 +111,7 @@ export default function PaymentSettingsPage() {
       } else {
         throw new Error('Failed to save settings');
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -141,7 +151,8 @@ export default function PaymentSettingsPage() {
             Bank Settlement Details
           </CardTitle>
           <CardDescription>
-            Add your bank account to receive payments directly via Paystack split payments (T+1 settlement).
+            Add your bank account to receive payments directly via Paystack
+            split payments (T+1 settlement).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -151,7 +162,9 @@ export default function PaymentSettingsPage() {
                 <Check className="h-5 w-5" />
                 <div>
                   <p className="font-medium">Bank Account Connected</p>
-                  <p className="text-sm">Paystack subaccount is configured for automatic settlements</p>
+                  <p className="text-sm">
+                    Paystack subaccount is configured for automatic settlements
+                  </p>
                 </div>
               </div>
               <MerchantBankForm
@@ -168,7 +181,10 @@ export default function PaymentSettingsPage() {
                 <AlertCircle className="h-5 w-5" />
                 <div>
                   <p className="font-medium">Bank Account Required</p>
-                  <p className="text-sm">Add your bank details to enable Paystack payments with automatic settlement</p>
+                  <p className="text-sm">
+                    Add your bank details to enable Paystack payments with
+                    automatic settlement
+                  </p>
                 </div>
               </div>
               <MerchantBankForm />
@@ -185,15 +201,20 @@ export default function PaymentSettingsPage() {
             Payment Gateways
           </CardTitle>
           <CardDescription>
-            Enable or disable payment gateways for your store. Each gateway has different features and settlement times.
+            Enable or disable payment gateways for your store. Each gateway has
+            different features and settlement times.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Paystack */}
-          <div className={cn(
-            "p-4 rounded-lg border-2 transition-colors",
-            settings.paystack_enabled ? "border-green-200 bg-green-50/50" : "border-gray-200"
-          )}>
+          <div
+            className={cn(
+              'p-4 rounded-lg border-2 transition-colors',
+              settings.paystack_enabled
+                ? 'border-green-200 bg-green-50/50'
+                : 'border-gray-200'
+            )}
+          >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-[#00C3F7] flex items-center justify-center text-white font-bold text-sm">
@@ -202,7 +223,8 @@ export default function PaymentSettingsPage() {
                 <div>
                   <h3 className="font-semibold">Paystack</h3>
                   <p className="text-sm text-muted-foreground">
-                    Best for Nigerian payments. Supports cards, bank transfers, USSD.
+                    Best for Nigerian payments. Supports cards, bank transfers,
+                    USSD.
                   </p>
                   <div className="flex gap-2 mt-2">
                     <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
@@ -219,7 +241,9 @@ export default function PaymentSettingsPage() {
               </div>
               <Switch
                 checked={settings.paystack_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, paystack_enabled: checked })}
+                onCheckedChange={(checked) =>
+                  setSettings({ ...settings, paystack_enabled: checked })
+                }
                 disabled={!hasPaystackSubaccount}
               />
             </div>
@@ -231,10 +255,14 @@ export default function PaymentSettingsPage() {
           </div>
 
           {/* Korapay */}
-          <div className={cn(
-            "p-4 rounded-lg border-2 transition-colors",
-            settings.korapay_enabled ? "border-green-200 bg-green-50/50" : "border-gray-200"
-          )}>
+          <div
+            className={cn(
+              'p-4 rounded-lg border-2 transition-colors',
+              settings.korapay_enabled
+                ? 'border-green-200 bg-green-50/50'
+                : 'border-gray-200'
+            )}
+          >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-[#6366F1] flex items-center justify-center text-white font-bold text-sm">
@@ -243,7 +271,8 @@ export default function PaymentSettingsPage() {
                 <div>
                   <h3 className="font-semibold">Korapay</h3>
                   <p className="text-sm text-muted-foreground">
-                    Multi-currency support. Best for international payments across Africa.
+                    Multi-currency support. Best for international payments
+                    across Africa.
                   </p>
                   <div className="flex gap-2 mt-2 flex-wrap">
                     <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
@@ -260,7 +289,9 @@ export default function PaymentSettingsPage() {
               </div>
               <Switch
                 checked={settings.korapay_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, korapay_enabled: checked })}
+                onCheckedChange={(checked) =>
+                  setSettings({ ...settings, korapay_enabled: checked })
+                }
               />
             </div>
           </div>
@@ -275,14 +306,19 @@ export default function PaymentSettingsPage() {
             Buy Now, Pay Later (BNPL)
           </CardTitle>
           <CardDescription>
-            Let customers split payments into installments. You receive full payment from Credit Direct.
+            Let customers split payments into installments. You receive full
+            payment from Credit Direct.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className={cn(
-            "p-4 rounded-lg border-2 transition-colors",
-            settings.credit_direct_enabled ? "border-green-200 bg-green-50/50" : "border-gray-200"
-          )}>
+          <div
+            className={cn(
+              'p-4 rounded-lg border-2 transition-colors',
+              settings.credit_direct_enabled
+                ? 'border-green-200 bg-green-50/50'
+                : 'border-gray-200'
+            )}
+          >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
@@ -291,7 +327,8 @@ export default function PaymentSettingsPage() {
                 <div>
                   <h3 className="font-semibold">Credit Direct</h3>
                   <p className="text-sm text-muted-foreground">
-                    Customers pay in installments. You get paid in full instantly.
+                    Customers pay in installments. You get paid in full
+                    instantly.
                   </p>
                   <div className="flex gap-2 mt-2 flex-wrap">
                     <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
@@ -308,15 +345,18 @@ export default function PaymentSettingsPage() {
               </div>
               <Switch
                 checked={settings.credit_direct_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, credit_direct_enabled: checked })}
+                onCheckedChange={(checked) =>
+                  setSettings({ ...settings, credit_direct_enabled: checked })
+                }
                 disabled={!settings.credit_direct_public_key}
               />
             </div>
-            {!settings.credit_direct_public_key && settings.credit_direct_enabled === false && (
-              <p className="text-xs text-yellow-600 mt-2">
-                Add your Credit Direct public key below to enable BNPL
-              </p>
-            )}
+            {!settings.credit_direct_public_key &&
+              settings.credit_direct_enabled === false && (
+                <p className="text-xs text-yellow-600 mt-2">
+                  Add your Credit Direct public key below to enable BNPL
+                </p>
+              )}
           </div>
 
           {/* Credit Direct Configuration */}
@@ -328,7 +368,12 @@ export default function PaymentSettingsPage() {
                 type="text"
                 placeholder="Enter your Credit Direct public key"
                 value={settings.credit_direct_public_key}
-                onChange={(e) => setSettings({ ...settings, credit_direct_public_key: e.target.value })}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    credit_direct_public_key: e.target.value,
+                  })
+                }
               />
               <p className="text-xs text-muted-foreground">
                 Get your public key from your{' '}
@@ -345,16 +390,21 @@ export default function PaymentSettingsPage() {
 
             <div className="grid md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="credit_direct_min_amount">Minimum Order Amount (NGN)</Label>
+                <Label htmlFor="credit_direct_min_amount">
+                  Minimum Order Amount (NGN)
+                </Label>
                 <Input
                   id="credit_direct_min_amount"
                   type="number"
                   min={1000}
                   value={settings.credit_direct_min_amount}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    credit_direct_min_amount: Number.parseInt(e.target.value) || 10000
-                  })}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      credit_direct_min_amount:
+                        Number.parseInt(e.target.value, 10) || 10000,
+                    })
+                  }
                 />
                 <p className="text-xs text-muted-foreground">
                   Orders below this amount won&apos;t show BNPL option
@@ -362,16 +412,21 @@ export default function PaymentSettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="credit_direct_max_amount">Maximum Order Amount (NGN)</Label>
+                <Label htmlFor="credit_direct_max_amount">
+                  Maximum Order Amount (NGN)
+                </Label>
                 <Input
                   id="credit_direct_max_amount"
                   type="number"
                   min={10000}
                   value={settings.credit_direct_max_amount}
-                  onChange={(e) => setSettings({
-                    ...settings,
-                    credit_direct_max_amount: Number.parseInt(e.target.value) || 500000
-                  })}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      credit_direct_max_amount:
+                        Number.parseInt(e.target.value, 10) || 500000,
+                    })
+                  }
                 />
                 <p className="text-xs text-muted-foreground">
                   Orders above this amount won&apos;t show BNPL option
@@ -400,7 +455,8 @@ export default function PaymentSettingsPage() {
             Gateway Preferences
           </CardTitle>
           <CardDescription>
-            Choose which gateway to use by default for local and international payments.
+            Choose which gateway to use by default for local and international
+            payments.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -417,7 +473,10 @@ export default function PaymentSettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="paystack" disabled={!hasPaystackSubaccount}>
+                  <SelectItem
+                    value="paystack"
+                    disabled={!hasPaystackSubaccount}
+                  >
                     Paystack {!hasPaystackSubaccount && '(Add bank details)'}
                   </SelectItem>
                   <SelectItem value="korapay">Korapay</SelectItem>
@@ -433,7 +492,10 @@ export default function PaymentSettingsPage() {
               <Select
                 value={settings.preferred_international_gateway}
                 onValueChange={(value: 'paystack' | 'korapay') =>
-                  setSettings({ ...settings, preferred_international_gateway: value })
+                  setSettings({
+                    ...settings,
+                    preferred_international_gateway: value,
+                  })
                 }
               >
                 <SelectTrigger>
@@ -441,7 +503,10 @@ export default function PaymentSettingsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="korapay">Korapay (Recommended)</SelectItem>
-                  <SelectItem value="paystack" disabled={!hasPaystackSubaccount}>
+                  <SelectItem
+                    value="paystack"
+                    disabled={!hasPaystackSubaccount}
+                  >
                     Paystack {!hasPaystackSubaccount && '(Add bank details)'}
                   </SelectItem>
                 </SelectContent>
@@ -456,8 +521,9 @@ export default function PaymentSettingsPage() {
           <div className="p-4 rounded-lg bg-muted/50 border">
             <h4 className="font-medium mb-2">Platform Fee</h4>
             <p className="text-sm text-muted-foreground">
-              Baci charges <strong>2% per transaction, capped at N2,050</strong>. This is automatically deducted from each payment.
-              Gateway fees (Paystack: 1.5% + N100) are separate and borne by the platform.
+              Baci charges <strong>2% per transaction, capped at N2,050</strong>
+              . This is automatically deducted from each payment. Gateway fees
+              (Paystack: 1.5% + N100) are separate and borne by the platform.
             </p>
           </div>
         </CardContent>

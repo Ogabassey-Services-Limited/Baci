@@ -11,8 +11,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Button } from '@/components/ui/button';
 import { builderConfig } from '@/components/builder/config';
+import { Button } from '@/components/ui/button';
 import {
   deriveThemeFromColors,
   generateFeatures,
@@ -338,8 +338,8 @@ export function OnboardingPuckPreview({
       {/* Live Preview Badge */}
       <div className="absolute top-16 right-6 z-50 bg-amber-500 text-black text-[10px] px-3 py-1.5 rounded-full font-semibold shadow-lg flex items-center gap-2">
         <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
         </span>
         Live Store Preview
       </div>

@@ -6,8 +6,8 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
-import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { logger } from '@/lib/logger';
+import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -64,7 +64,10 @@ function verifyKorapayWebhookSignature(
 
     return timingSafeEqual(signatureBuffer, expectedBuffer);
   } catch (error) {
-    logger.error({ message: 'Korapay webhook signature verification error', error });
+    logger.error({
+      message: 'Korapay webhook signature verification error',
+      error,
+    });
     return false;
   }
 }
@@ -99,7 +102,10 @@ function verifyPaystackWebhookSignature(
     // Use timing-safe comparison to prevent timing attacks
     return signature === expectedSignature;
   } catch (error) {
-    logger.error({ message: 'Paystack webhook signature verification error', error });
+    logger.error({
+      message: 'Paystack webhook signature verification error',
+      error,
+    });
     return false;
   }
 }
@@ -350,19 +356,23 @@ export async function POST(request: NextRequest) {
       // Calculate fees (platform takes 1.5% for example)
       const grossAmount = Number(transaction.amount) || 0;
       const gatewayFee = Number(transaction.gateway_fee) || 0;
-      const platformFee = Number(transaction.platform_fee) || grossAmount * 0.015;
+      const platformFee =
+        Number(transaction.platform_fee) || grossAmount * 0.015;
 
-      const { error: settlementError } = await supabase.rpc('record_merchant_settlement', {
-        p_merchant_id: transaction.merchant_id,
-        p_source_type: 'order',
-        p_source_id: transaction.order_id,
-        p_gateway: gateway,
-        p_gateway_reference: reference,
-        p_gross_amount: grossAmount,
-        p_gateway_fee: gatewayFee,
-        p_platform_fee: platformFee,
-        p_description: `Order payment via ${gateway}`,
-      });
+      const { error: settlementError } = await supabase.rpc(
+        'record_merchant_settlement',
+        {
+          p_merchant_id: transaction.merchant_id,
+          p_source_type: 'order',
+          p_source_id: transaction.order_id,
+          p_gateway: gateway,
+          p_gateway_reference: reference,
+          p_gross_amount: grossAmount,
+          p_gateway_fee: gatewayFee,
+          p_platform_fee: platformFee,
+          p_description: `Order payment via ${gateway}`,
+        }
+      );
 
       if (settlementError) {
         logger.warn({
@@ -413,18 +423,17 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const reference = searchParams.get('reference');
-    const gateway = (searchParams.get('gateway') || 'paystack') as PaymentGateway;
+    const gateway = (searchParams.get('gateway') ||
+      'paystack') as PaymentGateway;
 
     if (!reference) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
 
-    let paymentData;
-    if (gateway === 'paystack') {
-      paymentData = await verifyPaystackPayment(reference);
-    } else {
-      paymentData = await verifyKorapayPayment(reference);
-    }
+    const paymentData =
+      gateway === 'paystack'
+        ? await verifyPaystackPayment(reference)
+        : await verifyKorapayPayment(reference);
 
     return NextResponse.json({
       success: true,

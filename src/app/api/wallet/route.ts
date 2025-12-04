@@ -27,11 +27,14 @@ export async function GET() {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get or create wallet
-    const { data: walletId } = await supabase.rpc('get_or_create_merchant_wallet', {
+    await supabase.rpc('get_or_create_merchant_wallet', {
       p_merchant_id: merchant.id,
     });
 
@@ -51,7 +54,10 @@ export async function GET() {
 
       if (walletError) {
         console.error('Failed to get wallet:', walletError);
-        return NextResponse.json({ error: 'Failed to get wallet' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Failed to get wallet' },
+          { status: 500 }
+        );
       }
 
       return NextResponse.json({
@@ -79,13 +85,18 @@ export async function GET() {
 
     const summary = walletSummary?.[0];
     if (!summary) {
-      return NextResponse.json({ error: 'Failed to get wallet summary' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to get wallet summary' },
+        { status: 500 }
+      );
     }
 
     // Get pending settlements for detailed view
     const { data: pendingSettlements } = await supabase
       .from('merchant_settlements')
-      .select('id, net_amount, gateway, source_type, expected_settlement_date, description')
+      .select(
+        'id, net_amount, gateway, source_type, expected_settlement_date, description'
+      )
       .eq('merchant_id', merchant.id)
       .eq('status', 'pending')
       .order('expected_settlement_date', { ascending: true })
@@ -94,7 +105,9 @@ export async function GET() {
     // Get wallet settings
     const { data: walletSettings } = await supabase
       .from('merchant_wallets')
-      .select('auto_payout_enabled, auto_payout_day, min_payout_amount, last_payout_at, last_payout_amount')
+      .select(
+        'auto_payout_enabled, auto_payout_day, min_payout_amount, last_payout_at, last_payout_amount'
+      )
       .eq('id', summary.wallet_id)
       .single();
 
@@ -131,7 +144,10 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Wallet fetch error:', error);
-    return NextResponse.json({ error: 'Failed to fetch wallet' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch wallet' },
+      { status: 500 }
+    );
   }
 }
 
@@ -163,7 +179,10 @@ export async function PATCH(request: Request) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Build update object
@@ -190,7 +209,10 @@ export async function PATCH(request: Request) {
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid updates provided' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'No valid updates provided' },
+        { status: 400 }
+      );
     }
 
     // Update wallet settings
@@ -207,9 +229,15 @@ export async function PATCH(request: Request) {
       );
     }
 
-    return NextResponse.json({ success: true, message: 'Wallet settings updated' });
+    return NextResponse.json({
+      success: true,
+      message: 'Wallet settings updated',
+    });
   } catch (error) {
     console.error('Wallet update error:', error);
-    return NextResponse.json({ error: 'Failed to update wallet' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to update wallet' },
+      { status: 500 }
+    );
   }
 }

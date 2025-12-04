@@ -1,15 +1,15 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import {
+  calculateVTUCommission,
+  formatPhoneNumber,
+  generateRequestRef,
+  isValidPhoneNumber,
+  type NetworkProvider,
   purchaseAirtime,
   purchaseData,
-  NetworkProvider,
-  formatPhoneNumber,
-  isValidPhoneNumber,
-  calculateVTUCommission,
-  generateRequestRef,
 } from '@/lib/kuda';
+import { createClient } from '@/lib/supabase/server';
 
 interface PurchaseRequest {
   merchantSlug: string;
@@ -70,7 +70,9 @@ export async function POST(request: Request) {
     // Get merchant and verify VTU is enabled (include bank details for payout)
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
-      .select('id, business_name, bank_account_number, bank_code, bank_account_name')
+      .select(
+        'id, business_name, bank_account_number, bank_code, bank_account_name'
+      )
       .eq('slug', merchantSlug)
       .single();
 
@@ -84,7 +86,9 @@ export async function POST(request: Request) {
     // Get VTU settings
     const { data: settings } = await supabase
       .from('merchant_feature_settings')
-      .select('vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_merchant_commission_rate')
+      .select(
+        'vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_merchant_commission_rate'
+      )
       .eq('merchant_id', merchant.id)
       .single();
 
@@ -112,7 +116,7 @@ export async function POST(request: Request) {
     // Calculate commissions based on provider and type
     // Merchant split percentage can be configured (default 50%)
     const merchantSplitPercentage = settings.vtu_merchant_commission_rate
-      ? settings.vtu_merchant_commission_rate * 100  // Convert from decimal to percentage
+      ? settings.vtu_merchant_commission_rate * 100 // Convert from decimal to percentage
       : 50; // Default 50% split
 
     const commissions = calculateVTUCommission(
@@ -158,11 +162,16 @@ export async function POST(request: Request) {
     }
 
     // Execute the purchase
-    let result;
+    let result: Awaited<ReturnType<typeof purchaseAirtime>>;
     if (type === 'airtime') {
       result = await purchaseAirtime(formattedPhone, amount, networkProvider);
     } else if (type === 'data' && dataPlanCode) {
-      result = await purchaseData(formattedPhone, dataPlanCode, amount, networkProvider);
+      result = await purchaseData(
+        formattedPhone,
+        dataPlanCode,
+        amount,
+        networkProvider
+      );
     } else {
       return NextResponse.json(
         { error: 'Data plan code is required for data purchases' },
@@ -196,14 +205,16 @@ export async function POST(request: Request) {
     if (commissions.merchantEarning > 0) {
       try {
         // Credit merchant wallet using database function
-        const { data: walletResult, error: walletError } = await supabase
-          .rpc('credit_merchant_wallet', {
+        const { data: walletResult, error: walletError } = await supabase.rpc(
+          'credit_merchant_wallet',
+          {
             p_merchant_id: merchant.id,
             p_amount: commissions.merchantEarning,
             p_source_type: 'vtu_transaction',
             p_source_id: transaction.id,
             p_description: `VTU Commission - ${type} ${networkProvider} ₦${amount}`,
-          });
+          }
+        );
 
         if (walletError) {
           console.error('Failed to credit merchant wallet:', walletError);

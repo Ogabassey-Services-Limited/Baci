@@ -91,7 +91,9 @@ export function RevenueBarChart({ data, config }: DashboardChartsProps) {
           align="right"
           wrapperStyle={{ paddingBottom: 10 }}
           formatter={(value) => (
-            <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+            <span
+              style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+            >
               {value}
             </span>
           )}

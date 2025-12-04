@@ -17,10 +17,7 @@ export async function POST() {
 
     if (error) {
       console.error('Logout error:', error);
-      return NextResponse.json(
-        { error: 'Failed to log out' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Failed to log out' }, { status: 500 });
     }
 
     return NextResponse.json({

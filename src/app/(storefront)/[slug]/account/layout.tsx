@@ -1,8 +1,7 @@
-import { headers } from 'next/headers';
-import { getCachedMerchant } from '@/lib/cached-data';
 import { notFound } from 'next/navigation';
 import { CustomerAuthProvider } from '@/contexts/customer-auth-context';
 import { MerchantProvider } from '@/hooks/use-merchant';
+import { getCachedMerchant } from '@/lib/cached-data';
 
 export default async function AccountLayout({
   children,

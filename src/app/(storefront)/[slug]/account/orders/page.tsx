@@ -1,12 +1,25 @@
 'use client';
 
-import { ArrowLeft, Calendar, ChevronRight, Loader2, Package, Truck } from 'lucide-react';
+import {
+  ArrowLeft,
+  Calendar,
+  ChevronRight,
+  Loader2,
+  Package,
+  Truck,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useCurrency } from '@/hooks/use-currency';
@@ -26,7 +39,12 @@ interface Order {
   created_at: string;
   total: number;
   payment_status: 'unpaid' | 'paid' | 'refunded';
-  shipping_status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  shipping_status:
+    | 'pending'
+    | 'processing'
+    | 'shipped'
+    | 'delivered'
+    | 'cancelled';
   items: OrderItem[];
   shipping_address?: {
     address: string;
@@ -37,12 +55,17 @@ interface Order {
 }
 
 const statusColors: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-  processing: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  shipped: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
-  delivered: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+  pending:
+    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  processing:
+    'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  shipped:
+    'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  delivered:
+    'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   cancelled: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  unpaid: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+  unpaid:
+    'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
   paid: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
   refunded: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
 };
@@ -50,7 +73,11 @@ const statusColors: Record<string, string> = {
 export default function CustomerOrdersPage() {
   const router = useRouter();
   const { merchant, loading: merchantLoading } = useMerchant();
-  const { customer, isAuthenticated, isLoading: authLoading } = useCustomerAuth();
+  const {
+    customer,
+    isAuthenticated,
+    isLoading: authLoading,
+  } = useCustomerAuth();
   const { currencySymbol } = useCurrency();
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -224,7 +251,11 @@ export default function CustomerOrdersPage() {
                     <div className="flex items-center gap-2">
                       {order.tracking_number && (
                         <Button variant="outline" size="sm" asChild>
-                          <Link href={asRoute(`/orders/track?number=${order.tracking_number}`)}>
+                          <Link
+                            href={asRoute(
+                              `/orders/track?number=${order.tracking_number}`
+                            )}
+                          >
                             <Truck className="h-4 w-4 mr-2" />
                             Track
                           </Link>

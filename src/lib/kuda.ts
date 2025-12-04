@@ -5,10 +5,11 @@
  * API Documentation: https://docs.kuda.com/
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 // Environment configuration
-const KUDA_API_BASE_URL = process.env.KUDA_API_BASE_URL || 'https://kuda-openapi.kuda.com/v2.1';
+const KUDA_API_BASE_URL =
+  process.env.KUDA_API_BASE_URL || 'https://kuda-openapi.kuda.com/v2.1';
 const KUDA_EMAIL = process.env.KUDA_EMAIL || '';
 const KUDA_API_KEY = process.env.KUDA_API_KEY || '';
 
@@ -198,7 +199,9 @@ export async function getBillTypes(): Promise<Biller[]> {
 /**
  * Get billers by type (e.g., all airtime providers)
  */
-export async function getBillersByType(billTypeName: string): Promise<Biller[]> {
+export async function getBillersByType(
+  billTypeName: string
+): Promise<Biller[]> {
   const response = await kudaRequest<{ billers: Biller[] }>(
     KudaServiceType.GET_BILLERS_BY_TYPE,
     { BillTypeName: billTypeName }
@@ -231,13 +234,10 @@ export async function verifyBillCustomer(
     const response = await kudaRequest<{
       customerName: string;
       canVend: boolean;
-    }>(
-      KudaServiceType.VERIFY_BILL_CUSTOMER,
-      {
-        KudaBillItemIdentifier: kudaBillItemIdentifier,
-        CustomerIdentification: customerIdentification,
-      }
-    );
+    }>(KudaServiceType.VERIFY_BILL_CUSTOMER, {
+      KudaBillItemIdentifier: kudaBillItemIdentifier,
+      CustomerIdentification: customerIdentification,
+    });
 
     return {
       verified: response.data?.canVend || false,
@@ -399,10 +399,10 @@ export async function getPurchasedBills(
   const response = await kudaRequest<{
     bills: unknown[];
     totalCount: number;
-  }>(
-    KudaServiceType.ADMIN_GET_PURCHASED_BILLS,
-    { PageSize: pageSize, PageNumber: pageNumber }
-  );
+  }>(KudaServiceType.ADMIN_GET_PURCHASED_BILLS, {
+    PageSize: pageSize,
+    PageNumber: pageNumber,
+  });
 
   return {
     bills: response.data?.bills || [],
@@ -480,7 +480,12 @@ export async function getBankList(): Promise<Bank[]> {
 export async function verifyBankAccount(
   beneficiaryAccountNumber: string,
   beneficiaryBankCode: string
-): Promise<{ verified: boolean; accountName?: string; sessionId?: string; error?: string }> {
+): Promise<{
+  verified: boolean;
+  accountName?: string;
+  sessionId?: string;
+  error?: string;
+}> {
   try {
     const response = await kudaRequest<NameEnquiryResult>(
       KudaServiceType.NAME_ENQUIRY,
@@ -528,7 +533,10 @@ export async function transferFunds(
     // If no session ID provided, do name enquiry first
     let sessionId = nameEnquirySessionId;
     if (!sessionId) {
-      const verification = await verifyBankAccount(beneficiaryAccountNumber, beneficiaryBankCode);
+      const verification = await verifyBankAccount(
+        beneficiaryAccountNumber,
+        beneficiaryBankCode
+      );
       if (!verification.verified) {
         return {
           success: false,
@@ -610,15 +618,41 @@ export async function payoutMerchantCommission(
 /**
  * Detect network provider from phone number
  */
-export function detectNetworkProvider(phoneNumber: string): NetworkProvider | null {
+export function detectNetworkProvider(
+  phoneNumber: string
+): NetworkProvider | null {
   // Remove country code and normalize
   const number = phoneNumber.replace(/^\+?234/, '0').replace(/\s/g, '');
 
   // MTN prefixes
-  const mtnPrefixes = ['0703', '0706', '0803', '0806', '0810', '0813', '0814', '0816', '0903', '0906', '0913', '0916'];
+  const mtnPrefixes = [
+    '0703',
+    '0706',
+    '0803',
+    '0806',
+    '0810',
+    '0813',
+    '0814',
+    '0816',
+    '0903',
+    '0906',
+    '0913',
+    '0916',
+  ];
 
   // Airtel prefixes
-  const airtelPrefixes = ['0701', '0708', '0802', '0808', '0812', '0901', '0902', '0904', '0907', '0912'];
+  const airtelPrefixes = [
+    '0701',
+    '0708',
+    '0802',
+    '0808',
+    '0812',
+    '0901',
+    '0902',
+    '0904',
+    '0907',
+    '0912',
+  ];
 
   // Glo prefixes
   const gloPrefixes = ['0705', '0805', '0807', '0811', '0815', '0905', '0915'];
@@ -645,12 +679,12 @@ export function formatPhoneNumber(phoneNumber: string): string {
 
   // Convert international format to local
   if (cleaned.startsWith('234')) {
-    cleaned = '0' + cleaned.substring(3);
+    cleaned = `0${cleaned.substring(3)}`;
   }
 
   // Ensure it starts with 0
   if (!cleaned.startsWith('0') && cleaned.length === 10) {
-    cleaned = '0' + cleaned;
+    cleaned = `0${cleaned}`;
   }
 
   return cleaned;
@@ -675,41 +709,44 @@ export function getAirtimeDenominations(): number[] {
  * Kuda commission rates by provider and category
  * Source: Kuda VTU documentation
  */
-export const KUDA_COMMISSION_RATES: Record<string, { rate: number; cap?: number }> = {
+export const KUDA_COMMISSION_RATES: Record<
+  string,
+  { rate: number; cap?: number }
+> = {
   // Airtime
-  'MTN_AIRTIME': { rate: 0.03 },
-  'AIRTEL_AIRTIME': { rate: 0.03 },
-  'GLO_AIRTIME': { rate: 0.04 },
+  MTN_AIRTIME: { rate: 0.03 },
+  AIRTEL_AIRTIME: { rate: 0.03 },
+  GLO_AIRTIME: { rate: 0.04 },
   '9MOBILE_AIRTIME': { rate: 0.05 },
 
   // Data
-  'MTN_DATA': { rate: 0.03 },
-  'AIRTEL_DATA': { rate: 0.03 },
-  'GLO_DATA': { rate: 0.04 },
+  MTN_DATA: { rate: 0.03 },
+  AIRTEL_DATA: { rate: 0.03 },
+  GLO_DATA: { rate: 0.04 },
   '9MOBILE_DATA': { rate: 0.05 },
-  'SPECTRANET_DATA': { rate: 0.02 },
-  'SMILE_DATA': { rate: 0.02 },
+  SPECTRANET_DATA: { rate: 0.02 },
+  SMILE_DATA: { rate: 0.02 },
 
   // Cable TV
-  'DSTV': { rate: 0.016 },
-  'GOTV': { rate: 0.016 },
-  'STARTIMES': { rate: 0.012 },
-  'SHOWMAX': { rate: 0.02 },
+  DSTV: { rate: 0.016 },
+  GOTV: { rate: 0.016 },
+  STARTIMES: { rate: 0.012 },
+  SHOWMAX: { rate: 0.02 },
 
   // Electricity
-  'AEDC': { rate: 0.012 },
-  'EEDC': { rate: 0.012, cap: 2500 },
-  'KAEDCO': { rate: 0.012 },
-  'PHEDC': { rate: 0.012 },
-  'JEDC': { rate: 0.01 },
-  'IBEDC': { rate: 0.01 },
-  'IKEDC': { rate: 0.008 },
-  'EKEDC': { rate: 0.01, cap: 4000 },
-  'BEDC': { rate: 0.012 },
-  'KEDCO': { rate: 0.01 },
+  AEDC: { rate: 0.012 },
+  EEDC: { rate: 0.012, cap: 2500 },
+  KAEDCO: { rate: 0.012 },
+  PHEDC: { rate: 0.012 },
+  JEDC: { rate: 0.01 },
+  IBEDC: { rate: 0.01 },
+  IKEDC: { rate: 0.008 },
+  EKEDC: { rate: 0.01, cap: 4000 },
+  BEDC: { rate: 0.012 },
+  KEDCO: { rate: 0.01 },
 
   // Default fallback
-  'DEFAULT': { rate: 0.02 },
+  DEFAULT: { rate: 0.02 },
 };
 
 /**
@@ -720,7 +757,11 @@ export function getCommissionRate(
   category: 'AIRTIME' | 'DATA' | 'ELECTRICITY' | 'CABLE' = 'AIRTIME'
 ): { rate: number; cap?: number } {
   const key = `${provider.toUpperCase()}_${category}`;
-  return KUDA_COMMISSION_RATES[key] || KUDA_COMMISSION_RATES[provider.toUpperCase()] || KUDA_COMMISSION_RATES['DEFAULT'];
+  return (
+    KUDA_COMMISSION_RATES[key] ||
+    KUDA_COMMISSION_RATES[provider.toUpperCase()] ||
+    KUDA_COMMISSION_RATES.DEFAULT
+  );
 }
 
 /**
@@ -766,4 +807,3 @@ export function calculateVTUCommission(
     commissionRate: rate * 100, // Return as percentage
   };
 }
-

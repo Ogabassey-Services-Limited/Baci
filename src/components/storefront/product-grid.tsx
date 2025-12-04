@@ -47,7 +47,8 @@ export function StorefrontProductGrid({
   const [localSearchQuery, setLocalSearchQuery] = useState('');
 
   const searchQuery = storefrontContext?.searchQuery ?? localSearchQuery;
-  const selectedCategory = storefrontContext?.selectedCategory ?? localSelectedCategory;
+  const selectedCategory =
+    storefrontContext?.selectedCategory ?? localSelectedCategory;
 
   const handleSetSelectedCategory = (category: string) => {
     if (storefrontContext?.setSelectedCategory) {
@@ -158,12 +159,27 @@ export function StorefrontProductGrid({
 
   const { formatCurrencyCompact } = useCurrency();
 
-  const priceRanges = useMemo(() => [
-    { label: `Under ${formatCurrencyCompact(50)}`, min: 0, max: 50 },
-    { label: `${formatCurrencyCompact(50)} - ${formatCurrencyCompact(100)}`, min: 50, max: 100 },
-    { label: `${formatCurrencyCompact(100)} - ${formatCurrencyCompact(200)}`, min: 100, max: 200 },
-    { label: `Over ${formatCurrencyCompact(200)}`, min: 200, max: Infinity },
-  ], [formatCurrencyCompact]);
+  const priceRanges = useMemo(
+    () => [
+      { label: `Under ${formatCurrencyCompact(50)}`, min: 0, max: 50 },
+      {
+        label: `${formatCurrencyCompact(50)} - ${formatCurrencyCompact(100)}`,
+        min: 50,
+        max: 100,
+      },
+      {
+        label: `${formatCurrencyCompact(100)} - ${formatCurrencyCompact(200)}`,
+        min: 100,
+        max: 200,
+      },
+      {
+        label: `Over ${formatCurrencyCompact(200)}`,
+        min: 200,
+        max: Number.POSITIVE_INFINITY,
+      },
+    ],
+    [formatCurrencyCompact]
+  );
 
   const filterOptions = useMemo(() => {
     if (filterType === 'category') {
@@ -218,7 +234,8 @@ export function StorefrontProductGrid({
           if (range) {
             filtered = filtered.filter((p) => {
               const price = p.price || 0;
-              if (range.max === Infinity) return price > range.min;
+              if (range.max === Number.POSITIVE_INFINITY)
+                return price > range.min;
               if (range.min === 0) return price < range.max;
               return price >= range.min && price <= range.max;
             });
@@ -246,7 +263,8 @@ export function StorefrontProductGrid({
         if (range) {
           filtered = filtered.filter((p) => {
             const price = p.price || 0;
-            if (range.max === Infinity) return price > range.min;
+            if (range.max === Number.POSITIVE_INFINITY)
+              return price > range.min;
             if (range.min === 0) return price < range.max;
             return price >= range.min && price <= range.max;
           });
@@ -264,6 +282,7 @@ export function StorefrontProductGrid({
     filterType,
     useServerSearch,
     serverSearchResults,
+    priceRanges.find,
   ]);
 
   const handleAddToCart = (product: Product) => {
@@ -280,10 +299,10 @@ export function StorefrontProductGrid({
 
   const brandColors = merchant?.brand_colors
     ? [
-      merchant.brand_colors.primary,
-      merchant.brand_colors.background,
-      merchant.brand_colors.accent,
-    ].filter(Boolean)
+        merchant.brand_colors.primary,
+        merchant.brand_colors.background,
+        merchant.brand_colors.accent,
+      ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -343,10 +362,11 @@ export function StorefrontProductGrid({
                             selectedCategory === option ? 'All' : option
                           )
                         }
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === option
-                          ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
-                          : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
-                          }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                          selectedCategory === option
+                            ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
+                            : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
+                        }`}
                       >
                         {option}
                       </button>

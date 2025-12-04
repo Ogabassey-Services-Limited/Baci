@@ -1,7 +1,5 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
-
 import {
   Clock,
   // Loader2,
@@ -14,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -289,11 +288,11 @@ export function ShippingDialog({
       .join('\n');
     return encodeURIComponent(
       `Delivery Details for Order ${orderNumber}\n\n` +
-      `Customer: ${customerName}\n` +
-      `Phone: ${customerPhone}\n` +
-      `Address: ${shippingAddress.address}, ${shippingAddress.city}, ${shippingAddress.state}\n\n` +
-      `Items:\n${itemsList}\n\n` +
-      (selfNotes ? `Special Instructions: ${selfNotes}` : '')
+        `Customer: ${customerName}\n` +
+        `Phone: ${customerPhone}\n` +
+        `Address: ${shippingAddress.address}, ${shippingAddress.city}, ${shippingAddress.state}\n\n` +
+        `Items:\n${itemsList}\n\n` +
+        (selfNotes ? `Special Instructions: ${selfNotes}` : '')
     );
   };
 
@@ -519,9 +518,7 @@ export function ShippingDialog({
                     disabled={!selfDispatchPhone || selfSubmitting}
                     className="ml-auto"
                   >
-                    {selfSubmitting && (
-                      <BagLoader size={16} />
-                    )}
+                    {selfSubmitting && <BagLoader size={16} />}
                     Mark as Shipped
                   </Button>
                 </div>

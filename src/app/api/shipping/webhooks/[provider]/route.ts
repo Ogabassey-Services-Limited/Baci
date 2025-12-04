@@ -33,7 +33,6 @@ function verifyWebhookSignature(
   const secrets: Record<string, string | undefined> = {
     gigl: process.env.GIGL_WEBHOOK_SECRET,
     topship: process.env.TOPSHIP_WEBHOOK_SECRET,
-
   };
 
   const secret = secrets[provider.toLowerCase()];
@@ -140,8 +139,6 @@ function parseTopshipWebhook(payload: unknown): WebhookEvent | null {
     rawPayload: payload,
   };
 }
-
-
 
 function parseWebhookPayload(
   provider: string,

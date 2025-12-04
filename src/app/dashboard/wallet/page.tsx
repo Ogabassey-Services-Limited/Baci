@@ -1,32 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Banknote,
+  CalendarClock,
+  Clock,
+  RefreshCw,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,16 +22,32 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
-  Wallet,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Clock,
-  RefreshCw,
-  CalendarClock,
-  TrendingUp,
-  Banknote,
-} from 'lucide-react';
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 
 interface WalletData {
@@ -90,7 +90,9 @@ interface Transaction {
 export default function WalletPage() {
   const { toast } = useToast();
   const [wallet, setWallet] = useState<WalletData | null>(null);
-  const [pendingSettlements, setPendingSettlements] = useState<PendingSettlement[]>([]);
+  const [pendingSettlements, setPendingSettlements] = useState<
+    PendingSettlement[]
+  >([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [withdrawing, setWithdrawing] = useState(false);
@@ -108,7 +110,11 @@ export default function WalletPage() {
       }
     } catch (error) {
       console.error('Failed to fetch wallet:', error);
-      toast({ title: 'Error', description: 'Failed to load wallet', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Failed to load wallet',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -129,7 +135,7 @@ export default function WalletPage() {
       setLoading(false)
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchTransactions, fetchWallet]);
 
   const handleWithdraw = async () => {
     if (!wallet?.canWithdraw) return;
@@ -148,11 +154,19 @@ export default function WalletPage() {
         throw new Error(data.error || 'Withdrawal failed');
       }
 
-      toast({ title: 'Success', description: `Successfully withdrew ₦${data.withdrawal.amount.toLocaleString()}` });
+      toast({
+        title: 'Success',
+        description: `Successfully withdrew ₦${data.withdrawal.amount.toLocaleString()}`,
+      });
       fetchWallet();
       fetchTransactions();
     } catch (error) {
-      toast({ title: 'Error', description: error instanceof Error ? error.message : 'Withdrawal failed', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Withdrawal failed',
+        variant: 'destructive',
+      });
     } finally {
       setWithdrawing(false);
     }
@@ -174,7 +188,11 @@ export default function WalletPage() {
       setWallet((prev) => (prev ? { ...prev, ...updates } : null));
       toast({ title: 'Success', description: 'Settings updated' });
     } catch {
-      toast({ title: 'Error', description: 'Failed to update settings', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Failed to update settings',
+        variant: 'destructive',
+      });
     } finally {
       setSavingSettings(false);
     }
@@ -230,7 +248,9 @@ export default function WalletPage() {
       kuda: 'bg-green-100 text-green-800',
     };
     return (
-      <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${colors[gateway] || 'bg-gray-100 text-gray-800'}`}>
+      <span
+        className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${colors[gateway] || 'bg-gray-100 text-gray-800'}`}
+      >
         {gateway.replace('_', ' ')}
       </span>
     );
@@ -338,7 +358,8 @@ export default function WalletPage() {
           <CardContent>
             {wallet?.nextSettlementDate ? (
               <p className="text-xs text-muted-foreground">
-                {wallet.upcomingCount} settlement{wallet.upcomingCount !== 1 ? 's' : ''} arriving
+                {wallet.upcomingCount} settlement
+                {wallet.upcomingCount !== 1 ? 's' : ''} arriving
                 {wallet.nextSettlementDate && (
                   <span className="block font-medium text-amber-700">
                     Next: {formatShortDate(wallet.nextSettlementDate)}
@@ -346,7 +367,9 @@ export default function WalletPage() {
                 )}
               </p>
             ) : (
-              <p className="text-xs text-muted-foreground">No pending settlements</p>
+              <p className="text-xs text-muted-foreground">
+                No pending settlements
+              </p>
             )}
           </CardContent>
         </Card>
@@ -363,7 +386,9 @@ export default function WalletPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">Withdrawals in progress</p>
+            <p className="text-xs text-muted-foreground">
+              Withdrawals in progress
+            </p>
           </CardContent>
         </Card>
 
@@ -410,11 +435,15 @@ export default function WalletPage() {
                       <ArrowDownToLine className="h-5 w-5 text-amber-600" />
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{settlement.description}</p>
+                      <p className="font-medium text-sm">
+                        {settlement.description}
+                      </p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         {getGatewayBadge(settlement.gateway)}
                         <span>•</span>
-                        <span className="capitalize">{settlement.sourceType.replace('_', ' ')}</span>
+                        <span className="capitalize">
+                          {settlement.sourceType.replace('_', ' ')}
+                        </span>
                       </div>
                     </div>
                   </div>

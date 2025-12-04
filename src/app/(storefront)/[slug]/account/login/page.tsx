@@ -1,11 +1,18 @@
 'use client';
 
 import { ArrowLeft, Loader2, Mail, ShieldCheck } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
@@ -18,7 +25,13 @@ export default function CustomerLoginPage() {
   const redirectTo = searchParams.get('redirect') || '/account';
 
   const { merchant, loading: merchantLoading } = useMerchant();
-  const { isAuthenticated, isLoading: authLoading, otpState, sendOtp, verifyOtp } = useCustomerAuth();
+  const {
+    isAuthenticated,
+    isLoading: authLoading,
+    otpState,
+    sendOtp,
+    verifyOtp,
+  } = useCustomerAuth();
 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState(['', '', '', '', '', '']);
@@ -68,7 +81,10 @@ export default function CustomerLoginPage() {
     }
   };
 
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>
+  ) => {
     if (e.key === 'Backspace' && !code[index] && index > 0) {
       codeInputRefs.current[index - 1]?.focus();
     }
@@ -135,7 +151,10 @@ export default function CustomerLoginPage() {
       {/* Header */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center">
-          <Link href="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <Link
+            href="/"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
             <ArrowLeft className="h-4 w-4" />
             <span>Back to store</span>
           </Link>
@@ -147,10 +166,13 @@ export default function CustomerLoginPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center space-y-2">
             {merchant?.logo_url ? (
-              <img
+              <Image
                 src={merchant.logo_url}
                 alt={merchant.business_name}
+                width={48}
+                height={48}
                 className="h-12 w-auto mx-auto mb-2"
+                unoptimized
               />
             ) : (
               <div className="h-12 w-12 mx-auto mb-2 rounded-full bg-primary/10 flex items-center justify-center">
@@ -158,7 +180,9 @@ export default function CustomerLoginPage() {
               </div>
             )}
             <CardTitle className="text-2xl">
-              {otpState?.codeSent ? 'Enter verification code' : 'Sign in to your account'}
+              {otpState?.codeSent
+                ? 'Enter verification code'
+                : 'Sign in to your account'}
             </CardTitle>
             <CardDescription>
               {otpState?.codeSent
@@ -189,11 +213,13 @@ export default function CustomerLoginPage() {
                   </div>
                 </div>
 
-                {error && (
-                  <p className="text-sm text-destructive">{error}</p>
-                )}
+                {error && <p className="text-sm text-destructive">{error}</p>}
 
-                <Button type="submit" className="w-full" disabled={isSending || !email}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSending || !email}
+                >
                   {isSending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -205,7 +231,8 @@ export default function CustomerLoginPage() {
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  By continuing, you agree to the store's terms of service and privacy policy.
+                  By continuing, you agree to the store's terms of service and
+                  privacy policy.
                 </p>
               </form>
             ) : (
@@ -213,16 +240,23 @@ export default function CustomerLoginPage() {
               <div className="space-y-6">
                 <div className="space-y-2">
                   <Label>Verification code</Label>
-                  <div className="flex gap-2 justify-center" onPaste={handlePaste}>
+                  <div
+                    className="flex gap-2 justify-center"
+                    onPaste={handlePaste}
+                  >
                     {code.map((digit, index) => (
                       <Input
-                        key={index}
-                        ref={(el) => { codeInputRefs.current[index] = el; }}
+                        key={`otp-input-${index}`}
+                        ref={(el) => {
+                          codeInputRefs.current[index] = el;
+                        }}
                         type="text"
                         inputMode="numeric"
                         maxLength={1}
                         value={digit}
-                        onChange={(e) => handleCodeChange(index, e.target.value)}
+                        onChange={(e) =>
+                          handleCodeChange(index, e.target.value)
+                        }
                         onKeyDown={(e) => handleKeyDown(index, e)}
                         className="w-12 h-14 text-center text-2xl font-mono"
                         disabled={isVerifying}
@@ -233,7 +267,9 @@ export default function CustomerLoginPage() {
                 </div>
 
                 {error && (
-                  <p className="text-sm text-destructive text-center">{error}</p>
+                  <p className="text-sm text-destructive text-center">
+                    {error}
+                  </p>
                 )}
 
                 {isVerifying && (
@@ -278,7 +314,8 @@ export default function CustomerLoginPage() {
       {/* Footer */}
       <footer className="border-t py-4">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          Secure passwordless login powered by {merchant?.business_name || 'Baci'}
+          Secure passwordless login powered by{' '}
+          {merchant?.business_name || 'Baci'}
         </div>
       </footer>
     </div>

@@ -28,10 +28,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (fetchError) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // Parse existing notes and add payment reference

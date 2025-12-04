@@ -58,13 +58,16 @@
       "Bash(lsof:*)",
       "Bash(mkdir:*)",
       "Bash(npm audit:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh run view:*)",
+      "Bash(npm run format:*)",
+      "Bash(npm run lint:*)"
     ],
     "deny": [],
     "ask": []
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "supabase"
-  ]
+  "enabledMcpjsonServers": ["supabase"]
 }

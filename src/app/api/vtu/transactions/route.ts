@@ -10,7 +10,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
 
     // Auth check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -23,12 +25,18 @@ export async function GET(request: Request) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Parse query params
-    const page = Number.parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(Number.parseInt(searchParams.get('limit') || '20'), 100);
+    const page = Number.parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.min(
+      Number.parseInt(searchParams.get('limit') || '20', 10),
+      100
+    );
     const status = searchParams.get('status');
     const type = searchParams.get('type');
     const source = searchParams.get('source');
@@ -85,8 +93,10 @@ export async function GET(request: Request) {
       .eq('status', 'successful');
 
     const totalSuccessful = stats?.length || 0;
-    const totalAmount = stats?.reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
-    const totalCommission = stats?.reduce((sum, tx) => sum + Number(tx.merchant_commission), 0) || 0;
+    const totalAmount =
+      stats?.reduce((sum, tx) => sum + Number(tx.amount), 0) || 0;
+    const totalCommission =
+      stats?.reduce((sum, tx) => sum + Number(tx.merchant_commission), 0) || 0;
 
     return NextResponse.json({
       transactions,

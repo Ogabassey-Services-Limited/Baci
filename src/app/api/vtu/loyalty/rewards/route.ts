@@ -49,12 +49,13 @@ export async function GET(request: Request) {
     }
 
     // Filter out rewards that have reached max redemptions
-    const availableRewards = rewards?.filter((reward) => {
-      if (reward.max_total_redemptions) {
-        return reward.total_redemptions < reward.max_total_redemptions;
-      }
-      return true;
-    }) || [];
+    const availableRewards =
+      rewards?.filter((reward) => {
+        if (reward.max_total_redemptions) {
+          return reward.total_redemptions < reward.max_total_redemptions;
+        }
+        return true;
+      }) || [];
 
     return NextResponse.json({
       rewards: availableRewards,
@@ -75,7 +76,9 @@ export async function POST(request: Request) {
     const supabase = createClient(cookieStore);
 
     // Auth check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -88,7 +91,10 @@ export async function POST(request: Request) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const body = await request.json();
@@ -170,7 +176,9 @@ export async function PATCH(request: Request) {
     const supabase = createClient(cookieStore);
 
     // Auth check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -183,7 +191,10 @@ export async function PATCH(request: Request) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const body = await request.json();
@@ -252,7 +263,9 @@ export async function DELETE(request: Request) {
     const supabase = createClient(cookieStore);
 
     // Auth check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -265,7 +278,10 @@ export async function DELETE(request: Request) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const { searchParams } = new URL(request.url);

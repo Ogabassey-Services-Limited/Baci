@@ -3,13 +3,13 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   type Currency,
-  SUPPORTED_CURRENCIES,
   calculatePlatformFee as calculateKorapayFee,
   initializePayment as initializeKorapayPayment,
+  SUPPORTED_CURRENCIES,
 } from '@/lib/korapay';
 import {
-  initializeTransaction as initializePaystackPayment,
   calculatePlatformFee as calculatePaystackFee,
+  initializeTransaction as initializePaystackPayment,
 } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 
@@ -44,7 +44,11 @@ function selectGateway(
     const preferred = settings.preferred_local_gateway;
 
     // If preferred is Paystack and it's enabled with subaccount
-    if (preferred === 'paystack' && settings.paystack_enabled && hasPaystackSubaccount) {
+    if (
+      preferred === 'paystack' &&
+      settings.paystack_enabled &&
+      hasPaystackSubaccount
+    ) {
       return 'paystack';
     }
 
@@ -73,7 +77,11 @@ function selectGateway(
     }
 
     // Paystack also supports some international payments
-    if (preferred === 'paystack' && settings.paystack_enabled && hasPaystackSubaccount) {
+    if (
+      preferred === 'paystack' &&
+      settings.paystack_enabled &&
+      hasPaystackSubaccount
+    ) {
       return 'paystack';
     }
 
@@ -132,7 +140,9 @@ export async function POST(request: NextRequest) {
     // Get merchant's payment gateway settings
     const { data: featureSettings } = await supabase
       .from('merchant_feature_settings')
-      .select('paystack_enabled, korapay_enabled, preferred_local_gateway, preferred_international_gateway')
+      .select(
+        'paystack_enabled, korapay_enabled, preferred_local_gateway, preferred_international_gateway'
+      )
       .eq('merchant_id', merchant_id)
       .single();
 
@@ -140,8 +150,12 @@ export async function POST(request: NextRequest) {
       ? {
           paystack_enabled: featureSettings.paystack_enabled ?? true,
           korapay_enabled: featureSettings.korapay_enabled ?? true,
-          preferred_local_gateway: (featureSettings.preferred_local_gateway as PaymentGateway) || 'paystack',
-          preferred_international_gateway: (featureSettings.preferred_international_gateway as PaymentGateway) || 'korapay',
+          preferred_local_gateway:
+            (featureSettings.preferred_local_gateway as PaymentGateway) ||
+            'paystack',
+          preferred_international_gateway:
+            (featureSettings.preferred_international_gateway as PaymentGateway) ||
+            'korapay',
         }
       : DEFAULT_GATEWAY_SETTINGS;
 
@@ -155,7 +169,11 @@ export async function POST(request: NextRequest) {
 
     // Select gateway based on currency and merchant settings
     const hasPaystackSubaccount = !!merchant.paystack_subaccount_code;
-    const gateway = selectGateway(validCurrency, gatewaySettings, hasPaystackSubaccount);
+    const gateway = selectGateway(
+      validCurrency,
+      gatewaySettings,
+      hasPaystackSubaccount
+    );
 
     let paymentData: { authorization_url: string; checkout_url?: string };
     let platformFee: number;

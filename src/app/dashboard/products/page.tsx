@@ -1,7 +1,5 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
-
 import {
   Archive,
   CheckCircle,
@@ -26,6 +24,7 @@ import { GoogleSheetImportDialog } from '@/components/products/google-sheet-impo
 import { ProcessingView } from '@/components/products/processing-view';
 import { ProductCatalog } from '@/components/products/product-catalog';
 import { ReviewChanges } from '@/components/products/review-changes';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {

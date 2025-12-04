@@ -1,7 +1,5 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
-
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import {
@@ -17,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { FormProvider, useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import {
@@ -493,9 +492,7 @@ export function CreateOrderForm() {
                   className="w-full mt-4"
                   disabled={isSaving}
                 >
-                  {isSaving && (
-                    <BagLoader size={16} />
-                  )}
+                  {isSaving && <BagLoader size={16} />}
                   Create Order
                 </Button>
               </CardContent>

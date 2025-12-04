@@ -1,7 +1,5 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
-
 import {
   Archive,
   ArrowLeft,
@@ -17,6 +15,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -182,15 +181,15 @@ export default function EditBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-            .split(',')
-            .map((t) => t.trim())
-            .filter(Boolean)
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
           : [],
         keywords: formData.keywords
           ? formData.keywords
-            .split(',')
-            .map((k) => k.trim())
-            .filter(Boolean)
+              .split(',')
+              .map((k) => k.trim())
+              .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,

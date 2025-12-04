@@ -45,7 +45,9 @@ export function BentoCard({
                 </h3>
               )}
               {description && (
-                <p className="text-sm text-muted-foreground whitespace-normal break-words">{description}</p>
+                <p className="text-sm text-muted-foreground whitespace-normal break-words">
+                  {description}
+                </p>
               )}
             </div>
           </div>

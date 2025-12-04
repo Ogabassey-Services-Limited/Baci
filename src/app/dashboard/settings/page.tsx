@@ -436,7 +436,7 @@ export default function SettingsPage() {
                                     style={{
                                       backgroundColor:
                                         brandColors[
-                                        role as keyof typeof brandColors
+                                          role as keyof typeof brandColors
                                         ],
                                     }}
                                   />
@@ -449,7 +449,7 @@ export default function SettingsPage() {
                                 <ColorPicker
                                   color={
                                     brandColors[
-                                    role as keyof typeof brandColors
+                                      role as keyof typeof brandColors
                                     ]
                                   }
                                   onChange={(newColor) =>
@@ -780,7 +780,9 @@ export default function SettingsPage() {
                 </div>
                 <Switch
                   id="pay_on_delivery"
-                  checked={merchant?.feature_settings?.pay_on_delivery_enabled || false}
+                  checked={
+                    merchant?.feature_settings?.pay_on_delivery_enabled || false
+                  }
                   onCheckedChange={(checked) => {
                     if (merchant?.feature_settings) {
                       updateMerchant({
@@ -796,13 +798,16 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <Label htmlFor="rider_phone">Rider WhatsApp Number</Label>
                 <p className="text-sm text-muted-foreground">
-                  Enter a phone number to receive WhatsApp notifications for Pay on Delivery orders.
+                  Enter a phone number to receive WhatsApp notifications for Pay
+                  on Delivery orders.
                 </p>
                 <Input
                   id="rider_phone"
                   placeholder="+234..."
                   value={merchant?.rider_phone_number || ''}
-                  onChange={(e) => updateMerchant({ rider_phone_number: e.target.value })}
+                  onChange={(e) =>
+                    updateMerchant({ rider_phone_number: e.target.value })
+                  }
                 />
               </div>
             </CardContent>

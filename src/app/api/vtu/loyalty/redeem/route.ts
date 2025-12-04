@@ -1,13 +1,13 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import {
-  purchaseAirtime,
-  NetworkProvider,
   formatPhoneNumber,
-  isValidPhoneNumber,
   generateRequestRef,
+  isValidPhoneNumber,
+  type NetworkProvider,
+  purchaseAirtime,
 } from '@/lib/kuda';
+import { createClient } from '@/lib/supabase/server';
 
 interface RedeemRequest {
   rewardId: string;
@@ -42,7 +42,9 @@ export async function POST(request: Request) {
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -63,9 +65,14 @@ export async function POST(request: Request) {
     }
 
     // Check if network provider matches (if reward has specific provider)
-    if (reward.network_provider && reward.network_provider !== networkProvider) {
+    if (
+      reward.network_provider &&
+      reward.network_provider !== networkProvider
+    ) {
       return NextResponse.json(
-        { error: `This reward can only be redeemed for ${reward.network_provider} airtime` },
+        {
+          error: `This reward can only be redeemed for ${reward.network_provider} airtime`,
+        },
         { status: 400 }
       );
     }
@@ -96,7 +103,10 @@ export async function POST(request: Request) {
     }
 
     // Check redemption limits
-    if (reward.max_total_redemptions && reward.total_redemptions >= reward.max_total_redemptions) {
+    if (
+      reward.max_total_redemptions &&
+      reward.total_redemptions >= reward.max_total_redemptions
+    ) {
       return NextResponse.json(
         { error: 'This reward has reached its maximum redemption limit' },
         { status: 400 }
@@ -155,10 +165,7 @@ export async function POST(request: Request) {
         })
         .eq('id', transaction.id);
 
-      return NextResponse.json(
-        { error: result.message },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: result.message }, { status: 400 });
     }
 
     // Update transaction with success

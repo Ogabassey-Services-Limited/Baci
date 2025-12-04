@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
-import { logger } from '@/lib/logger';
 
 /**
  * POST /api/cron/process-settlements
@@ -292,7 +292,7 @@ async function sendSettlementNotification(data: {
 }
 
 // Allow GET for testing in development
-export async function GET(request: Request) {
+export function GET(request: Request) {
   if (process.env.NODE_ENV !== 'development') {
     return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
   }

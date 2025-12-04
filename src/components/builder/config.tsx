@@ -50,9 +50,8 @@ import { Input } from '@/components/ui/input';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import { AnimatedWrapper, type AnimationType } from './animated-wrapper';
-import { ThemedCard } from '@/components/themed/themed-card';
-import { ImagePickerField } from './fields/image-picker-field';
 import { ColorPickerField } from './fields/color-picker-field';
+import { ImagePickerField } from './fields/image-picker-field';
 import { getIconOptions, renderIcon } from './icon-registry';
 
 // Helper to map config animation values to AnimationType
@@ -990,7 +989,11 @@ export const builderConfig: Config<
       permissions: { delete: true, duplicate: true },
       fields: {
         title: { type: 'text', inline: true, contentEditable: true } as any,
-        subtitle: { type: 'textarea', inline: true, contentEditable: true } as any,
+        subtitle: {
+          type: 'textarea',
+          inline: true,
+          contentEditable: true,
+        } as any,
         ctaText: { type: 'text', inline: true, contentEditable: true } as any,
         ctaLink: { type: 'text' },
         backgroundImage: {
@@ -1104,10 +1107,10 @@ export const builderConfig: Config<
               style={
                 backgroundImage
                   ? {
-                    backgroundImage: `url(${backgroundImage})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                  }
+                      backgroundImage: `url(${backgroundImage})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }
                   : {}
               }
               aria-label="Hero Banner"
@@ -1398,7 +1401,11 @@ export const builderConfig: Config<
       permissions: { delete: true, duplicate: true },
       fields: {
         title: { type: 'text', inline: true, contentEditable: true } as any,
-        content: { type: 'textarea', inline: true, contentEditable: true } as any,
+        content: {
+          type: 'textarea',
+          inline: true,
+          contentEditable: true,
+        } as any,
         align: {
           type: 'select',
           options: [
@@ -2243,9 +2250,9 @@ export const builderConfig: Config<
             // Convert options from textarea string to array
             options: field.options
               ? (field.options as string)
-                .split('\n')
-                .map((opt: string) => opt.trim())
-                .filter(Boolean)
+                  .split('\n')
+                  .map((opt: string) => opt.trim())
+                  .filter(Boolean)
               : undefined,
           })
         );
@@ -2903,7 +2910,7 @@ export const builderConfig: Config<
                   className={cn(
                     'space-y-6',
                     layout === 'stacked' &&
-                    'grid md:grid-cols-2 gap-6 space-y-0'
+                      'grid md:grid-cols-2 gap-6 space-y-0'
                   )}
                 >
                   {contactInfo?.map(
@@ -3407,7 +3414,7 @@ export const builderConfig: Config<
                       className={cn(
                         'flex items-center',
                         style === 'cards' &&
-                        'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
+                          'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
                         style === 'minimal' && 'gap-3',
                         style === 'icons-only' && 'flex-col text-center'
                       )}
@@ -3418,7 +3425,7 @@ export const builderConfig: Config<
                           style === 'cards' && 'mb-4 w-16 h-16 bg-primary/10',
                           style === 'minimal' && 'w-12 h-12 bg-primary/10',
                           style === 'icons-only' &&
-                          'mb-2 w-12 h-12 bg-primary/10'
+                            'mb-2 w-12 h-12 bg-primary/10'
                         )}
                         style={{
                           color: 'var(--store-primary)',

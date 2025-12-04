@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { Data } from '@measured/puck';
 import type { User } from '@supabase/supabase-js';
 import { extend } from 'colord';
 import a11yPlugin from 'colord/plugins/a11y';
@@ -90,9 +91,8 @@ import {
 import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
 import type { BrandColors } from '@/types';
 import { ColorPicker } from './color-picker';
-import { type Data } from '@measured/puck';
-import { OnboardingTemplateEditor } from './onboarding-template-editor';
 import { OnboardingPuckPreview } from './onboarding-puck-preview';
+import { OnboardingTemplateEditor } from './onboarding-template-editor';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 extend([a11yPlugin]);
@@ -799,7 +799,6 @@ function Step2_Branding() {
                       )}
                     </div>
                     <div className="flex gap-2 w-full">
-
                       <Button
                         type="button"
                         variant="outline"
@@ -1244,7 +1243,10 @@ export default function OnboardingForm() {
 
       // Wait for session and verify merchant exists before redirecting
       const verifyAndRedirect = async () => {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
         console.log('Session check after signup:', {
           hasSession: !!session,
           error,
@@ -1270,11 +1272,16 @@ export default function OnboardingForm() {
           .eq('user_id', session.user.id)
           .single();
 
-        if (merchant && merchant.business_name) {
-          console.log('Session and merchant verified, redirecting to dashboard');
+        if (merchant?.business_name) {
+          console.log(
+            'Session and merchant verified, redirecting to dashboard'
+          );
           window.location.href = '/dashboard';
         } else {
-          console.error('Merchant record not found after signup:', merchantError);
+          console.error(
+            'Merchant record not found after signup:',
+            merchantError
+          );
           // Retry after a short delay - database might need time to replicate
           setTimeout(async () => {
             const { data: retryMerchant } = await supabase
@@ -1283,12 +1290,13 @@ export default function OnboardingForm() {
               .eq('user_id', session.user.id)
               .single();
 
-            if (retryMerchant && retryMerchant.business_name) {
+            if (retryMerchant?.business_name) {
               window.location.href = '/dashboard';
             } else {
               toast({
                 title: 'Setup Issue',
-                description: 'Your store was created but there was an issue loading it. Please try logging in.',
+                description:
+                  'Your store was created but there was an issue loading it. Please try logging in.',
                 variant: 'destructive',
               });
               setTimeout(() => {
@@ -1580,9 +1588,7 @@ export default function OnboardingForm() {
             <div
               className={cn(
                 'relative rounded-3xl border border-white/10 bg-muted/5 overflow-y-auto shadow-2xl backdrop-blur-sm transition-all duration-500 scrollbar-visible',
-                isPreviewExpanded
-                  ? 'w-[90vw] h-[90vh]'
-                  : 'w-full h-[500px]'
+                isPreviewExpanded ? 'w-[90vw] h-[90vh]' : 'w-full h-[500px]'
               )}
               style={{
                 scrollbarWidth: 'auto',

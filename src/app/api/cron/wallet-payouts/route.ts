@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/service';
 import { payoutMerchantCommission } from '@/lib/kuda';
+import { createServiceClient } from '@/lib/supabase/service';
 
 /**
  * POST /api/cron/wallet-payouts
@@ -61,7 +61,10 @@ export async function POST(request: Request) {
 
     if (walletsError) {
       console.error('Failed to fetch wallets for payout:', walletsError);
-      return NextResponse.json({ error: 'Failed to fetch wallets' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch wallets' },
+        { status: 500 }
+      );
     }
 
     const results = {
@@ -141,7 +144,7 @@ export async function POST(request: Request) {
       const transactionId = debitResult[0].transaction_id;
 
       // Execute transfer
-      let transferResult;
+      let transferResult: Awaited<ReturnType<typeof payoutMerchantCommission>>;
       try {
         transferResult = await payoutMerchantCommission(
           {
@@ -159,7 +162,9 @@ export async function POST(request: Request) {
           p_success: false,
           p_transfer_reference: null,
           p_transfer_message:
-            transferError instanceof Error ? transferError.message : 'Transfer error',
+            transferError instanceof Error
+              ? transferError.message
+              : 'Transfer error',
         });
 
         results.failed++;
@@ -167,7 +172,10 @@ export async function POST(request: Request) {
           merchantId: merchant.id,
           status: 'failed',
           amount: availableBalance,
-          error: transferError instanceof Error ? transferError.message : 'Transfer error',
+          error:
+            transferError instanceof Error
+              ? transferError.message
+              : 'Transfer error',
         });
         continue;
       }
@@ -212,7 +220,7 @@ export async function POST(request: Request) {
 }
 
 // Allow GET for testing in development
-export async function GET(request: Request) {
+export function GET(request: Request) {
   if (process.env.NODE_ENV !== 'development') {
     return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
   }

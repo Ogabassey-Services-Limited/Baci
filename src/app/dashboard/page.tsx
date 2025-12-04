@@ -21,7 +21,14 @@ import type { ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMerchant } from '@/hooks/use-merchant';
 import { cn } from '@/lib/utils';
-import { getDashboardMetrics, getRecentSales, getMonthlyChartData, type DashboardMetrics, type RecentSale, type MonthlyChartData } from './actions';
+import {
+  type DashboardMetrics,
+  getDashboardMetrics,
+  getMonthlyChartData,
+  getRecentSales,
+  type MonthlyChartData,
+  type RecentSale,
+} from './actions';
 
 // Dynamically import chart wrapper components (correct pattern)
 const RevenueSparkline = dynamic(
@@ -67,7 +74,9 @@ export default function DashboardPage() {
     aov: 0,
   });
   const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
-  const [monthlyChartData, setMonthlyChartData] = useState<MonthlyChartData[]>([]);
+  const [monthlyChartData, setMonthlyChartData] = useState<MonthlyChartData[]>(
+    []
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -77,14 +86,14 @@ export default function DashboardPage() {
       Promise.all([
         getDashboardMetrics(merchant.id),
         getRecentSales(merchant.id, 5),
-        getMonthlyChartData(merchant.id)
+        getMonthlyChartData(merchant.id),
       ])
         .then(([metrics, sales, chartData]) => {
           setDashboardData(metrics);
           setRecentSales(sales);
           setMonthlyChartData(chartData);
         })
-        .catch(error => {
+        .catch((error) => {
           console.error('Failed to load dashboard data:', error);
         });
     }
@@ -144,18 +153,24 @@ export default function DashboardPage() {
                   {dashboardData.revenue.change > 0 ? (
                     <>
                       Your store is performing well! Revenue is up{' '}
-                      <span className="text-green-500 font-medium">+{dashboardData.revenue.change}%</span>{' '}
+                      <span className="text-green-500 font-medium">
+                        +{dashboardData.revenue.change}%
+                      </span>{' '}
                       compared to last month. Keep up the great work!
                     </>
                   ) : dashboardData.revenue.change < 0 ? (
                     <>
                       Revenue is down{' '}
-                      <span className="text-red-500 font-medium">{dashboardData.revenue.change}%</span>{' '}
-                      compared to last month. Consider running a promotion to boost sales.
+                      <span className="text-red-500 font-medium">
+                        {dashboardData.revenue.change}%
+                      </span>{' '}
+                      compared to last month. Consider running a promotion to
+                      boost sales.
                     </>
                   ) : (
                     <>
-                      Welcome to your dashboard! Start adding products and promoting your store to see your revenue grow.
+                      Welcome to your dashboard! Start adding products and
+                      promoting your store to see your revenue grow.
                     </>
                   )}
                 </p>
@@ -250,7 +265,8 @@ export default function DashboardPage() {
               ))}
               {dashboardData.customers.value > 4 && (
                 <div className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[10px] font-medium text-muted-foreground">
-                  +{dashboardData.customers.value > 1000
+                  +
+                  {dashboardData.customers.value > 1000
                     ? `${Math.floor(dashboardData.customers.value / 1000)}k`
                     : dashboardData.customers.value - 4}
                 </div>
@@ -268,7 +284,11 @@ export default function DashboardPage() {
           <BentoCard title="Avg. Order Value" icon={Activity}>
             <div className="mt-2 space-y-1">
               <div className="text-3xl font-bold tracking-tight">
-                ${dashboardData.aov.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                $
+                {dashboardData.aov.toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
               </div>
               <div className="flex items-center text-xs text-muted-foreground">
                 <TrendingUp className="mr-1 h-3 w-3" />
@@ -276,29 +296,30 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="h-[60px] mt-4 flex items-end justify-between gap-1">
-              {monthlyChartData.length > 0 ? (
-                monthlyChartData.map((data, i) => {
-                  const maxRevenue = Math.max(...monthlyChartData.map(d => d.revenue));
-                  const height = maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
-                  return (
+              {monthlyChartData.length > 0
+                ? monthlyChartData.map((data, _i) => {
+                    const maxRevenue = Math.max(
+                      ...monthlyChartData.map((d) => d.revenue)
+                    );
+                    const height =
+                      maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
+                    return (
+                      <div
+                        key={data.month}
+                        className="w-full bg-primary/30 rounded-t-sm transition-all"
+                        style={{ height: `${height}%` }}
+                        title={`${data.month}: $${data.revenue.toLocaleString()}`}
+                      />
+                    );
+                  })
+                : [40, 25, 60, 30, 70, 45].map((h, i) => (
                     <div
-                      key={data.month}
-                      className="w-full bg-primary/30 rounded-t-sm transition-all"
-                      style={{ height: `${height}%` }}
-                      title={`${data.month}: $${data.revenue.toLocaleString()}`}
+                      // biome-ignore lint/suspicious/noArrayIndexKey: List is static
+                      key={i}
+                      className="w-full bg-primary/20 rounded-t-sm"
+                      style={{ height: `${h}%` }}
                     />
-                  );
-                })
-              ) : (
-                [40, 25, 60, 30, 70, 45].map((h, i) => (
-                  <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: List is static
-                    key={i}
-                    className="w-full bg-primary/20 rounded-t-sm"
-                    style={{ height: `${h}%` }}
-                  />
-                ))
-              )}
+                  ))}
             </div>
           </BentoCard>
         </motion.div>

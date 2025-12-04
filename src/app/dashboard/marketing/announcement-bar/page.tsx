@@ -1,7 +1,7 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
 import { useEffect, useState } from 'react';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
   Card,

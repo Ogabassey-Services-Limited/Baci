@@ -26,8 +26,8 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   const hexInputRef = useRef(parsedColor.toHex());
 
   // Track if we're currently dragging - using state so it's available during render
-  const [isDraggingSatLight, setIsDraggingSatLight] = useState(false);
-  const [isDraggingHue, setIsDraggingHue] = useState(false);
+  const [_isDraggingSatLight, setIsDraggingSatLight] = useState(false);
+  const [_isDraggingHue, setIsDraggingHue] = useState(false);
   // Use ref for synchronous access in useEffect to avoid race conditions
   const isDraggingRef = useRef(false);
   const lastPropColorRef = useRef(color);
@@ -38,10 +38,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   // Sync internal state when prop changes externally (not from our own onChange)
   // This is an intentional controlled component pattern for prop-to-state sync
   useEffect(() => {
-    if (
-      lastPropColorRef.current !== color &&
-      !isDraggingRef.current
-    ) {
+    if (lastPropColorRef.current !== color && !isDraggingRef.current) {
       const newParsedColor = colord(color);
       const newHsl = newParsedColor.toHsl();
       setInternalHue(newHsl.h);

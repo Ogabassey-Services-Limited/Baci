@@ -12,8 +12,11 @@ export async function GET(request: Request) {
     const supabase = createClient(cookieStore);
     const { searchParams } = new URL(request.url);
 
-    const page = Number.parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(Number.parseInt(searchParams.get('limit') || '20'), 100);
+    const page = Number.parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.min(
+      Number.parseInt(searchParams.get('limit') || '20', 10),
+      100
+    );
     const type = searchParams.get('type'); // credit, debit, withdrawal, payout
     const offset = (page - 1) * limit;
 
@@ -33,7 +36,10 @@ export async function GET(request: Request) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Build query

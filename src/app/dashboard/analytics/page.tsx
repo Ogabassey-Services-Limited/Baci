@@ -1,6 +1,5 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -12,6 +11,7 @@ import {
   type AnalyticsData,
   DraggableAnalyticsGrid,
 } from '@/components/analytics/draggable-analytics-grid';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import {

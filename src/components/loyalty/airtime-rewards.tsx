@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Phone, Gift, Loader2, Check, X, Star } from 'lucide-react';
+import { Check, Gift, Loader2, Phone, Star, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +10,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -58,7 +58,9 @@ export function AirtimeRewards({
 }: AirtimeRewardsProps) {
   const [rewards, setRewards] = useState<AirtimeReward[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedReward, setSelectedReward] = useState<AirtimeReward | null>(null);
+  const [selectedReward, setSelectedReward] = useState<AirtimeReward | null>(
+    null
+  );
   const [phoneNumber, setPhoneNumber] = useState('');
   const [networkProvider, setNetworkProvider] = useState('');
   const [isRedeeming, setIsRedeeming] = useState(false);
@@ -68,7 +70,9 @@ export function AirtimeRewards({
   useEffect(() => {
     const fetchRewards = async () => {
       try {
-        const response = await fetch(`/api/vtu/loyalty/rewards?merchantSlug=${merchantSlug}`);
+        const response = await fetch(
+          `/api/vtu/loyalty/rewards?merchantSlug=${merchantSlug}`
+        );
         const data = await response.json();
         if (response.ok) {
           setRewards(data.rewards || []);
@@ -134,7 +138,7 @@ export function AirtimeRewards({
 
   if (loading) {
     return (
-      <div className={cn("flex items-center justify-center py-8", className)}>
+      <div className={cn('flex items-center justify-center py-8', className)}>
         <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     );
@@ -145,7 +149,7 @@ export function AirtimeRewards({
   }
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn('space-y-4', className)}>
       <div className="flex items-center gap-2">
         <Gift className="h-5 w-5 text-purple-600" />
         <h3 className="font-semibold">Airtime Rewards</h3>
@@ -161,11 +165,11 @@ export function AirtimeRewards({
               onClick={() => canAfford && setSelectedReward(reward)}
               disabled={!canAfford}
               className={cn(
-                "w-full p-4 rounded-lg border text-left transition-all",
+                'w-full p-4 rounded-lg border text-left transition-all',
                 canAfford
-                  ? "hover:border-purple-300 hover:bg-purple-50/50 cursor-pointer"
-                  : "opacity-50 cursor-not-allowed",
-                "flex items-center justify-between"
+                  ? 'hover:border-purple-300 hover:bg-purple-50/50 cursor-pointer'
+                  : 'opacity-50 cursor-not-allowed',
+                'flex items-center justify-between'
               )}
             >
               <div className="flex items-center gap-3">
@@ -176,7 +180,8 @@ export function AirtimeRewards({
                   <p className="font-medium">{reward.name}</p>
                   <p className="text-sm text-muted-foreground">
                     ₦{reward.airtime_amount.toLocaleString()} airtime
-                    {reward.network_provider && ` • ${reward.network_provider} only`}
+                    {reward.network_provider &&
+                      ` • ${reward.network_provider} only`}
                   </p>
                 </div>
               </div>
@@ -190,11 +195,15 @@ export function AirtimeRewards({
       </div>
 
       <p className="text-sm text-muted-foreground text-center">
-        Your points: <span className="font-semibold">{customerPoints.toLocaleString()}</span>
+        Your points:{' '}
+        <span className="font-semibold">{customerPoints.toLocaleString()}</span>
       </p>
 
       {/* Redemption Dialog */}
-      <Dialog open={!!selectedReward} onOpenChange={() => setSelectedReward(null)}>
+      <Dialog
+        open={!!selectedReward}
+        onOpenChange={() => setSelectedReward(null)}
+      >
         <DialogContent>
           {redeemSuccess ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -203,7 +212,8 @@ export function AirtimeRewards({
               </div>
               <DialogTitle>Airtime Sent!</DialogTitle>
               <DialogDescription>
-                ₦{selectedReward?.airtime_amount.toLocaleString()} has been sent to {phoneNumber}
+                ₦{selectedReward?.airtime_amount.toLocaleString()} has been sent
+                to {phoneNumber}
               </DialogDescription>
             </div>
           ) : (
@@ -211,8 +221,8 @@ export function AirtimeRewards({
               <DialogHeader>
                 <DialogTitle>Redeem Airtime Reward</DialogTitle>
                 <DialogDescription>
-                  Get ₦{selectedReward?.airtime_amount.toLocaleString()} airtime for{' '}
-                  {selectedReward?.points_required.toLocaleString()} points
+                  Get ₦{selectedReward?.airtime_amount.toLocaleString()} airtime
+                  for {selectedReward?.points_required.toLocaleString()} points
                 </DialogDescription>
               </DialogHeader>
 
@@ -231,7 +241,10 @@ export function AirtimeRewards({
                 {!selectedReward?.network_provider && (
                   <div className="space-y-2">
                     <Label>Network Provider</Label>
-                    <Select value={networkProvider} onValueChange={setNetworkProvider}>
+                    <Select
+                      value={networkProvider}
+                      onValueChange={setNetworkProvider}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select network" />
                       </SelectTrigger>
@@ -278,7 +291,8 @@ export function AirtimeRewards({
                   ) : (
                     <>
                       <Gift className="mr-2 h-4 w-4" />
-                      Redeem for {selectedReward?.points_required.toLocaleString()} points
+                      Redeem for{' '}
+                      {selectedReward?.points_required.toLocaleString()} points
                     </>
                   )}
                 </Button>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getBillTypes, getAirtimeProviders } from '@/lib/kuda';
+import { getAirtimeProviders, getBillTypes } from '@/lib/kuda';
 
 /**
  * GET /api/vtu/test
@@ -51,7 +51,10 @@ export async function GET() {
           ? {
               name: error.name,
               message: error.message,
-              stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+              stack:
+                process.env.NODE_ENV === 'development'
+                  ? error.stack
+                  : undefined,
             }
           : undefined,
     });

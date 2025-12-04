@@ -1,7 +1,7 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
 
 interface LandingMetrics {
   merchants: number;
@@ -10,7 +10,6 @@ interface LandingMetrics {
   rating: number;
 }
 
-// biome-ignore lint/suspicious/useAwait: Server Actions must be async
 export async function getLandingMetrics(): Promise<LandingMetrics> {
   try {
     const cookieStore = await cookies();
@@ -42,9 +41,10 @@ export async function getLandingMetrics(): Promise<LandingMetrics> {
     }
 
     // Calculate total sales
-    const totalSales = salesData?.reduce((sum, order) => {
-      return sum + (Number(order.total) || 0);
-    }, 0) || 0;
+    const totalSales =
+      salesData?.reduce((sum, order) => {
+        return sum + (Number(order.total) || 0);
+      }, 0) || 0;
 
     // Format sales display
     let salesDisplay: string | number = '0';

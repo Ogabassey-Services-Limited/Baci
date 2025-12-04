@@ -36,7 +36,10 @@ export async function POST(request: NextRequest) {
     // Validate required fields
     if (!customerEmail || !totalAmount || !merchantSlug) {
       return NextResponse.json(
-        { error: 'Missing required fields: customerEmail, totalAmount, merchantSlug' },
+        {
+          error:
+            'Missing required fields: customerEmail, totalAmount, merchantSlug',
+        },
         { status: 400 }
       );
     }
@@ -78,7 +81,9 @@ export async function POST(request: NextRequest) {
     // Check if Credit Direct is enabled for this merchant
     const { data: settings, error: settingsError } = await supabase
       .from('merchant_feature_settings')
-      .select('credit_direct_enabled, credit_direct_public_key, credit_direct_min_amount, credit_direct_max_amount')
+      .select(
+        'credit_direct_enabled, credit_direct_public_key, credit_direct_min_amount, credit_direct_max_amount'
+      )
       .eq('merchant_id', merchant.id)
       .single();
 

@@ -104,10 +104,7 @@ export function ShippingOptions({
         }
 
         // Auto-select cheapest if none selected
-        if (
-          !selectedQuoteId &&
-          response.quotes.featured.length > 0
-        ) {
+        if (!selectedQuoteId && response.quotes.featured.length > 0) {
           const cheapest = response.quotes.all.reduce((min, q) =>
             q.price < min.price ? q : min
           );
@@ -130,8 +127,9 @@ export function ShippingOptions({
     receiverAddress,
     receiverPhone,
     receiverName,
-    // Use stringified cart items to avoid re-fetching on new array reference
-    JSON.stringify(cartItems),
+    cartItems.map,
+    onSelect,
+    selectedQuoteId,
   ]);
 
   const formatDeliveryTime = (quote: ShippingQuote) => {

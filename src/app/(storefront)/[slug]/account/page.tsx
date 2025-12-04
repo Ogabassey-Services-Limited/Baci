@@ -1,11 +1,17 @@
 'use client';
 
-import { CreditCard, Heart, LogOut, MapPin, Package, Settings, User } from 'lucide-react';
+import { Heart, LogOut, MapPin, Package, Settings, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useCurrency } from '@/hooks/use-currency';
@@ -42,7 +48,12 @@ const accountLinks = [
 export default function AccountPage() {
   const router = useRouter();
   const { merchant, loading: merchantLoading } = useMerchant();
-  const { customer, isAuthenticated, isLoading: authLoading, logout } = useCustomerAuth();
+  const {
+    customer,
+    isAuthenticated,
+    isLoading: authLoading,
+    logout,
+  } = useCustomerAuth();
   const { currencySymbol } = useCurrency();
 
   // Redirect to login if not authenticated
@@ -111,7 +122,9 @@ export default function AccountPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
             <Card>
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold">{customer.total_orders || 0}</p>
+                <p className="text-2xl font-bold">
+                  {customer.total_orders || 0}
+                </p>
                 <p className="text-sm text-muted-foreground">Orders</p>
               </CardContent>
             </Card>
@@ -135,7 +148,9 @@ export default function AccountPage() {
             </Card>
             <Card>
               <CardContent className="p-4 text-center">
-                <p className="text-2xl font-bold">{customer.saved_addresses?.length || 0}</p>
+                <p className="text-2xl font-bold">
+                  {customer.saved_addresses?.length || 0}
+                </p>
                 <p className="text-sm text-muted-foreground">Addresses</p>
               </CardContent>
             </Card>

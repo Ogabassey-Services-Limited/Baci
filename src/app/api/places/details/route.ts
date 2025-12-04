@@ -29,14 +29,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Ensure placeId is in the format "places/ID"
-    const resourceName = placeId.startsWith('places/') ? placeId : `places/${placeId}`;
+    const resourceName = placeId.startsWith('places/')
+      ? placeId
+      : `places/${placeId}`;
 
     // Fields we need for address parsing
-    const fields = [
-      'addressComponents',
-      'formattedAddress',
-      'location',
-    ].join(',');
+    const fields = ['addressComponents', 'formattedAddress', 'location'].join(
+      ','
+    );
 
     const response = await fetch(`${PLACES_API_BASE}/${resourceName}`, {
       method: 'GET',
@@ -69,7 +69,8 @@ export async function GET(request: NextRequest) {
       formattedAddress: data.formattedAddress || '',
       streetNumber: getComponent('street_number'),
       route: getComponent('route'),
-      city: getComponent('locality') || getComponent('administrative_area_level_2'),
+      city:
+        getComponent('locality') || getComponent('administrative_area_level_2'),
       state: getComponent('administrative_area_level_1'),
       country: getComponent('country'),
       postalCode: getComponent('postal_code'),

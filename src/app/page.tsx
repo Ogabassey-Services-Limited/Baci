@@ -2,7 +2,6 @@ import {
   ArrowRight,
   BarChart,
   CheckCircle2,
-  ChevronDown,
   DollarSign,
   Palette,
   ShoppingBag,
@@ -15,9 +14,9 @@ import {
 import Link from 'next/link';
 import { PlatformAnalyticsProvider } from '@/components/analytics/platform-analytics-provider';
 import AppBody from '@/components/app-body';
+import { FAQItem } from '@/components/landing/faq-item';
 import { MetricCard } from '@/components/landing/metric-card';
 import { TypingAnimation } from '@/components/landing/typing-animation';
-import { FAQItem } from '@/components/landing/faq-item';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
 import { Button } from '@/components/ui/button';

@@ -24,13 +24,13 @@ export async function PATCH(request: Request) {
     const supabase = createClient(cookieStore);
 
     // Get current auth session
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant
@@ -41,10 +41,7 @@ export async function PATCH(request: Request) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Store not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Store not found' }, { status: 404 });
     }
 
     // Get customer record for this merchant

@@ -173,11 +173,9 @@ export async function GET(request: NextRequest) {
       creditDirectMinAmount: settings.credit_direct_min_amount ?? 10000,
       creditDirectMaxAmount: settings.credit_direct_max_amount ?? 500000,
       preferredLocalGateway: settings.preferred_local_gateway || 'paystack',
-      preferredInternationalGateway: settings.preferred_international_gateway || 'korapay',
-      shippingProviders: settings.shipping_providers ?? [
-        'gigl',
-        'topship',
-      ],
+      preferredInternationalGateway:
+        settings.preferred_international_gateway || 'korapay',
+      shippingProviders: settings.shipping_providers ?? ['gigl', 'topship'],
       freeShippingThreshold: settings.free_shipping_threshold,
       collectPhone: settings.checkout_collect_phone ?? true,
       requireAccount: settings.checkout_require_account ?? false,
@@ -201,7 +199,9 @@ export async function GET(request: NextRequest) {
       vtuAirtimeEnabled: settings.vtu_airtime_enabled ?? true,
       vtuDataEnabled: settings.vtu_data_enabled ?? true,
       vtuCheckoutAddonEnabled: settings.vtu_checkout_addon_enabled ?? false,
-      vtuCheckoutAddonAmounts: settings.vtu_checkout_addon_amounts || [100, 200, 500, 1000],
+      vtuCheckoutAddonAmounts: settings.vtu_checkout_addon_amounts || [
+        100, 200, 500, 1000,
+      ],
       vtuLoyaltyRewardEnabled: settings.vtu_loyalty_reward_enabled ?? false,
     };
 

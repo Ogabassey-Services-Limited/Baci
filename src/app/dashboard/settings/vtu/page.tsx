@@ -1,19 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import {
-  Phone,
-  Wifi,
-  Loader2,
+  AlertCircle,
+  Check,
   Gift,
+  Loader2,
+  Phone,
+  Plus,
+  Settings,
   ShoppingCart,
   TrendingUp,
-  Settings,
-  Check,
-  AlertCircle,
-  Plus,
+  Wifi,
   X,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -25,7 +26,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -66,10 +66,15 @@ export default function VTUSettingsPage() {
             vtu_enabled: data.vtu_enabled ?? false,
             vtu_airtime_enabled: data.vtu_airtime_enabled ?? true,
             vtu_data_enabled: data.vtu_data_enabled ?? true,
-            vtu_checkout_addon_enabled: data.vtu_checkout_addon_enabled ?? false,
-            vtu_checkout_addon_amounts: data.vtu_checkout_addon_amounts || [100, 200, 500, 1000],
-            vtu_loyalty_reward_enabled: data.vtu_loyalty_reward_enabled ?? false,
-            vtu_merchant_commission_rate: data.vtu_merchant_commission_rate ?? 0.5,
+            vtu_checkout_addon_enabled:
+              data.vtu_checkout_addon_enabled ?? false,
+            vtu_checkout_addon_amounts: data.vtu_checkout_addon_amounts || [
+              100, 200, 500, 1000,
+            ],
+            vtu_loyalty_reward_enabled:
+              data.vtu_loyalty_reward_enabled ?? false,
+            vtu_merchant_commission_rate:
+              data.vtu_merchant_commission_rate ?? 0.5,
           });
         }
       } catch (error) {
@@ -111,11 +116,18 @@ export default function VTUSettingsPage() {
   };
 
   const addAmount = () => {
-    const amount = Number.parseInt(newAmount);
-    if (amount >= 50 && amount <= 10000 && !settings.vtu_checkout_addon_amounts.includes(amount)) {
+    const amount = Number.parseInt(newAmount, 10);
+    if (
+      amount >= 50 &&
+      amount <= 10000 &&
+      !settings.vtu_checkout_addon_amounts.includes(amount)
+    ) {
       setSettings({
         ...settings,
-        vtu_checkout_addon_amounts: [...settings.vtu_checkout_addon_amounts, amount].sort((a, b) => a - b),
+        vtu_checkout_addon_amounts: [
+          ...settings.vtu_checkout_addon_amounts,
+          amount,
+        ].sort((a, b) => a - b),
       });
       setNewAmount('');
     }
@@ -124,7 +136,9 @@ export default function VTUSettingsPage() {
   const removeAmount = (amount: number) => {
     setSettings({
       ...settings,
-      vtu_checkout_addon_amounts: settings.vtu_checkout_addon_amounts.filter((a) => a !== amount),
+      vtu_checkout_addon_amounts: settings.vtu_checkout_addon_amounts.filter(
+        (a) => a !== amount
+      ),
     });
   };
 
@@ -141,7 +155,8 @@ export default function VTUSettingsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">VTU Services</h1>
         <p className="text-muted-foreground">
-          Enable airtime and data purchases for your customers. Earn commission on every sale.
+          Enable airtime and data purchases for your customers. Earn commission
+          on every sale.
         </p>
       </div>
 
@@ -151,7 +166,9 @@ export default function VTUSettingsPage() {
           <AlertCircle className="h-5 w-5" />
           <div>
             <p className="font-medium">VTU Services Disabled</p>
-            <p className="text-sm">Enable VTU below to let customers buy airtime and data.</p>
+            <p className="text-sm">
+              Enable VTU below to let customers buy airtime and data.
+            </p>
           </div>
         </div>
       )}
@@ -161,7 +178,9 @@ export default function VTUSettingsPage() {
           <Check className="h-5 w-5" />
           <div>
             <p className="font-medium">VTU Services Active</p>
-            <p className="text-sm">Customers can purchase airtime and data from your store.</p>
+            <p className="text-sm">
+              Customers can purchase airtime and data from your store.
+            </p>
           </div>
         </div>
       )}
@@ -174,14 +193,19 @@ export default function VTUSettingsPage() {
             Enable VTU Services
           </CardTitle>
           <CardDescription>
-            Allow customers to purchase airtime and data bundles directly from your store.
+            Allow customers to purchase airtime and data bundles directly from
+            your store.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className={cn(
-            "p-4 rounded-lg border-2 transition-colors",
-            settings.vtu_enabled ? "border-green-200 bg-green-50/50" : "border-gray-200"
-          )}>
+          <div
+            className={cn(
+              'p-4 rounded-lg border-2 transition-colors',
+              settings.vtu_enabled
+                ? 'border-green-200 bg-green-50/50'
+                : 'border-gray-200'
+            )}
+          >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white">
@@ -190,7 +214,8 @@ export default function VTUSettingsPage() {
                 <div>
                   <h3 className="font-semibold">VTU (Value Top-Up)</h3>
                   <p className="text-sm text-muted-foreground">
-                    Powered by Kuda. Sell MTN, Airtel, Glo, 9mobile airtime & data.
+                    Powered by Kuda. Sell MTN, Airtel, Glo, 9mobile airtime &
+                    data.
                   </p>
                   <div className="flex gap-2 mt-2 flex-wrap">
                     <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
@@ -207,7 +232,9 @@ export default function VTUSettingsPage() {
               </div>
               <Switch
                 checked={settings.vtu_enabled}
-                onCheckedChange={(checked) => setSettings({ ...settings, vtu_enabled: checked })}
+                onCheckedChange={(checked) =>
+                  setSettings({ ...settings, vtu_enabled: checked })
+                }
               />
             </div>
           </div>
@@ -215,41 +242,57 @@ export default function VTUSettingsPage() {
           {settings.vtu_enabled && (
             <div className="grid md:grid-cols-2 gap-4">
               {/* Airtime Toggle */}
-              <div className={cn(
-                "p-4 rounded-lg border transition-colors",
-                settings.vtu_airtime_enabled ? "border-green-200 bg-green-50/30" : "border-gray-200"
-              )}>
+              <div
+                className={cn(
+                  'p-4 rounded-lg border transition-colors',
+                  settings.vtu_airtime_enabled
+                    ? 'border-green-200 bg-green-50/30'
+                    : 'border-gray-200'
+                )}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Phone className="h-5 w-5 text-green-600" />
                     <div>
                       <h4 className="font-medium">Airtime</h4>
-                      <p className="text-xs text-muted-foreground">Enable airtime purchases</p>
+                      <p className="text-xs text-muted-foreground">
+                        Enable airtime purchases
+                      </p>
                     </div>
                   </div>
                   <Switch
                     checked={settings.vtu_airtime_enabled}
-                    onCheckedChange={(checked) => setSettings({ ...settings, vtu_airtime_enabled: checked })}
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, vtu_airtime_enabled: checked })
+                    }
                   />
                 </div>
               </div>
 
               {/* Data Toggle */}
-              <div className={cn(
-                "p-4 rounded-lg border transition-colors",
-                settings.vtu_data_enabled ? "border-green-200 bg-green-50/30" : "border-gray-200"
-              )}>
+              <div
+                className={cn(
+                  'p-4 rounded-lg border transition-colors',
+                  settings.vtu_data_enabled
+                    ? 'border-green-200 bg-green-50/30'
+                    : 'border-gray-200'
+                )}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Wifi className="h-5 w-5 text-blue-600" />
                     <div>
                       <h4 className="font-medium">Data Bundles</h4>
-                      <p className="text-xs text-muted-foreground">Enable data purchases</p>
+                      <p className="text-xs text-muted-foreground">
+                        Enable data purchases
+                      </p>
                     </div>
                   </div>
                   <Switch
                     checked={settings.vtu_data_enabled}
-                    onCheckedChange={(checked) => setSettings({ ...settings, vtu_data_enabled: checked })}
+                    onCheckedChange={(checked) =>
+                      setSettings({ ...settings, vtu_data_enabled: checked })
+                    }
                   />
                 </div>
               </div>
@@ -266,7 +309,8 @@ export default function VTUSettingsPage() {
             Checkout Add-ons
           </CardTitle>
           <CardDescription>
-            Show quick airtime purchase options at checkout. Increase average order value.
+            Show quick airtime purchase options at checkout. Increase average
+            order value.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -284,7 +328,12 @@ export default function VTUSettingsPage() {
             </div>
             <Switch
               checked={settings.vtu_checkout_addon_enabled}
-              onCheckedChange={(checked) => setSettings({ ...settings, vtu_checkout_addon_enabled: checked })}
+              onCheckedChange={(checked) =>
+                setSettings({
+                  ...settings,
+                  vtu_checkout_addon_enabled: checked,
+                })
+              }
               disabled={!settings.vtu_enabled}
             />
           </div>
@@ -336,7 +385,8 @@ export default function VTUSettingsPage() {
             Loyalty Rewards
           </CardTitle>
           <CardDescription>
-            Let customers redeem loyalty points for airtime. Great for customer retention.
+            Let customers redeem loyalty points for airtime. Great for customer
+            retention.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -354,7 +404,12 @@ export default function VTUSettingsPage() {
             </div>
             <Switch
               checked={settings.vtu_loyalty_reward_enabled}
-              onCheckedChange={(checked) => setSettings({ ...settings, vtu_loyalty_reward_enabled: checked })}
+              onCheckedChange={(checked) =>
+                setSettings({
+                  ...settings,
+                  vtu_loyalty_reward_enabled: checked,
+                })
+              }
               disabled={!settings.vtu_enabled}
             />
           </div>
@@ -378,7 +433,8 @@ export default function VTUSettingsPage() {
             Commission & Earnings
           </CardTitle>
           <CardDescription>
-            Earn commission on every VTU sale. Kuda provides up to 5% commission depending on provider.
+            Earn commission on every VTU sale. Kuda provides up to 5% commission
+            depending on provider.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -387,7 +443,8 @@ export default function VTUSettingsPage() {
               <div>
                 <h4 className="font-medium">Your Commission Split</h4>
                 <p className="text-sm text-muted-foreground">
-                  You receive {settings.vtu_merchant_commission_rate}% of Kuda&apos;s commission
+                  You receive {settings.vtu_merchant_commission_rate}% of
+                  Kuda&apos;s commission
                 </p>
               </div>
               <Badge variant="secondary" className="text-lg px-4 py-1">
@@ -408,32 +465,62 @@ export default function VTUSettingsPage() {
                 <tbody>
                   <tr className="border-b">
                     <td className="py-2">MTN / Airtel</td>
-                    <td className="text-center text-green-600 font-medium">3%</td>
+                    <td className="text-center text-green-600 font-medium">
+                      3%
+                    </td>
                     <td className="text-center text-blue-600">
-                      {(3 * settings.vtu_merchant_commission_rate / 100).toFixed(1)}%
+                      {(
+                        (3 * settings.vtu_merchant_commission_rate) /
+                        100
+                      ).toFixed(1)}
+                      %
                     </td>
                     <td className="text-center text-purple-600">
-                      {(3 * (100 - settings.vtu_merchant_commission_rate) / 100).toFixed(1)}%
+                      {(
+                        (3 * (100 - settings.vtu_merchant_commission_rate)) /
+                        100
+                      ).toFixed(1)}
+                      %
                     </td>
                   </tr>
                   <tr className="border-b">
                     <td className="py-2">Glo</td>
-                    <td className="text-center text-green-600 font-medium">4%</td>
+                    <td className="text-center text-green-600 font-medium">
+                      4%
+                    </td>
                     <td className="text-center text-blue-600">
-                      {(4 * settings.vtu_merchant_commission_rate / 100).toFixed(1)}%
+                      {(
+                        (4 * settings.vtu_merchant_commission_rate) /
+                        100
+                      ).toFixed(1)}
+                      %
                     </td>
                     <td className="text-center text-purple-600">
-                      {(4 * (100 - settings.vtu_merchant_commission_rate) / 100).toFixed(1)}%
+                      {(
+                        (4 * (100 - settings.vtu_merchant_commission_rate)) /
+                        100
+                      ).toFixed(1)}
+                      %
                     </td>
                   </tr>
                   <tr>
                     <td className="py-2">9mobile</td>
-                    <td className="text-center text-green-600 font-medium">5%</td>
+                    <td className="text-center text-green-600 font-medium">
+                      5%
+                    </td>
                     <td className="text-center text-blue-600">
-                      {(5 * settings.vtu_merchant_commission_rate / 100).toFixed(1)}%
+                      {(
+                        (5 * settings.vtu_merchant_commission_rate) /
+                        100
+                      ).toFixed(1)}
+                      %
                     </td>
                     <td className="text-center text-purple-600">
-                      {(5 * (100 - settings.vtu_merchant_commission_rate) / 100).toFixed(1)}%
+                      {(
+                        (5 * (100 - settings.vtu_merchant_commission_rate)) /
+                        100
+                      ).toFixed(1)}
+                      %
                     </td>
                   </tr>
                 </tbody>
@@ -450,14 +537,22 @@ export default function VTUSettingsPage() {
               For every ₦10,000 MTN airtime sold (3% = ₦300 commission):
             </p>
             <ul className="text-sm text-blue-700 mt-2 space-y-1">
+              <li>• Kuda commission: ₦300 (3%)</li>
               <li>
-                • Kuda commission: ₦300 (3%)
+                • Your earnings: ₦
+                {(
+                  (300 * settings.vtu_merchant_commission_rate) /
+                  100
+                ).toLocaleString()}{' '}
+                ({settings.vtu_merchant_commission_rate}% of ₦300)
               </li>
               <li>
-                • Your earnings: ₦{(300 * settings.vtu_merchant_commission_rate / 100).toLocaleString()} ({settings.vtu_merchant_commission_rate}% of ₦300)
-              </li>
-              <li>
-                • Platform: ₦{(300 * (100 - settings.vtu_merchant_commission_rate) / 100).toLocaleString()} ({100 - settings.vtu_merchant_commission_rate}% of ₦300)
+                • Platform: ₦
+                {(
+                  (300 * (100 - settings.vtu_merchant_commission_rate)) /
+                  100
+                ).toLocaleString()}{' '}
+                ({100 - settings.vtu_merchant_commission_rate}% of ₦300)
               </li>
             </ul>
           </div>

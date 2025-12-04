@@ -6,13 +6,13 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { ThemedInput } from '@/components/themed';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 import {
+  generateSessionToken,
   getPlaceDetails,
   getPlacePredictions,
-  generateSessionToken,
-  type PlacePrediction
+  type PlacePrediction,
 } from '@/lib/google-places';
+import { cn } from '@/lib/utils';
 
 export interface PlaceDetails {
   streetNumber: string;
@@ -109,7 +109,11 @@ export function AddressAutocomplete({
     setIsLoading(true);
     debounceTimer.current = setTimeout(async () => {
       try {
-        const results = await getPlacePredictions(newValue, sessionToken, country);
+        const results = await getPlacePredictions(
+          newValue,
+          sessionToken,
+          country
+        );
         setPredictions(results);
       } catch (error) {
         console.error('Error fetching predictions:', error);
@@ -126,7 +130,7 @@ export function AddressAutocomplete({
     if (onChange) {
       // Create a synthetic event to clear the parent form
       const event = {
-        target: { value: '' }
+        target: { value: '' },
       } as React.ChangeEvent<HTMLInputElement>;
       onChange(event);
     }
@@ -162,7 +166,6 @@ export function AddressAutocomplete({
 
       // Refresh session token
       setSessionToken(generateSessionToken());
-
     } catch (error) {
       console.error('Error fetching place details:', error);
     } finally {
@@ -260,19 +263,25 @@ export function AddressAutocomplete({
                   )}
                   onClick={() => handlePredictionSelect(prediction)}
                 >
-                  <div className={cn(
-                    "mt-0.5 p-1.5 rounded-full bg-muted transition-colors",
-                    highlightedIndex === index
-                      ? "bg-[var(--store-primary)]/20 text-[var(--store-primary)]"
-                      : "group-hover/item:bg-background"
-                  )}>
+                  <div
+                    className={cn(
+                      'mt-0.5 p-1.5 rounded-full bg-muted transition-colors',
+                      highlightedIndex === index
+                        ? 'bg-[var(--store-primary)]/20 text-[var(--store-primary)]'
+                        : 'group-hover/item:bg-background'
+                    )}
+                  >
                     <MapPin className="h-3.5 w-3.5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={cn(
-                      "font-medium truncate transition-colors",
-                      highlightedIndex === index ? "text-[var(--store-primary)]" : ""
-                    )}>
+                    <p
+                      className={cn(
+                        'font-medium truncate transition-colors',
+                        highlightedIndex === index
+                          ? 'text-[var(--store-primary)]'
+                          : ''
+                      )}
+                    >
                       {prediction.mainText}
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
@@ -284,11 +293,9 @@ export function AddressAutocomplete({
             </div>
 
             <div className="px-4 py-2 border-t bg-muted/30 flex justify-end sticky bottom-0 backdrop-blur-md">
-              <img
-                src="https://developers.google.com/static/maps/documentation/images/powered_by_google_on_white.png"
-                alt="Powered by Google"
-                className="h-4 object-contain opacity-60 grayscale hover:grayscale-0 transition-all duration-300"
-              />
+              <span className="text-xs text-muted-foreground opacity-60">
+                Powered by Google
+              </span>
             </div>
           </motion.div>
         )}

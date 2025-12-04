@@ -1,4 +1,4 @@
-import { apiGet, fetchWithCsrf } from '@/lib/api-client';
+import { apiGet } from '@/lib/api-client';
 /**
  * Google Places API Client
  * Calls server-side API routes to keep API key secure
@@ -6,21 +6,21 @@ import { apiGet, fetchWithCsrf } from '@/lib/api-client';
  */
 
 export interface PlacePrediction {
-    placeId: string;
-    mainText: string;
-    secondaryText: string;
-    fullText: string;
+  placeId: string;
+  mainText: string;
+  secondaryText: string;
+  fullText: string;
 }
 
 export interface GooglePlaceDetails {
-    placeId: string;
-    formattedAddress: string;
-    streetNumber?: string;
-    route?: string; // Street name
-    city?: string;
-    state?: string;
-    country?: string;
-    postalCode?: string;
+  placeId: string;
+  formattedAddress: string;
+  streetNumber?: string;
+  route?: string; // Street name
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
 }
 
 /**
@@ -28,54 +28,52 @@ export interface GooglePlaceDetails {
  * Recommended for billing optimization
  */
 export function generateSessionToken(): string {
-    return crypto.randomUUID();
+  return crypto.randomUUID();
 }
 
 /**
  * Get place predictions via server-side API route
  */
 export async function getPlacePredictions(
-    input: string,
-    sessionToken?: string,
-    country?: string
+  input: string,
+  sessionToken?: string,
+  country?: string
 ): Promise<PlacePrediction[]> {
-    if (!input || input.length < 2) return [];
+  if (!input || input.length < 2) return [];
 
-    try {
-        const params = new URLSearchParams({ input });
-        if (sessionToken) params.append('sessionToken', sessionToken);
-        if (country) params.append('country', country);
+  try {
+    const params = new URLSearchParams({ input });
+    if (sessionToken) params.append('sessionToken', sessionToken);
+    if (country) params.append('country', country);
 
-        const data = await apiGet<{ predictions: PlacePrediction[] }>(
-            `/api/places/autocomplete?${params.toString()}`
-        );
+    const data = await apiGet<{ predictions: PlacePrediction[] }>(
+      `/api/places/autocomplete?${params.toString()}`
+    );
 
-        return data.predictions || [];
-
-    } catch (error) {
-        console.error('Failed to fetch place predictions:', error);
-        return [];
-    }
+    return data.predictions || [];
+  } catch (error) {
+    console.error('Failed to fetch place predictions:', error);
+    return [];
+  }
 }
 
 /**
  * Get place details via server-side API route
  */
 export async function getPlaceDetails(
-    placeId: string,
-    sessionToken?: string
+  placeId: string,
+  _sessionToken?: string
 ): Promise<GooglePlaceDetails | null> {
-    if (!placeId) return null;
+  if (!placeId) return null;
 
-    try {
-        const data = await apiGet<{ details: GooglePlaceDetails }>(
-            `/api/places/details?placeId=${encodeURIComponent(placeId)}`
-        );
+  try {
+    const data = await apiGet<{ details: GooglePlaceDetails }>(
+      `/api/places/details?placeId=${encodeURIComponent(placeId)}`
+    );
 
-        return data.details || null;
-
-    } catch (error) {
-        console.error('Failed to fetch place details:', error);
-        return null;
-    }
+    return data.details || null;
+  } catch (error) {
+    console.error('Failed to fetch place details:', error);
+    return null;
+  }
 }

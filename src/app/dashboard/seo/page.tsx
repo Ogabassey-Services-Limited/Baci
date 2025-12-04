@@ -1,7 +1,5 @@
 'use client';
 
-import { BagLoader } from '@/components/ui/bag-loader';
-
 import {
   CheckCircle2,
   // Wand2,
@@ -17,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -322,9 +321,7 @@ export default function SEOOptimizerPage() {
                   Cancel
                 </Button>
                 <Button onClick={applyOptimizations} disabled={optimizing}>
-                  {optimizing && (
-                    <BagLoader size={16} />
-                  )}
+                  {optimizing && <BagLoader size={16} />}
                   Apply All
                 </Button>
               </div>

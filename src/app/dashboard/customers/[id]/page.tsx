@@ -295,7 +295,8 @@ export default function CustomerDetailPage() {
                   <AddressAutocomplete
                     value={editData.address || ''}
                     onChange={(val) => {
-                      const value = typeof val === 'string' ? val : val.target.value;
+                      const value =
+                        typeof val === 'string' ? val : val.target.value;
                       setEditData({ ...editData, address: value });
                     }}
                     onSelect={(place: PlaceDetails) => {
