@@ -7,6 +7,7 @@ import {
   Loader2,
   Package,
   Settings,
+  Shield,
   Users,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -235,6 +236,76 @@ export function FeatureSettingsPanel() {
                       }
                     />
                     {localSettings.free_shipping_threshold !== undefined && (
+                      <Button onClick={handleSaveInputs} disabled={isSaving}>
+                        Save
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Shipping Insurance */}
+        <AccordionItem value="insurance" className="border rounded-lg px-4">
+          <AccordionTrigger className="hover:no-underline">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              <span className="font-semibold">Shipping Insurance</span>
+              <Badge variant="secondary" className="text-xs">
+                MyCover.ai
+              </Badge>
+            </div>
+          </AccordionTrigger>
+          <AccordionContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Offer customers shipping protection at checkout powered by
+              MyCover.ai (Sovereign Trust Insurance)
+            </p>
+            <div className="divide-y">
+              <FeatureToggle
+                label="Enable Shipping Insurance"
+                description="Allow customers to add shipping protection to their orders"
+                enabled={settings.shipping_insurance_enabled ?? false}
+                onToggle={() => handleToggle('shipping_insurance_enabled')}
+              />
+              <FeatureToggle
+                label="Pre-select Insurance"
+                description="Insurance option is checked by default at checkout"
+                enabled={settings.shipping_insurance_opt_in_default ?? false}
+                onToggle={() =>
+                  handleToggle('shipping_insurance_opt_in_default')
+                }
+                disabled={!settings.shipping_insurance_enabled}
+              />
+
+              <div className="py-4 space-y-4">
+                <div>
+                  <Label>Minimum Order Value</Label>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Only show insurance option for orders above this amount
+                    (NGN)
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="5000"
+                      defaultValue={
+                        settings.shipping_insurance_min_order_value || 5000
+                      }
+                      onChange={(e) =>
+                        handleInputChange(
+                          'shipping_insurance_min_order_value',
+                          e.target.value
+                            ? Number.parseFloat(e.target.value)
+                            : 5000
+                        )
+                      }
+                      disabled={!settings.shipping_insurance_enabled}
+                    />
+                    {localSettings.shipping_insurance_min_order_value !==
+                      undefined && (
                       <Button onClick={handleSaveInputs} disabled={isSaving}>
                         Save
                       </Button>
