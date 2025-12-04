@@ -280,7 +280,7 @@ export default function CustomerOrdersPage() {
                         <Button variant="outline" size="sm" asChild>
                           <Link
                             href={asRoute(
-                              `/orders/track?number=${order.tracking_number}`
+                              `/orders/track?number=${encodeURIComponent(order.tracking_number)}`
                             )}
                           >
                             <Truck className="h-4 w-4 mr-2" />

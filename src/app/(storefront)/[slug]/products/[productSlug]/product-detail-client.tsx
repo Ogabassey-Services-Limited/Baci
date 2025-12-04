@@ -3,7 +3,6 @@
 import { ArrowLeft, Check, Info, Minus, Plus, ShoppingBag } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Cart } from '@/components/cart';
 import { Breadcrumbs } from '@/components/storefront/breadcrumbs';
@@ -112,8 +111,11 @@ export default function ProductDetailClient({ product }: { product: Product }) {
     }
   }, [product, merchant?.id, currencyCode, addToRecentlyViewed]);
 
+  // Product is guaranteed to exist by server component, but guard against archived status
+  // Note: Can't call notFound() after hooks in client components, so we render null
+  // The server component already handles the notFound() case for missing products
   if (!product || product.status === 'archived') {
-    notFound();
+    return null;
   }
 
   // Get variant options if product has variants
@@ -229,6 +231,12 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   return (
     <>
       {/* Skip link for keyboard navigation */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-background focus:text-foreground focus:rounded-md focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-primary"
+      >
+        Skip to main content
+      </a>
 
       <div className="flex flex-col min-h-screen">
         <Sheet>
