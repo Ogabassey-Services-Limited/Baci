@@ -1,11 +1,13 @@
 'use client';
 
+import { BagLoader } from '@/components/ui/bag-loader';
+
 import {
   Award,
   Coins,
   Crown,
   Gift,
-  Loader2,
+  // Loader2,
   Search,
   Settings,
   TrendingUp,
@@ -163,7 +165,7 @@ export default function LoyaltyProgramPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -662,7 +664,7 @@ export default function LoyaltyProgramPage() {
 
               <div className="flex justify-end">
                 <Button onClick={saveSettings} disabled={saving}>
-                  {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {saving && <BagLoader size={16} />}
                   Save Settings
                 </Button>
               </div>

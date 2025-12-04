@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         referral_code,
         referral_count,
         created_at,
-        customers (
+        customers:customers!customer_loyalty_customer_id_fkey (
           id,
           name,
           email,
