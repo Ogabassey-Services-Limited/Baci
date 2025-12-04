@@ -52,9 +52,7 @@ export async function generateMetadata({
     };
   }
 
-  const title =
-    merchant.site_title ||
-    `${merchant.business_name} - Official Online Store`;
+  const title = merchant?.site_title || (merchant?.business_name ? `${merchant.business_name} - Official Online Store` : "Official Online Store");
   const description =
     merchant.site_description ||
     merchant.site_tagline ||
