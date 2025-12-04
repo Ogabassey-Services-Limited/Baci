@@ -54,11 +54,11 @@ export async function generateMetadata({
 
   const title =
     merchant.site_title ||
-    `${merchant.business_name} - Online Store | Shop Now`;
+    `${merchant.business_name} - Official Online Store`;
   const description =
     merchant.site_description ||
     merchant.site_tagline ||
-    `Shop the best products at ${merchant.business_name}. Quality items, great prices, and fast delivery in Nigeria.`;
+    `Shop at ${merchant.business_name}. Browse our collection and enjoy convenient delivery.`;
 
   const headersList = await headers();
   const host = headersList.get('host') || `${slug}.localhost:3000`;

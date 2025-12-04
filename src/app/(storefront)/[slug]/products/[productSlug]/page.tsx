@@ -166,7 +166,7 @@ export async function generateMetadata(
   return {
     title:
       product.meta_title ||
-      `${product.name} - ${merchant?.business_name || 'Baci Store'} | Best Price in Nigeria`,
+      `${product.name} | ${merchant?.business_name || 'Baci Store'}`,
     description: product.meta_description || product.description,
     keywords: product.keywords,
     alternates: {
