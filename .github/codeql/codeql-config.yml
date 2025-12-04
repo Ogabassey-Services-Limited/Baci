@@ -26,6 +26,12 @@ paths-ignore:
   - "**/dashboard/client-layout.tsx"
   - "**/storefront/header.tsx"
 
+  # False positive: HMAC-SHA256 for API token signing (not password storage)
+  - "**/lib/go54.ts"
+
+  # False positive: Console format strings for styling (not user input)
+  - "**/components/analytics/web-vitals-reporter.tsx"
+
 # For detailed security documentation, see:
 # - /SECURITY.md
 # - /src/lib/sanitize.ts (DOMPurify configuration)

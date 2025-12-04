@@ -68,6 +68,7 @@ export function FeedUrlSection({
     setValidating(true);
     try {
       // nosemgrep: typescript.react.security.audit.react-ssrf.react-ssrf
+      // Safe: URL validated via isValidFeedUrl() - only allows same-origin or trusted domain (usebaci.com)
       const response = await fetch(feedUrl);
       if (response.ok) {
         toast({
