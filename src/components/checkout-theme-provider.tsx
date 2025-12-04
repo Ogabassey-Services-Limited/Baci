@@ -3,9 +3,9 @@
 import { useEffect } from 'react';
 import { useMerchant } from '@/hooks/use-merchant';
 
-function hexToHsl(hex: string): string {
+function hexToHsl(hexInput: string): string {
   // Remove hash if present
-  hex = hex.replace(/^#/, '');
+  let hex = hexInput.replace(/^#/, '');
 
   // Handle shorthand hex
   if (hex.length === 3) {

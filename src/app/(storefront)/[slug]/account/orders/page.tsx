@@ -107,13 +107,16 @@ export default function CustomerOrdersPage() {
       if (response.ok) {
         setOrders(data.orders || []);
       } else {
-        const errorMsg = data.error || `Failed to load orders (${response.status})`;
+        const errorMsg =
+          data.error || `Failed to load orders (${response.status})`;
         console.error('Failed to fetch orders:', errorMsg);
         setOrdersError(errorMsg);
       }
     } catch (error) {
       console.error('Failed to fetch orders:', error);
-      setOrdersError('Unable to connect. Please check your internet connection.');
+      setOrdersError(
+        'Unable to connect. Please check your internet connection.'
+      );
     } finally {
       setIsLoadingOrders(false);
     }
@@ -182,7 +185,9 @@ export default function CustomerOrdersPage() {
           <Card className="border-destructive/50">
             <CardContent className="p-12 text-center">
               <AlertCircle className="h-16 w-16 mx-auto mb-4 text-destructive/50" />
-              <h3 className="text-lg font-semibold mb-2">Unable to load orders</h3>
+              <h3 className="text-lg font-semibold mb-2">
+                Unable to load orders
+              </h3>
               <p className="text-muted-foreground mb-6">{ordersError}</p>
               <Button onClick={() => fetchOrders()} variant="outline">
                 <RefreshCw className="h-4 w-4 mr-2" />

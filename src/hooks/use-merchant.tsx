@@ -63,6 +63,7 @@ export interface MerchantData {
   // Feature settings
   feature_settings?: {
     pay_on_delivery_enabled?: boolean;
+    // biome-ignore lint/suspicious/noExplicitAny: Feature settings are dynamic and can have any shape
     [key: string]: any;
   };
 }

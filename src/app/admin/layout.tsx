@@ -407,6 +407,7 @@ export default function AdminLayout({
         >
           <Suspense
             fallback={
+              // biome-ignore lint/a11y/useSemanticElements: <output> is for calculations, role="status" is correct for loading
               <div
                 className="flex flex-1 items-center justify-center"
                 role="status"

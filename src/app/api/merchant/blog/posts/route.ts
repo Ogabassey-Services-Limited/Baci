@@ -249,7 +249,9 @@ export async function GET(request: NextRequest) {
     if (search) {
       // Sanitize search input to prevent filter injection (escape %, _, \)
       const sanitized = search.replace(/[%_\\]/g, '\\$&');
-      query = query.or(`title.ilike.%${sanitized}%,content.ilike.%${sanitized}%`);
+      query = query.or(
+        `title.ilike.%${sanitized}%,content.ilike.%${sanitized}%`
+      );
     }
 
     // Apply sorting

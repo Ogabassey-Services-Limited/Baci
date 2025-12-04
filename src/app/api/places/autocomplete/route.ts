@@ -60,19 +60,29 @@ export async function GET(request: NextRequest) {
 
     // Transform the response to our format
     // Filter to only include place predictions (not query predictions)
+    interface PlaceSuggestion {
+      placePrediction?: {
+        placeId: string;
+        structuredFormat?: {
+          mainText?: { text?: string };
+          secondaryText?: { text?: string };
+        };
+        text?: { text?: string };
+      };
+    }
     const predictions = (data.suggestions || [])
-      .filter((item: any) => item.placePrediction)
-      .map((item: any) => {
+      .filter((item: PlaceSuggestion) => item.placePrediction)
+      .map((item: PlaceSuggestion) => {
         const placePrediction = item.placePrediction;
         return {
-          placeId: placePrediction.placeId,
+          placeId: placePrediction?.placeId,
           mainText:
-            placePrediction.structuredFormat?.mainText?.text ||
-            placePrediction.text?.text ||
+            placePrediction?.structuredFormat?.mainText?.text ||
+            placePrediction?.text?.text ||
             '',
           secondaryText:
-            placePrediction.structuredFormat?.secondaryText?.text || '',
-          fullText: placePrediction.text?.text || '',
+            placePrediction?.structuredFormat?.secondaryText?.text || '',
+          fullText: placePrediction?.text?.text || '',
         };
       });
 

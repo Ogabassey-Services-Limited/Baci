@@ -81,13 +81,23 @@ export function ShippingOptions({
   cartItemsRef.current = cartItems;
 
   // Create stable key for cartItems to only trigger when content actually changes
-  const cartItemsKey = JSON.stringify(cartItems.map(i => ({ n: i.name, q: i.quantity, p: i.price })));
+  const cartItemsKey = JSON.stringify(
+    cartItems.map((i) => ({ n: i.name, q: i.quantity, p: i.price }))
+  );
 
   // Track if we've already fetched for current address
   const lastFetchKey = useRef<string>('');
 
   useEffect(() => {
-    if (!receiverCity || !receiverState) return;
+    // Require minimum 2 characters for both city and state to avoid premature API calls
+    if (
+      !receiverCity ||
+      !receiverState ||
+      receiverCity.length < 2 ||
+      receiverState.length < 2
+    ) {
+      return;
+    }
 
     // Create a key for this specific fetch request
     const fetchKey = `${receiverCity}-${receiverState}-${receiverAddress}-${cartItemsKey}`;
@@ -145,13 +155,15 @@ export function ShippingOptions({
       }
     };
 
-    // Debounce
-    const timer = setTimeout(fetchQuotes, 500);
+    // Longer debounce to wait for user to finish typing
+    const timer = setTimeout(fetchQuotes, 1000);
     return () => clearTimeout(timer);
   }, [
     receiverCity,
     receiverState,
     receiverAddress,
+    receiverName,
+    receiverPhone,
     cartItemsKey,
     quotes.length,
   ]);

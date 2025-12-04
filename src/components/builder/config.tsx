@@ -988,12 +988,15 @@ export const builderConfig: Config<
       label: 'Hero Section',
       permissions: { delete: true, duplicate: true },
       fields: {
+        // biome-ignore lint/suspicious/noExplicitAny: Puck field types don't include inline/contentEditable
         title: { type: 'text', inline: true, contentEditable: true } as any,
         subtitle: {
           type: 'textarea',
           inline: true,
           contentEditable: true,
+          // biome-ignore lint/suspicious/noExplicitAny: Puck field types don't include inline/contentEditable
         } as any,
+        // biome-ignore lint/suspicious/noExplicitAny: Puck field types don't include inline/contentEditable
         ctaText: { type: 'text', inline: true, contentEditable: true } as any,
         ctaLink: { type: 'text' },
         backgroundImage: {
@@ -1400,11 +1403,13 @@ export const builderConfig: Config<
       label: 'Text Block',
       permissions: { delete: true, duplicate: true },
       fields: {
+        // biome-ignore lint/suspicious/noExplicitAny: Puck field types don't include inline/contentEditable
         title: { type: 'text', inline: true, contentEditable: true } as any,
         content: {
           type: 'textarea',
           inline: true,
           contentEditable: true,
+          // biome-ignore lint/suspicious/noExplicitAny: Puck field types don't include inline/contentEditable
         } as any,
         align: {
           type: 'select',

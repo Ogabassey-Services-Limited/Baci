@@ -522,7 +522,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                               product.id,
                               Math.max(
                                 Number.parseInt(e.target.value, 10) ||
-                                  (product.minimum_order_quantity || 1),
+                                  product.minimum_order_quantity ||
+                                  1,
                                 product.minimum_order_quantity || 1
                               ),
                               selectedVariant?.id

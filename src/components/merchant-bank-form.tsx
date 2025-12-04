@@ -108,11 +108,14 @@ export function MerchantBankForm({
         });
         onSuccess?.();
       }
-    } catch (error: any) {
+    } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Save Failed',
-        description: error.message || 'Could not verify and save bank details.',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Could not verify and save bank details.',
       });
     } finally {
       setIsSubmitting(false);

@@ -89,10 +89,15 @@ export async function POST(request: NextRequest) {
       accountName: accountDetails.account_name,
       subaccountCode,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('API Error managing subaccount:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to save bank details' },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Failed to save bank details',
+      },
       { status: 500 }
     );
   }

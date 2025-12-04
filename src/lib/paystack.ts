@@ -31,6 +31,7 @@ export interface Subaccount {
   primary_contact_email?: string;
   primary_contact_name?: string;
   primary_contact_phone?: string;
+  // biome-ignore lint/suspicious/noExplicitAny: Paystack metadata can contain any data
   metadata?: Record<string, any>;
 }
 
@@ -48,6 +49,7 @@ export interface SubaccountResponse {
     percentage_charge: number;
     settlement_bank: string;
     account_number: string;
+    // biome-ignore lint/suspicious/noExplicitAny: Paystack response can include additional dynamic fields
     [key: string]: any;
   };
 }

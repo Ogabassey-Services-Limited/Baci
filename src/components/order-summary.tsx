@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Tag } from 'lucide-react';
+import { Tag } from 'lucide-react';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';

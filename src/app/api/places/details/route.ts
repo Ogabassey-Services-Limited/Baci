@@ -59,10 +59,14 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
 
     // Parse address components
-    const components = data.addressComponents || [];
+    interface AddressComponent {
+      types: string[];
+      longText?: string;
+    }
+    const components: AddressComponent[] = data.addressComponents || [];
 
     const getComponent = (type: string) =>
-      components.find((c: any) => c.types.includes(type))?.longText || '';
+      components.find((c) => c.types.includes(type))?.longText || '';
 
     const details = {
       placeId: data.name,

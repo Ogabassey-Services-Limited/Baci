@@ -130,12 +130,12 @@ export default function WalletPage() {
     }
   };
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Run once on mount - fetchWallet/fetchTransactions are stable functions
   useEffect(() => {
     Promise.all([fetchWallet(), fetchTransactions()]).finally(() =>
       setLoading(false)
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchTransactions, fetchWallet]);
+  }, []);
 
   const handleWithdraw = async () => {
     if (!wallet?.canWithdraw) return;

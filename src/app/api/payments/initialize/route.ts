@@ -192,7 +192,8 @@ export async function POST(request: NextRequest) {
         amount: amountInKobo,
         reference,
         callback_url: redirectUrl,
-        subaccount: merchant.paystack_subaccount_code!,
+        // Gateway is 'paystack' only when hasPaystackSubaccount is true (line 171)
+        subaccount: merchant.paystack_subaccount_code as string,
         transaction_charge: fees.platformFee, // Platform fee in kobo
         bearer: 'account', // Main account (platform) bears Paystack fees
         channels: ['card', 'bank', 'ussd', 'bank_transfer'],

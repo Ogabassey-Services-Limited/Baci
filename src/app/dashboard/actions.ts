@@ -308,8 +308,8 @@ export async function getMonthlyChartData(
       const date = new Date(order.created_at);
       const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
 
-      if (monthlyData.has(monthKey)) {
-        const current = monthlyData.get(monthKey)!;
+      const current = monthlyData.get(monthKey);
+      if (current) {
         const orderTotal = Number(order.total) || 0;
         current.revenue += orderTotal;
         current.orders += 1;

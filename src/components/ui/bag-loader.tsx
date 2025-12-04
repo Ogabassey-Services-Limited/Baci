@@ -76,6 +76,7 @@ export function BagLoader({ className, size = 48 }: BagLoaderProps) {
 
         return (
           <motion.div
+            // biome-ignore lint/suspicious/noArrayIndexKey: Particle array is fixed and never reorders
             key={index}
             className="absolute rounded-full"
             style={{

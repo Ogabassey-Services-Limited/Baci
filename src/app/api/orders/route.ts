@@ -215,14 +215,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    // Fetch merchant to check for shipping provider preference
+    // Fetch merchant to verify it exists
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
-      .select('shipping_provider, rider_phone_number')
+      .select('id, rider_phone_number')
       .eq('id', merchant_id)
       .single();
 
-    if (merchantFetchError) {
+    if (merchantFetchError || !merchant) {
       logger.error({
         message: 'Failed to fetch merchant for order creation',
         error: merchantFetchError,
@@ -288,16 +288,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Base order payload
+    // Base order payload (items stored separately in order_items table)
+    // Financial breakdown follows e-commerce best practices for auditing, refunds, and analytics
     const orderPayload: Record<string, unknown> = {
       merchant_id,
       customer_id,
       customer_email,
       customer_name,
       customer_phone,
-      items: items,
       subtotal,
       shipping_fee,
+      discount_amount: body.discount_amount || 0,
+      tax_amount: body.tax_amount || 0,
       total,
       payment_method,
       payment_status,
@@ -307,8 +309,9 @@ export async function POST(request: NextRequest) {
       notes,
     };
 
-    // Dynamically handle shipping based on merchant preference
-    if (merchant?.shipping_provider === 'GIGL') {
+    // Dynamically handle shipping based on request shipping_provider
+    const shippingProvider = body.shipping_provider || 'GIGL';
+    if (shippingProvider === 'GIGL') {
       const shipmentDetails = await handleGiglShipment(
         { items },
         { name: customer_name, phone: customer_phone },

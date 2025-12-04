@@ -15,7 +15,12 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FormProvider, useForm, useFormContext, useWatch } from 'react-hook-form';
+import {
+  FormProvider,
+  useForm,
+  useFormContext,
+  useWatch,
+} from 'react-hook-form';
 import {
   type Country as CountryCode,
   isValidPhoneNumber,
@@ -317,6 +322,7 @@ function Step0_Auth({
             <div className="flex gap-2 justify-center" onPaste={handleOtpPaste}>
               {otpCode.map((digit, index) => (
                 <input
+                  // biome-ignore lint/suspicious/noArrayIndexKey: OTP inputs are fixed-size array (6 digits) that never reorders
                   key={index}
                   ref={(el) => {
                     otpInputRefs.current[index] = el;
@@ -716,10 +722,11 @@ function Step2_Payment({
               key={gateway.id}
               type="button"
               onClick={() => onGatewaySelect(gateway.id)}
-              className={`w-full rounded-lg border p-4 text-left transition-all ${selectedGateway === gateway.id
-                ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                : 'border-border bg-card hover:border-primary/50'
-                }`}
+              className={`w-full rounded-lg border p-4 text-left transition-all ${
+                selectedGateway === gateway.id
+                  ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                  : 'border-border bg-card hover:border-primary/50'
+              }`}
             >
               <div className="flex items-center gap-4">
                 <div
@@ -987,11 +994,10 @@ function CheckoutPageContent() {
               shouldDirty: true,
             });
             if (nameParts.length > 1) {
-              shippingForm.setValue(
-                'lastName',
-                nameParts.slice(1).join(' '),
-                { shouldValidate: true, shouldDirty: true }
-              );
+              shippingForm.setValue('lastName', nameParts.slice(1).join(' '), {
+                shouldValidate: true,
+                shouldDirty: true,
+              });
             }
           }
         }
@@ -1160,22 +1166,11 @@ function CheckoutPageContent() {
     setFormIsLoading(true);
 
     try {
-      // Get merchant ID from Supabase
+      // Get merchant ID from context (useMerchant hook)
       if (!merchant || !merchant.id) {
         throw new Error(
-          'Merchant information not available. Please try again.'
+          'Merchant information not available. Please refresh the page and try again.'
         );
-      }
-
-      // Fetch merchant ID from database
-      const { data: merchantData, error: merchantError } = await supabase
-        .from('merchants')
-        .select('id, shipping_fee')
-        .eq('id', merchant.id)
-        .single();
-
-      if (merchantError || !merchantData) {
-        throw new Error('Unable to find store information. Please try again.');
       }
 
       // Prepare order items
@@ -1187,17 +1182,16 @@ function CheckoutPageContent() {
         image: item.image,
       }));
 
-      // Calculate totals
+      // Calculate totals - use merchant data from hook directly (no need to query DB again)
       const subtotal = cartTotal;
-      const finalShippingFee =
-        shippingFee ?? merchantData.shipping_fee ?? DEFAULT_SHIPPING_FEE;
+      const finalShippingFee = shippingFee ?? DEFAULT_SHIPPING_FEE;
 
       // Create order via API
       const { order, paystackAuthUrl } = await apiPost<{
         order: Record<string, unknown>;
         paystackAuthUrl?: string;
       }>('/api/orders', {
-        merchant_id: merchantData.id,
+        merchant_id: merchant.id,
         customer_email: data.email,
         customer_name: `${data.firstName} ${data.lastName}`,
         customer_phone: data.phone,
@@ -1512,13 +1506,13 @@ function CheckoutPageContent() {
                               {selectedGateway === 'pod'
                                 ? 'Place Order'
                                 : `Pay ${new Intl.NumberFormat('en-NG', {
-                                  style: 'currency',
-                                  currency: 'NGN',
-                                }).format(
-                                  cartTotal +
-                                  (shippingFee || 0) -
-                                  discountAmount
-                                )}`}
+                                    style: 'currency',
+                                    currency: 'NGN',
+                                  }).format(
+                                    cartTotal +
+                                      (shippingFee || 0) -
+                                      discountAmount
+                                  )}`}
                             </ThemedButton>
                           </div>
                         </div>

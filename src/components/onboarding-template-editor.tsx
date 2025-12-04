@@ -141,7 +141,7 @@ class FloatingControlsErrorBoundary extends Component<
 
 export function OnboardingTemplateEditor({
   initialData,
-  brandColors,
+  brandColors: _brandColors, // Reserved for future theme customization
   onSave,
   onClose,
   businessName,

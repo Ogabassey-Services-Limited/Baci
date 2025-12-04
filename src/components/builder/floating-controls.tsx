@@ -15,9 +15,28 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
+// Types for Puck field configuration (not exported by Puck)
+interface FieldOption {
+  label: string;
+  value: string;
+}
+
+interface PuckFieldConfig {
+  type: 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'custom';
+  label?: string;
+  options?: FieldOption[];
+  render?: (props: {
+    field: PuckFieldConfig;
+    name: string;
+    value: unknown;
+    onChange: (value: unknown) => void;
+    readOnly: boolean;
+  }) => React.ReactNode;
+}
+
 export function FloatingControls() {
   const { appState, dispatch } = usePuck();
-  // Cast appState to any to avoid strict type checks on internal properties
+  // biome-ignore lint/suspicious/noExplicitAny: Puck's internal state structure is not exported
   const state = appState as any;
   // Safety check: Ensure state and ui exist before accessing
   if (!state || !state.ui) return null;
@@ -40,12 +59,14 @@ export function FloatingControls() {
   if (!fields) return null;
 
   // We'll use the setData approach as it's universally safe in Puck
+  // biome-ignore lint/suspicious/noExplicitAny: Puck field values can be any type
   const safeFieldChange = (fieldName: string, value: any) => {
     const newContent = [...state.data.content];
     // Note: selectedItem.props.id might not be the item ID.
     // Puck items have an 'id' property at the root, not just in props.
     // selectedItem is the item itself.
     const itemIndex = newContent.findIndex(
+      // biome-ignore lint/suspicious/noExplicitAny: Puck content items are untyped
       (item: any) => item.props.id === selectedItem.props.id
     );
 
@@ -76,7 +97,8 @@ export function FloatingControls() {
           size="icon"
           className="h-6 w-6"
           onClick={() =>
-            dispatch({ type: 'setUi', ui: { selectedItem: null } as any })
+            // biome-ignore lint/suspicious/noExplicitAny: Puck dispatch types are internal
+            dispatch({ type: 'setUi', ui: { selectedItem: null } } as any)
           }
         >
           <X className="h-4 w-4" />
@@ -84,8 +106,8 @@ export function FloatingControls() {
       </div>
 
       <div className="p-4 space-y-6 overflow-y-auto custom-scrollbar">
-        {Object.entries(fields).map(
-          ([fieldName, fieldConfig]: [string, any]) => {
+        {Object.entries(fields as Record<string, PuckFieldConfig>).map(
+          ([fieldName, fieldConfig]) => {
             const value = selectedItem.props[fieldName];
             const label = fieldConfig.label || fieldName;
 
@@ -130,7 +152,7 @@ export function FloatingControls() {
                       <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {fieldConfig.options.map((opt: any) => (
+                      {fieldConfig.options.map((opt) => (
                         <SelectItem key={opt.value} value={opt.value}>
                           {opt.label}
                         </SelectItem>
@@ -145,7 +167,7 @@ export function FloatingControls() {
                     onValueChange={(v) => safeFieldChange(fieldName, v)}
                     className="flex flex-col gap-2"
                   >
-                    {fieldConfig.options.map((opt: any) => (
+                    {fieldConfig.options.map((opt) => (
                       <div
                         key={opt.value}
                         className="flex items-center space-x-2"
@@ -180,7 +202,7 @@ export function FloatingControls() {
                       field: fieldConfig,
                       name: fieldName,
                       value,
-                      onChange: (v: any) => safeFieldChange(fieldName, v),
+                      onChange: (v: unknown) => safeFieldChange(fieldName, v),
                       // Puck might pass more props like 'readOnly', etc.
                       readOnly: false,
                     })}
