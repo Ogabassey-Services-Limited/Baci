@@ -454,6 +454,7 @@ export function StorefrontProductGrid({
                       height={400}
                       className="object-cover w-full h-auto aspect-video"
                       category={product.category}
+                      sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     />
                     <div className="absolute top-2 left-2 flex flex-col gap-1">
                       {product.compare_at_price &&

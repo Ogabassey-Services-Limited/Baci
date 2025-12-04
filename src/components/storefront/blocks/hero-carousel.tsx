@@ -63,6 +63,7 @@ export function HeroCarousel({
                   fill
                   className="object-cover transition-transform duration-[10000ms] hover:scale-105"
                   priority={index === 0}
+                  sizes="(max-width: 768px) 100vw, 100vw"
                 />
                 {/* Gradient Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/30" />

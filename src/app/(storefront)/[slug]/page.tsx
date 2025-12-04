@@ -52,11 +52,13 @@ export async function generateMetadata({
     };
   }
 
-  const title = merchant.site_title || merchant.business_name;
+  const title =
+    merchant.site_title ||
+    `${merchant.business_name} - Online Store | Shop Now`;
   const description =
     merchant.site_description ||
     merchant.site_tagline ||
-    `Welcome to ${merchant.business_name}`;
+    `Shop the best products at ${merchant.business_name}. Quality items, great prices, and fast delivery in Nigeria.`;
 
   const headersList = await headers();
   const host = headersList.get('host') || `${slug}.localhost:3000`;

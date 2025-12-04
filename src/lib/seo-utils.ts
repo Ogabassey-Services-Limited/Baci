@@ -223,6 +223,7 @@ export function generateProductSchema(
     };
   }
 
+
   // Dimensions
   if (product.dimensions) {
     const dimUnit = DIMENSION_UNIT_CODES[product.dimensions.unit] || 'CMT';
