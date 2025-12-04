@@ -11,10 +11,7 @@ async function checkQuota() {
 
     console.log('--- Google AI API Quota Check ---');
     console.log(`API Key found: ${apiKey ? 'Yes' : 'No'}`);
-    if (apiKey) {
-        console.log(`API Key length: ${apiKey.length}`);
-        console.log(`API Key prefix: ${apiKey.substring(0, 4)}...`);
-    } else {
+    if (!apiKey) {
         console.error('ERROR: No API key found in .env or .env.local');
         return;
     }

@@ -1,8 +1,16 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
+import dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.local' });
+dotenv.config({ path: '.env' });
 
 async function testAlternativeModels() {
-    const apiKey = 'AIzaSyDex2IQ2a_Aj53jB4h1a6qhb7btCDv8FLU';
+    const apiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+        console.error('ERROR: No API key found. Set GOOGLE_GENAI_API_KEY in .env');
+        return;
+    }
 
     console.log('--- Testing Alternative Models ---\n');
 
