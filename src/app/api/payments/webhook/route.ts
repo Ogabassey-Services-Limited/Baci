@@ -5,10 +5,27 @@ import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
-import { verifyPayment } from '@/lib/korapay';
+import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
+import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
+
+type PaymentGateway = 'paystack' | 'korapay';
+
+/**
+ * Detect which payment gateway sent the webhook
+ */
+function detectGateway(headers: Headers): PaymentGateway {
+  if (headers.get('x-paystack-signature')) {
+    return 'paystack';
+  }
+  if (headers.get('x-korapay-signature')) {
+    return 'korapay';
+  }
+  // Default to korapay for backwards compatibility
+  return 'korapay';
+}
 
 /**
  * Verify Korapay webhook signature
@@ -16,12 +33,12 @@ import { sendEmail } from '@/lib/zeptomail';
  * @param payload - The raw request body as string
  * @returns boolean indicating if signature is valid
  */
-function verifyWebhookSignature(
+function verifyKorapayWebhookSignature(
   signature: string | null,
   payload: string
 ): boolean {
   if (!signature) {
-    logger.warn({ message: 'Webhook signature missing' });
+    logger.warn({ message: 'Korapay webhook signature missing' });
     return false;
   }
 
@@ -47,24 +64,68 @@ function verifyWebhookSignature(
 
     return timingSafeEqual(signatureBuffer, expectedBuffer);
   } catch (error) {
-    logger.error({ message: 'Webhook signature verification error', error });
+    logger.error({ message: 'Korapay webhook signature verification error', error });
+    return false;
+  }
+}
+
+/**
+ * Verify Paystack webhook signature
+ * @param signature - The signature from the x-paystack-signature header
+ * @param payload - The raw request body as string
+ * @returns boolean indicating if signature is valid
+ */
+function verifyPaystackWebhookSignature(
+  signature: string | null,
+  payload: string
+): boolean {
+  if (!signature) {
+    logger.warn({ message: 'Paystack webhook signature missing' });
+    return false;
+  }
+
+  const secretKey = process.env.PAYSTACK_SECRET_KEY;
+  if (!secretKey) {
+    logger.error({ message: 'PAYSTACK_SECRET_KEY not configured' });
+    return false;
+  }
+
+  try {
+    // Generate expected signature using HMAC-SHA512
+    const expectedSignature = createHmac('sha512', secretKey)
+      .update(payload)
+      .digest('hex');
+
+    // Use timing-safe comparison to prevent timing attacks
+    return signature === expectedSignature;
+  } catch (error) {
+    logger.error({ message: 'Paystack webhook signature verification error', error });
     return false;
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Get the signature from headers
-    const signature = request.headers.get('x-korapay-signature');
+    // Detect which gateway sent the webhook
+    const gateway = detectGateway(request.headers);
 
     // Get raw body for signature verification
     const rawBody = await request.text();
 
-    // Verify webhook signature to prevent forged requests
-    if (!verifyWebhookSignature(signature, rawBody)) {
+    // Verify webhook signature based on gateway
+    let isValidSignature = false;
+    if (gateway === 'paystack') {
+      const signature = request.headers.get('x-paystack-signature');
+      isValidSignature = verifyPaystackWebhookSignature(signature, rawBody);
+    } else {
+      const signature = request.headers.get('x-korapay-signature');
+      isValidSignature = verifyKorapayWebhookSignature(signature, rawBody);
+    }
+
+    if (!isValidSignature) {
       logger.warn({
-        message: 'Invalid webhook signature',
-        signature: signature?.substring(0, 20),
+        message: `Invalid ${gateway} webhook signature`,
+        gateway,
       });
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
@@ -73,38 +134,76 @@ export async function POST(request: NextRequest) {
     const body = JSON.parse(rawBody);
 
     logger.info({
-      message: 'Payment webhook received (signature verified)',
-      payload: body,
+      message: `Payment webhook received from ${gateway} (signature verified)`,
+      gateway,
+      event: body.event,
     });
 
-    const { reference, status, event } = body;
+    // Extract reference and check event type based on gateway
+    let reference: string;
+    let isSuccessEvent = false;
+
+    if (gateway === 'paystack') {
+      // Paystack webhook structure: { event: 'charge.success', data: { reference, ... } }
+      const event = body.event;
+      reference = body.data?.reference;
+
+      isSuccessEvent = event === 'charge.success';
+
+      if (!isSuccessEvent) {
+        logger.info({
+          message: 'Ignoring non-success Paystack webhook event',
+          reference,
+          event,
+        });
+        return NextResponse.json({ message: 'Event ignored' });
+      }
+    } else {
+      // Korapay webhook structure: { reference, status, event, ... }
+      reference = body.reference;
+      const event = body.event;
+      const status = body.status;
+
+      isSuccessEvent = event === 'charge.success' || status === 'success';
+
+      if (!isSuccessEvent) {
+        logger.info({
+          message: 'Ignoring non-success Korapay webhook event',
+          reference,
+          event,
+          status,
+        });
+        return NextResponse.json({ message: 'Event ignored' });
+      }
+    }
 
     if (!reference) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
 
-    // Only process successful payment events
-    if (event !== 'charge.success' && status !== 'success') {
-      logger.info({
-        message: 'Ignoring non-success webhook event',
-        reference,
-        event,
-        status,
-      });
-      return NextResponse.json({ message: 'Event ignored' });
-    }
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Verify payment with Korapay
-    const paymentData = await verifyPayment(reference);
+    // Verify payment with the appropriate gateway
+    let paymentStatus: string;
+    let gatewayResponse: Record<string, unknown>;
 
-    if (paymentData.status !== 'success') {
+    if (gateway === 'paystack') {
+      const paymentData = await verifyPaystackPayment(reference);
+      paymentStatus = paymentData.status;
+      gatewayResponse = paymentData as unknown as Record<string, unknown>;
+    } else {
+      const paymentData = await verifyKorapayPayment(reference);
+      paymentStatus = paymentData.status;
+      gatewayResponse = paymentData as unknown as Record<string, unknown>;
+    }
+
+    if (paymentStatus !== 'success') {
       logger.warn({
         message: 'Payment verification failed',
         reference,
-        status: paymentData.status,
+        gateway,
+        status: paymentStatus,
       });
       return NextResponse.json(
         { error: 'Payment not successful' },
@@ -142,7 +241,7 @@ export async function POST(request: NextRequest) {
       .from('transactions')
       .update({
         status: 'completed',
-        gateway_response: paymentData,
+        gateway_response: gatewayResponse,
         updated_at: new Date().toISOString(),
       })
       .eq('id', transaction.id);
@@ -246,7 +345,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Merchant balance is automatically updated via database trigger
+    // Record settlement for merchant wallet tracking
+    try {
+      // Calculate fees (platform takes 1.5% for example)
+      const grossAmount = Number(transaction.amount) || 0;
+      const gatewayFee = Number(transaction.gateway_fee) || 0;
+      const platformFee = Number(transaction.platform_fee) || grossAmount * 0.015;
+
+      const { error: settlementError } = await supabase.rpc('record_merchant_settlement', {
+        p_merchant_id: transaction.merchant_id,
+        p_source_type: 'order',
+        p_source_id: transaction.order_id,
+        p_gateway: gateway,
+        p_gateway_reference: reference,
+        p_gross_amount: grossAmount,
+        p_gateway_fee: gatewayFee,
+        p_platform_fee: platformFee,
+        p_description: `Order payment via ${gateway}`,
+      });
+
+      if (settlementError) {
+        logger.warn({
+          message: 'Failed to record merchant settlement',
+          error: settlementError,
+          reference,
+        });
+        // Don't fail the webhook - settlement tracking is supplementary
+      } else {
+        logger.info({
+          message: 'Merchant settlement recorded',
+          reference,
+          gateway,
+          grossAmount,
+        });
+      }
+    } catch (settlementError) {
+      logger.warn({
+        message: 'Settlement recording error',
+        error: settlementError,
+      });
+    }
 
     logger.info({
       message: 'Payment processed successfully',
@@ -275,15 +413,22 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const reference = searchParams.get('reference');
+    const gateway = (searchParams.get('gateway') || 'paystack') as PaymentGateway;
 
     if (!reference) {
       return NextResponse.json({ error: 'Missing reference' }, { status: 400 });
     }
 
-    const paymentData = await verifyPayment(reference);
+    let paymentData;
+    if (gateway === 'paystack') {
+      paymentData = await verifyPaystackPayment(reference);
+    } else {
+      paymentData = await verifyKorapayPayment(reference);
+    }
 
     return NextResponse.json({
       success: true,
+      gateway,
       payment: paymentData,
     });
   } catch (error) {
