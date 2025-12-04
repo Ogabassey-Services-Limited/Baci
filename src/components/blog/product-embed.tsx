@@ -221,7 +221,9 @@ export function ProductCard({
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-shadow group">
       {merchantSlug && isSafeSlug(merchantSlug) ? (
-        <a href={`/${merchantSlug}/products/${product.slug}`}>
+        <a
+          href={`/${encodeURIComponent(merchantSlug)}/products/${encodeURIComponent(product.slug)}`}
+        >
           <div className="aspect-square relative overflow-hidden bg-muted">
             {product.images?.[0] ? (
               <Image
@@ -267,7 +269,9 @@ export function ProductCard({
       )}
       <CardContent className="p-4">
         {merchantSlug && isSafeSlug(merchantSlug) ? (
-          <a href={`/${merchantSlug}/products/${product.slug}`}>
+          <a
+            href={`/${encodeURIComponent(merchantSlug)}/products/${encodeURIComponent(product.slug)}`}
+          >
             <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors">
               {product.name}
             </h3>

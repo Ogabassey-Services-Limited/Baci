@@ -10,7 +10,10 @@ import {
   Facebook,
   Instagram,
   Loader2,
+  Mail,
+  MapPin,
   Pencil,
+  Phone,
   Plus,
   Shuffle,
   Trash2,
@@ -56,6 +59,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { COUNTRIES } from '@/lib/countries';
@@ -132,6 +136,11 @@ export default function SettingsPage() {
     pinterest: '',
     linkedin: '',
   });
+  const [contactInfo, setContactInfo] = useState({
+    support_email: '',
+    support_phone: '',
+    business_address: '',
+  });
   const [analyticsSettings, setAnalyticsSettings] = useState({
     google_analytics_id: '',
     ga4_api_secret: '',
@@ -172,6 +181,11 @@ export default function SettingsPage() {
         youtube: (socialMedia?.youtube as string) || '',
         pinterest: (socialMedia?.pinterest as string) || '',
         linkedin: (socialMedia?.linkedin as string) || '',
+      });
+      setContactInfo({
+        support_email: (merchantData.support_email as string) || '',
+        support_phone: (merchantData.support_phone as string) || '',
+        business_address: (merchantData.business_address as string) || '',
       });
       setAnalyticsSettings({
         google_analytics_id: (merchantData.google_analytics_id as string) || '',
@@ -298,6 +312,9 @@ export default function SettingsPage() {
         ...data,
         hero_slides: heroSlides,
         social_media: socialMedia,
+        support_email: contactInfo.support_email || null,
+        support_phone: contactInfo.support_phone || null,
+        business_address: contactInfo.business_address || null,
         google_analytics_id: analyticsSettings.google_analytics_id || null,
         ga4_api_secret: analyticsSettings.ga4_api_secret || null,
         facebook_pixel_id: analyticsSettings.facebook_pixel_id || null,
@@ -419,7 +436,7 @@ export default function SettingsPage() {
                                     style={{
                                       backgroundColor:
                                         brandColors[
-                                          role as keyof typeof brandColors
+                                        role as keyof typeof brandColors
                                         ],
                                     }}
                                   />
@@ -432,7 +449,7 @@ export default function SettingsPage() {
                                 <ColorPicker
                                   color={
                                     brandColors[
-                                      role as keyof typeof brandColors
+                                    role as keyof typeof brandColors
                                     ]
                                   }
                                   onChange={(newColor) =>
@@ -742,6 +759,129 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">
                 These handles will be used in meta tags when your products are
                 shared on social media, improving your store's online presence.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle>Delivery Settings</CardTitle>
+              <CardDescription>
+                Configure how you deliver products to your customers.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between space-x-2">
+                <div className="space-y-0.5">
+                  <Label htmlFor="pay_on_delivery">Pay on Delivery</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Allow customers to pay when they receive their order.
+                  </p>
+                </div>
+                <Switch
+                  id="pay_on_delivery"
+                  checked={merchant?.feature_settings?.pay_on_delivery_enabled || false}
+                  onCheckedChange={(checked) => {
+                    if (merchant?.feature_settings) {
+                      updateMerchant({
+                        feature_settings: {
+                          ...merchant.feature_settings,
+                          pay_on_delivery_enabled: checked,
+                        },
+                      });
+                    }
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rider_phone">Rider WhatsApp Number</Label>
+                <p className="text-sm text-muted-foreground">
+                  Enter a phone number to receive WhatsApp notifications for Pay on Delivery orders.
+                </p>
+                <Input
+                  id="rider_phone"
+                  placeholder="+234..."
+                  value={merchant?.rider_phone_number || ''}
+                  onChange={(e) => updateMerchant({ rider_phone_number: e.target.value })}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle>Contact Information</CardTitle>
+              <CardDescription>
+                Add your contact details to display in your store footer. This
+                helps customers reach you.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label
+                  htmlFor="support_email"
+                  className="flex items-center gap-2"
+                >
+                  <Mail className="w-4 h-4" />
+                  Support Email
+                </Label>
+                <Input
+                  id="support_email"
+                  type="email"
+                  placeholder="support@yourstore.com"
+                  value={contactInfo.support_email}
+                  onChange={(e) =>
+                    setContactInfo({
+                      ...contactInfo,
+                      support_email: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label
+                  htmlFor="support_phone"
+                  className="flex items-center gap-2"
+                >
+                  <Phone className="w-4 h-4" />
+                  Support Phone
+                </Label>
+                <Input
+                  id="support_phone"
+                  type="tel"
+                  placeholder="+234 800 000 0000"
+                  value={contactInfo.support_phone}
+                  onChange={(e) =>
+                    setContactInfo({
+                      ...contactInfo,
+                      support_phone: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label
+                  htmlFor="business_address"
+                  className="flex items-center gap-2"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Business Address
+                </Label>
+                <Input
+                  id="business_address"
+                  placeholder="123 Main St, Lagos, Nigeria"
+                  value={contactInfo.business_address}
+                  onChange={(e) =>
+                    setContactInfo({
+                      ...contactInfo,
+                      business_address: e.target.value,
+                    })
+                  }
+                />
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This information will be displayed in your store footer and
+                helps customers contact you for support.
               </p>
             </CardContent>
           </Card>
@@ -1080,6 +1220,41 @@ export default function SettingsPage() {
           </div>
         </form>
       </Form>
+
+      {/* Payment Settings Card - Outside the form */}
+      <Card className="glass">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <svg
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-label="Payment"
+              role="img"
+            >
+              <rect width="20" height="14" x="2" y="5" rx="2" />
+              <line x1="2" x2="22" y1="10" y2="10" />
+            </svg>
+            Payment Settings
+          </CardTitle>
+          <CardDescription>
+            Configure payment gateways, bank settlement, and transaction
+            preferences.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link href="/dashboard/settings/payments">
+            <Button variant="outline" className="w-full justify-between">
+              <span>Manage Payment Settings</span>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
 
       {/* Team Management Card - Outside the form */}
       <Card className="glass">

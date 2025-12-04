@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { Suspense } from 'react';
+import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { MerchantProvider } from '@/hooks/use-merchant';
 import { getCachedMerchant } from '@/lib/cached-data';
@@ -117,6 +118,11 @@ export default async function StorefrontPage({
 
   if (!merchant) {
     notFound();
+  }
+
+  // Check if store is published - show "coming soon" page if not
+  if (!merchant.is_published) {
+    return <StoreNotPublished businessName={merchant.business_name} />;
   }
 
   let localBusinessSchema = null;

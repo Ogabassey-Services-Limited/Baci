@@ -1,9 +1,8 @@
 'use server';
 
-// TODO: Verify correct import for image generation
-import { experimental_generateImage as generateImage } from 'ai';
+import { generateText } from 'ai';
 import { cookies } from 'next/headers';
-import { imagen3 } from '@/ai/provider';
+import { gemini25FlashImage } from '@/ai/provider';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
@@ -104,13 +103,31 @@ export async function generateHeroImageBatch(
         const fullPrompt = `${basePrompt}${variation}. Professional e-commerce hero banner image, wide landscape format, 16:9 aspect ratio, high quality, suitable for online store`;
 
         try {
-          const { image } = await generateImage({
-            model: imagen3,
-            prompt: fullPrompt,
+          // Use Gemini 2.5 Flash with image generation capabilities
+          const { files } = await generateText({
+            model: gemini25FlashImage,
+            providerOptions: {
+              google: {
+                responseModalities: ['TEXT', 'IMAGE'],
+              },
+            },
+            prompt: `Generate a professional hero banner image for an e-commerce website. ${fullPrompt}`,
           });
 
+          // Extract the generated image from the response
+          if (!files || files.length === 0) {
+            logger.warn({ message: 'No image generated in response' });
+            continue;
+          }
+
+          const imageFile = files[0];
+          if (!imageFile.base64) {
+            logger.warn({ message: 'Image file has no base64 data' });
+            continue;
+          }
+
           // Convert image to base64 data URI
-          const base64Image = image.base64;
+          const base64Image = imageFile.base64;
 
           // Upload to Supabase Storage
           const fileName = `hero-${category}-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;

@@ -42,6 +42,29 @@ export interface MerchantData {
   favicon_png_192_url?: string;
   favicon_apple_touch_url?: string;
   favicon_uploaded_at?: string;
+  // Social media
+  social_media?: {
+    twitter?: string;
+    facebook?: string;
+    instagram?: string;
+    tiktok?: string;
+    youtube?: string;
+    pinterest?: string;
+    linkedin?: string;
+  };
+  // Contact info for footer
+  support_email?: string;
+  support_phone?: string;
+  business_address?: string;
+  rider_phone_number?: string;
+  // Store publish status
+  is_published?: boolean;
+  published_at?: string;
+  // Feature settings
+  feature_settings?: {
+    pay_on_delivery_enabled?: boolean;
+    [key: string]: any;
+  };
 }
 
 export type StaffRole =
@@ -95,9 +118,11 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
   const supabase = createClient();
 
   const loadData = useCallback(async () => {
-    const shouldLoad = slug || !authLoading;
-    if (!shouldLoad) {
-      setLoading(false);
+    // For storefront mode (slug provided), load immediately
+    // For dashboard mode (no slug), wait for auth to finish loading
+    if (!slug && authLoading) {
+      // Keep loading state as true - don't set to false until auth is ready
+      // This prevents premature redirect to onboarding
       return;
     }
 

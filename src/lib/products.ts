@@ -151,6 +151,7 @@ export const products: Product[] = [
     imageLarge: 'https://picsum.photos/seed/p1/600/400',
     imageHint: 'ceramic mug',
     brand: 'Baci Artisan',
+    category: 'Home Goods',
     gtin: '123456789012',
     mpn: 'CM-SET-01',
     fulfillmentFields: [{ name: 'IMEI' }],
@@ -169,6 +170,7 @@ export const products: Product[] = [
     imageLarge: 'https://picsum.photos/seed/p2/600/400',
     imageHint: 'desk lamp',
     brand: 'Baci Lighting',
+    category: 'Home Goods',
     gtin: '123456789013',
     mpn: 'DL-MIN-02',
   },
@@ -185,6 +187,7 @@ export const products: Product[] = [
     imageLarge: 'https://picsum.photos/seed/p3/600/400',
     imageHint: 'cotton towels',
     brand: 'Baci Home',
+    category: 'Home Goods',
     gtin: '123456789014',
     mpn: 'TOW-ORG-03',
   },
@@ -201,6 +204,7 @@ export const products: Product[] = [
     imageLarge: 'https://picsum.photos/seed/p4/600/400',
     imageHint: 'water bottle',
     brand: 'Baci Tech',
+    category: 'Electronics',
     gtin: '123456789015',
     mpn: 'SWB-04',
   },
@@ -217,6 +221,7 @@ export const products: Product[] = [
     imageLarge: 'https://picsum.photos/seed/p5/600/400',
     imageHint: 'leather journal',
     brand: 'Baci Stationary',
+    category: 'Stationery',
     gtin: '123456789016',
     mpn: 'JRN-LTH-05',
   },
@@ -230,6 +235,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Linen Summer Dress',
       price: 120.0,
       imageHint: 'summer dress',
+      category: 'Fashion',
     },
     {
       ...products[1],
@@ -237,6 +243,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Classic Leather Jacket',
       price: 350.0,
       imageHint: 'leather jacket',
+      category: 'Fashion',
     },
   ],
   electronics: [
@@ -246,6 +253,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Wireless Noise-Cancelling Headphones',
       price: 299.99,
       imageHint: 'headphones',
+      category: 'Electronics',
     },
     {
       ...products[1],
@@ -253,6 +261,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: '4K Ultra-HD Monitor',
       price: 450.0,
       imageHint: 'computer monitor',
+      category: 'Electronics',
     },
   ],
   'home-goods': [
@@ -262,6 +271,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Velvet Throw Pillow',
       price: 45.0,
       imageHint: 'throw pillow',
+      category: 'Home Goods',
     },
     {
       ...products[1],
@@ -269,6 +279,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Acacia Wood Serving Bowl',
       price: 65.0,
       imageHint: 'wood bowl',
+      category: 'Home Goods',
     },
   ],
   'health-beauty': [
@@ -278,6 +289,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Vitamin C Serum',
       price: 55.0,
       imageHint: 'skincare serum',
+      category: 'Health & Beauty',
     },
     {
       ...products[2],
@@ -285,6 +297,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Organic Lavender Bath Bombs',
       price: 25.0,
       imageHint: 'bath bombs',
+      category: 'Health & Beauty',
     },
   ],
   handmade: [
@@ -294,6 +307,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Hand-poured Soy Candle',
       price: 30.0,
       imageHint: 'soy candle',
+      category: 'Handmade',
     },
     {
       ...products[4],
@@ -301,6 +315,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Macrame Wall Hanging',
       price: 75.0,
       imageHint: 'macrame art',
+      category: 'Handmade',
     },
   ],
   'food-beverage': [
@@ -310,6 +325,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Artisanal Sourdough Loaf',
       price: 12.0,
       imageHint: 'sourdough bread',
+      category: 'Food & Beverage',
     },
     {
       ...products[1],
@@ -317,6 +333,7 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       name: 'Cold-Pressed Olive Oil',
       price: 28.0,
       imageHint: 'olive oil',
+      category: 'Food & Beverage',
     },
   ],
   other: [

@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -164,7 +164,7 @@ export default function FulfillmentDialog({
                           (field, fieldIndex) => {
                             const formFieldIndex =
                               quantityIndex *
-                                (item.product.fulfillmentFields?.length ?? 0) +
+                              (item.product.fulfillmentFields?.length ?? 0) +
                               fieldIndex;
                             const fieldName = `groups.${itemIndex}.fields.${formFieldIndex}.value`;
 
@@ -210,7 +210,7 @@ export default function FulfillmentDialog({
                 Cancel
               </Button>
               <Button type="submit" disabled={isSaving}>
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isSaving && <BagLoader size={16} />}
                 Confirm Fulfillment
               </Button>
             </DialogFooter>

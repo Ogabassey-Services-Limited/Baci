@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
-import { Menu, Search, ShoppingBag, X } from 'lucide-react';
+import { LogOut, Menu, Package, Search, Settings, ShoppingBag, User, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -10,6 +10,14 @@ import { Logo } from '@/components/logo';
 import { LoyaltyBadge } from '@/components/storefront/loyalty/loyalty-badge';
 import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/auth-context';
@@ -23,6 +31,7 @@ export interface HeaderProps {
   showSearch?: boolean;
   showCart?: boolean;
   showMenu?: boolean;
+  showAccount?: boolean;
   navigationLinks?: { label: string; url: string }[];
   ctaButton?: {
     text: string;
@@ -47,6 +56,7 @@ export function Header({
   showSearch = true,
   showCart = true,
   showMenu = true,
+  showAccount = true,
   navigationLinks = [],
   ctaButton,
   backgroundColor,
@@ -67,6 +77,45 @@ export function Header({
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Customer auth state - we use a simple fetch approach since context may not be available
+  const [customerSession, setCustomerSession] = useState<{
+    authenticated: boolean;
+    customer: { full_name: string; email: string } | null;
+  } | null>(null);
+
+  // Check customer session
+  useEffect(() => {
+    const merchantSlug = merchant?.slug;
+    if (!showAccount || !merchantSlug) return;
+
+    const checkSession = async () => {
+      try {
+        const response = await fetch(
+          `/api/storefront/auth/session?merchantSlug=${encodeURIComponent(merchantSlug)}`
+        );
+        const data = await response.json();
+        setCustomerSession({
+          authenticated: data.authenticated || false,
+          customer: data.customer || null,
+        });
+      } catch {
+        setCustomerSession({ authenticated: false, customer: null });
+      }
+    };
+
+    checkSession();
+  }, [showAccount, merchant?.slug]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/storefront/auth/logout', { method: 'POST' });
+      setCustomerSession({ authenticated: false, customer: null });
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   // Use merchant data if props are missing (fallback for template usage)
   const finalLogoUrl = logoUrl || merchant?.logo_url;
@@ -251,6 +300,70 @@ export function Header({
               />
             )}
 
+            {/* Customer Account */}
+            {showAccount && (
+              customerSession?.authenticated && customerSession.customer ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="p-2 hover:bg-black/5 rounded-full transition-colors group hidden sm:block"
+                    >
+                      <User className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {customerSession.customer.full_name}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {customerSession.customer.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href={asRoute('/account')} className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        My Account
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href={asRoute('/account/orders')} className="cursor-pointer">
+                        <Package className="mr-2 h-4 w-4" />
+                        Orders
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href={asRoute('/account/settings')} className="cursor-pointer">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="cursor-pointer text-destructive focus:text-destructive"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  asChild
+                  className="hidden sm:inline-flex"
+                >
+                  <Link href={asRoute('/account/login')}>Sign in</Link>
+                </Button>
+              )
+            )}
+
             {showCart && (
               <SheetTrigger asChild>
                 <button
@@ -329,6 +442,55 @@ export function Header({
                       rewardsHref="/pages/rewards"
                     />
                   </button>
+                )}
+
+                {/* Mobile Account Links */}
+                {showAccount && (
+                  <div className="pt-4 border-t space-y-4">
+                    {customerSession?.authenticated && customerSession.customer ? (
+                      <>
+                        <div className="text-sm text-muted-foreground">
+                          Signed in as {customerSession.customer.email}
+                        </div>
+                        <Link
+                          href={asRoute('/account')}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-2"
+                        >
+                          <User className="h-5 w-5" />
+                          My Account
+                        </Link>
+                        <Link
+                          href={asRoute('/account/orders')}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-2"
+                        >
+                          <Package className="h-5 w-5" />
+                          Orders
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleLogout();
+                            setMobileMenuOpen(false);
+                          }}
+                          className="flex items-center gap-2 text-destructive"
+                        >
+                          <LogOut className="h-5 w-5" />
+                          Sign out
+                        </button>
+                      </>
+                    ) : (
+                      <Link
+                        href={asRoute('/account/login')}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-2"
+                      >
+                        <User className="h-5 w-5" />
+                        Sign in
+                      </Link>
+                    )}
+                  </div>
                 )}
               </nav>
             </div>

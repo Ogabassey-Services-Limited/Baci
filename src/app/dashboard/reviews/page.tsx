@@ -1,10 +1,12 @@
 'use client';
 
+import { BagLoader } from '@/components/ui/bag-loader';
+
 import { formatDistanceToNow } from 'date-fns';
 import {
   CheckCircle,
   Clock,
-  Loader2,
+  // Loader2,
   MessageSquare,
   MoreHorizontal,
   Search,
@@ -170,10 +172,10 @@ export default function ReviewsPage() {
         prev.map((r) =>
           r.id === selectedReview.id
             ? {
-                ...r,
-                merchant_response: responseText,
-                merchant_response_at: new Date().toISOString(),
-              }
+              ...r,
+              merchant_response: responseText,
+              merchant_response_at: new Date().toISOString(),
+            }
             : r
         )
       );
@@ -260,8 +262,8 @@ export default function ReviewsPage() {
       averageRating:
         reviews.length > 0
           ? (
-              reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
-            ).toFixed(1)
+            reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+          ).toFixed(1)
           : '0.0',
     }),
     [reviews]
@@ -340,7 +342,7 @@ export default function ReviewsPage() {
       {/* Reviews List */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin" />
+          <BagLoader size={32} />
         </div>
       ) : reviews.length === 0 ? (
         <Card>
@@ -511,7 +513,7 @@ export default function ReviewsPage() {
               onClick={submitResponse}
               disabled={isUpdating || !responseText.trim()}
             >
-              {isUpdating && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {isUpdating && <BagLoader size={16} />}
               Submit Response
             </Button>
           </DialogFooter>

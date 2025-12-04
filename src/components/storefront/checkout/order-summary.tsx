@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 import { DiscountCodeInput } from './discount-code-input';
+import { useCurrency } from '@/hooks/use-currency';
 
 interface CartItem {
   id: string;
@@ -72,12 +73,7 @@ export function OrderSummary({
   const discountAmount = calculateDiscountAmount();
   const total = subtotal + shippingCost - discountAmount;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-    }).format(amount);
-  };
+  const { formatCurrency } = useCurrency();
 
   const SummaryContent = () => (
     <>

@@ -1,5 +1,7 @@
 'use client';
 
+import { BagLoader } from '@/components/ui/bag-loader';
+
 import {
   Archive,
   CheckCircle,
@@ -9,7 +11,7 @@ import {
   File,
   Infinity as InfinityIcon,
   ListFilter,
-  Loader2,
+  // Loader2,
   Package,
   PlusCircle,
   Search,
@@ -434,7 +436,7 @@ function ProductsPageContent() {
                   disabled={isLoading || !searchTerm.trim()}
                 >
                   {isLoading ? (
-                    <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                    <BagLoader size={16} />
                   ) : (
                     <Send className="h-4 w-4" />
                   )}

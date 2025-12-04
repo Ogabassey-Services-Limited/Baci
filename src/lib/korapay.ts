@@ -8,10 +8,11 @@ const KORAPAY_BASE_URL =
 const KORAPAY_SECRET_KEY = process.env.KORAPAY_SECRET_KEY || '';
 const KORAPAY_PUBLIC_KEY = process.env.KORAPAY_PUBLIC_KEY || '';
 
-// Platform fee percentage (5% default)
+// Platform fee percentage (2%) capped at ₦2,050
 const PLATFORM_FEE_PERCENTAGE = Number.parseFloat(
-  process.env.PLATFORM_FEE_PERCENTAGE || '5'
+  process.env.PLATFORM_FEE_PERCENTAGE || '2'
 );
+const PLATFORM_FEE_CAP = 2050; // ₦2,050 cap
 
 // Supported African currencies
 export const SUPPORTED_CURRENCIES = [
@@ -306,13 +307,19 @@ export async function resolveBankAccount(
 
 /**
  * Calculate platform fee and merchant amount
+ * Platform takes 2%, capped at ₦2,050
  */
 export function calculatePlatformFee(amount: number): {
   platformFee: number;
   merchantAmount: number;
   total: number;
 } {
-  const platformFee = (amount * PLATFORM_FEE_PERCENTAGE) / 100;
+  // Calculate 2% fee
+  let platformFee = (amount * PLATFORM_FEE_PERCENTAGE) / 100;
+
+  // Apply cap of ₦2,050
+  platformFee = Math.min(platformFee, PLATFORM_FEE_CAP);
+
   const merchantAmount = amount - platformFee;
 
   return {

@@ -1,10 +1,12 @@
 'use client';
 
+import { BagLoader } from '@/components/ui/bag-loader';
+
 import {
   Copy,
   DollarSign,
   Edit,
-  Loader2,
+  // Loader2,
   Percent,
   PlusCircle,
   Tag,
@@ -256,7 +258,7 @@ export default function DiscountCodesPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -633,7 +635,7 @@ export default function DiscountCodesPage() {
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+                    <BagLoader size={16} />
                     Saving...
                   </>
                 ) : (

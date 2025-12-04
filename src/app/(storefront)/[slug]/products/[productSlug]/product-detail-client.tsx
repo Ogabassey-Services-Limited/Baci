@@ -67,7 +67,7 @@ function isVariantAvailable(
 
 export default function ProductDetailClient({ product }: { product: Product }) {
   const { merchant } = useMerchant();
-  const { cart, cartCount, addToCart, updateQuantity } = useCart();
+  const { cart, cartCount, addToCart, updateQuantity, setMerchantSlug } = useCart();
   const { toast } = useToast();
   const { formatCurrency, currencyCode } = useCurrency();
   const { addToRecentlyViewed } = useRecentlyViewed();
@@ -153,14 +153,19 @@ export default function ProductDetailClient({ product }: { product: Product }) {
       ? { ...product, price: currentPrice }
       : product;
 
+    // Store merchant slug for checkout
+    if (merchant?.slug) {
+      setMerchantSlug(merchant.slug);
+    }
+
     addToCart(
       productToAdd,
       quantity,
       selectedVariant
         ? {
-            variantId: selectedVariant.id,
-            variantAttributes: selectedAttributes,
-          }
+          variantId: selectedVariant.id,
+          variantAttributes: selectedAttributes,
+        }
         : undefined
     );
 
@@ -213,22 +218,17 @@ export default function ProductDetailClient({ product }: { product: Product }) {
 
   const brandColors = merchant?.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
   return (
     <>
       {/* Skip link for keyboard navigation */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        Skip to main content
-      </a>
+
       <div className="flex flex-col min-h-screen">
         <Sheet>
           <header
@@ -272,11 +272,11 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               items={[
                 ...(product.category
                   ? [
-                      {
-                        label: product.category,
-                        href: `/?category=${encodeURIComponent(product.category)}`,
-                      },
-                    ]
+                    {
+                      label: product.category,
+                      href: `/?category=${encodeURIComponent(product.category)}`,
+                    },
+                  ]
                   : []),
                 { label: product.name },
               ]}

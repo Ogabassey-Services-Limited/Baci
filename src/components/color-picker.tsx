@@ -28,6 +28,8 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   // Track if we're currently dragging - using state so it's available during render
   const [isDraggingSatLight, setIsDraggingSatLight] = useState(false);
   const [isDraggingHue, setIsDraggingHue] = useState(false);
+  // Use ref for synchronous access in useEffect to avoid race conditions
+  const isDraggingRef = useRef(false);
   const lastPropColorRef = useRef(color);
 
   const satLightBoxRef = useRef<HTMLDivElement>(null);
@@ -38,8 +40,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   useEffect(() => {
     if (
       lastPropColorRef.current !== color &&
-      !isDraggingSatLight &&
-      !isDraggingHue
+      !isDraggingRef.current
     ) {
       const newParsedColor = colord(color);
       const newHsl = newParsedColor.toHsl();
@@ -54,13 +55,14 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
         hexInputRef.current = newHex;
       }
     }
-  }, [color, isDraggingSatLight, isDraggingHue]);
+  }, [color]);
 
-  // Use internal state when dragging, otherwise derive from prop
-  const isDragging = isDraggingSatLight || isDraggingHue;
-  const hue = isDragging ? internalHue : incomingHsl.h;
-  const saturation = isDragging ? internalSaturation : incomingHsl.s;
-  const lightness = isDragging ? internalLightness : incomingHsl.l;
+  // Always use internal state for rendering to preserve precision and avoid
+  // lossy Hex->HSL conversion issues (e.g. losing Hue in grayscale).
+  // The useEffect above handles syncing from props when necessary.
+  const hue = internalHue;
+  const saturation = internalSaturation;
+  const lightness = internalLightness;
   const hex = colord({ h: hue, s: saturation, l: lightness }).toHex();
 
   // Update color and notify parent
@@ -128,16 +130,18 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   const handleMouseUp = () => {
     setIsDraggingSatLight(false);
     setIsDraggingHue(false);
+    isDraggingRef.current = false;
   };
 
   const handleMouseDownSatLight = (
     e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>
   ) => {
+    // Prevent text selection during drag
+    if (e.type === 'mousedown') {
+      e.preventDefault();
+    }
     setIsDraggingSatLight(true);
-    // Initialize internal state from current values
-    setInternalHue(hue);
-    setInternalSaturation(saturation);
-    setInternalLightness(lightness);
+    isDraggingRef.current = true;
     handleSatLightChange(e);
 
     const onMove = (moveEvent: MouseEvent | TouchEvent) =>
@@ -159,11 +163,12 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   const handleMouseDownHue = (
     e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>
   ) => {
+    // Prevent text selection during drag
+    if (e.type === 'mousedown') {
+      e.preventDefault();
+    }
     setIsDraggingHue(true);
-    // Initialize internal state from current values
-    setInternalHue(hue);
-    setInternalSaturation(saturation);
-    setInternalLightness(lightness);
+    isDraggingRef.current = true;
     handleHueChange(e);
 
     const onMove = (moveEvent: MouseEvent | TouchEvent) =>

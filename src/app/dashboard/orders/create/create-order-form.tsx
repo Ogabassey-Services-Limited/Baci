@@ -1,11 +1,13 @@
 'use client';
 
+import { BagLoader } from '@/components/ui/bag-loader';
+
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import {
   Calendar as CalendarIcon,
   ChevronsUpDown,
-  Loader2,
+  // Loader2,
   Mail,
   PlusCircle,
   Trash2,
@@ -492,7 +494,7 @@ export function CreateOrderForm() {
                   disabled={isSaving}
                 >
                   {isSaving && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <BagLoader size={16} />
                   )}
                   Create Order
                 </Button>

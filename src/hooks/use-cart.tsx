@@ -26,6 +26,7 @@ interface AddToCartOptions {
 
 interface CartContextType {
   cart: CartItem[];
+  merchantSlug: string | null;
   addToCart: (
     product: Product,
     quantity?: number,
@@ -38,6 +39,7 @@ interface CartContextType {
     variantId?: string
   ) => void;
   clearCart: () => void;
+  setMerchantSlug: (slug: string) => void;
   cartCount: number;
   cartTotal: number;
 }
@@ -75,12 +77,43 @@ const saveCartToStorage = (cart: CartItem[]) => {
   }
 };
 
+// Helper function to get merchant slug from localStorage
+const getMerchantSlugFromStorage = (): string | null => {
+  try {
+    return window.localStorage.getItem('baci-cart-merchant-slug');
+  } catch (error) {
+    logger.error({
+      message: 'Failed to read merchant slug from localStorage',
+      error: error as Error,
+    });
+    return null;
+  }
+};
+
+// Helper function to save merchant slug to localStorage
+const saveMerchantSlugToStorage = (slug: string | null) => {
+  try {
+    if (slug) {
+      window.localStorage.setItem('baci-cart-merchant-slug', slug);
+    } else {
+      window.localStorage.removeItem('baci-cart-merchant-slug');
+    }
+  } catch (error) {
+    logger.error({
+      message: 'Failed to save merchant slug to localStorage',
+      error: error as Error,
+    });
+  }
+};
+
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [merchantSlug, setMerchantSlugState] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load cart from localStorage on initial client-side render
+    // Load cart and merchant slug from localStorage on initial client-side render
     setCart(getCartFromStorage());
+    setMerchantSlugState(getMerchantSlugFromStorage());
   }, []);
 
   useEffect(() => {
@@ -171,7 +204,14 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const clearCart = useCallback(() => {
     setCart([]);
+    setMerchantSlugState(null);
+    saveMerchantSlugToStorage(null);
     logger.info({ message: 'Cart cleared' });
+  }, []);
+
+  const setMerchantSlug = useCallback((slug: string) => {
+    setMerchantSlugState(slug);
+    saveMerchantSlugToStorage(slug);
   }, []);
 
   const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
@@ -183,10 +223,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   const value = {
     cart,
+    merchantSlug,
     addToCart,
     removeFromCart,
     updateQuantity,
     clearCart,
+    setMerchantSlug,
     cartCount,
     cartTotal,
   };

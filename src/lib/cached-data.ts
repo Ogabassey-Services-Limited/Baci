@@ -49,7 +49,8 @@ export const getCachedMerchant = unstable_cache(
         brand_colors,
         slug,
         payout_currency,
-        category
+        category,
+        is_published
       `)
       .eq('slug', slug)
       .single();

@@ -6,6 +6,7 @@ import {
   Building2,
   Database,
   LayoutDashboard,
+  LayoutTemplate,
   Loader2,
   LogOut,
   Menu,
@@ -108,37 +109,42 @@ export default function AdminLayout({
     icon: typeof LayoutDashboard;
     label: string;
   }[] = [
-    {
-      href: '/admin' as Route,
-      icon: LayoutDashboard,
-      label: 'Overview',
-    },
-    {
-      href: '/admin/merchants' as Route,
-      icon: Building2,
-      label: 'Merchants',
-    },
-    {
-      href: '/admin/analytics' as Route,
-      icon: BarChart3,
-      label: 'Analytics',
-    },
-    {
-      href: '/admin/system' as Route,
-      icon: Database,
-      label: 'System Health',
-    },
-    {
-      href: '/admin/notifications' as Route,
-      icon: Bell,
-      label: 'Notifications',
-    },
-    {
-      href: '/admin/settings' as Route,
-      icon: Settings,
-      label: 'Platform Settings',
-    },
-  ];
+      {
+        href: '/admin' as Route,
+        icon: LayoutDashboard,
+        label: 'Overview',
+      },
+      {
+        href: '/admin/merchants' as Route,
+        icon: Building2,
+        label: 'Merchants',
+      },
+      {
+        href: '/admin/analytics' as Route,
+        icon: BarChart3,
+        label: 'Analytics',
+      },
+      {
+        href: '/admin/system' as Route,
+        icon: Database,
+        label: 'System Health',
+      },
+      {
+        href: '/admin/notifications' as Route,
+        icon: Bell,
+        label: 'Notifications',
+      },
+      {
+        href: '/admin/templates' as Route,
+        icon: LayoutTemplate,
+        label: 'Templates',
+      },
+      {
+        href: '/admin/settings' as Route,
+        icon: Settings,
+        label: 'Platform Settings',
+      },
+    ];
 
   // Loading state
   if (authLoading || adminLoading) {

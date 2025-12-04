@@ -1,5 +1,7 @@
 'use client';
 
+import { BagLoader } from '@/components/ui/bag-loader';
+
 import {
   AlertCircle as AlertCircleIcon,
   AlertTriangle,
@@ -13,7 +15,7 @@ import {
   Hourglass,
   List,
   ListFilter,
-  Loader2,
+  // Loader2,
   MoreVertical,
   PackageCheck,
   PlusCircle,
@@ -577,16 +579,17 @@ export default function OrdersPage() {
   if (authLoading || merchantLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2
-          className="h-8 w-8 motion-safe:animate-spin"
-          aria-label="Loading orders"
-        />
+        <BagLoader size={32} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full gap-4">
+    <div className="flex flex-col h-full gap-4 relative">
+      {/* Dynamic Background Elements */}
+      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10 pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] -z-10 pointer-events-none opacity-50" />
+
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
           Orders 📦
@@ -620,7 +623,7 @@ export default function OrdersPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="bg-blue-50 border-blue-200 transition-transform transform hover:scale-105">
+        <Card className="bg-blue-50/50 backdrop-blur-sm border-blue-200 transition-transform transform hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-800">
               Total Orders 🛍️
@@ -630,14 +633,14 @@ export default function OrdersPage() {
           <CardContent>
             <div className="text-stat text-blue-900">
               {statsLoading ? (
-                <Loader2 className="h-6 w-6 motion-safe:animate-spin" />
+                <BagLoader size={24} />
               ) : (
                 stats.totalOrders.toLocaleString()
               )}
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-yellow-50 border-yellow-200 transition-transform transform hover:scale-105">
+        <Card className="bg-yellow-50/50 backdrop-blur-sm border-yellow-200 transition-transform transform hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-yellow-800">
               Completed Orders ✅
@@ -647,14 +650,14 @@ export default function OrdersPage() {
           <CardContent>
             <div className="text-stat text-yellow-900">
               {statsLoading ? (
-                <Loader2 className="h-6 w-6 motion-safe:animate-spin" />
+                <BagLoader size={24} />
               ) : (
                 stats.completedOrders.toLocaleString()
               )}
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-blue-50 border-blue-200 transition-transform transform hover:scale-105">
+        <Card className="bg-blue-50/50 backdrop-blur-sm border-blue-200 transition-transform transform hover:scale-105">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-blue-800">
               Unpaid Orders 💸
@@ -664,7 +667,7 @@ export default function OrdersPage() {
           <CardContent>
             <div className="text-stat text-blue-900">
               {statsLoading ? (
-                <Loader2 className="h-6 w-6 motion-safe:animate-spin" />
+                <BagLoader size={24} />
               ) : (
                 stats.unpaidOrders.toLocaleString()
               )}
@@ -678,19 +681,19 @@ export default function OrdersPage() {
         <Input
           type="search"
           placeholder="Search orders..."
-          className="w-full bg-background pl-8"
+          className="w-full bg-background/50 backdrop-blur-sm pl-8"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
       {showAlert && stats.urgentOrders > 0 && (
-        <Alert className="bg-yellow-50 border-yellow-200 text-yellow-900 relative">
+        <Alert className="bg-yellow-50/80 backdrop-blur-sm border-yellow-200 text-yellow-900 relative">
           <AlertTriangle className="h-4 w-4 text-yellow-600" />
           <AlertTitle className="font-semibold">
             {statsLoading ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 motion-safe:animate-spin" />
+                <BagLoader size={16} />
                 Checking orders...
               </span>
             ) : (
@@ -719,7 +722,7 @@ export default function OrdersPage() {
             className="absolute top-2 right-2 h-6 w-6"
             onClick={() => setShowAlert(false)}
           >
-            <X className="h-4 w-4 text-yellow-700" />
+            <BagLoader size={32} />
             <span className="sr-only">Dismiss</span>
           </Button>
         </Alert>
@@ -803,8 +806,8 @@ export default function OrdersPage() {
         </DropdownMenu>
       </div>
 
-      <Card className="glass">
-        <CardHeader className="px-4 pt-4 pb-0 border-b border-blue-200">
+      <Card className="glass bg-white/60 dark:bg-black/40 backdrop-blur-xl">
+        <CardHeader className="px-4 pt-4 pb-0 border-b border-blue-200/50">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-bold">Recent Orders</h3>
             <div className="flex items-center gap-2">
@@ -854,7 +857,7 @@ export default function OrdersPage() {
           <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-4">
             {ordersLoading ? (
               <div className="flex justify-center items-center h-64">
-                <Loader2 className="h-8 w-8 motion-safe:animate-spin text-primary" />
+                <BagLoader size={32} />
               </div>
             ) : ordersError ? (
               <Alert variant="destructive" className="m-4">
@@ -875,21 +878,21 @@ export default function OrdersPage() {
               filteredOrders.map((order) => (
                 <Card
                   key={order.orderNumber}
-                  className="transition-shadow hover:shadow-md"
+                  className="transition-shadow hover:shadow-md bg-white/50 dark:bg-black/20"
                 >
-                  <CardContent className="p-4 flex items-center gap-4">
+                  <CardContent className="p-4 flex items-center gap-4 overflow-x-auto">
                     <Checkbox
                       onCheckedChange={(checked) =>
                         handleSelectOrder(order.orderNumber, checked as boolean)
                       }
                       checked={selectedOrders.has(order.orderNumber)}
                       aria-label={`Select order ${order.orderNumber}`}
-                      className="mt-1"
+                      className="mt-1 shrink-0"
                     />
                     <div className="flex-shrink-0 mt-1">
                       <SourceIcon source={order.source} />
                     </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-[200px]">
                       <Link
                         href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}
                         className="font-semibold hover:underline"
@@ -900,7 +903,7 @@ export default function OrdersPage() {
                         {order.orderNumber} &middot; {order.date}
                       </p>
                     </div>
-                    <div className="flex items-center justify-end gap-4 text-sm w-[280px]">
+                    <div className="flex items-center justify-end gap-4 text-sm w-[280px] shrink-0">
                       <div className="w-[110px] text-center">
                         <StatusBadge
                           status={order.paymentStatus}
@@ -914,7 +917,7 @@ export default function OrdersPage() {
                         />
                       </div>
                     </div>
-                    <div className="text-right w-28">
+                    <div className="text-right w-28 shrink-0">
                       <p className="font-bold text-lg">
                         {formatCurrency(order.total)}
                       </p>

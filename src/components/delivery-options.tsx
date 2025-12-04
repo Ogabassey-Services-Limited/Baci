@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils';
 
 interface ShippingQuote {
   id: string;
-  provider: 'GIGL' | 'TOPSHIP' | 'SHIIP';
+  provider: 'GIGL' | 'TOPSHIP';
   serviceTier: string;
   carrierName: string;
   displayName: string;

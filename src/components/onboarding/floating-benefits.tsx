@@ -12,6 +12,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
 
 // Color Codes (Derived from globals.css):
 // Primary: hsl(239 45% 30%) - Deep Blue
@@ -194,6 +195,8 @@ function NetworkLines() {
 }
 
 export function OnboardingBackground() {
+  const isLogoUploaded = useOnboardingUIStore((state) => state.isLogoUploaded);
+
   return (
     <div
       className="absolute inset-0 overflow-hidden pointer-events-none"
@@ -207,8 +210,8 @@ export function OnboardingBackground() {
         label="AI Powered Design"
         color="text-purple-600"
         delay={0}
-        x="6%"
-        y="15%"
+        x={isLogoUploaded ? '2%' : '6%'}
+        y={isLogoUploaded ? '10%' : '15%'}
         className="-rotate-3"
       />
       <BenefitPill
@@ -216,8 +219,8 @@ export function OnboardingBackground() {
         label="Launch in Seconds"
         color="text-amber-500"
         delay={0.2}
-        x="5%"
-        y="38%"
+        x={isLogoUploaded ? '2%' : '5%'}
+        y={isLogoUploaded ? '30%' : '38%'}
         className="rotate-2"
       />
       <BenefitPill
@@ -225,8 +228,8 @@ export function OnboardingBackground() {
         label="AI Descriptions"
         color="text-orange-500"
         delay={0.4}
-        x="8%"
-        y="62%"
+        x={isLogoUploaded ? '2%' : '8%'}
+        y={isLogoUploaded ? '70%' : '62%'}
         className="-rotate-2"
       />
       <BenefitPill
@@ -234,8 +237,8 @@ export function OnboardingBackground() {
         label="Auto Branding"
         color="text-pink-500"
         delay={0.6}
-        x="5%"
-        y="85%"
+        x={isLogoUploaded ? '2%' : '5%'}
+        y={isLogoUploaded ? '90%' : '85%'}
         className="rotate-3"
       />
 
@@ -245,8 +248,8 @@ export function OnboardingBackground() {
         label="Global Sales"
         color="text-blue-500"
         delay={0.1}
-        x="88%"
-        y="15%"
+        x={isLogoUploaded ? '90%' : '88%'}
+        y={isLogoUploaded ? '10%' : '15%'}
         className="rotate-3"
       />
       <BenefitPill
@@ -254,8 +257,8 @@ export function OnboardingBackground() {
         label="Secure Payments"
         color="text-emerald-500"
         delay={0.3}
-        x="82%"
-        y="38%"
+        x={isLogoUploaded ? '90%' : '82%'}
+        y={isLogoUploaded ? '30%' : '38%'}
         className="-rotate-3"
       />
       <BenefitPill
@@ -263,8 +266,8 @@ export function OnboardingBackground() {
         label="AI Blog Posts"
         color="text-indigo-500"
         delay={0.5}
-        x="88%"
-        y="62%"
+        x={isLogoUploaded ? '90%' : '88%'}
+        y={isLogoUploaded ? '70%' : '62%'}
         className="rotate-2"
       />
       <BenefitPill
@@ -272,8 +275,8 @@ export function OnboardingBackground() {
         label="Built-in SEO"
         color="text-cyan-500"
         delay={0.7}
-        x="84%"
-        y="85%"
+        x={isLogoUploaded ? '90%' : '84%'}
+        y={isLogoUploaded ? '90%' : '85%'}
         className="-rotate-2"
       />
 

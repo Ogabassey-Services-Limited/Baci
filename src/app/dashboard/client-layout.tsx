@@ -20,12 +20,15 @@ import {
   Store,
   User,
   Users,
+  Wallet,
 } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { Logo } from '@/components/logo';
+import { BagIcon } from '@/components/bag-icon';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { NotificationBanner } from '@/components/notifications/notification-banner';
 import { NotificationCenter } from '@/components/notifications/notification-center';
 import { Badge } from '@/components/ui/badge';
@@ -69,9 +72,9 @@ const StoreLink = ({
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
     : cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
-        isCollapsed && 'justify-center'
-      );
+      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
+      isCollapsed && 'justify-center'
+    );
 
   const isReady = !merchantLoading && storeUrl !== '#';
 
@@ -191,6 +194,40 @@ export default function DashboardClientLayout({
     }
   }, [user, merchant, authLoading, merchantLoading, router, toast]);
 
+
+  // Auto-collapse sidebar on main content interaction
+  useEffect(() => {
+    const mainContent = document.getElementById('main-content');
+    if (!mainContent) return;
+
+    const handleInteraction = (event: Event) => {
+      // Only auto-collapse on desktop and if sidebar is expanded
+      if (window.innerWidth >= 768 && !isCollapsed) {
+        if (event.type === 'click') {
+          setIsCollapsed(true);
+        } else if (event.type === 'scroll') {
+          const target = event.target as HTMLElement;
+          // Calculate 5% of the scrollable height
+          const threshold = (target.scrollHeight - target.clientHeight) * 0.05;
+
+          // If scrolled more than 5% and threshold is valid (not 0)
+          if (threshold > 0 && target.scrollTop > threshold) {
+            setIsCollapsed(true);
+          }
+        }
+      }
+    };
+
+    // Collapse on click or scroll (with threshold)
+    mainContent.addEventListener('click', handleInteraction);
+    mainContent.addEventListener('scroll', handleInteraction);
+
+    return () => {
+      mainContent.removeEventListener('click', handleInteraction);
+      mainContent.removeEventListener('scroll', handleInteraction);
+    };
+  }, [isCollapsed]);
+
   const selectedCountry = merchant?.country
     ? getCountryByCode(merchant.country)
     : null;
@@ -223,70 +260,75 @@ export default function DashboardClientLayout({
     label: string;
     badge?: number;
   }[] = [
-    {
-      href: '/dashboard' as Route,
-      icon: LayoutDashboard,
-      label: 'Dashboard',
-    },
-    {
-      href: '/dashboard/analytics' as Route,
-      icon: BarChart3,
-      label: 'Analytics',
-    },
-    {
-      href: '/dashboard/orders' as Route,
-      icon: ShoppingCart,
-      label: 'Orders',
-      badge: 6,
-    },
-    {
-      href: '/dashboard/products' as Route,
-      icon: Package,
-      label: 'Products',
-    },
-    {
-      href: '/dashboard/customers' as Route,
-      icon: Users,
-      label: 'Customers',
-    },
-    {
-      href: '/dashboard/loyalty' as Route,
-      icon: Gift,
-      label: 'Loyalty',
-    },
-    {
-      href: '/dashboard/seo' as Route,
-      icon: Search,
-      label: 'SEO',
-    },
-    {
-      href: '/dashboard/pages' as Route,
-      icon: FileText,
-      label: 'Pages',
-    },
-    {
-      icon: Paintbrush,
-      label: 'Customize Website',
-      href: '/builder' as Route,
-    },
-    {
-      href: '/dashboard/integrations' as Route,
-      icon: Plug,
-      label: 'Integrations',
-    },
-    {
-      href: '/dashboard/settings' as Route,
-      icon: Settings,
-      label: 'Settings',
-    },
-  ];
+      {
+        href: '/dashboard' as Route,
+        icon: LayoutDashboard,
+        label: 'Dashboard',
+      },
+      {
+        href: '/dashboard/analytics' as Route,
+        icon: BarChart3,
+        label: 'Analytics',
+      },
+      {
+        href: '/dashboard/orders' as Route,
+        icon: ShoppingCart,
+        label: 'Orders',
+        badge: 6,
+      },
+      {
+        href: '/dashboard/products' as Route,
+        icon: Package,
+        label: 'Products',
+      },
+      {
+        href: '/dashboard/customers' as Route,
+        icon: Users,
+        label: 'Customers',
+      },
+      {
+        href: '/dashboard/loyalty' as Route,
+        icon: Gift,
+        label: 'Loyalty',
+      },
+      {
+        href: '/dashboard/wallet' as Route,
+        icon: Wallet,
+        label: 'Wallet',
+      },
+      {
+        href: '/dashboard/seo' as Route,
+        icon: Search,
+        label: 'SEO',
+      },
+      {
+        href: '/dashboard/pages' as Route,
+        icon: FileText,
+        label: 'Pages',
+      },
+      {
+        icon: Paintbrush,
+        label: 'Customize Website',
+        href: '/builder' as Route,
+      },
+      {
+        href: '/dashboard/integrations' as Route,
+        icon: Plug,
+        label: 'Integrations',
+      },
+      {
+        href: '/dashboard/settings' as Route,
+        icon: Settings,
+        label: 'Settings',
+      },
+    ];
 
   // While checking auth OR if auth has succeeded but we are still waiting for the merchant,
   // show a full-page loading screen. This prevents content flashes and incorrect redirects.
   if (authLoading || (user && merchantLoading)) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+        <BagLoader size={64} />
       </div>
     );
   }
@@ -300,12 +342,7 @@ export default function DashboardClientLayout({
   return (
     <>
       {/* Skip link for keyboard navigation */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        Skip to main content
-      </a>
+
       <div
         className={cn(
           'grid min-h-screen w-full transition-all',
@@ -335,7 +372,7 @@ export default function DashboardClientLayout({
                 href="/dashboard"
                 className="flex items-center gap-2 font-semibold transition-transform hover:scale-105"
               >
-                <Logo />
+                {isCollapsed ? <BagIcon width={32} height={32} /> : <Logo />}
                 {!isCollapsed && <span className="sr-only">Baci</span>}
               </Link>
             </div>
@@ -591,16 +628,13 @@ export default function DashboardClientLayout({
 
           <main
             id="main-content"
-            className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-8 pt-20 md:pt-24 lg:pt-24 overflow-y-auto"
+            className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-8 pt-20 md:pt-24 lg:pt-24 overflow-y-auto overflow-x-hidden min-w-0"
           >
             <NotificationBanner />
             <Suspense
               fallback={
                 <div className="flex flex-1 items-center justify-center">
-                  <Loader2
-                    className="h-8 w-8 motion-safe:animate-spin"
-                    aria-label="Loading"
-                  />
+                  <BagLoader size={48} />
                 </div>
               }
             >

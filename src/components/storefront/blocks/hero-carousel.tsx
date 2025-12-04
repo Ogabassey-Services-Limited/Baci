@@ -61,7 +61,7 @@ export function HeroCarousel({
                   src={slide.image}
                   alt={slide.title}
                   fill
-                  className="object-cover transition-transform duration-[10s] hover:scale-105"
+                  className="object-cover transition-transform duration-[10000ms] hover:scale-105"
                   priority={index === 0}
                 />
                 {/* Gradient Overlay */}

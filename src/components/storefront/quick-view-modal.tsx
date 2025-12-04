@@ -27,6 +27,8 @@ interface QuickViewModalProps {
   isOpen: boolean;
   /** Callback when modal is closed */
   onClose: () => void;
+  /** Merchant slug for checkout context */
+  merchantSlug?: string;
 }
 
 /**
@@ -46,9 +48,10 @@ export function QuickViewModal({
   product,
   isOpen,
   onClose,
+  merchantSlug,
 }: QuickViewModalProps) {
   const { formatCurrency } = useCurrency();
-  const { addToCart } = useCart();
+  const { addToCart, setMerchantSlug } = useCart();
   const { toast } = useToast();
 
   const [quantity, setQuantity] = useState(1);
@@ -125,6 +128,11 @@ export function QuickViewModal({
   };
 
   const handleAddToCart = () => {
+    // Store merchant slug for checkout
+    if (merchantSlug) {
+      setMerchantSlug(merchantSlug);
+    }
+
     // Create a product object with variant info if applicable
     const productToAdd = selectedVariant
       ? {

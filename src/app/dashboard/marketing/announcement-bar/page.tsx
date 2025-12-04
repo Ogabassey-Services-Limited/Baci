@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -78,7 +78,7 @@ export default function AnnouncementBarPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -223,7 +223,7 @@ export default function AnnouncementBarPage() {
               <Button onClick={handleSave} disabled={isSaving}>
                 {isSaving ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <BagLoader size={16} />
                     Saving...
                   </>
                 ) : (

@@ -51,7 +51,14 @@ export function AIInsightsPanel({
           // Don't block on this request
           priority: 'low' as RequestPriority,
         });
-        if (!response.ok) throw new Error('Failed to fetch insights');
+
+        if (!response.ok) {
+          // Log but don't throw - we have a graceful fallback UI
+          console.warn(`AI insights unavailable (${response.status})`);
+          setError(true);
+          return;
+        }
+
         const data = await response.json();
 
         // Use transition to avoid blocking UI
@@ -61,7 +68,8 @@ export function AIInsightsPanel({
         });
       } catch (err) {
         if ((err as Error).name !== 'AbortError') {
-          console.error(err);
+          // Only warn - insights are non-critical
+          console.warn('AI insights fetch failed:', (err as Error).message);
           setError(true);
         }
       } finally {

@@ -36,16 +36,34 @@ export function StorefrontProductGrid({
 }: StorefrontProductGridProps) {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant || null;
-  const { cart, addToCart, updateQuantity } = useCart();
+  const { cart, addToCart, updateQuantity, setMerchantSlug } = useCart();
   const { toast } = useToast();
   const { formatCurrency } = useCurrency();
 
   const storefrontContext = useStorefrontSafe();
-  const searchQuery = storefrontContext?.searchQuery || '';
-  const selectedCategory = storefrontContext?.selectedCategory || 'All';
 
-  const setSelectedCategory =
-    storefrontContext?.setSelectedCategory || (() => void 0);
+  // Local state fallbacks for when context is missing (e.g. in builder)
+  const [localSelectedCategory, setLocalSelectedCategory] = useState('All');
+  const [localSearchQuery, setLocalSearchQuery] = useState('');
+
+  const searchQuery = storefrontContext?.searchQuery ?? localSearchQuery;
+  const selectedCategory = storefrontContext?.selectedCategory ?? localSelectedCategory;
+
+  const handleSetSelectedCategory = (category: string) => {
+    if (storefrontContext?.setSelectedCategory) {
+      storefrontContext.setSelectedCategory(category);
+    } else {
+      setLocalSelectedCategory(category);
+    }
+  };
+
+  const handleSetSearchQuery = (query: string) => {
+    if (storefrontContext?.setSearchQuery) {
+      storefrontContext.setSearchQuery(query);
+    } else {
+      setLocalSearchQuery(query);
+    }
+  };
 
   const isPreviewMode = !merchantContext;
   const [products, setProducts] = useState<Product[]>(() => {
@@ -138,6 +156,15 @@ export function StorefrontProductGrid({
     serverSearchResults.length,
   ]);
 
+  const { formatCurrencyCompact } = useCurrency();
+
+  const priceRanges = useMemo(() => [
+    { label: `Under ${formatCurrencyCompact(50)}`, min: 0, max: 50 },
+    { label: `${formatCurrencyCompact(50)} - ${formatCurrencyCompact(100)}`, min: 50, max: 100 },
+    { label: `${formatCurrencyCompact(100)} - ${formatCurrencyCompact(200)}`, min: 100, max: 200 },
+    { label: `Over ${formatCurrencyCompact(200)}`, min: 200, max: Infinity },
+  ], [formatCurrencyCompact]);
+
   const filterOptions = useMemo(() => {
     if (filterType === 'category') {
       const cats = new Set(
@@ -152,10 +179,10 @@ export function StorefrontProductGrid({
       );
       return Array.from(brands);
     } else if (filterType === 'price') {
-      return ['Under $50', '$50 - $100', '$100 - $200', 'Over $200'];
+      return priceRanges.map((r) => r.label);
     }
     return [];
-  }, [products, filterType]);
+  }, [products, filterType, priceRanges]);
 
   const fuse = useMemo(() => {
     if (products.length > 0) {
@@ -187,21 +214,15 @@ export function StorefrontProductGrid({
         } else if (filterType === 'brand') {
           filtered = filtered.filter((p) => p.brand === selectedCategory);
         } else if (filterType === 'price') {
-          filtered = filtered.filter((p) => {
-            const price = p.price || 0;
-            switch (selectedCategory) {
-              case 'Under $50':
-                return price < 50;
-              case '$50 - $100':
-                return price >= 50 && price <= 100;
-              case '$100 - $200':
-                return price >= 100 && price <= 200;
-              case 'Over $200':
-                return price > 200;
-              default:
-                return true;
-            }
-          });
+          const range = priceRanges.find((r) => r.label === selectedCategory);
+          if (range) {
+            filtered = filtered.filter((p) => {
+              const price = p.price || 0;
+              if (range.max === Infinity) return price > range.min;
+              if (range.min === 0) return price < range.max;
+              return price >= range.min && price <= range.max;
+            });
+          }
         }
       }
 
@@ -221,21 +242,15 @@ export function StorefrontProductGrid({
       } else if (filterType === 'brand') {
         filtered = filtered.filter((p) => p.brand === selectedCategory);
       } else if (filterType === 'price') {
-        filtered = filtered.filter((p) => {
-          const price = p.price || 0;
-          switch (selectedCategory) {
-            case 'Under $50':
-              return price < 50;
-            case '$50 - $100':
-              return price >= 50 && price <= 100;
-            case '$100 - $200':
-              return price >= 100 && price <= 200;
-            case 'Over $200':
-              return price > 200;
-            default:
-              return true;
-          }
-        });
+        const range = priceRanges.find((r) => r.label === selectedCategory);
+        if (range) {
+          filtered = filtered.filter((p) => {
+            const price = p.price || 0;
+            if (range.max === Infinity) return price > range.min;
+            if (range.min === 0) return price < range.max;
+            return price >= range.min && price <= range.max;
+          });
+        }
       }
     }
 
@@ -252,6 +267,10 @@ export function StorefrontProductGrid({
   ]);
 
   const handleAddToCart = (product: Product) => {
+    // Store merchant slug for checkout
+    if (merchant?.slug) {
+      setMerchantSlug(merchant.slug);
+    }
     addToCart(product);
     toast({
       title: 'Added to cart',
@@ -261,10 +280,10 @@ export function StorefrontProductGrid({
 
   const brandColors = merchant?.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -277,12 +296,12 @@ export function StorefrontProductGrid({
   } = useQuickView();
 
   return (
-    <section className="w-full py-12 md:py-24 lg:py-32" id="products">
+    <section className="w-full py-8 md:py-12" id="products">
       <div className="container px-4 md:px-6">
         {showFilters ? (
-          <div className="max-w-4xl mx-auto mb-12">
-            <div className="bg-card border rounded-xl p-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="w-full mb-6">
+            <div className="bg-card border rounded-xl p-4 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-6">
                 <div className="flex items-center gap-3">
                   <svg
                     className="w-5 h-5 text-muted-foreground"
@@ -305,7 +324,7 @@ export function StorefrontProductGrid({
                       setFilterType(
                         e.target.value as 'category' | 'brand' | 'price'
                       );
-                      setSelectedCategory('All'); // Reset active filter when type changes
+                      handleSetSelectedCategory('All'); // Reset active filter when type changes
                     }}
                   >
                     <option value="category">Shop by Category</option>
@@ -320,15 +339,14 @@ export function StorefrontProductGrid({
                         type="button"
                         key={option}
                         onClick={() =>
-                          setSelectedCategory(
+                          handleSetSelectedCategory(
                             selectedCategory === option ? 'All' : option
                           )
                         }
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          selectedCategory === option
-                            ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
-                            : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
-                        }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === option
+                          ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
+                          : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
+                          }`}
                       >
                         {option}
                       </button>
@@ -358,7 +376,7 @@ export function StorefrontProductGrid({
                     colorRole={
                       selectedCategory === category ? 'primary' : 'accent'
                     }
-                    onClick={() => setSelectedCategory(category)}
+                    onClick={() => handleSetSelectedCategory(category)}
                     size="sm"
                     className="capitalize"
                   >
@@ -376,7 +394,7 @@ export function StorefrontProductGrid({
             originalQuery={searchQuery}
             suggestion={didYouMean}
             onSuggestionClick={(suggestion) => {
-              storefrontContext?.setSearchQuery?.(suggestion);
+              handleSetSearchQuery(suggestion);
             }}
           />
         )}
@@ -531,6 +549,7 @@ export function StorefrontProductGrid({
         product={quickViewProduct}
         isOpen={isQuickViewOpen}
         onClose={closeQuickView}
+        merchantSlug={merchant?.slug}
       />
     </section>
   );

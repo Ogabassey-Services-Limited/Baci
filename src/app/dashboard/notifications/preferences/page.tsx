@@ -1,6 +1,7 @@
 'use client';
 
-import { ArrowLeft, Bell, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, Bell, Save } from 'lucide-react';
+import { BagLoader } from '@/components/ui/bag-loader';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
@@ -96,7 +97,7 @@ export default function NotificationPreferencesPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -214,7 +215,7 @@ export default function NotificationPreferencesPage() {
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <BagLoader size={16} />
               Saving...
             </>
           ) : (

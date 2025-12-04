@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -197,13 +197,17 @@ export default function AnalyticsPage() {
   if (merchantLoading) {
     return (
       <div className="flex flex-1 items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+        <BagLoader size={32} />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 relative">
+      {/* Dynamic Background Elements from Login Page */}
+      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10 pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] -z-10 pointer-events-none opacity-50" />
+
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
@@ -218,7 +222,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Analytics Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-10 py-4 bg-background/80 backdrop-blur-md -mx-6 px-6 border-b">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-10 py-4 bg-background/60 backdrop-blur-xl -mx-6 px-6 border-b border-white/10">
         <AnalyticsCategoryNav
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}

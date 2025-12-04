@@ -4,7 +4,6 @@ import { cache, generateCacheKey } from '@/lib/cache';
 import { createClient } from '@/lib/supabase/server';
 
 /**
-/**
  * GET /api/analytics?startDate=ISO&endDate=ISO
  * Get real-time analytics for merchant dashboard
  */

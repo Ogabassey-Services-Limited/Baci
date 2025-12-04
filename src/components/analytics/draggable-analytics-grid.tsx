@@ -126,6 +126,201 @@ interface DraggableAnalyticsGridProps {
   merchant: MerchantData | null;
 }
 
+const DEFAULT_LAYOUTS: Layouts = {
+  lg: [
+    // Row 1: Primary KPIs (6 cards across)
+    { i: 'summary-revenue', x: 0, y: 0, w: 2, h: 1 },
+    { i: 'summary-orders', x: 2, y: 0, w: 2, h: 1 },
+    { i: 'summary-profit', x: 4, y: 0, w: 2, h: 1 },
+    { i: 'summary-customers', x: 6, y: 0, w: 2, h: 1 },
+    { i: 'summary-tax', x: 8, y: 0, w: 2, h: 1 },
+    { i: 'summary-active', x: 10, y: 0, w: 2, h: 1 },
+
+    // Row 2: Secondary KPIs (6 cards across)
+    { i: 'summary-aov', x: 0, y: 1, w: 2, h: 1 },
+    { i: 'summary-margin', x: 2, y: 1, w: 2, h: 1 },
+    { i: 'summary-refund-rate', x: 4, y: 1, w: 2, h: 1 },
+    { i: 'summary-ltv', x: 6, y: 1, w: 2, h: 1 },
+    { i: 'payment-methods', x: 8, y: 1, w: 4, h: 2 },
+
+    // Row 3: Charts & Detailed Cards (full width charts)
+    { i: 'revenue-chart', x: 0, y: 2, w: 8, h: 3 },
+    { i: 'sales-channel', x: 0, y: 5, w: 6, h: 3 },
+    { i: 'recent-sales', x: 6, y: 5, w: 6, h: 3 },
+
+    // Row 4: Lists (stacked horizontally)
+    { i: 'top-products', x: 0, y: 8, w: 12, h: 3 },
+
+    // Inventory widgets - horizontal arrangement
+    { i: 'inventory-summary', x: 0, y: 0, w: 3, h: 1 },
+    { i: 'inventory-alerts', x: 3, y: 0, w: 4, h: 2 },
+    { i: 'inventory-forecast', x: 7, y: 0, w: 5, h: 3 },
+    { i: 'low-stock-products', x: 0, y: 1, w: 3, h: 2 },
+
+    // Segment widgets - horizontal arrangement
+    { i: 'segment-overview', x: 0, y: 0, w: 3, h: 2 },
+    { i: 'segment-distribution', x: 3, y: 0, w: 3, h: 2 },
+    { i: 'at-risk-customers', x: 6, y: 0, w: 3, h: 2 },
+    { i: 'champions-list', x: 9, y: 0, w: 3, h: 2 },
+  ],
+  md: [
+    // On md (10 cols), make cards take full width or half width
+    { i: 'sales-channel', x: 5, y: 0, w: 5, h: 3 },
+    { i: 'summary-revenue', x: 0, y: 0, w: 5, h: 1 },
+    { i: 'summary-orders', x: 5, y: 1, w: 5, h: 1 },
+    { i: 'summary-profit', x: 5, y: 1, w: 5, h: 1 },
+    { i: 'summary-customers', x: 0, y: 1, w: 5, h: 1 },
+    { i: 'summary-tax', x: 0, y: 1, w: 5, h: 1 },
+    { i: 'summary-active', x: 0, y: 2, w: 5, h: 1 },
+    { i: 'summary-aov', x: 0, y: 2, w: 5, h: 1 },
+    { i: 'summary-margin', x: 5, y: 2, w: 5, h: 1 },
+    { i: 'summary-refund-rate', x: 5, y: 2, w: 5, h: 1 },
+    { i: 'summary-ltv', x: 0, y: 3, w: 5, h: 1 },
+    { i: 'revenue-chart', x: 0, y: 4, w: 10, h: 3 },
+    { i: 'payment-methods', x: 0, y: 7, w: 5, h: 3 },
+    { i: 'recent-sales', x: 0, y: 10, w: 5, h: 3 },
+    { i: 'top-products', x: 5, y: 10, w: 5, h: 3 },
+    { i: 'inventory-alerts', x: 0, y: 0, w: 5, h: 2 },
+    { i: 'inventory-forecast', x: 5, y: 0, w: 5, h: 3 },
+    { i: 'inventory-summary', x: 0, y: 2, w: 5, h: 1 },
+    { i: 'low-stock-products', x: 5, y: 3, w: 5, h: 2 },
+    { i: 'segment-overview', x: 0, y: 0, w: 5, h: 2 },
+    { i: 'segment-distribution', x: 5, y: 0, w: 5, h: 2 },
+    { i: 'at-risk-customers', x: 0, y: 2, w: 5, h: 2 },
+    { i: 'champions-list', x: 5, y: 2, w: 5, h: 2 },
+  ],
+  sm: [
+    // On sm (6 cols), stack in 2 columns
+    { i: 'sales-channel', x: 0, y: 10, w: 6, h: 3 },
+    { i: 'summary-revenue', x: 0, y: 0, w: 3, h: 1 },
+    { i: 'summary-orders', x: 3, y: 0, w: 3, h: 1 },
+    { i: 'summary-profit', x: 3, y: 0, w: 3, h: 1 },
+    { i: 'summary-customers', x: 0, y: 1, w: 3, h: 1 },
+    { i: 'summary-tax', x: 0, y: 1, w: 3, h: 1 },
+    { i: 'summary-active', x: 3, y: 1, w: 3, h: 1 },
+    { i: 'summary-aov', x: 3, y: 1, w: 3, h: 1 },
+    { i: 'summary-margin', x: 0, y: 2, w: 3, h: 1 },
+    { i: 'summary-refund-rate', x: 0, y: 2, w: 3, h: 1 },
+    { i: 'summary-ltv', x: 3, y: 2, w: 3, h: 1 },
+    { i: 'revenue-chart', x: 0, y: 3, w: 6, h: 3 },
+    { i: 'payment-methods', x: 0, y: 6, w: 6, h: 3 },
+    { i: 'recent-sales', x: 0, y: 13, w: 6, h: 3 },
+    { i: 'top-products', x: 0, y: 16, w: 6, h: 3 },
+    { i: 'inventory-alerts', x: 0, y: 0, w: 3, h: 2 },
+    { i: 'inventory-forecast', x: 3, y: 0, w: 3, h: 3 },
+    { i: 'inventory-summary', x: 0, y: 2, w: 3, h: 1 },
+    { i: 'low-stock-products', x: 0, y: 3, w: 6, h: 2 },
+    { i: 'segment-overview', x: 0, y: 0, w: 3, h: 2 },
+    { i: 'segment-distribution', x: 3, y: 0, w: 3, h: 2 },
+    { i: 'at-risk-customers', x: 0, y: 2, w: 6, h: 2 },
+    { i: 'champions-list', x: 0, y: 4, w: 6, h: 2 },
+  ],
+  xs: [
+    // On xs (4 cols), cards take 2 or 4 cols
+    { i: 'sales-channel', x: 0, y: 10, w: 4, h: 3 },
+    { i: 'summary-revenue', x: 0, y: 0, w: 2, h: 1 },
+    { i: 'summary-orders', x: 2, y: 0, w: 2, h: 1 },
+    { i: 'summary-profit', x: 2, y: 0, w: 2, h: 1 },
+    { i: 'summary-customers', x: 0, y: 1, w: 2, h: 1 },
+    { i: 'summary-tax', x: 0, y: 1, w: 2, h: 1 },
+    { i: 'summary-active', x: 2, y: 1, w: 2, h: 1 },
+    { i: 'summary-aov', x: 2, y: 1, w: 2, h: 1 },
+    { i: 'summary-margin', x: 0, y: 2, w: 2, h: 1 },
+    { i: 'summary-refund-rate', x: 0, y: 2, w: 2, h: 1 },
+    { i: 'summary-ltv', x: 2, y: 2, w: 2, h: 1 },
+    { i: 'revenue-chart', x: 0, y: 3, w: 4, h: 3 },
+    { i: 'payment-methods', x: 0, y: 6, w: 4, h: 3 },
+    { i: 'recent-sales', x: 0, y: 13, w: 4, h: 3 },
+    { i: 'top-products', x: 0, y: 16, w: 4, h: 3 },
+    { i: 'inventory-alerts', x: 0, y: 0, w: 2, h: 2 },
+    { i: 'inventory-forecast', x: 2, y: 0, w: 2, h: 3 },
+    { i: 'inventory-summary', x: 0, y: 2, w: 2, h: 1 },
+    { i: 'low-stock-products', x: 0, y: 3, w: 4, h: 2 },
+    { i: 'segment-overview', x: 0, y: 0, w: 2, h: 2 },
+    { i: 'segment-distribution', x: 2, y: 0, w: 2, h: 2 },
+    { i: 'at-risk-customers', x: 0, y: 2, w: 4, h: 2 },
+    { i: 'champions-list', x: 0, y: 4, w: 4, h: 2 },
+  ],
+  xxs: [
+    // On xxs (2 cols), everything full width
+    { i: 'sales-channel', x: 0, y: 10, w: 2, h: 3 },
+    { i: 'summary-revenue', x: 0, y: 0, w: 2, h: 1 },
+    { i: 'summary-orders', x: 0, y: 1, w: 2, h: 1 },
+    { i: 'summary-profit', x: 0, y: 1, w: 2, h: 1 },
+    { i: 'summary-customers', x: 0, y: 2, w: 2, h: 1 },
+    { i: 'summary-tax', x: 0, y: 2, w: 2, h: 1 },
+    { i: 'summary-active', x: 0, y: 3, w: 2, h: 1 },
+    { i: 'summary-aov', x: 0, y: 3, w: 2, h: 1 },
+    { i: 'summary-margin', x: 0, y: 4, w: 2, h: 1 },
+    { i: 'summary-refund-rate', x: 0, y: 4, w: 2, h: 1 },
+    { i: 'summary-ltv', x: 0, y: 5, w: 2, h: 1 },
+    { i: 'revenue-chart', x: 0, y: 6, w: 2, h: 3 },
+    { i: 'payment-methods', x: 0, y: 9, w: 2, h: 3 },
+    { i: 'recent-sales', x: 0, y: 13, w: 2, h: 3 },
+    { i: 'top-products', x: 0, y: 16, w: 2, h: 3 },
+    { i: 'inventory-alerts', x: 0, y: 0, w: 2, h: 2 },
+    { i: 'inventory-forecast', x: 0, y: 2, w: 2, h: 3 },
+    { i: 'inventory-summary', x: 0, y: 5, w: 2, h: 1 },
+    { i: 'low-stock-products', x: 0, y: 6, w: 2, h: 2 },
+    { i: 'segment-overview', x: 0, y: 0, w: 2, h: 2 },
+    { i: 'segment-distribution', x: 0, y: 2, w: 2, h: 2 },
+    { i: 'at-risk-customers', x: 0, y: 4, w: 2, h: 2 },
+    { i: 'champions-list', x: 0, y: 6, w: 2, h: 2 },
+  ],
+};
+
+const CATEGORY_LAYOUTS: Record<string, Layouts> = {
+  products: {
+    lg: [
+      { i: 'summary-orders', x: 0, y: 0, w: 3, h: 1 },
+      { i: 'summary-refund-rate', x: 3, y: 0, w: 3, h: 1 },
+      { i: 'top-products', x: 6, y: 0, w: 6, h: 4 },
+    ],
+    md: [
+      { i: 'summary-orders', x: 0, y: 0, w: 5, h: 1 },
+      { i: 'summary-refund-rate', x: 5, y: 0, w: 5, h: 1 },
+      { i: 'top-products', x: 0, y: 1, w: 10, h: 4 },
+    ],
+    sm: [
+      { i: 'summary-orders', x: 0, y: 0, w: 3, h: 1 },
+      { i: 'summary-refund-rate', x: 3, y: 0, w: 3, h: 1 },
+      { i: 'top-products', x: 0, y: 1, w: 6, h: 4 },
+    ],
+    xs: [
+      { i: 'summary-orders', x: 0, y: 0, w: 2, h: 1 },
+      { i: 'summary-refund-rate', x: 2, y: 0, w: 2, h: 1 },
+      { i: 'top-products', x: 0, y: 1, w: 4, h: 4 },
+    ],
+    xxs: [
+      { i: 'summary-orders', x: 0, y: 0, w: 2, h: 1 },
+      { i: 'summary-refund-rate', x: 0, y: 1, w: 2, h: 1 },
+      { i: 'top-products', x: 0, y: 2, w: 2, h: 4 },
+    ],
+  },
+  customers: {
+    lg: [
+      { i: 'summary-customers', x: 0, y: 0, w: 3, h: 1 },
+      { i: 'summary-active', x: 3, y: 0, w: 3, h: 1 },
+    ],
+    md: [
+      { i: 'summary-customers', x: 0, y: 0, w: 5, h: 1 },
+      { i: 'summary-active', x: 5, y: 0, w: 5, h: 1 },
+    ],
+    sm: [
+      { i: 'summary-customers', x: 0, y: 0, w: 3, h: 1 },
+      { i: 'summary-active', x: 3, y: 0, w: 3, h: 1 },
+    ],
+    xs: [
+      { i: 'summary-customers', x: 0, y: 0, w: 2, h: 1 },
+      { i: 'summary-active', x: 2, y: 0, w: 2, h: 1 },
+    ],
+    xxs: [
+      { i: 'summary-customers', x: 0, y: 0, w: 2, h: 1 },
+      { i: 'summary-active', x: 0, y: 1, w: 2, h: 1 },
+    ],
+  },
+};
+
 export function DraggableAnalyticsGrid({
   data,
   loading,
@@ -140,65 +335,7 @@ export function DraggableAnalyticsGrid({
     import('react-resizable/css/styles.css');
   }, []);
 
-  const [layouts, setLayouts] = useState<Layouts>({
-    lg: [
-      // Right Sidebar
-      { i: 'sales-channel', x: 9, y: 0, w: 3, h: 3 },
-
-      // Row 1: Primary KPIs
-      { i: 'summary-revenue', x: 0, y: 0, w: 3, h: 1 },
-      { i: 'summary-orders', x: 3, y: 0, w: 3, h: 1 },
-      { i: 'summary-profit', x: 3, y: 0, w: 3, h: 1 }, // Overlaps Orders
-      { i: 'summary-customers', x: 6, y: 0, w: 3, h: 1 },
-      { i: 'summary-tax', x: 6, y: 0, w: 3, h: 1 }, // Overlaps Customers
-
-      // Row 2: Secondary KPIs
-      { i: 'summary-active', x: 0, y: 1, w: 3, h: 1 },
-      { i: 'summary-aov', x: 0, y: 1, w: 3, h: 1 }, // Overlaps Active
-      { i: 'summary-margin', x: 3, y: 1, w: 3, h: 1 },
-      { i: 'summary-refund-rate', x: 3, y: 1, w: 3, h: 1 }, // Overlaps Margin
-      { i: 'summary-ltv', x: 6, y: 1, w: 3, h: 1 },
-
-      // Row 3: Charts & Detailed Cards
-      { i: 'revenue-chart', x: 0, y: 2, w: 6, h: 3 },
-      { i: 'payment-methods', x: 6, y: 2, w: 3, h: 3 },
-
-      // Row 4: Lists
-      { i: 'recent-sales', x: 0, y: 5, w: 3, h: 3 },
-      { i: 'top-products', x: 3, y: 5, w: 6, h: 3 },
-
-      // Inventory widgets
-      { i: 'inventory-alerts', x: 0, y: 0, w: 4, h: 2 },
-      { i: 'inventory-forecast', x: 4, y: 0, w: 4, h: 3 },
-      { i: 'inventory-summary', x: 8, y: 0, w: 4, h: 1 },
-      { i: 'low-stock-products', x: 0, y: 2, w: 4, h: 2 },
-
-      // Segment widgets
-      { i: 'segment-overview', x: 0, y: 0, w: 4, h: 2 },
-      { i: 'segment-distribution', x: 4, y: 0, w: 4, h: 2 },
-      { i: 'at-risk-customers', x: 8, y: 0, w: 4, h: 2 },
-      { i: 'champions-list', x: 0, y: 2, w: 6, h: 2 },
-    ],
-    md: [
-      { i: 'summary-revenue', x: 0, y: 0, w: 5, h: 1 },
-      { i: 'summary-orders', x: 5, y: 0, w: 5, h: 1 },
-      { i: 'summary-customers', x: 0, y: 1, w: 5, h: 1 },
-      { i: 'summary-active', x: 5, y: 1, w: 5, h: 1 },
-
-      { i: 'revenue-chart', x: 0, y: 4, w: 10, h: 3 },
-      { i: 'recent-sales', x: 0, y: 7, w: 5, h: 3 },
-      { i: 'sales-channel', x: 5, y: 7, w: 5, h: 3 },
-      { i: 'top-products', x: 0, y: 10, w: 10, h: 3 },
-      // Add missing finance cards to md layout
-      { i: 'summary-aov', x: 0, y: 13, w: 5, h: 1 },
-      { i: 'summary-margin', x: 5, y: 13, w: 5, h: 1 },
-      { i: 'summary-ltv', x: 0, y: 14, w: 5, h: 1 },
-      { i: 'summary-refund-rate', x: 5, y: 14, w: 5, h: 1 },
-      { i: 'summary-profit', x: 0, y: 15, w: 5, h: 1 },
-      { i: 'summary-tax', x: 5, y: 15, w: 5, h: 1 },
-      { i: 'payment-methods', x: 0, y: 16, w: 10, h: 3 },
-    ],
-  });
+  const [layouts, setLayouts] = useState<Layouts>(DEFAULT_LAYOUTS);
 
   // Load saved layout from API on mount
   useEffect(() => {
@@ -218,6 +355,14 @@ export function DraggableAnalyticsGrid({
     // }
     // fetchPreferences();
   }, []);
+
+  useEffect(() => {
+    if (CATEGORY_LAYOUTS[activeCategory]) {
+      setLayouts(CATEGORY_LAYOUTS[activeCategory]);
+    } else {
+      setLayouts(DEFAULT_LAYOUTS);
+    }
+  }, [activeCategory]);
 
   // Save layout change
   const onLayoutChange = (currentLayout: Layout[], allLayouts: Layouts) => {
@@ -947,10 +1092,10 @@ export function DraggableAnalyticsGrid({
                         (s) => s.segment === 'At Risk'
                       )?.avg_clv
                         ? formatCurrency(
-                            data.segmentSummary.segments.find(
-                              (s) => s.segment === 'At Risk'
-                            )?.avg_clv || 0
-                          )
+                          data.segmentSummary.segments.find(
+                            (s) => s.segment === 'At Risk'
+                          )?.avg_clv || 0
+                        )
                         : 'N/A'}
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -992,10 +1137,10 @@ export function DraggableAnalyticsGrid({
                         (s) => s.segment === 'Champions'
                       )?.avg_order_value
                         ? formatCurrency(
-                            data.segmentSummary.segments.find(
-                              (s) => s.segment === 'Champions'
-                            )?.avg_order_value || 0
-                          )
+                          data.segmentSummary.segments.find(
+                            (s) => s.segment === 'Champions'
+                          )?.avg_order_value || 0
+                        )
                         : 'N/A'}
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -1008,10 +1153,10 @@ export function DraggableAnalyticsGrid({
                         (s) => s.segment === 'Champions'
                       )?.avg_clv
                         ? formatCurrency(
-                            data.segmentSummary.segments.find(
-                              (s) => s.segment === 'Champions'
-                            )?.avg_clv || 0
-                          )
+                          data.segmentSummary.segments.find(
+                            (s) => s.segment === 'Champions'
+                          )?.avg_clv || 0
+                        )
                         : 'N/A'}
                     </div>
                     <div className="text-xs text-muted-foreground">Avg CLV</div>

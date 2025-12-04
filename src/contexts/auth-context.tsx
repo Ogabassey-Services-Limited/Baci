@@ -25,20 +25,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    // This is the most reliable way to get the user's auth state.
-    // The onAuthStateChange listener fires once on initial load with the session
-    // from storage (or null), and then again whenever the auth state changes.
+    // Explicitly fetch session first - this is more reliable than waiting for onAuthStateChange
+    // on initial load, especially after server-side redirects where cookies may take a moment
+    // to be available in document.cookie
+    const initializeAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
+      setLoading(false);
+    };
+
+    initializeAuth();
+
+    // Listen for subsequent auth changes (login, logout, token refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      // **Crucially**, we only set loading to false AFTER this first check has completed.
-      // This ensures we don't have a "false negative" where the app thinks the user
-      // is logged out before the session has been restored.
-      setLoading(false);
     });
 
-    // Cleanup the subscription when the component unmounts
     return () => subscription.unsubscribe();
   }, [supabase]);
 

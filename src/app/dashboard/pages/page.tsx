@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2 } from 'lucide-react';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -48,40 +48,40 @@ const pageFields: {
   label: string;
   description: string;
 }[] = [
-  {
-    name: 'about',
-    label: 'About Us',
-    description:
-      'Tell your customers your story. What makes your brand special?',
-  },
-  {
-    name: 'contact',
-    label: 'Contact Information',
-    description:
-      'How can customers get in touch? Provide an email, phone number, or address.',
-  },
-  {
-    name: 'privacy',
-    label: 'Privacy Policy',
-    description: 'Explain how you collect, use, and protect customer data.',
-  },
-  {
-    name: 'terms',
-    label: 'Terms and Conditions',
-    description: 'Set the rules for using your store and making purchases.',
-  },
-  {
-    name: 'faq',
-    label: 'Frequently Asked Questions',
-    description: 'Answer common questions your customers might have.',
-  },
-  {
-    name: 'legal',
-    label: 'Legal and Dispute',
-    description:
-      'Provide information on legal policies and how disputes are handled.',
-  },
-];
+    {
+      name: 'about',
+      label: 'About Us',
+      description:
+        'Tell your customers your story. What makes your brand special?',
+    },
+    {
+      name: 'contact',
+      label: 'Contact Information',
+      description:
+        'How can customers get in touch? Provide an email, phone number, or address.',
+    },
+    {
+      name: 'privacy',
+      label: 'Privacy Policy',
+      description: 'Explain how you collect, use, and protect customer data.',
+    },
+    {
+      name: 'terms',
+      label: 'Terms and Conditions',
+      description: 'Set the rules for using your store and making purchases.',
+    },
+    {
+      name: 'faq',
+      label: 'Frequently Asked Questions',
+      description: 'Answer common questions your customers might have.',
+    },
+    {
+      name: 'legal',
+      label: 'Legal and Dispute',
+      description:
+        'Provide information on legal policies and how disputes are handled.',
+    },
+  ];
 
 export default function PagesSettingsPage() {
   const { toast } = useToast();
@@ -120,7 +120,7 @@ export default function PagesSettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -173,7 +173,7 @@ export default function PagesSettingsPage() {
 
               <Button type="submit" disabled={isSaving}>
                 {isSaving && (
-                  <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+                  <BagLoader size={16} />
                 )}
                 Save Page Content
               </Button>

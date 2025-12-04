@@ -253,13 +253,9 @@ export default function CustomersPage() {
                 <div className="grid gap-2">
                   <Label htmlFor="address">Address</Label>
                   <AddressAutocomplete
-                    id="address"
                     value={newCustomer.address}
-                    onChange={(
-                      val: string | React.ChangeEvent<HTMLInputElement>
-                    ) => {
-                      const value =
-                        typeof val === 'string' ? val : val.target.value;
+                    onChange={(val) => {
+                      const value = typeof val === 'string' ? val : val.target.value;
                       setNewCustomer({ ...newCustomer, address: value });
                     }}
                     onSelect={(place: PlaceDetails) => {
@@ -268,6 +264,8 @@ export default function CustomersPage() {
                         address: place.formattedAddress,
                       });
                     }}
+                    placeholder="Enter customer address"
+                    showIcon={true}
                   />
                 </div>
               </div>

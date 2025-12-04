@@ -57,6 +57,7 @@ function stripHtml(html: string): string {
   return sanitizeHtml(html, {
     allowedTags: [],
     allowedAttributes: {},
+    disallowedTagsMode: 'discard',
   }).trim();
 }
 

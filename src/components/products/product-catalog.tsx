@@ -164,8 +164,8 @@ export function ProductCatalog({
         </div>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
-        <div className="h-full overflow-y-auto">
-          <Table>
+        <div className="h-full overflow-y-auto overflow-x-auto">
+          <Table className="min-w-[800px]">
             <TableHeader className="sticky top-0 bg-white/95 backdrop-blur-md z-10 shadow-sm">
               <TableRow className="hover:bg-transparent border-b border-primary/10">
                 <TableHead className="w-[400px] pl-6">Product</TableHead>
@@ -186,8 +186,8 @@ export function ProductCatalog({
                       className={cn(
                         'group hover:bg-muted/30 transition-colors border-b border-primary/5',
                         product.variants &&
-                          product.variants.length > 0 &&
-                          'bg-muted/5'
+                        product.variants.length > 0 &&
+                        'bg-muted/5'
                       )}
                     >
                       <TableCell className="pl-6 py-3">
@@ -270,7 +270,7 @@ export function ProductCatalog({
                       </TableCell>
                       <TableCell>
                         {product.manage_stock &&
-                        (!product.variants || product.variants.length === 0) ? (
+                          (!product.variants || product.variants.length === 0) ? (
                           <div className="mx-auto w-24 relative">
                             <Input
                               type="number"
@@ -284,10 +284,10 @@ export function ProductCatalog({
                               className={cn(
                                 'h-8 text-center font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
                                 product.stock === 0 &&
-                                  'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
+                                'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
                                 isLowStock &&
-                                  product.stock > 0 &&
-                                  'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
+                                product.stock > 0 &&
+                                'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
                               )}
                               aria-label={`Stock for ${product.name}`}
                             />
@@ -387,10 +387,10 @@ export function ProductCatalog({
                                 className={cn(
                                   'h-7 text-center font-mono text-xs bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
                                   variant.stock_quantity === 0 &&
-                                    'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
+                                  'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
                                   isVariantLowStock &&
-                                    variant.stock_quantity > 0 &&
-                                    'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
+                                  variant.stock_quantity > 0 &&
+                                  'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
                                 )}
                               />
                               {isVariantLowStock && (

@@ -1,5 +1,3 @@
-'use client';
-
 import {
   ArrowRight,
   BarChart,
@@ -15,11 +13,11 @@ import {
 } from 'lucide-react';
 // import { Logo } from '@/components/logo';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { PlatformAnalyticsProvider } from '@/components/analytics/platform-analytics-provider';
 import AppBody from '@/components/app-body';
 import { MetricCard } from '@/components/landing/metric-card';
 import { TypingAnimation } from '@/components/landing/typing-animation';
+import { FAQItem } from '@/components/landing/faq-item';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
 import { Button } from '@/components/ui/button';
@@ -33,52 +31,7 @@ interface LandingMetrics {
   rating: number;
 }
 
-// Interactive FAQ Item Component
-function FAQItem({ question, answer }: { question: string; answer: string }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <div className="group">
-      <dt className="mb-3">
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-expanded={isOpen}
-          className="flex w-full items-start justify-between text-left glass p-6 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-accent/50 transition-all"
-        >
-          <span className="text-lg font-semibold text-primary dark:text-white pr-4">
-            {question}
-          </span>
-          <ChevronDown
-            className={`w-5 h-5 text-accent flex-shrink-0 mt-1 transition-transform duration-300 ${
-              isOpen ? 'rotate-180' : ''
-            }`}
-          />
-        </button>
-      </dt>
-      <dd
-        className={`overflow-hidden transition-all duration-300 ${
-          isOpen ? 'max-h-96 opacity-100 px-6 pb-4' : 'max-h-0 opacity-0'
-        }`}
-      >
-        <p className="text-muted-foreground leading-relaxed pt-2">{answer}</p>
-      </dd>
-    </div>
-  );
-}
-
-function BaciLandingPage() {
-  const [metrics, setMetrics] = useState<LandingMetrics>({
-    merchants: 10000,
-    orders: 50000,
-    sales: '5M+',
-    rating: 4.9,
-  });
-
-  useEffect(() => {
-    getLandingMetrics().then(setMetrics).catch(console.error);
-  }, []);
-
+function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
   return (
     <div className="flex flex-col min-h-screen bg-background font-sans selection:bg-accent/30">
       {/* Header */}
@@ -612,11 +565,14 @@ function BaciLandingPage() {
   );
 }
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Fetch metrics on the server
+  const metrics = await getLandingMetrics();
+
   return (
     <AppBody>
       <PlatformAnalyticsProvider />
-      <BaciLandingPage />
+      <BaciLandingPage metrics={metrics} />
     </AppBody>
   );
 }

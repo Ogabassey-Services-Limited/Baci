@@ -8,12 +8,12 @@ interface TimelineEvent {
   description: string;
   timestamp: string;
   icon:
-    | 'order'
-    | 'payment'
-    | 'processing'
-    | 'shipped'
-    | 'delivered'
-    | 'cancelled';
+  | 'order'
+  | 'payment'
+  | 'processing'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled';
 }
 
 // GET - Track order by order number or ID
@@ -263,7 +263,7 @@ function getTrackingUrl(provider: string, trackingNumber: string): string {
   const providers: Record<string, string> = {
     gigl: `https://giglogistics.com/track/${trackingNumber}`,
     topship: `https://topship.africa/track/${trackingNumber}`,
-    shiip: `https://shiip.ng/track/${trackingNumber}`,
+
     dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
     fedex: `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
     ups: `https://www.ups.com/track?tracknum=${trackingNumber}`,

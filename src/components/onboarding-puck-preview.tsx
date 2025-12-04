@@ -2,7 +2,7 @@
 
 import type { Data } from '@measured/puck';
 import { Render } from '@measured/puck';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Pencil, Sparkles } from 'lucide-react';
 import {
   Component,
   type ReactNode,
@@ -11,6 +11,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { Button } from '@/components/ui/button';
 import { builderConfig } from '@/components/builder/config';
 import {
   deriveThemeFromColors,
@@ -24,6 +25,8 @@ interface OnboardingPuckPreviewProps {
   businessType: string;
   logoDataUri?: string;
   brandColors?: BrandColors;
+  onEdit?: (data: Data) => void;
+  data?: Data | null;
 }
 
 /**
@@ -140,7 +143,6 @@ async function generatePreviewTemplate(params: {
   businessName: string;
   businessType: string;
   logoDataUri: string | null;
-  brandColors: BrandColors;
 }): Promise<Data> {
   const { businessName, businessType, logoDataUri } = params;
 
@@ -264,19 +266,17 @@ export function OnboardingPuckPreview({
   businessType,
   logoDataUri,
   brandColors,
+  onEdit,
+  data: externalData,
 }: OnboardingPuckPreviewProps) {
   const previewRef = useRef<HTMLDivElement>(null);
-  const [puckData, setPuckData] = useState<Data | null>(null);
+  const [internalPuckData, setInternalPuckData] = useState<Data | null>(null);
+  const puckData = externalData || internalPuckData;
   const [isLoading, setIsLoading] = useState(false);
 
   // Generate Puck data asynchronously
   useEffect(() => {
     let isMounted = true;
-
-    if (!brandColors) {
-      setPuckData(null);
-      return;
-    }
 
     const loadData = async () => {
       setIsLoading(true);
@@ -285,11 +285,10 @@ export function OnboardingPuckPreview({
           businessName: businessName || 'Your Store',
           businessType: businessType || 'other',
           logoDataUri: logoDataUri ?? null,
-          brandColors,
         });
 
         if (isMounted) {
-          setPuckData(data);
+          setInternalPuckData(data);
         }
       } catch (error) {
         // Log error but don't crash - preview is non-critical
@@ -297,7 +296,7 @@ export function OnboardingPuckPreview({
 
         // Set null to show fallback UI
         if (isMounted) {
-          setPuckData(null);
+          setInternalPuckData(null);
         }
       } finally {
         if (isMounted) {
@@ -311,7 +310,7 @@ export function OnboardingPuckPreview({
     return () => {
       isMounted = false;
     };
-  }, [businessName, businessType, logoDataUri, brandColors]);
+  }, [businessName, businessType, logoDataUri]); // Removed externalData dependency to avoid reset loops
 
   // Memoize theme styles to avoid manual DOM manipulation
   const themeStyles = useMemo(() => {
@@ -328,7 +327,7 @@ export function OnboardingPuckPreview({
   }
 
   return (
-    <div className="relative p-4 rounded-lg border border-dashed bg-muted/20 overflow-hidden">
+    <div className="relative p-4 rounded-lg border border-dashed bg-muted/20">
       {/* Loading Overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-[60] flex items-center justify-center bg-background/50 backdrop-blur-sm transition-opacity duration-200">
@@ -337,9 +336,41 @@ export function OnboardingPuckPreview({
       )}
 
       {/* Live Preview Badge */}
-      <div className="absolute top-16 right-6 z-50 bg-amber-500 text-black text-[10px] px-3 py-1.5 rounded-full font-semibold shadow-lg">
+      <div className="absolute top-16 right-6 z-50 bg-amber-500 text-black text-[10px] px-3 py-1.5 rounded-full font-semibold shadow-lg flex items-center gap-2">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+        </span>
         Live Store Preview
       </div>
+
+      {/* Edit Button */}
+      {onEdit && puckData && (
+        <div className="absolute top-16 left-6 z-50">
+          <Button
+            size="sm"
+            variant="secondary"
+            className="shadow-lg border border-white/10 bg-background/80 backdrop-blur-md hover:bg-background pr-4 pl-3"
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('Edit Template clicked');
+              onEdit(puckData);
+            }}
+          >
+            <div className="relative mr-2">
+              <Pencil
+                className="w-3.5 h-3.5"
+                style={{ color: brandColors?.primary }}
+              />
+              <Sparkles
+                className="w-2 h-2 absolute -top-1 -right-1.5"
+                style={{ color: brandColors?.primary }}
+              />
+            </div>
+            Edit Template
+          </Button>
+        </div>
+      )}
 
       <div
         ref={previewRef}

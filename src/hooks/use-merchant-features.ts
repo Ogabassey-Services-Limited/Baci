@@ -105,7 +105,7 @@ const DEFAULT_STOREFRONT_FEATURES: StorefrontFeatures = {
   orderTrackingEnabled: true,
   discountCodesEnabled: true,
   guestCheckoutEnabled: true,
-  shippingProviders: ['gigl', 'topship', 'shiip'],
+  shippingProviders: ['gigl', 'topship'],
   freeShippingThreshold: null,
   collectPhone: true,
   requireAccount: false,
@@ -299,7 +299,6 @@ export function useMerchantFeatures() {
     shippingProviders: settings?.shipping_providers ?? [
       'gigl',
       'topship',
-      'shiip',
     ],
     freeShippingThreshold: settings?.free_shipping_threshold ?? null,
     blogEnabled: settings?.blog_enabled ?? false,

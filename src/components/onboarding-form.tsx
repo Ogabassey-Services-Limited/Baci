@@ -87,8 +87,11 @@ import {
   onboardingSchema,
   step3Schema,
 } from '@/schemas/onboarding';
+import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
 import type { BrandColors } from '@/types';
 import { ColorPicker } from './color-picker';
+import { type Data } from '@measured/puck';
+import { OnboardingTemplateEditor } from './onboarding-template-editor';
 import { OnboardingPuckPreview } from './onboarding-puck-preview';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
@@ -298,10 +301,19 @@ function Step2_Branding() {
   const businessName = watch('businessName');
   const businessType = watch('businessType');
   const logoUrl = watch('logoUrl'); // Now watching for the uploaded URL
-  const brandColorsString = watch('brandColors');
-  const brandColors: BrandColors | null = brandColorsString
-    ? JSON.parse(brandColorsString)
-    : null;
+  const brandColorsString = useWatch({
+    control: form.control,
+    name: 'brandColors',
+  });
+
+  const brandColors: BrandColors | null = useMemo(() => {
+    if (!brandColorsString) return null;
+    try {
+      return JSON.parse(brandColorsString);
+    } catch {
+      return null;
+    }
+  }, [brandColorsString]);
 
   const [isGenerating, setIsGenerating] = useState(false); // Tracks AI generation
   const [isExtracting, setIsExtracting] = useState(false);
@@ -313,17 +325,32 @@ function Step2_Branding() {
 
   const isLoading = isGenerating || isExtracting || isUploading;
 
+  // Sync with global UI store for background animations and preview
+  const setLogoUploaded = useOnboardingUIStore(
+    (state) => state.setLogoUploaded
+  );
+  const setStoreLogoDataUri = useOnboardingUIStore(
+    (state) => state.setLogoDataUri
+  );
+
   // Effect to keep currentLogoDataUri updated for client-side operations
   useEffect(() => {
     if (logoUrl?.startsWith('data:')) {
       setCurrentLogoDataUri(logoUrl);
+      setStoreLogoDataUri(logoUrl);
     } else if (logoUrl && !currentLogoDataUri) {
       // Fallback for remote URLs if local data URI isn't set (e.g. page refresh)
       // We don't fetch remote here to avoid CORS/bandwidth, just rely on img tags handling it
+      setStoreLogoDataUri(logoUrl);
     } else if (!logoUrl) {
       setCurrentLogoDataUri(null);
+      setStoreLogoDataUri(null);
     }
-  }, [logoUrl, currentLogoDataUri]);
+  }, [logoUrl, currentLogoDataUri, setStoreLogoDataUri]);
+
+  useEffect(() => {
+    setLogoUploaded(!!(currentLogoDataUri || logoUrl));
+  }, [currentLogoDataUri, logoUrl, setLogoUploaded]);
 
   const extractColorsFromImage = (
     imageDataUri: string
@@ -390,8 +417,12 @@ function Step2_Branding() {
   };
 
   // Unified handler for processing a logo (whether uploaded or generated)
-  const processNewLogo = async (dataUri: string) => {
+  const processNewLogo = async (
+    dataUri: string,
+    preserveColors: boolean = false
+  ) => {
     setCurrentLogoDataUri(dataUri);
+    setStoreLogoDataUri(dataUri);
     setIsExtracting(true);
     setIsUploading(true);
 
@@ -419,6 +450,10 @@ function Step2_Branding() {
     })();
 
     const extractionPromise = (async () => {
+      if (preserveColors) {
+        setIsExtracting(false);
+        return;
+      }
       try {
         const colors = await extractColorsFromImage(dataUri);
         setValue('brandColors', JSON.stringify(colors), {
@@ -461,7 +496,7 @@ function Step2_Branding() {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const dataUri = reader.result as string;
-        await processNewLogo(dataUri);
+        await processNewLogo(dataUri, true);
         URL.revokeObjectURL(url);
         toast({ title: 'Background removed!' });
       };
@@ -485,6 +520,7 @@ function Step2_Branding() {
       // Instant preview using Object URL
       const objectUrl = URL.createObjectURL(file);
       setCurrentLogoDataUri(objectUrl);
+      setStoreLogoDataUri(objectUrl);
 
       const reader = new FileReader();
 
@@ -551,11 +587,17 @@ function Step2_Branding() {
   };
 
   const handleColorChange = (role: keyof BrandColors, newColor: string) => {
-    if (brandColors) {
-      const updatedColors = { ...brandColors, [role]: newColor };
-      setValue('brandColors', JSON.stringify(updatedColors), {
-        shouldValidate: true,
-      });
+    const currentColorsString = form.getValues('brandColors');
+    if (currentColorsString) {
+      try {
+        const currentColors = JSON.parse(currentColorsString);
+        const updatedColors = { ...currentColors, [role]: newColor };
+        setValue('brandColors', JSON.stringify(updatedColors), {
+          shouldValidate: true,
+        });
+      } catch (e) {
+        console.error('Failed to parse brand colors', e);
+      }
     }
   };
 
@@ -588,103 +630,101 @@ function Step2_Branding() {
               )}
             </div>
 
-            {/* Logo Canvas Area */}
-            <div
-              className={cn(
-                'relative aspect-square w-full rounded-xl border border-white/10 overflow-hidden bg-muted/10 flex flex-col items-center justify-center transition-all shadow-inner',
-                currentLogoDataUri || logoUrl
-                  ? 'bg-white/5'
-                  : 'border-dashed border-muted-foreground/20 hover:bg-muted/20'
-              )}
-            >
-              {currentLogoDataUri || logoUrl ? (
-                <div className="relative w-full h-full p-4 group cursor-pointer">
-                  <Image
-                    src={currentLogoDataUri || logoUrl}
-                    alt="Logo"
-                    fill
-                    priority
-                    unoptimized
-                    className="object-contain p-4 transition-all duration-300 group-hover:scale-95 group-hover:opacity-50 group-hover:blur-[1px]"
-                  />
+            {/* Logo Canvas & Button Wrapper */}
+            <div className="max-w-[224px] mx-auto space-y-3">
+              {/* Logo Canvas Area */}
+              <div
+                className={cn(
+                  'relative aspect-square w-full rounded-xl border border-white/10 overflow-hidden bg-muted/10 flex flex-col items-center justify-center transition-all shadow-inner',
+                  currentLogoDataUri || logoUrl
+                    ? 'bg-white/5'
+                    : 'border-dashed border-muted-foreground/20 hover:bg-muted/20'
+                )}
+              >
+                {currentLogoDataUri || logoUrl ? (
+                  <div className="relative w-full h-full p-4 group cursor-pointer">
+                    <Image
+                      src={currentLogoDataUri || logoUrl}
+                      alt="Logo"
+                      fill
+                      priority
+                      unoptimized
+                      className="object-contain p-4 transition-all duration-300 group-hover:scale-95 group-hover:opacity-50 group-hover:blur-[1px]"
+                    />
 
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-95 group-hover:scale-100 bg-black/60 backdrop-blur-[2px] rounded-xl">
-                    <div className="bg-white/10 backdrop-blur-md p-3 rounded-full mb-2 shadow-lg border border-white/20">
-                      <RefreshCw className="w-6 h-6 text-white" />
-                    </div>
-                    <span className="text-xs font-semibold text-white tracking-wide">
-                      Replace Logo
-                    </span>
-                  </div>
-
-                  {/* Hidden Input for Replacement */}
-                  <Input
-                    type="file"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                    disabled={isLoading}
-                  />
-
-                  {/* Status Indicators */}
-                  {isUploading && (
-                    <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-2 z-30">
-                      <Loader2 className="w-3 h-3 text-white animate-spin" />
-                      <span className="text-xs text-white font-medium">
-                        Saving...
+                    {/* Hover Overlay */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-95 group-hover:scale-100 bg-black/60 backdrop-blur-[2px] rounded-xl">
+                      <div className="bg-white/10 backdrop-blur-md p-3 rounded-full mb-2 shadow-lg border border-white/20">
+                        <RefreshCw className="w-6 h-6 text-white" />
+                      </div>
+                      <span className="text-xs font-semibold text-white tracking-wide">
+                        Replace Logo
                       </span>
                     </div>
-                  )}
-                </div>
-              ) : (
-                /* Empty State / Upload Trigger */
-                <div className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer group">
-                  <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
-                    {isGenerating ? (
-                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                    ) : (
-                      <Upload className="w-8 h-8 text-muted-foreground/50" />
+
+                    {/* Hidden Input for Replacement */}
+                    <Input
+                      type="file"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      disabled={isLoading}
+                    />
+
+                    {/* Status Indicators */}
+                    {isUploading && (
+                      <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-2 z-30">
+                        <Loader2 className="w-3 h-3 text-white animate-spin" />
+                        <span className="text-xs text-white font-medium">
+                          Saving...
+                        </span>
+                      </div>
                     )}
                   </div>
-                  <p className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">
-                    {isGenerating
-                      ? 'Generating Logo...'
-                      : 'Click to Upload Image'}
-                  </p>
-                  <Input
-                    type="file"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    accept="image/*"
-                    onChange={handleLogoUpload}
-                    disabled={isLoading}
-                  />
-                </div>
+                ) : (
+                  /* Empty State / Upload Trigger */
+                  <div className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer group">
+                    <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                      {isGenerating ? (
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      ) : (
+                        <Upload className="w-8 h-8 text-muted-foreground/50" />
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                      {isGenerating
+                        ? 'Generating Logo...'
+                        : 'Click to Upload Image'}
+                    </p>
+                    <Input
+                      type="file"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Remove Background Button */}
+              {(currentLogoDataUri || logoUrl) && (
+                <Button
+                  type="button"
+                  onClick={handleRemoveBackground}
+                  disabled={isUploading}
+                  variant="outline"
+                  className="w-full border-dashed border-2 hover:border-solid hover:bg-muted/50"
+                >
+                  {isUploading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Eraser className="mr-2 h-4 w-4" />
+                  )}
+                  {isUploading ? 'Processing...' : 'Remove Background'}
+                </Button>
               )}
             </div>
-
-            {/* Remove Background Button (Moved) */}
-            {(currentLogoDataUri || logoUrl) && (
-              <Button
-                type="button"
-                onClick={handleRemoveBackground}
-                disabled={isUploading}
-                variant="outline"
-                className="w-full border-dashed border-2 hover:border-solid hover:bg-muted/50 h-9"
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Eraser className="mr-2 h-4 w-4" />
-                    Remove Background
-                  </>
-                )}
-              </Button>
-            )}
           </div>
         </div>
 
@@ -694,7 +734,7 @@ function Step2_Branding() {
             <>
               <div className="flex items-center gap-2 text-blue-400 h-7">
                 <Wand2 className="w-5 h-5" />
-                <h3 className="font-semibold text-lg text-foreground pt-1">
+                <h3 className="font-semibold text-lg text-foreground pt-4">
                   Refine Logo
                 </h3>
               </div>
@@ -708,7 +748,7 @@ function Step2_Branding() {
                 </div>
 
                 {brandColors && (
-                  <div className="mt-4 pt-2 border-t border-white/10 animate-in slide-in-from-top-2 fade-in duration-500 space-y-3">
+                  <div className="mt-4 pt-2 border-t border-white/10 animate-in slide-in-from-top-2 fade-in duration-500 space-y-3 -mt-2">
                     <div className="flex items-center justify-center gap-4 px-2">
                       {(['primary', 'background', 'accent'] as const).map(
                         (role) => (
@@ -758,17 +798,20 @@ function Step2_Branding() {
                         )
                       )}
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleShuffleColors}
-                      disabled={isLoading}
-                      className="w-full h-9 text-xs"
-                    >
-                      <Shuffle className="mr-1.5 h-3 w-3" />
-                      Shuffle
-                    </Button>
+                    <div className="flex gap-2 w-full">
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleShuffleColors}
+                        disabled={isLoading}
+                        className="flex-1 h-9 text-xs"
+                      >
+                        <Shuffle className="mr-1.5 h-3 w-3" />
+                        Shuffle
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -1115,6 +1158,11 @@ export default function OnboardingForm() {
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [isSubmitting, startTransition] = useTransition();
   const [user, setUser] = useState<User | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [templateData, setTemplateData] = useState<Data | null>(null);
+
+  // Subscribe to global store for immediate logo preview
+  const storeLogoDataUri = useOnboardingUIStore((state) => state.logoDataUri);
   const { toast } = useToast();
   const _router = useRouter();
   const totalSteps = 3;
@@ -1191,16 +1239,18 @@ export default function OnboardingForm() {
       }
 
       // Refresh the client session to sync with server-side auth, then redirect
+      // Add a small delay to ensure the merchant record is fully committed
       const supabase = createClient();
-      supabase.auth.getSession().then(({ data: { session }, error }) => {
+
+      // Wait for session and verify merchant exists before redirecting
+      const verifyAndRedirect = async () => {
+        const { data: { session }, error } = await supabase.auth.getSession();
         console.log('Session check after signup:', {
           hasSession: !!session,
           error,
         });
-        if (session) {
-          console.log('Session found, redirecting to dashboard');
-          window.location.href = '/dashboard';
-        } else {
+
+        if (!session) {
           console.error('No session found after signup!', error);
           toast({
             title: 'Session Error',
@@ -1210,8 +1260,46 @@ export default function OnboardingForm() {
           setTimeout(() => {
             window.location.href = '/login';
           }, 2000);
+          return;
         }
-      });
+
+        // Verify merchant record exists before redirecting
+        const { data: merchant, error: merchantError } = await supabase
+          .from('merchants')
+          .select('id, business_name')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (merchant && merchant.business_name) {
+          console.log('Session and merchant verified, redirecting to dashboard');
+          window.location.href = '/dashboard';
+        } else {
+          console.error('Merchant record not found after signup:', merchantError);
+          // Retry after a short delay - database might need time to replicate
+          setTimeout(async () => {
+            const { data: retryMerchant } = await supabase
+              .from('merchants')
+              .select('id, business_name')
+              .eq('user_id', session.user.id)
+              .single();
+
+            if (retryMerchant && retryMerchant.business_name) {
+              window.location.href = '/dashboard';
+            } else {
+              toast({
+                title: 'Setup Issue',
+                description: 'Your store was created but there was an issue loading it. Please try logging in.',
+                variant: 'destructive',
+              });
+              setTimeout(() => {
+                window.location.href = '/login';
+              }, 2000);
+            }
+          }, 1500);
+        }
+      };
+
+      verifyAndRedirect();
     } else if (submissionState.message) {
       const fieldErrors = submissionState.errors?.fieldErrors;
       if (fieldErrors) {
@@ -1341,6 +1429,16 @@ export default function OnboardingForm() {
     name: 'businessType',
   });
   const logoUrl = useWatch({ control: form.control, name: 'logoUrl' });
+
+  // Memoize parsed brandColors to prevent infinite re-renders in preview
+  const parsedBrandColors = useMemo(() => {
+    if (!brandColors) return undefined;
+    try {
+      return JSON.parse(brandColors) as BrandColors;
+    } catch {
+      return undefined;
+    }
+  }, [brandColors]);
 
   const showPreview = step === 2 && !!brandColors;
 
@@ -1476,16 +1574,20 @@ export default function OnboardingForm() {
               'transition-all duration-500 ease-in-out',
               isPreviewExpanded
                 ? 'fixed inset-0 z-50 bg-background/95 backdrop-blur-xl p-8 flex items-center justify-center'
-                : 'hidden lg:block w-full lg:w-1/2 xl:w-[55%] flex items-center justify-center animate-in fade-in slide-in-from-right-8 duration-700'
+                : 'hidden lg:block w-full lg:w-1/2 xl:w-[50%] flex items-center justify-center animate-in fade-in slide-in-from-right-8 duration-700'
             )}
           >
             <div
               className={cn(
-                'relative rounded-2xl border border-white/10 bg-muted/5 overflow-y-auto shadow-2xl backdrop-blur-sm transition-all duration-500',
+                'relative rounded-3xl border border-white/10 bg-muted/5 overflow-y-auto shadow-2xl backdrop-blur-sm transition-all duration-500 scrollbar-visible',
                 isPreviewExpanded
-                  ? 'w-full max-w-[90vw] h-[90vh]'
-                  : 'w-full h-[550px]'
+                  ? 'w-[90vw] h-[90vh]'
+                  : 'w-full h-[500px]'
               )}
+              style={{
+                scrollbarWidth: 'auto',
+                scrollbarColor: 'var(--primary) rgba(255,255,255,0.1)',
+              }}
             >
               {/* Expand/Collapse Button */}
               <Button
@@ -1510,11 +1612,30 @@ export default function OnboardingForm() {
               <OnboardingPuckPreview
                 businessName={businessName}
                 businessType={businessType}
-                logoDataUri={logoUrl || undefined}
-                brandColors={brandColors ? JSON.parse(brandColors) : undefined}
+                logoDataUri={storeLogoDataUri || logoUrl || undefined}
+                brandColors={parsedBrandColors}
+                onEdit={(data) => {
+                  setTemplateData(data);
+                  setIsEditorOpen(true);
+                }}
+                data={templateData}
               />
             </div>
           </div>
+        )}
+
+        {/* Full Screen Template Editor */}
+        {isEditorOpen && templateData && (
+          <OnboardingTemplateEditor
+            initialData={templateData}
+            brandColors={parsedBrandColors || null}
+            onSave={(data) => {
+              setTemplateData(data);
+              setIsEditorOpen(false);
+            }}
+            onClose={() => setIsEditorOpen(false)}
+            businessName={businessName}
+          />
         )}
       </div>
     </div>

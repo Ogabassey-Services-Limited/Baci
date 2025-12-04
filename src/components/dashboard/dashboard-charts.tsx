@@ -6,6 +6,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   XAxis,
   YAxis,
 } from 'recharts';
@@ -19,6 +20,7 @@ import {
 interface ChartDataPoint {
   month: string;
   revenue: number;
+  profit: number;
   orders: number;
 }
 
@@ -61,7 +63,7 @@ export function RevenueSparkline({ data, config }: DashboardChartsProps) {
 export function RevenueBarChart({ data, config }: DashboardChartsProps) {
   return (
     <ChartContainer config={config} className="h-full w-full">
-      <BarChart data={data}>
+      <BarChart data={data} barGap={2}>
         <CartesianGrid
           strokeDasharray="3 3"
           vertical={false}
@@ -84,11 +86,29 @@ export function RevenueBarChart({ data, config }: DashboardChartsProps) {
           cursor={{ fill: 'rgba(255,255,255,0.05)' }}
           content={<ChartTooltipContent indicator="dot" />}
         />
+        <Legend
+          verticalAlign="top"
+          align="right"
+          wrapperStyle={{ paddingBottom: 10 }}
+          formatter={(value) => (
+            <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+              {value}
+            </span>
+          )}
+        />
         <Bar
           dataKey="revenue"
           fill="hsl(var(--primary))"
           radius={[4, 4, 0, 0]}
-          maxBarSize={50}
+          maxBarSize={40}
+          name="Revenue"
+        />
+        <Bar
+          dataKey="profit"
+          fill="hsl(142 76% 36%)"
+          radius={[4, 4, 0, 0]}
+          maxBarSize={40}
+          name="Profit"
         />
       </BarChart>
     </ChartContainer>

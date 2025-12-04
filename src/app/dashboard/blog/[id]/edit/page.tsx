@@ -1,11 +1,13 @@
 'use client';
 
+import { BagLoader } from '@/components/ui/bag-loader';
+
 import {
   Archive,
   ArrowLeft,
   ExternalLink,
   Eye,
-  Loader2,
+  // Loader2,
   Save,
   Send,
   X,
@@ -180,15 +182,15 @@ export default function EditBlogPostPage() {
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((t) => t.trim())
+            .filter(Boolean)
           : [],
         keywords: formData.keywords
           ? formData.keywords
-              .split(',')
-              .map((k) => k.trim())
-              .filter(Boolean)
+            .split(',')
+            .map((k) => k.trim())
+            .filter(Boolean)
           : [],
         author_name: formData.author_name,
         author_title: formData.author_title || undefined,
@@ -249,7 +251,7 @@ export default function EditBlogPostPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -292,7 +294,7 @@ export default function EditBlogPostPage() {
             isSafeSlug(merchant.slug) && (
               <Button variant="outline" asChild>
                 <a
-                  href={`/${merchant.slug}/blog/${formData.slug}`}
+                  href={`/${encodeURIComponent(merchant.slug)}/blog/${encodeURIComponent(formData.slug)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -308,7 +310,7 @@ export default function EditBlogPostPage() {
             disabled={isSaving}
           >
             {isSaving ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <BagLoader size={16} />
             ) : (
               <Save className="w-4 h-4 mr-2" />
             )}
@@ -317,7 +319,7 @@ export default function EditBlogPostPage() {
           {formData.status === 'draft' && (
             <Button onClick={() => savePost('published')} disabled={isSaving}>
               {isSaving ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <BagLoader size={16} />
               ) : (
                 <Send className="w-4 h-4 mr-2" />
               )}

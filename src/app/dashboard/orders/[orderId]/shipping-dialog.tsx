@@ -1,8 +1,10 @@
 'use client';
 
+import { BagLoader } from '@/components/ui/bag-loader';
+
 import {
   Clock,
-  Loader2,
+  // Loader2,
   MapPin,
   MessageCircle,
   Phone,
@@ -35,7 +37,7 @@ import { cn } from '@/lib/utils';
 
 interface ShippingQuote {
   id: string;
-  provider: 'GIGL' | 'TOPSHIP' | 'SHIIP';
+  provider: 'GIGL' | 'TOPSHIP';
   serviceTier: string;
   carrierName: string;
   displayName: string;
@@ -287,11 +289,11 @@ export function ShippingDialog({
       .join('\n');
     return encodeURIComponent(
       `Delivery Details for Order ${orderNumber}\n\n` +
-        `Customer: ${customerName}\n` +
-        `Phone: ${customerPhone}\n` +
-        `Address: ${shippingAddress.address}, ${shippingAddress.city}, ${shippingAddress.state}\n\n` +
-        `Items:\n${itemsList}\n\n` +
-        (selfNotes ? `Special Instructions: ${selfNotes}` : '')
+      `Customer: ${customerName}\n` +
+      `Phone: ${customerPhone}\n` +
+      `Address: ${shippingAddress.address}, ${shippingAddress.city}, ${shippingAddress.state}\n\n` +
+      `Items:\n${itemsList}\n\n` +
+      (selfNotes ? `Special Instructions: ${selfNotes}` : '')
     );
   };
 
@@ -344,7 +346,7 @@ export function ShippingDialog({
 
             {loadingQuotes && (
               <div className="text-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground mb-4" />
+                <BagLoader size={32} />
                 <p className="text-muted-foreground">
                   Finding best delivery options...
                 </p>
@@ -438,7 +440,7 @@ export function ShippingDialog({
                   onClick={handleBookShipment}
                   disabled={!selectedQuoteId || booking}
                 >
-                  {booking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {booking && <BagLoader size={16} />}
                   Book Shipment
                 </Button>
               </div>
@@ -518,7 +520,7 @@ export function ShippingDialog({
                     className="ml-auto"
                   >
                     {selfSubmitting && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <BagLoader size={16} />
                     )}
                     Mark as Shipped
                   </Button>

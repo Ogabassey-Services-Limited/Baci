@@ -49,11 +49,22 @@
       "Bash(npm install:*)",
       "WebFetch(domain:puckeditor.com)",
       "Bash(git log:*)",
-      "Bash(git fsck:*)"
+      "Bash(git fsck:*)",
+      "Bash(gh --version:*)",
+      "Bash(gh auth:*)",
+      "Bash(echo $GITHUB_TOKEN)",
+      "Bash(grep:*)",
+      "Bash(xargs:*)",
+      "Bash(lsof:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm audit:*)",
+      "Bash(git config:*)"
     ],
     "deny": [],
     "ask": []
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["supabase"]
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

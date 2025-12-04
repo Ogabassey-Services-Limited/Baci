@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
     // Fetch merchant to check for shipping provider preference
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
-      .select('shipping_provider')
+      .select('shipping_provider, rider_phone_number')
       .eq('id', merchant_id)
       .single();
 
@@ -317,6 +317,28 @@ export async function POST(request: NextRequest) {
       if (shipmentDetails) {
         orderPayload.shipping_provider = shipmentDetails.shipping_provider;
         orderPayload.tracking_number = shipmentDetails.tracking_number;
+      }
+    }
+
+    // Handle Pay on Delivery (POD) Logic
+    if (payment_method === 'pod') {
+      orderPayload.payment_status = 'pending'; // Ensure it's pending for POD
+
+      // Trigger Rider Notification (Placeholder)
+      if (merchant?.rider_phone_number) {
+        logger.info({
+          message: 'Rider Notification Triggered (POD)',
+          riderPhone: merchant.rider_phone_number,
+          customerName: customer_name,
+          customerAddress: shipping_address?.address,
+          orderTotal: total,
+        });
+        // TODO: Integrate with WhatsApp API provider here
+      } else {
+        logger.warn({
+          message: 'Rider Notification Skipped (No Phone Number)',
+          merchantId: merchant_id,
+        });
       }
     }
 

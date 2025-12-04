@@ -1,10 +1,12 @@
 'use client';
 
+import { BagLoader } from '@/components/ui/bag-loader';
+
 import {
   CheckCircle2,
   // Wand2,
   FileText,
-  Loader2,
+  // Loader2,
   RefreshCw,
   // Search,
   Sparkles,
@@ -190,7 +192,7 @@ export default function SEOOptimizerPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -214,7 +216,7 @@ export default function SEOOptimizerPage() {
             disabled={selectedProducts.length === 0 || optimizing}
           >
             {optimizing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <BagLoader size={16} />
             ) : (
               <Sparkles className="h-4 w-4 mr-2" />
             )}
@@ -321,7 +323,7 @@ export default function SEOOptimizerPage() {
                 </Button>
                 <Button onClick={applyOptimizations} disabled={optimizing}>
                   {optimizing && (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <BagLoader size={16} />
                   )}
                   Apply All
                 </Button>
