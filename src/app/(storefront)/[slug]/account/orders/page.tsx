@@ -95,13 +95,13 @@ export default function CustomerOrdersPage() {
 
   // Fetch orders
   const fetchOrders = useCallback(async () => {
-    if (!customer || !merchant) return;
+    if (!customer || !merchant || !merchant.slug) return;
 
     setIsLoadingOrders(true);
     setOrdersError(null);
     try {
       const response = await fetch(
-        `/api/storefront/orders?merchantSlug=${merchant.slug}`
+        `/api/storefront/orders?merchantSlug=${encodeURIComponent(merchant.slug)}`
       );
       const data = await response.json();
 
