@@ -17,11 +17,9 @@
  * @returns Relative luminance value (0-1)
  */
 export function getRelativeLuminance(r: number, g: number, b: number): number {
-  const [rs, gs, bs] = [r, g, b].map(c => {
+  const [rs, gs, bs] = [r, g, b].map((c) => {
     const sRGB = c / 255;
-    return sRGB <= 0.03928
-      ? sRGB / 12.92
-      : Math.pow((sRGB + 0.055) / 1.055, 2.4);
+    return sRGB <= 0.03928 ? sRGB / 12.92 : ((sRGB + 0.055) / 1.055) ** 2.4;
   });
 
   return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
@@ -34,7 +32,10 @@ export function getRelativeLuminance(r: number, g: number, b: number): number {
  * @param luminance2 - Luminance of second color
  * @returns Contrast ratio (1-21)
  */
-export function getContrastRatio(luminance1: number, luminance2: number): number {
+export function getContrastRatio(
+  luminance1: number,
+  luminance2: number
+): number {
   const lighter = Math.max(luminance1, luminance2);
   const darker = Math.min(luminance1, luminance2);
   return (lighter + 0.05) / (darker + 0.05);
@@ -46,14 +47,16 @@ export function getContrastRatio(luminance1: number, luminance2: number): number
  * @param color - Color string (hex, rgb, or hsl)
  * @returns RGB values or null if invalid
  */
-export function parseColor(color: string): { r: number; g: number; b: number } | null {
+export function parseColor(
+  color: string
+): { r: number; g: number; b: number } | null {
   // Handle hex colors
   const hexMatch = color.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
   if (hexMatch) {
     return {
-      r: parseInt(hexMatch[1], 16),
-      g: parseInt(hexMatch[2], 16),
-      b: parseInt(hexMatch[3], 16),
+      r: Number.parseInt(hexMatch[1], 16),
+      g: Number.parseInt(hexMatch[2], 16),
+      b: Number.parseInt(hexMatch[3], 16),
     };
   }
 
@@ -61,28 +64,32 @@ export function parseColor(color: string): { r: number; g: number; b: number } |
   const shortHexMatch = color.match(/^#?([a-f\d])([a-f\d])([a-f\d])$/i);
   if (shortHexMatch) {
     return {
-      r: parseInt(shortHexMatch[1] + shortHexMatch[1], 16),
-      g: parseInt(shortHexMatch[2] + shortHexMatch[2], 16),
-      b: parseInt(shortHexMatch[3] + shortHexMatch[3], 16),
+      r: Number.parseInt(shortHexMatch[1] + shortHexMatch[1], 16),
+      g: Number.parseInt(shortHexMatch[2] + shortHexMatch[2], 16),
+      b: Number.parseInt(shortHexMatch[3] + shortHexMatch[3], 16),
     };
   }
 
   // Handle rgb colors
-  const rgbMatch = color.match(/^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i);
+  const rgbMatch = color.match(
+    /^rgb\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/i
+  );
   if (rgbMatch) {
     return {
-      r: parseInt(rgbMatch[1]),
-      g: parseInt(rgbMatch[2]),
-      b: parseInt(rgbMatch[3]),
+      r: Number.parseInt(rgbMatch[1], 10),
+      g: Number.parseInt(rgbMatch[2], 10),
+      b: Number.parseInt(rgbMatch[3], 10),
     };
   }
 
   // Handle hsl colors
-  const hslMatch = color.match(/^hsl\s*\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*\)$/i);
+  const hslMatch = color.match(
+    /^hsl\s*\(\s*(\d+)\s*,\s*(\d+)%\s*,\s*(\d+)%\s*\)$/i
+  );
   if (hslMatch) {
-    const h = parseInt(hslMatch[1]) / 360;
-    const s = parseInt(hslMatch[2]) / 100;
-    const l = parseInt(hslMatch[3]) / 100;
+    const h = Number.parseInt(hslMatch[1], 10) / 360;
+    const s = Number.parseInt(hslMatch[2], 10) / 100;
+    const l = Number.parseInt(hslMatch[3], 10) / 100;
     return hslToRgb(h, s, l);
   }
 
@@ -92,18 +99,25 @@ export function parseColor(color: string): { r: number; g: number; b: number } |
 /**
  * Convert HSL to RGB
  */
-function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
-  let r: number, g: number, b: number;
+function hslToRgb(
+  h: number,
+  s: number,
+  l: number
+): { r: number; g: number; b: number } {
+  let r: number;
+  let g: number;
+  let b: number;
 
   if (s === 0) {
     r = g = b = l;
   } else {
     const hue2rgb = (p: number, q: number, t: number) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1 / 6) return p + (q - p) * 6 * t;
-      if (t < 1 / 2) return q;
-      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      let tVal = t;
+      if (tVal < 0) tVal += 1;
+      if (tVal > 1) tVal -= 1;
+      if (tVal < 1 / 6) return p + (q - p) * 6 * tVal;
+      if (tVal < 1 / 2) return q;
+      if (tVal < 2 / 3) return p + (q - p) * (2 / 3 - tVal) * 6;
       return p;
     };
 
@@ -249,8 +263,12 @@ export function auditColorContrast(
   level: 'AA' | 'AAA' | 'fail';
   suggestedColor?: string;
 }> {
-  return colorPairs.map(pair => {
-    const result = checkColorContrast(pair.foreground, pair.background, pair.isLargeText);
+  return colorPairs.map((pair) => {
+    const result = checkColorContrast(
+      pair.foreground,
+      pair.background,
+      pair.isLargeText
+    );
 
     return {
       name: pair.name,
@@ -261,7 +279,11 @@ export function auditColorContrast(
       level: result.level,
       suggestedColor: result.passes
         ? undefined
-        : getAccessibleColor(pair.foreground, pair.background, pair.isLargeText),
+        : getAccessibleColor(
+            pair.foreground,
+            pair.background,
+            pair.isLargeText
+          ),
     };
   });
 }

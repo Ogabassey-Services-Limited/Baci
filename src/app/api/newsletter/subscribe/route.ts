@@ -1,13 +1,16 @@
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
 const subscribeSchema = z.object({
   email: z.string().email('Invalid email address'),
   merchantId: z.string().uuid('Invalid merchant ID').optional(),
-  source: z.enum(['widget', 'footer', 'checkout', 'popup']).optional().default('widget'),
+  source: z
+    .enum(['widget', 'footer', 'checkout', 'popup'])
+    .optional()
+    .default('widget'),
 });
 
 /**
@@ -21,7 +24,10 @@ export async function POST(request: NextRequest) {
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: 'Invalid request', details: validation.error.flatten().fieldErrors },
+        {
+          error: 'Invalid request',
+          details: validation.error.flatten().fieldErrors,
+        },
         { status: 400 }
       );
     }
@@ -155,7 +161,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Successfully subscribed! Check your email for a welcome message.',
+      message:
+        'Successfully subscribed! Check your email for a welcome message.',
     });
   } catch (error) {
     console.error('Newsletter subscription error:', error);
@@ -178,10 +185,7 @@ export async function DELETE(request: NextRequest) {
     const _token = searchParams.get('token'); // For secure unsubscribe links (reserved for future use)
 
     if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
     const normalizedEmail = email.toLowerCase().trim();

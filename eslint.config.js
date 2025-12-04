@@ -1,11 +1,10 @@
-
 import eslint from '@eslint/js';
-import tseslint from 'typescript-eslint';
 import nextPlugin from '@next/eslint-plugin-next';
-import reactHooksPlugin from 'eslint-plugin-react-hooks';
-import jsxA11y from 'eslint-plugin-jsx-a11y';
 import prettierConfig from 'eslint-config-prettier';
-import globals from "globals";
+import jsxA11y from 'eslint-plugin-jsx-a11y';
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import globals from 'globals';
+import tseslint from 'typescript-eslint';
 
 export default [
   // Global ignores must be in a separate config object at the start
@@ -86,10 +85,13 @@ export default [
       'jsx-a11y/iframe-has-title': 'error',
       'jsx-a11y/img-redundant-alt': 'error',
       'jsx-a11y/interactive-supports-focus': 'warn',
-      'jsx-a11y/label-has-associated-control': ['error', {
-        controlComponents: ['Input', 'Select', 'Textarea', 'PhoneInput'],
-        depth: 3,
-      }],
+      'jsx-a11y/label-has-associated-control': [
+        'error',
+        {
+          controlComponents: ['Input', 'Select', 'Textarea', 'PhoneInput'],
+          depth: 3,
+        },
+      ],
       'jsx-a11y/lang': 'error',
       'jsx-a11y/media-has-caption': 'warn',
       'jsx-a11y/mouse-events-have-key-events': 'warn',

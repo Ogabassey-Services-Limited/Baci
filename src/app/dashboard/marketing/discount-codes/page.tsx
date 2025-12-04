@@ -1,16 +1,26 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  Copy,
+  DollarSign,
+  Edit,
+  // Loader2,
+  Percent,
+  PlusCircle,
+  Tag,
+  Trash2,
+} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -20,7 +30,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -29,11 +38,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/hooks/use-toast';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import { TypingPlaceholderInput } from '@/components/ui/typing-placeholder-input';
 import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
 import { getCountryByCode } from '@/lib/countries';
-import { PlusCircle, Edit, Trash2, Copy, Loader2, Percent, DollarSign, Tag } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 
 interface DiscountCode {
   id: string;
@@ -56,7 +73,9 @@ interface DiscountCode {
 export default function DiscountCodesPage() {
   const { toast } = useToast();
   const { merchant } = useMerchant();
-  const country = merchant?.country ? getCountryByCode(merchant.country) : undefined;
+  const country = merchant?.country
+    ? getCountryByCode(merchant.country)
+    : undefined;
   const currencySymbol = country?.currencySymbol || '$';
   const [discountCodes, setDiscountCodes] = useState<DiscountCode[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -143,7 +162,9 @@ export default function DiscountCodesPage() {
   };
 
   const handleDelete = async (id: string, code: string) => {
-    if (!confirm(`Are you sure you want to delete the discount code "${code}"?`)) {
+    if (
+      !confirm(`Are you sure you want to delete the discount code "${code}"?`)
+    ) {
       return;
     }
 
@@ -236,7 +257,7 @@ export default function DiscountCodesPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -303,7 +324,9 @@ export default function DiscountCodesPage() {
           {discountCodes.length === 0 ? (
             <div className="text-center py-12">
               <Tag className="mx-auto h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-semibold">No discount codes yet</h3>
+              <h3 className="mt-4 text-lg font-semibold">
+                No discount codes yet
+              </h3>
               <p className="text-muted-foreground mt-2">
                 Create your first discount code to start offering promotions.
               </p>
@@ -329,7 +352,9 @@ export default function DiscountCodesPage() {
                   <TableRow key={code.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <code className="font-mono font-semibold">{code.code}</code>
+                        <code className="font-mono font-semibold">
+                          {code.code}
+                        </code>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -340,7 +365,9 @@ export default function DiscountCodesPage() {
                         </Button>
                       </div>
                       {code.description && (
-                        <p className="text-sm text-muted-foreground">{code.description}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {code.description}
+                        </p>
                       )}
                     </TableCell>
                     <TableCell>{formatDiscount(code)}</TableCell>
@@ -360,7 +387,9 @@ export default function DiscountCodesPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {code.expires_at ? new Date(code.expires_at).toLocaleDateString() : 'Never'}
+                      {code.expires_at
+                        ? new Date(code.expires_at).toLocaleDateString()
+                        : 'Never'}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -392,9 +421,12 @@ export default function DiscountCodesPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingCode ? 'Edit' : 'Create'} Discount Code</DialogTitle>
+            <DialogTitle>
+              {editingCode ? 'Edit' : 'Create'} Discount Code
+            </DialogTitle>
             <DialogDescription>
-              {editingCode ? 'Update' : 'Create'} a promotional discount code for your customers.
+              {editingCode ? 'Update' : 'Create'} a promotional discount code
+              for your customers.
             </DialogDescription>
           </DialogHeader>
 
@@ -402,11 +434,22 @@ export default function DiscountCodesPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2">
                 <Label htmlFor="code">Code *</Label>
-                <Input
+                <TypingPlaceholderInput
                   id="code"
                   value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  placeholder="SAVE20"
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      code: e.target.value.toUpperCase(),
+                    })
+                  }
+                  placeholders={[
+                    'SAVE20',
+                    'WELCOME10',
+                    'FREESHIP',
+                    'SUMMER25',
+                    'VIP50',
+                  ]}
                   required
                 />
               </div>
@@ -416,7 +459,9 @@ export default function DiscountCodesPage() {
                 <Textarea
                   id="description"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
                   placeholder="20% off all products"
                 />
               </div>
@@ -441,7 +486,10 @@ export default function DiscountCodesPage() {
 
               <div>
                 <Label htmlFor="discount_value">
-                  Discount Value * {formData.discount_type === 'percentage' ? '(%)' : `(${currencySymbol})`}
+                  Discount Value *{' '}
+                  {formData.discount_type === 'percentage'
+                    ? '(%)'
+                    : `(${currencySymbol})`}
                 </Label>
                 <Input
                   id="discount_value"
@@ -450,14 +498,19 @@ export default function DiscountCodesPage() {
                   step="0.01"
                   value={formData.discount_value}
                   onChange={(e) =>
-                    setFormData({ ...formData, discount_value: parseFloat(e.target.value) || 0 })
+                    setFormData({
+                      ...formData,
+                      discount_value: Number.parseFloat(e.target.value) || 0,
+                    })
                   }
                   required
                 />
               </div>
 
               <div>
-                <Label htmlFor="minimum_purchase">Minimum Purchase ({currencySymbol})</Label>
+                <Label htmlFor="minimum_purchase">
+                  Minimum Purchase ({currencySymbol})
+                </Label>
                 <Input
                   id="minimum_purchase"
                   type="number"
@@ -467,14 +520,17 @@ export default function DiscountCodesPage() {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      minimum_purchase_amount: parseFloat(e.target.value) || 0,
+                      minimum_purchase_amount:
+                        Number.parseFloat(e.target.value) || 0,
                     })
                   }
                 />
               </div>
 
               <div>
-                <Label htmlFor="maximum_discount">Maximum Discount ({currencySymbol})</Label>
+                <Label htmlFor="maximum_discount">
+                  Maximum Discount ({currencySymbol})
+                </Label>
                 <Input
                   id="maximum_discount"
                   type="number"
@@ -484,7 +540,9 @@ export default function DiscountCodesPage() {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      maximum_discount_amount: e.target.value ? parseFloat(e.target.value) : null,
+                      maximum_discount_amount: e.target.value
+                        ? Number.parseFloat(e.target.value)
+                        : null,
                     })
                   }
                 />
@@ -500,7 +558,9 @@ export default function DiscountCodesPage() {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      usage_limit: e.target.value ? parseInt(e.target.value) : null,
+                      usage_limit: e.target.value
+                        ? Number.parseInt(e.target.value, 10)
+                        : null,
                     })
                   }
                   placeholder="Unlimited"
@@ -508,7 +568,9 @@ export default function DiscountCodesPage() {
               </div>
 
               <div>
-                <Label htmlFor="usage_limit_per_customer">Uses per Customer</Label>
+                <Label htmlFor="usage_limit_per_customer">
+                  Uses per Customer
+                </Label>
                 <Input
                   id="usage_limit_per_customer"
                   type="number"
@@ -517,7 +579,8 @@ export default function DiscountCodesPage() {
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      usage_limit_per_customer: parseInt(e.target.value) || 1,
+                      usage_limit_per_customer:
+                        Number.parseInt(e.target.value, 10) || 1,
                     })
                   }
                 />
@@ -529,7 +592,9 @@ export default function DiscountCodesPage() {
                   id="starts_at"
                   type="date"
                   value={formData.starts_at}
-                  onChange={(e) => setFormData({ ...formData, starts_at: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, starts_at: e.target.value })
+                  }
                 />
               </div>
 
@@ -539,7 +604,9 @@ export default function DiscountCodesPage() {
                   id="expires_at"
                   type="date"
                   value={formData.expires_at}
-                  onChange={(e) => setFormData({ ...formData, expires_at: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, expires_at: e.target.value })
+                  }
                 />
               </div>
 
@@ -547,7 +614,9 @@ export default function DiscountCodesPage() {
                 <Switch
                   id="is_active"
                   checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                  onCheckedChange={(checked) =>
+                    setFormData({ ...formData, is_active: checked })
+                  }
                 />
                 <Label htmlFor="is_active">Active</Label>
               </div>
@@ -565,7 +634,7 @@ export default function DiscountCodesPage() {
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+                    <BagLoader size={16} />
                     Saving...
                   </>
                 ) : (

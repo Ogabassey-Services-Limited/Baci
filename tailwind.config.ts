@@ -1,7 +1,7 @@
-import type { Config } from 'tailwindcss';
-import tailwindcssAnimate from 'tailwindcss-animate';
 import containerQueries from '@tailwindcss/container-queries';
+import type { Config } from 'tailwindcss';
 import plugin from 'tailwindcss/plugin';
+import tailwindcssAnimate from 'tailwindcss-animate';
 
 export default {
   darkMode: ['class'],
@@ -14,45 +14,45 @@ export default {
   theme: {
     container: {
       center: true,
-      padding: "2rem",
+      padding: '2rem',
       screens: {
-        "2xl": "1400px",
+        '2xl': '1400px',
       },
     },
     extend: {
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
         },
         popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
         },
       },
       borderRadius: {
@@ -73,7 +73,7 @@ export default {
         '2xl': 'var(--theme-space-2xl)',
         '3xl': 'var(--theme-space-3xl)',
         // Touch target minimum (44px for WCAG 2.5.5)
-        'touch': '2.75rem',
+        touch: '2.75rem',
         'touch-lg': '3rem',
       },
       // Dynamic viewport units (2025 best practice)
@@ -104,16 +104,43 @@ export default {
       },
       // Fluid typography using clamp() (2025 best practice)
       fontSize: {
-        'fluid-xs': ['clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem)', { lineHeight: '1.5' }],
-        'fluid-sm': ['clamp(0.875rem, 0.8rem + 0.375vw, 1rem)', { lineHeight: '1.5' }],
-        'fluid-base': ['clamp(1rem, 0.9rem + 0.5vw, 1.125rem)', { lineHeight: '1.6' }],
-        'fluid-lg': ['clamp(1.125rem, 1rem + 0.625vw, 1.25rem)', { lineHeight: '1.5' }],
-        'fluid-xl': ['clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem)', { lineHeight: '1.4' }],
-        'fluid-2xl': ['clamp(1.5rem, 1.25rem + 1.25vw, 2rem)', { lineHeight: '1.3' }],
-        'fluid-3xl': ['clamp(1.875rem, 1.5rem + 1.875vw, 2.5rem)', { lineHeight: '1.2' }],
-        'fluid-4xl': ['clamp(2.25rem, 1.75rem + 2.5vw, 3rem)', { lineHeight: '1.1' }],
+        'fluid-xs': [
+          'clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem)',
+          { lineHeight: '1.5' },
+        ],
+        'fluid-sm': [
+          'clamp(0.875rem, 0.8rem + 0.375vw, 1rem)',
+          { lineHeight: '1.5' },
+        ],
+        'fluid-base': [
+          'clamp(1rem, 0.9rem + 0.5vw, 1.125rem)',
+          { lineHeight: '1.6' },
+        ],
+        'fluid-lg': [
+          'clamp(1.125rem, 1rem + 0.625vw, 1.25rem)',
+          { lineHeight: '1.5' },
+        ],
+        'fluid-xl': [
+          'clamp(1.25rem, 1.1rem + 0.75vw, 1.5rem)',
+          { lineHeight: '1.4' },
+        ],
+        'fluid-2xl': [
+          'clamp(1.5rem, 1.25rem + 1.25vw, 2rem)',
+          { lineHeight: '1.3' },
+        ],
+        'fluid-3xl': [
+          'clamp(1.875rem, 1.5rem + 1.875vw, 2.5rem)',
+          { lineHeight: '1.2' },
+        ],
+        'fluid-4xl': [
+          'clamp(2.25rem, 1.75rem + 2.5vw, 3rem)',
+          { lineHeight: '1.1' },
+        ],
         'fluid-5xl': ['clamp(3rem, 2rem + 5vw, 4rem)', { lineHeight: '1' }],
-        'fluid-6xl': ['clamp(3.75rem, 2.5rem + 6.25vw, 5rem)', { lineHeight: '1' }],
+        'fluid-6xl': [
+          'clamp(3.75rem, 2.5rem + 6.25vw, 5rem)',
+          { lineHeight: '1' },
+        ],
       },
       boxShadow: {
         none: 'var(--theme-shadow-none)',
@@ -155,7 +182,7 @@ export default {
     tailwindcssAnimate,
     containerQueries,
     // Custom plugin for 2025 responsive best practices
-    plugin(function({ addUtilities, addComponents }) {
+    plugin(({ addUtilities, addComponents }) => {
       // Safe area insets for notched devices (iPhone, etc.)
       addUtilities({
         '.safe-top': {
@@ -243,16 +270,16 @@ export default {
         },
         // CSS Containment for performance
         '.contain-layout': {
-          'contain': 'layout',
+          contain: 'layout',
         },
         '.contain-paint': {
-          'contain': 'paint',
+          contain: 'paint',
         },
         '.contain-strict': {
-          'contain': 'strict',
+          contain: 'strict',
         },
         '.contain-content': {
-          'contain': 'content',
+          contain: 'content',
         },
         // Content visibility for lazy rendering
         '.content-auto': {
@@ -281,14 +308,14 @@ export default {
         '.touch-target': {
           'min-width': '44px',
           'min-height': '44px',
-          'display': 'inline-flex',
+          display: 'inline-flex',
           'align-items': 'center',
           'justify-content': 'center',
         },
         '.touch-target-lg': {
           'min-width': '48px',
           'min-height': '48px',
-          'display': 'inline-flex',
+          display: 'inline-flex',
           'align-items': 'center',
           'justify-content': 'center',
         },

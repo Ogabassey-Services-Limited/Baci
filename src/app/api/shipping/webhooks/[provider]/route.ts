@@ -3,18 +3,22 @@
  * Receive status updates from shipping providers
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { type NextRequest, NextResponse } from 'next/server';
 import { mapProviderStatus } from '@/lib/shipping/status-mapper';
 
 // Create a service role client for webhooks (no cookies/auth needed)
 function getServiceClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
   return createClient(supabaseUrl, supabaseServiceKey);
 }
-import type { ShippingProviderCode, NormalizedShipmentStatus } from '@/lib/shipping/types';
-import crypto from 'crypto';
+
+import crypto from 'node:crypto';
+import type {
+  NormalizedShipmentStatus,
+  ShippingProviderCode,
+} from '@/lib/shipping/types';
 
 // =============================================================================
 // WEBHOOK VERIFICATION
@@ -29,7 +33,6 @@ function verifyWebhookSignature(
   const secrets: Record<string, string | undefined> = {
     gigl: process.env.GIGL_WEBHOOK_SECRET,
     topship: process.env.TOPSHIP_WEBHOOK_SECRET,
-    shiip: process.env.SHIIP_WEBHOOK_SECRET,
   };
 
   const secret = secrets[provider.toLowerCase()];
@@ -37,11 +40,17 @@ function verifyWebhookSignature(
   // Security: Fail closed - require webhook secrets in production
   if (!secret) {
     if (process.env.NODE_ENV === 'production') {
-      console.error('[Webhook] No secret configured for provider in production - rejecting', { provider });
+      console.error(
+        '[Webhook] No secret configured for provider in production - rejecting',
+        { provider }
+      );
       return false;
     }
     // Only allow bypass in development
-    console.warn('[Webhook] No secret configured for provider in development - allowing', { provider });
+    console.warn(
+      '[Webhook] No secret configured for provider in development - allowing',
+      { provider }
+    );
     return true;
   }
 
@@ -131,38 +140,16 @@ function parseTopshipWebhook(payload: unknown): WebhookEvent | null {
   };
 }
 
-function parseShiipWebhook(payload: unknown): WebhookEvent | null {
-  const data = payload as {
-    reference?: string;
-    tracking_number?: string;
-    status?: string;
-    message?: string;
-    location?: string;
-    timestamp?: string;
-    created_at?: string;
-  };
-
-  if (!data.reference && !data.tracking_number) return null;
-
-  return {
-    trackingNumber: data.tracking_number || '',
-    providerShipmentId: data.reference,
-    status: data.status || '',
-    description: data.message,
-    location: data.location,
-    timestamp: new Date(data.timestamp || data.created_at || Date.now()),
-    rawPayload: payload,
-  };
-}
-
-function parseWebhookPayload(provider: string, payload: unknown): WebhookEvent | null {
+function parseWebhookPayload(
+  provider: string,
+  payload: unknown
+): WebhookEvent | null {
   switch (provider.toUpperCase()) {
     case 'GIGL':
       return parseGiglWebhook(payload);
     case 'TOPSHIP':
       return parseTopshipWebhook(payload);
-    case 'SHIIP':
-      return parseShiipWebhook(payload);
+
     default:
       return null;
   }
@@ -183,17 +170,15 @@ export async function POST(
 
     // Read payload
     const payload = await request.text();
-    const signature = request.headers.get('x-webhook-signature') ||
+    const signature =
+      request.headers.get('x-webhook-signature') ||
       request.headers.get('x-signature') ||
       request.headers.get('authorization');
 
     // Verify signature
     if (!verifyWebhookSignature(provider, payload, signature)) {
       console.error('[Webhook] Invalid signature', { provider });
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
     // Parse payload
@@ -202,16 +187,16 @@ export async function POST(
       parsedPayload = JSON.parse(payload);
     } catch {
       console.error('[Webhook] Invalid JSON payload', { provider });
-      return NextResponse.json(
-        { error: 'Invalid JSON' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
     }
 
     // Extract event data
     const event = parseWebhookPayload(provider, parsedPayload);
     if (!event) {
-      console.warn('[Webhook] Could not parse payload', { provider, payload: parsedPayload });
+      console.warn('[Webhook] Could not parse payload', {
+        provider,
+        payload: parsedPayload,
+      });
       // Return success to avoid retries for unparseable payloads
       return NextResponse.json({ received: true, parsed: false });
     }
@@ -237,16 +222,26 @@ export async function POST(
     if (event.trackingNumber) {
       shipmentQuery = shipmentQuery.eq('tracking_number', event.trackingNumber);
     } else if (event.providerShipmentId) {
-      shipmentQuery = shipmentQuery.eq('provider_shipment_id', event.providerShipmentId);
+      shipmentQuery = shipmentQuery.eq(
+        'provider_shipment_id',
+        event.providerShipmentId
+      );
     } else {
       console.warn(`[Webhook] No tracking number or shipment ID in event`);
-      return NextResponse.json({ received: true, processed: false, reason: 'no_identifier' });
+      return NextResponse.json({
+        received: true,
+        processed: false,
+        reason: 'no_identifier',
+      });
     }
 
-    const { data: shipment, error: shipmentError } = await shipmentQuery.single();
+    const { data: shipment, error: shipmentError } =
+      await shipmentQuery.single();
 
     if (shipmentError || !shipment) {
-      console.warn('[Webhook] Shipment not found', { trackingNumber: event.trackingNumber });
+      console.warn('[Webhook] Shipment not found', {
+        trackingNumber: event.trackingNumber,
+      });
       // Mark webhook as processed (no shipment to update)
       await supabase
         .from('shipping_webhook_events')
@@ -254,7 +249,11 @@ export async function POST(
         .eq('tracking_number', event.trackingNumber)
         .eq('provider', providerUpper);
 
-      return NextResponse.json({ received: true, processed: false, reason: 'shipment_not_found' });
+      return NextResponse.json({
+        received: true,
+        processed: false,
+        reason: 'shipment_not_found',
+      });
     }
 
     // Map provider status to normalized status
@@ -271,7 +270,9 @@ export async function POST(
     };
 
     // Update tracking events array
-    const existingEvents = Array.isArray(shipment.tracking_events) ? shipment.tracking_events : [];
+    const existingEvents = Array.isArray(shipment.tracking_events)
+      ? shipment.tracking_events
+      : [];
     const updatedEvents = [newEvent, ...existingEvents];
 
     // Update shipment
@@ -320,7 +321,11 @@ export async function POST(
       .eq('tracking_number', event.trackingNumber)
       .eq('provider', providerUpper);
 
-    console.log('[Webhook] Processed webhook', { provider, trackingNumber: event.trackingNumber, status: normalizedStatus });
+    console.log('[Webhook] Processed webhook', {
+      provider,
+      trackingNumber: event.trackingNumber,
+      status: normalizedStatus,
+    });
 
     return NextResponse.json({
       received: true,
@@ -328,9 +333,11 @@ export async function POST(
       trackingNumber: event.trackingNumber,
       status: normalizedStatus,
     });
-
   } catch (error) {
-    console.error('[Webhook] Error processing webhook', { provider, error: error instanceof Error ? error.message : error });
+    console.error('[Webhook] Error processing webhook', {
+      provider,
+      error: error instanceof Error ? error.message : error,
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

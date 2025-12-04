@@ -1,8 +1,8 @@
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
-import { PlatformAnalytics, DailyGmvData } from '@/types/analytics';
+import type { DailyGmvData, PlatformAnalytics } from '@/types/analytics';
 
 // Re-export types for backward compatibility if needed, or just use the imported one
 type PlatformAnalyticsResponse = PlatformAnalytics;
@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Step 1: Authentication check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -34,14 +36,24 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!merchant?.is_platform_admin) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
     }
 
     // Parse period parameter
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || '30d';
 
-    const periodDays = period === '7d' ? 7 : period === '90d' ? 90 : period === 'all' ? 3650 : 30; // 10 years for 'all'
+    const periodDays =
+      period === '7d'
+        ? 7
+        : period === '90d'
+          ? 90
+          : period === 'all'
+            ? 3650
+            : 30; // 10 years for 'all'
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - periodDays);
     const startDateStr = startDate.toISOString().split('T')[0];
@@ -108,25 +120,37 @@ export async function GET(request: NextRequest) {
 
     // Process daily summary for current period
     const dailyData = dailySummaryResult.data || [];
-    const totalGmv = dailyData.reduce((sum, d) => sum + (Number(d.platform_gmv) || 0), 0);
-    const totalOrders = dailyData.reduce((sum, d) => sum + (Number(d.total_orders) || 0), 0);
-    const activeMerchants = dailyData.length > 0
-      ? Math.max(...dailyData.map(d => Number(d.active_merchants) || 0))
-      : 0;
-    const avgGmvPerMerchant = activeMerchants > 0 ? totalGmv / activeMerchants : 0;
+    const totalGmv = dailyData.reduce(
+      (sum, d) => sum + (Number(d.platform_gmv) || 0),
+      0
+    );
+    const totalOrders = dailyData.reduce(
+      (sum, d) => sum + (Number(d.total_orders) || 0),
+      0
+    );
+    const activeMerchants =
+      dailyData.length > 0
+        ? Math.max(...dailyData.map((d) => Number(d.active_merchants) || 0))
+        : 0;
+    const avgGmvPerMerchant =
+      activeMerchants > 0 ? totalGmv / activeMerchants : 0;
 
     // Calculate GMV change from previous period
     const previousData = previousDailySummaryResult.data || [];
-    const previousGmv = previousData.reduce((sum, d) => sum + (Number(d.platform_gmv) || 0), 0);
-    const gmvChange = previousGmv > 0 ? ((totalGmv - previousGmv) / previousGmv) * 100 : 0;
+    const previousGmv = previousData.reduce(
+      (sum, d) => sum + (Number(d.platform_gmv) || 0),
+      0
+    );
+    const gmvChange =
+      previousGmv > 0 ? ((totalGmv - previousGmv) / previousGmv) * 100 : 0;
 
     // Process merchant health breakdown
     const healthData = merchantHealthResult.data || [];
     const merchantHealth = {
-      healthy: healthData.filter(h => h.health_status === 'healthy').length,
-      atRisk: healthData.filter(h => h.health_status === 'at_risk').length,
-      churned: healthData.filter(h => h.health_status === 'churned').length,
-      new: healthData.filter(h => h.health_status === 'new').length,
+      healthy: healthData.filter((h) => h.health_status === 'healthy').length,
+      atRisk: healthData.filter((h) => h.health_status === 'at_risk').length,
+      churned: healthData.filter((h) => h.health_status === 'churned').length,
+      new: healthData.filter((h) => h.health_status === 'new').length,
     };
 
     // Process growth metrics
@@ -135,11 +159,15 @@ export async function GET(request: NextRequest) {
     const previousMonth = growthData[1];
     const newMerchantsThisMonth = currentMonth?.new_merchants || 0;
     const merchantGrowthRate = previousMonth?.new_merchants
-      ? ((newMerchantsThisMonth - previousMonth.new_merchants) / previousMonth.new_merchants) * 100
-      : newMerchantsThisMonth > 0 ? 100 : 0;
+      ? ((newMerchantsThisMonth - previousMonth.new_merchants) /
+          previousMonth.new_merchants) *
+        100
+      : newMerchantsThisMonth > 0
+        ? 100
+        : 0;
 
     // Process top merchants
-    const topMerchants = (topMerchantsResult.data || []).map(m => ({
+    const topMerchants = (topMerchantsResult.data || []).map((m) => ({
       id: m.merchant_id,
       name: m.business_name || 'Unnamed Store',
       gmv: Number(m.total_gmv) || 0,
@@ -147,7 +175,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // Format daily GMV data for charts
-    const dailyGmv: DailyGmvData[] = dailyData.map(d => ({
+    const dailyGmv: DailyGmvData[] = dailyData.map((d) => ({
       date: d.sale_date,
       gmv: Number(d.platform_gmv) || 0,
       orders: Number(d.total_orders) || 0,
@@ -213,7 +241,9 @@ export async function POST() {
     const supabase = createClient(cookieStore);
 
     // Step 1: Authentication check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -226,7 +256,10 @@ export async function POST() {
       .single();
 
     if (!merchant?.is_platform_admin) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
     }
 
     // Refresh materialized views

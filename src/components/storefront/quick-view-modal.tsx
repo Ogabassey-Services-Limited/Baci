@@ -1,23 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Check, ExternalLink, Minus, Plus, X } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useCurrency } from '@/hooks/use-currency';
-import { useCart } from '@/hooks/use-cart';
-import { useToast } from '@/hooks/use-toast';
-import { Product, ProductVariant } from '@/lib/products';
-import { getProductUrl } from '@/lib/seo-utils';
-import { ThemedButton, ThemedBadge } from '@/components/themed';
-import { Input } from '@/components/ui/input';
+import { useEffect, useState } from 'react';
+import { ThemedBadge, ThemedButton } from '@/components/themed';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { X, Plus, Minus, ExternalLink, Check } from 'lucide-react';
+import { useCart } from '@/hooks/use-cart';
+import { useCurrency } from '@/hooks/use-currency';
+import { useToast } from '@/hooks/use-toast';
+import type { Product, ProductVariant } from '@/lib/products';
+import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 
 interface QuickViewModalProps {
@@ -27,6 +27,8 @@ interface QuickViewModalProps {
   isOpen: boolean;
   /** Callback when modal is closed */
   onClose: () => void;
+  /** Merchant slug for checkout context */
+  merchantSlug?: string;
 }
 
 /**
@@ -42,15 +44,24 @@ interface QuickViewModalProps {
  * - Add to cart functionality
  * - Link to full product page
  */
-export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps) {
+export function QuickViewModal({
+  product,
+  isOpen,
+  onClose,
+  merchantSlug,
+}: QuickViewModalProps) {
   const { formatCurrency } = useCurrency();
-  const { addToCart } = useCart();
+  const { addToCart, setMerchantSlug } = useCart();
   const { toast } = useToast();
 
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState<string>('');
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
-  const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({});
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
+    null
+  );
+  const [selectedAttributes, setSelectedAttributes] = useState<
+    Record<string, string>
+  >({});
 
   // Reset state when product changes
   useEffect(() => {
@@ -61,7 +72,11 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
       setSelectedAttributes({});
 
       // Auto-select first variant if product has variants
-      if (product.has_variants && product.variants && product.variants.length > 0) {
+      if (
+        product.has_variants &&
+        product.variants &&
+        product.variants.length > 0
+      ) {
         const firstVariant = product.variants[0];
         setSelectedVariant(firstVariant);
         setSelectedAttributes(firstVariant.attributes);
@@ -113,6 +128,11 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
   };
 
   const handleAddToCart = () => {
+    // Store merchant slug for checkout
+    if (merchantSlug) {
+      setMerchantSlug(merchantSlug);
+    }
+
     // Create a product object with variant info if applicable
     const productToAdd = selectedVariant
       ? {
@@ -142,6 +162,7 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
         {/* Close button */}
         <button
+          type="button"
           onClick={onClose}
           className="absolute right-4 top-4 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
           aria-label="Close"
@@ -160,11 +181,12 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                 className="object-contain"
                 priority
               />
-              {product.compare_at_price && product.compare_at_price > currentPrice && (
-                <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
-                  SALE
-                </span>
-              )}
+              {product.compare_at_price &&
+                product.compare_at_price > currentPrice && (
+                  <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                    SALE
+                  </span>
+                )}
             </div>
 
             {/* Thumbnail Gallery */}
@@ -172,6 +194,8 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
               <div className="flex gap-2 mt-4 overflow-x-auto pb-2">
                 {allImages.map((img, idx) => (
                   <button
+                    type="button"
+                    // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
                     key={idx}
                     onClick={() => setSelectedImage(img.url)}
                     className={cn(
@@ -196,24 +220,33 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
           {/* Product Details Section */}
           <div className="p-6 flex flex-col">
             <DialogHeader className="text-left mb-4">
-              <DialogTitle className="text-2xl font-bold" style={{ color: 'var(--store-primary)' }}>
+              <DialogTitle
+                className="text-2xl font-bold"
+                style={{ color: 'var(--store-primary)' }}
+              >
                 {product.name}
               </DialogTitle>
               {product.sku && (
-                <p className="text-sm text-muted-foreground">SKU: {product.sku}</p>
+                <p className="text-sm text-muted-foreground">
+                  SKU: {product.sku}
+                </p>
               )}
             </DialogHeader>
 
             {/* Price */}
             <div className="flex items-baseline gap-3 mb-4">
-              <span className="text-2xl font-bold" style={{ color: 'var(--store-secondary)' }}>
+              <span
+                className="text-2xl font-bold"
+                style={{ color: 'var(--store-secondary)' }}
+              >
                 {formatCurrency(currentPrice)}
               </span>
-              {product.compare_at_price && product.compare_at_price > currentPrice && (
-                <span className="text-lg text-muted-foreground line-through">
-                  {formatCurrency(product.compare_at_price)}
-                </span>
-              )}
+              {product.compare_at_price &&
+                product.compare_at_price > currentPrice && (
+                  <span className="text-lg text-muted-foreground line-through">
+                    {formatCurrency(product.compare_at_price)}
+                  </span>
+                )}
             </div>
 
             {/* Description */}
@@ -227,7 +260,10 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                 {attributeOptions.map(({ key, values }) => (
                   <div key={key}>
                     <Label className="text-sm font-medium mb-2 block capitalize">
-                      {key}: <span className="font-normal">{selectedAttributes[key]}</span>
+                      {key}:{' '}
+                      <span className="font-normal">
+                        {selectedAttributes[key]}
+                      </span>
                     </Label>
                     <div className="flex flex-wrap gap-2">
                       {values.map((value) => {
@@ -240,6 +276,7 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
 
                         return (
                           <button
+                            type="button"
                             key={value}
                             onClick={() => handleAttributeChange(key, value)}
                             disabled={!isAvailable}
@@ -248,11 +285,13 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                               isSelected
                                 ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] ring-2 ring-[var(--store-primary)] ring-offset-2'
                                 : isAvailable
-                                ? 'bg-muted hover:bg-muted/80'
-                                : 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed line-through'
+                                  ? 'bg-muted hover:bg-muted/80'
+                                  : 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed line-through'
                             )}
                           >
-                            {isSelected && <Check className="w-3 h-3 inline mr-1" />}
+                            {isSelected && (
+                              <Check className="w-3 h-3 inline mr-1" />
+                            )}
                             {value}
                           </button>
                         );
@@ -274,9 +313,13 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                   In Stock
                 </ThemedBadge>
               )}
-              {product.manage_stock && currentStock > 0 && currentStock <= (product.low_stock_threshold || 5) && (
-                <span className="ml-2 text-sm text-amber-600">Only {currentStock} left</span>
-              )}
+              {product.manage_stock &&
+                currentStock > 0 &&
+                currentStock <= (product.low_stock_threshold || 5) && (
+                  <span className="ml-2 text-sm text-amber-600">
+                    Only {currentStock} left
+                  </span>
+                )}
             </div>
 
             {/* Quantity and Add to Cart */}
@@ -296,7 +339,11 @@ export function QuickViewModal({ product, isOpen, onClose }: QuickViewModalProps
                 <Input
                   type="number"
                   value={quantity}
-                  onChange={(e) => handleQuantityChange(parseInt(e.target.value, 10) || 1)}
+                  onChange={(e) =>
+                    handleQuantityChange(
+                      Number.parseInt(e.target.value, 10) || 1
+                    )
+                  }
                   className="h-10 w-16 text-center rounded-none border-x-0 remove-arrow"
                   min={product.minimum_order_quantity || 1}
                   aria-label="Quantity"
@@ -352,7 +399,7 @@ function getAttributeOptions(
       if (!attributeMap.has(key)) {
         attributeMap.set(key, new Set());
       }
-      attributeMap.get(key)!.add(value);
+      attributeMap.get(key)?.add(value);
     }
   }
 

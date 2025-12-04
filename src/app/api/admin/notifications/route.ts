@@ -1,11 +1,11 @@
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import type {
+  AdminNotificationFilters,
   CreateNotificationInput,
   Notification,
   NotificationWithStats,
-  AdminNotificationFilters,
 } from '@/types/notifications';
 
 /**
@@ -27,7 +27,9 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Authentication check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -40,17 +42,27 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!merchant?.is_platform_admin) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
     }
 
     // Parse query params
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') as AdminNotificationFilters['status'] || 'all';
+    const status =
+      (searchParams.get('status') as AdminNotificationFilters['status']) ||
+      'all';
     const type = searchParams.get('type') as AdminNotificationFilters['type'];
-    const priority = searchParams.get('priority') as AdminNotificationFilters['priority'];
+    const priority = searchParams.get(
+      'priority'
+    ) as AdminNotificationFilters['priority'];
     const search = searchParams.get('search');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10) || 20, 100);
-    const offset = parseInt(searchParams.get('offset') || '0', 10) || 0;
+    const limit = Math.min(
+      Number.parseInt(searchParams.get('limit') || '20', 10) || 20,
+      100
+    );
+    const offset = Number.parseInt(searchParams.get('offset') || '0', 10) || 0;
 
     // Build query
     let query = supabase
@@ -81,7 +93,9 @@ export async function GET(request: NextRequest) {
     if (search) {
       // Escape special characters for LIKE pattern
       const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&');
-      query = query.or(`title.ilike.%${sanitizedSearch}%,message.ilike.%${sanitizedSearch}%`);
+      query = query.or(
+        `title.ilike.%${sanitizedSearch}%,message.ilike.%${sanitizedSearch}%`
+      );
     }
 
     // Pagination
@@ -91,14 +105,18 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching notifications:', error);
-      return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch notifications' },
+        { status: 500 }
+      );
     }
 
     // Fetch stats for each notification
     const notificationsWithStats: NotificationWithStats[] = await Promise.all(
       (notifications || []).map(async (notification: Notification) => {
-        const { data: stats } = await supabase
-          .rpc('get_notification_stats', { p_notification_id: notification.id });
+        const { data: stats } = await supabase.rpc('get_notification_stats', {
+          p_notification_id: notification.id,
+        });
 
         return {
           ...notification,
@@ -144,7 +162,9 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Authentication check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -157,7 +177,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!merchant?.is_platform_admin) {
-      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+      return NextResponse.json(
+        { error: 'Forbidden - Admin access required' },
+        { status: 403 }
+      );
     }
 
     // Parse and validate request body
@@ -173,20 +196,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
     if (!body.message?.trim()) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Message is required' },
+        { status: 400 }
+      );
     }
     if (!body.channels?.length) {
-      return NextResponse.json({ error: 'At least one channel is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'At least one channel is required' },
+        { status: 400 }
+      );
     }
-    if (body.target_type === 'specific' && (!body.target_merchant_ids?.length)) {
-      return NextResponse.json({ error: 'Target merchant IDs required for specific targeting' }, { status: 400 });
+    if (body.target_type === 'specific' && !body.target_merchant_ids?.length) {
+      return NextResponse.json(
+        { error: 'Target merchant IDs required for specific targeting' },
+        { status: 400 }
+      );
     }
     if (body.target_type === 'segment' && !body.target_segment) {
-      return NextResponse.json({ error: 'Target segment required for segment targeting' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Target segment required for segment targeting' },
+        { status: 400 }
+      );
     }
 
     // Determine if this should be sent immediately or scheduled
-    const scheduledFor = body.scheduled_for ? new Date(body.scheduled_for) : null;
+    const scheduledFor = body.scheduled_for
+      ? new Date(body.scheduled_for)
+      : null;
     const shouldSendImmediately = !scheduledFor || scheduledFor <= new Date();
 
     // Create the notification
@@ -214,7 +251,10 @@ export async function POST(request: NextRequest) {
 
     if (createError) {
       console.error('Error creating notification:', createError);
-      return NextResponse.json({ error: 'Failed to create notification' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to create notification' },
+        { status: 500 }
+      );
     }
 
     // If sending immediately, create merchant_notifications and broadcast
@@ -225,8 +265,10 @@ export async function POST(request: NextRequest) {
       let broadcastMerchantIds: string[] = [];
       if (body.target_type === 'all') {
         // Send to all merchants
-        const { data: count, error: rpcError } = await supabase
-          .rpc('send_notification_to_all_merchants', { p_notification_id: notification.id });
+        const { data: count, error: rpcError } = await supabase.rpc(
+          'send_notification_to_all_merchants',
+          { p_notification_id: notification.id }
+        );
 
         if (rpcError) {
           console.error('Error sending to all merchants:', rpcError);
@@ -239,31 +281,41 @@ export async function POST(request: NextRequest) {
           .from('merchants')
           .select('id')
           .not('user_id', 'is', null);
-        broadcastMerchantIds = (allMerchants || []).map((m: { id: string }) => m.id);
-
-      } else if (body.target_type === 'specific' && body.target_merchant_ids?.length) {
+        broadcastMerchantIds = (allMerchants || []).map(
+          (m: { id: string }) => m.id
+        );
+      } else if (
+        body.target_type === 'specific' &&
+        body.target_merchant_ids?.length
+      ) {
         // Send to specific merchants
-        const { data: count, error: rpcError } = await supabase
-          .rpc('send_notification_to_merchants', {
+        const { data: count, error: rpcError } = await supabase.rpc(
+          'send_notification_to_merchants',
+          {
             p_notification_id: notification.id,
             p_merchant_ids: body.target_merchant_ids,
-          });
+          }
+        );
 
         if (rpcError) {
           console.error('Error sending to specific merchants:', rpcError);
         }
         merchantsSent = count || 0;
         broadcastMerchantIds = body.target_merchant_ids;
-
       } else if (body.target_type === 'segment' && body.target_segment) {
         // Get merchants in segment and send
-        const segmentMerchants = await getSegmentMerchantIds(supabase, body.target_segment);
+        const segmentMerchants = await getSegmentMerchantIds(
+          supabase,
+          body.target_segment
+        );
         if (segmentMerchants.length > 0) {
-          const { data: count, error: rpcError } = await supabase
-            .rpc('send_notification_to_merchants', {
+          const { data: count, error: rpcError } = await supabase.rpc(
+            'send_notification_to_merchants',
+            {
               p_notification_id: notification.id,
               p_merchant_ids: segmentMerchants,
-            });
+            }
+          );
 
           if (rpcError) {
             console.error('Error sending to segment merchants:', rpcError);
@@ -279,18 +331,24 @@ export async function POST(request: NextRequest) {
       // This is done by creating a broadcast message on the notification channel
       await broadcastNotification(supabase, notification, broadcastMerchantIds);
 
-      return NextResponse.json({
-        notification,
-        status: 'sent',
-        merchants_notified: merchantsSent,
-      }, { status: 201 });
+      return NextResponse.json(
+        {
+          notification,
+          status: 'sent',
+          merchants_notified: merchantsSent,
+        },
+        { status: 201 }
+      );
     }
 
-    return NextResponse.json({
-      notification,
-      status: 'scheduled',
-      scheduled_for: notification.scheduled_for,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        notification,
+        status: 'scheduled',
+        scheduled_for: notification.scheduled_for,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Admin notifications POST error:', error);
     return NextResponse.json(

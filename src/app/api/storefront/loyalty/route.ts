@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 // GET - Get customer's loyalty status
@@ -104,7 +104,8 @@ export async function GET(request: NextRequest) {
 
     // Calculate redeemable rewards
     const redeemableRewards = (rewards || []).filter(
-      (reward: { points_required: number }) => reward.points_required <= currentPoints
+      (reward: { points_required: number }) =>
+        reward.points_required <= currentPoints
     );
 
     return NextResponse.json({

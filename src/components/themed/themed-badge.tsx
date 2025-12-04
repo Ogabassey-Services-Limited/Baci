@@ -1,8 +1,6 @@
-
-
 'use client';
 
-import { Badge, BadgeProps } from '@/components/ui/badge';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 interface ThemedBadgeProps extends BadgeProps {
@@ -30,9 +28,12 @@ export function ThemedBadge({
         variant={variant}
         className={cn(
           // Use CSS custom properties with smart text color
-          colorRole === 'primary' && 'bg-[var(--store-primary)] text-[var(--store-primary-text)] hover:bg-[var(--store-primary)]/80 border-transparent',
-          colorRole === 'secondary' && 'bg-[var(--store-secondary)] text-[var(--store-secondary-text)] hover:bg-[var(--store-secondary)]/80 border-transparent',
-          colorRole === 'accent' && 'bg-[var(--store-accent)] text-[var(--store-accent-text)] hover:bg-[var(--store-accent)]/80 border-transparent',
+          colorRole === 'primary' &&
+            'bg-[var(--store-primary)] text-[var(--store-primary-text)] hover:bg-[var(--store-primary)]/80 border-transparent',
+          colorRole === 'secondary' &&
+            'bg-[var(--store-secondary)] text-[var(--store-secondary-text)] hover:bg-[var(--store-secondary)]/80 border-transparent',
+          colorRole === 'accent' &&
+            'bg-[var(--store-accent)] text-[var(--store-accent-text)] hover:bg-[var(--store-accent)]/80 border-transparent',
           className
         )}
       />
@@ -47,9 +48,12 @@ export function ThemedBadge({
         variant={variant}
         className={cn(
           'bg-transparent',
-          colorRole === 'primary' && 'border-[var(--store-primary)] text-[var(--store-primary)]',
-          colorRole === 'secondary' && 'border-[var(--store-secondary)] text-[var(--store-secondary)]',
-          colorRole === 'accent' && 'border-[var(--store-accent)] text-[var(--store-accent)]',
+          colorRole === 'primary' &&
+            'border-[var(--store-primary)] text-[var(--store-primary)]',
+          colorRole === 'secondary' &&
+            'border-[var(--store-secondary)] text-[var(--store-secondary)]',
+          colorRole === 'accent' &&
+            'border-[var(--store-accent)] text-[var(--store-accent)]',
           className
         )}
       />
@@ -58,9 +62,7 @@ export function ThemedBadge({
 
   // For destructive variant
   if (variant === 'destructive') {
-      return (
-          <Badge {...props} variant="destructive" className={className} />
-      );
+    return <Badge {...props} variant="destructive" className={className} />;
   }
 
   // For other variants, use default Badge behavior

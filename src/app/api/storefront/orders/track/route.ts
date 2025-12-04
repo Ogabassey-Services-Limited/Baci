@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 interface TimelineEvent {
@@ -7,7 +7,13 @@ interface TimelineEvent {
   title: string;
   description: string;
   timestamp: string;
-  icon: 'order' | 'payment' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  icon:
+    | 'order'
+    | 'payment'
+    | 'processing'
+    | 'shipped'
+    | 'delivered'
+    | 'cancelled';
 }
 
 // GET - Track order by order number or ID
@@ -29,9 +35,7 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Build query
-    let query = supabase
-      .from('orders')
-      .select(`
+    let query = supabase.from('orders').select(`
         *,
         order_items (
           id,
@@ -82,7 +86,10 @@ export async function GET(request: NextRequest) {
       shippingTracking = {
         provider: order.shipping_provider,
         tracking_number: order.tracking_number,
-        tracking_url: getTrackingUrl(order.shipping_provider, order.tracking_number),
+        tracking_url: getTrackingUrl(
+          order.shipping_provider,
+          order.tracking_number
+        ),
       };
     }
 
@@ -256,7 +263,7 @@ function getTrackingUrl(provider: string, trackingNumber: string): string {
   const providers: Record<string, string> = {
     gigl: `https://giglogistics.com/track/${trackingNumber}`,
     topship: `https://topship.africa/track/${trackingNumber}`,
-    shiip: `https://shiip.ng/track/${trackingNumber}`,
+
     dhl: `https://www.dhl.com/en/express/tracking.html?AWB=${trackingNumber}`,
     fedex: `https://www.fedex.com/fedextrack/?trknbr=${trackingNumber}`,
     ups: `https://www.ups.com/track?tracknum=${trackingNumber}`,

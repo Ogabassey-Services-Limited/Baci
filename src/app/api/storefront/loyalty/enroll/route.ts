@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 // POST - Enroll a customer in loyalty program
@@ -102,7 +102,9 @@ export async function POST(request: NextRequest) {
           customer_id,
           points: initialPoints,
           type: 'bonus',
-          description: referral_code ? 'Welcome bonus + Referral bonus' : 'Welcome bonus',
+          description: referral_code
+            ? 'Welcome bonus + Referral bonus'
+            : 'Welcome bonus',
         });
 
       if (transactionError) {

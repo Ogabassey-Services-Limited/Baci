@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
     const productId = searchParams.get('productId');
     const merchantId = searchParams.get('merchantId');
     const status = searchParams.get('status');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const page = Number.parseInt(searchParams.get('page') || '1', 10);
+    const limit = Number.parseInt(searchParams.get('limit') || '10', 10);
     const offset = (page - 1) * limit;
 
     const cookieStore = await cookies();
@@ -36,7 +36,10 @@ export async function GET(request: NextRequest) {
 
     // If fetching for merchant dashboard (all statuses), require auth
     if (merchantId && status !== 'approved') {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
       if (authError || !user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
@@ -50,20 +53,24 @@ export async function GET(request: NextRequest) {
         .single();
 
       if (!merchant) {
-        return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+        return NextResponse.json(
+          { error: 'Merchant not found' },
+          { status: 404 }
+        );
       }
     }
 
-    let query = supabase
-      .from('product_reviews')
-      .select(`
+    let query = supabase.from('product_reviews').select(
+      `
         *,
         products:product_id (
           id,
           name,
           images
         )
-      `, { count: 'exact' });
+      `,
+      { count: 'exact' }
+    );
 
     if (productId) {
       query = query.eq('product_id', productId);
@@ -80,20 +87,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const { data: reviews, error, count } = await query
+    const {
+      data: reviews,
+      error,
+      count,
+    } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {
       console.error('Error fetching reviews:', error);
-      return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch reviews' },
+        { status: 500 }
+      );
     }
 
     // Get rating stats if fetching for a product
     let stats = null;
     if (productId) {
-      const { data: statsData } = await supabase
-        .rpc('get_product_rating_stats', { p_product_id: productId });
+      const { data: statsData } = await supabase.rpc(
+        'get_product_rating_stats',
+        { p_product_id: productId }
+      );
 
       if (statsData && statsData.length > 0) {
         stats = statsData[0];
@@ -112,7 +128,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Reviews GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -120,12 +139,23 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as ReviewSubmission;
-    const { productId, merchantId, customerEmail, customerName, rating, title, body: reviewBody } = body;
+    const {
+      productId,
+      merchantId,
+      customerEmail,
+      customerName,
+      rating,
+      title,
+      body: reviewBody,
+    } = body;
 
     // Validate required fields
     if (!productId || !merchantId || !customerEmail || !rating) {
       return NextResponse.json(
-        { error: 'Missing required fields: productId, merchantId, customerEmail, rating' },
+        {
+          error:
+            'Missing required fields: productId, merchantId, customerEmail, rating',
+        },
         { status: 400 }
       );
     }
@@ -223,16 +253,23 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Error inserting review:', insertError);
-      return NextResponse.json({ error: 'Failed to submit review' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to submit review' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       review,
-      message: 'Thank you for your review! It will be visible after moderation.',
+      message:
+        'Thank you for your review! It will be visible after moderation.',
     });
   } catch (error) {
     console.error('Reviews POST error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

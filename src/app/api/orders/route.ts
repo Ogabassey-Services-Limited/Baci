@@ -1,14 +1,20 @@
-
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { sanitizeSearchQuery, sanitizeLikePattern, isValidUuid } from '@/lib/sanitize-core';
+import {
+  generateOrderConfirmationEmail,
+  generateOrderConfirmationText,
+} from '@/lib/email-templates';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
+import {
+  isValidUuid,
+  sanitizeLikePattern,
+  sanitizeSearchQuery,
+} from '@/lib/sanitize-core';
+import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
-import { generateOrderConfirmationEmail, generateOrderConfirmationText } from '@/lib/email-templates';
 
 // GIGL-specific shipment creation logic is now in its own function
 interface OrderItem {
@@ -32,37 +38,46 @@ interface ShippingAddress {
 }
 
 // GIGL-specific shipment creation logic is now in its own function
-async function handleGiglShipment(order: { items: OrderItem[] }, customer: CustomerInfo, shippingAddress: ShippingAddress) {
+async function handleGiglShipment(
+  order: { items: OrderItem[] },
+  customer: CustomerInfo,
+  shippingAddress: ShippingAddress
+) {
   try {
     const giglShipmentPayload = {
-      "SenderDetails": {
-        "SenderLocation": { "Latitude": "6.5244", "Longitude": "3.3792" },
-        "SenderName": "Baci Store",
-        "SenderPhoneNumber": "+234800000000",
-        "SenderStationId": 4,
-        "SenderAddress": "Merchant Address",
-        "InputtedSenderAddress": "Merchant Address",
-        "SenderLocality": "Lagos"
+      SenderDetails: {
+        SenderLocation: { Latitude: '6.5244', Longitude: '3.3792' },
+        SenderName: 'Baci Store',
+        SenderPhoneNumber: '+234800000000',
+        SenderStationId: 4,
+        SenderAddress: 'Merchant Address',
+        InputtedSenderAddress: 'Merchant Address',
+        SenderLocality: 'Lagos',
       },
-      "ReceiverDetails": {
-        "ReceiverLocation": { "Longitude": "3.3792", "Latitude": "6.5244" },
-        "ReceiverStationId": 4,
-        "ReceiverName": customer.name,
-        "ReceiverPhoneNumber": customer.phone,
-        "ReceiverAddress": shippingAddress.address,
-        "InputtedReceiverAddress": shippingAddress.address
+      ReceiverDetails: {
+        ReceiverLocation: { Longitude: '3.3792', Latitude: '6.5244' },
+        ReceiverStationId: 4,
+        ReceiverName: customer.name,
+        ReceiverPhoneNumber: customer.phone,
+        ReceiverAddress: shippingAddress.address,
+        InputtedReceiverAddress: shippingAddress.address,
       },
-      "ShipmentDetails": { "VehicleType": 1, "IsFromAgility": 0, "IsBatchPickUp": 0 },
-      "ShipmentItems": order.items.map((item: { value: number; quantity: number }) => ({
-        "SpecialPackageId": 10,
-        "Quantity": item.quantity,
-        "Value": item.value,
-        "ShipmentType": 0, // Special
-      }))
+      ShipmentDetails: { VehicleType: 1, IsFromAgility: 0, IsBatchPickUp: 0 },
+      ShipmentItems: order.items.map(
+        (item: { value: number; quantity: number }) => ({
+          SpecialPackageId: 10,
+          Quantity: item.quantity,
+          Value: item.value,
+          ShipmentType: 0, // Special
+        })
+      ),
     };
     const giglResult = await createGiglShipment(giglShipmentPayload);
     if (giglResult.status === 200 && giglResult.data.Waybill) {
-      logger.info({ message: 'GIGL shipment created successfully', waybill: giglResult.data.Waybill });
+      logger.info({
+        message: 'GIGL shipment created successfully',
+        waybill: giglResult.data.Waybill,
+      });
       return {
         shipping_provider: 'GIGL',
         tracking_number: giglResult.data.Waybill,
@@ -72,7 +87,10 @@ async function handleGiglShipment(order: { items: OrderItem[] }, customer: Custo
       return null;
     }
   } catch (giglError) {
-    logger.error({ message: 'Error calling GIGL create shipment API', error: giglError });
+    logger.error({
+      message: 'Error calling GIGL create shipment API',
+      error: giglError,
+    });
     return null;
   }
 }
@@ -84,7 +102,10 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       console.error('API: Auth error or no user', authError);
       return NextResponse.json(
@@ -101,7 +122,10 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      console.error('API: Merchant not found for user', { userId: user.id, merchantError });
+      console.error('API: Merchant not found for user', {
+        userId: user.id,
+        merchantError,
+      });
       return NextResponse.json(
         { error: 'Merchant not found for the authenticated user.' },
         { status: 404 }
@@ -134,9 +158,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Search by customer name or order number (with sanitized input)
-    if (search && search.trim()) {
+    if (search?.trim()) {
       const sanitizedPattern = sanitizeLikePattern(search);
-      query = query.or(`customer_name.ilike.%${sanitizedPattern}%,order_number.ilike.%${sanitizedPattern}%`);
+      query = query.or(
+        `customer_name.ilike.%${sanitizedPattern}%,order_number.ilike.%${sanitizedPattern}%`
+      );
     }
 
     const { data: orders, error: ordersError } = await query;
@@ -173,7 +199,7 @@ export async function POST(request: NextRequest) {
       customer_phone,
       items,
       subtotal,
-      shipping_fee = 10.00, // Default shipping fee
+      shipping_fee = 10.0, // Default shipping fee
       payment_method,
       payment_status = 'unpaid',
       shipping_status = 'pending',
@@ -189,16 +215,22 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    // Fetch merchant to check for shipping provider preference
+    // Fetch merchant to verify it exists
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
-      .select('shipping_provider')
+      .select('id, rider_phone_number')
       .eq('id', merchant_id)
       .single();
 
-    if (merchantFetchError) {
-      logger.error({ message: 'Failed to fetch merchant for order creation', error: merchantFetchError });
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+    if (merchantFetchError || !merchant) {
+      logger.error({
+        message: 'Failed to fetch merchant for order creation',
+        error: merchantFetchError,
+      });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Validate required fields
@@ -217,7 +249,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate total
-    const total = parseFloat(subtotal) + parseFloat(shipping_fee);
+    const total = Number.parseFloat(subtotal) + Number.parseFloat(shipping_fee);
 
     // Create or get customer record
     let customer_id = null;
@@ -256,16 +288,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Base order payload
+    // Base order payload (items stored separately in order_items table)
+    // Financial breakdown follows e-commerce best practices for auditing, refunds, and analytics
     const orderPayload: Record<string, unknown> = {
       merchant_id,
       customer_id,
       customer_email,
       customer_name,
       customer_phone,
-      items: items,
       subtotal,
       shipping_fee,
+      discount_amount: body.discount_amount || 0,
+      tax_amount: body.tax_amount || 0,
       total,
       payment_method,
       payment_status,
@@ -275,15 +309,41 @@ export async function POST(request: NextRequest) {
       notes,
     };
 
-    // Dynamically handle shipping based on merchant preference
-    if (merchant?.shipping_provider === 'GIGL') {
-      const shipmentDetails = await handleGiglShipment({ items }, { name: customer_name, phone: customer_phone }, shipping_address);
+    // Dynamically handle shipping based on request shipping_provider
+    const shippingProvider = body.shipping_provider || 'GIGL';
+    if (shippingProvider === 'GIGL') {
+      const shipmentDetails = await handleGiglShipment(
+        { items },
+        { name: customer_name, phone: customer_phone },
+        shipping_address
+      );
       if (shipmentDetails) {
         orderPayload.shipping_provider = shipmentDetails.shipping_provider;
         orderPayload.tracking_number = shipmentDetails.tracking_number;
       }
     }
 
+    // Handle Pay on Delivery (POD) Logic
+    if (payment_method === 'pod') {
+      orderPayload.payment_status = 'pending'; // Ensure it's pending for POD
+
+      // Trigger Rider Notification (Placeholder)
+      if (merchant?.rider_phone_number) {
+        logger.info({
+          message: 'Rider Notification Triggered (POD)',
+          riderPhone: merchant.rider_phone_number,
+          customerName: customer_name,
+          customerAddress: shipping_address?.address,
+          orderTotal: total,
+        });
+        // TODO: Integrate with WhatsApp API provider here
+      } else {
+        logger.warn({
+          message: 'Rider Notification Skipped (No Phone Number)',
+          merchantId: merchant_id,
+        });
+      }
+    }
 
     // Create order
     const { data: order, error: orderError } = await supabase
@@ -322,11 +382,13 @@ export async function POST(request: NextRequest) {
         for (const item of orderItems) {
           if (item.product_id) {
             // Use atomic stock decrement function to prevent race conditions
-            const { data: stockResult, error: stockError } = await supabase
-              .rpc('decrement_product_stock', {
+            const { data: stockResult, error: stockError } = await supabase.rpc(
+              'decrement_product_stock',
+              {
                 product_id_param: item.product_id,
                 quantity_param: item.quantity,
-              });
+              }
+            );
 
             if (stockError) {
               console.error('Error updating stock:', stockError);
@@ -375,9 +437,9 @@ export async function POST(request: NextRequest) {
           orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
           customerName: customer_name,
           items: emailItems,
-          subtotal: parseFloat(subtotal),
-          shippingFee: parseFloat(shipping_fee),
-          total: parseFloat(total.toString()),
+          subtotal: Number.parseFloat(subtotal),
+          shippingFee: Number.parseFloat(shipping_fee),
+          total: Number.parseFloat(total.toString()),
           shippingAddress: {
             address: shipping_address?.address || '',
             city: shipping_address?.city || '',
@@ -401,14 +463,24 @@ export async function POST(request: NextRequest) {
           replyTo: `support@${merchantDetails.slug}.${rootDomain}`,
           emailType: 'orders',
         }).catch((emailError) => {
-          logger.error({ message: 'Failed to send order confirmation email', error: emailError });
+          logger.error({
+            message: 'Failed to send order confirmation email',
+            error: emailError,
+          });
         });
 
-        logger.info({ message: 'Order confirmation email queued', orderId: order.id, email: customer_email });
+        logger.info({
+          message: 'Order confirmation email queued',
+          orderId: order.id,
+          email: customer_email,
+        });
       }
     } catch (emailError) {
       // Don't fail the order creation if email fails
-      logger.error({ message: 'Error preparing order confirmation email', error: emailError });
+      logger.error({
+        message: 'Error preparing order confirmation email',
+        error: emailError,
+      });
     }
 
     return NextResponse.json({ order }, { status: 201 });

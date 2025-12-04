@@ -17,13 +17,13 @@ export const DEFAULT_BLUR_DATA_URL =
  * These provide contextually appropriate loading states
  */
 export const CATEGORY_BLUR_COLORS: Record<string, string> = {
-  fashion: '#f5f0eb',      // Warm beige
-  electronics: '#e8eef4',  // Cool blue-gray
-  food: '#f0ebe5',         // Warm cream
-  beauty: '#fdf2f8',       // Soft pink
-  home: '#f5f5f4',         // Neutral stone
-  sports: '#ecfdf5',       // Fresh green
-  default: '#f4f4f5',      // Neutral gray
+  fashion: '#f5f0eb', // Warm beige
+  electronics: '#e8eef4', // Cool blue-gray
+  food: '#f0ebe5', // Warm cream
+  beauty: '#fdf2f8', // Soft pink
+  home: '#f5f5f4', // Neutral stone
+  sports: '#ecfdf5', // Fresh green
+  default: '#f4f4f5', // Neutral gray
 };
 
 /**
@@ -40,7 +40,10 @@ export function generateColorBlur(color: string = '#f4f4f5'): string {
  * Generate blur placeholder based on dominant color extraction
  * For server-side use - extracts average color from image URL
  */
-export async function generateBlurFromImage(_imageUrl: string): Promise<string> {
+// biome-ignore lint/suspicious/useAwait: Future async implementation
+export async function generateBlurFromImage(
+  _imageUrl: string
+): Promise<string> {
   try {
     // For external images, we can't process them server-side easily
     // Return a default blur placeholder
@@ -56,7 +59,8 @@ export async function generateBlurFromImage(_imageUrl: string): Promise<string> 
  */
 export function getProductBlurPlaceholder(category?: string): string {
   const normalizedCategory = category?.toLowerCase() || 'default';
-  const color = CATEGORY_BLUR_COLORS[normalizedCategory] || CATEGORY_BLUR_COLORS.default;
+  const color =
+    CATEGORY_BLUR_COLORS[normalizedCategory] || CATEGORY_BLUR_COLORS.default;
   return generateColorBlur(color);
 }
 
@@ -99,7 +103,9 @@ export function getImageLoader(src: string) {
  * Calculate responsive image sizes based on layout
  * Helps browser load appropriately sized images
  */
-export function getResponsiveSizes(layout: 'grid' | 'full' | 'thumbnail' | 'hero'): string {
+export function getResponsiveSizes(
+  layout: 'grid' | 'full' | 'thumbnail' | 'hero'
+): string {
   switch (layout) {
     case 'grid':
       // Product grid: 2 cols on mobile, 3 on tablet, 4 on desktop
@@ -146,6 +152,8 @@ export function getFallbackImage(category?: string): string {
     default: 'f4f4f5/a1a1aa',
   };
 
-  const colors = categoryColors[category?.toLowerCase() || 'default'] || categoryColors.default;
+  const colors =
+    categoryColors[category?.toLowerCase() || 'default'] ||
+    categoryColors.default;
   return `https://placehold.co/600x600/${colors}?text=No+Image`;
 }

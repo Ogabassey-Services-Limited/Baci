@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -18,7 +18,9 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -30,7 +32,10 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -61,7 +66,10 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching alerts:', error);
-      return NextResponse.json({ error: 'Failed to fetch alerts' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch alerts' },
+        { status: 500 }
+      );
     }
 
     // Count by type
@@ -72,7 +80,7 @@ export async function GET(request: NextRequest) {
       .eq('status', 'active');
 
     const alertsByType: Record<string, number> = {};
-    (typeCounts || []).forEach(item => {
+    (typeCounts || []).forEach((item) => {
       alertsByType[item.alert_type] = (alertsByType[item.alert_type] || 0) + 1;
     });
 
@@ -85,7 +93,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Alerts GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -94,7 +105,9 @@ export async function PATCH(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -106,7 +119,10 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const body = await request.json();
@@ -147,7 +163,10 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('Error updating alerts:', error);
-      return NextResponse.json({ error: 'Failed to update alerts' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to update alerts' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -156,6 +175,9 @@ export async function PATCH(request: NextRequest) {
     });
   } catch (error) {
     console.error('Alerts PATCH error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

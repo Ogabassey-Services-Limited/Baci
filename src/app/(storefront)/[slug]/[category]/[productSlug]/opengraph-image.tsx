@@ -29,28 +29,31 @@ export default async function Image({ params }: ImageProps) {
 
   if (!merchant) {
     return new ImageResponse(
-      (
-        <div
-          style={{
-            height: '100%',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#1a1a2e',
-            color: 'white',
-          }}
-        >
-          <div style={{ fontSize: 60, fontWeight: 'bold' }}>Product Not Found</div>
+      <div
+        style={{
+          height: '100%',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#1a1a2e',
+          color: 'white',
+        }}
+      >
+        <div style={{ fontSize: 60, fontWeight: 'bold' }}>
+          Product Not Found
         </div>
-      ),
+      </div>,
       { ...size }
     );
   }
 
   // Get product - try by slug first, then by ID
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(productSlug);
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      productSlug
+    );
 
   let productQuery = supabase
     .from('products')
@@ -58,7 +61,9 @@ export default async function Image({ params }: ImageProps) {
     .eq('merchant_id', merchant.id);
 
   if (isUuid) {
-    productQuery = productQuery.or(`slug.eq.${productSlug},id.eq.${productSlug}`);
+    productQuery = productQuery.or(
+      `slug.eq.${productSlug},id.eq.${productSlug}`
+    );
   } else {
     productQuery = productQuery.eq('slug', productSlug);
   }
@@ -67,22 +72,22 @@ export default async function Image({ params }: ImageProps) {
 
   if (!product) {
     return new ImageResponse(
-      (
-        <div
-          style={{
-            height: '100%',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#1a1a2e',
-            color: 'white',
-          }}
-        >
-          <div style={{ fontSize: 60, fontWeight: 'bold' }}>Product Not Found</div>
+      <div
+        style={{
+          height: '100%',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#1a1a2e',
+          color: 'white',
+        }}
+      >
+        <div style={{ fontSize: 60, fontWeight: 'bold' }}>
+          Product Not Found
         </div>
-      ),
+      </div>,
       { ...size }
     );
   }
@@ -93,9 +98,10 @@ export default async function Image({ params }: ImageProps) {
   const accentColor = merchant.brand_colors?.accent || '#F59E0B';
 
   // Get product image
-  const productImage = Array.isArray(product.images) && product.images.length > 0
-    ? product.images[0]
-    : null;
+  const productImage =
+    Array.isArray(product.images) && product.images.length > 0
+      ? product.images[0]
+      : null;
 
   // Format price
   const formattedPrice = new Intl.NumberFormat('en-US', {
@@ -104,199 +110,199 @@ export default async function Image({ params }: ImageProps) {
   }).format(product.price || 0);
 
   return new ImageResponse(
-    (
+    <div
+      style={{
+        height: '100%',
+        width: '100%',
+        display: 'flex',
+        backgroundColor: bgColor,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Background gradient */}
       <div
         style={{
-          height: '100%',
-          width: '100%',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: `linear-gradient(135deg, ${bgColor} 0%, ${primaryColor}15 50%, ${accentColor}15 100%)`,
+        }}
+      />
+
+      {/* Decorative circle */}
+      <div
+        style={{
+          position: 'absolute',
+          top: -150,
+          right: -150,
+          width: 500,
+          height: 500,
+          borderRadius: '50%',
+          background: `${primaryColor}20`,
+        }}
+      />
+
+      {/* Content container */}
+      <div
+        style={{
           display: 'flex',
-          backgroundColor: bgColor,
+          width: '100%',
+          height: '100%',
+          padding: '50px',
           position: 'relative',
-          overflow: 'hidden',
+          zIndex: 1,
         }}
       >
-        {/* Background gradient */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: `linear-gradient(135deg, ${bgColor} 0%, ${primaryColor}15 50%, ${accentColor}15 100%)`,
-          }}
-        />
-
-        {/* Decorative circle */}
-        <div
-          style={{
-            position: 'absolute',
-            top: -150,
-            right: -150,
-            width: 500,
-            height: 500,
-            borderRadius: '50%',
-            background: `${primaryColor}20`,
-          }}
-        />
-
-        {/* Content container */}
+        {/* Left: Product Image */}
         <div
           style={{
             display: 'flex',
-            width: '100%',
-            height: '100%',
-            padding: '50px',
-            position: 'relative',
-            zIndex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '50%',
+            padding: '20px',
           }}
         >
-          {/* Left: Product Image */}
+          {productImage ? (
+            // biome-ignore lint/performance/noImgElement: Satori (OpenGraph image generation) requires img tags
+            <img
+              src={productImage}
+              alt=""
+              width={450}
+              height={450}
+              style={{
+                objectFit: 'contain',
+                borderRadius: 20,
+                boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 450,
+                height: 450,
+                borderRadius: 20,
+                background: `${primaryColor}30`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 100,
+              }}
+            >
+              📦
+            </div>
+          )}
+        </div>
+
+        {/* Right: Product Info */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            width: '50%',
+            padding: '20px 40px',
+          }}
+        >
+          {/* Store Logo/Name */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              width: '50%',
-              padding: '20px',
+              marginBottom: 30,
+              gap: 12,
             }}
           >
-            {productImage ? (
+            {merchant.logo_url && (
+              // biome-ignore lint/performance/noImgElement: Satori (OpenGraph image generation) requires img tags
               <img
-                src={productImage}
+                src={merchant.logo_url}
                 alt=""
-                width={450}
-                height={450}
+                width={40}
+                height={40}
                 style={{
                   objectFit: 'contain',
-                  borderRadius: 20,
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                  borderRadius: 8,
                 }}
               />
-            ) : (
-              <div
-                style={{
-                  width: 450,
-                  height: 450,
-                  borderRadius: 20,
-                  background: `${primaryColor}30`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 100,
-                }}
-              >
-                📦
-              </div>
             )}
+            <span
+              style={{
+                fontSize: 24,
+                color: 'rgba(255,255,255,0.7)',
+                fontWeight: 500,
+              }}
+            >
+              {merchant.business_name}
+            </span>
           </div>
 
-          {/* Right: Product Info */}
+          {/* Product Name */}
+          <div
+            style={{
+              fontSize: 52,
+              fontWeight: 'bold',
+              color: 'white',
+              lineHeight: 1.2,
+              marginBottom: 20,
+              display: '-webkit-box',
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
+            {product.name}
+          </div>
+
+          {/* Price */}
+          <div
+            style={{
+              fontSize: 48,
+              fontWeight: 'bold',
+              color: accentColor,
+              marginBottom: 30,
+            }}
+          >
+            {formattedPrice}
+          </div>
+
+          {/* CTA */}
           <div
             style={{
               display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              width: '50%',
-              padding: '20px 40px',
+              padding: '16px 36px',
+              backgroundColor: primaryColor,
+              borderRadius: 12,
+              fontSize: 24,
+              fontWeight: 600,
+              color: 'white',
+              width: 'fit-content',
             }}
           >
-            {/* Store Logo/Name */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                marginBottom: 30,
-                gap: 12,
-              }}
-            >
-              {merchant.logo_url && (
-                <img
-                  src={merchant.logo_url}
-                  alt=""
-                  width={40}
-                  height={40}
-                  style={{
-                    objectFit: 'contain',
-                    borderRadius: 8,
-                  }}
-                />
-              )}
-              <span
-                style={{
-                  fontSize: 24,
-                  color: 'rgba(255,255,255,0.7)',
-                  fontWeight: 500,
-                }}
-              >
-                {merchant.business_name}
-              </span>
-            </div>
-
-            {/* Product Name */}
-            <div
-              style={{
-                fontSize: 52,
-                fontWeight: 'bold',
-                color: 'white',
-                lineHeight: 1.2,
-                marginBottom: 20,
-                display: '-webkit-box',
-                WebkitLineClamp: 3,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
-              }}
-            >
-              {product.name}
-            </div>
-
-            {/* Price */}
-            <div
-              style={{
-                fontSize: 48,
-                fontWeight: 'bold',
-                color: accentColor,
-                marginBottom: 30,
-              }}
-            >
-              {formattedPrice}
-            </div>
-
-            {/* CTA */}
-            <div
-              style={{
-                display: 'flex',
-                padding: '16px 36px',
-                backgroundColor: primaryColor,
-                borderRadius: 12,
-                fontSize: 24,
-                fontWeight: 600,
-                color: 'white',
-                width: 'fit-content',
-              }}
-            >
-              Shop Now
-            </div>
+            Shop Now
           </div>
         </div>
-
-        {/* Bottom badge */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 30,
-            right: 40,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            fontSize: 16,
-            color: 'rgba(255,255,255,0.4)',
-          }}
-        >
-          Powered by Baci
-        </div>
       </div>
-    ),
+
+      {/* Bottom badge */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 30,
+          right: 40,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          fontSize: 16,
+          color: 'rgba(255,255,255,0.4)',
+        }}
+      >
+        Powered by Baci
+      </div>
+    </div>,
     {
       ...size,
     }

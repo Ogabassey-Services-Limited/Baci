@@ -1,38 +1,53 @@
+'use client';
 
-import { Logo } from '@/components/logo';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui/card';
+import { OnboardingBackground } from '@/components/onboarding/floating-benefits';
 import OnboardingClient from '@/components/onboarding-client';
-
-
-import { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Get Started - Create Your Store | Baci',
-  description: 'Start your e-commerce journey with Baci. Sign up for free and let AI build your perfect online store in seconds.',
-};
 
 export default function OnboardingPage() {
   return (
-    <div
-      className="relative flex flex-col min-h-screen items-center justify-center bg-background p-4"
-      style={{
-        paddingLeft: 'max(1rem, env(safe-area-inset-left))',
-        paddingRight: 'max(1rem, env(safe-area-inset-right))',
-      }}
-    >
-      <div className="absolute top-6 left-6">
-        <Link href="/">
-          <Logo />
-        </Link>
-      </div>
-      <div className="w-full max-w-2xl pt-16">
-        <Card className="glass shadow-2xl">
-          <CardContent className="p-8">
-            <OnboardingClient />
-          </CardContent>
-        </Card>
-      </div>
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
+      {/* Dynamic Background Elements (Matched to Login Page) */}
+      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
+      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
+
+      {/* Animated Orbs */}
+      <div
+        className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/30 rounded-full blur-3xl animate-pulse"
+        style={{ animationDuration: '4s' }}
+      />
+      <div
+        className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-accent/30 rounded-full blur-3xl animate-pulse"
+        style={{ animationDuration: '6s' }}
+      />
+
+      {/* Floating Benefits - The "Extra" Layer */}
+      <OnboardingBackground />
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className="relative z-10 w-full"
+      >
+        <OnboardingClient />
+
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="text-center text-sm text-muted-foreground mt-6"
+        >
+          Already have an account?{' '}
+          <Link
+            href="/login"
+            className="text-primary font-medium hover:underline underline-offset-4 transition-colors"
+          >
+            Log in
+          </Link>
+        </motion.p>
+      </motion.div>
     </div>
   );
 }

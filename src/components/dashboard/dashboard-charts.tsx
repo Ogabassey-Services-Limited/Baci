@@ -1,24 +1,26 @@
 'use client';
 
 import {
-  Bar,
-  BarChart,
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
+  Legend,
   XAxis,
   YAxis,
 } from 'recharts';
+import type { ChartConfig } from '@/components/ui/chart';
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import type { ChartConfig } from '@/components/ui/chart';
 
 interface ChartDataPoint {
   month: string;
   revenue: number;
+  profit: number;
   orders: number;
 }
 
@@ -33,8 +35,16 @@ export function RevenueSparkline({ data, config }: DashboardChartsProps) {
       <AreaChart data={data}>
         <defs>
           <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+            <stop
+              offset="5%"
+              stopColor="hsl(var(--primary))"
+              stopOpacity={0.3}
+            />
+            <stop
+              offset="95%"
+              stopColor="hsl(var(--primary))"
+              stopOpacity={0}
+            />
           </linearGradient>
         </defs>
         <Area
@@ -53,8 +63,12 @@ export function RevenueSparkline({ data, config }: DashboardChartsProps) {
 export function RevenueBarChart({ data, config }: DashboardChartsProps) {
   return (
     <ChartContainer config={config} className="h-full w-full">
-      <BarChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.1)" />
+      <BarChart data={data} barGap={2}>
+        <CartesianGrid
+          strokeDasharray="3 3"
+          vertical={false}
+          stroke="rgba(255,255,255,0.1)"
+        />
         <XAxis
           dataKey="month"
           tickLine={false}
@@ -72,11 +86,31 @@ export function RevenueBarChart({ data, config }: DashboardChartsProps) {
           cursor={{ fill: 'rgba(255,255,255,0.05)' }}
           content={<ChartTooltipContent indicator="dot" />}
         />
+        <Legend
+          verticalAlign="top"
+          align="right"
+          wrapperStyle={{ paddingBottom: 10 }}
+          formatter={(value) => (
+            <span
+              style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+            >
+              {value}
+            </span>
+          )}
+        />
         <Bar
           dataKey="revenue"
           fill="hsl(var(--primary))"
           radius={[4, 4, 0, 0]}
-          maxBarSize={50}
+          maxBarSize={40}
+          name="Revenue"
+        />
+        <Bar
+          dataKey="profit"
+          fill="hsl(142 76% 36%)"
+          radius={[4, 4, 0, 0]}
+          maxBarSize={40}
+          name="Profit"
         />
       </BarChart>
     </ChartContainer>

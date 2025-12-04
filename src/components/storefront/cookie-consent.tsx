@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { X, Cookie, Shield, Settings2 } from 'lucide-react';
+import { Cookie, Settings2, Shield, X } from 'lucide-react';
+import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import Link from 'next/link';
 import { updateConsentMode } from '@/lib/consent-mode';
+import { cn } from '@/lib/utils';
 
 const COOKIE_CONSENT_KEY = 'baci-cookie-consent';
 
@@ -27,7 +27,8 @@ const defaultPreferences: CookiePreferences = {
 export function CookieConsent() {
   const [isVisible, setIsVisible] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
-  const [preferences, setPreferences] = useState<CookiePreferences>(defaultPreferences);
+  const [preferences, setPreferences] =
+    useState<CookiePreferences>(defaultPreferences);
 
   useEffect(() => {
     // Check if consent has already been given
@@ -40,10 +41,13 @@ export function CookieConsent() {
   }, []);
 
   const saveConsent = useCallback((prefs: CookiePreferences) => {
-    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({
-      ...prefs,
-      timestamp: new Date().toISOString(),
-    }));
+    localStorage.setItem(
+      COOKIE_CONSENT_KEY,
+      JSON.stringify({
+        ...prefs,
+        timestamp: new Date().toISOString(),
+      })
+    );
     setIsVisible(false);
 
     // Update Google Consent Mode v2
@@ -54,9 +58,11 @@ export function CookieConsent() {
     });
 
     // Dispatch event for analytics to pick up
-    window.dispatchEvent(new CustomEvent('cookie-consent-updated', {
-      detail: prefs,
-    }));
+    window.dispatchEvent(
+      new CustomEvent('cookie-consent-updated', {
+        detail: prefs,
+      })
+    );
   }, []);
 
   const acceptAll = useCallback(() => {
@@ -93,10 +99,12 @@ export function CookieConsent() {
       role="dialog"
       aria-label="Cookie consent"
     >
-      <div className={cn(
-        "bg-background/95 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl p-4",
-        "transition-all duration-300 ease-in-out"
-      )}>
+      <div
+        className={cn(
+          'bg-background/95 backdrop-blur-xl border border-border/50 shadow-2xl rounded-2xl p-4',
+          'transition-all duration-300 ease-in-out'
+        )}
+      >
         {!showDetails ? (
           // Simple View - Horizontal Floating Bar
           <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
@@ -109,7 +117,10 @@ export function CookieConsent() {
                 <h3 className="font-semibold text-sm">We value your privacy</h3>
                 <p className="text-sm text-muted-foreground leading-snug">
                   We use cookies to enhance your experience and analyze traffic.
-                  <Link href="/pages/privacy" className="underline underline-offset-2 hover:text-foreground ml-1">
+                  <Link
+                    href="/pages/privacy"
+                    className="underline underline-offset-2 hover:text-foreground ml-1"
+                  >
                     Read our policy
                   </Link>
                 </p>
@@ -122,6 +133,7 @@ export function CookieConsent() {
                 size="sm"
                 onClick={() => setShowDetails(true)}
                 className="text-muted-foreground hover:text-foreground h-9"
+                type="button"
               >
                 Customize
               </Button>
@@ -154,11 +166,13 @@ export function CookieConsent() {
                 <div>
                   <h3 className="font-semibold text-lg">Cookie Preferences</h3>
                   <p className="text-sm text-muted-foreground">
-                    Manage your cookie settings below. Necessary cookies are always enabled.
+                    Manage your cookie settings below. Necessary cookies are
+                    always enabled.
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowDetails(false)}
                 className="text-muted-foreground hover:text-foreground p-1 rounded-md hover:bg-muted"
                 aria-label="Close details"
@@ -176,10 +190,13 @@ export function CookieConsent() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-sm">Necessary</span>
-                    <span className="text-xs text-green-600 font-medium bg-green-500/10 px-2 py-0.5 rounded-full">Required</span>
+                    <span className="text-xs text-green-600 font-medium bg-green-500/10 px-2 py-0.5 rounded-full">
+                      Required
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Essential for the website to function properly. Cannot be disabled.
+                    Essential for the website to function properly. Cannot be
+                    disabled.
                   </p>
                 </div>
               </div>
@@ -190,13 +207,22 @@ export function CookieConsent() {
                   type="checkbox"
                   id="functional"
                   checked={preferences.functional}
-                  onChange={(e) => setPreferences(p => ({ ...p, functional: e.target.checked }))}
+                  onChange={(e) =>
+                    setPreferences((p) => ({
+                      ...p,
+                      functional: e.target.checked,
+                    }))
+                  }
                   className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
-                <label htmlFor="functional" className="flex-1 cursor-pointer select-none">
+                <label
+                  htmlFor="functional"
+                  className="flex-1 cursor-pointer select-none"
+                >
                   <span className="font-medium text-sm">Functional</span>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Remember your preferences and settings for a better experience.
+                    Remember your preferences and settings for a better
+                    experience.
                   </p>
                 </label>
               </div>
@@ -207,10 +233,18 @@ export function CookieConsent() {
                   type="checkbox"
                   id="analytics"
                   checked={preferences.analytics}
-                  onChange={(e) => setPreferences(p => ({ ...p, analytics: e.target.checked }))}
+                  onChange={(e) =>
+                    setPreferences((p) => ({
+                      ...p,
+                      analytics: e.target.checked,
+                    }))
+                  }
                   className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
-                <label htmlFor="analytics" className="flex-1 cursor-pointer select-none">
+                <label
+                  htmlFor="analytics"
+                  className="flex-1 cursor-pointer select-none"
+                >
                   <span className="font-medium text-sm">Analytics</span>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     Help us improve our site by understanding how you use it.
@@ -224,10 +258,18 @@ export function CookieConsent() {
                   type="checkbox"
                   id="marketing"
                   checked={preferences.marketing}
-                  onChange={(e) => setPreferences(p => ({ ...p, marketing: e.target.checked }))}
+                  onChange={(e) =>
+                    setPreferences((p) => ({
+                      ...p,
+                      marketing: e.target.checked,
+                    }))
+                  }
                   className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
-                <label htmlFor="marketing" className="flex-1 cursor-pointer select-none">
+                <label
+                  htmlFor="marketing"
+                  className="flex-1 cursor-pointer select-none"
+                >
                   <span className="font-medium text-sm">Marketing</span>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     Allow us to show you relevant content and promotions.
@@ -284,7 +326,8 @@ export function useCookieConsent() {
     };
 
     window.addEventListener('cookie-consent-updated', handleUpdate);
-    return () => window.removeEventListener('cookie-consent-updated', handleUpdate);
+    return () =>
+      window.removeEventListener('cookie-consent-updated', handleUpdate);
   }, []);
 
   return consent;

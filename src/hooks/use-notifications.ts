@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useMerchant } from './use-merchant';
 import type {
+  ActiveBanner,
   MerchantNotificationWithDetails,
   NotificationBroadcastPayload,
-  ActiveBanner,
 } from '@/types/notifications';
+import { useMerchant } from './use-merchant';
 
 interface UseNotificationsReturn {
   // Data
@@ -35,7 +35,9 @@ interface UseNotificationsReturn {
  */
 export function useNotifications(): UseNotificationsReturn {
   const { merchant } = useMerchant();
-  const [notifications, setNotifications] = useState<MerchantNotificationWithDetails[]>([]);
+  const [notifications, setNotifications] = useState<
+    MerchantNotificationWithDetails[]
+  >([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [activeBanners, setActiveBanners] = useState<ActiveBanner[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,49 +46,56 @@ export function useNotifications(): UseNotificationsReturn {
   const [cursor, setCursor] = useState<string | null>(null);
 
   const supabaseRef = useRef(createClient());
-  const channelRef = useRef<ReturnType<typeof supabaseRef.current.channel> | null>(null);
+  const channelRef = useRef<ReturnType<
+    typeof supabaseRef.current.channel
+  > | null>(null);
 
   /**
    * Fetch notifications from the API
    */
-  const fetchNotifications = useCallback(async (append = false) => {
-    if (!merchant?.id) return;
+  const fetchNotifications = useCallback(
+    async (append = false) => {
+      if (!merchant?.id) return;
 
-    try {
-      if (!append) {
-        setIsLoading(true);
+      try {
+        if (!append) {
+          setIsLoading(true);
+        }
+
+        const params = new URLSearchParams();
+        params.set('limit', '20');
+        if (append && cursor) {
+          params.set('cursor', cursor);
+        }
+
+        const response = await fetch(`/api/notifications?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch notifications');
+        }
+
+        const data = await response.json();
+
+        if (append) {
+          setNotifications((prev) => [...prev, ...data.data]);
+        } else {
+          setNotifications(data.data);
+        }
+
+        setUnreadCount(data.unread_count);
+        setHasMore(data.has_more);
+        setCursor(data.cursor);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching notifications:', err);
+        setError(
+          err instanceof Error ? err.message : 'Failed to fetch notifications'
+        );
+      } finally {
+        setIsLoading(false);
       }
-
-      const params = new URLSearchParams();
-      params.set('limit', '20');
-      if (append && cursor) {
-        params.set('cursor', cursor);
-      }
-
-      const response = await fetch(`/api/notifications?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
-      }
-
-      const data = await response.json();
-
-      if (append) {
-        setNotifications((prev) => [...prev, ...data.data]);
-      } else {
-        setNotifications(data.data);
-      }
-
-      setUnreadCount(data.unread_count);
-      setHasMore(data.has_more);
-      setCursor(data.cursor);
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching notifications:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [merchant?.id, cursor]);
+    },
+    [merchant?.id, cursor]
+  );
 
   /**
    * Fetch active banners
@@ -96,8 +105,10 @@ export function useNotifications(): UseNotificationsReturn {
 
     try {
       const supabase = supabaseRef.current;
-      const { data, error: bannerError } = await supabase
-        .rpc('get_active_banners', { p_merchant_id: merchant.id });
+      const { data, error: bannerError } = await supabase.rpc(
+        'get_active_banners',
+        { p_merchant_id: merchant.id }
+      );
 
       if (bannerError) {
         console.error('Error fetching banners:', bannerError);
@@ -350,6 +361,7 @@ export function useNotifications(): UseNotificationsReturn {
  */
 export function useNotificationsSafe(): UseNotificationsReturn | null {
   try {
+    // biome-ignore lint/correctness/useHookAtTopLevel: Safe wrapper for conditional usage
     return useNotifications();
   } catch {
     return null;

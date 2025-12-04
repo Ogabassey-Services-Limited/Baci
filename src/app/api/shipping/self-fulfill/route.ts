@@ -3,11 +3,11 @@
  * Mark an order as self-fulfilled with merchant's own shipping
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isValidUuid } from '@/lib/sanitize-core';
+import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
 // REQUEST VALIDATION
@@ -36,12 +36,12 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Authenticate
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant and verify self-fulfillment is enabled
@@ -61,7 +61,10 @@ export async function POST(request: NextRequest) {
     // Check if self-fulfillment is enabled for this merchant
     if (!merchant.self_fulfillment_enabled) {
       return NextResponse.json(
-        { error: 'Self-fulfillment is not enabled for this merchant. Enable it in settings.' },
+        {
+          error:
+            'Self-fulfillment is not enabled for this merchant. Enable it in settings.',
+        },
         { status: 403 }
       );
     }
@@ -74,7 +77,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request',
-          details: parseResult.error.flatten().fieldErrors
+          details: parseResult.error.flatten().fieldErrors,
         },
         { status: 400 }
       );
@@ -85,20 +88,22 @@ export async function POST(request: NextRequest) {
     // Verify the order belongs to this merchant
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, merchant_id, shipping_status, customer_name, customer_phone, shipping_address')
+      .select(
+        'id, merchant_id, shipping_status, customer_name, customer_phone, shipping_address'
+      )
       .eq('id', data.orderId)
       .eq('merchant_id', merchant.id)
       .single();
 
     if (orderError || !order) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     // Check if already shipped
-    if (order.shipping_status === 'shipped' || order.shipping_status === 'delivered') {
+    if (
+      order.shipping_status === 'shipped' ||
+      order.shipping_status === 'delivered'
+    ) {
       return NextResponse.json(
         { error: 'Order has already been shipped' },
         { status: 400 }
@@ -135,22 +140,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Order marked as self-fulfilled',
-      fulfillment: {
-        orderId: data.orderId,
-        trackingNumber: data.trackingNumber,
-        dispatchPhone: data.dispatchPhone,
-        carrierName: data.carrierName || 'Self-Delivery',
-        customer: {
-          name: order.customer_name,
-          phone: order.customer_phone,
-          address: order.shipping_address,
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Order marked as self-fulfilled',
+        fulfillment: {
+          orderId: data.orderId,
+          trackingNumber: data.trackingNumber,
+          dispatchPhone: data.dispatchPhone,
+          carrierName: data.carrierName || 'Self-Delivery',
+          customer: {
+            name: order.customer_name,
+            phone: order.customer_phone,
+            address: order.shipping_address,
+          },
         },
       },
-    }, { status: 200 });
-
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Error processing self-fulfillment:', error);
     return NextResponse.json(
@@ -170,12 +177,12 @@ export async function PATCH(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Authenticate
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant
@@ -211,10 +218,7 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (orderError || !order) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     if (order.fulfillment_type !== 'self') {
@@ -236,7 +240,8 @@ export async function PATCH(request: NextRequest) {
       .from('orders')
       .update({
         self_fulfillment_data: updatedData,
-        tracking_number: updates.trackingNumber || order.self_fulfillment_data?.trackingNumber,
+        tracking_number:
+          updates.trackingNumber || order.self_fulfillment_data?.trackingNumber,
       })
       .eq('id', orderId);
 
@@ -253,7 +258,6 @@ export async function PATCH(request: NextRequest) {
       message: 'Self-fulfillment details updated',
       fulfillment: updatedData,
     });
-
   } catch (error) {
     console.error('Error updating self-fulfillment:', error);
     return NextResponse.json(

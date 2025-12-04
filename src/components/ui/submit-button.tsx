@@ -1,8 +1,8 @@
 'use client';
 
+import { Loader2 } from 'lucide-react';
 import { useFormStatus } from 'react-dom';
 import { Button, type ButtonProps } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SubmitButtonProps extends Omit<ButtonProps, 'type'> {

@@ -1,8 +1,6 @@
-
-
 'use client';
 
-import { Card, CardProps } from '@/components/ui/card';
+import { Card, type CardProps } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 interface ThemedCardProps extends CardProps {

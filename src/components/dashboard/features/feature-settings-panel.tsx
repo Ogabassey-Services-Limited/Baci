@@ -1,28 +1,31 @@
 'use client';
 
-import { useState } from 'react';
 import {
-  Users,
-  Package,
-  FileText,
   BarChart3,
   Bell,
-  Settings,
+  FileText,
   Loader2,
+  Package,
+  Settings,
+  Users,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useState } from 'react';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { useMerchantFeatures, MerchantFeatureSettings } from '@/hooks/use-merchant-features';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import {
+  type MerchantFeatureSettings,
+  useMerchantFeatures,
+} from '@/hooks/use-merchant-features';
 
 interface FeatureToggleProps {
   label: string;
@@ -54,21 +57,22 @@ function FeatureToggle({
         </div>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-      <Switch checked={enabled} onCheckedChange={onToggle} disabled={disabled} />
+      <Switch
+        checked={enabled}
+        onCheckedChange={onToggle}
+        disabled={disabled}
+      />
     </div>
   );
 }
 
 export function FeatureSettingsPanel() {
-  const {
-    settings,
-    isLoading,
-    isSaving,
-    error,
-    updateSettings,
-  } = useMerchantFeatures();
+  const { settings, isLoading, isSaving, error, updateSettings } =
+    useMerchantFeatures();
 
-  const [localSettings, setLocalSettings] = useState<Partial<MerchantFeatureSettings>>({});
+  const [localSettings, setLocalSettings] = useState<
+    Partial<MerchantFeatureSettings>
+  >({});
 
   // Handle toggle changes
   const handleToggle = async (field: keyof MerchantFeatureSettings) => {
@@ -80,7 +84,10 @@ export function FeatureSettingsPanel() {
   };
 
   // Handle input changes (debounced save)
-  const handleInputChange = (field: keyof MerchantFeatureSettings, value: string | number | null) => {
+  const handleInputChange = (
+    field: keyof MerchantFeatureSettings,
+    value: string | number | null
+  ) => {
     setLocalSettings((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -103,7 +110,11 @@ export function FeatureSettingsPanel() {
       <Card>
         <CardContent className="py-8 text-center">
           <p className="text-destructive">{error}</p>
-          <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => window.location.reload()}
+          >
             Retry
           </Button>
         </CardContent>
@@ -123,7 +134,11 @@ export function FeatureSettingsPanel() {
         </div>
       )}
 
-      <Accordion type="multiple" defaultValue={['features', 'checkout']} className="space-y-4">
+      <Accordion
+        type="multiple"
+        defaultValue={['features', 'checkout']}
+        className="space-y-4"
+      >
         {/* Core Features */}
         <AccordionItem value="features" className="border rounded-lg px-4">
           <AccordionTrigger className="hover:no-underline">
@@ -202,17 +217,20 @@ export function FeatureSettingsPanel() {
                 <div>
                   <Label>Free Shipping Threshold</Label>
                   <p className="text-sm text-muted-foreground mb-2">
-                    Orders above this amount get free shipping (leave empty to disable)
+                    Orders above this amount get free shipping (leave empty to
+                    disable)
                   </p>
                   <div className="flex gap-2">
                     <Input
                       type="number"
-                      placeholder="e.g., 50000"
+                      placeholder="50000"
                       defaultValue={settings.free_shipping_threshold || ''}
                       onChange={(e) =>
                         handleInputChange(
                           'free_shipping_threshold',
-                          e.target.value ? parseFloat(e.target.value) : null
+                          e.target.value
+                            ? Number.parseFloat(e.target.value)
+                            : null
                         )
                       }
                     />
@@ -309,14 +327,18 @@ export function FeatureSettingsPanel() {
                 <div>
                   <Label>Low Stock Threshold</Label>
                   <p className="text-sm text-muted-foreground mb-2">
-                    Show &quot;Low Stock&quot; warning when quantity is below this number
+                    Show &quot;Low Stock&quot; warning when quantity is below
+                    this number
                   </p>
                   <div className="flex gap-2">
                     <Input
                       type="number"
                       defaultValue={settings.low_stock_threshold}
                       onChange={(e) =>
-                        handleInputChange('low_stock_threshold', parseInt(e.target.value) || 10)
+                        handleInputChange(
+                          'low_stock_threshold',
+                          Number.parseInt(e.target.value, 10) || 10
+                        )
                       }
                     />
                     {localSettings.low_stock_threshold !== undefined && (
@@ -343,12 +365,17 @@ export function FeatureSettingsPanel() {
             <div className="space-y-4">
               <div>
                 <Label>Google Analytics ID</Label>
-                <p className="text-sm text-muted-foreground mb-2">e.g., G-XXXXXXXXXX</p>
+                <p className="text-sm text-muted-foreground mb-2">
+                  e.g., G-XXXXXXXXXX
+                </p>
                 <Input
                   placeholder="G-XXXXXXXXXX"
                   defaultValue={settings.google_analytics_id || ''}
                   onChange={(e) =>
-                    handleInputChange('google_analytics_id', e.target.value || null)
+                    handleInputChange(
+                      'google_analytics_id',
+                      e.target.value || null
+                    )
                   }
                 />
               </div>
@@ -358,7 +385,10 @@ export function FeatureSettingsPanel() {
                   placeholder="Your Pixel ID"
                   defaultValue={settings.facebook_pixel_id || ''}
                   onChange={(e) =>
-                    handleInputChange('facebook_pixel_id', e.target.value || null)
+                    handleInputChange(
+                      'facebook_pixel_id',
+                      e.target.value || null
+                    )
                   }
                 />
               </div>
@@ -373,7 +403,11 @@ export function FeatureSettingsPanel() {
                 />
               </div>
               {Object.keys(localSettings).some((k) =>
-                ['google_analytics_id', 'facebook_pixel_id', 'tiktok_pixel_id'].includes(k)
+                [
+                  'google_analytics_id',
+                  'facebook_pixel_id',
+                  'tiktok_pixel_id',
+                ].includes(k)
               ) && (
                 <Button onClick={handleSaveInputs} disabled={isSaving}>
                   Save Analytics Settings

@@ -3,16 +3,27 @@
  * Supports multi-currency payments, conversions, and payouts across Africa
  */
 
-const KORAPAY_BASE_URL = process.env.KORAPAY_BASE_URL || 'https://api.korapay.com/merchant/api/v1';
+const KORAPAY_BASE_URL =
+  process.env.KORAPAY_BASE_URL || 'https://api.korapay.com/merchant/api/v1';
 const KORAPAY_SECRET_KEY = process.env.KORAPAY_SECRET_KEY || '';
 const KORAPAY_PUBLIC_KEY = process.env.KORAPAY_PUBLIC_KEY || '';
 
-// Platform fee percentage (5% default)
-const PLATFORM_FEE_PERCENTAGE = parseFloat(process.env.PLATFORM_FEE_PERCENTAGE || '5');
+// Platform fee percentage (2%) capped at ₦2,050
+const PLATFORM_FEE_PERCENTAGE = Number.parseFloat(
+  process.env.PLATFORM_FEE_PERCENTAGE || '2'
+);
+const PLATFORM_FEE_CAP = 2050; // ₦2,050 cap
 
 // Supported African currencies
-export const SUPPORTED_CURRENCIES = ['NGN', 'KES', 'GHS', 'ZAR', 'XAF', 'XOF'] as const;
-export type Currency = typeof SUPPORTED_CURRENCIES[number];
+export const SUPPORTED_CURRENCIES = [
+  'NGN',
+  'KES',
+  'GHS',
+  'ZAR',
+  'XAF',
+  'XOF',
+] as const;
+export type Currency = (typeof SUPPORTED_CURRENCIES)[number];
 
 // Currency symbols
 export const CURRENCY_SYMBOLS: Record<Currency, string> = {
@@ -135,7 +146,7 @@ async function korapayRequest<T = unknown>(
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${KORAPAY_SECRET_KEY}`,
+      Authorization: `Bearer ${KORAPAY_SECRET_KEY}`,
       ...options.headers,
     },
   });
@@ -153,21 +164,26 @@ async function korapayRequest<T = unknown>(
 /**
  * Initialize payment checkout
  */
-export async function initializePayment(data: PaymentInitData): Promise<PaymentInitResponse> {
-  const response = await korapayRequest<PaymentInitResponse>('/charges/initialize', {
-    method: 'POST',
-    body: JSON.stringify({
-      amount: data.amount,
-      currency: data.currency,
-      customer: data.customer,
-      merchant_bears_cost: data.merchant_bears_cost ?? true,
-      redirect_url: data.redirect_url,
-      reference: data.reference,
-      narration: data.narration,
-      notification_url: data.notification_url,
-      metadata: data.metadata,
-    }),
-  });
+export async function initializePayment(
+  data: PaymentInitData
+): Promise<PaymentInitResponse> {
+  const response = await korapayRequest<PaymentInitResponse>(
+    '/charges/initialize',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        amount: data.amount,
+        currency: data.currency,
+        customer: data.customer,
+        merchant_bears_cost: data.merchant_bears_cost ?? true,
+        redirect_url: data.redirect_url,
+        reference: data.reference,
+        narration: data.narration,
+        notification_url: data.notification_url,
+        metadata: data.metadata,
+      }),
+    }
+  );
 
   return response.data;
 }
@@ -175,7 +191,9 @@ export async function initializePayment(data: PaymentInitData): Promise<PaymentI
 /**
  * Verify payment status
  */
-export async function verifyPayment(reference: string): Promise<PaymentVerificationResponse> {
+export async function verifyPayment(
+  reference: string
+): Promise<PaymentVerificationResponse> {
   const response = await korapayRequest<PaymentVerificationResponse>(
     `/charges/${reference}/verify`,
     { method: 'GET' }
@@ -202,15 +220,20 @@ export async function getExchangeRate(
 /**
  * Convert currency amount
  */
-export async function convertCurrency(data: ConversionRequest): Promise<ConversionResponse> {
-  const response = await korapayRequest<ConversionResponse>('/balances/convert', {
-    method: 'POST',
-    body: JSON.stringify({
-      source_currency: data.source_currency,
-      destination_currency: data.destination_currency,
-      amount: data.amount,
-    }),
-  });
+export async function convertCurrency(
+  data: ConversionRequest
+): Promise<ConversionResponse> {
+  const response = await korapayRequest<ConversionResponse>(
+    '/balances/convert',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        source_currency: data.source_currency,
+        destination_currency: data.destination_currency,
+        amount: data.amount,
+      }),
+    }
+  );
 
   return response.data;
 }
@@ -219,10 +242,13 @@ export async function convertCurrency(data: ConversionRequest): Promise<Conversi
  * Send payout to bank account
  */
 export async function sendPayout(data: PayoutRequest): Promise<PayoutResponse> {
-  const response = await korapayRequest<PayoutResponse>('/transactions/disburse', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
+  const response = await korapayRequest<PayoutResponse>(
+    '/transactions/disburse',
+    {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }
+  );
 
   return response.data;
 }
@@ -230,11 +256,16 @@ export async function sendPayout(data: PayoutRequest): Promise<PayoutResponse> {
 /**
  * Send bulk payouts to multiple accounts
  */
-export async function sendBulkPayouts(payouts: PayoutRequest[]): Promise<PayoutResponse[]> {
-  const response = await korapayRequest<PayoutResponse[]>('/transactions/disburse/bulk', {
-    method: 'POST',
-    body: JSON.stringify({ payouts }),
-  });
+export async function sendBulkPayouts(
+  payouts: PayoutRequest[]
+): Promise<PayoutResponse[]> {
+  const response = await korapayRequest<PayoutResponse[]>(
+    '/transactions/disburse/bulk',
+    {
+      method: 'POST',
+      body: JSON.stringify({ payouts }),
+    }
+  );
 
   return response.data;
 }
@@ -242,7 +273,9 @@ export async function sendBulkPayouts(payouts: PayoutRequest[]): Promise<PayoutR
 /**
  * Get available banks for a country
  */
-export async function getBanks(country: 'NG' | 'KE' | 'GH' | 'ZA'): Promise<Array<{ name: string; code: string }>> {
+export async function getBanks(
+  country: 'NG' | 'KE' | 'GH' | 'ZA'
+): Promise<Array<{ name: string; code: string }>> {
   const response = await korapayRequest<Array<{ name: string; code: string }>>(
     `/misc/banks?country=${country}`,
     { method: 'GET' }
@@ -258,29 +291,35 @@ export async function resolveBankAccount(
   bankCode: string,
   accountNumber: string
 ): Promise<{ account_name: string; account_number: string }> {
-  const response = await korapayRequest<{ account_name: string; account_number: string }>(
-    `/misc/banks/resolve`,
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        bank: bankCode,
-        account: accountNumber,
-      }),
-    }
-  );
+  const response = await korapayRequest<{
+    account_name: string;
+    account_number: string;
+  }>(`/misc/banks/resolve`, {
+    method: 'POST',
+    body: JSON.stringify({
+      bank: bankCode,
+      account: accountNumber,
+    }),
+  });
 
   return response.data;
 }
 
 /**
  * Calculate platform fee and merchant amount
+ * Platform takes 2%, capped at ₦2,050
  */
 export function calculatePlatformFee(amount: number): {
   platformFee: number;
   merchantAmount: number;
   total: number;
 } {
-  const platformFee = (amount * PLATFORM_FEE_PERCENTAGE) / 100;
+  // Calculate 2% fee
+  let platformFee = (amount * PLATFORM_FEE_PERCENTAGE) / 100;
+
+  // Apply cap of ₦2,050
+  platformFee = Math.min(platformFee, PLATFORM_FEE_CAP);
+
   const merchantAmount = amount - platformFee;
 
   return {

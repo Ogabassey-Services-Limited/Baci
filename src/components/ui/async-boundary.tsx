@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { Skeleton } from './skeletons';
 
 interface AsyncBoundaryProps {
@@ -31,19 +31,17 @@ interface AsyncBoundaryProps {
 export function AsyncBoundary({
   children,
   fallback,
-  skeleton
+  skeleton,
 }: AsyncBoundaryProps) {
-  const fallbackContent = fallback || (
-    skeleton ? (
-      <Skeleton className={typeof skeleton === 'string' ? skeleton : 'h-32 w-full'} />
-    ) : null
-  );
+  const fallbackContent =
+    fallback ||
+    (skeleton ? (
+      <Skeleton
+        className={typeof skeleton === 'string' ? skeleton : 'h-32 w-full'}
+      />
+    ) : null);
 
-  return (
-    <Suspense fallback={fallbackContent}>
-      {children}
-    </Suspense>
-  );
+  return <Suspense fallback={fallbackContent}>{children}</Suspense>;
 }
 
 /**

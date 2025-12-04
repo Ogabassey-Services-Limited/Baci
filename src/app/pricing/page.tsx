@@ -1,11 +1,10 @@
-import AppBody from '@/components/app-body';
-import { PlatformHeader } from '@/components/platform/header';
-import { PlatformFooter } from '@/components/platform/footer';
 import { Check, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import type { Metadata, Route } from 'next';
 import Link from 'next/link';
-import type { Route } from 'next';
-import { Metadata } from 'next';
+import AppBody from '@/components/app-body';
+import { PlatformFooter } from '@/components/platform/footer';
+import { PlatformHeader } from '@/components/platform/header';
+import { Button } from '@/components/ui/button';
 
 export const metadata: Metadata = {
   title: 'Pricing - Baci',
@@ -115,7 +114,9 @@ export default function PricingPage() {
                     <div className="flex items-baseline gap-1 mb-4">
                       <span className="text-4xl font-bold">{plan.price}</span>
                       {plan.period && (
-                        <span className="text-muted-foreground">{plan.period}</span>
+                        <span className="text-muted-foreground">
+                          {plan.period}
+                        </span>
                       )}
                     </div>
                     <p className="text-muted-foreground">{plan.description}</p>

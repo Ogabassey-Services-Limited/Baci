@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { ArrowLeft, Bell, Save } from 'lucide-react';
 import Link from 'next/link';
-import { ArrowLeft, Bell, Loader2, Save } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { BagLoader } from '@/components/ui/bag-loader';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -12,17 +13,21 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import type { NotificationPreferences, UpdatePreferencesInput } from '@/types/notifications';
+import type {
+  NotificationPreferences,
+  UpdatePreferencesInput,
+} from '@/types/notifications';
 
 export default function NotificationPreferencesPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
+  const [preferences, setPreferences] =
+    useState<NotificationPreferences | null>(null);
 
   useEffect(() => {
     async function fetchPreferences() {
@@ -92,7 +97,7 @@ export default function NotificationPreferencesPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -107,8 +112,12 @@ export default function NotificationPreferencesPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Notification Preferences</h1>
-          <p className="text-muted-foreground">Manage how you receive notifications</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Notification Preferences
+          </h1>
+          <p className="text-muted-foreground">
+            Manage how you receive notifications
+          </p>
         </div>
       </div>
 
@@ -134,7 +143,9 @@ export default function NotificationPreferencesPage() {
             <Switch
               id="in_app"
               checked={preferences?.in_app_enabled ?? true}
-              onCheckedChange={(checked) => updatePreference({ in_app_enabled: checked })}
+              onCheckedChange={(checked) =>
+                updatePreference({ in_app_enabled: checked })
+              }
             />
           </div>
 
@@ -142,13 +153,16 @@ export default function NotificationPreferencesPage() {
             <div className="space-y-0.5">
               <Label htmlFor="banner">Banner Notifications</Label>
               <p className="text-sm text-muted-foreground">
-                Show important notifications as banners at the top of the dashboard
+                Show important notifications as banners at the top of the
+                dashboard
               </p>
             </div>
             <Switch
               id="banner"
               checked={preferences?.banner_enabled ?? true}
-              onCheckedChange={(checked) => updatePreference({ banner_enabled: checked })}
+              onCheckedChange={(checked) =>
+                updatePreference({ banner_enabled: checked })
+              }
             />
           </div>
         </CardContent>
@@ -170,7 +184,11 @@ export default function NotificationPreferencesPage() {
                 id="quiet_start"
                 type="time"
                 value={preferences?.quiet_hours_start || ''}
-                onChange={(e) => updatePreference({ quiet_hours_start: e.target.value || null })}
+                onChange={(e) =>
+                  updatePreference({
+                    quiet_hours_start: e.target.value || null,
+                  })
+                }
               />
             </div>
             <div className="space-y-2">
@@ -179,12 +197,15 @@ export default function NotificationPreferencesPage() {
                 id="quiet_end"
                 type="time"
                 value={preferences?.quiet_hours_end || ''}
-                onChange={(e) => updatePreference({ quiet_hours_end: e.target.value || null })}
+                onChange={(e) =>
+                  updatePreference({ quiet_hours_end: e.target.value || null })
+                }
               />
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            During quiet hours, notifications will still be delivered but won't show alerts.
+            During quiet hours, notifications will still be delivered but won't
+            show alerts.
           </p>
         </CardContent>
       </Card>
@@ -194,7 +215,7 @@ export default function NotificationPreferencesPage() {
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <BagLoader size={16} />
               Saving...
             </>
           ) : (

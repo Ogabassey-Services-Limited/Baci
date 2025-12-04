@@ -1,8 +1,8 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { createClient } from '@/lib/supabase/server';
 import { TermsPageClient } from './terms-page-client';
 
 interface PageProps {
@@ -26,7 +26,9 @@ async function getMerchant(slug: string) {
   return merchant;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const merchant = await getMerchant(slug);
 
@@ -97,12 +99,10 @@ export default async function TermsPage({ params }: PageProps) {
       {/* Terms of Service JSON-LD Schema */}
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}
       />
-      <TermsPageClient
-        merchant={merchant}
-        content={merchant.pages?.terms}
-      />
+      <TermsPageClient merchant={merchant} content={merchant.pages?.terms} />
     </>
   );
 }

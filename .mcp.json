@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "supabase": {
-      "command": "npx",
+      "command": "/usr/local/bin/npx",
       "args": [
         "-y",
         "@supabase/mcp-server-supabase"
@@ -13,10 +13,9 @@
       }
     },
     "github": {
-      "command": "npx",
+      "command": "/usr/local/bin/node",
       "args": [
-        "-y",
-        "@modelcontextprotocol/server-github"
+        "/Users/mac/Baci-app/Baci/node_modules/@modelcontextprotocol/server-github/dist/index.js"
       ],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"

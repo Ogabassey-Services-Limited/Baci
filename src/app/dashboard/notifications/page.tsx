@@ -1,27 +1,23 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+import { formatDistanceToNow } from 'date-fns';
 import {
+  AlertCircle,
+  AlertTriangle,
   Bell,
   CheckCheck,
-  Settings,
-  Loader2,
+  CheckCircle,
   ExternalLink,
   Info,
-  CheckCircle,
-  AlertTriangle,
-  AlertCircle,
+  // Loader2,
+  Settings,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
-
+import Link from 'next/link';
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -29,17 +25,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { useNotifications } from '@/hooks/use-notifications';
 import { cn } from '@/lib/utils';
-import type { MerchantNotificationWithDetails, NotificationType } from '@/types/notifications';
+import type {
+  MerchantNotificationWithDetails,
+  NotificationType,
+} from '@/types/notifications';
 
-const typeStyles: Record<NotificationType, { bg: string; icon: typeof Info }> = {
-  info: { bg: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400', icon: Info },
-  success: { bg: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle },
-  warning: { bg: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400', icon: AlertTriangle },
-  error: { bg: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400', icon: AlertCircle },
-};
+const typeStyles: Record<NotificationType, { bg: string; icon: typeof Info }> =
+  {
+    info: {
+      bg: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+      icon: Info,
+    },
+    success: {
+      bg: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+      icon: CheckCircle,
+    },
+    warning: {
+      bg: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
+      icon: AlertTriangle,
+    },
+    error: {
+      bg: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+      icon: AlertCircle,
+    },
+  };
 
 export default function NotificationsPage() {
   const {
@@ -58,11 +69,17 @@ export default function NotificationsPage() {
 
   const filteredNotifications = notifications.filter((n) => {
     if (filter === 'unread' && n.read_at) return false;
-    if (typeFilter !== 'all' && n.notification?.notification_type !== typeFilter) return false;
+    if (
+      typeFilter !== 'all' &&
+      n.notification?.notification_type !== typeFilter
+    )
+      return false;
     return true;
   });
 
-  const handleMarkAsRead = async (notification: MerchantNotificationWithDetails) => {
+  const handleMarkAsRead = async (
+    notification: MerchantNotificationWithDetails
+  ) => {
     if (!notification.read_at) {
       await markAsRead(notification.id);
     }
@@ -85,7 +102,9 @@ export default function NotificationsPage() {
             Notifications 🔔
           </h1>
           <p className="text-muted-foreground">
-            {unreadCount > 0 ? `You have ${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
+            {unreadCount > 0
+              ? `You have ${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}`
+              : 'All caught up!'}
           </p>
         </div>
         <div className="flex gap-2">
@@ -110,7 +129,10 @@ export default function NotificationsPage() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">All Notifications</CardTitle>
             <div className="flex gap-2">
-              <Select value={filter} onValueChange={(v) => setFilter(v as 'all' | 'unread')}>
+              <Select
+                value={filter}
+                onValueChange={(v) => setFilter(v as 'all' | 'unread')}
+              >
                 <SelectTrigger className="w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -120,7 +142,12 @@ export default function NotificationsPage() {
                 </SelectContent>
               </Select>
 
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as NotificationType | 'all')}>
+              <Select
+                value={typeFilter}
+                onValueChange={(v) =>
+                  setTypeFilter(v as NotificationType | 'all')
+                }
+              >
                 <SelectTrigger className="w-[120px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -138,14 +165,16 @@ export default function NotificationsPage() {
         <CardContent>
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <BagLoader size={32} />
             </div>
           ) : filteredNotifications.length === 0 ? (
             <div className="text-center py-12">
               <Bell className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
               <h3 className="text-lg font-medium mb-1">No notifications</h3>
               <p className="text-muted-foreground">
-                {filter === 'unread' ? "You've read all your notifications" : "You don't have any notifications yet"}
+                {filter === 'unread'
+                  ? "You've read all your notifications"
+                  : "You don't have any notifications yet"}
               </p>
             </div>
           ) : (
@@ -180,7 +209,11 @@ interface NotificationCardProps {
   onDismiss: () => void;
 }
 
-function NotificationCard({ notification, onMarkAsRead, onDismiss }: NotificationCardProps) {
+function NotificationCard({
+  notification,
+  onMarkAsRead,
+  onDismiss,
+}: NotificationCardProps) {
   const isUnread = !notification.read_at;
   const type = notification.notification?.notification_type || 'info';
   const typeStyle = typeStyles[type];
@@ -218,7 +251,12 @@ function NotificationCard({ notification, onMarkAsRead, onDismiss }: Notificatio
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h4 className={cn('font-medium truncate', isUnread && 'font-semibold')}>
+              <h4
+                className={cn(
+                  'font-medium truncate',
+                  isUnread && 'font-semibold'
+                )}
+              >
                 {notification.notification?.title}
               </h4>
               {isUnread && (
@@ -229,14 +267,19 @@ function NotificationCard({ notification, onMarkAsRead, onDismiss }: Notificatio
               {notification.notification?.message}
             </p>
           </div>
-          <Badge variant="outline" className={cn('flex-shrink-0', typeStyle.bg)}>
+          <Badge
+            variant="outline"
+            className={cn('flex-shrink-0', typeStyle.bg)}
+          >
             {type}
           </Badge>
         </div>
 
         <div className="flex items-center justify-between mt-3">
           <span className="text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+            {formatDistanceToNow(new Date(notification.created_at), {
+              addSuffix: true,
+            })}
           </span>
 
           <div className="flex items-center gap-2">

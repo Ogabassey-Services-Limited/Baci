@@ -3,19 +3,19 @@
  * Cancel a shipment by shipment ID
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
+import { isValidUuid } from '@/lib/sanitize-core';
 import { shippingService } from '@/lib/shipping';
 import type { ShippingProviderCode } from '@/lib/shipping/types';
-import { isValidUuid } from '@/lib/sanitize-core';
+import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
 // POST /api/shipping/cancel/[shipmentId] - Cancel a shipment
 // =============================================================================
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ shipmentId: string }> }
 ) {
   try {
@@ -32,12 +32,12 @@ export async function POST(
     const supabase = createClient(cookieStore);
 
     // Authenticate
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant
@@ -57,7 +57,9 @@ export async function POST(
     // Get shipment
     const { data: shipment, error: shipmentError } = await supabase
       .from('shipments')
-      .select('id, provider, provider_shipment_id, order_id, status, merchant_id')
+      .select(
+        'id, provider, provider_shipment_id, order_id, status, merchant_id'
+      )
       .eq('id', shipmentId)
       .eq('merchant_id', merchant.id)
       .single();
@@ -112,7 +114,10 @@ export async function POST(
     if (updateError) {
       console.error('Error updating shipment status:', updateError);
       return NextResponse.json(
-        { error: 'Shipment cancelled with provider but failed to update local status' },
+        {
+          error:
+            'Shipment cancelled with provider but failed to update local status',
+        },
         { status: 500 }
       );
     }
@@ -130,7 +135,6 @@ export async function POST(
       message: result.message || 'Shipment cancelled successfully',
       refundAmount: result.refundAmount,
     });
-
   } catch (error) {
     console.error('Error cancelling shipment:', error);
     return NextResponse.json(

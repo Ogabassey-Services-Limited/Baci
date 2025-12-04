@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 interface ValidationRequest {
   code: string;
@@ -18,7 +18,14 @@ interface ValidationRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: ValidationRequest = await request.json();
-    const { code, merchantId, customerEmail, orderTotal, productIds = [], categoryIds = [] } = body;
+    const {
+      code,
+      merchantId,
+      customerEmail,
+      orderTotal,
+      productIds = [],
+      categoryIds = [],
+    } = body;
 
     if (!code || !merchantId || orderTotal === undefined) {
       return NextResponse.json(
@@ -47,7 +54,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if code has started
-    if (discountCode.starts_at && new Date(discountCode.starts_at) > new Date()) {
+    if (
+      discountCode.starts_at &&
+      new Date(discountCode.starts_at) > new Date()
+    ) {
       return NextResponse.json(
         { valid: false, error: 'Discount code is not yet active' },
         { status: 400 }
@@ -55,7 +65,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if code has expired
-    if (discountCode.expires_at && new Date(discountCode.expires_at) < new Date()) {
+    if (
+      discountCode.expires_at &&
+      new Date(discountCode.expires_at) < new Date()
+    ) {
       return NextResponse.json(
         { valid: false, error: 'Discount code has expired' },
         { status: 400 }
@@ -63,7 +76,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check usage limit
-    if (discountCode.usage_limit && discountCode.usage_count >= discountCode.usage_limit) {
+    if (
+      discountCode.usage_limit &&
+      discountCode.usage_count >= discountCode.usage_limit
+    ) {
       return NextResponse.json(
         { valid: false, error: 'Discount code usage limit reached' },
         { status: 400 }
@@ -87,7 +103,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check minimum purchase amount
-    if (discountCode.minimum_purchase_amount && orderTotal < discountCode.minimum_purchase_amount) {
+    if (
+      discountCode.minimum_purchase_amount &&
+      orderTotal < discountCode.minimum_purchase_amount
+    ) {
       return NextResponse.json(
         {
           valid: false,
@@ -100,10 +119,15 @@ export async function POST(request: NextRequest) {
     // Check if applies to specific products/categories
     if (discountCode.applies_to === 'specific_products') {
       const codeProductIds = discountCode.product_ids as string[];
-      const hasMatchingProduct = productIds.some(id => codeProductIds.includes(id));
+      const hasMatchingProduct = productIds.some((id) =>
+        codeProductIds.includes(id)
+      );
       if (!hasMatchingProduct) {
         return NextResponse.json(
-          { valid: false, error: 'Discount code does not apply to items in your cart' },
+          {
+            valid: false,
+            error: 'Discount code does not apply to items in your cart',
+          },
           { status: 400 }
         );
       }
@@ -111,10 +135,15 @@ export async function POST(request: NextRequest) {
 
     if (discountCode.applies_to === 'specific_categories') {
       const codeCategoryIds = discountCode.category_ids as string[];
-      const hasMatchingCategory = categoryIds.some(id => codeCategoryIds.includes(id));
+      const hasMatchingCategory = categoryIds.some((id) =>
+        codeCategoryIds.includes(id)
+      );
       if (!hasMatchingCategory) {
         return NextResponse.json(
-          { valid: false, error: 'Discount code does not apply to items in your cart' },
+          {
+            valid: false,
+            error: 'Discount code does not apply to items in your cart',
+          },
           { status: 400 }
         );
       }
@@ -129,7 +158,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Apply maximum discount amount if set
-    if (discountCode.maximum_discount_amount && discountAmount > discountCode.maximum_discount_amount) {
+    if (
+      discountCode.maximum_discount_amount &&
+      discountAmount > discountCode.maximum_discount_amount
+    ) {
       discountAmount = discountCode.maximum_discount_amount;
     }
 

@@ -1,22 +1,22 @@
 'use client';
 
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Logo } from '@/components/logo';
 import { motion } from 'framer-motion';
-import { Home, ArrowRight } from 'lucide-react';
+import { ArrowRight, Home } from 'lucide-react';
+import Link from 'next/link';
+import { Logo } from '@/components/logo';
+import { Button } from '@/components/ui/button';
 
 export default function NotFound() {
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-background font-sans overflow-hidden selection:bg-accent/30">
-       {/* Background Elements */}
-       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-accent/5 rounded-full blur-[100px] -z-10" />
-       <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-primary/5 rounded-full blur-[100px] -z-10" />
-       <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.02] -z-10" />
+      {/* Background Elements */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-accent/5 rounded-full blur-[100px] -z-10" />
+      <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-primary/5 rounded-full blur-[100px] -z-10" />
+      <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.02] -z-10" />
 
       <div className="absolute top-6 left-6 z-50">
         <Link href="/">
-            <Logo />
+          <Logo />
         </Link>
       </div>
 
@@ -43,17 +43,27 @@ export default function NotFound() {
               Looks like you've ventured off the map
             </h2>
             <p className="text-lg text-muted-foreground max-w-lg mx-auto leading-relaxed">
-              We couldn't find the page you're looking for. It might have been moved, deleted, or perhaps it never existed.
+              We couldn't find the page you're looking for. It might have been
+              moved, deleted, or perhaps it never existed.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-full h-12 px-8 shadow-lg shadow-primary/20 hover:translate-y-[-2px] transition-all">
+            <Button
+              asChild
+              size="lg"
+              className="bg-primary hover:bg-primary/90 text-white rounded-full h-12 px-8 shadow-lg shadow-primary/20 hover:translate-y-[-2px] transition-all"
+            >
               <Link href="/">
                 <Home className="mr-2 h-4 w-4" /> Go Home
               </Link>
             </Button>
-            <Button asChild variant="outline" size="lg" className="rounded-full h-12 px-8 border-2 hover:bg-accent/5 hover:text-accent hover:border-accent/50 transition-all">
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="rounded-full h-12 px-8 border-2 hover:bg-accent/5 hover:text-accent hover:border-accent/50 transition-all"
+            >
               <Link href="/contact">
                 Contact Support <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
@@ -61,7 +71,11 @@ export default function NotFound() {
           </div>
 
           <div className="pt-12 text-sm text-muted-foreground">
-            Lost? <Link href="/" className="text-accent hover:underline font-medium">Return to the homepage</Link> to start over.
+            Lost?{' '}
+            <Link href="/" className="text-accent hover:underline font-medium">
+              Return to the homepage
+            </Link>{' '}
+            to start over.
           </div>
         </motion.div>
       </div>

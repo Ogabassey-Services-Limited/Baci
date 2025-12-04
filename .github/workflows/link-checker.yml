@@ -71,6 +71,11 @@ jobs:
             --exclude 'npmjs\.com'
             --exclude 'paystack\.com/docs'
             --exclude 'business-api\.tiktok\.com'
+            --exclude 'places\.googleapis\.com/v1'
+            --exclude 'kuda-openapi\.kuda\.com'
+            --exclude 'merchant\.creditdirect\.ng'
+            --exclude 'dashboard\.\$\{rootDomain\}'
+            --exclude '^https://dashboard/'
           # Fail action if broken links are found
           fail: true
         env:

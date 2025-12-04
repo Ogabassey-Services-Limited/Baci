@@ -1,18 +1,22 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+  AlertTriangle,
+  Building2,
+  CheckCircle,
+  Clock,
+  ExternalLink,
+  Filter,
+  Mail,
+  MoreHorizontal,
+  RefreshCw,
+  Search,
+  XCircle,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -28,23 +33,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Search,
-  MoreHorizontal,
-  ExternalLink,
-  Mail,
-  RefreshCw,
-  Building2,
-  CheckCircle,
-  AlertTriangle,
-  XCircle,
-  Clock,
-  Filter,
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
-import { createClient } from '@/lib/supabase/client';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { useToast } from '@/hooks/use-toast';
 import { generateSlug } from '@/lib/seo-utils';
+import { createClient } from '@/lib/supabase/client';
 
 interface MerchantHealth {
   merchant_id: string;
@@ -80,28 +80,40 @@ function getHealthBadge(status: string) {
   switch (status) {
     case 'healthy':
       return (
-        <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+        <Badge
+          variant="outline"
+          className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+        >
           <CheckCircle className="h-3 w-3 mr-1" />
           Healthy
         </Badge>
       );
     case 'at_risk':
       return (
-        <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+        <Badge
+          variant="outline"
+          className="bg-amber-500/10 text-amber-600 border-amber-500/20"
+        >
           <AlertTriangle className="h-3 w-3 mr-1" />
           At Risk
         </Badge>
       );
     case 'churned':
       return (
-        <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">
+        <Badge
+          variant="outline"
+          className="bg-red-500/10 text-red-600 border-red-500/20"
+        >
           <XCircle className="h-3 w-3 mr-1" />
           Churned
         </Badge>
       );
     case 'new':
       return (
-        <Badge variant="outline" className="bg-indigo-500/10 text-indigo-600 border-indigo-500/20">
+        <Badge
+          variant="outline"
+          className="bg-indigo-500/10 text-indigo-600 border-indigo-500/20"
+        >
           <Clock className="h-3 w-3 mr-1" />
           New
         </Badge>
@@ -127,9 +139,16 @@ export default function MerchantsPage() {
       const { data, error } = await supabase
         .from('merchant_health')
         .select('*')
-        .order(sortBy === 'gmv' ? 'total_gmv' : sortBy === 'orders' ? 'total_orders' : 'joined_at', {
-          ascending: sortBy === 'joined',
-        });
+        .order(
+          sortBy === 'gmv'
+            ? 'total_gmv'
+            : sortBy === 'orders'
+              ? 'total_orders'
+              : 'joined_at',
+          {
+            ascending: sortBy === 'joined',
+          }
+        );
 
       if (error) throw error;
       setMerchants(data || []);
@@ -137,37 +156,51 @@ export default function MerchantsPage() {
       console.error('Failed to fetch merchants:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load merchant data. The analytics views may not be set up yet.',
+        description:
+          'Failed to load merchant data. The analytics views may not be set up yet.',
         variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortBy]);
+  }, [sortBy, toast]);
 
   useEffect(() => {
     fetchMerchants();
   }, [fetchMerchants]);
 
   // Filter merchants
-  const filteredMerchants = useMemo(() => merchants.filter((merchant) => {
-    const matchesSearch =
-      merchant.business_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      merchant.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesHealth = healthFilter === 'all' || merchant.health_status === healthFilter;
-    return matchesSearch && matchesHealth;
-  }), [merchants, searchQuery, healthFilter]);
+  const filteredMerchants = useMemo(
+    () =>
+      merchants.filter((merchant) => {
+        const matchesSearch =
+          merchant.business_name
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()) ||
+          merchant.email?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesHealth =
+          healthFilter === 'all' || merchant.health_status === healthFilter;
+        return matchesSearch && matchesHealth;
+      }),
+    [merchants, searchQuery, healthFilter]
+  );
 
   // Stats
-  const stats = useMemo(() => ({
-    total: merchants.length,
-    healthy: merchants.filter((m) => m.health_status === 'healthy').length,
-    atRisk: merchants.filter((m) => m.health_status === 'at_risk').length,
-    churned: merchants.filter((m) => m.health_status === 'churned').length,
-    new: merchants.filter((m) => m.health_status === 'new').length,
-    totalGmv: merchants.reduce((sum, m) => sum + (Number(m.total_gmv) || 0), 0),
-  }), [merchants]);
+  const stats = useMemo(
+    () => ({
+      total: merchants.length,
+      healthy: merchants.filter((m) => m.health_status === 'healthy').length,
+      atRisk: merchants.filter((m) => m.health_status === 'at_risk').length,
+      churned: merchants.filter((m) => m.health_status === 'churned').length,
+      new: merchants.filter((m) => m.health_status === 'new').length,
+      totalGmv: merchants.reduce(
+        (sum, m) => sum + (Number(m.total_gmv) || 0),
+        0
+      ),
+    }),
+    [merchants]
+  );
 
   return (
     <div className="space-y-6">
@@ -180,7 +213,9 @@ export default function MerchantsPage() {
           </p>
         </div>
         <Button variant="outline" onClick={fetchMerchants} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'motion-safe:animate-spin' : ''}`} />
+          <RefreshCw
+            className={`h-4 w-4 mr-2 ${loading ? 'motion-safe:animate-spin' : ''}`}
+          />
           Refresh
         </Button>
       </div>
@@ -271,7 +306,10 @@ export default function MerchantsPage() {
                   <SelectItem value="new">New</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <Select
+                value={sortBy}
+                onValueChange={(v) => setSortBy(v as typeof sortBy)}
+              >
                 <SelectTrigger className="w-[150px]">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
@@ -287,8 +325,12 @@ export default function MerchantsPage() {
         <CardContent>
           {loading ? (
             <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+              {[...Array(3)].map((_, i) => (
+                <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton loaders are transient UI elements
+                  key={i}
+                  className="flex items-center gap-4 p-4 border rounded-lg"
+                >
                   <Skeleton className="h-10 w-10 rounded-full" />
                   <div className="flex-1 space-y-2">
                     <Skeleton className="h-4 w-48" />
@@ -320,7 +362,7 @@ export default function MerchantsPage() {
                     <TableHead className="text-right">Orders</TableHead>
                     <TableHead>Last Order</TableHead>
                     <TableHead>Joined</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead className="w-[50px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -328,15 +370,23 @@ export default function MerchantsPage() {
                     <TableRow key={merchant.merchant_id}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{merchant.business_name || 'Unnamed Store'}</p>
-                          <p className="text-sm text-muted-foreground">{merchant.email}</p>
+                          <p className="font-medium">
+                            {merchant.business_name || 'Unnamed Store'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {merchant.email}
+                          </p>
                         </div>
                       </TableCell>
-                      <TableCell>{getHealthBadge(merchant.health_status)}</TableCell>
+                      <TableCell>
+                        {getHealthBadge(merchant.health_status)}
+                      </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(Number(merchant.total_gmv) || 0)}
                       </TableCell>
-                      <TableCell className="text-right">{merchant.total_orders || 0}</TableCell>
+                      <TableCell className="text-right">
+                        {merchant.total_orders || 0}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {formatDate(merchant.last_order_date)}
                       </TableCell>
@@ -355,20 +405,28 @@ export default function MerchantsPage() {
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => window.open(`mailto:${merchant.email}`, '_blank')}
+                              onClick={() =>
+                                window.open(
+                                  `mailto:${merchant.email}`,
+                                  '_blank'
+                                )
+                              }
                             >
                               <Mail className="h-4 w-4 mr-2" />
                               Send Email
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
-                                const slug = generateSlug(merchant.business_name || '');
+                                const slug = generateSlug(
+                                  merchant.business_name || ''
+                                );
                                 if (slug) {
                                   window.open(`/s/${slug}`, '_blank');
                                 } else {
                                   toast({
                                     title: 'Error',
-                                    description: 'Could not generate a valid storefront URL.',
+                                    description:
+                                      'Could not generate a valid storefront URL.',
                                     variant: 'destructive',
                                   });
                                 }
@@ -396,7 +454,10 @@ export default function MerchantsPage() {
             Showing {filteredMerchants.length} of {merchants.length} merchants
           </p>
           <p>
-            Combined GMV: <span className="font-medium text-foreground">{formatCurrency(stats.totalGmv)}</span>
+            Combined GMV:{' '}
+            <span className="font-medium text-foreground">
+              {formatCurrency(stats.totalGmv)}
+            </span>
           </p>
         </div>
       )}

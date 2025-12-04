@@ -3,18 +3,21 @@
  * Track a shipment by tracking number
  */
 
-import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { shippingService } from '@/lib/shipping';
-import type { ShippingProviderCode, NormalizedShipmentStatus } from '@/lib/shipping/types';
+import type {
+  NormalizedShipmentStatus,
+  ShippingProviderCode,
+} from '@/lib/shipping/types';
+import { createClient } from '@/lib/supabase/server';
 
 // =============================================================================
 // GET /api/shipping/track/[trackingNumber] - Track a shipment
 // =============================================================================
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ trackingNumber: string }> }
 ) {
   try {
@@ -33,11 +36,14 @@ export async function GET(
     // Try to find shipment in our database first (to get provider)
     const { data: shipment } = await supabase
       .from('shipments')
-      .select('id, provider, order_id, carrier_name, receiver_address, estimated_delivery_days')
+      .select(
+        'id, provider, order_id, carrier_name, receiver_address, estimated_delivery_days'
+      )
       .eq('tracking_number', trackingNumber)
       .single();
 
-    let trackingResult;
+    // biome-ignore lint/suspicious/noExplicitAny: External API response
+    let trackingResult: any;
 
     if (shipment?.provider) {
       // Track with known provider
@@ -57,7 +63,8 @@ export async function GET(
         .update({
           status: trackingResult.status,
           current_location: trackingResult.events?.[0]?.location,
-          estimated_delivery_at: trackingResult.estimatedDelivery?.toISOString(),
+          estimated_delivery_at:
+            trackingResult.estimatedDelivery?.toISOString(),
           delivered_at: trackingResult.actualDelivery?.toISOString(),
           tracking_events: trackingResult.events,
           last_tracked_at: new Date().toISOString(),
@@ -81,7 +88,9 @@ export async function GET(
       await supabase
         .from('orders')
         .update({
-          shipping_status: orderStatusMap[trackingResult.status] || 'processing',
+          shipping_status:
+            orderStatusMap[trackingResult.status as NormalizedShipmentStatus] ||
+            'processing',
         })
         .eq('id', shipment.order_id);
     }
@@ -94,29 +103,34 @@ export async function GET(
       statusLabel: getStatusLabel(trackingResult.status),
       estimatedDelivery: trackingResult.estimatedDelivery?.toISOString(),
       actualDelivery: trackingResult.actualDelivery?.toISOString(),
-      events: trackingResult.events.map(e => ({
+      // biome-ignore lint/suspicious/noExplicitAny: External API response is loosely typed
+      events: trackingResult.events.map((e: any) => ({
         status: e.status,
         description: e.description,
         location: e.location,
         timestamp: e.timestamp.toISOString(),
       })),
       // Include additional shipment details if we have them
-      shipment: shipment ? {
-        id: shipment.id,
-        orderId: shipment.order_id,
-        receiverCity: shipment.receiver_address?.city,
-        receiverState: shipment.receiver_address?.state,
-        estimatedDays: shipment.estimated_delivery_days,
-      } : undefined,
+      shipment: shipment
+        ? {
+            id: shipment.id,
+            orderId: shipment.order_id,
+            receiverCity: shipment.receiver_address?.city,
+            receiverState: shipment.receiver_address?.state,
+            estimatedDays: shipment.estimated_delivery_days,
+          }
+        : undefined,
     });
-
   } catch (error) {
     console.error('Error tracking shipment:', error);
 
     // Return a friendly error message
     if (error instanceof Error && error.message.includes('not found')) {
       return NextResponse.json(
-        { error: 'Shipment not found. Please check the tracking number and try again.' },
+        {
+          error:
+            'Shipment not found. Please check the tracking number and try again.',
+        },
         { status: 404 }
       );
     }

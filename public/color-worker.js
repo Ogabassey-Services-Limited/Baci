@@ -1,4 +1,3 @@
-
 /* globals ColorThief */
 
 /**
@@ -8,7 +7,9 @@
 
 // Import the ColorThief library
 // Note: In a real project, you might bundle this or use a more modern import mechanism if your setup supports it.
-self.importScripts('https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.umd.js');
+self.importScripts(
+  'https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/color-thief.umd.js'
+);
 
 /**
  * Converts an RGB color array to a hex string.
@@ -16,10 +17,15 @@ self.importScripts('https://cdnjs.cloudflare.com/ajax/libs/color-thief/2.3.0/col
  * @returns {string} - #RRGGBB
  */
 function rgbToHex(rgb) {
-  return '#' + rgb.map(val => {
-    const hex = val.toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  }).join('');
+  return (
+    '#' +
+    rgb
+      .map((val) => {
+        const hex = val.toString(16);
+        return hex.length === 1 ? `0${hex}` : hex;
+      })
+      .join('')
+  );
 }
 
 /**
@@ -28,13 +34,14 @@ function rgbToHex(rgb) {
  * @returns {number} - Luminance value
  */
 function getLuminance([r, g, b]) {
-  const a = [r, g, b].map(v => {
-    v /= 255;
-    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  const a = [r, g, b].map((v) => {
+    const channel = v / 255;
+    return channel <= 0.03928
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4;
   });
   return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
 }
-
 
 /**
  * List of allowed origins that can communicate with this worker.
@@ -89,7 +96,7 @@ self.onmessage = (event) => {
   if (!isAllowedOrigin(event)) {
     self.postMessage({
       success: false,
-      error: 'Message rejected: untrusted origin.'
+      error: 'Message rejected: untrusted origin.',
     });
     return;
   }
@@ -98,13 +105,14 @@ self.onmessage = (event) => {
   if (!isValidMessageData(event.data)) {
     self.postMessage({
       success: false,
-      error: 'Invalid message format. Expected { imageDataUri: "data:image/..." }'
+      error:
+        'Invalid message format. Expected { imageDataUri: "data:image/..." }',
     });
     return;
   }
 
   const { imageDataUri } = event.data;
-  
+
   const img = new Image();
   img.crossOrigin = 'Anonymous';
 
@@ -116,10 +124,10 @@ self.onmessage = (event) => {
       if (!palette || palette.length < 3) {
         throw new Error('Could not extract a sufficient color palette.');
       }
-      
+
       // Sort colors by luminance (darkest to lightest)
       const sortedPalette = palette
-        .map(rgb => ({ rgb, luminance: getLuminance(rgb) }))
+        .map((rgb) => ({ rgb, luminance: getLuminance(rgb) }))
         .sort((a, b) => a.luminance - b.luminance);
 
       // Assign roles based on luminance and saturation
@@ -134,14 +142,19 @@ self.onmessage = (event) => {
       };
 
       self.postMessage({ success: true, colors });
-
     } catch (e) {
-      self.postMessage({ success: false, error: e.message || 'Failed to process image with ColorThief.' });
+      self.postMessage({
+        success: false,
+        error: e.message || 'Failed to process image with ColorThief.',
+      });
     }
   };
 
   img.onerror = () => {
-    self.postMessage({ success: false, error: 'Failed to load image data in worker.' });
+    self.postMessage({
+      success: false,
+      error: 'Failed to load image data in worker.',
+    });
   };
 
   img.src = imageDataUri;

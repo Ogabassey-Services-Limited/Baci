@@ -14,12 +14,21 @@
  * @see /docs/adr/001-business-type-journey-architecture.md for architecture decisions
  */
 
-import { ReactNode } from 'react';
-import { LucideIcon, Shirt, Laptop, Home, Sparkles, Palette, Coffee, Scissors } from 'lucide-react';
-import { ModernTemplate } from '@/templates/modern';
-import { ArtisanTemplate } from '@/templates/artisan';
-import { TechTemplate } from '@/templates/tech';
+import {
+  CoffeeCup,
+  Home,
+  Laptop,
+  Palette,
+  Scissor,
+  Shirt,
+  Sparks,
+} from 'iconoir-react';
+import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
+import { ArtisanTemplate } from '@/templates/artisan';
+import { ModernTemplate } from '@/templates/modern';
+import { TechTemplate } from '@/templates/tech';
 
 /**
  * Business type journey configuration
@@ -88,7 +97,12 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     label: 'Fashion & Apparel',
     description: 'Clothing, accessories, and fashion items',
     aiPromptContext: 'fashion and style-focused',
-    recommendedFeatures: ['size-charts', 'color-variants', 'lookbooks', 'style-guides'],
+    recommendedFeatures: [
+      'size-charts',
+      'color-variants',
+      'lookbooks',
+      'style-guides',
+    ],
     template: PremiumDefaultTemplate,
     icon: Shirt,
     journey: {
@@ -99,8 +113,10 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
       },
       productCreation: {
         requiredFields: ['size', 'color', 'material', 'care-instructions'],
-        aiDescriptionStyle: 'aspirational, lifestyle-focused, emphasizes style and fit',
-        imageRequirements: 'Clean background, model shots preferred, multiple angles showing fit and detail',
+        aiDescriptionStyle:
+          'aspirational, lifestyle-focused, emphasizes style and fit',
+        imageRequirements:
+          'Clean background, model shots preferred, multiple angles showing fit and detail',
       },
     },
   },
@@ -109,8 +125,14 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     id: 'electronics',
     label: 'Electronics & Gadgets',
     description: 'Tech products and electronic devices',
-    aiPromptContext: 'technology and innovation-focused with technical specifications',
-    recommendedFeatures: ['spec-sheets', 'warranty-info', 'comparison-tables', 'compatibility-guides'],
+    aiPromptContext:
+      'technology and innovation-focused with technical specifications',
+    recommendedFeatures: [
+      'spec-sheets',
+      'warranty-info',
+      'comparison-tables',
+      'compatibility-guides',
+    ],
     template: TechTemplate,
     icon: Laptop,
     journey: {
@@ -121,8 +143,10 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
       },
       productCreation: {
         requiredFields: ['specs', 'warranty', 'compatibility', 'dimensions'],
-        aiDescriptionStyle: 'feature-focused, technical, highlights specifications and capabilities',
-        imageRequirements: 'White background, multiple angles, close-ups of ports/features',
+        aiDescriptionStyle:
+          'feature-focused, technical, highlights specifications and capabilities',
+        imageRequirements:
+          'White background, multiple angles, close-ups of ports/features',
       },
     },
   },
@@ -132,7 +156,12 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     label: 'Home Goods & Decor',
     description: 'Furniture, home accessories, and decor items',
     aiPromptContext: 'home and lifestyle-focused with interior design emphasis',
-    recommendedFeatures: ['room-visualizer', 'dimension-guides', 'material-samples', 'style-collections'],
+    recommendedFeatures: [
+      'room-visualizer',
+      'dimension-guides',
+      'material-samples',
+      'style-collections',
+    ],
     template: ArtisanTemplate,
     icon: Home,
     journey: {
@@ -142,9 +171,16 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
         additionalSteps: ['design-style', 'price-range'],
       },
       productCreation: {
-        requiredFields: ['dimensions', 'material', 'color-options', 'assembly-required'],
-        aiDescriptionStyle: 'lifestyle-focused, emphasizes comfort and aesthetics, how it fits in a home',
-        imageRequirements: 'Lifestyle shots in home settings, dimension references, texture details',
+        requiredFields: [
+          'dimensions',
+          'material',
+          'color-options',
+          'assembly-required',
+        ],
+        aiDescriptionStyle:
+          'lifestyle-focused, emphasizes comfort and aesthetics, how it fits in a home',
+        imageRequirements:
+          'Lifestyle shots in home settings, dimension references, texture details',
       },
     },
   },
@@ -154,9 +190,14 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     label: 'Health & Beauty',
     description: 'Cosmetics, skincare, wellness, and personal care products',
     aiPromptContext: 'health, beauty, and wellness-focused',
-    recommendedFeatures: ['ingredient-lists', 'skin-type-filters', 'before-after', 'routine-builders'],
+    recommendedFeatures: [
+      'ingredient-lists',
+      'skin-type-filters',
+      'before-after',
+      'routine-builders',
+    ],
     template: ModernTemplate,
-    icon: Sparkles,
+    icon: Sparks,
     journey: {
       onboarding: {
         logoStyle: 'clean, elegant, wellness-oriented',
@@ -164,9 +205,16 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
         additionalSteps: ['product-certifications', 'ingredient-philosophy'],
       },
       productCreation: {
-        requiredFields: ['ingredients', 'skin-type', 'usage-instructions', 'size-volume'],
-        aiDescriptionStyle: 'benefit-focused, emphasizes results and ingredients, addresses concerns',
-        imageRequirements: 'Clean, well-lit shots, product texture, packaging details',
+        requiredFields: [
+          'ingredients',
+          'skin-type',
+          'usage-instructions',
+          'size-volume',
+        ],
+        aiDescriptionStyle:
+          'benefit-focused, emphasizes results and ingredients, addresses concerns',
+        imageRequirements:
+          'Clean, well-lit shots, product texture, packaging details',
       },
     },
   },
@@ -175,8 +223,14 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     id: 'handmade',
     label: 'Handmade & Crafts',
     description: 'Artisan products, handcrafted items, and unique creations',
-    aiPromptContext: 'artisan and handcrafted with emphasis on uniqueness and craftsmanship',
-    recommendedFeatures: ['maker-story', 'custom-orders', 'crafting-process', 'limited-editions'],
+    aiPromptContext:
+      'artisan and handcrafted with emphasis on uniqueness and craftsmanship',
+    recommendedFeatures: [
+      'maker-story',
+      'custom-orders',
+      'crafting-process',
+      'limited-editions',
+    ],
     template: ArtisanTemplate,
     icon: Palette,
     journey: {
@@ -186,9 +240,16 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
         additionalSteps: ['maker-story', 'crafting-methods'],
       },
       productCreation: {
-        requiredFields: ['materials', 'handmade-details', 'creation-time', 'customization-options'],
-        aiDescriptionStyle: 'story-focused, emphasizes craftsmanship and uniqueness, personal touch',
-        imageRequirements: 'Show crafting process, detail shots, artisan at work, unique features',
+        requiredFields: [
+          'materials',
+          'handmade-details',
+          'creation-time',
+          'customization-options',
+        ],
+        aiDescriptionStyle:
+          'story-focused, emphasizes craftsmanship and uniqueness, personal touch',
+        imageRequirements:
+          'Show crafting process, detail shots, artisan at work, unique features',
       },
     },
   },
@@ -197,10 +258,16 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
     id: 'food-beverage',
     label: 'Food & Beverage',
     description: 'Consumable goods, beverages, and culinary products',
-    aiPromptContext: 'food and beverage with focus on taste, quality, and ingredients',
-    recommendedFeatures: ['nutrition-facts', 'allergen-info', 'recipes', 'pairing-guides'],
+    aiPromptContext:
+      'food and beverage with focus on taste, quality, and ingredients',
+    recommendedFeatures: [
+      'nutrition-facts',
+      'allergen-info',
+      'recipes',
+      'pairing-guides',
+    ],
     template: ArtisanTemplate,
-    icon: Coffee,
+    icon: CoffeeCup,
     journey: {
       onboarding: {
         logoStyle: 'appetizing, fresh, inviting',
@@ -208,9 +275,16 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
         additionalSteps: ['food-safety-certs', 'sourcing-info'],
       },
       productCreation: {
-        requiredFields: ['ingredients', 'allergens', 'expiration-info', 'storage-instructions'],
-        aiDescriptionStyle: 'sensory-focused, emphasizes taste and quality, ingredients and origin',
-        imageRequirements: 'Appetizing shots, ingredient close-ups, serving suggestions, packaging',
+        requiredFields: [
+          'ingredients',
+          'allergens',
+          'expiration-info',
+          'storage-instructions',
+        ],
+        aiDescriptionStyle:
+          'sensory-focused, emphasizes taste and quality, ingredients and origin',
+        imageRequirements:
+          'Appetizing shots, ingredient close-ups, serving suggestions, packaging',
       },
     },
   },
@@ -218,11 +292,18 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
   HAIR_EXTENSIONS: {
     id: 'hair-extensions',
     label: 'Hair & Extensions',
-    description: 'Wigs, weaves, bundles, closures, frontals, and hair care products',
-    aiPromptContext: 'hair and beauty with focus on quality, texture, origin, and styling versatility',
-    recommendedFeatures: ['texture-guide', 'length-charts', 'care-instructions', 'styling-tutorials'],
+    description:
+      'Wigs, weaves, bundles, closures, frontals, and hair care products',
+    aiPromptContext:
+      'hair and beauty with focus on quality, texture, origin, and styling versatility',
+    recommendedFeatures: [
+      'texture-guide',
+      'length-charts',
+      'care-instructions',
+      'styling-tutorials',
+    ],
     template: PremiumDefaultTemplate,
-    icon: Scissors,
+    icon: Scissor,
     journey: {
       onboarding: {
         logoStyle: 'glamorous, sleek, beauty-focused',
@@ -231,8 +312,10 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
       },
       productCreation: {
         requiredFields: ['texture', 'length', 'origin', 'density', 'color'],
-        aiDescriptionStyle: 'luxurious and aspirational, emphasizes quality, texture, versatility, and styling options',
-        imageRequirements: 'High-quality shots showing texture, multiple angles, styled and unstyled, color accuracy',
+        aiDescriptionStyle:
+          'luxurious and aspirational, emphasizes quality, texture, versatility, and styling options',
+        imageRequirements:
+          'High-quality shots showing texture, multiple angles, styled and unstyled, color accuracy',
       },
     },
   },
@@ -260,7 +343,9 @@ export type BusinessTypeConfigType = BusinessTypeConfig;
  * console.log(config.label); // "Fashion & Apparel"
  * ```
  */
-export function getBusinessTypeById(id: string): BusinessTypeConfigType | undefined {
+export function getBusinessTypeById(
+  id: string
+): BusinessTypeConfigType | undefined {
   const key = Object.keys(BUSINESS_TYPES).find(
     (k) => BUSINESS_TYPES[k as BusinessTypeId].id === id
   );
@@ -279,7 +364,7 @@ export function getBusinessTypeById(id: string): BusinessTypeConfigType | undefi
  * ```
  */
 export function getAllBusinessTypeIds(): string[] {
-  return Object.values(BUSINESS_TYPES).map(type => type.id);
+  return Object.values(BUSINESS_TYPES).map((type) => type.id);
 }
 
 /**
@@ -296,7 +381,9 @@ export function getAllBusinessTypeIds(): string[] {
  * ```
  */
 export function getAllBusinessTypes(): BusinessTypeConfigType[] {
-  return Object.values(BUSINESS_TYPES);
+  return Object.values(BUSINESS_TYPES).sort((a, b) =>
+    a.label.localeCompare(b.label)
+  );
 }
 
 /**
@@ -340,5 +427,8 @@ export function getAIPromptContext(id: string): string {
  */
 export function getProductDescriptionStyle(id: string): string {
   const config = getBusinessTypeById(id);
-  return config?.journey.productCreation.aiDescriptionStyle || 'general, informative product description';
+  return (
+    config?.journey.productCreation.aiDescriptionStyle ||
+    'general, informative product description'
+  );
 }

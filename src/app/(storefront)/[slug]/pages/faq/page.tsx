@@ -1,11 +1,11 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { FAQPageClient } from './faq-page-client';
-import { generateFAQSchema } from '@/lib/seo-utils';
-import { FAQItem, parseLegacyFAQ } from '@/types/faq';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { generateFAQSchema } from '@/lib/seo-utils';
+import { createClient } from '@/lib/supabase/server';
+import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
+import { FAQPageClient } from './faq-page-client';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -28,7 +28,9 @@ async function getMerchant(slug: string) {
   return merchant;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const merchant = await getMerchant(slug);
 
@@ -61,7 +63,11 @@ export default async function FAQPage({ params }: PageProps) {
   // Get FAQ items - try structured data first, then parse legacy content
   let faqItems: FAQItem[] = [];
 
-  if (merchant.faq_items && Array.isArray(merchant.faq_items) && merchant.faq_items.length > 0) {
+  if (
+    merchant.faq_items &&
+    Array.isArray(merchant.faq_items) &&
+    merchant.faq_items.length > 0
+  ) {
     // Use structured FAQ items
     faqItems = merchant.faq_items as FAQItem[];
   } else if (merchant.pages?.faq) {
@@ -82,6 +88,7 @@ export default async function FAQPage({ params }: PageProps) {
       {/* FAQ JSON-LD Schema - enables FAQ rich results in Google */}
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
       />
       <FAQPageClient

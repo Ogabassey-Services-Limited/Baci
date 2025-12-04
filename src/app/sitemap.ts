@@ -1,4 +1,4 @@
-import { MetadataRoute } from 'next';
+import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -25,12 +25,18 @@ async function fetchActiveMerchants() {
 }
 
 // Fetch blog posts from database (or CMS in future)
-async function fetchBlogPosts() {
+function fetchBlogPosts() {
   // TODO: Replace with actual blog posts table when implemented
   // For now, return static posts
   return [
-    { slug: 'ai-revolutionizing-ecommerce', lastModified: new Date('2025-10-24') },
-    { slug: 'writing-product-descriptions', lastModified: new Date('2025-10-18') },
+    {
+      slug: 'ai-revolutionizing-ecommerce',
+      lastModified: new Date('2025-10-24'),
+    },
+    {
+      slug: 'writing-product-descriptions',
+      lastModified: new Date('2025-10-18'),
+    },
     { slug: 'introducing-baci-pro', lastModified: new Date('2025-10-10') },
   ];
 }
@@ -38,10 +44,10 @@ async function fetchBlogPosts() {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const headersList = await headers();
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  
-  const host = process.env.NEXT_PUBLIC_ROOT_DOMAIN 
-    ? process.env.NEXT_PUBLIC_ROOT_DOMAIN 
-    : (headersList.get('host') || 'localhost:3000');
+
+  const host = process.env.NEXT_PUBLIC_ROOT_DOMAIN
+    ? process.env.NEXT_PUBLIC_ROOT_DOMAIN
+    : headersList.get('host') || 'localhost:3000';
 
   const siteUrl = `${protocol}://${host}`;
 
@@ -61,7 +67,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   // Map static pages to sitemap entries
-  const sitemapEntries: MetadataRoute.Sitemap = staticPages.map(page => ({
+  const sitemapEntries: MetadataRoute.Sitemap = staticPages.map((page) => ({
     url: `${siteUrl}${page.path}`,
     lastModified: new Date(),
     changeFrequency: page.changeFreq,
@@ -70,7 +76,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Add dynamic blog posts
   const blogPosts = await fetchBlogPosts();
-  blogPosts.forEach(post => {
+  blogPosts.forEach((post) => {
     sitemapEntries.push({
       url: `${siteUrl}/blog/${post.slug}`,
       lastModified: post.lastModified,
@@ -82,17 +88,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Add merchant storefronts (for SEO discovery)
   // Note: Individual merchant sitemaps are served at /[slug]/sitemap.xml
   const merchants = await fetchActiveMerchants();
-  merchants.forEach(merchant => {
+  merchants.forEach((merchant) => {
     if (merchant.slug) {
       // In development, storefronts are at /storefront/[slug]
       // In production, they're at subdomains, but we still index the main route
-      const storefrontPath = process.env.NODE_ENV === 'development'
-        ? `/storefront/${merchant.slug}`
-        : `/${merchant.slug}`;
+      const storefrontPath =
+        process.env.NODE_ENV === 'development'
+          ? `/storefront/${merchant.slug}`
+          : `/${merchant.slug}`;
 
       sitemapEntries.push({
         url: `${siteUrl}${storefrontPath}`,
-        lastModified: merchant.updated_at ? new Date(merchant.updated_at) : new Date(),
+        lastModified: merchant.updated_at
+          ? new Date(merchant.updated_at)
+          : new Date(),
         changeFrequency: 'daily',
         priority: 0.6,
       });

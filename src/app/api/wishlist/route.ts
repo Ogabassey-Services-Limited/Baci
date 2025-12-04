@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
-import crypto from 'crypto';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Hash a session token for privacy (don't store raw tokens)
@@ -14,7 +14,8 @@ function hashSessionToken(token: string): string {
  * Validate UUID format
  */
 function isValidUUID(str: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(str);
 }
 
@@ -32,7 +33,9 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Check for authenticated user first
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     let customerIdentifier: string;
 
@@ -47,7 +50,10 @@ export async function GET(request: NextRequest) {
       customerIdentifier = `guest:${hashSessionToken(sessionToken)}`;
     } else {
       return NextResponse.json(
-        { error: 'Authentication required. Please login or provide a session token.' },
+        {
+          error:
+            'Authentication required. Please login or provide a session token.',
+        },
         { status: 401 }
       );
     }
@@ -123,7 +129,9 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Check for authenticated user first
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     let customerIdentifier: string;
 
@@ -135,7 +143,10 @@ export async function POST(request: NextRequest) {
       customerIdentifier = `guest:${hashSessionToken(sessionToken)}`;
     } else {
       return NextResponse.json(
-        { error: 'Authentication required. Please login or provide a session token.' },
+        {
+          error:
+            'Authentication required. Please login or provide a session token.',
+        },
         { status: 401 }
       );
     }
@@ -200,7 +211,9 @@ export async function DELETE(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Check for authenticated user first
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     let customerIdentifier: string;
 
@@ -212,7 +225,10 @@ export async function DELETE(request: NextRequest) {
       customerIdentifier = `guest:${hashSessionToken(sessionToken)}`;
     } else {
       return NextResponse.json(
-        { error: 'Authentication required. Please login or provide a session token.' },
+        {
+          error:
+            'Authentication required. Please login or provide a session token.',
+        },
         { status: 401 }
       );
     }
@@ -225,10 +241,7 @@ export async function DELETE(request: NextRequest) {
       .single();
 
     if (fetchError || !item) {
-      return NextResponse.json(
-        { error: 'Item not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
 
     // Check ownership

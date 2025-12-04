@@ -1,10 +1,59 @@
-
 'use client';
 
-import { useState, useMemo, useEffect, useActionState, useTransition } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useForm, FormProvider, useFormContext, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import type { Data } from '@measured/puck';
+import type { User } from '@supabase/supabase-js';
+import { extend } from 'colord';
+import a11yPlugin from 'colord/plugins/a11y';
+import ColorThief from 'colorthief';
+import {
+  AlertCircle,
+  CheckCircle,
+  Eraser,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Loader2,
+  Mail,
+  Maximize2,
+  Minimize2,
+  Pencil,
+  RefreshCw,
+  Shuffle,
+  Sparkles,
+  Upload,
+  Wand2,
+} from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  useActionState,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from 'react';
+import {
+  FormProvider,
+  useForm,
+  useFormContext,
+  useWatch,
+} from 'react-hook-form';
+import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
+import {
+  type ServerActionState,
+  sendMagicLink,
+  submitOnboarding,
+} from '@/app/onboarding/actions';
+import {
+  trackMerchantSignupCompleted,
+  trackMerchantSignupStarted,
+} from '@/components/analytics/platform-analytics-provider';
+import { BusinessNameGeneratorModal } from '@/components/business-name-generator-modal';
+import { Logo } from '@/components/logo';
+import { LogoGeneratorModal } from '@/components/logo-generator-modal';
+import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { Button } from '@/components/ui/button';
 import {
   FormControl,
@@ -13,6 +62,13 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -20,94 +76,121 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Input } from '@/components/ui/input';
-import { Progress } from '@/components/ui/progress';
-import { Loader2, Sparkles, Upload, CheckCircle, Mail, KeyRound, Eye, EyeOff, AlertCircle, Pencil, Shuffle } from 'lucide-react';
-import Image from 'next/image';
+import { TypingPlaceholderInput } from '@/components/ui/typing-placeholder-input';
+import { getAllBusinessTypes } from '@/config/business-types';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
-import { cn, checkPasswordStrength } from '@/lib/utils';
-import { getAllBusinessTypes } from '@/config/business-types';
-import type { BrandColors } from '@/types';
-import { createClient } from '@/lib/supabase/client';
-import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
-import { submitOnboarding, sendMagicLink, type ServerActionState } from '@/app/onboarding/actions';
-import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
-import ColorThief from 'colorthief';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { OnboardingFormValues, onboardingSchema, step3Schema } from '@/schemas/onboarding';
-import { OnboardingPuckPreview } from './onboarding-puck-preview';
-import { ColorPicker } from './color-picker';
-import { extend } from 'colord';
-import a11yPlugin from 'colord/plugins/a11y';
 import { uploadImage } from '@/lib/storage';
+import { createClient } from '@/lib/supabase/client';
+import { checkPasswordStrength, cn, getContrastColor } from '@/lib/utils';
 import {
-  trackMerchantSignupStarted,
-  trackMerchantSignupCompleted,
-} from '@/components/analytics/platform-analytics-provider';
+  type OnboardingFormValues,
+  onboardingSchema,
+  step3Schema,
+} from '@/schemas/onboarding';
+import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
+import type { BrandColors } from '@/types';
+import { ColorPicker } from './color-picker';
+import { OnboardingPuckPreview } from './onboarding-puck-preview';
+import { OnboardingTemplateEditor } from './onboarding-template-editor';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 extend([a11yPlugin]);
 
-
 // --- Step Components ---
 
-function StepIndicator({ currentStep, totalSteps }: { currentStep: number, totalSteps: number }) {
+const premiumInputClass =
+  'bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all shadow-sm';
+
+function StepIndicator({
+  currentStep,
+  totalSteps,
+}: {
+  currentStep: number;
+  totalSteps: number;
+}) {
   // Calculate progress with a minimum of 15% for step 1 to show visual feedback
   const baseProgress = ((currentStep - 1) / (totalSteps - 1)) * 100;
   const progress = currentStep === 1 ? 15 : baseProgress;
   return (
     <div className="flex items-center gap-4">
-      <Progress value={progress} className="w-full" aria-label="Onboarding progress" />
-      <span className="text-sm text-muted-foreground whitespace-nowrap" aria-live="polite">
+      <Progress
+        value={progress}
+        className="w-full"
+        aria-label="Onboarding progress"
+      />
+      <span
+        className="text-sm text-muted-foreground whitespace-nowrap"
+        aria-live="polite"
+      >
         Step {currentStep} of {totalSteps}
       </span>
     </div>
   );
 }
 
-function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => void; }) {
-  const { control, watch } = useFormContext<OnboardingFormValues>();
+function Step1_BusinessDetails({
+  onKeyDown,
+}: {
+  onKeyDown: (
+    e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>
+  ) => void;
+}) {
+  const { control, watch, setValue } = useFormContext<OnboardingFormValues>();
   const businessTypeValue = watch('businessType');
   const businessTypes = useMemo(() => getAllBusinessTypes(), []);
 
+  const [isGeneratorOpen, setIsGeneratorOpen] = useState(false);
+
   return (
-    <div className='space-y-4'>
-      <FormField
-        control={control}
-        name="businessName"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel className="text-lg">What is your business name?</FormLabel>
-            <FormControl>
-              <Input placeholder="e.g., Amara's Fashion" {...field} onKeyDown={onKeyDown} name="businessName" autoComplete="organization" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+    <div className="space-y-4">
       <FormField
         control={control}
         name="businessType"
         render={({ field }) => (
           <FormItem>
-            <FormLabel className="text-lg">What's the nature of your business?</FormLabel>
-            <Select onValueChange={field.onChange} defaultValue={field.value} name="businessType" >
+            <FormLabel className="text-lg">
+              What's the nature of your business?
+            </FormLabel>
+            <Select
+              onValueChange={field.onChange}
+              defaultValue={field.value}
+              name="businessType"
+            >
               <FormControl>
-                <SelectTrigger onKeyDown={onKeyDown}>
+                <SelectTrigger
+                  onKeyDown={onKeyDown}
+                  className={cn(
+                    premiumInputClass,
+                    !field.value && 'text-muted-foreground'
+                  )}
+                >
                   <SelectValue placeholder="e.g., Fashion, Electronics, Art..." />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                {businessTypes.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
-                    {type.label}
-                  </SelectItem>
-                ))}
+                {businessTypes.map((type) => {
+                  // Emoji mapping for business types
+                  const emojiMap: Record<string, string> = {
+                    fashion: '👗',
+                    electronics: '💻',
+                    'home-goods': '🏠',
+                    'health-beauty': '💄',
+                    handmade: '🎨',
+                    'food-beverage': '🍔',
+                    'hair-extensions': '💇‍♀️',
+                  };
+                  const emoji = emojiMap[type.id] || '🏢';
+
+                  return (
+                    <SelectItem key={type.id} value={type.id}>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{emoji}</span>
+                        <span className="text-primary">{type.label}</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
                 <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
@@ -123,75 +206,205 @@ function Step1_BusinessDetails({ onKeyDown }: { onKeyDown: (e: React.KeyboardEve
             <FormItem>
               <FormLabel>Please specify</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Pet Services" {...field} value={field.value || ''} onKeyDown={onKeyDown} name="otherBusinessType" />
+                <TypingPlaceholderInput
+                  staticPrefix="e.g., "
+                  placeholders={[
+                    'Pet Services',
+                    'Consulting',
+                    'Event Planning',
+                    'Tutoring',
+                  ]}
+                  {...field}
+                  onKeyDown={onKeyDown}
+                  name="otherBusinessType"
+                  autoComplete="organization"
+                  className={premiumInputClass}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
       )}
+      <FormField
+        control={control}
+        name="businessName"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel className="text-lg">
+              What is your business name?
+            </FormLabel>
+            <FormControl>
+              <TypingPlaceholderInput
+                staticPrefix="e.g., "
+                placeholders={[
+                  "Amara's Fashion",
+                  'Tech Haven',
+                  'The Coffee Spot',
+                  'Green Grocer',
+                  'Urban Styles',
+                ]}
+                {...field}
+                onChange={(e) => {
+                  // Convert to sentence case (title case)
+                  const words = e.target.value.split(' ');
+                  const titleCased = words
+                    .map((word) => {
+                      if (word.length === 0) return word;
+                      return (
+                        word.charAt(0).toUpperCase() +
+                        word.slice(1).toLowerCase()
+                      );
+                    })
+                    .join(' ');
+                  field.onChange(titleCased);
+                }}
+                onKeyDown={onKeyDown}
+                name="businessName"
+                autoComplete="organization"
+                className={premiumInputClass}
+              />
+            </FormControl>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="group h-auto p-0 text-[13px] font-semibold text-primary hover:bg-transparent transition-all duration-300"
+              onClick={() => setIsGeneratorOpen(true)}
+            >
+              <Sparkles className="w-3.5 h-3.5 mr-0.5 text-amber-500 group-hover:text-amber-600 transition-colors" />
+              <span className="bg-gradient-to-r from-primary via-primary to-primary/70 bg-clip-text text-transparent group-hover:from-primary/90 group-hover:to-primary/60">
+                Generate Business Name
+              </span>
+            </Button>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <BusinessNameGeneratorModal
+        isOpen={isGeneratorOpen}
+        onOpenChange={setIsGeneratorOpen}
+        onNameSelect={(name) => {
+          setValue('businessName', name, { shouldValidate: true });
+        }}
+        businessType={businessTypeValue}
+      />
     </div>
   );
 }
 
-
 function Step2_Branding() {
   const form = useFormContext<OnboardingFormValues>();
   const { toast } = useToast();
-  const { watch, setValue, control } = form;
+  const { watch, setValue } = form;
 
   const businessName = watch('businessName');
   const businessType = watch('businessType');
   const logoUrl = watch('logoUrl'); // Now watching for the uploaded URL
-  const brandColorsString = watch('brandColors');
-  const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
+  const brandColorsString = useWatch({
+    control: form.control,
+    name: 'brandColors',
+  });
 
-  const [isGenerating] = useState(false);
+  const brandColors: BrandColors | null = useMemo(() => {
+    if (!brandColorsString) return null;
+    try {
+      return JSON.parse(brandColorsString);
+    } catch {
+      return null;
+    }
+  }, [brandColorsString]);
+
+  const [isGenerating, setIsGenerating] = useState(false); // Tracks AI generation
   const [isExtracting, setIsExtracting] = useState(false);
   const [isUploading, setIsUploading] = useState(false); // New state for tracking upload
-  const [currentLogoDataUri, setCurrentLogoDataUri] = useState<string | null>(null); // To store data URI for client-side ops
+  const [currentLogoDataUri, setCurrentLogoDataUri] = useState<string | null>(
+    null
+  ); // To store data URI for client-side ops
+  const [isGeneratorModalOpen, setIsGeneratorModalOpen] = useState(false);
 
   const isLoading = isGenerating || isExtracting || isUploading;
 
+  // Sync with global UI store for background animations and preview
+  const setLogoUploaded = useOnboardingUIStore(
+    (state) => state.setLogoUploaded
+  );
+  const setStoreLogoDataUri = useOnboardingUIStore(
+    (state) => state.setLogoDataUri
+  );
+
   // Effect to keep currentLogoDataUri updated for client-side operations
   useEffect(() => {
-    // When logoUrl changes, we might need to fetch it to convert to data URI
-    // for ColorThief or just update if it's already a data URI
-    if (logoUrl && logoUrl.startsWith('data:')) {
+    if (logoUrl?.startsWith('data:')) {
       setCurrentLogoDataUri(logoUrl);
-    } else if (logoUrl) {
-      // If it's a URL, we might need to fetch it to get a data URI for client-side tools
-      // For now, we'll assume logoUrl is only used for display and server-side processing
-      // and currentLogoDataUri comes directly from client upload or AI generation before upload
-      // This is a simplification and might need refinement for complex scenarios where
-      // color extraction needs to happen *after* a logo is loaded from a URL.
-      setCurrentLogoDataUri(null); // Clear data URI if it's a URL and we haven't fetched it
-    } else {
+      setStoreLogoDataUri(logoUrl);
+    } else if (logoUrl && !currentLogoDataUri) {
+      // Fallback for remote URLs if local data URI isn't set (e.g. page refresh)
+      // We don't fetch remote here to avoid CORS/bandwidth, just rely on img tags handling it
+      setStoreLogoDataUri(logoUrl);
+    } else if (!logoUrl) {
       setCurrentLogoDataUri(null);
+      setStoreLogoDataUri(null);
     }
-  }, [logoUrl]);
+  }, [logoUrl, currentLogoDataUri, setStoreLogoDataUri]);
 
-  const extractColorsFromImage = (imageDataUri: string): Promise<BrandColors> => {
+  useEffect(() => {
+    setLogoUploaded(!!(currentLogoDataUri || logoUrl));
+  }, [currentLogoDataUri, logoUrl, setLogoUploaded]);
+
+  const extractColorsFromImage = (
+    imageDataUri: string
+  ): Promise<BrandColors> => {
     return new Promise((resolve, reject) => {
       const colorThief = new ColorThief();
       const img = document.createElement('img');
       img.src = imageDataUri;
+      img.crossOrigin = 'Anonymous';
 
-      img.onload = async () => {
+      img.onload = () => {
         try {
-          const palette = colorThief.getPalette(img, 5); // Extract 5 colors to find a good background
+          const palette = colorThief.getPalette(img, 8); // Get more colors to filter from
+          const toHex = (rgb: number[]) =>
+            `#${rgb.map((c) => c.toString(16).padStart(2, '0')).join('')}`;
 
-          const primaryRgb = palette[0] || [0, 0, 0];
-          const accentRgb = palette[1] || primaryRgb;
+          // Helper: Check if color is too neutral (white/black/gray)
+          const isNeutral = (rgb: number[]) => {
+            const [r, g, b] = rgb;
+            const brightness = (r + g + b) / 3;
+            const maxDiff = Math.max(
+              Math.abs(r - g),
+              Math.abs(g - b),
+              Math.abs(r - b)
+            );
 
-          const toHex = (rgb: number[]) => `#${rgb.map(c => c.toString(16).padStart(2, '0')).join('')}`;
+            // Too bright (near white) or too dark (near black) or low color variance (gray)
+            return brightness > 240 || brightness < 20 || maxDiff < 15;
+          };
+
+          // Helper: Calculate saturation (how "colorful" the color is)
+          const getSaturation = (rgb: number[]) => {
+            const [r, g, b] = rgb;
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const delta = max - min;
+            return max === 0 ? 0 : delta / max;
+          };
+
+          // Filter out neutral colors
+          const vibrantColors = palette.filter((color) => !isNeutral(color));
+
+          // Sort by saturation (most colorful first)
+          vibrantColors.sort((a, b) => getSaturation(b) - getSaturation(a));
+
+          // Pick primary and accent from vibrant colors, or fallback to original palette
+          const primaryRgb = vibrantColors[0] || palette[0] || [0, 0, 0];
+          const accentRgb = vibrantColors[1] || palette[1] || primaryRgb;
 
           resolve({
             primary: toHex(primaryRgb),
             background: '#FFFFFF',
-            accent: toHex(accentRgb)
+            accent: toHex(accentRgb),
           });
-
         } catch (e) {
           reject(e);
         }
@@ -203,375 +416,595 @@ function Step2_Branding() {
     });
   };
 
-  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
+  // Unified handler for processing a logo (whether uploaded or generated)
+  const processNewLogo = async (
+    dataUri: string,
+    preserveColors: boolean = false
+  ) => {
+    setCurrentLogoDataUri(dataUri);
+    setStoreLogoDataUri(dataUri);
+    setIsExtracting(true);
+    setIsUploading(true);
+
+    const uploadPromise = (async () => {
+      try {
+        const uploadedUrl = await uploadImage(dataUri);
+        if (uploadedUrl) {
+          setValue('logoUrl', uploadedUrl, { shouldValidate: true });
+          // toast({ title: 'Logo saved!' });
+        } else {
+          throw new Error('Upload failed: No URL returned.');
+        }
+      } catch (e) {
+        logger.error({ error: e as Error, message: 'Logo upload failed.' });
+        toast({
+          title: 'Upload failed',
+          description: (e as Error).message,
+          variant: 'destructive',
+        });
+        // Keep local URI even if upload fails so user can see it
+        setValue('logoUrl', dataUri, { shouldValidate: true });
+      } finally {
+        setIsUploading(false);
+      }
+    })();
+
+    const extractionPromise = (async () => {
+      if (preserveColors) {
+        setIsExtracting(false);
+        return;
+      }
+      try {
+        const colors = await extractColorsFromImage(dataUri);
+        setValue('brandColors', JSON.stringify(colors), {
+          shouldValidate: true,
+        });
+        toast({ title: 'Brand colors extracted!' });
+      } catch (e) {
+        logger.error({
+          error: e as Error,
+          message: 'Color extraction failed.',
+        });
+        // Don't fail hard, let user pick colors manually
+        setValue('brandColors', '', { shouldValidate: true });
+      } finally {
+        setIsExtracting(false);
+      }
+    })();
+
+    await Promise.all([uploadPromise, extractionPromise]);
+  };
+
+  const handleRemoveBackground = async () => {
+    const logoToProcess = currentLogoDataUri || logoUrl;
+    if (!logoToProcess) return;
+
+    setIsUploading(true);
+    toast({
+      title: 'Removing background...',
+      description: 'This happens locally on your device.',
+    });
+
+    try {
+      // Dynamic import to avoid loading heavy library until needed
+      const { removeBackground } = await import('@imgly/background-removal');
+
+      const blob = await removeBackground(logoToProcess);
+      const url = URL.createObjectURL(blob);
+
+      // Convert blob URL to data URI for storage/processing
       const reader = new FileReader();
       reader.onloadend = async () => {
         const dataUri = reader.result as string;
-        setCurrentLogoDataUri(dataUri); // Keep data URI for client-side color extraction
-
-        setIsUploading(true);
-        try {
-          toast({ title: 'Uploading logo...', description: 'This may take a moment.' });
-          const uploadedUrl = await uploadImage(dataUri); // Upload immediately
-          if (uploadedUrl) {
-            setValue('logoUrl', uploadedUrl, { shouldValidate: true }); // Store URL in form state
-            toast({ title: 'Logo uploaded successfully!' });
-          } else {
-            throw new Error('Upload failed: No URL returned.');
-          }
-        } catch (e) {
-          logger.error({ error: e as Error, message: 'Logo upload failed.' });
-          toast({ title: 'Upload failed', description: (e as Error).message, variant: 'destructive' });
-          setValue('logoUrl', '', { shouldValidate: true });
-        } finally {
-          setIsUploading(false);
-        }
-
-        setIsExtracting(true);
-        try {
-          // Use the dataUri for client-side color extraction
-          const colors = await extractColorsFromImage(dataUri);
-          setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
-          toast({ title: 'Brand colors extracted!' });
-        } catch (e) {
-          logger.error({ error: e as Error, message: 'Color extraction failed.' });
-          toast({ title: 'Color extraction failed', description: (e as Error).message, variant: 'destructive' });
-          setValue('brandColors', '', { shouldValidate: true });
-        } finally {
-          setIsExtracting(false);
-        }
+        await processNewLogo(dataUri, true);
+        URL.revokeObjectURL(url);
+        toast({ title: 'Background removed!' });
       };
+      reader.readAsDataURL(blob);
+    } catch (error) {
+      console.error('Background removal failed:', error);
+      toast({
+        title: 'Background removal failed',
+        description: 'Please try a different image.',
+        variant: 'destructive',
+      });
+      setIsUploading(false);
+    }
+  };
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setIsUploading(true); // Immediate feedback
+
+      // Instant preview using Object URL
+      const objectUrl = URL.createObjectURL(file);
+      setCurrentLogoDataUri(objectUrl);
+      setStoreLogoDataUri(objectUrl);
+
+      const reader = new FileReader();
+
+      reader.onloadend = async () => {
+        const dataUri = reader.result as string;
+        await processNewLogo(dataUri);
+        URL.revokeObjectURL(objectUrl); // Cleanup object URL after processing
+      };
+
+      reader.onerror = () => {
+        setIsUploading(false);
+        URL.revokeObjectURL(objectUrl);
+        toast({
+          title: 'Failed to read file',
+          description: 'Please try another image.',
+          variant: 'destructive',
+        });
+      };
+
       reader.readAsDataURL(file);
     }
   };
 
-  const handleGenerateClick = async () => {
-    const isValid = await form.trigger(['businessName', 'businessType']); // Only trigger these two
-    if (!isValid) {
-      toast({ title: 'Missing Information', description: 'Please enter your business name and business type first.', variant: 'destructive' });
-      return;
-    }
-
-    const values = form.getValues();
-    // Use otherBusinessType if businessType is 'other'
-    const finalBusinessType = values.businessType === 'other' ? values.otherBusinessType : values.businessType;
-
-    if (!finalBusinessType) {
-      toast({ title: 'Missing Information', description: 'Please select a business type.', variant: 'destructive' });
-      return;
-    }
+  const handleGenerateLogo = async (favoriteColor: string) => {
+    setIsGeneratorModalOpen(false);
+    setIsGenerating(true);
+    setValue('brandPreferences', favoriteColor); // Save preference
+    toast({
+      title: 'Designing your logo...',
+      description: 'This usually takes 10-15 seconds.',
+    });
 
     try {
-      toast({ title: 'Generating Logo...', description: 'This may take a few seconds.' });
-      // setIsGenerating(true); // We need to expose this state setter or use a transition
-
       const result = await guideBusinessOnboarding({
-        businessName: values.businessName,
-        businessType: finalBusinessType,
-        brandPreferences: values.brandPreferences || 'Modern and professional',
+        businessName,
+        businessType,
+        brandPreferences: favoriteColor,
         task: 'generate_logos',
-        // The AI flow currently expects logoDataUri if a logo is passed for color extraction
-        // but for generation, it just takes parameters. This needs review with AI flow changes.
       });
 
       if (result.logos && result.logos.length > 0) {
-        const generatedLogoDataUri = result.logos[0];
-        setCurrentLogoDataUri(generatedLogoDataUri); // For client-side preview and color extraction
-
-        // Upload generated logo immediately
-        setIsUploading(true);
-        try {
-          const uploadedUrl = await uploadImage(generatedLogoDataUri);
-          if (uploadedUrl) {
-            setValue('logoUrl', uploadedUrl, { shouldValidate: true });
-            toast({ title: 'AI Logo Generated and Uploaded!', description: 'We also extracted brand colors for you.' });
-          } else {
-            throw new Error('Generated logo upload failed: No URL returned.');
-          }
-        } catch (e) {
-          logger.error({ error: e as Error, message: 'Generated logo upload failed.' });
-          toast({ title: 'Generated logo upload failed', description: (e as Error).message, variant: 'destructive' });
-          setValue('logoUrl', '', { shouldValidate: true });
-        } finally {
-          setIsUploading(false);
-        }
-
-        setIsExtracting(true);
-        try {
-          const colors = await extractColorsFromImage(generatedLogoDataUri); // Use data URI for client-side color extraction
-          setValue('brandColors', JSON.stringify(colors), { shouldValidate: true });
-        } catch (e) {
-          console.error(e);
-          toast({ title: 'Logo Generated', description: 'But we could not extract colors automatically.', variant: 'default' });
-        } finally {
-          setIsExtracting(false);
-        }
+        const generatedLogoUri = result.logos[0];
+        await processNewLogo(generatedLogoUri);
+        toast({
+          title: 'Logo Generated!',
+          description: "We've also extracted your brand colors.",
+        });
       } else {
-        toast({ title: 'Generation Failed', description: 'No logo was returned.', variant: 'destructive' });
+        throw new Error('No logo was returned.');
       }
     } catch (error) {
-      console.error(error);
-      toast({ title: 'Generation Failed', description: (error as Error).message, variant: 'destructive' });
+      logger.error({
+        error: error as Error,
+        message: 'Logo generation failed',
+      });
+      toast({
+        title: 'Generation Failed',
+        description: 'Please try again or upload a logo.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
   const handleColorChange = (role: keyof BrandColors, newColor: string) => {
-    if (brandColors) {
-      const updatedColors = { ...brandColors, [role]: newColor };
-      setValue('brandColors', JSON.stringify(updatedColors), { shouldValidate: true });
+    const currentColorsString = form.getValues('brandColors');
+    if (currentColorsString) {
+      try {
+        const currentColors = JSON.parse(currentColorsString);
+        const updatedColors = { ...currentColors, [role]: newColor };
+        setValue('brandColors', JSON.stringify(updatedColors), {
+          shouldValidate: true,
+        });
+      } catch (e) {
+        console.error('Failed to parse brand colors', e);
+      }
     }
   };
 
   const handleShuffleColors = () => {
     if (!brandColors) return;
-
     const remappedColors: BrandColors = {
       primary: brandColors.accent,
       background: brandColors.primary,
       accent: brandColors.background,
     };
-
-    setValue('brandColors', JSON.stringify(remappedColors), { shouldValidate: true });
+    setValue('brandColors', JSON.stringify(remappedColors), {
+      shouldValidate: true,
+    });
   };
 
   return (
-    <div className='space-y-4'>
-      <FormLabel className="text-lg">Do you have a logo?</FormLabel>
-      <div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-start'>
-        <div className="space-y-2">
-          <div className={cn("relative border-2 border-dashed rounded-lg p-4 h-48 flex flex-col items-center justify-center text-center transition-colors", (logoUrl || currentLogoDataUri) ? 'border-green-500 bg-green-50/50' : 'border-muted-foreground/50')}>
-            {(currentLogoDataUri || logoUrl) ? (
-              <>
-                {/* Show logo preview immediately using data URI, fall back to uploaded URL */}
-                <Image src={currentLogoDataUri || logoUrl} alt="Uploaded Logo Preview" fill className="rounded-md p-2 object-contain" />
-                {logoUrl && !isUploading && (
-                  <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md"><CheckCircle className="w-4 h-4 text-white" /></div>
-                )}
-                {isUploading && (
-                  <div className="absolute top-2 right-2 bg-blue-500 rounded-full p-1.5 shadow-md"><Loader2 className="w-4 h-4 text-white animate-spin" /></div>
-                )}
-              </>
-            ) : (<><Upload className="w-8 h-8 text-muted-foreground mb-2" /><p className="text-sm text-muted-foreground mb-2">Drag & drop or click to upload</p></>)}
-            {(isGenerating || isExtracting) && <div className="absolute inset-0 bg-white/80 flex items-center justify-center rounded-lg"><Loader2 className="w-8 h-8 motion-safe:animate-spin text-primary" /></div>}
-            <Input id="logo-upload" type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" onChange={handleLogoUpload} aria-label="Upload logo file" disabled={isLoading} />
-          </div>
-        </div>
-        <div className="relative flex items-center justify-center md:hidden"><div className="absolute inset-0 flex items-center" aria-hidden="true"><div className="w-full border-t border-muted-foreground/30"></div></div><span className="relative bg-background px-2 text-sm text-muted-foreground">or</span></div>
-        <div className="flex flex-col items-center justify-center h-48 space-y-4">
-          <Button type="button" variant="outline" onClick={handleGenerateClick} className="w-full" disabled={isLoading}><Sparkles className="mr-2 h-4 w-4" />Generate with AI</Button>
-        </div>
-      </div>
-      <div className="mt-4">
-        <FormField
-          control={control}
-          name="brandPreferences"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Brand Color Preferences (Optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Blue and Gold, Modern, Minimalist..." {...field} value={field.value || ''} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-      </div>
-      {brandColors && (
-        <div className='mt-6 animate-fade-in space-y-4'>
-          <div className="flex items-center justify-between">
-            <div className='text-sm text-muted-foreground font-medium'>Customize Your Brand Colors</div>
-            <Button type="button" variant="outline" size="sm" onClick={handleShuffleColors} disabled={isLoading}>
-              <Shuffle className="mr-2 h-3 w-3" />
-              Shuffle
-            </Button>
-          </div>
-          <div className="flex items-center gap-4">
-            {(['primary', 'background', 'accent'] as const).map((role) => (
-              <div key={role} className="flex flex-col items-center gap-1.5">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="w-12 h-12 rounded-full border-2 cursor-pointer relative group focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 overflow-hidden"
-                      aria-label={`Edit ${role} color`}
-                    >
-                      <div
-                        className="w-full h-full rounded-full"
-                        style={{ backgroundColor: brandColors[role] }}
-                      />
-                      <div className="absolute inset-0 bg-black/10 rounded-full flex items-center justify-center">
-                        <Pencil className="w-4 h-4 text-white drop-shadow-md" />
-                      </div>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto">
-                    <ColorPicker
-                      color={brandColors[role]}
-                      onChange={(newColor) => handleColorChange(role, newColor)}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <span className="text-xs font-medium capitalize">{role}</span>
-              </div>
-            ))}
-          </div>
+    <div className="space-y-8">
+      <div className={cn('grid gap-8', 'grid-cols-1 lg:grid-cols-2')}>
+        {/* Left Column: Logo Canvas & Palette */}
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between h-7">
+              <FormLabel className="text-lg font-semibold">
+                Logo & Brand
+              </FormLabel>
+              {isGenerating && (
+                <span className="text-xs text-muted-foreground animate-pulse">
+                  AI is working...
+                </span>
+              )}
+            </div>
 
-          <OnboardingPuckPreview
-            businessName={businessName}
-            businessType={businessType}
-            logoDataUri={currentLogoDataUri || undefined} // Use the data URI for the preview
-            brandColors={brandColors}
-          />
+            {/* Logo Canvas & Button Wrapper */}
+            <div className="max-w-[224px] mx-auto space-y-3">
+              {/* Logo Canvas Area */}
+              <div
+                className={cn(
+                  'relative aspect-square w-full rounded-xl border border-white/10 overflow-hidden bg-muted/10 flex flex-col items-center justify-center transition-all shadow-inner',
+                  currentLogoDataUri || logoUrl
+                    ? 'bg-white/5'
+                    : 'border-dashed border-muted-foreground/20 hover:bg-muted/20'
+                )}
+              >
+                {currentLogoDataUri || logoUrl ? (
+                  <div className="relative w-full h-full p-4 group cursor-pointer">
+                    <Image
+                      src={currentLogoDataUri || logoUrl}
+                      alt="Logo"
+                      fill
+                      priority
+                      unoptimized
+                      className="object-contain p-4 transition-all duration-300 group-hover:scale-95 group-hover:opacity-50 group-hover:blur-[1px]"
+                    />
+
+                    {/* Hover Overlay */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 transform scale-95 group-hover:scale-100 bg-black/60 backdrop-blur-[2px] rounded-xl">
+                      <div className="bg-white/10 backdrop-blur-md p-3 rounded-full mb-2 shadow-lg border border-white/20">
+                        <RefreshCw className="w-6 h-6 text-white" />
+                      </div>
+                      <span className="text-xs font-semibold text-white tracking-wide">
+                        Replace Logo
+                      </span>
+                    </div>
+
+                    {/* Hidden Input for Replacement */}
+                    <Input
+                      type="file"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      disabled={isLoading}
+                    />
+
+                    {/* Status Indicators */}
+                    {isUploading && (
+                      <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md rounded-full px-3 py-1.5 flex items-center gap-2 z-30">
+                        <Loader2 className="w-3 h-3 text-white animate-spin" />
+                        <span className="text-xs text-white font-medium">
+                          Saving...
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  /* Empty State / Upload Trigger */
+                  <div className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer group">
+                    <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                      {isGenerating ? (
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      ) : (
+                        <Upload className="w-8 h-8 text-muted-foreground/50" />
+                      )}
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                      {isGenerating
+                        ? 'Generating Logo...'
+                        : 'Click to Upload Image'}
+                    </p>
+                    <Input
+                      type="file"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Remove Background Button */}
+              {(currentLogoDataUri || logoUrl) && (
+                <Button
+                  type="button"
+                  onClick={handleRemoveBackground}
+                  disabled={isUploading}
+                  variant="outline"
+                  className="w-full border-dashed border-2 hover:border-solid hover:bg-muted/50"
+                >
+                  {isUploading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Eraser className="mr-2 h-4 w-4" />
+                  )}
+                  {isUploading ? 'Processing...' : 'Remove Background'}
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
-      )}
-      <FormField control={form.control} name="logoUrl" render={() => <FormItem><FormMessage /></FormItem>} />
-      <FormField control={form.control} name="brandColors" render={() => <FormItem><FormMessage /></FormItem>} />
+
+        {/* Right Column: Generator Controls */}
+        <div className="space-y-6 mt-12">
+          {currentLogoDataUri || logoUrl ? (
+            <>
+              <div className="flex items-center gap-2 text-blue-400 h-7">
+                <Wand2 className="w-5 h-5" />
+                <h3 className="font-semibold text-lg text-foreground pt-4">
+                  Refine Logo
+                </h3>
+              </div>
+
+              {/* Generator Control Card */}
+              <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-5 flex flex-col gap-4 shadow-sm h-full min-h-[200px]">
+                <div className="text-left space-y-2">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Make the Logo pop by removing the background.
+                  </p>
+                </div>
+
+                {brandColors && (
+                  <div className="mt-4 pt-2 border-t border-white/10 animate-in slide-in-from-top-2 fade-in duration-500 space-y-3 -mt-2">
+                    <div className="flex items-center justify-center gap-4 px-2">
+                      {(['primary', 'background', 'accent'] as const).map(
+                        (role) => (
+                          <div
+                            key={role}
+                            className="flex flex-col items-center gap-2 group"
+                          >
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="w-12 h-12 rounded-full shadow-sm border-2 border-white/10 ring-2 ring-transparent hover:ring-primary/20 transition-all cursor-pointer relative overflow-hidden"
+                                  aria-label={`Edit ${role} color`}
+                                >
+                                  <div
+                                    className="w-full h-full"
+                                    style={{
+                                      backgroundColor: brandColors[role],
+                                    }}
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <Pencil
+                                      className={cn(
+                                        'w-4 h-4 drop-shadow-md',
+                                        getContrastColor(brandColors[role]) ===
+                                          'black'
+                                          ? 'text-black'
+                                          : 'text-white'
+                                      )}
+                                    />
+                                  </div>
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0 border-none shadow-xl">
+                                <ColorPicker
+                                  color={brandColors[role]}
+                                  onChange={(newColor) =>
+                                    handleColorChange(role, newColor)
+                                  }
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
+                              {role}
+                            </span>
+                          </div>
+                        )
+                      )}
+                    </div>
+                    <div className="flex gap-2 w-full">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleShuffleColors}
+                        disabled={isLoading}
+                        className="flex-1 h-9 text-xs"
+                      >
+                        <Shuffle className="mr-1.5 h-3 w-3" />
+                        Shuffle
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-amber-400 h-7">
+                <Sparkles className="w-5 h-5" />
+                <h3 className="font-semibold text-lg text-foreground pt-1">
+                  Need a Logo?
+                </h3>
+              </div>
+
+              {/* Generator Control Card */}
+              <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-5 flex flex-col gap-4 shadow-sm h-full min-h-[200px]">
+                <div className="text-left space-y-4">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Don't have a logo yet? No problem. Our AI can design a
+                    unique, minimalist logo tailored to{' '}
+                    <strong>{businessName}</strong> in seconds.
+                  </p>
+                  <ul className="text-xs text-muted-foreground space-y-2 list-disc pl-4">
+                    <li>Instant generation</li>
+                    <li>Auto-extracted brand colors</li>
+                    <li>Professional vector style</li>
+                  </ul>
+                </div>
+                <LogoGeneratorModal
+                  isOpen={isGeneratorModalOpen}
+                  onOpenChange={setIsGeneratorModalOpen}
+                  onGenerate={handleGenerateLogo}
+                  isGenerating={isGenerating}
+                >
+                  <Button
+                    type="button"
+                    disabled={isLoading}
+                    className="w-full bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black font-medium mt-auto border border-primary/10 shadow-sm"
+                  >
+                    Generate with AI
+                  </Button>
+                </LogoGeneratorModal>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Error Messages for Hidden Fields */}
+      <div className="space-y-2">
+        {form.formState.errors?.logoUrl && (
+          <p className="text-[0.8rem] font-medium text-destructive">
+            {form.formState.errors.logoUrl.message}
+          </p>
+        )}
+        {form.formState.errors?.brandColors && (
+          <p className="text-[0.8rem] font-medium text-destructive">
+            {form.formState.errors.brandColors.message}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
 
-// ... (previous imports)
-import { User } from '@supabase/supabase-js';
-
-// ... (StepIndicator and Step1_BusinessDetails remain the same)
-
-// ... (Step2_Branding remains the same)
-
-function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void; onMagicLinkSent: () => void; user: User | null }) {
-  const { control, watch, trigger, getValues } = useFormContext<OnboardingFormValues>();
+// ... (Step3_Account, OnboardingNavigation, OnboardingForm)
+function Step3_Account({
+  onKeyDown,
+  onMagicLinkSent,
+  user,
+}: {
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onMagicLinkSent: () => void;
+  user: User | null;
+}) {
+  const form = useFormContext<OnboardingFormValues>();
+  const { control, watch } = form;
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isMagicLinkLoading, setIsMagicLinkLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [magicLinkSubmitting, setMagicLinkSubmitting] =
+    useState<boolean>(false);
   const { toast } = useToast();
 
-  const emailValue = watch('email');
-  const passwordValue = watch('password');
-  const passwordStrength = useMemo(() => checkPasswordStrength(passwordValue || ''), [passwordValue]);
-
-  const showPasswordFields = useMemo(() => {
-    return emailValue?.includes('@');
-  }, [emailValue]);
-
+  const password = watch('password') || '';
+  const passwordStrength = checkPasswordStrength(password);
   const isPasswordStrong = passwordStrength >= 3;
 
-  const handleMagicLinkClick = async () => {
-    setIsMagicLinkLoading(true);
-    const isEmailValid = await trigger('email');
+  const handleMagicLinkRequest = async () => {
+    const { email } = form.getValues();
+    const isEmailValid = await form.trigger('email');
     if (!isEmailValid) {
-      setIsMagicLinkLoading(false);
+      toast({ title: 'Invalid email', variant: 'destructive' });
       return;
     }
-    const email = getValues('email');
+
+    setMagicLinkSubmitting(true);
     const result = await sendMagicLink(email);
+    setMagicLinkSubmitting(false);
+
     if (result.success) {
-      toast({ title: 'Magic link sent!', description: 'Check your email to sign in.' });
       onMagicLinkSent();
     } else {
-      toast({ title: 'Error', description: result.message, variant: 'destructive' });
-    }
-    setIsMagicLinkLoading(false);
-  };
-
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) {
       toast({
+        title: 'Failed to send magic link',
+        description: result.message,
         variant: 'destructive',
-        title: 'Google Sign-in Failed',
-        description: error.message,
       });
-      setIsGoogleLoading(false);
     }
   };
-
-  if (user) {
-    return (
-      <div className='space-y-4 text-center'>
-        <h3 className="text-xl font-semibold">Account Verified</h3>
-        <div className="p-4 border rounded-lg bg-muted/50">
-          <p className="text-muted-foreground mb-2">You are logged in as:</p>
-          <p className="font-medium text-lg">{user.email}</p>
-          <div className="mt-4 flex items-center justify-center gap-2 text-green-600">
-            <CheckCircle className="h-5 w-5" />
-            <span className="font-medium">Ready to create your store</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className='space-y-4'>
-      <h3 className="text-xl font-semibold text-center">Create your account</h3>
-      <FormField
-        control={control}
-        name="email"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>Email Address</FormLabel>
-            <FormControl>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="email" placeholder="you@example.com" {...field} className="pl-10" name="email" autoComplete="email" />
-              </div>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+    <div className="space-y-4">
+      {user ? (
+        <Alert>
+          <CheckCircle className="h-4 w-4" />
+          <AlertTitle>Logged In</AlertTitle>
+          <AlertDescription>
+            You are logged in as <strong>{user.email}</strong>. Click "Create My
+            Store" below to continue.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <>
+          <FormField
+            control={control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email Address</FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="email"
+                      placeholder="you@example.com"
+                      {...field}
+                      value={field.value || ''}
+                      onKeyDown={onKeyDown}
+                      className="pl-10"
+                      name="email"
+                      autoComplete="email"
+                      spellCheck="false"
+                      autoCorrect="off"
+                      autoCapitalize="off"
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
-      {showPasswordFields && (
-        <div className='space-y-4'>
-          <div className="relative flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t border-muted-foreground/30"></div>
-            </div>
-            <span className="relative bg-background px-2 text-sm text-muted-foreground">or</span>
+          <div className="flex items-center gap-4 my-4">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted-foreground">OR</span>
+            <div className="flex-1 h-px bg-border" />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Button type="button" variant="outline" onClick={handleMagicLinkClick} className="w-full" disabled={isMagicLinkLoading || isGoogleLoading}>
-              {isMagicLinkLoading ? <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-              Magic Link
-            </Button>
-            <Button type="button" variant="outline" onClick={handleGoogleSignIn} className="w-full" disabled={isMagicLinkLoading || isGoogleLoading}>
-              {isGoogleLoading ? <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" /> : (
-                <svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4">
-                  <title>Google</title>
-                  <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.05 1.05-2.36 1.67-4.04 1.67-3.27 0-5.93-2.66-5.93-5.93s2.66-5.93 5.93-5.93c1.73 0 3.23.68 4.17 1.57l2.48-2.48C18.47 2.44 15.82 1 12.48 1 7.23 1 3.06 4.93 3.06 10s4.17 9 9.42 9c2.8 0 4.93-1.07 6.57-2.62 1.73-1.62 2.36-3.88 2.36-6.09 0-.6-.05-1.18-.15-1.73H12.48z" />
-                </svg>
-              )}
-              Google
-            </Button>
-          </div>
-        </div>
-      )}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={handleMagicLinkRequest}
+            disabled={magicLinkSubmitting}
+          >
+            {magicLinkSubmitting && (
+              <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+            )}
+            {magicLinkSubmitting
+              ? 'Sending Magic Link...'
+              : 'Continue with Magic Link'}
+          </Button>
 
-      {showPasswordFields && (
-        <div className="space-y-4 mt-4">
+          <div className="flex items-center gap-4 my-4">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-xs text-muted-foreground">
+              OR CREATE PASSWORD
+            </span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
           <FormField
             control={control}
             name="password"
             render={({ field }) => (
-              <FormItem className="animate-fade-in">
+              <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
                   <div className="relative">
                     <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Min. 8 characters"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Create a strong password"
                       {...field}
+                      value={field.value || ''}
                       onKeyDown={onKeyDown}
                       className="pl-10 pr-10"
                       name="password"
@@ -581,8 +1014,21 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                       autoCapitalize="off"
                       data-form-type="password"
                     />
-                    <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? "Hide password" : "Show password"}>
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </FormControl>
@@ -603,7 +1049,7 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                     <div className="relative">
                       <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
-                        type={showConfirmPassword ? "text" : "password"}
+                        type={showConfirmPassword ? 'text' : 'password'}
                         placeholder="Re-enter your password"
                         {...field}
                         value={field.value || ''}
@@ -616,8 +1062,25 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
                         autoCapitalize="off"
                         data-form-type="password"
                       />
-                      <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setShowConfirmPassword(!showConfirmPassword)} aria-label={showConfirmPassword ? "Hide password" : "Show password"}>
-                        {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                        aria-label={
+                          showConfirmPassword
+                            ? 'Hide password'
+                            : 'Show password'
+                        }
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </Button>
                     </div>
                   </FormControl>
@@ -626,13 +1089,20 @@ function Step3_Account({ onKeyDown, onMagicLinkSent, user }: { onKeyDown: (e: Re
               )}
             />
           )}
-        </div>
+        </>
       )}
     </div>
   );
 }
 
-function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoading, isStepValid }: {
+function OnboardingNavigation({
+  currentStep,
+  totalSteps,
+  onNext,
+  onPrev,
+  isLoading,
+  isStepValid,
+}: {
   currentStep: number;
   totalSteps: number;
   onNext: () => void;
@@ -644,8 +1114,34 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
 
   return (
     <div className="flex justify-between pt-4">
-      {currentStep > 1 ? (<Button type="button" variant="outline" onClick={onPrev} disabled={isLoading}>Previous</Button>) : <div />}
-      {isLastStep ? (<Button type="submit" disabled={isLoading || !isStepValid} id="submit-button">{isLoading && <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />} Create My Store</Button>) : (<Button type="button" onClick={onNext} disabled={isLoading}>Next</Button>)}
+      {currentStep > 1 ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onPrev}
+          disabled={isLoading}
+        >
+          Previous
+        </Button>
+      ) : (
+        <div />
+      )}
+      {isLastStep ? (
+        <Button
+          type="submit"
+          disabled={isLoading || !isStepValid}
+          id="submit-button"
+        >
+          {isLoading && (
+            <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+          )}{' '}
+          Create My Store
+        </Button>
+      ) : (
+        <Button type="button" onClick={onNext} disabled={isLoading}>
+          Next
+        </Button>
+      )}
     </div>
   );
 }
@@ -653,12 +1149,21 @@ function OnboardingNavigation({ currentStep, totalSteps, onNext, onPrev, isLoadi
 // --- Main Form Component ---
 export default function OnboardingForm() {
   const [step, setStep] = useState(1);
-  const [submissionState, formAction, isPending] = useActionState<ServerActionState, FormData>(submitOnboarding, { message: '', success: false });
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
+  const [submissionState, formAction, isPending] = useActionState<
+    ServerActionState,
+    FormData
+  >(submitOnboarding, { message: '', success: false });
   const [magicLinkSent, setMagicLinkSent] = useState(false);
   const [isSubmitting, startTransition] = useTransition();
   const [user, setUser] = useState<User | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [templateData, setTemplateData] = useState<Data | null>(null);
+
+  // Subscribe to global store for immediate logo preview
+  const storeLogoDataUri = useOnboardingUIStore((state) => state.logoDataUri);
   const { toast } = useToast();
-  const router = useRouter();
+  const _router = useRouter();
   const totalSteps = 3;
   const searchParams = useSearchParams();
 
@@ -667,10 +1172,22 @@ export default function OnboardingForm() {
     mode: 'onBlur',
     reValidateMode: 'onBlur',
     shouldUnregister: false,
-    defaultValues: { email: '', password: '', confirmPassword: '', businessName: '', businessType: '', otherBusinessType: '', brandPreferences: '', logoUrl: '', brandColors: '' },
+    defaultValues: {
+      email: '',
+      password: '',
+      confirmPassword: '',
+      businessName: '',
+      businessType: '',
+      otherBusinessType: '',
+      brandPreferences: '',
+      logoUrl: '',
+      brandColors: '',
+    },
   });
 
-  const { formState: { errors } } = form;
+  const {
+    formState: { errors },
+  } = form;
 
   useEffect(() => {
     // Check for existing session
@@ -693,7 +1210,12 @@ export default function OnboardingForm() {
         // Defer state update to avoid cascading renders
         queueMicrotask(() => {
           setStep(3);
-          toast({ title: "Welcome back!", description: "You are now logged in. Please click 'Create My Store' to finish.", duration: 5000 });
+          toast({
+            title: 'Welcome back!',
+            description:
+              "You are now logged in. Please click 'Create My Store' to finish.",
+            duration: 5000,
+          });
         });
       }
     }
@@ -702,7 +1224,11 @@ export default function OnboardingForm() {
   useEffect(() => {
     if (submissionState.success) {
       localStorage.removeItem('onboardingForm');
-      toast({ title: 'Store Created!', description: 'Your e-commerce store is ready. Redirecting you to the dashboard...' });
+      toast({
+        title: 'Store Created!',
+        description:
+          'Your e-commerce store is ready. Redirecting you to the dashboard...',
+      });
 
       // Track merchant signup completed for platform analytics
       if (submissionState.merchantId) {
@@ -712,22 +1238,76 @@ export default function OnboardingForm() {
       }
 
       // Refresh the client session to sync with server-side auth, then redirect
+      // Add a small delay to ensure the merchant record is fully committed
       const supabase = createClient();
-      supabase.auth.getSession().then(({ data: { session }, error }) => {
-        console.log('Session check after signup:', { hasSession: !!session, error });
-        if (session) {
-          console.log('Session found, redirecting to dashboard');
-          window.location.href = '/dashboard';
-        } else {
+
+      // Wait for session and verify merchant exists before redirecting
+      const verifyAndRedirect = async () => {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+        console.log('Session check after signup:', {
+          hasSession: !!session,
+          error,
+        });
+
+        if (!session) {
           console.error('No session found after signup!', error);
           toast({
             title: 'Session Error',
             description: 'Please try logging in manually',
-            variant: 'destructive'
+            variant: 'destructive',
           });
-          setTimeout(() => window.location.href = '/login', 2000);
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 2000);
+          return;
         }
-      });
+
+        // Verify merchant record exists before redirecting
+        const { data: merchant, error: merchantError } = await supabase
+          .from('merchants')
+          .select('id, business_name')
+          .eq('user_id', session.user.id)
+          .single();
+
+        if (merchant?.business_name) {
+          console.log(
+            'Session and merchant verified, redirecting to dashboard'
+          );
+          window.location.href = '/dashboard';
+        } else {
+          console.error(
+            'Merchant record not found after signup:',
+            merchantError
+          );
+          // Retry after a short delay - database might need time to replicate
+          setTimeout(async () => {
+            const { data: retryMerchant } = await supabase
+              .from('merchants')
+              .select('id, business_name')
+              .eq('user_id', session.user.id)
+              .single();
+
+            if (retryMerchant?.business_name) {
+              window.location.href = '/dashboard';
+            } else {
+              toast({
+                title: 'Setup Issue',
+                description:
+                  'Your store was created but there was an issue loading it. Please try logging in.',
+                variant: 'destructive',
+              });
+              setTimeout(() => {
+                window.location.href = '/login';
+              }, 2000);
+            }
+          }, 1500);
+        }
+      };
+
+      verifyAndRedirect();
     } else if (submissionState.message) {
       const fieldErrors = submissionState.errors?.fieldErrors;
       if (fieldErrors) {
@@ -741,19 +1321,31 @@ export default function OnboardingForm() {
         });
       }
       if (!fieldErrors || Object.keys(fieldErrors).length === 0) {
-        toast({ title: 'An error occurred', description: submissionState.message, variant: 'destructive' });
+        toast({
+          title: 'An error occurred',
+          description: submissionState.message,
+          variant: 'destructive',
+        });
       }
     }
-  }, [submissionState, form, toast, router]);
+  }, [submissionState, form, toast]);
 
   const handleNext = async () => {
     let isValidStep = false;
     if (step === 1) {
-      isValidStep = await form.trigger(['businessName', 'businessType', 'otherBusinessType']);
+      isValidStep = await form.trigger([
+        'businessName',
+        'businessType',
+        'otherBusinessType',
+      ]);
     } else if (step === 2) {
       isValidStep = await form.trigger(['logoUrl', 'brandColors']);
       if (!isValidStep) {
-        toast({ title: 'Branding Incomplete', description: 'Please upload a logo to extract brand colors.', variant: 'destructive' });
+        toast({
+          title: 'Branding Incomplete',
+          description: 'Please upload a logo to extract brand colors.',
+          variant: 'destructive',
+        });
       }
     }
 
@@ -766,13 +1358,17 @@ export default function OnboardingForm() {
           business_type: values.businessType,
         });
       }
-      setStep(s => s + 1);
+      setStep((s) => s + 1);
     }
   };
 
-  const handlePrev = () => { if (step > 1) setStep(s => s - 1); };
+  const handlePrev = () => {
+    if (step > 1) setStep((s) => s - 1);
+  };
 
-  const handleKeyDown = async (e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>) => {
+  const handleKeyDown = async (
+    e: React.KeyboardEvent<HTMLInputElement | HTMLButtonElement>
+  ) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       if (step < totalSteps) {
@@ -791,7 +1387,7 @@ export default function OnboardingForm() {
         businessType: values.businessType,
         otherBusinessType: values.otherBusinessType,
         brandPreferences: values.brandPreferences,
-        email: values.email
+        email: values.email,
       },
       logoDataUri: values.logoUrl,
       brandColors: values.brandColors,
@@ -800,7 +1396,7 @@ export default function OnboardingForm() {
     setMagicLinkSent(true);
   };
 
-  const handleFormSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     const values = form.getValues();
@@ -825,54 +1421,229 @@ export default function OnboardingForm() {
 
   const formEmail = useWatch({ control: form.control, name: 'email' });
   const formPassword = useWatch({ control: form.control, name: 'password' });
-  const formConfirmPassword = useWatch({ control: form.control, name: 'confirmPassword' });
+  const formConfirmPassword = useWatch({
+    control: form.control,
+    name: 'confirmPassword',
+  });
+
+  // Watch fields for Preview
+  const brandColors = useWatch({ control: form.control, name: 'brandColors' });
+  const businessName = useWatch({
+    control: form.control,
+    name: 'businessName',
+  });
+  const businessType = useWatch({
+    control: form.control,
+    name: 'businessType',
+  });
+  const logoUrl = useWatch({ control: form.control, name: 'logoUrl' });
+
+  // Memoize parsed brandColors to prevent infinite re-renders in preview
+  const parsedBrandColors = useMemo(() => {
+    if (!brandColors) return undefined;
+    try {
+      return JSON.parse(brandColors) as BrandColors;
+    } catch {
+      return undefined;
+    }
+  }, [brandColors]);
+
+  const showPreview = step === 2 && !!brandColors;
 
   const isStep3Valid = useMemo(() => {
     if (step !== 3) return true;
     if (user) return true; // Skip validation if user is logged in
-    const validationData = { email: formEmail, password: formPassword, confirmPassword: formConfirmPassword };
+    const validationData = {
+      email: formEmail,
+      password: formPassword,
+      confirmPassword: formConfirmPassword,
+    };
     const result = step3Schema.safeParse(validationData);
     return result.success;
   }, [formEmail, formPassword, formConfirmPassword, step, user]);
 
   const isCurrentStepValid = useMemo(() => {
-    if (step === 1) return !errors.businessName && !errors.businessType && !errors.otherBusinessType;
+    if (step === 1)
+      return (
+        !errors.businessName &&
+        !errors.businessType &&
+        !errors.otherBusinessType
+      );
     if (step === 2) return !errors.logoUrl && !errors.brandColors; // Updated to logoUrl
     if (step === 3) return isStep3Valid;
     return false;
   }, [step, errors, isStep3Valid]);
 
   return (
-    <div className="space-y-8">
-      <header>
-        <h2 className="text-2xl font-bold text-center font-headline">Welcome to Baci</h2>
-        <p className="text-muted-foreground text-center">Let's set up your store in a few simple steps.</p>
-      </header>
-      <StepIndicator currentStep={step} totalSteps={totalSteps} />
-      <FormProvider {...form}>
-        <form onSubmit={handleFormSubmit} aria-label="Store onboarding form" noValidate>
-          <input type="hidden" {...form.register('logoUrl')} />
-          <input type="hidden" {...form.register('brandColors')} />
-          <div role="region" aria-live="polite" aria-atomic="true" className="min-h-[250px]">
-            {step === 1 && <Step1_BusinessDetails onKeyDown={handleKeyDown} />}
-            {step === 2 && <Step2_Branding />}
-            {step === 3 && (
-              magicLinkSent ? (
-                <Alert className="mt-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Magic Link Sent!</AlertTitle>
-                  <AlertDescription>
-                    Please check your email for a link to sign in. You can close this window.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <Step3_Account onKeyDown={handleKeyDown} onMagicLinkSent={handleMagicLinkSent} user={user} />
-              )
+    <div
+      className={cn(
+        'transition-all duration-500 ease-in-out w-full',
+        showPreview
+          ? 'max-w-[90rem] px-4 md:px-8 h-[calc(100vh-1rem)] flex items-center justify-center'
+          : 'max-w-2xl mx-auto px-4 py-8'
+      )}
+    >
+      <div
+        className={cn('flex flex-col lg:flex-row gap-8 items-center w-full')}
+      >
+        {/* Main Card */}
+        <div
+          className={cn(
+            'relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl transition-all duration-500',
+            showPreview
+              ? 'w-full lg:w-1/2 xl:w-[45%] h-[550px] overflow-hidden'
+              : 'w-full'
+          )}
+        >
+          {/* Glass Shine Effect */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+
+          <div
+            className={cn(
+              'relative transition-all duration-500',
+              showPreview
+                ? 'p-6 h-full flex flex-col justify-center scale-[0.85] origin-center'
+                : 'p-8'
             )}
+          >
+            <div className="flex flex-col items-center text-center mb-6 mt-4">
+              <Link
+                href="/"
+                className="mb-4 transition-transform hover:scale-105"
+              >
+                <Logo />
+              </Link>
+            </div>
+
+            <div className="space-y-4">
+              <header>
+                <h2 className="text-2xl font-bold text-center font-headline">
+                  Welcome to Baci
+                </h2>
+                <p className="text-muted-foreground text-center">
+                  Let's set up your store in a few simple steps.
+                </p>
+              </header>
+              <StepIndicator currentStep={step} totalSteps={totalSteps} />
+              <FormProvider {...form}>
+                <form
+                  onSubmit={handleFormSubmit}
+                  aria-label="Store onboarding form"
+                  noValidate
+                >
+                  <input type="hidden" {...form.register('logoUrl')} />
+                  <input type="hidden" {...form.register('brandColors')} />
+                  <section
+                    aria-live="polite"
+                    aria-atomic="true"
+                    className="min-h-[250px]"
+                  >
+                    {step === 1 && (
+                      <Step1_BusinessDetails onKeyDown={handleKeyDown} />
+                    )}
+                    {step === 2 && <Step2_Branding />}
+                    {step === 3 &&
+                      (magicLinkSent ? (
+                        <Alert className="mt-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Magic Link Sent!</AlertTitle>
+                          <AlertDescription>
+                            Please check your email for a link to sign in. You
+                            can close this window.
+                          </AlertDescription>
+                        </Alert>
+                      ) : (
+                        <Step3_Account
+                          onKeyDown={handleKeyDown}
+                          onMagicLinkSent={handleMagicLinkSent}
+                          user={user}
+                        />
+                      ))}
+                  </section>
+                  <OnboardingNavigation
+                    currentStep={step}
+                    totalSteps={totalSteps}
+                    onNext={handleNext}
+                    onPrev={handlePrev}
+                    isLoading={isPending || isSubmitting}
+                    isStepValid={isCurrentStepValid}
+                  />
+                </form>
+              </FormProvider>
+            </div>
           </div>
-          <OnboardingNavigation currentStep={step} totalSteps={totalSteps} onNext={handleNext} onPrev={handlePrev} isLoading={isPending || isSubmitting} isStepValid={isCurrentStepValid} />
-        </form>
-      </FormProvider>
+        </div>
+
+        {/* Preview Pane (Outside) */}
+        {/* Preview Pane (Outside) */}
+        {showPreview && (
+          <div
+            className={cn(
+              'transition-all duration-500 ease-in-out',
+              isPreviewExpanded
+                ? 'fixed inset-0 z-50 bg-background/95 backdrop-blur-xl p-8 flex items-center justify-center'
+                : 'hidden lg:block w-full lg:w-1/2 xl:w-[50%] flex items-center justify-center animate-in fade-in slide-in-from-right-8 duration-700'
+            )}
+          >
+            <div
+              className={cn(
+                'relative rounded-3xl border border-white/10 bg-muted/5 overflow-y-auto shadow-2xl backdrop-blur-sm transition-all duration-500 scrollbar-visible',
+                isPreviewExpanded ? 'w-[90vw] h-[90vh]' : 'w-full h-[500px]'
+              )}
+              style={{
+                scrollbarWidth: 'auto',
+                scrollbarColor: 'var(--primary) rgba(255,255,255,0.1)',
+              }}
+            >
+              {/* Expand/Collapse Button */}
+              <Button
+                variant="secondary"
+                size="sm"
+                className="absolute top-4 right-4 z-50 rounded-full shadow-lg border border-white/10 bg-background/80 backdrop-blur-md hover:bg-background"
+                onClick={() => setIsPreviewExpanded(!isPreviewExpanded)}
+              >
+                {isPreviewExpanded ? (
+                  <>
+                    <Minimize2 className="mr-2 h-4 w-4" />
+                    Collapse
+                  </>
+                ) : (
+                  <>
+                    <Maximize2 className="mr-2 h-4 w-4" />
+                    Expand
+                  </>
+                )}
+              </Button>
+
+              <OnboardingPuckPreview
+                businessName={businessName}
+                businessType={businessType}
+                logoDataUri={storeLogoDataUri || logoUrl || undefined}
+                brandColors={parsedBrandColors}
+                onEdit={(data) => {
+                  setTemplateData(data);
+                  setIsEditorOpen(true);
+                }}
+                data={templateData}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Full Screen Template Editor */}
+        {isEditorOpen && templateData && (
+          <OnboardingTemplateEditor
+            initialData={templateData}
+            brandColors={parsedBrandColors || null}
+            onSave={(data) => {
+              setTemplateData(data);
+              setIsEditorOpen(false);
+            }}
+            onClose={() => setIsEditorOpen(false)}
+            businessName={businessName}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -125,7 +125,7 @@ export function generateAboutPageJsonLd(
 
   // Add team members as employees
   if (aboutPage.team && aboutPage.team.length > 0) {
-    organizationData.employee = aboutPage.team.map(member => ({
+    organizationData.employee = aboutPage.team.map((member) => ({
       '@type': 'Person',
       name: member.name,
       jobTitle: member.role,
@@ -136,7 +136,7 @@ export function generateAboutPageJsonLd(
 
   // Add awards
   if (aboutPage.awards && aboutPage.awards.length > 0) {
-    organizationData.award = aboutPage.awards.map(award => award.title);
+    organizationData.award = aboutPage.awards.map((award) => award.title);
   }
 
   // Add aggregate rating if available

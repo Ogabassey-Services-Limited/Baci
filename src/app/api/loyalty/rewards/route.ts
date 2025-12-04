@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -14,7 +14,9 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -26,7 +28,10 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -46,13 +51,19 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching rewards:', error);
-      return NextResponse.json({ error: 'Failed to fetch rewards' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch rewards' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ rewards });
   } catch (error) {
     console.error('Rewards GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -61,7 +72,9 @@ export async function POST(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -73,7 +86,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const body = await request.json();
@@ -100,7 +116,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validTypes = ['discount_percentage', 'discount_fixed', 'free_shipping', 'free_product', 'store_credit'];
+    const validTypes = [
+      'discount_percentage',
+      'discount_fixed',
+      'free_shipping',
+      'free_product',
+      'store_credit',
+    ];
     if (!validTypes.includes(reward_type)) {
       return NextResponse.json(
         { error: `reward_type must be one of: ${validTypes.join(', ')}` },
@@ -131,12 +153,18 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error creating reward:', error);
-      return NextResponse.json({ error: 'Failed to create reward' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to create reward' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ reward }, { status: 201 });
   } catch (error) {
     console.error('Rewards POST error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

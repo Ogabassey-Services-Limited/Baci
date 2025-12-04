@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
-import crypto from 'crypto';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Hash a session token for privacy (don't store raw tokens)
@@ -14,7 +14,8 @@ function hashSessionToken(token: string): string {
  * Validate UUID format
  */
 function isValidUUID(str: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   return uuidRegex.test(str);
 }
 
@@ -47,7 +48,9 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Check for authenticated user first
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     let customerIdentifier: string;
 
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
       // PGRST116 is "not found" - that's expected when item isn't in list
       console.error('Error checking wish list:', {
         message: error.message,
-        code: error.code
+        code: error.code,
       });
       throw error;
     }
@@ -81,7 +84,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ inWishList: !!data, itemId: data?.id || null });
   } catch (error) {
     console.error('Error checking wish list:', {
-      message: error instanceof Error ? error.message : 'Unknown error'
+      message: error instanceof Error ? error.message : 'Unknown error',
     });
     return NextResponse.json(
       { error: 'Internal server error' },

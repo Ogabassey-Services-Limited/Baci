@@ -1,25 +1,22 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
-  ArrowLeft,
-  Send,
-  Clock,
-  Users,
-  Bell,
   AlertCircle,
-  CheckCircle,
-  Info,
   AlertTriangle,
+  ArrowLeft,
+  Bell,
+  CheckCircle,
+  Clock,
+  Info,
   Loader2,
+  Send,
+  Users,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import {
   Card,
   CardContent,
@@ -27,6 +24,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -34,22 +34,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type {
   CreateNotificationInput,
-  NotificationType,
-  NotificationPriority,
-  TargetType,
   NotificationChannel,
+  NotificationPriority,
+  NotificationType,
   TargetSegment,
+  TargetType,
 } from '@/types/notifications';
 
-const typeOptions: { value: NotificationType; label: string; icon: typeof Info; color: string }[] = [
+const typeOptions: {
+  value: NotificationType;
+  label: string;
+  icon: typeof Info;
+  color: string;
+}[] = [
   { value: 'info', label: 'Information', icon: Info, color: 'text-blue-500' },
-  { value: 'success', label: 'Success', icon: CheckCircle, color: 'text-green-500' },
-  { value: 'warning', label: 'Warning', icon: AlertTriangle, color: 'text-yellow-500' },
+  {
+    value: 'success',
+    label: 'Success',
+    icon: CheckCircle,
+    color: 'text-green-500',
+  },
+  {
+    value: 'warning',
+    label: 'Warning',
+    icon: AlertTriangle,
+    color: 'text-yellow-500',
+  },
   { value: 'error', label: 'Error', icon: AlertCircle, color: 'text-red-500' },
 ];
 
@@ -60,10 +75,26 @@ const priorityOptions: { value: NotificationPriority; label: string }[] = [
   { value: 'urgent', label: 'Urgent' },
 ];
 
-const segmentOptions: { value: TargetSegment; label: string; description: string }[] = [
-  { value: 'new', label: 'New Merchants', description: 'Merchants who joined in the last 30 days' },
-  { value: 'active', label: 'Active Merchants', description: 'Merchants with recent activity' },
-  { value: 'at_risk', label: 'At Risk Merchants', description: 'Merchants showing signs of churn' },
+const segmentOptions: {
+  value: TargetSegment;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'new',
+    label: 'New Merchants',
+    description: 'Merchants who joined in the last 30 days',
+  },
+  {
+    value: 'active',
+    label: 'Active Merchants',
+    description: 'Merchants with recent activity',
+  },
+  {
+    value: 'at_risk',
+    label: 'At Risk Merchants',
+    description: 'Merchants showing signs of churn',
+  },
 ];
 
 export default function CreateNotificationPage() {
@@ -93,28 +124,46 @@ export default function CreateNotificationPage() {
       ? currentChannels.filter((c) => c !== channel)
       : [...currentChannels, channel];
 
-    updateFormData({ channels: newChannels.length > 0 ? newChannels : ['in_app'] });
+    updateFormData({
+      channels: newChannels.length > 0 ? newChannels : ['in_app'],
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.title.trim()) {
-      toast({ title: 'Error', description: 'Title is required', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Title is required',
+        variant: 'destructive',
+      });
       return;
     }
     if (!formData.message.trim()) {
-      toast({ title: 'Error', description: 'Message is required', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Message is required',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (formData.target_type === 'segment' && !formData.target_segment) {
-      toast({ title: 'Error', description: 'Please select a target segment', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Please select a target segment',
+        variant: 'destructive',
+      });
       return;
     }
 
     if (scheduleEnabled && !formData.scheduled_for) {
-      toast({ title: 'Error', description: 'Please select a schedule date and time', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Please select a schedule date and time',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -141,10 +190,14 @@ export default function CreateNotificationPage() {
       const result = await response.json();
 
       toast({
-        title: result.status === 'sent' ? 'Notification Sent' : 'Notification Scheduled',
-        description: result.status === 'sent'
-          ? `Sent to ${result.merchants_notified} merchants`
-          : `Scheduled for ${new Date(result.scheduled_for).toLocaleString()}`,
+        title:
+          result.status === 'sent'
+            ? 'Notification Sent'
+            : 'Notification Scheduled',
+        description:
+          result.status === 'sent'
+            ? `Sent to ${result.merchants_notified} merchants`
+            : `Scheduled for ${new Date(result.scheduled_for).toLocaleString()}`,
       });
 
       router.push('/admin/notifications');
@@ -152,7 +205,10 @@ export default function CreateNotificationPage() {
       console.error('Error creating notification:', error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to create notification',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to create notification',
         variant: 'destructive',
       });
     } finally {
@@ -170,8 +226,12 @@ export default function CreateNotificationPage() {
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Create Notification</h1>
-          <p className="text-muted-foreground">Send a notification to your merchants</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Create Notification
+          </h1>
+          <p className="text-muted-foreground">
+            Send a notification to your merchants
+          </p>
         </div>
       </div>
 
@@ -192,7 +252,9 @@ export default function CreateNotificationPage() {
                 onChange={(e) => updateFormData({ title: e.target.value })}
                 maxLength={200}
               />
-              <p className="text-xs text-muted-foreground">{formData.title.length}/200</p>
+              <p className="text-xs text-muted-foreground">
+                {formData.title.length}/200
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -205,7 +267,9 @@ export default function CreateNotificationPage() {
                 rows={4}
                 maxLength={1000}
               />
-              <p className="text-xs text-muted-foreground">{formData.message.length}/1000</p>
+              <p className="text-xs text-muted-foreground">
+                {formData.message.length}/1000
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -213,7 +277,9 @@ export default function CreateNotificationPage() {
                 <Label>Type</Label>
                 <Select
                   value={formData.notification_type}
-                  onValueChange={(value: NotificationType) => updateFormData({ notification_type: value })}
+                  onValueChange={(value: NotificationType) =>
+                    updateFormData({ notification_type: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -222,7 +288,9 @@ export default function CreateNotificationPage() {
                     {typeOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         <div className="flex items-center gap-2">
-                          <option.icon className={cn('h-4 w-4', option.color)} />
+                          <option.icon
+                            className={cn('h-4 w-4', option.color)}
+                          />
                           {option.label}
                         </div>
                       </SelectItem>
@@ -235,7 +303,9 @@ export default function CreateNotificationPage() {
                 <Label>Priority</Label>
                 <Select
                   value={formData.priority}
-                  onValueChange={(value: NotificationPriority) => updateFormData({ priority: value })}
+                  onValueChange={(value: NotificationPriority) =>
+                    updateFormData({ priority: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -259,7 +329,9 @@ export default function CreateNotificationPage() {
                 type="url"
                 placeholder="https://example.com"
                 value={formData.action_url || ''}
-                onChange={(e) => updateFormData({ action_url: e.target.value || undefined })}
+                onChange={(e) =>
+                  updateFormData({ action_url: e.target.value || undefined })
+                }
               />
             </div>
 
@@ -269,7 +341,9 @@ export default function CreateNotificationPage() {
                 id="action_label"
                 placeholder="Learn more"
                 value={formData.action_label || ''}
-                onChange={(e) => updateFormData({ action_label: e.target.value || undefined })}
+                onChange={(e) =>
+                  updateFormData({ action_label: e.target.value || undefined })
+                }
               />
             </div>
           </CardContent>
@@ -282,14 +356,18 @@ export default function CreateNotificationPage() {
               <Users className="h-5 w-5" />
               Targeting
             </CardTitle>
-            <CardDescription>Choose who will receive this notification</CardDescription>
+            <CardDescription>
+              Choose who will receive this notification
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Target Audience</Label>
               <Select
                 value={formData.target_type}
-                onValueChange={(value: TargetType) => updateFormData({ target_type: value })}
+                onValueChange={(value: TargetType) =>
+                  updateFormData({ target_type: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -307,7 +385,9 @@ export default function CreateNotificationPage() {
                 <Label>Select Segment</Label>
                 <Select
                   value={formData.target_segment || ''}
-                  onValueChange={(value: TargetSegment) => updateFormData({ target_segment: value })}
+                  onValueChange={(value: TargetSegment) =>
+                    updateFormData({ target_segment: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Choose a segment" />
@@ -317,7 +397,9 @@ export default function CreateNotificationPage() {
                       <SelectItem key={option.value} value={option.value}>
                         <div>
                           <p className="font-medium">{option.label}</p>
-                          <p className="text-xs text-muted-foreground">{option.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {option.description}
+                          </p>
                         </div>
                       </SelectItem>
                     ))}
@@ -329,7 +411,8 @@ export default function CreateNotificationPage() {
             {formData.target_type === 'specific' && (
               <div className="p-4 border rounded-lg bg-muted/50">
                 <p className="text-sm text-muted-foreground">
-                  Specific merchant targeting coming soon. For now, use segments or target all merchants.
+                  Specific merchant targeting coming soon. For now, use segments
+                  or target all merchants.
                 </p>
               </div>
             )}
@@ -383,8 +466,14 @@ export default function CreateNotificationPage() {
                 <Input
                   type="datetime-local"
                   value={formData.scheduled_for || ''}
-                  onChange={(e) => updateFormData({ scheduled_for: e.target.value })}
-                  min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                  onChange={(e) =>
+                    updateFormData({ scheduled_for: e.target.value })
+                  }
+                  min={new Date(
+                    Date.now() - new Date().getTimezoneOffset() * 60000
+                  )
+                    .toISOString()
+                    .slice(0, 16)}
                 />
               )}
             </div>
@@ -405,8 +494,14 @@ export default function CreateNotificationPage() {
                 <Input
                   type="datetime-local"
                   value={formData.expires_at || ''}
-                  onChange={(e) => updateFormData({ expires_at: e.target.value })}
-                  min={new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+                  onChange={(e) =>
+                    updateFormData({ expires_at: e.target.value })
+                  }
+                  min={new Date(
+                    Date.now() - new Date().getTimezoneOffset() * 60000
+                  )
+                    .toISOString()
+                    .slice(0, 16)}
                 />
               )}
             </div>
@@ -422,17 +517,28 @@ export default function CreateNotificationPage() {
             <div className="border rounded-lg p-4 bg-muted/30">
               <div className="flex items-start gap-3">
                 {(() => {
-                  const typeOption = typeOptions.find((t) => t.value === formData.notification_type);
+                  const typeOption = typeOptions.find(
+                    (t) => t.value === formData.notification_type
+                  );
                   const Icon = typeOption?.icon || Info;
-                  return <Icon className={cn('h-5 w-5 mt-0.5', typeOption?.color)} />;
+                  return (
+                    <Icon className={cn('h-5 w-5 mt-0.5', typeOption?.color)} />
+                  );
                 })()}
                 <div className="flex-1">
-                  <h4 className="font-medium">{formData.title || 'Notification Title'}</h4>
+                  <h4 className="font-medium">
+                    {formData.title || 'Notification Title'}
+                  </h4>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {formData.message || 'Notification message will appear here...'}
+                    {formData.message ||
+                      'Notification message will appear here...'}
                   </p>
                   {formData.action_label && (
-                    <Button variant="link" size="sm" className="p-0 h-auto mt-2">
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0 h-auto mt-2"
+                    >
                       {formData.action_label}
                     </Button>
                   )}
@@ -453,19 +559,15 @@ export default function CreateNotificationPage() {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 {scheduleEnabled ? 'Scheduling...' : 'Sending...'}
               </>
+            ) : scheduleEnabled ? (
+              <>
+                <Clock className="h-4 w-4 mr-2" />
+                Schedule Notification
+              </>
             ) : (
               <>
-                {scheduleEnabled ? (
-                  <>
-                    <Clock className="h-4 w-4 mr-2" />
-                    Schedule Notification
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Now
-                  </>
-                )}
+                <Send className="h-4 w-4 mr-2" />
+                Send Now
               </>
             )}
           </Button>

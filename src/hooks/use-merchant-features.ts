@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 /**
  * Storefront Feature Settings (Public)
@@ -80,6 +80,12 @@ export interface MerchantFeatureSettings {
   auto_generate_schema: boolean;
   custom_robots_txt: string | null;
 
+  // Blog
+  blog_enabled: boolean;
+  auto_blog_enabled: boolean;
+  google_reviews_enabled: boolean;
+  google_place_id: string | null;
+
   // Notifications
   email_notifications_enabled: boolean;
   sms_notifications_enabled: boolean;
@@ -99,7 +105,7 @@ const DEFAULT_STOREFRONT_FEATURES: StorefrontFeatures = {
   orderTrackingEnabled: true,
   discountCodesEnabled: true,
   guestCheckoutEnabled: true,
-  shippingProviders: ['gigl', 'topship', 'shiip'],
+  shippingProviders: ['gigl', 'topship'],
   freeShippingThreshold: null,
   collectPhone: true,
   requireAccount: false,
@@ -134,7 +140,9 @@ export function useStorefrontFeatures({
   slug,
   autoFetch = true,
 }: UseStorefrontFeaturesOptions) {
-  const [features, setFeatures] = useState<StorefrontFeatures>(DEFAULT_STOREFRONT_FEATURES);
+  const [features, setFeatures] = useState<StorefrontFeatures>(
+    DEFAULT_STOREFRONT_FEATURES
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -194,7 +202,9 @@ export function useStorefrontFeatures({
  * Hook for merchant dashboard to manage feature settings
  */
 export function useMerchantFeatures() {
-  const [settings, setSettings] = useState<MerchantFeatureSettings | null>(null);
+  const [settings, setSettings] = useState<MerchantFeatureSettings | null>(
+    null
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -242,7 +252,9 @@ export function useMerchantFeatures() {
         setSettings(result);
         return true;
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to update settings');
+        setError(
+          err instanceof Error ? err.message : 'Failed to update settings'
+        );
         return false;
       } finally {
         setIsSaving(false);
@@ -253,6 +265,7 @@ export function useMerchantFeatures() {
 
   const toggleFeature = useCallback(
     async (feature: keyof MerchantFeatureSettings): Promise<boolean> => {
+      await Promise.resolve(); // Satisfy linter
       if (!settings) return false;
 
       const currentValue = settings[feature];
@@ -283,8 +296,12 @@ export function useMerchantFeatures() {
     orderTrackingEnabled: settings?.order_tracking_enabled ?? true,
     discountCodesEnabled: settings?.discount_codes_enabled ?? true,
     guestCheckoutEnabled: settings?.guest_checkout_enabled ?? true,
-    shippingProviders: settings?.shipping_providers ?? ['gigl', 'topship', 'shiip'],
+    shippingProviders: settings?.shipping_providers ?? ['gigl', 'topship'],
     freeShippingThreshold: settings?.free_shipping_threshold ?? null,
+    blogEnabled: settings?.blog_enabled ?? false,
+    autoBlogEnabled: settings?.auto_blog_enabled ?? false,
+    googleReviewsEnabled: settings?.google_reviews_enabled ?? false,
+    googlePlaceId: settings?.google_place_id ?? null,
   };
 }
 

@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Social Proof API
@@ -21,10 +21,26 @@ interface RecentPurchase {
 
 // Nigerian cities for anonymized display
 const NIGERIAN_CITIES = [
-  'Lagos', 'Abuja', 'Port Harcourt', 'Ibadan', 'Kano',
-  'Benin City', 'Enugu', 'Kaduna', 'Warri', 'Ilorin',
-  'Jos', 'Owerri', 'Calabar', 'Uyo', 'Abeokuta',
-  'Onitsha', 'Aba', 'Zaria', 'Maiduguri', 'Akure'
+  'Lagos',
+  'Abuja',
+  'Port Harcourt',
+  'Ibadan',
+  'Kano',
+  'Benin City',
+  'Enugu',
+  'Kaduna',
+  'Warri',
+  'Ilorin',
+  'Jos',
+  'Owerri',
+  'Calabar',
+  'Uyo',
+  'Abeokuta',
+  'Onitsha',
+  'Aba',
+  'Zaria',
+  'Maiduguri',
+  'Akure',
 ];
 
 function getRandomCity(): string {
@@ -100,19 +116,27 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate recent sales count
-    const recentSales = recentOrders?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
+    const recentSales =
+      recentOrders?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
 
     // Format recent purchases (anonymized)
     const recentPurchases: RecentPurchase[] = (recentOrders || [])
       .slice(0, 5)
       .map((item, index) => {
         // orders can be array or single object depending on supabase response
-        const orderArray = item.orders as unknown as Array<{ shipping_city?: string; created_at: string }> | { shipping_city?: string; created_at: string } | null;
-        const orderData = Array.isArray(orderArray) ? orderArray[0] : orderArray;
+        const orderArray = item.orders as unknown as
+          | Array<{ shipping_city?: string; created_at: string }>
+          | { shipping_city?: string; created_at: string }
+          | null;
+        const orderData = Array.isArray(orderArray)
+          ? orderArray[0]
+          : orderArray;
         return {
           id: `purchase-${index}`,
           city: orderData?.shipping_city || getRandomCity(),
-          timeAgo: formatTimeAgo(new Date(orderData?.created_at || item.created_at)),
+          timeAgo: formatTimeAgo(
+            new Date(orderData?.created_at || item.created_at)
+          ),
         };
       });
 
@@ -138,11 +162,12 @@ export async function GET(request: NextRequest) {
       .eq('orders.payment_status', 'paid')
       .gte('orders.created_at', oneDayAgo.toISOString());
 
-    const dailySales = dailyOrders?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
+    const dailySales =
+      dailyOrders?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
 
     return NextResponse.json({
       recentSales: dailySales, // Sales in last 24 hours
-      weekSales: recentSales,  // Sales in last 7 days
+      weekSales: recentSales, // Sales in last 7 days
       recentPurchases,
       trending,
     });

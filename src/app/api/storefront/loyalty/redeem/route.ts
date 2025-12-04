@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 // POST - Redeem a reward
@@ -121,7 +121,10 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       console.error('Error updating points balance:', updateError);
       // Rollback redemption
-      await supabase.from('reward_redemptions').delete().eq('id', redemption.id);
+      await supabase
+        .from('reward_redemptions')
+        .delete()
+        .eq('id', redemption.id);
       return NextResponse.json(
         { error: 'Failed to deduct points' },
         { status: 500 }

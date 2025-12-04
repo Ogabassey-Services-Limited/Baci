@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 /**
  * TikTok Events API (Server-Side)
@@ -9,7 +9,8 @@ import crypto from 'crypto';
  * @see https://business-api.tiktok.com/portal/docs?id=1741601162187777
  */
 
-const TIKTOK_API_URL = 'https://business-api.tiktok.com/open_api/v1.3/event/track/';
+const TIKTOK_API_URL =
+  'https://business-api.tiktok.com/open_api/v1.3/event/track/';
 
 export type TikTokEventName =
   | 'ViewContent'
@@ -76,7 +77,8 @@ export async function sendTikTokEvent(
   // Build user data with hashing
   const user: Record<string, string | undefined> = {};
   if (userData.email) user.email = hashData(userData.email);
-  if (userData.phone) user.phone = hashData(userData.phone.replace(/[^\d+]/g, ''));
+  if (userData.phone)
+    user.phone = hashData(userData.phone.replace(/[^\d+]/g, ''));
   if (userData.externalId) user.external_id = hashData(userData.externalId);
   if (userData.ipAddress) user.ip = userData.ipAddress;
   if (userData.userAgent) user.user_agent = userData.userAgent;
@@ -87,9 +89,12 @@ export async function sendTikTokEvent(
   if (properties?.value !== undefined) eventProperties.value = properties.value;
   if (properties?.currency) eventProperties.currency = properties.currency;
   if (properties?.contentId) eventProperties.content_id = properties.contentId;
-  if (properties?.contentIds) eventProperties.content_ids = properties.contentIds;
-  if (properties?.contentName) eventProperties.content_name = properties.contentName;
-  if (properties?.contentType) eventProperties.content_type = properties.contentType;
+  if (properties?.contentIds)
+    eventProperties.content_ids = properties.contentIds;
+  if (properties?.contentName)
+    eventProperties.content_name = properties.contentName;
+  if (properties?.contentType)
+    eventProperties.content_type = properties.contentType;
   if (properties?.contents) eventProperties.contents = properties.contents;
   if (properties?.query) eventProperties.query = properties.query;
   if (properties?.orderId) eventProperties.order_id = properties.orderId;
@@ -97,7 +102,8 @@ export async function sendTikTokEvent(
   const payload = {
     pixel_code: pixelId,
     event: eventName,
-    event_id: eventId || `${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
+    event_id:
+      eventId || `${Date.now()}_${crypto.randomBytes(8).toString('hex')}`,
     timestamp: new Date().toISOString(),
     context: {
       user,
@@ -130,7 +136,10 @@ export async function sendTikTokEvent(
     return { success: true };
   } catch (error) {
     console.error('TikTok Events API request failed:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error',
+    };
   }
 }
 
@@ -138,21 +147,26 @@ export async function sendTikTokEvent(
  * Helper functions for common e-commerce events
  */
 export const tiktokEventsAPI = {
-  purchase: async (
+  purchase: (
     pixelId: string,
     accessToken: string,
     userData: TikTokUserData,
     orderId: string,
     value: number,
     currency: string,
-    products: Array<{ id: string; name: string; price: number; quantity: number }>
+    products: Array<{
+      id: string;
+      name: string;
+      price: number;
+      quantity: number;
+    }>
   ) => {
     return sendTikTokEvent(pixelId, accessToken, 'CompletePayment', userData, {
       value,
       currency,
       orderId,
-      contentIds: products.map(p => p.id),
-      contents: products.map(p => ({
+      contentIds: products.map((p) => p.id),
+      contents: products.map((p) => ({
         content_id: p.id,
         content_name: p.name,
         price: p.price,
@@ -161,7 +175,7 @@ export const tiktokEventsAPI = {
     });
   },
 
-  initiateCheckout: async (
+  initiateCheckout: (
     pixelId: string,
     accessToken: string,
     userData: TikTokUserData,

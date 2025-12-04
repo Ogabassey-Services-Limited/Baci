@@ -1,11 +1,20 @@
 'use client';
 
+import { Check, Loader2, Tag, X } from 'lucide-react';
 import { useState } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Tag, X, Check, Loader2 } from 'lucide-react';
+
+// Get CSRF token from cookie
+function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const cookies = document.cookie.split(';');
+  const csrfCookie = cookies.find((c) => c.trim().startsWith('csrf-token='));
+  if (!csrfCookie) return null;
+  return csrfCookie.split('=')[1];
+}
 
 interface DiscountResult {
   valid: boolean;
@@ -46,12 +55,19 @@ export function DiscountCodeInput({
     setLoading(true);
     setError(null);
 
-    try {
+    const validateCode = async (retry = false): Promise<DiscountResult> => {
+      // If retry, refresh CSRF token first
+      if (retry) {
+        await fetch('/api/csrf');
+      }
+
       const response = await fetch('/api/storefront/discount/validate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'x-csrf-token': getCsrfToken() || '',
         },
+        credentials: 'include',
         body: JSON.stringify({
           merchant_id: merchantId,
           code: code.trim().toUpperCase(),
@@ -59,9 +75,21 @@ export function DiscountCodeInput({
         }),
       });
 
-      const result: DiscountResult = await response.json();
+      // If CSRF error and haven't retried, try once more
+      if (response.status === 403 && !retry) {
+        const errorData = await response.json();
+        if (errorData.error === 'Invalid CSRF token') {
+          return validateCode(true);
+        }
+      }
 
-      if (!response.ok || !result.valid) {
+      return response.json();
+    };
+
+    try {
+      const result = await validateCode();
+
+      if (!result.valid) {
         setError(result.error || 'Invalid discount code');
         toast({
           title: 'Invalid Code',
@@ -121,7 +149,9 @@ export function DiscountCodeInput({
                 </Badge>
               </div>
               {appliedDiscount.description && (
-                <p className="text-xs text-green-600">{appliedDiscount.description}</p>
+                <p className="text-xs text-green-600">
+                  {appliedDiscount.description}
+                </p>
               )}
             </div>
           </div>
@@ -165,16 +195,10 @@ export function DiscountCodeInput({
           disabled={loading || !code.trim()}
           variant="outline"
         >
-          {loading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            'Apply'
-          )}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}
         </Button>
       </div>
-      {error && (
-        <p className="text-sm text-red-500">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-500">{error}</p>}
     </div>
   );
 }

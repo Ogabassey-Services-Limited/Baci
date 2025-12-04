@@ -1,34 +1,37 @@
-
 'use client';
 
-import Link from 'next/link';
-import type { Route } from 'next';
-import { Suspense, useEffect, useState } from 'react';
-import { asRoute } from '@/lib/routes';
-
 import {
-  User,
-  Menu,
-  Package,
-  Settings,
-  ShoppingCart,
-  Users,
+  BarChart3,
+  ChevronDown,
+  FileText,
+  Gift,
   LayoutDashboard,
   Loader2,
-  Store,
-  FileText,
   LogOut,
+  Menu,
+  Package,
+  Paintbrush,
   PanelLeftClose,
   PanelLeftOpen,
-  ChevronDown,
-  Paintbrush,
-  BarChart3,
   Plug,
-  Gift,
   Search,
+  Settings,
+  ShoppingCart,
+  Store,
+  User,
+  Users,
+  Wallet,
 } from 'lucide-react';
-
+import type { Route } from 'next';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { BagIcon } from '@/components/bag-icon';
+import { Logo } from '@/components/logo';
+import { NotificationBanner } from '@/components/notifications/notification-banner';
+import { NotificationCenter } from '@/components/notifications/notification-center';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -39,31 +42,52 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Logo } from '@/components/logo';
-import { usePathname, useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils';
-import { useMerchant } from '@/hooks/use-merchant';
-import { getCountryByCode, COUNTRIES } from '@/lib/countries';
-import { useAuth } from '@/contexts/auth-context';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useToast } from '@/hooks/use-toast';
-import { NotificationCenter } from '@/components/notifications/notification-center';
-import { NotificationBanner } from '@/components/notifications/notification-banner';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useAuth } from '@/contexts/auth-context';
+import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
+import { COUNTRIES, getCountryByCode } from '@/lib/countries';
+import { asRoute } from '@/lib/routes';
+import { cn } from '@/lib/utils';
+import { getDashboardMetrics } from './actions';
 
 // The original layout is now a client component to prevent hydration errors.
 
-const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }: { isMobile?: boolean, isCollapsed: boolean, merchantLoading: boolean, storeUrl: string }) => {
+const StoreLink = ({
+  isMobile = false,
+  isCollapsed,
+  merchantLoading,
+  storeUrl,
+}: {
+  isMobile?: boolean;
+  isCollapsed: boolean;
+  merchantLoading: boolean;
+  storeUrl: string;
+}) => {
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
-    : cn('flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground', isCollapsed && 'justify-center');
+    : cn(
+        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
+        isCollapsed && 'justify-center'
+      );
 
   const isReady = !merchantLoading && storeUrl !== '#';
 
   if (!isReady) {
     const loadingContent = (
       <div className={cn(baseClassName, 'opacity-50 cursor-not-allowed')}>
-        <Loader2 className={cn('h-4 w-4 motion-safe:animate-spin', isMobile && 'h-5 w-5')} />
+        <Loader2
+          className={cn(
+            'h-4 w-4 motion-safe:animate-spin',
+            isMobile && 'h-5 w-5'
+          )}
+        />
         {!isCollapsed && !isMobile && 'Visit Store'}
         {isMobile && 'Visit Store'}
       </div>
@@ -72,9 +96,7 @@ const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }:
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            {loadingContent}
-          </TooltipTrigger>
+          <TooltipTrigger asChild>{loadingContent}</TooltipTrigger>
           <TooltipContent side="right">Loading store...</TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -100,9 +122,13 @@ const StoreLink = ({ isMobile = false, isCollapsed, merchantLoading, storeUrl }:
 
     try {
       const url = new URL(storeUrl);
-      const trustedDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+      const trustedDomain =
+        process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
       // Ensure the hostname ends with our trusted domain (prevents subdomain takeover)
-      return url.hostname.endsWith(`.${trustedDomain}`) || url.hostname === trustedDomain;
+      return (
+        url.hostname.endsWith(`.${trustedDomain}`) ||
+        url.hostname === trustedDomain
+      );
     } catch {
       return false;
     }
@@ -160,7 +186,8 @@ export default function DashboardClientLayout({
     if (!merchant || !merchant.business_name) {
       toast({
         title: 'Onboarding Incomplete',
-        description: 'Please complete your store setup to access the dashboard.',
+        description:
+          'Please complete your store setup to access the dashboard.',
         variant: 'destructive',
       });
       router.push('/onboarding');
@@ -168,7 +195,52 @@ export default function DashboardClientLayout({
     }
   }, [user, merchant, authLoading, merchantLoading, router, toast]);
 
-  const selectedCountry = merchant?.country ? getCountryByCode(merchant.country) : null;
+  // Auto-collapse sidebar on main content interaction
+  useEffect(() => {
+    const mainContent = document.getElementById('main-content');
+    if (!mainContent) return;
+
+    const handleInteraction = (event: Event) => {
+      // Only auto-collapse on desktop and if sidebar is expanded
+      if (window.innerWidth >= 768 && !isCollapsed) {
+        if (event.type === 'click') {
+          setIsCollapsed(true);
+        } else if (event.type === 'scroll') {
+          const target = event.target as HTMLElement;
+          // Calculate 5% of the scrollable height
+          const threshold = (target.scrollHeight - target.clientHeight) * 0.05;
+
+          // If scrolled more than 5% and threshold is valid (not 0)
+          if (threshold > 0 && target.scrollTop > threshold) {
+            setIsCollapsed(true);
+          }
+        }
+      }
+    };
+
+    // Collapse on click or scroll (with threshold)
+    mainContent.addEventListener('click', handleInteraction);
+    mainContent.addEventListener('scroll', handleInteraction);
+
+    return () => {
+      mainContent.removeEventListener('click', handleInteraction);
+      mainContent.removeEventListener('scroll', handleInteraction);
+    };
+  }, [isCollapsed]);
+
+  const [ordersCount, setOrdersCount] = useState(0);
+
+  useEffect(() => {
+    if (merchant?.id) {
+      getDashboardMetrics(merchant.id).then((metrics) => {
+        setOrdersCount(metrics.orders.value);
+      });
+    }
+  }, [merchant?.id]);
+
+  const selectedCountry = merchant?.country
+    ? getCountryByCode(merchant.country)
+    : null;
 
   const getStoreUrl = () => {
     if (!merchant?.slug) return '#';
@@ -192,7 +264,12 @@ export default function DashboardClientLayout({
     router.push('/login');
   };
 
-  const navItems: { href: Route; icon: typeof LayoutDashboard; label: string; badge?: number }[] = [
+  const navItems: {
+    href: Route;
+    icon: typeof LayoutDashboard;
+    label: string;
+    badge?: number;
+  }[] = [
     {
       href: '/dashboard' as Route,
       icon: LayoutDashboard,
@@ -207,7 +284,7 @@ export default function DashboardClientLayout({
       href: '/dashboard/orders' as Route,
       icon: ShoppingCart,
       label: 'Orders',
-      badge: 6,
+      badge: ordersCount > 0 ? ordersCount : undefined,
     },
     {
       href: '/dashboard/products' as Route,
@@ -223,6 +300,11 @@ export default function DashboardClientLayout({
       href: '/dashboard/loyalty' as Route,
       icon: Gift,
       label: 'Loyalty',
+    },
+    {
+      href: '/dashboard/wallet' as Route,
+      icon: Wallet,
+      label: 'Wallet',
     },
     {
       href: '/dashboard/seo' as Route,
@@ -251,14 +333,12 @@ export default function DashboardClientLayout({
     },
   ];
 
-
-
   // While checking auth OR if auth has succeeded but we are still waiting for the merchant,
   // show a full-page loading screen. This prevents content flashes and incorrect redirects.
   if (authLoading || (user && merchantLoading)) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+        <BagLoader size={64} />
       </div>
     );
   }
@@ -272,14 +352,12 @@ export default function DashboardClientLayout({
   return (
     <>
       {/* Skip link for keyboard navigation */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-primary-foreground focus:rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-      >
-        Skip to main content
-      </a>
+
       <div
-        className={cn("grid min-h-screen w-full transition-all", isCollapsed ? "md:grid-cols-[80px_1fr]" : "md:grid-cols-[260px_1fr]")}
+        className={cn(
+          'grid min-h-screen w-full transition-all',
+          isCollapsed ? 'md:grid-cols-[80px_1fr]' : 'md:grid-cols-[260px_1fr]'
+        )}
         style={{
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)',
@@ -287,14 +365,24 @@ export default function DashboardClientLayout({
       >
         {/* Sidebar - Glassmorphic & Floating */}
         <div className="hidden md:block relative z-20">
-          <div className={cn(
-            "fixed top-4 bottom-4 left-4 rounded-3xl border border-white/20 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl transition-all duration-300 flex flex-col overflow-hidden",
-            isCollapsed ? "w-[80px]" : "w-[260px]"
-          )}>
+          <div
+            className={cn(
+              'fixed top-4 bottom-4 left-4 rounded-3xl border border-white/20 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl transition-all duration-300 flex flex-col overflow-hidden',
+              isCollapsed ? 'w-[80px]' : 'w-[260px]'
+            )}
+          >
             {/* Sidebar Header */}
-            <div className={cn("flex h-20 items-center px-6", isCollapsed && "justify-center px-2")}>
-              <Link href="/dashboard" className="flex items-center gap-2 font-semibold transition-transform hover:scale-105">
-                <Logo />
+            <div
+              className={cn(
+                'flex h-20 items-center px-6',
+                isCollapsed && 'justify-center px-2'
+              )}
+            >
+              <Link
+                href="/dashboard"
+                className="flex items-center gap-2 font-semibold transition-transform hover:scale-105"
+              >
+                {isCollapsed ? <BagIcon width={32} height={32} /> : <Logo />}
                 {!isCollapsed && <span className="sr-only">Baci</span>}
               </Link>
             </div>
@@ -302,7 +390,10 @@ export default function DashboardClientLayout({
             {/* Navigation */}
             <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
               <TooltipProvider>
-                <nav className="grid gap-2 text-sm font-medium" aria-label="Main navigation">
+                <nav
+                  className="grid gap-2 text-sm font-medium"
+                  aria-label="Main navigation"
+                >
                   {navItems.map((item) => {
                     const isActive = pathname === item.href;
                     return (
@@ -319,9 +410,17 @@ export default function DashboardClientLayout({
                         )}
                       >
                         {/* Hover Glow Effect */}
-                        {!isActive && <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />}
+                        {!isActive && (
+                          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        )}
 
-                        <item.icon className={cn("h-5 w-5 shrink-0 transition-transform group-hover:scale-110", isActive && "animate-pulse-subtle")} aria-hidden="true" />
+                        <item.icon
+                          className={cn(
+                            'h-5 w-5 shrink-0 transition-transform group-hover:scale-110',
+                            isActive && 'animate-pulse-subtle'
+                          )}
+                          aria-hidden="true"
+                        />
 
                         {!isCollapsed && (
                           <span className="truncate">{item.label}</span>
@@ -336,7 +435,12 @@ export default function DashboardClientLayout({
                     );
                   })}
                   <div className="my-4 h-[1px] bg-gradient-to-r from-transparent via-border to-transparent" />
-                  <StoreLink isMobile={false} isCollapsed={isCollapsed} merchantLoading={merchantLoading} storeUrl={storeUrl} />
+                  <StoreLink
+                    isMobile={false}
+                    isCollapsed={isCollapsed}
+                    merchantLoading={merchantLoading}
+                    storeUrl={storeUrl}
+                  />
                 </nav>
               </TooltipProvider>
             </div>
@@ -346,9 +450,17 @@ export default function DashboardClientLayout({
               {!isCollapsed && (
                 <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-lg">
                   <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
-                  <h4 className="font-semibold relative z-10">Upgrade to Pro</h4>
-                  <p className="text-xs text-primary-foreground/80 mt-1 mb-3 relative z-10">Unlock AI superpowers & unlimited support.</p>
-                  <Button size="sm" variant="secondary" className="w-full shadow-sm relative z-10 text-primary font-semibold">
+                  <h4 className="font-semibold relative z-10">
+                    Upgrade to Pro
+                  </h4>
+                  <p className="text-xs text-primary-foreground/80 mt-1 mb-3 relative z-10">
+                    Unlock AI superpowers & unlimited support.
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="w-full shadow-sm relative z-10 text-primary font-semibold"
+                  >
                     Upgrade
                   </Button>
                 </div>
@@ -365,12 +477,18 @@ export default function DashboardClientLayout({
             size="icon"
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={cn(
-              "fixed top-8 z-30 hidden md:flex rounded-full shadow-lg border border-white/20 bg-white/80 backdrop-blur-md transition-all duration-300 hover:scale-110",
-              isCollapsed ? "left-[70px]" : "left-[250px]"
+              'fixed top-8 z-30 hidden md:flex rounded-full shadow-lg border border-white/20 bg-white/80 backdrop-blur-md transition-all duration-300 hover:scale-110',
+              isCollapsed ? 'left-[70px]' : 'left-[250px]'
             )}
           >
-            {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-            <span className="sr-only">{isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</span>
+            {isCollapsed ? (
+              <PanelLeftOpen className="h-4 w-4" />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" />
+            )}
+            <span className="sr-only">
+              {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            </span>
           </Button>
 
           {/* Mobile Header */}
@@ -386,11 +504,17 @@ export default function DashboardClientLayout({
                   <span className="sr-only">Toggle navigation menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="flex flex-col w-[280px] p-0 border-r-0 bg-transparent shadow-none">
+              <SheetContent
+                side="left"
+                className="flex flex-col w-[280px] p-0 border-r-0 bg-transparent shadow-none"
+              >
                 {/* Mobile Sheet Content - Reusing Glass Style */}
                 <div className="h-full w-full rounded-r-3xl border-r border-y border-white/20 bg-white/90 dark:bg-black/90 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden">
                   <div className="flex h-20 items-center px-6 border-b border-white/10">
-                    <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+                    <Link
+                      href="/dashboard"
+                      className="flex items-center gap-2 font-semibold"
+                    >
                       <Logo />
                     </Link>
                   </div>
@@ -410,6 +534,11 @@ export default function DashboardClientLayout({
                         >
                           <item.icon className="h-5 w-5" />
                           {item.label}
+                          {item.badge && (
+                            <Badge className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent text-accent-foreground px-1.5 text-[10px]">
+                              {item.badge}
+                            </Badge>
+                          )}
                         </Link>
                       );
                     })}
@@ -430,7 +559,9 @@ export default function DashboardClientLayout({
                 <DropdownMenuContent align="end">
                   <DropdownMenuLabel>{user?.email}</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>Logout</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    Logout
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -441,11 +572,17 @@ export default function DashboardClientLayout({
             <div className="flex items-center gap-2 p-1.5 rounded-full bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/20 shadow-sm">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 rounded-full px-3 gap-2 hover:bg-white/50">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 rounded-full px-3 gap-2 hover:bg-white/50"
+                  >
                     {merchantLoading ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
                     ) : selectedCountry ? (
-                      <span className="text-lg leading-none">{selectedCountry.flag}</span>
+                      <span className="text-lg leading-none">
+                        {selectedCountry.flag}
+                      </span>
                     ) : (
                       '🌐'
                     )}
@@ -455,8 +592,11 @@ export default function DashboardClientLayout({
                 <DropdownMenuContent align="end" className="w-[200px]">
                   <DropdownMenuLabel>Select Country</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {COUNTRIES.map(country => (
-                    <DropdownMenuItem key={country.code} onSelect={() => updateMerchant({ country: country.code })}>
+                  {COUNTRIES.map((country) => (
+                    <DropdownMenuItem
+                      key={country.code}
+                      onSelect={() => updateMerchant({ country: country.code })}
+                    >
                       <span className="mr-2 text-lg">{country.flag}</span>
                       <span>{country.name}</span>
                     </DropdownMenuItem>
@@ -473,15 +613,26 @@ export default function DashboardClientLayout({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-white/50">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full hover:bg-white/50"
+                  >
                     <User className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>Settings</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleSignOut} className="text-red-500">
+                  <DropdownMenuItem
+                    onClick={() => router.push('/dashboard/settings')}
+                  >
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="text-red-500"
+                  >
                     <LogOut className="mr-2 h-4 w-4" />
                     Logout
                   </DropdownMenuItem>
@@ -490,9 +641,18 @@ export default function DashboardClientLayout({
             </div>
           </div>
 
-          <main id="main-content" className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-8 pt-20 md:pt-24 lg:pt-24 overflow-y-auto">
+          <main
+            id="main-content"
+            className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-8 pt-20 md:pt-24 lg:pt-24 overflow-y-auto overflow-x-hidden min-w-0"
+          >
             <NotificationBanner />
-            <Suspense fallback={<div className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 motion-safe:animate-spin" aria-label="Loading" /></div>}>
+            <Suspense
+              fallback={
+                <div className="flex flex-1 items-center justify-center">
+                  <BagLoader size={48} />
+                </div>
+              }
+            >
               {children}
             </Suspense>
           </main>

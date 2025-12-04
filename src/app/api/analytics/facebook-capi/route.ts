@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
-import { facebookCAPI, generateEventId } from '@/lib/facebook-capi';
+import { type NextRequest, NextResponse } from 'next/server';
 import type { FacebookUserData } from '@/lib/facebook-capi';
+import { facebookCAPI, generateEventId } from '@/lib/facebook-capi';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * Facebook Conversions API Endpoint
@@ -47,7 +47,8 @@ interface CAPIEventRequest {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as CAPIEventRequest;
-    const { event, merchantId, userData, eventData, eventSourceUrl, eventId } = body;
+    const { event, merchantId, userData, eventData, eventSourceUrl, eventId } =
+      body;
 
     if (!merchantId || !event) {
       return NextResponse.json(
@@ -88,9 +89,10 @@ export async function POST(request: NextRequest) {
     // Build user data with request headers
     const fbUserData: FacebookUserData = {
       ...userData,
-      clientIpAddress: request.headers.get('x-forwarded-for')?.split(',')[0] ||
-                       request.headers.get('x-real-ip') ||
-                       undefined,
+      clientIpAddress:
+        request.headers.get('x-forwarded-for')?.split(',')[0] ||
+        request.headers.get('x-real-ip') ||
+        undefined,
       clientUserAgent: request.headers.get('user-agent') || undefined,
       // Extract Facebook cookies if passed
       fbc: request.cookies.get('_fbc')?.value,
@@ -101,7 +103,8 @@ export async function POST(request: NextRequest) {
     const finalEventId = eventId || generateEventId();
     const currency = eventData.currency || 'USD';
 
-    let result;
+    // biome-ignore lint/suspicious/noExplicitAny: External API response
+    let result: { success: boolean; error?: string; response?: any };
 
     switch (event) {
       case 'Purchase':
@@ -130,7 +133,10 @@ export async function POST(request: NextRequest) {
           fbUserData,
           eventData.value || 0,
           currency,
-          eventData.products?.map(p => ({ id: p.id, quantity: p.quantity })) || [],
+          eventData.products?.map((p) => ({
+            id: p.id,
+            quantity: p.quantity,
+          })) || [],
           eventSourceUrl
         );
         break;

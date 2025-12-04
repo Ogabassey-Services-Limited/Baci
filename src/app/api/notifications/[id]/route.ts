@@ -1,6 +1,6 @@
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import type { UpdateMerchantNotificationInput } from '@/types/notifications';
 
 interface RouteParams {
@@ -11,17 +11,16 @@ interface RouteParams {
  * GET /api/notifications/[id]
  * Get a specific notification for the current merchant
  */
-export async function GET(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
     // Authentication check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -34,7 +33,10 @@ export async function GET(
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Fetch notification
@@ -67,7 +69,10 @@ export async function GET(
       .single();
 
     if (error || !notification) {
-      return NextResponse.json({ error: 'Notification not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Notification not found' },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json(notification);
@@ -84,17 +89,16 @@ export async function GET(
  * PATCH /api/notifications/[id]
  * Update notification status (mark as read, dismiss, etc.)
  */
-export async function PATCH(
-  request: NextRequest,
-  { params }: RouteParams
-) {
+export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
     // Authentication check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -107,7 +111,10 @@ export async function PATCH(
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Parse request body
@@ -131,7 +138,10 @@ export async function PATCH(
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'No fields to update' },
+        { status: 400 }
+      );
     }
 
     // Update notification
@@ -145,11 +155,17 @@ export async function PATCH(
 
     if (updateError) {
       console.error('Error updating notification:', updateError);
-      return NextResponse.json({ error: 'Failed to update notification' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to update notification' },
+        { status: 500 }
+      );
     }
 
     if (!updated) {
-      return NextResponse.json({ error: 'Notification not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Notification not found' },
+        { status: 404 }
+      );
     }
 
     // Get updated unread count

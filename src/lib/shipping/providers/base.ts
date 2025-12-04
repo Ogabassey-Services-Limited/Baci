@@ -1,16 +1,16 @@
 /**
  * Base Shipping Provider Interface
- * All providers (GIGL, Topship, Shiip) must implement this interface
+ * All providers (GIGL, Topship) must implement this interface
  */
 
 import type {
+  BookingRequest,
+  CancellationResult,
+  QuoteRequest,
+  ShipmentBookingResult,
   ShippingProviderCode,
   ShippingQuote,
-  QuoteRequest,
-  BookingRequest,
-  ShipmentBookingResult,
   TrackingResult,
-  CancellationResult,
   UnifiedLocation,
 } from '../types';
 
@@ -85,7 +85,9 @@ export abstract class BaseShippingProvider implements ShippingProvider {
   abstract readonly supportsDomestic: boolean;
 
   abstract getQuotes(request: QuoteRequest): Promise<ShippingQuote[]>;
-  abstract bookShipment(request: BookingRequest): Promise<ShipmentBookingResult>;
+  abstract bookShipment(
+    request: BookingRequest
+  ): Promise<ShipmentBookingResult>;
   abstract trackShipment(trackingNumber: string): Promise<TrackingResult>;
   abstract cancelShipment(shipmentId: string): Promise<CancellationResult>;
 
@@ -93,6 +95,7 @@ export abstract class BaseShippingProvider implements ShippingProvider {
    * Default availability check - tries to authenticate
    */
   async isAvailable(): Promise<boolean> {
+    await Promise.resolve(); // Ensure async behavior
     try {
       // Subclasses should override with provider-specific health check
       return true;
@@ -195,10 +198,10 @@ export class ShippingProviderRegistry {
   }
 
   getDomestic(): ShippingProvider[] {
-    return this.getAll().filter(p => p.supportsDomestic);
+    return this.getAll().filter((p) => p.supportsDomestic);
   }
 
   getInternational(): ShippingProvider[] {
-    return this.getAll().filter(p => p.supportsInternational);
+    return this.getAll().filter((p) => p.supportsInternational);
   }
 }

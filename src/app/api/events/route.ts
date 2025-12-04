@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { type NextRequest, NextResponse } from 'next/server';
 
 // Lazy-initialize Supabase admin client to avoid build-time errors
 let supabaseAdmin: SupabaseClient | null = null;
@@ -7,8 +7,8 @@ let supabaseAdmin: SupabaseClient | null = null;
 function getSupabaseAdmin() {
   if (!supabaseAdmin) {
     supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+      process.env.SUPABASE_SERVICE_ROLE_KEY ?? ''
     );
   }
   return supabaseAdmin;
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Remove undefined values
-    Object.keys(event_data).forEach(key => {
+    Object.keys(event_data).forEach((key) => {
       if (event_data[key] === undefined) {
         delete event_data[key];
       }

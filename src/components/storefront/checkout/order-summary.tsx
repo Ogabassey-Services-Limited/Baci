@@ -1,12 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { ChevronDown, ChevronUp, Shield, Sparkles, Tag } from 'lucide-react';
 import Image from 'next/image';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, Tag, Sparkles, Shield } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Separator } from '@/components/ui/separator';
+import { useCurrency } from '@/hooks/use-currency';
 import { DiscountCodeInput } from './discount-code-input';
 
 interface CartItem {
@@ -68,12 +73,7 @@ export function OrderSummary({
   const discountAmount = calculateDiscountAmount();
   const total = subtotal + shippingCost - discountAmount;
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-    }).format(amount);
-  };
+  const { formatCurrency } = useCurrency();
 
   const SummaryContent = () => (
     <>
@@ -98,9 +98,13 @@ export function OrderSummary({
               </div>
             )}
             <div className="flex-1 min-w-0">
-              <p className="font-medium text-sm truncate">{item.product_name}</p>
+              <p className="font-medium text-sm truncate">
+                {item.product_name}
+              </p>
               {item.variant_name && (
-                <p className="text-xs text-muted-foreground">{item.variant_name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {item.variant_name}
+                </p>
               )}
               <p className="text-sm text-muted-foreground">
                 {formatCurrency(item.unit_price)} × {item.quantity}
@@ -170,7 +174,8 @@ export function OrderSummary({
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-purple-600" />
             <span className="text-sm text-purple-800">
-              Earn <strong>{loyaltyPointsEarned}</strong> points with this purchase
+              Earn <strong>{loyaltyPointsEarned}</strong> points with this
+              purchase
             </span>
           </div>
         </div>

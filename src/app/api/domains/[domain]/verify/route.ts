@@ -1,14 +1,14 @@
-import { createClient } from '@/lib/supabase/server';
+import { resolveTxt } from 'node:dns/promises';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { resolveTxt } from 'dns/promises';
+import { createClient } from '@/lib/supabase/server';
 
 /**
  * POST /api/domains/[domain]/verify
  * Verify domain ownership by checking DNS TXT record
  */
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ domain: string }> }
 ) {
   try {
@@ -31,7 +31,10 @@ export async function POST(
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get domain record
@@ -104,7 +107,8 @@ export async function POST(
     } catch (dnsError: unknown) {
       // DNS lookup failed - record doesn't exist
       const errorCode = (dnsError as { code?: string }).code;
-      const errorMessage = dnsError instanceof Error ? dnsError.message : 'Unknown error';
+      const errorMessage =
+        dnsError instanceof Error ? dnsError.message : 'Unknown error';
 
       if (errorCode === 'ENOTFOUND' || errorCode === 'ENODATA') {
         return NextResponse.json(

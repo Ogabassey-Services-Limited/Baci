@@ -1,9 +1,9 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { PrivacyPageClient } from './privacy-page-client';
-import { safeJsonLdStringify } from '@/lib/sanitize-core';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -26,7 +26,9 @@ async function getMerchant(slug: string) {
   return merchant;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const merchant = await getMerchant(slug);
 
@@ -97,6 +99,7 @@ export default async function PrivacyPage({ params }: PageProps) {
       {/* Privacy Policy JSON-LD Schema */}
       <script
         type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
       />
       <PrivacyPageClient

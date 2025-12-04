@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -10,7 +10,7 @@ import { createClient } from '@/lib/supabase/server';
  */
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ customerId: string }> }
 ) {
   try {
@@ -18,7 +18,9 @@ export async function GET(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -30,7 +32,10 @@ export async function GET(
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get customer details
@@ -41,7 +46,10 @@ export async function GET(
       .single();
 
     if (!customer) {
-      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Customer not found' },
+        { status: 404 }
+      );
     }
 
     // Get RFM scores
@@ -83,40 +91,47 @@ export async function GET(
 
     return NextResponse.json({
       customer,
-      rfm: rfm ? {
-        segment: rfm.rfm_segment,
-        lifecycleSegment: rfm.lifecycle_segment,
-        recencyScore: rfm.recency_score,
-        frequencyScore: rfm.frequency_score,
-        monetaryScore: rfm.monetary_score,
-        rfmScore: `${rfm.recency_score}${rfm.frequency_score}${rfm.monetary_score}`,
-        totalOrders: rfm.total_orders,
-        totalSpent: rfm.total_spent,
-        averageOrderValue: rfm.average_order_value,
-        daysSinceLastOrder: rfm.days_since_last_order,
-        predictedClv: rfm.predicted_clv,
-        churnRisk: rfm.churn_risk,
-        firstOrderDate: rfm.first_order_date,
-        lastOrderDate: rfm.last_order_date,
-      } : null,
-      loyalty: loyalty ? {
-        pointsBalance: loyalty.points_balance,
-        lifetimePoints: loyalty.lifetime_points,
-        currentTier: loyalty.current_tier,
-        referralCode: loyalty.referral_code,
-        referralCount: loyalty.referral_count,
-      } : null,
+      rfm: rfm
+        ? {
+            segment: rfm.rfm_segment,
+            lifecycleSegment: rfm.lifecycle_segment,
+            recencyScore: rfm.recency_score,
+            frequencyScore: rfm.frequency_score,
+            monetaryScore: rfm.monetary_score,
+            rfmScore: `${rfm.recency_score}${rfm.frequency_score}${rfm.monetary_score}`,
+            totalOrders: rfm.total_orders,
+            totalSpent: rfm.total_spent,
+            averageOrderValue: rfm.average_order_value,
+            daysSinceLastOrder: rfm.days_since_last_order,
+            predictedClv: rfm.predicted_clv,
+            churnRisk: rfm.churn_risk,
+            firstOrderDate: rfm.first_order_date,
+            lastOrderDate: rfm.last_order_date,
+          }
+        : null,
+      loyalty: loyalty
+        ? {
+            pointsBalance: loyalty.points_balance,
+            lifetimePoints: loyalty.lifetime_points,
+            currentTier: loyalty.current_tier,
+            referralCode: loyalty.referral_code,
+            referralCount: loyalty.referral_count,
+          }
+        : null,
       segmentInfo,
       recentOrders,
     });
   } catch (error) {
     console.error('Customer segment GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ customerId: string }> }
 ) {
   try {
@@ -124,7 +139,9 @@ export async function POST(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -136,19 +153,27 @@ export async function POST(
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Recalculate RFM for this customer
-    const { data: result, error } = await supabase
-      .rpc('calculate_customer_rfm', {
+    const { data: result, error } = await supabase.rpc(
+      'calculate_customer_rfm',
+      {
         p_customer_id: customerId,
         p_merchant_id: merchant.id,
-      });
+      }
+    );
 
     if (error) {
       console.error('Error calculating RFM:', error);
-      return NextResponse.json({ error: 'Failed to calculate RFM' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to calculate RFM' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -157,6 +182,9 @@ export async function POST(
     });
   } catch (error) {
     console.error('Customer segment POST error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

@@ -1,7 +1,10 @@
-import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
-import type { MerchantNotificationWithDetails, MerchantNotificationFilters } from '@/types/notifications';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import type {
+  MerchantNotificationFilters,
+  MerchantNotificationWithDetails,
+} from '@/types/notifications';
 
 /**
  * GET /api/notifications
@@ -19,7 +22,9 @@ export async function GET(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Authentication check
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -32,15 +37,23 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Parse query params
     const { searchParams } = new URL(request.url);
     const cursor = searchParams.get('cursor');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
+    const limit = Math.min(
+      Number.parseInt(searchParams.get('limit') || '20', 10),
+      50
+    );
     const unreadOnly = searchParams.get('unread_only') === 'true';
-    const type = searchParams.get('type') as MerchantNotificationFilters['type'];
+    const type = searchParams.get(
+      'type'
+    ) as MerchantNotificationFilters['type'];
 
     // Build query with notification join
     let query = supabase
@@ -88,11 +101,15 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching notifications:', error);
-      return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch notifications' },
+        { status: 500 }
+      );
     }
 
     // Filter by notification type if specified
-    let filteredNotifications: MerchantNotificationWithDetails[] = (notifications || []) as unknown as MerchantNotificationWithDetails[];
+    let filteredNotifications: MerchantNotificationWithDetails[] =
+      (notifications || []) as unknown as MerchantNotificationWithDetails[];
     if (type) {
       filteredNotifications = filteredNotifications.filter(
         (n) => n.notification?.notification_type === type
@@ -113,9 +130,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Get cursor for next page
-    const nextCursor = hasMore && filteredNotifications.length > 0
-      ? filteredNotifications[filteredNotifications.length - 1].created_at
-      : null;
+    const nextCursor =
+      hasMore && filteredNotifications.length > 0
+        ? filteredNotifications[filteredNotifications.length - 1].created_at
+        : null;
 
     // Get unread count
     const { count: unreadCount } = await supabase

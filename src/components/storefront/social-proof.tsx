@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ShoppingBag, Eye, Clock, TrendingUp, Flame, AlertTriangle } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  AlertTriangle,
+  Clock,
+  Eye,
+  Flame,
+  ShoppingBag,
+  TrendingUp,
+} from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 // =============================================================================
@@ -43,11 +50,13 @@ export function LowStockBadge({
 }) {
   if (stock <= 0) {
     return (
-      <div className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
-        "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-        className
-      )}>
+      <div
+        className={cn(
+          'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+          'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+          className
+        )}
+      >
         <AlertTriangle className="h-3 w-3" />
         Out of Stock
       </div>
@@ -60,8 +69,8 @@ export function LowStockBadge({
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className={cn(
-          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
-          "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+          'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
+          'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
           className
         )}
       >
@@ -79,6 +88,7 @@ export function LowStockBadge({
 // =============================================================================
 
 export function ViewerCount({
+  // biome-ignore lint/correctness/noUnusedFunctionParameters: Future use
   productId,
   initialCount,
   className,
@@ -95,16 +105,19 @@ export function ViewerCount({
     const baseCount = Math.floor(Math.random() * 8) + 2; // 2-10 base
     setViewers(baseCount);
 
-    const interval = setInterval(() => {
-      setViewers(prev => {
-        const change = Math.random() > 0.5 ? 1 : -1;
-        const newCount = Math.max(1, Math.min(15, prev + change));
-        return newCount;
-      });
-    }, 5000 + Math.random() * 10000); // Random interval 5-15s
+    const interval = setInterval(
+      () => {
+        setViewers((prev) => {
+          const change = Math.random() > 0.5 ? 1 : -1;
+          const newCount = Math.max(1, Math.min(15, prev + change));
+          return newCount;
+        });
+      },
+      5000 + Math.random() * 10000
+    ); // Random interval 5-15s
 
     return () => clearInterval(interval);
-  }, [productId]);
+  }, []);
 
   if (viewers < 2) return null;
 
@@ -113,7 +126,7 @@ export function ViewerCount({
       initial={{ opacity: 0, y: 5 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "inline-flex items-center gap-1.5 text-xs text-muted-foreground",
+        'inline-flex items-center gap-1.5 text-xs text-muted-foreground',
         className
       )}
     >
@@ -145,13 +158,14 @@ export function RecentSalesCount({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className={cn(
-        "inline-flex items-center gap-1.5 text-xs text-muted-foreground",
+        'inline-flex items-center gap-1.5 text-xs text-muted-foreground',
         className
       )}
     >
       <TrendingUp className="h-3.5 w-3.5 text-green-500" />
       <span>
-        <strong className="text-foreground">{count}</strong> sold in last {period}
+        <strong className="text-foreground">{count}</strong> sold in last{' '}
+        {period}
       </span>
     </motion.div>
   );
@@ -186,7 +200,7 @@ export function RecentPurchaseToast({
     const rotateInterval = setInterval(() => {
       setVisible(false);
       setTimeout(() => {
-        setCurrentIndex(prev => (prev + 1) % purchases.length);
+        setCurrentIndex((prev) => (prev + 1) % purchases.length);
         setVisible(true);
       }, 500);
     }, interval);
@@ -210,8 +224,8 @@ export function RecentPurchaseToast({
           exit={{ opacity: 0, x: -100 }}
           transition={{ type: 'spring', damping: 20, stiffness: 300 }}
           className={cn(
-            "fixed bottom-4 left-4 z-50 max-w-xs",
-            "bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg p-3",
+            'fixed bottom-4 left-4 z-50 max-w-xs',
+            'bg-background/95 backdrop-blur-sm border rounded-lg shadow-lg p-3',
             className
           )}
         >
@@ -260,12 +274,14 @@ export function UrgencyBadge({
     limited_offer: {
       icon: Flame,
       text: value || 'Limited time offer',
-      colors: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+      colors:
+        'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     },
     high_demand: {
       icon: TrendingUp,
       text: value || 'High demand',
-      colors: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+      colors:
+        'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
     },
   };
 
@@ -277,7 +293,7 @@ export function UrgencyBadge({
       initial={{ scale: 0.95 }}
       animate={{ scale: 1 }}
       className={cn(
-        "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium",
+        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium',
         config.colors,
         className
       )}
@@ -304,18 +320,16 @@ export function SocialProofWidget({
   className,
 }: SocialProofProps) {
   return (
-    <div className={cn("flex flex-wrap items-center gap-3", className)}>
+    <div className={cn('flex flex-wrap items-center gap-3', className)}>
       {showLowStock && stock !== undefined && (
         <LowStockBadge stock={stock} threshold={lowStockThreshold} />
       )}
 
-      {showViewers && (
-        <ViewerCount productId={productId} />
-      )}
+      {showViewers && <ViewerCount productId={productId} />}
 
-      {showSalesCount && recentSalesCount !== undefined && recentSalesCount > 0 && (
-        <RecentSalesCount count={recentSalesCount} />
-      )}
+      {showSalesCount &&
+        recentSalesCount !== undefined &&
+        recentSalesCount > 0 && <RecentSalesCount count={recentSalesCount} />}
     </div>
   );
 }

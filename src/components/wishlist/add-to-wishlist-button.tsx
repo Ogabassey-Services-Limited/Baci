@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { HeartIcon, LoadingSpinner } from '@/components/ui/animated-icons';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { HeartIcon, LoadingSpinner } from '@/components/ui/animated-icons';
 
 interface AddToWishListButtonProps {
   productId: string;
@@ -62,7 +62,8 @@ export function AddToWishListButton({
     if (!customerEmail) {
       toast({
         title: 'Email Required',
-        description: 'Please provide your email to save items to your wish list.',
+        description:
+          'Please provide your email to save items to your wish list.',
         variant: 'destructive',
       });
       return;
@@ -149,16 +150,10 @@ export function AddToWishListButton({
       {isLoading ? (
         <LoadingSpinner size={16} />
       ) : (
-        <HeartIcon
-          liked={inWishList}
-          size={16}
-          onToggle={undefined}
-        />
+        <HeartIcon liked={inWishList} size={16} onToggle={undefined} />
       )}
       {showText && (
-        <span className="ml-2">
-          {inWishList ? 'Saved' : 'Save'}
-        </span>
+        <span className="ml-2">{inWishList ? 'Saved' : 'Save'}</span>
       )}
     </Button>
   );

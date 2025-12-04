@@ -1,57 +1,73 @@
 'use server';
 
-import { createClient } from '@supabase/supabase-js';
-import { unstable_cache } from 'next/cache';
-
-// Initialize Supabase client with Service Role Key for admin-level access (counting)
-// If SERVICE_ROLE_KEY is not available, we'll fall back to static numbers
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
 
 interface LandingMetrics {
-    merchants: number;
-    orders: number;
-    sales: string | number;
-    rating: number;
+  merchants: number;
+  orders: number;
+  sales: string | number;
+  rating: number;
 }
 
 export async function getLandingMetrics(): Promise<LandingMetrics> {
-    return unstable_cache(
-        async () => {
-            try {
-                // Fetch merchant count
-                const { count: merchantCount, error: merchantError } = await supabase
-                    .from('merchants')
-                    .select('*', { count: 'exact', head: true });
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
 
-                // Fetch order count (if possible, otherwise estimate)
-                // Note: 'orders' table might be large, count might be slow without 'estimated'
-                const { count: orderCount, error: orderError } = await supabase
-                    .from('orders')
-                    .select('*', { count: 'exact', head: true });
+    // Fetch merchant count
+    const { count: merchantCount, error: merchantError } = await supabase
+      .from('merchants')
+      .select('*', { count: 'exact', head: true });
 
-                if (merchantError) console.error('Error fetching merchant count:', merchantError);
-                if (orderError) console.error('Error fetching order count:', orderError);
+    // Fetch order count
+    const { count: orderCount, error: orderError } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true });
 
-                return {
-                    merchants: merchantCount || 10000,
-                    orders: orderCount || 50000,
-                    sales: '5M+', // Hard to calculate sum efficiently without aggregation table
-                    rating: 4.9,
-                };
-            } catch (error) {
-                console.error('Failed to fetch metrics:', error);
-                return {
-                    merchants: 10000,
-                    orders: 50000,
-                    sales: '5M+',
-                    rating: 4.9,
-                };
-            }
-        },
-        ['landing-metrics'],
-        { revalidate: 3600 } // Cache for 1 hour
-    )();
+    // Calculate total sales from orders using SQL aggregation for efficiency
+    const { data: salesData, error: salesError } = await supabase
+      .from('orders')
+      .select('total.sum()')
+      .single();
+
+    if (merchantError) {
+      console.error('Error fetching merchant count:', merchantError);
+    }
+    if (orderError) {
+      console.error('Error fetching order count:', orderError);
+    }
+    if (salesError) {
+      console.error('Error fetching sales total:', salesError);
+    }
+
+    // Calculate total sales from aggregated result
+    const totalSales = Number(salesData?.sum) || 0;
+
+    // Format sales display
+    let salesDisplay: string | number;
+    if (totalSales >= 1000000) {
+      salesDisplay = `${(totalSales / 1000000).toFixed(1)}M`;
+    } else if (totalSales >= 1000) {
+      salesDisplay = `${(totalSales / 1000).toFixed(1)}K`;
+    } else {
+      salesDisplay = totalSales.toFixed(0);
+    }
+
+    return {
+      merchants: merchantCount ?? 0,
+      orders: orderCount ?? 0,
+      sales: salesDisplay,
+      rating: 4.9, // This could be calculated from reviews table if available
+    };
+  } catch (error) {
+    console.error('Failed to fetch metrics:', error);
+    // On error, return zeros instead of fake numbers
+    return {
+      merchants: 0,
+      orders: 0,
+      sales: '0',
+      rating: 4.9,
+    };
+  }
 }

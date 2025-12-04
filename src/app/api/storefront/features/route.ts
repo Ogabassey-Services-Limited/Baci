@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -20,6 +20,16 @@ export interface StorefrontFeatures {
   orderTrackingEnabled: boolean;
   discountCodesEnabled: boolean;
   guestCheckoutEnabled: boolean;
+
+  // Payment gateways
+  paystackEnabled: boolean;
+  korapayEnabled: boolean;
+  payOnDeliveryEnabled: boolean;
+  creditDirectEnabled: boolean;
+  creditDirectMinAmount: number;
+  creditDirectMaxAmount: number;
+  preferredLocalGateway: 'paystack' | 'korapay';
+  preferredInternationalGateway: 'paystack' | 'korapay';
 
   // Shipping
   shippingProviders: string[];
@@ -49,6 +59,14 @@ export interface StorefrontFeatures {
   hasGoogleAnalytics: boolean;
   hasFacebookPixel: boolean;
   hasTiktokPixel: boolean;
+
+  // VTU (Airtime/Data)
+  vtuEnabled: boolean;
+  vtuAirtimeEnabled: boolean;
+  vtuDataEnabled: boolean;
+  vtuCheckoutAddonEnabled: boolean;
+  vtuCheckoutAddonAmounts: number[];
+  vtuLoyaltyRewardEnabled: boolean;
 }
 
 // Default public features
@@ -59,7 +77,16 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   orderTrackingEnabled: true,
   discountCodesEnabled: true,
   guestCheckoutEnabled: true,
-  shippingProviders: ['gigl', 'topship', 'shiip'],
+  // Payment gateways
+  paystackEnabled: true,
+  korapayEnabled: true,
+  payOnDeliveryEnabled: false,
+  creditDirectEnabled: false,
+  creditDirectMinAmount: 10000,
+  creditDirectMaxAmount: 500000,
+  preferredLocalGateway: 'paystack',
+  preferredInternationalGateway: 'korapay',
+  shippingProviders: ['gigl', 'topship'],
   freeShippingThreshold: null,
   collectPhone: true,
   requireAccount: false,
@@ -78,6 +105,13 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   hasGoogleAnalytics: false,
   hasFacebookPixel: false,
   hasTiktokPixel: false,
+  // VTU defaults
+  vtuEnabled: false,
+  vtuAirtimeEnabled: true,
+  vtuDataEnabled: true,
+  vtuCheckoutAddonEnabled: false,
+  vtuCheckoutAddonAmounts: [100, 200, 500, 1000],
+  vtuLoyaltyRewardEnabled: false,
 };
 
 export async function GET(request: NextRequest) {
@@ -131,7 +165,17 @@ export async function GET(request: NextRequest) {
       orderTrackingEnabled: settings.order_tracking_enabled ?? true,
       discountCodesEnabled: settings.discount_codes_enabled ?? true,
       guestCheckoutEnabled: settings.guest_checkout_enabled ?? true,
-      shippingProviders: settings.shipping_providers ?? ['gigl', 'topship', 'shiip'],
+      // Payment gateways
+      paystackEnabled: settings.paystack_enabled ?? true,
+      korapayEnabled: settings.korapay_enabled ?? true,
+      payOnDeliveryEnabled: settings.pay_on_delivery_enabled ?? false,
+      creditDirectEnabled: settings.credit_direct_enabled ?? false,
+      creditDirectMinAmount: settings.credit_direct_min_amount ?? 10000,
+      creditDirectMaxAmount: settings.credit_direct_max_amount ?? 500000,
+      preferredLocalGateway: settings.preferred_local_gateway || 'paystack',
+      preferredInternationalGateway:
+        settings.preferred_international_gateway || 'korapay',
+      shippingProviders: settings.shipping_providers ?? ['gigl', 'topship'],
       freeShippingThreshold: settings.free_shipping_threshold,
       collectPhone: settings.checkout_collect_phone ?? true,
       requireAccount: settings.checkout_require_account ?? false,
@@ -150,11 +194,23 @@ export async function GET(request: NextRequest) {
       hasGoogleAnalytics: !!settings.google_analytics_id,
       hasFacebookPixel: !!settings.facebook_pixel_id,
       hasTiktokPixel: !!settings.tiktok_pixel_id,
+      // VTU
+      vtuEnabled: settings.vtu_enabled ?? false,
+      vtuAirtimeEnabled: settings.vtu_airtime_enabled ?? true,
+      vtuDataEnabled: settings.vtu_data_enabled ?? true,
+      vtuCheckoutAddonEnabled: settings.vtu_checkout_addon_enabled ?? false,
+      vtuCheckoutAddonAmounts: settings.vtu_checkout_addon_amounts || [
+        100, 200, 500, 1000,
+      ],
+      vtuLoyaltyRewardEnabled: settings.vtu_loyalty_reward_enabled ?? false,
     };
 
     return NextResponse.json(publicFeatures);
   } catch (error) {
     console.error('Storefront features GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

@@ -17,7 +17,9 @@ import { generateText } from 'ai';
 const getGoogleAI = () => {
   const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (!apiKey) {
-    throw new Error('GOOGLE_GENERATIVE_AI_API_KEY environment variable is not set');
+    throw new Error(
+      'GOOGLE_GENERATIVE_AI_API_KEY environment variable is not set'
+    );
   }
   return createGoogleGenerativeAI({ apiKey });
 };
@@ -123,7 +125,9 @@ Language for alt text: ${language}`;
     const result = JSON.parse(jsonStr);
 
     return {
-      altText: result.isDecorative ? '' : truncateAltText(result.altText, maxLength),
+      altText: result.isDecorative
+        ? ''
+        : truncateAltText(result.altText, maxLength),
       isDecorative: result.isDecorative || false,
       confidence: result.confidence || 'medium',
       context: result.reasoning,
@@ -188,7 +192,7 @@ export async function batchGenerateAltText(
 
     // Small delay between batches to avoid rate limiting
     if (i + batchSize < images.length) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
     }
   }
 
@@ -299,18 +303,28 @@ export function validateAltText(altText: string): {
 
   // Check length
   if (altText.length > 125) {
-    issues.push(`Alt text is too long (${altText.length} chars). Keep under 125 characters.`);
+    issues.push(
+      `Alt text is too long (${altText.length} chars). Keep under 125 characters.`
+    );
   }
 
   // Check for common bad patterns
   if (/^(image of|picture of|photo of|graphic of)/i.test(altText)) {
-    issues.push('Alt text should not start with "Image of" or similar phrases.');
-    suggestions.push('Remove the prefix and start directly with the description.');
+    issues.push(
+      'Alt text should not start with "Image of" or similar phrases.'
+    );
+    suggestions.push(
+      'Remove the prefix and start directly with the description.'
+    );
   }
 
   if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(altText)) {
-    issues.push('Alt text contains filename extension, which is not descriptive.');
-    suggestions.push('Replace with a meaningful description of the image content.');
+    issues.push(
+      'Alt text contains filename extension, which is not descriptive.'
+    );
+    suggestions.push(
+      'Replace with a meaningful description of the image content.'
+    );
   }
 
   if (/^IMG_?\d+|^DSC_?\d+|^untitled/i.test(altText)) {
@@ -320,7 +334,9 @@ export function validateAltText(altText: string): {
 
   if (!altText || altText.trim() === '') {
     // Empty alt is only valid for decorative images
-    suggestions.push('Empty alt text is only appropriate for decorative images.');
+    suggestions.push(
+      'Empty alt text is only appropriate for decorative images.'
+    );
   }
 
   return {

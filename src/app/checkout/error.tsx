@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
-import { Button } from '@/components/ui/button';
 import { AlertTriangle, RefreshCw, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 
 export default function CheckoutError({
   error,
@@ -21,14 +21,17 @@ export default function CheckoutError({
     <div className="flex flex-col items-center justify-center min-h-[60vh] p-6">
       <div className="flex flex-col items-center text-center max-w-md">
         <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
-          <AlertTriangle className="w-8 h-8 text-destructive" aria-hidden="true" />
+          <AlertTriangle
+            className="w-8 h-8 text-destructive"
+            aria-hidden="true"
+          />
         </div>
 
         <h1 className="text-2xl font-bold mb-2">Checkout Error</h1>
 
         <p className="text-muted-foreground mb-6">
-          Something went wrong during checkout. Don&apos;t worry - your cart items are safe.
-          Please try again or return to your cart.
+          Something went wrong during checkout. Don&apos;t worry - your cart
+          items are safe. Please try again or return to your cart.
         </p>
 
         {process.env.NODE_ENV === 'development' && (

@@ -1,11 +1,10 @@
-
 'use client';
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { colord } from 'colord';
+import type React from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-
 
 interface ColorPickerProps {
   color: string;
@@ -27,8 +26,10 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   const hexInputRef = useRef(parsedColor.toHex());
 
   // Track if we're currently dragging - using state so it's available during render
-  const [isDraggingSatLight, setIsDraggingSatLight] = useState(false);
-  const [isDraggingHue, setIsDraggingHue] = useState(false);
+  const [_isDraggingSatLight, setIsDraggingSatLight] = useState(false);
+  const [_isDraggingHue, setIsDraggingHue] = useState(false);
+  // Use ref for synchronous access in useEffect to avoid race conditions
+  const isDraggingRef = useRef(false);
   const lastPropColorRef = useRef(color);
 
   const satLightBoxRef = useRef<HTMLDivElement>(null);
@@ -37,7 +38,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   // Sync internal state when prop changes externally (not from our own onChange)
   // This is an intentional controlled component pattern for prop-to-state sync
   useEffect(() => {
-    if (lastPropColorRef.current !== color && !isDraggingSatLight && !isDraggingHue) {
+    if (lastPropColorRef.current !== color && !isDraggingRef.current) {
       const newParsedColor = colord(color);
       const newHsl = newParsedColor.toHsl();
       setInternalHue(newHsl.h);
@@ -51,30 +52,46 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
         hexInputRef.current = newHex;
       }
     }
-  }, [color, isDraggingSatLight, isDraggingHue]);
+  }, [color]);
 
-  // Use internal state when dragging, otherwise derive from prop
-  const isDragging = isDraggingSatLight || isDraggingHue;
-  const hue = isDragging ? internalHue : incomingHsl.h;
-  const saturation = isDragging ? internalSaturation : incomingHsl.s;
-  const lightness = isDragging ? internalLightness : incomingHsl.l;
+  // Always use internal state for rendering to preserve precision and avoid
+  // lossy Hex->HSL conversion issues (e.g. losing Hue in grayscale).
+  // The useEffect above handles syncing from props when necessary.
+  const hue = internalHue;
+  const saturation = internalSaturation;
+  const lightness = internalLightness;
   const hex = colord({ h: hue, s: saturation, l: lightness }).toHex();
 
   // Update color and notify parent
-  const updateColor = useCallback((h: number, s: number, l: number) => {
-    const newHex = colord({ h, s, l }).toHex();
-    lastPropColorRef.current = newHex;
-    setHexInput(newHex);
-    hexInputRef.current = newHex;
-    onChange(newHex);
-  }, [onChange]);
+  const updateColor = useCallback(
+    (h: number, s: number, l: number) => {
+      const newHex = colord({ h, s, l }).toHex();
+      lastPropColorRef.current = newHex;
+      setHexInput(newHex);
+      hexInputRef.current = newHex;
+      onChange(newHex);
+    },
+    [onChange]
+  );
 
-  const handleSatLightChange = (e: MouseEvent | TouchEvent | React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+  const handleSatLightChange = (
+    e:
+      | MouseEvent
+      | TouchEvent
+      | React.MouseEvent<HTMLDivElement>
+      | React.TouchEvent<HTMLDivElement>
+  ) => {
     if (!satLightBoxRef.current) return;
 
     const rect = satLightBoxRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
-    const clientY = 'touches' in e ? (e as TouchEvent).touches[0].clientY : (e as MouseEvent).clientY;
+    const clientX =
+      'touches' in e
+        ? (e as TouchEvent).touches[0].clientX
+        : (e as MouseEvent).clientX;
+    const clientY =
+      'touches' in e
+        ? (e as TouchEvent).touches[0].clientY
+        : (e as MouseEvent).clientY;
 
     const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
     const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
@@ -87,10 +104,19 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
     updateColor(internalHue, newSaturation, newLightness);
   };
 
-  const handleHueChange = (e: MouseEvent | TouchEvent | React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+  const handleHueChange = (
+    e:
+      | MouseEvent
+      | TouchEvent
+      | React.MouseEvent<HTMLDivElement>
+      | React.TouchEvent<HTMLDivElement>
+  ) => {
     if (!hueSliderRef.current) return;
     const rect = hueSliderRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? (e as TouchEvent).touches[0].clientX : (e as MouseEvent).clientX;
+    const clientX =
+      'touches' in e
+        ? (e as TouchEvent).touches[0].clientX
+        : (e as MouseEvent).clientX;
     const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
     const newHue = (x / rect.width) * 360;
 
@@ -101,17 +127,22 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
   const handleMouseUp = () => {
     setIsDraggingSatLight(false);
     setIsDraggingHue(false);
+    isDraggingRef.current = false;
   };
 
-  const handleMouseDownSatLight = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+  const handleMouseDownSatLight = (
+    e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>
+  ) => {
+    // Prevent text selection during drag
+    if (e.type === 'mousedown') {
+      e.preventDefault();
+    }
     setIsDraggingSatLight(true);
-    // Initialize internal state from current values
-    setInternalHue(hue);
-    setInternalSaturation(saturation);
-    setInternalLightness(lightness);
+    isDraggingRef.current = true;
     handleSatLightChange(e);
 
-    const onMove = (moveEvent: MouseEvent | TouchEvent) => handleSatLightChange(moveEvent);
+    const onMove = (moveEvent: MouseEvent | TouchEvent) =>
+      handleSatLightChange(moveEvent);
     const onUp = () => {
       handleMouseUp();
       document.removeEventListener('mousemove', onMove);
@@ -126,15 +157,19 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
     document.addEventListener('touchend', onUp);
   };
 
-  const handleMouseDownHue = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+  const handleMouseDownHue = (
+    e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>
+  ) => {
+    // Prevent text selection during drag
+    if (e.type === 'mousedown') {
+      e.preventDefault();
+    }
     setIsDraggingHue(true);
-    // Initialize internal state from current values
-    setInternalHue(hue);
-    setInternalSaturation(saturation);
-    setInternalLightness(lightness);
+    isDraggingRef.current = true;
     handleHueChange(e);
 
-    const onMove = (moveEvent: MouseEvent | TouchEvent) => handleHueChange(moveEvent);
+    const onMove = (moveEvent: MouseEvent | TouchEvent) =>
+      handleHueChange(moveEvent);
     const onUp = () => {
       handleMouseUp();
       document.removeEventListener('mousemove', onMove);
@@ -165,14 +200,34 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
         onTouchStart={handleMouseDownSatLight}
         onKeyDown={(e) => {
           const step = e.shiftKey ? 10 : 1;
-          if (e.key === 'ArrowRight') { updateColor(hue, Math.min(100, saturation + step), lightness); e.preventDefault(); }
-          if (e.key === 'ArrowLeft') { updateColor(hue, Math.max(0, saturation - step), lightness); e.preventDefault(); }
-          if (e.key === 'ArrowUp') { updateColor(hue, saturation, Math.min(100, lightness + step)); e.preventDefault(); }
-          if (e.key === 'ArrowDown') { updateColor(hue, saturation, Math.max(0, lightness - step)); e.preventDefault(); }
+          if (e.key === 'ArrowRight') {
+            updateColor(hue, Math.min(100, saturation + step), lightness);
+            e.preventDefault();
+          }
+          if (e.key === 'ArrowLeft') {
+            updateColor(hue, Math.max(0, saturation - step), lightness);
+            e.preventDefault();
+          }
+          if (e.key === 'ArrowUp') {
+            updateColor(hue, saturation, Math.min(100, lightness + step));
+            e.preventDefault();
+          }
+          if (e.key === 'ArrowDown') {
+            updateColor(hue, saturation, Math.max(0, lightness - step));
+            e.preventDefault();
+          }
         }}
       >
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, white, transparent)' }} />
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, black, transparent)' }} />
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to right, white, transparent)',
+          }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to top, black, transparent)' }}
+        />
         <div
           className="absolute w-4 h-4 rounded-full border-2 border-white shadow-md pointer-events-none"
           style={{
@@ -195,13 +250,22 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
           aria-valuemax={360}
           aria-valuenow={Math.round(hue)}
           className="relative h-4 w-full cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          style={{ background: 'linear-gradient(to right, rgb(255, 0, 0) 0%, rgb(255, 255, 0) 17%, rgb(0, 255, 0) 33%, rgb(0, 255, 255) 50%, rgb(0, 0, 255) 67%, rgb(255, 0, 255) 83%, rgb(255, 0, 0) 100%)' }}
+          style={{
+            background:
+              'linear-gradient(to right, rgb(255, 0, 0) 0%, rgb(255, 255, 0) 17%, rgb(0, 255, 0) 33%, rgb(0, 255, 255) 50%, rgb(0, 0, 255) 67%, rgb(255, 0, 255) 83%, rgb(255, 0, 0) 100%)',
+          }}
           onMouseDown={handleMouseDownHue}
           onTouchStart={handleMouseDownHue}
           onKeyDown={(e) => {
             const step = e.shiftKey ? 30 : 5;
-            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { updateColor((hue + step) % 360, saturation, lightness); e.preventDefault(); }
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { updateColor((hue - step + 360) % 360, saturation, lightness); e.preventDefault(); }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+              updateColor((hue + step) % 360, saturation, lightness);
+              e.preventDefault();
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+              updateColor((hue - step + 360) % 360, saturation, lightness);
+              e.preventDefault();
+            }
           }}
         >
           <div

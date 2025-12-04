@@ -1,12 +1,12 @@
 'use client';
 
-import { StorefrontHeader } from '@/components/storefront/header';
-import { StorefrontFooter } from '@/components/storefront/footer';
-import { MerchantProvider } from '@/hooks/use-merchant';
-import { StorefrontProvider } from '@/contexts/storefront-context';
+import { Eye, FileText, Lock, Shield } from 'lucide-react';
 import AppBody from '@/components/app-body';
+import { StorefrontFooter } from '@/components/storefront/footer';
+import { StorefrontHeader } from '@/components/storefront/header';
+import { StorefrontProvider } from '@/contexts/storefront-context';
+import { MerchantProvider } from '@/hooks/use-merchant';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { Shield, Lock, Eye, FileText } from 'lucide-react';
 
 interface PrivacyPageClientProps {
   merchant: {
@@ -28,11 +28,16 @@ interface PrivacyPageClientProps {
   content?: string;
 }
 
-export function PrivacyPageClient({ merchant, content }: PrivacyPageClientProps) {
+export function PrivacyPageClient({
+  merchant,
+  content,
+}: PrivacyPageClientProps) {
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
-        <AppBody merchant={merchant as Parameters<typeof AppBody>[0]["merchant"]}>
+        <AppBody
+          merchant={merchant as Parameters<typeof AppBody>[0]['merchant']}
+        >
           <div className="flex flex-col min-h-screen">
             <StorefrontHeader />
 
@@ -49,7 +54,8 @@ export function PrivacyPageClient({ merchant, content }: PrivacyPageClientProps)
                     Privacy Policy
                   </h1>
                   <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                    Your privacy is important to us. Learn how we protect your information.
+                    Your privacy is important to us. Learn how we protect your
+                    information.
                   </p>
                 </div>
               </section>
@@ -107,7 +113,10 @@ export function PrivacyPageClient({ merchant, content }: PrivacyPageClientProps)
                         prose-p:text-muted-foreground prose-p:leading-relaxed
                         prose-li:text-muted-foreground
                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} // nosemgrep
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
+                      dangerouslySetInnerHTML={{
+                        __html: sanitizeHtml(content),
+                      }} // nosemgrep
                     />
                   ) : (
                     <div className="text-center text-muted-foreground py-12">
@@ -132,7 +141,8 @@ export function PrivacyPageClient({ merchant, content }: PrivacyPageClientProps)
                   {/* Last Updated */}
                   <div className="mt-12 pt-8 border-t">
                     <p className="text-sm text-muted-foreground text-center">
-                      If you have any questions about this Privacy Policy, please contact us.
+                      If you have any questions about this Privacy Policy,
+                      please contact us.
                     </p>
                   </div>
                 </div>

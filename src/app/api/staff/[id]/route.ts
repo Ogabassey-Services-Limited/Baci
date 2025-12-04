@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server';
+import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { type NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -11,14 +11,16 @@ interface RouteParams {
  * GET /api/staff/[id]
  * Get a specific staff member's details
  */
-export async function GET(request: NextRequest, { params }: RouteParams) {
+export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -31,7 +33,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get staff member
@@ -43,12 +48,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (error || !staff) {
-      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Staff member not found' },
+        { status: 404 }
+      );
     }
 
     // Get effective permissions
-    const { data: effectivePermissions } = await supabase
-      .rpc('get_staff_permissions', { p_staff_id: id });
+    const { data: effectivePermissions } = await supabase.rpc(
+      'get_staff_permissions',
+      { p_staff_id: id }
+    );
 
     return NextResponse.json({
       staff,
@@ -56,7 +66,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('Staff fetch error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -71,7 +84,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -84,7 +99,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Verify staff member belongs to merchant
@@ -96,7 +114,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (!existing) {
-      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Staff member not found' },
+        { status: 404 }
+      );
     }
 
     // Parse request body
@@ -113,7 +134,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     if (Object.keys(updateData).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'No valid fields to update' },
+        { status: 400 }
+      );
     }
 
     // Update staff member
@@ -126,13 +150,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
       console.error('Failed to update staff:', error);
-      return NextResponse.json({ error: 'Failed to update staff member' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to update staff member' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ staff: updated });
   } catch (error) {
     console.error('Staff update error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -140,14 +170,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
  * DELETE /api/staff/[id]
  * Remove a staff member (soft delete)
  */
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -160,7 +192,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Soft delete staff member
@@ -172,13 +207,19 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
       console.error('Failed to remove staff:', error);
-      return NextResponse.json({ error: 'Failed to remove staff member' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to remove staff member' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ message: 'Staff member removed successfully' });
   } catch (error) {
     console.error('Staff delete error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -186,14 +227,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
  * POST /api/staff/[id]/resend
  * Resend invitation to a pending staff member
  */
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
     // Get authenticated user
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -206,7 +249,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get staff member
@@ -218,7 +264,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (!staff) {
-      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Staff member not found' },
+        { status: 404 }
+      );
     }
 
     if (staff.status !== 'pending') {
@@ -245,7 +294,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (updateError) {
       console.error('Failed to update invitation:', updateError);
-      return NextResponse.json({ error: 'Failed to resend invitation' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to resend invitation' },
+        { status: 500 }
+      );
     }
 
     const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
@@ -256,6 +308,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error('Resend invitation error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

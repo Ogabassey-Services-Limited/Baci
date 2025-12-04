@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -19,7 +19,9 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -31,13 +33,19 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
     const segment = searchParams.get('segment');
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 100);
+    const page = Number.parseInt(searchParams.get('page') || '1', 10);
+    const limit = Math.min(
+      Number.parseInt(searchParams.get('limit') || '20', 10),
+      100
+    );
     const offset = (page - 1) * limit;
 
     // Get segment summary
@@ -49,7 +57,8 @@ export async function GET(request: NextRequest) {
     // Get customers with RFM scores
     let query = supabase
       .from('customer_rfm_scores')
-      .select(`
+      .select(
+        `
         *,
         customers (
           id,
@@ -59,7 +68,9 @@ export async function GET(request: NextRequest) {
           store_credit,
           created_at
         )
-      `, { count: 'exact' })
+      `,
+        { count: 'exact' }
+      )
       .eq('merchant_id', merchant.id)
       .order('predicted_clv', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -72,7 +83,10 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching customer segments:', error);
-      return NextResponse.json({ error: 'Failed to fetch segments' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch segments' },
+        { status: 500 }
+      );
     }
 
     // Get segment definitions
@@ -83,7 +97,7 @@ export async function GET(request: NextRequest) {
       .order('priority', { ascending: false });
 
     return NextResponse.json({
-      customers: customers?.map(c => ({
+      customers: customers?.map((c) => ({
         customerId: c.customer_id,
         customer: c.customers,
         rfmSegment: c.rfm_segment,
@@ -113,7 +127,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Customer segments GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -122,7 +139,9 @@ export async function POST(_request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -134,18 +153,26 @@ export async function POST(_request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Trigger segment refresh
-    const { data: result, error } = await supabase
-      .rpc('refresh_customer_segments', {
+    const { data: result, error } = await supabase.rpc(
+      'refresh_customer_segments',
+      {
         p_merchant_id: merchant.id,
-      });
+      }
+    );
 
     if (error) {
       console.error('Error refreshing segments:', error);
-      return NextResponse.json({ error: 'Failed to refresh segments' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to refresh segments' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -155,6 +182,9 @@ export async function POST(_request: NextRequest) {
     });
   } catch (error) {
     console.error('Customer segments POST error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

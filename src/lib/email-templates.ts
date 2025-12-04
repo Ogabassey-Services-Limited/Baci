@@ -24,7 +24,9 @@ interface OrderConfirmationData {
 /**
  * Generate order confirmation email HTML
  */
-export function generateOrderConfirmationEmail(data: OrderConfirmationData): string {
+export function generateOrderConfirmationEmail(
+  data: OrderConfirmationData
+): string {
   const itemsHtml = data.items
     .map(
       (item) => `
@@ -136,9 +138,14 @@ export function generateOrderConfirmationEmail(data: OrderConfirmationData): str
 /**
  * Generate plain text version of order confirmation
  */
-export function generateOrderConfirmationText(data: OrderConfirmationData): string {
+export function generateOrderConfirmationText(
+  data: OrderConfirmationData
+): string {
   const itemsText = data.items
-    .map((item) => `${item.name} x${item.quantity} - ₦${item.price.toLocaleString()}`)
+    .map(
+      (item) =>
+        `${item.name} x${item.quantity} - ₦${item.price.toLocaleString()}`
+    )
     .join('\n');
 
   return `

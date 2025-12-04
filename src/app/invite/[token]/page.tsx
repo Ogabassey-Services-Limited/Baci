@@ -1,7 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+import {
+  Building2,
+  CheckCircle,
+  Loader2,
+  LogIn,
+  Mail,
+  Shield,
+  XCircle,
+} from 'lucide-react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -10,10 +21,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Loader2, CheckCircle, XCircle, Mail, Building2, Shield, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { createBrowserClient } from '@supabase/ssr';
-import Link from 'next/link';
 
 interface InvitationDetails {
   valid: boolean;
@@ -48,15 +56,17 @@ export default function AcceptInvitePage() {
   const [accepted, setAccepted] = useState(false);
 
   const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ''
   );
 
   useEffect(() => {
     const checkAuthAndValidate = async () => {
       try {
         // Check if user is logged in
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
         if (currentUser?.email) {
           setUser({ email: currentUser.email });
         }
@@ -158,8 +168,8 @@ export default function AcceptInvitePage() {
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-sm text-muted-foreground mb-4">
-              This invitation link may have expired or already been used.
-              Please contact the store owner for a new invitation.
+              This invitation link may have expired or already been used. Please
+              contact the store owner for a new invitation.
             </p>
             <Link href="/">
               <Button variant="outline">Go to Homepage</Button>
@@ -194,7 +204,10 @@ export default function AcceptInvitePage() {
     );
   }
 
-  const emailMismatch = user && invitation && user.email.toLowerCase() !== invitation.email.toLowerCase();
+  const emailMismatch =
+    user &&
+    invitation &&
+    user.email.toLowerCase() !== invitation.email.toLowerCase();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
@@ -204,9 +217,7 @@ export default function AcceptInvitePage() {
             <Mail className="h-6 w-6 text-primary" />
           </div>
           <CardTitle>Team Invitation</CardTitle>
-          <CardDescription>
-            You've been invited to join a team
-          </CardDescription>
+          <CardDescription>You've been invited to join a team</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Invitation Details */}
@@ -241,7 +252,8 @@ export default function AcceptInvitePage() {
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
                 <strong>Note:</strong> This invitation was sent to{' '}
-                <span className="font-medium">{invitation?.email}</span>, but you're signed in as{' '}
+                <span className="font-medium">{invitation?.email}</span>, but
+                you're signed in as{' '}
                 <span className="font-medium">{user?.email}</span>.
               </p>
               <p className="text-sm text-yellow-700 mt-1">
@@ -298,7 +310,10 @@ export default function AcceptInvitePage() {
                 </Link>
                 <p className="text-xs text-center text-muted-foreground">
                   Don't have an account?{' '}
-                  <Link href={`/sign-up?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}`} className="text-primary hover:underline">
+                  <Link
+                    href={`/sign-up?redirect=/invite/${token}&email=${encodeURIComponent(invitation?.email || '')}`}
+                    className="text-primary hover:underline"
+                  >
                     Create one
                   </Link>
                 </p>

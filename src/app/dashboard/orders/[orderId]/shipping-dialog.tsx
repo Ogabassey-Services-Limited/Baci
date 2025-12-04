@@ -1,24 +1,31 @@
 'use client';
 
-import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Badge } from '@/components/ui/badge';
 import {
-  Loader2,
+  Clock,
+  // Loader2,
+  MapPin,
+  MessageCircle,
+  Phone,
+  Shield,
   Truck,
   User,
-  Clock,
-  Shield,
-  MapPin,
-  Phone,
-  MessageCircle,
 } from 'lucide-react';
+import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
@@ -29,7 +36,7 @@ import { cn } from '@/lib/utils';
 
 interface ShippingQuote {
   id: string;
-  provider: 'GIGL' | 'TOPSHIP' | 'SHIIP';
+  provider: 'GIGL' | 'TOPSHIP';
   serviceTier: string;
   carrierName: string;
   displayName: string;
@@ -85,7 +92,11 @@ interface ShippingDialogProps {
   items: OrderItem[];
   selfFulfillmentEnabled: boolean;
   formatCurrency: (amount: number) => string;
-  onShipmentBooked: (trackingNumber: string, carrier: string, provider: string) => void;
+  onShipmentBooked: (
+    trackingNumber: string,
+    carrier: string,
+    provider: string
+  ) => void;
 }
 
 // =============================================================================
@@ -138,7 +149,7 @@ export function ShippingDialog({
           country: 'Nigeria',
           countryCode: 'NG',
         },
-        items: items.map(item => ({
+        items: items.map((item) => ({
           name: item.name,
           quantity: item.quantity,
           weight: item.weight || 1,
@@ -168,7 +179,10 @@ export function ShippingDialog({
   // Book shipment with provider
   const handleBookShipment = async () => {
     if (!selectedQuoteId) {
-      toast({ variant: 'destructive', title: 'Please select a delivery option' });
+      toast({
+        variant: 'destructive',
+        title: 'Please select a delivery option',
+      });
       return;
     }
 
@@ -194,7 +208,7 @@ export function ShippingDialog({
           country: 'Nigeria',
           countryCode: 'NG',
         },
-        items: items.map(item => ({
+        items: items.map((item) => ({
           name: item.name,
           quantity: item.quantity,
           weight: item.weight || 1,
@@ -207,7 +221,7 @@ export function ShippingDialog({
         description: `Tracking number: ${response.shipment.trackingNumber}`,
       });
 
-      const selectedQuote = quotes.find(q => q.id === selectedQuoteId);
+      const selectedQuote = quotes.find((q) => q.id === selectedQuoteId);
       onShipmentBooked(
         response.shipment.trackingNumber,
         response.shipment.carrier,
@@ -228,7 +242,10 @@ export function ShippingDialog({
   // Self-fulfill order
   const handleSelfFulfill = async () => {
     if (!selfDispatchPhone) {
-      toast({ variant: 'destructive', title: 'Dispatch phone number is required' });
+      toast({
+        variant: 'destructive',
+        title: 'Dispatch phone number is required',
+      });
       return;
     }
 
@@ -266,14 +283,16 @@ export function ShippingDialog({
 
   // Generate WhatsApp message for rider
   const generateRiderMessage = () => {
-    const itemsList = items.map(i => `- ${i.name} (x${i.quantity})`).join('\n');
+    const itemsList = items
+      .map((i) => `- ${i.name} (x${i.quantity})`)
+      .join('\n');
     return encodeURIComponent(
       `Delivery Details for Order ${orderNumber}\n\n` +
-      `Customer: ${customerName}\n` +
-      `Phone: ${customerPhone}\n` +
-      `Address: ${shippingAddress.address}, ${shippingAddress.city}, ${shippingAddress.state}\n\n` +
-      `Items:\n${itemsList}\n\n` +
-      (selfNotes ? `Special Instructions: ${selfNotes}` : '')
+        `Customer: ${customerName}\n` +
+        `Phone: ${customerPhone}\n` +
+        `Address: ${shippingAddress.address}, ${shippingAddress.city}, ${shippingAddress.state}\n\n` +
+        `Items:\n${itemsList}\n\n` +
+        (selfNotes ? `Special Instructions: ${selfNotes}` : '')
     );
   };
 
@@ -295,7 +314,10 @@ export function ShippingDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'provider' | 'self')}>
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as 'provider' | 'self')}
+        >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="provider" className="gap-2">
               <Truck className="h-4 w-4" />
@@ -317,16 +339,16 @@ export function ShippingDialog({
                 <p className="text-muted-foreground mb-4">
                   Get shipping quotes from multiple carriers
                 </p>
-                <Button onClick={fetchQuotes}>
-                  Get Delivery Options
-                </Button>
+                <Button onClick={fetchQuotes}>Get Delivery Options</Button>
               </div>
             )}
 
             {loadingQuotes && (
               <div className="text-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Finding best delivery options...</p>
+                <BagLoader size={32} />
+                <p className="text-muted-foreground">
+                  Finding best delivery options...
+                </p>
               </div>
             )}
 
@@ -341,19 +363,29 @@ export function ShippingDialog({
                     key={quote.id}
                     htmlFor={quote.id}
                     className={cn(
-                      "flex cursor-pointer rounded-lg border p-4 transition-all hover:bg-muted/50",
-                      selectedQuoteId === quote.id ? "border-primary bg-primary/5" : "border-border"
+                      'flex cursor-pointer rounded-lg border p-4 transition-all hover:bg-muted/50',
+                      selectedQuoteId === quote.id
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border'
                     )}
                   >
-                    <RadioGroupItem value={quote.id} id={quote.id} className="sr-only" />
+                    <RadioGroupItem
+                      value={quote.id}
+                      id={quote.id}
+                      className="sr-only"
+                    />
 
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold">{quote.carrierName}</span>
+                            <span className="font-semibold">
+                              {quote.carrierName}
+                            </span>
                             {index === 0 && (
-                              <Badge variant="default" className="text-xs">Best Value</Badge>
+                              <Badge variant="default" className="text-xs">
+                                Best Value
+                              </Badge>
                             )}
                           </div>
 
@@ -378,14 +410,18 @@ export function ShippingDialog({
                           )}
                         </div>
 
-                        <p className="font-semibold text-lg">{formatCurrency(quote.price)}</p>
+                        <p className="font-semibold text-lg">
+                          {formatCurrency(quote.price)}
+                        </p>
                       </div>
                     </div>
 
                     <div
                       className={cn(
-                        "ml-4 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                        selectedQuoteId === quote.id ? "border-primary bg-primary" : "border-muted-foreground/30"
+                        'ml-4 h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors',
+                        selectedQuoteId === quote.id
+                          ? 'border-primary bg-primary'
+                          : 'border-muted-foreground/30'
                       )}
                     >
                       {selectedQuoteId === quote.id && (
@@ -403,7 +439,7 @@ export function ShippingDialog({
                   onClick={handleBookShipment}
                   disabled={!selectedQuoteId || booking}
                 >
-                  {booking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {booking && <BagLoader size={16} />}
                   Book Shipment
                 </Button>
               </div>
@@ -432,7 +468,9 @@ export function ShippingDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="trackingNumber">Tracking Number (Optional)</Label>
+                  <Label htmlFor="trackingNumber">
+                    Tracking Number (Optional)
+                  </Label>
                   <Input
                     id="trackingNumber"
                     placeholder="Enter tracking number if available"
@@ -445,7 +483,7 @@ export function ShippingDialog({
                   <Label htmlFor="carrierName">Carrier Name (Optional)</Label>
                   <Input
                     id="carrierName"
-                    placeholder="e.g., GIG Logistics, DHL, or your dispatch name"
+                    placeholder="GIG Logistics, DHL, or your dispatch name"
                     value={selfCarrierName}
                     onChange={(e) => setSelfCarrierName(e.target.value)}
                   />
@@ -464,10 +502,7 @@ export function ShippingDialog({
 
                 <div className="flex justify-between pt-4">
                   {selfDispatchPhone && (
-                    <Button
-                      variant="outline"
-                      asChild
-                    >
+                    <Button variant="outline" asChild>
                       <a
                         href={`https://wa.me/${selfDispatchPhone.replace(/\D/g, '')}?text=${generateRiderMessage()}`}
                         target="_blank"
@@ -483,7 +518,7 @@ export function ShippingDialog({
                     disabled={!selfDispatchPhone || selfSubmitting}
                     className="ml-auto"
                   >
-                    {selfSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {selfSubmitting && <BagLoader size={16} />}
                     Mark as Shipped
                   </Button>
                 </div>

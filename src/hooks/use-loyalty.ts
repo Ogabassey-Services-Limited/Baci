@@ -1,13 +1,17 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 interface LoyaltyReward {
   id: string;
   name: string;
   description: string;
   points_required: number;
-  reward_type: 'discount' | 'free_shipping' | 'free_product' | 'exclusive_access';
+  reward_type:
+    | 'discount'
+    | 'free_shipping'
+    | 'free_product'
+    | 'exclusive_access';
   discount_type?: 'percentage' | 'fixed';
   discount_value?: number;
   min_tier?: string;
@@ -225,29 +229,57 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
   );
 
   // Get tier display info
-  const getTierInfo = useCallback(
-    (tier: string) => {
-      const tierColors = {
-        bronze: { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-amber-300' },
-        silver: { bg: 'bg-gray-100', text: 'text-gray-800', border: 'border-gray-300' },
-        gold: { bg: 'bg-yellow-100', text: 'text-yellow-800', border: 'border-yellow-400' },
-        platinum: { bg: 'bg-purple-100', text: 'text-purple-800', border: 'border-purple-400' },
-      };
+  const getTierInfo = useCallback((tier: string) => {
+    const tierColors = {
+      bronze: {
+        bg: 'bg-amber-100',
+        text: 'text-amber-800',
+        border: 'border-amber-300',
+      },
+      silver: {
+        bg: 'bg-gray-100',
+        text: 'text-gray-800',
+        border: 'border-gray-300',
+      },
+      gold: {
+        bg: 'bg-yellow-100',
+        text: 'text-yellow-800',
+        border: 'border-yellow-400',
+      },
+      platinum: {
+        bg: 'bg-purple-100',
+        text: 'text-purple-800',
+        border: 'border-purple-400',
+      },
+    };
 
-      const tierBenefits = {
-        bronze: ['Earn 1 point per ₦100 spent', 'Access to basic rewards'],
-        silver: ['Earn 1.5x points', 'Early access to sales', 'Free shipping on orders over ₦20,000'],
-        gold: ['Earn 2x points', 'Priority customer support', 'Exclusive discounts', 'Free shipping'],
-        platinum: ['Earn 3x points', 'VIP support', 'Exclusive products', 'Free express shipping'],
-      };
+    const tierBenefits = {
+      bronze: ['Earn 1 point per ₦100 spent', 'Access to basic rewards'],
+      silver: [
+        'Earn 1.5x points',
+        'Early access to sales',
+        'Free shipping on orders over ₦20,000',
+      ],
+      gold: [
+        'Earn 2x points',
+        'Priority customer support',
+        'Exclusive discounts',
+        'Free shipping',
+      ],
+      platinum: [
+        'Earn 3x points',
+        'VIP support',
+        'Exclusive products',
+        'Free express shipping',
+      ],
+    };
 
-      return {
-        colors: tierColors[tier as keyof typeof tierColors] || tierColors.bronze,
-        benefits: tierBenefits[tier as keyof typeof tierBenefits] || tierBenefits.bronze,
-      };
-    },
-    []
-  );
+    return {
+      colors: tierColors[tier as keyof typeof tierColors] || tierColors.bronze,
+      benefits:
+        tierBenefits[tier as keyof typeof tierBenefits] || tierBenefits.bronze,
+    };
+  }, []);
 
   return {
     data,

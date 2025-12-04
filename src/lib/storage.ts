@@ -1,4 +1,3 @@
-
 import { createClient } from '@/lib/supabase/client';
 
 /**
@@ -60,13 +59,16 @@ async function uriToBlob(uri: string): Promise<Blob> {
   throw new Error('Invalid URI. Only data:image/* and blob: URIs are allowed.');
 }
 
-export async function uploadImage(dataUri: string, bucket: string = 'images'): Promise<string | null> {
+export async function uploadImage(
+  dataUri: string,
+  bucket: string = 'images'
+): Promise<string | null> {
   const supabase = createClient();
 
   try {
     // Convert URI to Blob (validates URI type internally)
     const blob = await uriToBlob(dataUri);
-    
+
     const fileExt = blob.type.split('/')[1] || 'png';
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
     const filePath = `${fileName}`;

@@ -1,26 +1,40 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Award,
+  Coins,
+  Crown,
+  Gift,
+  // Loader2,
+  Search,
+  Settings,
+  TrendingUp,
+  // Star,
+  Users,
+} from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  Gift,
-  Crown,
-  // Star,
-  Users,
-  TrendingUp,
-  Settings,
-  Search,
-  Loader2,
-  Award,
-  Coins
-} from 'lucide-react';
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatCurrency } from '@/lib/currency';
 
 interface LoyaltySettings {
@@ -70,18 +84,15 @@ const tierColors: Record<string, string> = {
 export default function LoyaltyProgramPage() {
   const [settings, setSettings] = useState<LoyaltySettings | null>(null);
   const [customers, setCustomers] = useState<CustomerLoyalty[]>([]);
-  const [tierDistribution, setTierDistribution] = useState<Record<string, number>>({});
+  const [tierDistribution, setTierDistribution] = useState<
+    Record<string, number>
+  >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSettings();
-    fetchCustomers();
-  }, []);
-
-  async function fetchSettings() {
+  const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch('/api/loyalty/settings');
       if (res.ok) {
@@ -91,9 +102,9 @@ export default function LoyaltyProgramPage() {
     } catch (error) {
       console.error('Failed to fetch loyalty settings:', error);
     }
-  }
+  }, []);
 
-  async function fetchCustomers(tier?: string | null) {
+  const fetchCustomers = useCallback(async (tier?: string | null) => {
     try {
       const params = new URLSearchParams();
       if (tier) params.set('tier', tier);
@@ -109,7 +120,12 @@ export default function LoyaltyProgramPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchSettings();
+    fetchCustomers();
+  }, [fetchSettings, fetchCustomers]);
 
   async function saveSettings() {
     if (!settings) return;
@@ -130,10 +146,13 @@ export default function LoyaltyProgramPage() {
     }
   }
 
-  const totalCustomers = Object.values(tierDistribution).reduce((a, b) => a + b, 0);
+  const totalCustomers = Object.values(tierDistribution).reduce(
+    (a, b) => a + b,
+    0
+  );
   const totalPoints = customers.reduce((sum, c) => sum + c.points_balance, 0);
 
-  const filteredCustomers = customers.filter(c => {
+  const filteredCustomers = customers.filter((c) => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
@@ -145,7 +164,7 @@ export default function LoyaltyProgramPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -162,7 +181,9 @@ export default function LoyaltyProgramPage() {
         <div className="flex items-center gap-2">
           <Switch
             checked={settings?.enabled || false}
-            onCheckedChange={(checked) => setSettings(s => s ? { ...s, enabled: checked } : null)}
+            onCheckedChange={(checked) =>
+              setSettings((s) => (s ? { ...s, enabled: checked } : null))
+            }
           />
           <span className="text-sm font-medium">
             {settings?.enabled ? 'Active' : 'Inactive'}
@@ -178,18 +199,27 @@ export default function LoyaltyProgramPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalCustomers.toLocaleString()}</div>
+            <div className="text-2xl font-bold">
+              {totalCustomers.toLocaleString()}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Points Outstanding</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Points Outstanding
+            </CardTitle>
             <Coins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalPoints.toLocaleString()}</div>
+            <div className="text-2xl font-bold">
+              {totalPoints.toLocaleString()}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Worth {formatCurrency(totalPoints * (settings?.points_to_currency_ratio || 0.01))}
+              Worth{' '}
+              {formatCurrency(
+                totalPoints * (settings?.points_to_currency_ratio || 0.01)
+              )}
             </p>
           </CardContent>
         </Card>
@@ -200,18 +230,22 @@ export default function LoyaltyProgramPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {(tierDistribution['Gold'] || 0) + (tierDistribution['Platinum'] || 0)}
+              {(tierDistribution.Gold || 0) + (tierDistribution.Platinum || 0)}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Points/Member</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Avg Points/Member
+            </CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {totalCustomers > 0 ? Math.round(totalPoints / totalCustomers).toLocaleString() : 0}
+              {totalCustomers > 0
+                ? Math.round(totalPoints / totalCustomers).toLocaleString()
+                : 0}
             </div>
           </CardContent>
         </Card>
@@ -251,7 +285,7 @@ export default function LoyaltyProgramPage() {
                 >
                   All ({totalCustomers})
                 </Button>
-                {settings?.tiers.map(tier => (
+                {settings?.tiers.map((tier) => (
                   <Button
                     key={tier.name}
                     variant={selectedTier === tier.name ? 'default' : 'outline'}
@@ -260,7 +294,9 @@ export default function LoyaltyProgramPage() {
                       setSelectedTier(tier.name);
                       fetchCustomers(tier.name);
                     }}
-                    className={selectedTier === tier.name ? tierColors[tier.name] : ''}
+                    className={
+                      selectedTier === tier.name ? tierColors[tier.name] : ''
+                    }
                   >
                     {tier.name} ({tierDistribution[tier.name] || 0})
                   </Button>
@@ -292,7 +328,9 @@ export default function LoyaltyProgramPage() {
                     <TableHead>Customer</TableHead>
                     <TableHead>Tier</TableHead>
                     <TableHead className="text-right">Points Balance</TableHead>
-                    <TableHead className="text-right">Lifetime Points</TableHead>
+                    <TableHead className="text-right">
+                      Lifetime Points
+                    </TableHead>
                     <TableHead className="text-right">Referrals</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -301,14 +339,20 @@ export default function LoyaltyProgramPage() {
                     <TableRow key={customer.id}>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{customer.customers?.name || 'N/A'}</div>
+                          <div className="font-medium">
+                            {customer.customers?.name || 'N/A'}
+                          </div>
                           <div className="text-sm text-muted-foreground">
                             {customer.customers?.email}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={tierColors[customer.current_tier] || 'bg-gray-500'}>
+                        <Badge
+                          className={
+                            tierColors[customer.current_tier] || 'bg-gray-500'
+                          }
+                        >
                           {customer.current_tier}
                         </Badge>
                       </TableCell>
@@ -325,7 +369,10 @@ export default function LoyaltyProgramPage() {
                   ))}
                   {filteredCustomers.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      <TableCell
+                        colSpan={5}
+                        className="text-center py-8 text-muted-foreground"
+                      >
                         No members found
                       </TableCell>
                     </TableRow>
@@ -342,7 +389,9 @@ export default function LoyaltyProgramPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Program Settings</CardTitle>
-                  <CardDescription>Configure how customers earn and redeem points</CardDescription>
+                  <CardDescription>
+                    Configure how customers earn and redeem points
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid gap-4 md:grid-cols-2">
@@ -350,7 +399,12 @@ export default function LoyaltyProgramPage() {
                       <Label>Program Name</Label>
                       <Input
                         value={settings.program_name}
-                        onChange={(e) => setSettings({ ...settings, program_name: e.target.value })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            program_name: e.target.value,
+                          })
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -358,9 +412,17 @@ export default function LoyaltyProgramPage() {
                       <Input
                         type="number"
                         value={settings.points_expiry_days}
-                        onChange={(e) => setSettings({ ...settings, points_expiry_days: parseInt(e.target.value) || 365 })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            points_expiry_days:
+                              Number.parseInt(e.target.value, 10) || 365,
+                          })
+                        }
                       />
-                      <p className="text-xs text-muted-foreground">Set to 0 for no expiry</p>
+                      <p className="text-xs text-muted-foreground">
+                        Set to 0 for no expiry
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -374,12 +436,21 @@ export default function LoyaltyProgramPage() {
                 <CardContent className="space-y-4">
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label>Points per {formatCurrency(settings.points_currency_unit)}</Label>
+                      <Label>
+                        Points per{' '}
+                        {formatCurrency(settings.points_currency_unit)}
+                      </Label>
                       <Input
                         type="number"
                         step="0.1"
                         value={settings.points_per_currency}
-                        onChange={(e) => setSettings({ ...settings, points_per_currency: parseFloat(e.target.value) || 1 })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            points_per_currency:
+                              Number.parseFloat(e.target.value) || 1,
+                          })
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -387,7 +458,13 @@ export default function LoyaltyProgramPage() {
                       <Input
                         type="number"
                         value={settings.points_currency_unit}
-                        onChange={(e) => setSettings({ ...settings, points_currency_unit: parseFloat(e.target.value) || 100 })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            points_currency_unit:
+                              Number.parseFloat(e.target.value) || 100,
+                          })
+                        }
                       />
                     </div>
                   </div>
@@ -397,7 +474,13 @@ export default function LoyaltyProgramPage() {
                       <Input
                         type="number"
                         value={settings.signup_bonus_points}
-                        onChange={(e) => setSettings({ ...settings, signup_bonus_points: parseInt(e.target.value) || 0 })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            signup_bonus_points:
+                              Number.parseInt(e.target.value, 10) || 0,
+                          })
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -405,7 +488,13 @@ export default function LoyaltyProgramPage() {
                       <Input
                         type="number"
                         value={settings.birthday_bonus_points}
-                        onChange={(e) => setSettings({ ...settings, birthday_bonus_points: parseInt(e.target.value) || 0 })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            birthday_bonus_points:
+                              Number.parseInt(e.target.value, 10) || 0,
+                          })
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -413,7 +502,13 @@ export default function LoyaltyProgramPage() {
                       <Input
                         type="number"
                         value={settings.review_bonus_points}
-                        onChange={(e) => setSettings({ ...settings, review_bonus_points: parseInt(e.target.value) || 0 })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            review_bonus_points:
+                              Number.parseInt(e.target.value, 10) || 0,
+                          })
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -421,7 +516,13 @@ export default function LoyaltyProgramPage() {
                       <Input
                         type="number"
                         value={settings.referral_bonus_points}
-                        onChange={(e) => setSettings({ ...settings, referral_bonus_points: parseInt(e.target.value) || 0 })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            referral_bonus_points:
+                              Number.parseInt(e.target.value, 10) || 0,
+                          })
+                        }
                       />
                     </div>
                   </div>
@@ -441,10 +542,17 @@ export default function LoyaltyProgramPage() {
                         type="number"
                         step="0.001"
                         value={settings.points_to_currency_ratio}
-                        onChange={(e) => setSettings({ ...settings, points_to_currency_ratio: parseFloat(e.target.value) || 0.01 })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            points_to_currency_ratio:
+                              Number.parseFloat(e.target.value) || 0.01,
+                          })
+                        }
                       />
                       <p className="text-xs text-muted-foreground">
-                        1 point = {formatCurrency(settings.points_to_currency_ratio)}
+                        1 point ={' '}
+                        {formatCurrency(settings.points_to_currency_ratio)}
                       </p>
                     </div>
                     <div className="space-y-2">
@@ -452,7 +560,13 @@ export default function LoyaltyProgramPage() {
                       <Input
                         type="number"
                         value={settings.minimum_redemption_points}
-                        onChange={(e) => setSettings({ ...settings, minimum_redemption_points: parseInt(e.target.value) || 500 })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            minimum_redemption_points:
+                              Number.parseInt(e.target.value, 10) || 500,
+                          })
+                        }
                       />
                     </div>
                     <div className="space-y-2">
@@ -461,7 +575,13 @@ export default function LoyaltyProgramPage() {
                         type="number"
                         max={100}
                         value={settings.maximum_redemption_percentage}
-                        onChange={(e) => setSettings({ ...settings, maximum_redemption_percentage: parseFloat(e.target.value) || 50 })}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            maximum_redemption_percentage:
+                              Number.parseFloat(e.target.value) || 50,
+                          })
+                        }
                       />
                     </div>
                   </div>
@@ -471,13 +591,20 @@ export default function LoyaltyProgramPage() {
               <Card>
                 <CardHeader>
                   <CardTitle>Membership Tiers</CardTitle>
-                  <CardDescription>Define tier levels and benefits</CardDescription>
+                  <CardDescription>
+                    Define tier levels and benefits
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
                     {settings.tiers.map((tier, index) => (
-                      <div key={tier.name} className="flex items-center gap-4 p-4 border rounded-lg">
-                        <Badge className={tierColors[tier.name] || 'bg-gray-500'}>
+                      <div
+                        key={tier.name}
+                        className="flex items-center gap-4 p-4 border rounded-lg"
+                      >
+                        <Badge
+                          className={tierColors[tier.name] || 'bg-gray-500'}
+                        >
                           {tier.name}
                         </Badge>
                         <div className="flex-1 grid gap-4 md:grid-cols-3">
@@ -488,7 +615,8 @@ export default function LoyaltyProgramPage() {
                               value={tier.minPoints}
                               onChange={(e) => {
                                 const newTiers = [...settings.tiers];
-                                newTiers[index].minPoints = parseInt(e.target.value) || 0;
+                                newTiers[index].minPoints =
+                                  Number.parseInt(e.target.value, 10) || 0;
                                 setSettings({ ...settings, tiers: newTiers });
                               }}
                             />
@@ -501,7 +629,8 @@ export default function LoyaltyProgramPage() {
                               value={tier.multiplier}
                               onChange={(e) => {
                                 const newTiers = [...settings.tiers];
-                                newTiers[index].multiplier = parseFloat(e.target.value) || 1;
+                                newTiers[index].multiplier =
+                                  Number.parseFloat(e.target.value) || 1;
                                 setSettings({ ...settings, tiers: newTiers });
                               }}
                             />
@@ -509,13 +638,19 @@ export default function LoyaltyProgramPage() {
                           <div className="space-y-1">
                             <Label className="text-xs">Perks</Label>
                             <div className="flex flex-wrap gap-1">
-                              {tier.perks.map(perk => (
-                                <Badge key={perk} variant="outline" className="text-xs">
+                              {tier.perks.map((perk) => (
+                                <Badge
+                                  key={perk}
+                                  variant="outline"
+                                  className="text-xs"
+                                >
                                   {perk.replace(/_/g, ' ')}
                                 </Badge>
                               ))}
                               {tier.perks.length === 0 && (
-                                <span className="text-xs text-muted-foreground">No perks</span>
+                                <span className="text-xs text-muted-foreground">
+                                  No perks
+                                </span>
                               )}
                             </div>
                           </div>
@@ -528,7 +663,7 @@ export default function LoyaltyProgramPage() {
 
               <div className="flex justify-end">
                 <Button onClick={saveSettings} disabled={saving}>
-                  {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {saving && <BagLoader size={16} />}
                   Save Settings
                 </Button>
               </div>
@@ -542,7 +677,9 @@ export default function LoyaltyProgramPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Rewards Catalog</CardTitle>
-                  <CardDescription>Create rewards customers can redeem with points</CardDescription>
+                  <CardDescription>
+                    Create rewards customers can redeem with points
+                  </CardDescription>
                 </div>
                 <Button>
                   <Gift className="h-4 w-4 mr-2" />
@@ -554,7 +691,9 @@ export default function LoyaltyProgramPage() {
               <div className="text-center py-12 text-muted-foreground">
                 <Award className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>No rewards created yet</p>
-                <p className="text-sm">Create rewards like discounts, free shipping, or free products</p>
+                <p className="text-sm">
+                  Create rewards like discounts, free shipping, or free products
+                </p>
               </div>
             </CardContent>
           </Card>

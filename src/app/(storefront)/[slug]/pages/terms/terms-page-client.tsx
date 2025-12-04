@@ -1,12 +1,12 @@
 'use client';
 
-import { StorefrontHeader } from '@/components/storefront/header';
-import { StorefrontFooter } from '@/components/storefront/footer';
-import { MerchantProvider } from '@/hooks/use-merchant';
-import { StorefrontProvider } from '@/contexts/storefront-context';
+import { AlertCircle, CheckCircle, Scale, ScrollText } from 'lucide-react';
 import AppBody from '@/components/app-body';
+import { StorefrontFooter } from '@/components/storefront/footer';
+import { StorefrontHeader } from '@/components/storefront/header';
+import { StorefrontProvider } from '@/contexts/storefront-context';
+import { MerchantProvider } from '@/hooks/use-merchant';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { ScrollText, CheckCircle, AlertCircle, Scale } from 'lucide-react';
 
 interface TermsPageClientProps {
   merchant: {
@@ -32,7 +32,9 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
   return (
     <MerchantProvider slug={merchant.slug}>
       <StorefrontProvider>
-        <AppBody merchant={merchant as Parameters<typeof AppBody>[0]["merchant"]}>
+        <AppBody
+          merchant={merchant as Parameters<typeof AppBody>[0]['merchant']}
+        >
           <div className="flex flex-col min-h-screen">
             <StorefrontHeader />
 
@@ -107,7 +109,10 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                         prose-p:text-muted-foreground prose-p:leading-relaxed
                         prose-li:text-muted-foreground
                         prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} // nosemgrep
+                      // biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml()
+                      dangerouslySetInnerHTML={{
+                        __html: sanitizeHtml(content),
+                      }} // nosemgrep
                     />
                   ) : (
                     <div className="text-center text-muted-foreground py-12">
@@ -132,7 +137,8 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                   {/* Last Updated */}
                   <div className="mt-12 pt-8 border-t">
                     <p className="text-sm text-muted-foreground text-center">
-                      If you have any questions about these Terms of Service, please contact us.
+                      If you have any questions about these Terms of Service,
+                      please contact us.
                     </p>
                   </div>
                 </div>

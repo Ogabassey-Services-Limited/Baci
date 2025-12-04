@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(GITHUB_TOKEN=\"\" gh api:*)",
+      "Bash(GITHUB_TOKEN=\"\" gh api repos/Ogabassey-Services-Limited/Baci/pulls/84/comments --header \"Authorization: Bearer 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\" --paginate)",
+      "Bash(GITHUB_TOKEN= gh api repos/Ogabassey-Services-Limited/Baci/pulls/84/comments --header 'Authorization: Bearer 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' --paginate)",
+      "Bash(GITHUB_TOKEN= gh api:*)",
+      "Bash(GITHUB_TOKEN= gh auth token)",
+      "Bash(\"src/app/api/merchant/blog/upload/route.ts\" )",
+      "Bash(\"src/app/api/merchant/blog/posts/route.ts\")",
+      "Bash(GITHUB_TOKEN=\"\" gh pr checks:*)",
+      "Bash(GITHUB_TOKEN=\"\" gh run view:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": ["supabase"]
+}

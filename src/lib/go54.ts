@@ -3,7 +3,7 @@
  * Documentation: https://api-docs.go54.com
  */
 
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import whois from 'whois-json';
 
 const GO54_BASE_URL =
@@ -108,7 +108,9 @@ export interface DomainInformation {
  */
 function generateToken(): string {
   if (!GO54_EMAIL || !GO54_API_KEY) {
-    throw new Error('GO54_EMAIL and GO54_API_KEY environment variables are required');
+    throw new Error(
+      'GO54_EMAIL and GO54_API_KEY environment variables are required'
+    );
   }
 
   const now = new Date();
@@ -128,7 +130,10 @@ function generateToken(): string {
   // nosemgrep
   // lgtm[js/insufficient-password-hash]
   // codeql[js/insufficient-password-hash] - False positive: This is HMAC-based API token generation, not password storage
-  const signature = crypto.createHmac('sha256', message).update(GO54_API_KEY).digest('hex');
+  const signature = crypto
+    .createHmac('sha256', message)
+    .update(GO54_API_KEY)
+    .digest('hex');
 
   return Buffer.from(signature).toString('base64');
 }
@@ -165,10 +170,14 @@ async function go54Request<T>(
     options.body = formData;
   } else if (method === 'GET' && params) {
     const queryParams = new URLSearchParams(
-      Object.entries(params).reduce((acc, [key, value]) => {
-        acc[key] = typeof value === 'object' ? JSON.stringify(value) : String(value);
-        return acc;
-      }, {} as Record<string, string>)
+      Object.entries(params).reduce(
+        (acc, [key, value]) => {
+          acc[key] =
+            typeof value === 'object' ? JSON.stringify(value) : String(value);
+          return acc;
+        },
+        {} as Record<string, string>
+      )
     );
     const urlWithParams = `${url}?${queryParams}`;
     return fetch(urlWithParams, options).then((r) => r.json());
@@ -186,7 +195,7 @@ async function go54Request<T>(
 
 /**
  * Check domain availability using WHOIS
- * 
+ *
  * Note: The official API 'lookup' action is deprecated.
  * We use direct WHOIS lookup as a fallback.
  */
@@ -201,7 +210,12 @@ export async function checkDomainAvailability(
 
     // Perform WHOIS lookup
     const results = await whois(domain);
-    console.log('WHOIS Results for', domain, ':', JSON.stringify(results, null, 2));
+    console.log(
+      'WHOIS Results for',
+      domain,
+      ':',
+      JSON.stringify(results, null, 2)
+    );
 
     // Analyze WHOIS response to determine availability
     // Common patterns for available domains:
@@ -222,15 +236,14 @@ export async function checkDomainAvailability(
       'is available for registration',
       'domain not found',
       'object does not exist',
-      'no entries found'
+      'no entries found',
     ];
 
-    const isAvailable = availabilityIndicators.some(indicator =>
+    const isAvailable = availabilityIndicators.some((indicator) =>
       responseString.includes(indicator)
     );
 
     return isAvailable;
-
   } catch (error) {
     console.error('Error checking domain availability:', error);
     // Fail safe: assume unavailable if check fails to prevent false positives
@@ -270,14 +283,18 @@ export async function registerDomain(data: {
       ns2: 'ns2.whogohost.com',
     };
 
-    const result = await go54Request<DomainRegistrationResult>('/order/domains/register', 'POST', {
-      domain: data.domain,
-      regperiod: data.regperiod,
-      nameservers,
-      contacts: data.contacts,
-      addons: data.addons || {},
-      domainfields: '',
-    });
+    const result = await go54Request<DomainRegistrationResult>(
+      '/order/domains/register',
+      'POST',
+      {
+        domain: data.domain,
+        regperiod: data.regperiod,
+        nameservers,
+        contacts: data.contacts,
+        addons: data.addons || {},
+        domainfields: '',
+      }
+    );
 
     return result;
   } catch (error) {
@@ -313,13 +330,17 @@ export async function transferDomain(data: {
       ns2: 'ns2.whogohost.com',
     };
 
-    const result = await go54Request<Record<string, unknown>>('/order/domains/transfer', 'POST', {
-      domain: data.domain,
-      eppcode: data.eppcode,
-      regperiod: data.regperiod,
-      nameservers,
-      contacts: data.contacts,
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      '/order/domains/transfer',
+      'POST',
+      {
+        domain: data.domain,
+        eppcode: data.eppcode,
+        regperiod: data.regperiod,
+        nameservers,
+        contacts: data.contacts,
+      }
+    );
 
     return result;
   } catch (error) {
@@ -331,12 +352,19 @@ export async function transferDomain(data: {
 /**
  * Renew a domain
  */
-export async function renewDomain(domain: string, years: number = 1): Promise<Record<string, unknown>> {
+export async function renewDomain(
+  domain: string,
+  years: number = 1
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>('/order/domains/renew', 'POST', {
-      domain,
-      regperiod: years,
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      '/order/domains/renew',
+      'POST',
+      {
+        domain,
+        regperiod: years,
+      }
+    );
 
     return result;
   } catch (error) {
@@ -348,9 +376,15 @@ export async function renewDomain(domain: string, years: number = 1): Promise<Re
 /**
  * Get EPP code for domain transfer
  */
-export async function getDomainEPPCode(domain: string): Promise<Record<string, unknown>> {
+export async function getDomainEPPCode(
+  domain: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/eppcode`, 'GET', { domain });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/eppcode`,
+      'GET',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error getting EPP code:', error);
@@ -361,9 +395,15 @@ export async function getDomainEPPCode(domain: string): Promise<Record<string, u
 /**
  * Get domain contact details
  */
-export async function getDomainContacts(domain: string): Promise<Record<string, unknown>> {
+export async function getDomainContacts(
+  domain: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/contact`, 'GET', { domain });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/contact`,
+      'GET',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error getting domain contacts:', error);
@@ -384,10 +424,14 @@ export async function updateDomainContacts(
   }
 ): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/contact`, 'POST', {
-      domain,
-      contacts,
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/contact`,
+      'POST',
+      {
+        domain,
+        contacts,
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error updating domain contacts:', error);
@@ -398,9 +442,15 @@ export async function updateDomainContacts(
 /**
  * Get domain nameservers
  */
-export async function getDomainNameservers(domain: string): Promise<Record<string, unknown>> {
+export async function getDomainNameservers(
+  domain: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/nameservers`, 'GET', { domain });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/nameservers`,
+      'GET',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error getting nameservers:', error);
@@ -422,10 +472,14 @@ export async function updateDomainNameservers(
   }
 ): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/nameservers`, 'POST', {
-      domain,
-      nameservers,
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/nameservers`,
+      'POST',
+      {
+        domain,
+        nameservers,
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error updating nameservers:', error);
@@ -436,9 +490,15 @@ export async function updateDomainNameservers(
 /**
  * Get domain registrar lock status
  */
-export async function getDomainLock(domain: string): Promise<Record<string, unknown>> {
+export async function getDomainLock(
+  domain: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/lock`, 'GET', { domain });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/lock`,
+      'GET',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error getting domain lock:', error);
@@ -449,12 +509,19 @@ export async function getDomainLock(domain: string): Promise<Record<string, unkn
 /**
  * Update domain registrar lock
  */
-export async function updateDomainLock(domain: string, lock: boolean): Promise<Record<string, unknown>> {
+export async function updateDomainLock(
+  domain: string,
+  lock: boolean
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/lock`, 'POST', {
-      domain,
-      lockstatus: lock ? 'true' : 'false', // API expects string, not boolean
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/lock`,
+      'POST',
+      {
+        domain,
+        lockstatus: lock ? 'true' : 'false', // API expects string, not boolean
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error updating domain lock:', error);
@@ -465,9 +532,15 @@ export async function updateDomainLock(domain: string, lock: boolean): Promise<R
 /**
  * Sync domain details (status, expiry, etc.)
  */
-export async function syncDomainDetails(domain: string): Promise<Record<string, unknown>> {
+export async function syncDomainDetails(
+  domain: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/sync`, 'POST', { domain });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/sync`,
+      'POST',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error syncing domain:', error);
@@ -478,9 +551,15 @@ export async function syncDomainDetails(domain: string): Promise<Record<string, 
 /**
  * Sync transfer status for pending transfers
  */
-export async function syncDomainTransfer(domain: string): Promise<Record<string, unknown>> {
+export async function syncDomainTransfer(
+  domain: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/transfersync`, 'POST', { domain });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/transfersync`,
+      'POST',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error syncing transfer:', error);
@@ -491,9 +570,15 @@ export async function syncDomainTransfer(domain: string): Promise<Record<string,
 /**
  * Get DNS records for a domain
  */
-export async function getDomainDNSRecords(domain: string): Promise<Record<string, unknown>> {
+export async function getDomainDNSRecords(
+  domain: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/dns`, 'GET', { domain });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/dns`,
+      'GET',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error getting DNS records:', error);
@@ -509,10 +594,14 @@ export async function updateDomainDNSRecords(
   records: DNSRecord[]
 ): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/dns`, 'POST', {
-      domain,
-      records,
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/dns`,
+      'POST',
+      {
+        domain,
+        records,
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error updating DNS records:', error);
@@ -523,9 +612,15 @@ export async function updateDomainDNSRecords(
 /**
  * Get email forwarding configuration
  */
-export async function getDomainEmailForwarding(domain: string): Promise<Record<string, unknown>> {
+export async function getDomainEmailForwarding(
+  domain: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/emailforwarding`, 'GET', { domain });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/emailforwarding`,
+      'GET',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error getting email forwarding:', error);
@@ -541,10 +636,14 @@ export async function updateDomainEmailForwarding(
   forwards: EmailForward[]
 ): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/emailforwarding`, 'POST', {
-      domain,
-      forwards,
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/emailforwarding`,
+      'POST',
+      {
+        domain,
+        forwards,
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error updating email forwarding:', error);
@@ -555,9 +654,15 @@ export async function updateDomainEmailForwarding(
 /**
  * Get ID protection status
  */
-export async function getDomainIDProtection(domain: string): Promise<Record<string, unknown>> {
+export async function getDomainIDProtection(
+  domain: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/idprotection`, 'GET', { domain });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/idprotection`,
+      'GET',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error getting ID protection status:', error);
@@ -573,10 +678,14 @@ export async function updateDomainIDProtection(
   enabled: boolean
 ): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/idprotection`, 'POST', {
-      domain,
-      status: enabled ? 'enable' : 'disable',
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/idprotection`,
+      'POST',
+      {
+        domain,
+        status: enabled ? 'enable' : 'disable',
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error updating ID protection:', error);
@@ -608,11 +717,15 @@ export async function registerChildNameserver(
   ip: string
 ): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/nameservers/register`, 'POST', {
-      domain,
-      nameserver,
-      ipaddress: ip,
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/nameservers/register`,
+      'POST',
+      {
+        domain,
+        nameserver,
+        ipaddress: ip,
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error registering child nameserver:', error);
@@ -630,12 +743,16 @@ export async function modifyChildNameserver(
   newIp: string
 ): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/nameservers/modify`, 'POST', {
-      domain,
-      nameserver,
-      currentipaddress: currentIp,
-      newipaddress: newIp,
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/nameservers/modify`,
+      'POST',
+      {
+        domain,
+        nameserver,
+        currentipaddress: currentIp,
+        newipaddress: newIp,
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error modifying child nameserver:', error);
@@ -651,10 +768,14 @@ export async function deleteChildNameserver(
   nameserver: string
 ): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/nameservers/delete`, 'POST', {
-      domain,
-      nameserver,
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/nameservers/delete`,
+      'POST',
+      {
+        domain,
+        nameserver,
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error deleting child nameserver:', error);
@@ -670,14 +791,18 @@ export async function getDomainSuggestions(
   tlds: string[] = []
 ): Promise<DomainSuggestion[]> {
   try {
-    const result = await go54Request<DomainSuggestion[]>('/domains/lookup/suggestions', 'POST', {
-      searchTerm,
-      punyCodeSearchTerm: searchTerm,
-      tldsToInclude: tlds,
-      isIdnDomain: false,
-      premiumEnabled: false,
-      suggestionSettings: [],
-    });
+    const result = await go54Request<DomainSuggestion[]>(
+      '/domains/lookup/suggestions',
+      'POST',
+      {
+        searchTerm,
+        punyCodeSearchTerm: searchTerm,
+        tldsToInclude: tlds,
+        isIdnDomain: false,
+        premiumEnabled: false,
+        suggestionSettings: [],
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error getting domain suggestions:', error);
@@ -688,9 +813,15 @@ export async function getDomainSuggestions(
 /**
  * Request Domain Deletion
  */
-export async function requestDomainDelete(domain: string): Promise<Record<string, unknown>> {
+export async function requestDomainDelete(
+  domain: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/delete`, 'POST', { domain });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/delete`,
+      'POST',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error requesting domain delete:', error);
@@ -701,12 +832,19 @@ export async function requestDomainDelete(domain: string): Promise<Record<string
 /**
  * Release Domain (IPS Tag)
  */
-export async function releaseDomain(domain: string, transferTag: string): Promise<Record<string, unknown>> {
+export async function releaseDomain(
+  domain: string,
+  transferTag: string
+): Promise<Record<string, unknown>> {
   try {
-    const result = await go54Request<Record<string, unknown>>(`/domains/${domain}/release`, 'POST', {
-      domain,
-      transfertag: transferTag,
-    });
+    const result = await go54Request<Record<string, unknown>>(
+      `/domains/${domain}/release`,
+      'POST',
+      {
+        domain,
+        transfertag: transferTag,
+      }
+    );
     return result;
   } catch (error) {
     console.error('Error releasing domain:', error);
@@ -717,9 +855,15 @@ export async function releaseDomain(domain: string, transferTag: string): Promis
 /**
  * Get Detailed Domain Information
  */
-export async function getDomainInformation(domain: string): Promise<DomainInformation> {
+export async function getDomainInformation(
+  domain: string
+): Promise<DomainInformation> {
   try {
-    const result = await go54Request<DomainInformation>(`/domains/${domain}/information`, 'GET', { domain });
+    const result = await go54Request<DomainInformation>(
+      `/domains/${domain}/information`,
+      'GET',
+      { domain }
+    );
     return result;
   } catch (error) {
     console.error('Error getting domain information:', error);

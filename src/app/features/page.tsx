@@ -1,12 +1,20 @@
+import {
+  BarChart,
+  Globe,
+  Palette,
+  ShoppingBag,
+  Smartphone,
+  Zap,
+} from 'lucide-react';
+import type { Metadata } from 'next';
 import AppBody from '@/components/app-body';
-import { PlatformHeader } from '@/components/platform/header';
 import { PlatformFooter } from '@/components/platform/footer';
-import { Zap, Palette, ShoppingBag, BarChart, Smartphone, Globe } from 'lucide-react';
-import { Metadata } from 'next';
+import { PlatformHeader } from '@/components/platform/header';
 
 export const metadata: Metadata = {
   title: 'Features - Baci',
-  description: 'Explore the powerful features that make Baci the best AI e-commerce builder.',
+  description:
+    'Explore the powerful features that make Baci the best AI e-commerce builder.',
 };
 
 export default function FeaturesPage() {
@@ -67,6 +75,7 @@ export default function FeaturesPage() {
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {features.map((feature, i) => (
                 <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: List is static
                   key={i}
                   className="p-8 rounded-2xl border border-border bg-card hover:shadow-lg transition-shadow"
                 >

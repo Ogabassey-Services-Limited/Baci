@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useCurrency } from '@/hooks/use-currency';
-import { useCart } from '@/hooks/use-cart';
-import { useToast } from '@/hooks/use-toast';
-import { Product, ProductVariant } from '@/lib/products';
+import { ChevronUp, ShoppingCart } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
-import { ShoppingCart, ChevronUp } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { QuantityButton } from '@/components/ui/animated-icons';
+import { useCart } from '@/hooks/use-cart';
+import { useCurrency } from '@/hooks/use-currency';
+import { useToast } from '@/hooks/use-toast';
+import type { Product, ProductVariant } from '@/lib/products';
+import { cn } from '@/lib/utils';
 
 interface StickyAddToCartProps {
   /** Product to add to cart */
@@ -105,10 +105,16 @@ export function StickyAddToCart({
       ? { ...product, price: currentPrice }
       : product;
 
-    addToCart(productToAdd, quantity, selectedVariant ? {
-      variantId: selectedVariant.id,
-      variantAttributes: selectedAttributes || {}
-    } : undefined);
+    addToCart(
+      productToAdd,
+      quantity,
+      selectedVariant
+        ? {
+            variantId: selectedVariant.id,
+            variantAttributes: selectedAttributes || {},
+          }
+        : undefined
+    );
 
     const variantInfo = selectedVariant
       ? ` (${Object.values(selectedAttributes || {}).join(', ')})`
@@ -135,6 +141,7 @@ export function StickyAddToCart({
     >
       {/* Scroll to top button */}
       <button
+        type="button"
         onClick={scrollToTop}
         className={cn(
           'absolute -top-12 right-4 w-10 h-10 rounded-full',
@@ -167,14 +174,28 @@ export function StickyAddToCart({
               <div className="flex items-center gap-2">
                 <QuantityButton
                   type="minus"
-                  onClick={() => updateQuantity(product.id, cartItem.quantity - 1, selectedVariant?.id)}
+                  onClick={() =>
+                    updateQuantity(
+                      product.id,
+                      cartItem.quantity - 1,
+                      selectedVariant?.id
+                    )
+                  }
                   disabled={cartItem.quantity <= 1}
                   className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
                 />
-                <span className="w-8 text-center font-medium">{cartItem.quantity}</span>
+                <span className="w-8 text-center font-medium">
+                  {cartItem.quantity}
+                </span>
                 <QuantityButton
                   type="plus"
-                  onClick={() => updateQuantity(product.id, cartItem.quantity + 1, selectedVariant?.id)}
+                  onClick={() =>
+                    updateQuantity(
+                      product.id,
+                      cartItem.quantity + 1,
+                      selectedVariant?.id
+                    )
+                  }
                   className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
                 />
               </div>
@@ -188,7 +209,9 @@ export function StickyAddToCart({
                     disabled={quantity <= (product.minimum_order_quantity || 1)}
                     className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full"
                   />
-                  <span className="w-6 text-center text-sm font-medium">{quantity}</span>
+                  <span className="w-6 text-center text-sm font-medium">
+                    {quantity}
+                  </span>
                   <QuantityButton
                     type="plus"
                     onClick={() => handleQuantityChange(quantity + 1)}

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { X, Mail, Gift, Loader2 } from 'lucide-react';
+import { Gift, Loader2, Mail, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const NEWSLETTER_DISMISSED_KEY = 'baci-newsletter-dismissed';
 const NEWSLETTER_SUBSCRIBED_KEY = 'baci-newsletter-subscribed';
@@ -56,7 +56,8 @@ export function NewsletterWidget({
     if (dismissed) {
       // Check if dismissal was more than 7 days ago
       const dismissedDate = new Date(dismissed);
-      const daysSinceDismissed = (Date.now() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
+      const daysSinceDismissed =
+        (Date.now() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
       if (daysSinceDismissed < 7) {
         return;
       }
@@ -118,7 +119,8 @@ export function NewsletterWidget({
 
       toast({
         title: 'Welcome!',
-        description: 'Thank you for subscribing. Check your email for your discount code!',
+        description:
+          'Thank you for subscribing. Check your email for your discount code!',
       });
     } catch {
       toast({
@@ -142,6 +144,7 @@ export function NewsletterWidget({
   if (isMinimized) {
     return (
       <button
+        type="button"
         onClick={handleExpand}
         className={cn(
           'fixed z-40 w-12 h-12 rounded-full shadow-lg',
@@ -166,7 +169,7 @@ export function NewsletterWidget({
 
   // Full widget
   return (
-    <div
+    <aside
       className={cn(
         'fixed z-40 w-80 max-w-[calc(100vw-2rem)]',
         'bg-background border border-border rounded-xl shadow-xl',
@@ -177,26 +180,33 @@ export function NewsletterWidget({
       style={{
         contain: 'layout style paint',
       }}
-      role="complementary"
       aria-label="Newsletter signup"
     >
       {/* Close and minimize buttons */}
       <div className="absolute top-2 right-2 flex gap-1">
         <button
+          type="button"
           onClick={handleMinimize}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="Minimize"
         >
           <svg
+            aria-hidden="true"
             className="w-4 h-4"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M20 12H4"
+            />
           </svg>
         </button>
         <button
+          type="button"
           onClick={handleDismiss}
           className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           aria-label="Close newsletter signup"
@@ -264,6 +274,6 @@ export function NewsletterWidget({
           No spam, unsubscribe anytime.
         </p>
       </div>
-    </div>
+    </aside>
   );
 }

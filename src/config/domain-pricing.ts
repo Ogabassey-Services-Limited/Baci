@@ -154,7 +154,10 @@ export const RESALE_MARKUP = {
   premium: 1.2, // 20% markup
 };
 
-export function getResalePrice(cost: number, category: DomainPricing['category']): number {
+export function getResalePrice(
+  cost: number,
+  category: DomainPricing['category']
+): number {
   return Math.ceil(cost * RESALE_MARKUP[category]);
 }
 
@@ -182,9 +185,10 @@ export function calculateDomainPrice(tld: string, years: number = 1) {
   const pricing = getDomainPricing(tld);
   if (!pricing) return null;
 
-  const costPrice = pricing.registration + (pricing.renewal * (years - 1));
-  const sellPrice = getResalePrice(pricing.registration, pricing.category) +
-                    (getResalePrice(pricing.renewal, pricing.category) * (years - 1));
+  const costPrice = pricing.registration + pricing.renewal * (years - 1);
+  const sellPrice =
+    getResalePrice(pricing.registration, pricing.category) +
+    getResalePrice(pricing.renewal, pricing.category) * (years - 1);
   const profit = sellPrice - costPrice;
 
   return {

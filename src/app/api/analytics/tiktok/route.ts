@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { tiktokEventsAPI } from '@/lib/tiktok-events-api';
 import type { TikTokUserData } from '@/lib/tiktok-events-api';
+import { tiktokEventsAPI } from '@/lib/tiktok-events-api';
 
 /**
  * TikTok Events API Endpoint
@@ -59,7 +59,10 @@ export async function POST(request: NextRequest) {
 
     if (merchantError || !merchant) {
       console.error('Failed to fetch merchant:', merchantError);
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const pixelId = merchant.tiktok_pixel_id as string | null;
@@ -88,7 +91,7 @@ export async function POST(request: NextRequest) {
     };
 
     const currency = eventData.currency || 'NGN';
-    let result;
+    let result: { success: boolean; error?: string };
 
     switch (event) {
       case 'purchase':

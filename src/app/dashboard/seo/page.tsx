@@ -1,25 +1,40 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Progress } from '@/components/ui/progress';
 import {
-  // Search,
-  Sparkles,
   CheckCircle2,
-  // AlertTriangle,
-  XCircle,
-  Loader2,
-  RefreshCw,
   // Wand2,
   FileText,
+  // Loader2,
+  RefreshCw,
+  // Search,
+  Sparkles,
   Tag,
   Target,
+  // AlertTriangle,
+  XCircle,
 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
 // import Image from 'next/image';
 
 interface ProductSEO {
@@ -66,11 +81,7 @@ function ScoreBadge({ score }: { score: number }) {
   else if (score >= 60) color = 'bg-yellow-100 text-yellow-800';
   else if (score >= 40) color = 'bg-orange-100 text-orange-800';
 
-  return (
-    <Badge className={color}>
-      {score}%
-    </Badge>
-  );
+  return <Badge className={color}>{score}%</Badge>;
 }
 
 function StatusIcon({ hasValue }: { hasValue: boolean }) {
@@ -90,11 +101,7 @@ export default function SEOOptimizerPage() {
   const [optimizing, setOptimizing] = useState(false);
   const [showOptimized, setShowOptimized] = useState(false);
 
-  useEffect(() => {
-    fetchSEOStatus();
-  }, []);
-
-  async function fetchSEOStatus() {
+  const fetchSEOStatus = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/ai/seo-optimizer');
@@ -108,7 +115,11 @@ export default function SEOOptimizerPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    fetchSEOStatus();
+  }, [fetchSEOStatus]);
 
   async function optimizeSelected() {
     if (selectedProducts.length === 0) return;
@@ -145,7 +156,7 @@ export default function SEOOptimizerPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          productIds: optimizations.map(o => o.productId),
+          productIds: optimizations.map((o) => o.productId),
           options: { autoApply: true },
         }),
       });
@@ -165,22 +176,22 @@ export default function SEOOptimizerPage() {
   }
 
   function toggleProduct(productId: string) {
-    setSelectedProducts(prev =>
+    setSelectedProducts((prev) =>
       prev.includes(productId)
-        ? prev.filter(id => id !== productId)
+        ? prev.filter((id) => id !== productId)
         : [...prev, productId]
     );
   }
 
   function selectAll() {
-    const needsWork = products.filter(p => p.seoScore < 100);
-    setSelectedProducts(needsWork.map(p => p.productId));
+    const needsWork = products.filter((p) => p.seoScore < 100);
+    setSelectedProducts(needsWork.map((p) => p.productId));
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BagLoader size={32} />
       </div>
     );
   }
@@ -204,7 +215,7 @@ export default function SEOOptimizerPage() {
             disabled={selectedProducts.length === 0 || optimizing}
           >
             {optimizing ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <BagLoader size={16} />
             ) : (
               <Sparkles className="h-4 w-4 mr-2" />
             )}
@@ -218,21 +229,29 @@ export default function SEOOptimizerPage() {
         <div className="grid gap-4 md:grid-cols-5">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Average Score</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Average Score
+              </CardTitle>
               <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{summary.averageSEOScore}%</div>
+              <div className="text-2xl font-bold">
+                {summary.averageSEOScore}%
+              </div>
               <Progress value={summary.averageSEOScore} className="mt-2" />
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Fully Optimized</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Fully Optimized
+              </CardTitle>
               <CheckCircle2 className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{summary.fullyOptimized}</div>
+              <div className="text-2xl font-bold text-green-600">
+                {summary.fullyOptimized}
+              </div>
               <p className="text-xs text-muted-foreground">
                 of {summary.totalProducts} products
               </p>
@@ -240,29 +259,41 @@ export default function SEOOptimizerPage() {
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Missing Titles</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Missing Titles
+              </CardTitle>
               <FileText className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{summary.missingTitle}</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {summary.missingTitle}
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Missing Descriptions</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Missing Descriptions
+              </CardTitle>
               <FileText className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{summary.missingDescription}</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {summary.missingDescription}
+              </div>
             </CardContent>
           </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Missing Keywords</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Missing Keywords
+              </CardTitle>
               <Tag className="h-4 w-4 text-orange-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{summary.missingKeywords}</div>
+              <div className="text-2xl font-bold text-orange-600">
+                {summary.missingKeywords}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -283,11 +314,14 @@ export default function SEOOptimizerPage() {
                 </CardDescription>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setShowOptimized(false)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowOptimized(false)}
+                >
                   Cancel
                 </Button>
                 <Button onClick={applyOptimizations} disabled={optimizing}>
-                  {optimizing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {optimizing && <BagLoader size={16} />}
                   Apply All
                 </Button>
               </div>
@@ -295,7 +329,10 @@ export default function SEOOptimizerPage() {
           </CardHeader>
           <CardContent className="space-y-6">
             {optimizations.map((opt) => (
-              <div key={opt.productId} className="border rounded-lg p-4 space-y-4">
+              <div
+                key={opt.productId}
+                className="border rounded-lg p-4 space-y-4"
+              >
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">{opt.productName}</h3>
                   <ScoreBadge score={opt.optimized.seo_score} />
@@ -303,43 +340,71 @@ export default function SEOOptimizerPage() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <div className="text-sm font-medium text-muted-foreground">Original</div>
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Original
+                    </div>
                     <div className="p-3 bg-gray-50 rounded space-y-2">
                       <div>
-                        <span className="text-xs text-muted-foreground">Title: </span>
-                        <span className="text-sm">{opt.original.meta_title || <em>None</em>}</span>
+                        <span className="text-xs text-muted-foreground">
+                          Title:{' '}
+                        </span>
+                        <span className="text-sm">
+                          {opt.original.meta_title || <em>None</em>}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-xs text-muted-foreground">Description: </span>
-                        <span className="text-sm">{opt.original.meta_description || <em>None</em>}</span>
+                        <span className="text-xs text-muted-foreground">
+                          Description:{' '}
+                        </span>
+                        <span className="text-sm">
+                          {opt.original.meta_description || <em>None</em>}
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-sm font-medium text-green-600">Optimized</div>
+                    <div className="text-sm font-medium text-green-600">
+                      Optimized
+                    </div>
                     <div className="p-3 bg-green-50 rounded space-y-2">
                       <div>
-                        <span className="text-xs text-muted-foreground">Title: </span>
-                        <span className="text-sm font-medium">{opt.optimized.meta_title}</span>
+                        <span className="text-xs text-muted-foreground">
+                          Title:{' '}
+                        </span>
+                        <span className="text-sm font-medium">
+                          {opt.optimized.meta_title}
+                        </span>
                         <span className="text-xs text-muted-foreground ml-2">
                           ({opt.optimized.meta_title.length} chars)
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-muted-foreground">Description: </span>
-                        <span className="text-sm">{opt.optimized.meta_description}</span>
+                        <span className="text-xs text-muted-foreground">
+                          Description:{' '}
+                        </span>
+                        <span className="text-sm">
+                          {opt.optimized.meta_description}
+                        </span>
                         <span className="text-xs text-muted-foreground ml-2">
                           ({opt.optimized.meta_description.length} chars)
                         </span>
                       </div>
                       <div>
-                        <span className="text-xs text-muted-foreground">Focus Keyword: </span>
-                        <Badge variant="outline">{opt.optimized.focus_keyword}</Badge>
+                        <span className="text-xs text-muted-foreground">
+                          Focus Keyword:{' '}
+                        </span>
+                        <Badge variant="outline">
+                          {opt.optimized.focus_keyword}
+                        </Badge>
                       </div>
                       <div className="flex flex-wrap gap-1">
-                        {opt.optimized.keywords.map((kw, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
+                        {opt.optimized.keywords.map((kw) => (
+                          <Badge
+                            key={kw}
+                            variant="secondary"
+                            className="text-xs"
+                          >
                             {kw}
                           </Badge>
                         ))}
@@ -381,7 +446,7 @@ export default function SEOOptimizerPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="w-12" />
                 <TableHead>Product</TableHead>
                 <TableHead>Score</TableHead>
                 <TableHead className="text-center">Title</TableHead>
@@ -394,7 +459,11 @@ export default function SEOOptimizerPage() {
               {products.map((product) => (
                 <TableRow
                   key={product.productId}
-                  className={selectedProducts.includes(product.productId) ? 'bg-primary/5' : ''}
+                  className={
+                    selectedProducts.includes(product.productId)
+                      ? 'bg-primary/5'
+                      : ''
+                  }
                 >
                   <TableCell>
                     <Checkbox
@@ -421,8 +490,12 @@ export default function SEOOptimizerPage() {
                   <TableCell>
                     {product.issues.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {product.issues.slice(0, 2).map((issue, i) => (
-                          <Badge key={i} variant="outline" className="text-xs">
+                        {product.issues.slice(0, 2).map((issue) => (
+                          <Badge
+                            key={issue}
+                            variant="outline"
+                            className="text-xs"
+                          >
                             {issue}
                           </Badge>
                         ))}
@@ -440,7 +513,10 @@ export default function SEOOptimizerPage() {
               ))}
               {products.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-8 text-muted-foreground"
+                  >
                     No products found
                   </TableCell>
                 </TableRow>

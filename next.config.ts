@@ -1,5 +1,5 @@
-import type { NextConfig } from "next";
 import bundleAnalyzer from '@next/bundle-analyzer';
+import type { NextConfig } from 'next';
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
@@ -41,6 +41,11 @@ const nextConfig: NextConfig = {
         hostname: 'picsum.photos',
       },
       {
+        // Placeholder images for development/previews
+        protocol: 'https',
+        hostname: 'placehold.co',
+      },
+      {
         protocol: 'https',
         hostname: 'avatars.githubusercontent.com',
       },
@@ -60,7 +65,16 @@ const nextConfig: NextConfig = {
         // Supabase storage for merchant images
         protocol: 'https',
         hostname: '*.supabase.co',
-      }
+      },
+      {
+        protocol: 'https',
+        hostname: '*.googleusercontent.com',
+      },
+      {
+        // Google static content (logos, icons)
+        protocol: 'https',
+        hostname: 'www.gstatic.com',
+      },
     ],
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
@@ -75,8 +89,8 @@ const nextConfig: NextConfig = {
     // Replaces <link> tags with <style> tags for faster FCP/LCP
     inlineCss: true,
 
-    // Enable optimized CSS bundling
-    optimizeCss: false,
+    // Note: optimizeCss is disabled as it relies on Critters and is
+    // incompatible with App Router streaming. Use stable CSS pipeline instead.
 
     // Server Actions configuration
     serverActions: {
@@ -104,14 +118,14 @@ const nextConfig: NextConfig = {
     ],
 
     // Enable Turbopack file system caching for faster dev rebuilds (Next.js 16 beta)
-    turbopackFileSystemCacheForDev: true,
+    // turbopackFileSystemCacheForDev: true,
   },
 
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
 
   // Security headers
-  async headers() {
+  headers() {
     return [
       {
         source: '/(.*)',

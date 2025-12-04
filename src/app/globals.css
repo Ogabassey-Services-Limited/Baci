@@ -117,18 +117,18 @@
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
   input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset !important;
-    -webkit-text-fill-color: hsl(var(--foreground)) !important;
-    caret-color: hsl(var(--primary)) !important;
-    transition: background-color 5000s ease-in-out 0s;
+    -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset;
+    -webkit-text-fill-color: hsl(var(--foreground));
+    caret-color: hsl(var(--primary));
+    transition: background-color 9999s ease-in-out 0s;
   }
 
   .dark input:-webkit-autofill,
   .dark input:-webkit-autofill:hover,
   .dark input:-webkit-autofill:focus,
   .dark input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset !important;
-    -webkit-text-fill-color: hsl(var(--foreground)) !important;
+    -webkit-box-shadow: 0 0 0 30px hsl(var(--background)) inset;
+    -webkit-text-fill-color: hsl(var(--foreground));
   }
 
   /* Force pointer cursor on ALL clickable elements */
@@ -143,7 +143,7 @@
   input[type="checkbox"],
   input[type="radio"],
   .cursor-pointer {
-    cursor: pointer !important;
+    cursor: pointer;
   }
 
   /* Force pointer on all children of clickable elements */
@@ -154,7 +154,7 @@
   [type="submit"] *,
   [type="reset"] *,
   label[for] * {
-    cursor: inherit !important;
+    cursor: inherit;
   }
 
   /* Disabled state */
@@ -162,7 +162,7 @@
   button:disabled,
   [type="button"]:disabled,
   [type="submit"]:disabled {
-    cursor: not-allowed !important;
+    cursor: not-allowed;
   }
 
   /* Animations */
@@ -199,10 +199,10 @@
     *,
     *::before,
     *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
+      animation-duration: 0.01ms;
+      animation-iteration-count: 1;
+      transition-duration: 0.01ms;
+      scroll-behavior: auto;
     }
 
     .animate-fade-in {
@@ -542,9 +542,9 @@
     .animate-spin-optimized,
     .animate-checkmark,
     .animate-highlight {
-      animation: none !important;
-      opacity: 1 !important;
-      transform: none !important;
+      animation: none;
+      opacity: 1;
+      transform: none;
     }
 
     .skeleton-shimmer {
@@ -843,16 +843,16 @@
 
     .glass,
     .glass-themed {
-      background: white !important;
-      backdrop-filter: none !important;
-      box-shadow: none !important;
+      background: white;
+      backdrop-filter: none;
+      box-shadow: none;
     }
 
     .animate-fade-in-up,
     .animate-fade-in-scale,
     .hover-lift {
-      animation: none !important;
-      transform: none !important;
+      animation: none;
+      transform: none;
     }
   }
 }

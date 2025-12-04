@@ -1,11 +1,11 @@
 'use client';
 
-import { useLoyalty } from '@/hooks/use-loyalty';
+import { ArrowRight, Sparkles, Trophy } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sparkles, Trophy, ArrowRight } from 'lucide-react';
+import { useLoyalty } from '@/hooks/use-loyalty';
 
 interface LoyaltyStatusCardProps {
   merchantId: string;
@@ -49,8 +49,18 @@ export function LoyaltyStatusCard({
 
   const tierInfo = getTierInfo(tier);
   const progressPercentage = nextTier
-    ? Math.min(100, ((data.lifetime_points - (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] || 0)) /
-      (pointsToNextTier + (data.lifetime_points - (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] || 0)))) * 100)
+    ? Math.min(
+        100,
+        ((data.lifetime_points -
+          (data.tier_thresholds[tier as keyof typeof data.tier_thresholds] ||
+            0)) /
+          (pointsToNextTier +
+            (data.lifetime_points -
+              (data.tier_thresholds[
+                tier as keyof typeof data.tier_thresholds
+              ] || 0)))) *
+          100
+      )
     : 100;
 
   if (compact) {
@@ -61,9 +71,13 @@ export function LoyaltyStatusCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-lg">{pointsBalance.toLocaleString()}</span>
+            <span className="font-semibold text-lg">
+              {pointsBalance.toLocaleString()}
+            </span>
             <span className="text-sm text-muted-foreground">points</span>
-            <Badge className={`${tierInfo.colors.bg} ${tierInfo.colors.text} ml-auto`}>
+            <Badge
+              className={`${tierInfo.colors.bg} ${tierInfo.colors.text} ml-auto`}
+            >
               {tier.charAt(0).toUpperCase() + tier.slice(1)}
             </Badge>
           </div>
@@ -85,7 +99,9 @@ export function LoyaltyStatusCard({
             <Trophy className="h-5 w-5" />
             <span className="font-medium">Rewards Member</span>
           </div>
-          <Badge className={`${tierInfo.colors.bg} ${tierInfo.colors.text} ${tierInfo.colors.border} border`}>
+          <Badge
+            className={`${tierInfo.colors.bg} ${tierInfo.colors.text} ${tierInfo.colors.border} border`}
+          >
             {tier.charAt(0).toUpperCase() + tier.slice(1)}
           </Badge>
         </div>
@@ -93,15 +109,21 @@ export function LoyaltyStatusCard({
 
       <CardContent className="pt-4">
         <div className="text-center mb-4">
-          <div className="text-3xl font-bold">{pointsBalance.toLocaleString()}</div>
+          <div className="text-3xl font-bold">
+            {pointsBalance.toLocaleString()}
+          </div>
           <div className="text-sm text-muted-foreground">Available Points</div>
         </div>
 
         {nextTier && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progress to {nextTier}</span>
-              <span className="font-medium">{pointsToNextTier.toLocaleString()} pts to go</span>
+              <span className="text-muted-foreground">
+                Progress to {nextTier}
+              </span>
+              <span className="font-medium">
+                {pointsToNextTier.toLocaleString()} pts to go
+              </span>
             </div>
             <Progress value={progressPercentage} className="h-2" />
           </div>
@@ -110,7 +132,9 @@ export function LoyaltyStatusCard({
         <div className="mt-4 pt-4 border-t">
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Lifetime Points</span>
-            <span className="font-medium">{data.lifetime_points.toLocaleString()}</span>
+            <span className="font-medium">
+              {data.lifetime_points.toLocaleString()}
+            </span>
           </div>
         </div>
 
@@ -119,11 +143,10 @@ export function LoyaltyStatusCard({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-green-800">
-                  {data.redeemable_rewards.length} reward{data.redeemable_rewards.length > 1 ? 's' : ''} available!
+                  {data.redeemable_rewards.length} reward
+                  {data.redeemable_rewards.length > 1 ? 's' : ''} available!
                 </p>
-                <p className="text-xs text-green-600">
-                  Redeem your points now
-                </p>
+                <p className="text-xs text-green-600">Redeem your points now</p>
               </div>
               <ArrowRight className="h-4 w-4 text-green-600" />
             </div>

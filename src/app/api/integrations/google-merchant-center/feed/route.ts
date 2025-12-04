@@ -1,27 +1,28 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(_request: Request) {
-    const supabase = createRouteHandlerClient({ cookies });
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://baci.app';
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://baci.app';
 
-    try {
-        // Fetch active products with all necessary fields
-        const { data: products, error } = await supabase
-            .from('products')
-            .select('*')
-            .eq('status', 'active');
+  try {
+    // Fetch active products with all necessary fields
+    const { data: products, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('status', 'active');
 
-        if (error) {
-            console.error('Error fetching products for feed:', error);
-            return new NextResponse('Error generating feed', { status: 500 });
-        }
+    if (error) {
+      console.error('Error fetching products for feed:', error);
+      return new NextResponse('Error generating feed', { status: 500 });
+    }
 
-        // Start building XML
-        let xml = `<?xml version="1.0"?>
+    // Start building XML
+    let xml = `<?xml version="1.0"?>
 <rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
 <channel>
 <title>Baci Store Products</title>
@@ -29,16 +30,19 @@ export async function GET(_request: Request) {
 <description>Product feed for Google Merchant Center</description>
 `;
 
-        for (const product of products) {
-            // Skip products without essential data
-            if (!product.name || !product.price) continue;
+    for (const product of products) {
+      // Skip products without essential data
+      if (!product.name || !product.price) continue;
 
-            const link = `${siteUrl}/products/${product.slug || product.id}`;
-            const imageLink = product.image || '';
-            const availability = product.manage_stock && product.stock <= 0 ? 'out of stock' : 'in stock';
-            const price = `${product.price} USD`; // Assuming USD for now
+      const link = `${siteUrl}/products/${product.slug || product.id}`;
+      const imageLink = product.image || '';
+      const availability =
+        product.manage_stock && product.stock <= 0
+          ? 'out of stock'
+          : 'in stock';
+      const price = `${product.price} USD`; // Assuming USD for now
 
-            xml += `
+      xml += `
 <item>
   <g:id>${product.sku || product.id}</g:id>
   <g:title><![CDATA[${product.name}]]></g:title>
@@ -54,20 +58,20 @@ export async function GET(_request: Request) {
   ${product.google_product_category ? `<g:google_product_category><![CDATA[${product.google_product_category}]]></g:google_product_category>` : ''}
   ${product.weight_value ? `<g:shipping_weight>${product.weight_value} ${product.weight_unit || 'kg'}</g:shipping_weight>` : ''}
 </item>`;
-        }
+    }
 
-        xml += `
+    xml += `
 </channel>
 </rss>`;
 
-        return new NextResponse(xml, {
-            headers: {
-                'Content-Type': 'application/xml',
-                'Cache-Control': 's-maxage=3600, stale-while-revalidate',
-            },
-        });
-    } catch (err) {
-        console.error('Unexpected error generating feed:', err);
-        return new NextResponse('Internal Server Error', { status: 500 });
-    }
+    return new NextResponse(xml, {
+      headers: {
+        'Content-Type': 'application/xml',
+        'Cache-Control': 's-maxage=3600, stale-while-revalidate',
+      },
+    });
+  } catch (err) {
+    console.error('Unexpected error generating feed:', err);
+    return new NextResponse('Internal Server Error', { status: 500 });
+  }
 }

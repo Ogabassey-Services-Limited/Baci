@@ -1,13 +1,11 @@
-
-
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/logger';
-import type { User } from '@supabase/supabase-js';
-import type { BrandColors } from '@/types';
+import { createClient } from '@/lib/supabase/server';
 import { onboardingSchema } from '@/schemas/onboarding';
+import type { BrandColors } from '@/types';
 
 export type ServerActionState = {
   message: string;
@@ -16,12 +14,11 @@ export type ServerActionState = {
   merchantId?: string;
   errors?: {
     fieldErrors: Record<string, string[] | undefined>;
-  }
+  };
 };
 
-
 export async function submitOnboarding(
-  prevState: ServerActionState,
+  _prevState: ServerActionState,
   formData: FormData
 ): Promise<ServerActionState> {
   const cookieStore = await cookies();
@@ -35,9 +32,18 @@ export async function submitOnboarding(
   const validationResult = onboardingSchema.safeParse(rawFormData);
 
   if (!validationResult.success) {
-    const errorMessage = validationResult.error.issues.map(e => e.message).join(', ');
-    logger.error({ message: 'Server-side validation failed', errors: validationResult.error.flatten() });
-    return { success: false, message: `Form is incomplete: ${errorMessage}`, errors: validationResult.error.flatten() };
+    const errorMessage = validationResult.error.issues
+      .map((e) => e.message)
+      .join(', ');
+    logger.error({
+      message: 'Server-side validation failed',
+      errors: validationResult.error.flatten(),
+    });
+    return {
+      success: false,
+      message: `Form is incomplete: ${errorMessage}`,
+      errors: validationResult.error.flatten(),
+    };
   }
 
   const {
@@ -50,79 +56,125 @@ export async function submitOnboarding(
     brandColors: brandColorsString,
   } = validationResult.data;
 
-  const brandColors: BrandColors | null = brandColorsString ? JSON.parse(brandColorsString) : null;
+  const brandColors: BrandColors | null = brandColorsString
+    ? JSON.parse(brandColorsString)
+    : null;
 
-  logger.info({ message: 'Form data validated successfully', data: validationResult.data });
+  logger.info({
+    message: 'Form data validated successfully',
+    data: validationResult.data,
+  });
 
   try {
     // 1. Handle user authentication and creation
     logger.info({ message: 'Checking for existing session...' });
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     if (session) {
       user = session.user;
       logger.info({ message: 'User session found', userId: user.id });
     } else if (password) {
-      logger.info({ message: 'No session, attempting to sign in with password...' });
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      logger.info({
+        message: 'No session, attempting to sign in with password...',
+      });
+      const { data: signInData, error: signInError } =
+        await supabase.auth.signInWithPassword({ email, password });
 
       if (signInError) {
         if (signInError.message.includes('Invalid login credentials')) {
-          logger.warn({ message: 'Sign in failed, attempting to sign up and then sign in.' });
+          logger.warn({
+            message: 'Sign in failed, attempting to sign up and then sign in.',
+          });
 
           // Step 1: Sign up the user with email confirmation disabled
-          const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/auth/callback`,
-            }
-          });
+          const { data: signUpData, error: signUpError } =
+            await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                emailRedirectTo: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/auth/callback`,
+              },
+            });
           if (signUpError) {
             logger.error({ message: 'Sign up failed', error: signUpError });
             throw signUpError;
           }
-          if (!signUpData.user) throw new Error('Sign up succeeded but no user object was returned.');
+          if (!signUpData.user)
+            throw new Error(
+              'Sign up succeeded but no user object was returned.'
+            );
 
           // Check if we got a session from signUp
           if (signUpData.session) {
             user = signUpData.user;
-            logger.info({ message: 'User signed up and logged in immediately', userId: user.id });
+            logger.info({
+              message: 'User signed up and logged in immediately',
+              userId: user.id,
+            });
           } else {
-            logger.warn({ message: 'User signed up but no session created (email confirmation may be required)', userId: signUpData.user.id });
+            logger.warn({
+              message:
+                'User signed up but no session created (email confirmation may be required)',
+              userId: signUpData.user.id,
+            });
 
             // Try to sign in anyway - this will fail if email confirmation is required
-            const { data: newSignInData, error: newSignInError } = await supabase.auth.signInWithPassword({ email, password });
+            const { data: newSignInData, error: newSignInError } =
+              await supabase.auth.signInWithPassword({ email, password });
             if (newSignInError) {
-              logger.error({ message: 'Sign in after sign up failed', error: newSignInError });
-              throw new Error('Account created but email confirmation may be required. Please check your email and try logging in.');
+              logger.error({
+                message: 'Sign in after sign up failed',
+                error: newSignInError,
+              });
+              throw new Error(
+                'Account created but email confirmation may be required. Please check your email and try logging in.'
+              );
             }
             user = newSignInData.user;
-            logger.info({ message: 'User signed in successfully after sign up', userId: user?.id });
+            logger.info({
+              message: 'User signed in successfully after sign up',
+              userId: user?.id,
+            });
           }
-
         } else {
-          logger.error({ message: 'Sign in failed with an unexpected error', error: signInError });
+          logger.error({
+            message: 'Sign in failed with an unexpected error',
+            error: signInError,
+          });
           throw signInError;
         }
       } else {
         user = signInData.user;
-        logger.info({ message: 'User signed in successfully', userId: user?.id });
+        logger.info({
+          message: 'User signed in successfully',
+          userId: user?.id,
+        });
       }
     }
 
     if (!user) {
       logger.error({ message: 'Authentication failed, user object is null.' });
-      throw new Error("Authentication failed. Please try again.");
+      throw new Error('Authentication failed. Please try again.');
     }
 
     // 2. Ensure branding info exists
     if (!logoDataUri || !brandColors) {
-      logger.error({ message: 'Branding information is missing', hasLogo: !!logoDataUri, hasColors: !!brandColors });
-      throw new Error('Missing branding information. Please ensure a logo is processed.');
+      logger.error({
+        message: 'Branding information is missing',
+        hasLogo: !!logoDataUri,
+        hasColors: !!brandColors,
+      });
+      throw new Error(
+        'Missing branding information. Please ensure a logo is processed.'
+      );
     }
 
     // 3. Create or update the merchant record
-    const finalBusinessType = businessType === 'other' ? (otherBusinessType || businessType) : businessType;
+    const finalBusinessType =
+      businessType === 'other'
+        ? otherBusinessType || businessType
+        : businessType;
 
     // Generate URL-safe slug from business name
     const generateSlug = (name: string): string => {
@@ -142,13 +194,24 @@ export async function submitOnboarding(
       business_name: businessName,
       business_type: finalBusinessType,
       logo_url: logoDataUri,
-      brand_colors: { primary: brandColors.primary, background: brandColors.background, accent: brandColors.accent },
+      brand_colors: {
+        primary: brandColors.primary,
+        background: brandColors.background,
+        accent: brandColors.accent,
+      },
       slug: baseSlug,
     };
 
-    logger.info({ message: 'Attempting to upsert merchant data...', payload: merchantPayload });
+    logger.info({
+      message: 'Attempting to upsert merchant data...',
+      payload: merchantPayload,
+    });
 
-    const { data: merchantData, error: merchantError } = await supabase.from('merchants').upsert(merchantPayload, { onConflict: 'user_id' }).select().single();
+    const { data: merchantData, error: merchantError } = await supabase
+      .from('merchants')
+      .upsert(merchantPayload, { onConflict: 'user_id' })
+      .select()
+      .single();
 
     if (merchantError) {
       logger.error({ message: 'Supabase upsert failed', error: merchantError });
@@ -161,6 +224,44 @@ export async function submitOnboarding(
     }
 
     logger.info({ message: 'Merchant data saved successfully', merchantData });
+
+    // 3.5. Assign AI-generated hero images to merchant
+    try {
+      const { assignHeroImagesToMerchant } = await import(
+        '@/services/hero-image-generator'
+      );
+      const category = finalBusinessType.toLowerCase();
+
+      logger.info({
+        message: 'Assigning hero images to merchant',
+        merchantId: merchantData.id,
+        category,
+      });
+
+      const assignResult = await assignHeroImagesToMerchant(
+        merchantData.id,
+        category
+      );
+
+      if (assignResult.success) {
+        logger.info({
+          message: 'Hero images assigned successfully',
+          imageIds: assignResult.imageIds,
+        });
+      } else {
+        logger.warn({
+          message: 'Failed to assign hero images',
+          error: assignResult.error,
+        });
+        // Don't fail onboarding if hero image assignment fails
+      }
+    } catch (heroImageError) {
+      logger.error({
+        message: 'Exception while assigning hero images',
+        error: heroImageError,
+      });
+      // Don't fail onboarding if hero image assignment fails
+    }
 
     // 4. Create free subdomain domain record
     try {
@@ -179,59 +280,91 @@ export async function submitOnboarding(
       });
 
       if (domainError) {
-        logger.error({ message: 'Failed to create subdomain domain record', error: domainError });
+        logger.error({
+          message: 'Failed to create subdomain domain record',
+          error: domainError,
+        });
         // Don't fail onboarding if domain record creation fails
       } else {
-        logger.info({ message: 'Subdomain domain record created', domain: subdomainFull });
+        logger.info({
+          message: 'Subdomain domain record created',
+          domain: subdomainFull,
+        });
       }
     } catch (domainError) {
-      logger.error({ message: 'Exception while creating subdomain', error: domainError });
+      logger.error({
+        message: 'Exception while creating subdomain',
+        error: domainError,
+      });
       // Don't fail onboarding if domain creation fails
     }
 
     // 5. Generate and save initial Puck template
     try {
-      const { generateInitialTemplate } = await import('@/lib/initial-template-generator');
+      const { generateInitialTemplate } = await import(
+        '@/lib/initial-template-generator'
+      );
 
-      const initialPuckConfig = generateInitialTemplate({
+      const initialPuckConfig = await generateInitialTemplate({
         businessName,
         businessType: finalBusinessType,
         brandColors,
-        merchant: merchantData
+        merchant: merchantData,
       });
 
-      logger.info({ message: 'Generated initial Puck template', hasTheme: !!(initialPuckConfig as Record<string, unknown>).theme });
+      logger.info({
+        message: 'Generated initial Puck template',
+        hasTheme: !!(initialPuckConfig as Record<string, unknown>).theme,
+      });
 
       // Save as both draft and published config
-      const { error: configError } = await supabase.from('page_configs').insert({
-        merchant_id: merchantData.id,
-        page_slug: 'home',
-        page_name: 'Home',
-        draft_config: initialPuckConfig,
-        published_config: initialPuckConfig,
-        is_published: true
-      });
+      const { error: configError } = await supabase
+        .from('page_configs')
+        .insert({
+          merchant_id: merchantData.id,
+          page_slug: 'home',
+          page_name: 'Home',
+          draft_config: initialPuckConfig,
+          published_config: initialPuckConfig,
+          is_published: true,
+        });
 
       if (configError) {
-        logger.error({ message: 'Failed to save initial Puck config', error: configError });
+        logger.error({
+          message: 'Failed to save initial Puck config',
+          error: configError,
+        });
         // Don't fail onboarding if config save fails - it can be generated later
       } else {
         logger.info({ message: 'Initial Puck config saved successfully' });
       }
     } catch (templateError) {
-      logger.error({ message: 'Failed to generate initial template', error: templateError });
+      logger.error({
+        message: 'Failed to generate initial template',
+        error: templateError,
+      });
       // Don't fail onboarding if template generation fails
     }
 
-    return { success: true, message: 'Store Created!', businessName, merchantId: merchantData.id };
+    return {
+      success: true,
+      message: 'Store Created!',
+      businessName,
+      merchantId: merchantData.id,
+    };
   } catch (e) {
     const error = e as Error;
-    logger.error({ message: "Onboarding submission failed.", error: { name: error.name, message: error.message, stack: error.stack } });
+    logger.error({
+      message: 'Onboarding submission failed.',
+      error: { name: error.name, message: error.message, stack: error.stack },
+    });
     return { success: false, message: error.message };
   }
 }
 
-export async function sendMagicLink(email: string): Promise<{ success: boolean; message: string }> {
+export async function sendMagicLink(
+  email: string
+): Promise<{ success: boolean; message: string }> {
   if (!email) {
     return { success: false, message: 'Email is required.' };
   }
@@ -248,13 +381,16 @@ export async function sendMagicLink(email: string): Promise<{ success: boolean; 
     });
 
     if (error) {
-      logger.error({ message: "Magic link sign-in failed.", error });
+      logger.error({ message: 'Magic link sign-in failed.', error });
       return { success: false, message: error.message };
     }
 
     return { success: true, message: 'Magic link sent! Check your email.' };
   } catch (e) {
-    logger.error({ message: "Magic link submission failed.", error: e as Error });
+    logger.error({
+      message: 'Magic link submission failed.',
+      error: e as Error,
+    });
     return { success: false, message: (e as Error).message };
   }
 }

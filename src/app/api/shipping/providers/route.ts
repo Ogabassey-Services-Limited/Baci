@@ -36,18 +36,10 @@ export async function GET() {
         hasStationPickup: false,
         description: 'Aggregator with access to DHL, FedEx, UPS, and more',
       },
-      SHIIP: {
-        name: 'Shiip',
-        displayName: 'Multiple Carriers',
-        supportsDomestic: true,
-        supportsInternational: true,
-        hasStationPickup: false,
-        description: 'Aggregator with 30+ delivery partners',
-      },
     };
 
     // Build response
-    const providers = enabledProviders.map(code => ({
+    const providers = enabledProviders.map((code) => ({
       code,
       ...providerInfo[code as keyof typeof providerInfo],
       available: status[code] ?? false,
@@ -58,7 +50,6 @@ export async function GET() {
       status,
       timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
     console.error('Error getting provider status:', error);
     return NextResponse.json(

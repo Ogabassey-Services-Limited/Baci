@@ -1,10 +1,7 @@
-"use client"
+'use client';
 
-import * as React from "react"
-
-
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 export interface CalendarProps {
   selected: Date | null;
@@ -14,7 +11,6 @@ export interface CalendarProps {
   // For example, to allow passing all valid DatePicker props:
   [key: string]: unknown;
 }
-
 
 function Calendar({ selected, onSelect, className, ...props }: CalendarProps) {
   return (
@@ -28,8 +24,8 @@ function Calendar({ selected, onSelect, className, ...props }: CalendarProps) {
       // They can be re-added using react-datepicker's customization options if needed.
       {...props}
     />
-  )
+  );
 }
-Calendar.displayName = "Calendar"
+Calendar.displayName = 'Calendar';
 
-export { Calendar }
+export { Calendar };

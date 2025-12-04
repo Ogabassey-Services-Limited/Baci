@@ -1,15 +1,15 @@
-import { createClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
-import { NextRequest, NextResponse } from 'next/server';
-import { sendPayout, type Currency } from '@/lib/korapay';
-import { logger } from '@/lib/logger';
 import { nanoid } from 'nanoid';
+import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
+import { type Currency, sendPayout } from '@/lib/korapay';
+import { logger } from '@/lib/logger';
+import { createClient } from '@/lib/supabase/server';
 
 const MINIMUM_PAYOUT_AMOUNTS: Record<Currency, number> = {
   NGN: 5000, // ₦5,000
-  KES: 500,  // KSh 500
-  GHS: 50,   // GH₵ 50
-  ZAR: 100,  // R 100
+  KES: 500, // KSh 500
+  GHS: 50, // GH₵ 50
+  ZAR: 100, // R 100
   XAF: 3000, // FCFA 3,000
   XOF: 3000, // CFA 3,000
 };
@@ -30,7 +30,10 @@ export async function POST(_request: Request) {
     const supabase = createClient(cookieStore);
 
     // Get authenticated user and merchant
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -42,7 +45,10 @@ export async function POST(_request: Request) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Check minimum payout amount
@@ -93,7 +99,10 @@ export async function POST(_request: Request) {
       .single();
 
     if (payoutError) {
-      logger.error({ message: 'Failed to create payout request', error: payoutError });
+      logger.error({
+        message: 'Failed to create payout request',
+        error: payoutError,
+      });
       return NextResponse.json(
         { error: 'Failed to create payout request' },
         { status: 500 }
@@ -120,7 +129,11 @@ export async function POST(_request: Request) {
         },
       });
 
-      logger.info({ message: 'Payout sent successfully', reference, payoutData });
+      logger.info({
+        message: 'Payout sent successfully',
+        reference,
+        payoutData,
+      });
 
       // Update payout request with Korapay response
       await supabase
@@ -129,7 +142,8 @@ export async function POST(_request: Request) {
           status: payoutData.status === 'success' ? 'completed' : 'processing',
           korapay_response: payoutData,
           processed_at: new Date().toISOString(),
-          completed_at: payoutData.status === 'success' ? new Date().toISOString() : null,
+          completed_at:
+            payoutData.status === 'success' ? new Date().toISOString() : null,
         })
         .eq('id', payoutRequest.id);
 
@@ -154,26 +168,37 @@ export async function POST(_request: Request) {
         });
 
       if (transactionError) {
-        logger.error({ message: 'Failed to create payout transaction', error: transactionError });
+        logger.error({
+          message: 'Failed to create payout transaction',
+          error: transactionError,
+        });
       }
 
       return NextResponse.json({
         success: true,
         reference,
         status: payoutData.status,
-        message: payoutData.status === 'success'
-          ? 'Payout processed successfully'
-          : 'Payout is being processed',
+        message:
+          payoutData.status === 'success'
+            ? 'Payout processed successfully'
+            : 'Payout is being processed',
       });
     } catch (korapayError) {
-      logger.error({ message: 'Korapay payout failed', reference, error: korapayError });
+      logger.error({
+        message: 'Korapay payout failed',
+        reference,
+        error: korapayError,
+      });
 
       // Update payout request to failed
       await supabase
         .from('payout_requests')
         .update({
           status: 'failed',
-          failure_reason: korapayError instanceof Error ? korapayError.message : 'Unknown error',
+          failure_reason:
+            korapayError instanceof Error
+              ? korapayError.message
+              : 'Unknown error',
         })
         .eq('id', payoutRequest.id);
 
@@ -197,7 +222,10 @@ export async function GET(_request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -209,7 +237,10 @@ export async function GET(_request: NextRequest) {
       .single();
 
     if (merchantError || !merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Fetch payout requests
@@ -221,7 +252,10 @@ export async function GET(_request: NextRequest) {
 
     if (payoutsError) {
       logger.error({ message: 'Failed to fetch payouts', error: payoutsError });
-      return NextResponse.json({ error: 'Failed to fetch payouts' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch payouts' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ payouts });

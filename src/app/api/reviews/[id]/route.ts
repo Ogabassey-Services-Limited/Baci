@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -17,7 +17,7 @@ interface ReviewUpdate {
 
 // GET - Fetch single review
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -45,7 +45,10 @@ export async function GET(
     return NextResponse.json({ review });
   } catch (error) {
     console.error('Review GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -63,7 +66,10 @@ export async function PATCH(
     const supabase = createClient(cookieStore);
 
     // Require authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -100,11 +106,16 @@ export async function PATCH(
 
     if (merchantResponse !== undefined) {
       updates.merchant_response = merchantResponse || null;
-      updates.merchant_response_at = merchantResponse ? new Date().toISOString() : null;
+      updates.merchant_response_at = merchantResponse
+        ? new Date().toISOString()
+        : null;
     }
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: 'No valid updates provided' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'No valid updates provided' },
+        { status: 400 }
+      );
     }
 
     // Update the review
@@ -117,7 +128,10 @@ export async function PATCH(
 
     if (updateError) {
       console.error('Error updating review:', updateError);
-      return NextResponse.json({ error: 'Failed to update review' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to update review' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -126,13 +140,16 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('Review PATCH error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
 // DELETE - Delete a review
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -141,7 +158,10 @@ export async function DELETE(
     const supabase = createClient(cookieStore);
 
     // Require authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -177,12 +197,18 @@ export async function DELETE(
 
     if (deleteError) {
       console.error('Error deleting review:', deleteError);
-      return NextResponse.json({ error: 'Failed to delete review' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to delete review' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Review DELETE error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

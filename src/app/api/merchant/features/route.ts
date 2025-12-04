@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { type NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -21,6 +21,17 @@ export interface MerchantFeatureSettings {
   order_tracking_enabled: boolean;
   discount_codes_enabled: boolean;
   guest_checkout_enabled: boolean;
+
+  // Payment gateways
+  paystack_enabled: boolean;
+  korapay_enabled: boolean;
+  pay_on_delivery_enabled: boolean;
+  credit_direct_enabled: boolean;
+  credit_direct_public_key: string | null;
+  credit_direct_min_amount: number;
+  credit_direct_max_amount: number;
+  preferred_local_gateway: 'paystack' | 'korapay';
+  preferred_international_gateway: 'paystack' | 'korapay';
 
   // Shipping
   shipping_providers: string[];
@@ -58,6 +69,15 @@ export interface MerchantFeatureSettings {
   email_notifications_enabled: boolean;
   sms_notifications_enabled: boolean;
 
+  // VTU (Value Top-Up) Settings
+  vtu_enabled: boolean;
+  vtu_airtime_enabled: boolean;
+  vtu_data_enabled: boolean;
+  vtu_checkout_addon_enabled: boolean;
+  vtu_checkout_addon_amounts: number[];
+  vtu_loyalty_reward_enabled: boolean;
+  vtu_merchant_commission_rate: number;
+
   // Custom
   custom_settings: Record<string, unknown>;
 
@@ -73,7 +93,18 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   order_tracking_enabled: true,
   discount_codes_enabled: true,
   guest_checkout_enabled: true,
-  shipping_providers: ['gigl', 'topship', 'shiip'],
+  // Payment gateways - both enabled by default
+  paystack_enabled: true,
+  korapay_enabled: true,
+  pay_on_delivery_enabled: false,
+  credit_direct_enabled: false,
+  credit_direct_public_key: null,
+  credit_direct_min_amount: 10000,
+  credit_direct_max_amount: 500000,
+  preferred_local_gateway: 'paystack',
+  preferred_international_gateway: 'korapay',
+  // Shipping
+  shipping_providers: ['gigl', 'topship'],
   free_shipping_threshold: null,
   shipping_markup_percentage: 0,
   checkout_collect_phone: true,
@@ -95,6 +126,14 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   custom_robots_txt: null,
   email_notifications_enabled: true,
   sms_notifications_enabled: false,
+  // VTU defaults
+  vtu_enabled: false,
+  vtu_airtime_enabled: true,
+  vtu_data_enabled: true,
+  vtu_checkout_addon_enabled: false,
+  vtu_checkout_addon_amounts: [100, 200, 500, 1000],
+  vtu_loyalty_reward_enabled: false,
+  vtu_merchant_commission_rate: 0.5,
   custom_settings: {},
 };
 
@@ -103,7 +142,9 @@ export async function GET() {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -115,7 +156,10 @@ export async function GET() {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     // Get or create settings
@@ -139,19 +183,28 @@ export async function GET() {
 
       if (createError) {
         console.error('Error creating feature settings:', createError);
-        return NextResponse.json({ error: 'Failed to create settings' }, { status: 500 });
+        return NextResponse.json(
+          { error: 'Failed to create settings' },
+          { status: 500 }
+        );
       }
 
       settings = newSettings;
     } else if (error) {
       console.error('Error fetching feature settings:', error);
-      return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to fetch settings' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(settings);
   } catch (error) {
     console.error('Feature settings GET error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -160,7 +213,9 @@ export async function PATCH(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -172,23 +227,63 @@ export async function PATCH(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const updates = await request.json();
 
     // Validate updates - only allow known fields
     const allowedFields = [
-      'loyalty_enabled', 'reviews_enabled', 'wishlist_enabled',
-      'order_tracking_enabled', 'discount_codes_enabled', 'guest_checkout_enabled',
-      'shipping_providers', 'free_shipping_threshold', 'shipping_markup_percentage',
-      'checkout_collect_phone', 'checkout_require_account', 'checkout_show_order_notes',
-      'about_page_enabled', 'contact_page_enabled', 'faq_page_enabled',
-      'privacy_page_enabled', 'terms_page_enabled', 'rewards_page_enabled',
-      'show_recent_purchases', 'show_stock_levels', 'low_stock_threshold',
-      'google_analytics_id', 'facebook_pixel_id', 'tiktok_pixel_id',
-      'auto_generate_schema', 'custom_robots_txt',
-      'email_notifications_enabled', 'sms_notifications_enabled',
+      'loyalty_enabled',
+      'reviews_enabled',
+      'wishlist_enabled',
+      'order_tracking_enabled',
+      'discount_codes_enabled',
+      'guest_checkout_enabled',
+      // Payment gateways
+      'paystack_enabled',
+      'korapay_enabled',
+      'pay_on_delivery_enabled',
+      'credit_direct_enabled',
+      'credit_direct_public_key',
+      'credit_direct_min_amount',
+      'credit_direct_max_amount',
+      'preferred_local_gateway',
+      'preferred_international_gateway',
+      // Shipping
+      'shipping_providers',
+      'free_shipping_threshold',
+      'shipping_markup_percentage',
+      'checkout_collect_phone',
+      'checkout_require_account',
+      'checkout_show_order_notes',
+      'about_page_enabled',
+      'contact_page_enabled',
+      'faq_page_enabled',
+      'privacy_page_enabled',
+      'terms_page_enabled',
+      'rewards_page_enabled',
+      'show_recent_purchases',
+      'show_stock_levels',
+      'low_stock_threshold',
+      'google_analytics_id',
+      'facebook_pixel_id',
+      'tiktok_pixel_id',
+      'auto_generate_schema',
+      'custom_robots_txt',
+      'email_notifications_enabled',
+      'sms_notifications_enabled',
+      // VTU settings
+      'vtu_enabled',
+      'vtu_airtime_enabled',
+      'vtu_data_enabled',
+      'vtu_checkout_addon_enabled',
+      'vtu_checkout_addon_amounts',
+      'vtu_loyalty_reward_enabled',
+      'vtu_merchant_commission_rate',
       'custom_settings',
     ];
 
@@ -207,25 +302,34 @@ export async function PATCH(request: NextRequest) {
     // Upsert settings
     const { data: settings, error } = await supabase
       .from('merchant_feature_settings')
-      .upsert({
-        merchant_id: merchant.id,
-        ...sanitizedUpdates,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'merchant_id',
-      })
+      .upsert(
+        {
+          merchant_id: merchant.id,
+          ...sanitizedUpdates,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: 'merchant_id',
+        }
+      )
       .select()
       .single();
 
     if (error) {
       console.error('Error updating feature settings:', error);
-      return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to update settings' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(settings);
   } catch (error) {
     console.error('Feature settings PATCH error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -234,7 +338,9 @@ export async function PUT(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -246,7 +352,10 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (!merchant) {
-      return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
     }
 
     const newSettings = await request.json();
@@ -272,12 +381,18 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error('Error replacing feature settings:', error);
-      return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
+      return NextResponse.json(
+        { error: 'Failed to save settings' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(settings);
   } catch (error) {
     console.error('Feature settings PUT error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

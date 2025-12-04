@@ -1,8 +1,8 @@
 'use server';
 
 import { generateText } from 'ai';
-import { geminiFlash, withRetry, sanitizePromptInput } from '@/ai/provider';
 import { z } from 'zod';
+import { geminiFlash, sanitizePromptInput, withRetry } from '@/ai/provider';
 import { logger } from '@/lib/logger';
 
 const GenerateProductDescriptionInputSchema = z.object({
@@ -13,13 +13,17 @@ const GenerateProductDescriptionInputSchema = z.object({
   businessType: z.string().max(100).optional(),
 });
 
-type GenerateProductDescriptionInput = z.infer<typeof GenerateProductDescriptionInputSchema>;
+type GenerateProductDescriptionInput = z.infer<
+  typeof GenerateProductDescriptionInputSchema
+>;
 
 const _GenerateProductDescriptionOutputSchema = z.object({
   description: z.string(),
 });
 
-type GenerateProductDescriptionOutput = z.infer<typeof _GenerateProductDescriptionOutputSchema>;
+type GenerateProductDescriptionOutput = z.infer<
+  typeof _GenerateProductDescriptionOutputSchema
+>;
 
 export async function generateProductDescription(
   input: GenerateProductDescriptionInput
@@ -29,13 +33,22 @@ export async function generateProductDescription(
     const validatedInput = GenerateProductDescriptionInputSchema.parse(input);
 
     // Sanitize all user-provided inputs using centralized sanitizer
-    const productName = sanitizePromptInput(validatedInput.productName, 200).value;
+    const productName = sanitizePromptInput(
+      validatedInput.productName,
+      200
+    ).value;
     const keywords = (validatedInput.keywords ?? [])
       .map((k) => sanitizePromptInput(k, 50).value)
       .slice(0, 10);
-    const brandVoice = validatedInput.brandVoice ? sanitizePromptInput(validatedInput.brandVoice, 200).value : undefined;
-    const targetAudience = validatedInput.targetAudience ? sanitizePromptInput(validatedInput.targetAudience, 200).value : undefined;
-    const businessType = validatedInput.businessType ? sanitizePromptInput(validatedInput.businessType, 100).value : undefined;
+    const brandVoice = validatedInput.brandVoice
+      ? sanitizePromptInput(validatedInput.brandVoice, 200).value
+      : undefined;
+    const targetAudience = validatedInput.targetAudience
+      ? sanitizePromptInput(validatedInput.targetAudience, 200).value
+      : undefined;
+    const businessType = validatedInput.businessType
+      ? sanitizePromptInput(validatedInput.businessType, 100).value
+      : undefined;
 
     if (!productName) {
       throw new Error('Product name is required');

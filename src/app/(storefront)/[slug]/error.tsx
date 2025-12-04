@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect } from 'react';
 import { ThemedButton } from '@/components/themed';
-import { Home, RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -32,8 +32,8 @@ export default function StorefrontError({ error, reset }: ErrorProps) {
         </h1>
 
         <p className="text-muted-foreground text-lg">
-          We encountered an unexpected error while loading this page.
-          Please try again or return to the homepage.
+          We encountered an unexpected error while loading this page. Please try
+          again or return to the homepage.
         </p>
 
         {/* Error details for development */}
@@ -79,10 +79,7 @@ export default function StorefrontError({ error, reset }: ErrorProps) {
         {/* Support message */}
         <p className="text-sm text-muted-foreground pt-4">
           If this problem persists, please{' '}
-          <Link
-            href="/pages/contact"
-            className="text-primary hover:underline"
-          >
+          <Link href="/pages/contact" className="text-primary hover:underline">
             contact support
           </Link>
           .
