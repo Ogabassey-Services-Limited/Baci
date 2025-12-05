@@ -128,36 +128,44 @@ interface DraggableAnalyticsGridProps {
 
 const DEFAULT_LAYOUTS: Layouts = {
   lg: [
-    // Row 1: Primary KPIs (6 cards across)
-    { i: 'summary-revenue', x: 0, y: 0, w: 2, h: 1 },
-    { i: 'summary-orders', x: 2, y: 0, w: 2, h: 1 },
-    { i: 'summary-profit', x: 4, y: 0, w: 2, h: 1 },
-    { i: 'summary-customers', x: 6, y: 0, w: 2, h: 1 },
-    { i: 'summary-tax', x: 8, y: 0, w: 2, h: 1 },
-    { i: 'summary-active', x: 10, y: 0, w: 2, h: 1 },
+    // Row 1: Primary KPIs (3 cards across -> w: 4)
+    { i: 'summary-revenue', x: 0, y: 0, w: 4, h: 1 },
+    { i: 'summary-orders', x: 4, y: 0, w: 4, h: 1 },
+    { i: 'summary-profit', x: 8, y: 0, w: 4, h: 1 },
 
-    // Row 2: Secondary KPIs (6 cards across)
-    { i: 'summary-aov', x: 0, y: 1, w: 2, h: 1 },
-    { i: 'summary-margin', x: 2, y: 1, w: 2, h: 1 },
-    { i: 'summary-refund-rate', x: 4, y: 1, w: 2, h: 1 },
-    { i: 'summary-ltv', x: 6, y: 1, w: 2, h: 1 },
-    { i: 'payment-methods', x: 8, y: 1, w: 4, h: 2 },
+    // Row 2: Primary KPIs continued
+    { i: 'summary-customers', x: 0, y: 1, w: 4, h: 1 },
+    { i: 'summary-tax', x: 4, y: 1, w: 4, h: 1 },
+    { i: 'summary-active', x: 8, y: 1, w: 4, h: 1 },
 
-    // Row 3: Charts & Detailed Cards (full width charts)
-    { i: 'revenue-chart', x: 0, y: 2, w: 8, h: 3 },
-    { i: 'sales-channel', x: 0, y: 5, w: 6, h: 3 },
-    { i: 'recent-sales', x: 6, y: 5, w: 6, h: 3 },
+    // Row 3: Secondary KPIs (4 cards across -> w: 3)
+    { i: 'summary-aov', x: 0, y: 2, w: 3, h: 1 },
+    { i: 'summary-margin', x: 3, y: 2, w: 3, h: 1 },
+    { i: 'summary-refund-rate', x: 6, y: 2, w: 3, h: 1 },
+    { i: 'summary-ltv', x: 9, y: 2, w: 3, h: 1 },
 
-    // Row 4: Lists (stacked horizontally)
-    { i: 'top-products', x: 0, y: 8, w: 12, h: 3 },
+    // Row 4: Payment Methods (fits in 4 cols flow?)
+    // Payment methods was w:4 h:2. Let's keep it similar or adapt.
+    // In CSS grid secondary, payment methods was explicitly NOT in the secondary grid (lines 649-686).
+    // It was in "Charts & Detailed Views Grid" (line 689) which is lg:grid-cols-3.
+    // So Payment Methods is in a 3-col grid. w: 4 is correct for 12-col grid.
 
-    // Inventory widgets - horizontal arrangement
+    // Row 4: Charts & Detailed Views (3 cols -> w: 4)
+    { i: 'revenue-chart', x: 0, y: 3, w: 8, h: 3 }, // Spans 2 cols (2/3) -> w: 8
+    { i: 'payment-methods', x: 8, y: 3, w: 4, h: 3 }, // Spans 1 col (1/3) -> w: 4
+
+    // Row 5: Lists (stacked)
+    { i: 'sales-channel', x: 0, y: 6, w: 6, h: 3 },
+    { i: 'recent-sales', x: 6, y: 6, w: 6, h: 3 },
+    { i: 'top-products', x: 0, y: 9, w: 12, h: 3 },
+
+    // Inventory widgets
     { i: 'inventory-summary', x: 0, y: 0, w: 3, h: 1 },
     { i: 'inventory-alerts', x: 3, y: 0, w: 4, h: 2 },
     { i: 'inventory-forecast', x: 7, y: 0, w: 5, h: 3 },
     { i: 'low-stock-products', x: 0, y: 1, w: 3, h: 2 },
 
-    // Segment widgets - horizontal arrangement
+    // Segment widgets
     { i: 'segment-overview', x: 0, y: 0, w: 3, h: 2 },
     { i: 'segment-distribution', x: 3, y: 0, w: 3, h: 2 },
     { i: 'at-risk-customers', x: 6, y: 0, w: 3, h: 2 },
@@ -571,7 +579,7 @@ export function DraggableAnalyticsGrid({
   if (!isEditMode) {
     // VIEW MODE: Use native CSS Grid for perfect responsiveness
     return (
-      <div className="w-full space-y-4">
+      <div className="w-full max-w-full overflow-hidden space-y-4">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
           <div className="flex-1 min-w-0 w-full">
             <AIInsightsPanel activeCategory={activeCategory} />
