@@ -141,9 +141,9 @@ export async function checkCsrfProtection(request: NextRequest): Promise<{
     return { valid: true };
   }
 
-  // Skip CSRF check for certain endpoints (e.g., webhooks)
+  // Skip CSRF check for certain endpoints (e.g., webhooks, public analytics)
   const pathname = request.nextUrl.pathname;
-  const skipPaths = ['/api/webhooks/', '/api/auth/'];
+  const skipPaths = ['/api/webhooks/', '/api/auth/', '/api/platform/events'];
 
   if (skipPaths.some((path) => pathname.startsWith(path))) {
     return { valid: true };
