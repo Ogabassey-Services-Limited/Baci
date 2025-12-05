@@ -1,23 +1,24 @@
 // @ts-nocheck - Template preview
-import React, { useState, useEffect } from 'react';
+
 import {
+  ArrowRight,
+  Calculator,
+  Check,
+  HandCoins,
   Minus,
   Plus,
-  Trash2,
-  ArrowRight,
-  HandCoins,
-  Check,
-  Calculator,
   ShieldCheck,
   ShoppingCart,
-  ArrowLeft,
+  Trash2,
 } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
+import type { CartItem } from '../types';
 import { AdUnit } from './AdUnit';
-import { NegotiationModal } from './NegotiationModal';
 import { EmptyState } from './EmptyState';
-import { CartItem } from '../types';
+import { NegotiationModal } from './NegotiationModal';
 
 interface NegotiationState {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export const CartPage: React.FC = () => {
   } = useCart();
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
 
   // Scroll to top on mount
   useEffect(() => {
@@ -171,7 +172,7 @@ export const CartPage: React.FC = () => {
                                     item.selectedColorValue ||
                                     item.selectedColor,
                                 }}
-                              ></span>
+                              />
                               <span className="text-[10px] text-gray-600">
                                 {item.selectedColor}
                               </span>
@@ -205,7 +206,7 @@ export const CartPage: React.FC = () => {
                     </div>
 
                     {/* Separator */}
-                    <div className="my-3 border-t border-dashed border-gray-100"></div>
+                    <div className="my-3 border-t border-dashed border-gray-100" />
 
                     {/* Middle Row: Controls & Price */}
                     <div className="flex items-center justify-between gap-3">
@@ -260,7 +261,7 @@ export const CartPage: React.FC = () => {
                             onChange={() => toggleAssurance(item.cartItemId)}
                             className="peer sr-only"
                           />
-                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
                         </div>
                         <div className="flex flex-col">
                           <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
@@ -330,7 +331,7 @@ export const CartPage: React.FC = () => {
                     <span>Shipping</span>
                     <span className="text-green-600 font-medium">Free</span>
                   </div>
-                  <div className="border-t border-dashed border-gray-200 my-2"></div>
+                  <div className="border-t border-dashed border-gray-200 my-2" />
                   <div className="flex justify-between text-gray-900 font-bold text-lg">
                     <span>Total</span>
                     <span>₦{subtotal.toLocaleString()}</span>

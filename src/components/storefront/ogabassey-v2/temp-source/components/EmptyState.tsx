@@ -1,6 +1,6 @@
 // @ts-nocheck - Template preview
 
-import React from 'react';
+import type React from 'react';
 import { Link } from 'react-router-dom';
 
 interface EmptyStateProps {

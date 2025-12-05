@@ -1,8 +1,8 @@
 // @ts-nocheck - Template preview
-import React from 'react';
+import type React from 'react';
+import { BannerCarousel } from '../components/BannerCarousel';
 import { Hero } from '../components/Hero';
 import { InteractiveProductGrid } from '../components/InteractiveProductGrid';
-import { BannerCarousel } from '../components/BannerCarousel';
 
 export const OgabasseyV2HomePage: React.FC = () => {
   return (

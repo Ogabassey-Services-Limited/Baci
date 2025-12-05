@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
-import { getCachedMerchant } from '@/lib/cached-data';
-import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
-import { StorefrontHeader as Header } from '@/components/storefront/header';
 import { StorefrontFooter as Footer } from '@/components/storefront/footer';
+import { StorefrontHeader as Header } from '@/components/storefront/header';
+import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
+import { getCachedMerchant } from '@/lib/cached-data';
 
 export default async function CheckoutPage({
   params,
@@ -17,7 +17,10 @@ export default async function CheckoutPage({
   }
 
   // Check for new template
-  if ((merchant as any).template_id === 'new-template') {
+  if (
+    (merchant as unknown as { template_id?: string }).template_id ===
+    'new-template'
+  ) {
     return <NewTemplateCheckoutPage />;
   }
 

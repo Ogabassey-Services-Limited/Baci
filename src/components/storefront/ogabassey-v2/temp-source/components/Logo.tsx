@@ -1,5 +1,5 @@
 // @ts-nocheck - Template preview
-import React from 'react';
+import type React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 
 export const Logo: React.FC<{ className?: string }> = ({ className }) => {

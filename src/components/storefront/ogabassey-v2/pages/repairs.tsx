@@ -1,23 +1,23 @@
 // @ts-nocheck - Template preview
 'use client';
 
-import React, { useEffect } from 'react';
 import {
-  Wrench,
-  Smartphone,
-  Laptop,
-  Battery,
-  Monitor,
-  ChevronRight,
-  ShieldCheck,
-  Sparkles,
-  Recycle,
-  Leaf,
-  HeartPulse,
-  Zap,
   AlertTriangle,
+  Battery,
+  ChevronRight,
+  HeartPulse,
+  Laptop,
+  Leaf,
+  Monitor,
+  Recycle,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Wrench,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect } from 'react';
 
 interface OgabasseyV2RepairsProps {
   storeSlug?: string;
@@ -102,10 +102,10 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
           </div>
 
           {/* Abstract Tech Pattern */}
-          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/circuit.png')]"></div>
+          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/circuit.png')]" />
 
           {/* Red Glow Effect */}
-          <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-red-600 rounded-full blur-[120px] opacity-20"></div>
+          <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-red-600 rounded-full blur-[120px] opacity-20" />
         </div>
 
         {/* The Repair Impact */}

@@ -1,5 +1,5 @@
 // @ts-nocheck - Template preview
-import React from 'react';
+import type React from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 
 export const SnowEffect: React.FC = () => {
@@ -35,7 +35,7 @@ export const SnowEffect: React.FC = () => {
         />
       ))}
       {/* Festive Top Decoration - Hanging Lights Overlay */}
-      <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-red-600 via-green-600 to-red-600 opacity-20 blur-xl"></div>
+      <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-red-600 via-green-600 to-red-600 opacity-20 blur-xl" />
     </div>
   );
 };

@@ -1,13 +1,13 @@
 // @ts-nocheck - Template preview
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { products } from '../data/products';
 import { useCart } from '../contexts/CartContext';
+import { products } from '../data/products';
+import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
 import { ProductGridItem } from './final-grid/ProductGridItem';
-import { ProductListItem } from './ProductListItem';
 import { ProductFilters } from './ProductFilters';
-import { Product } from '../types';
+import { ProductListItem } from './ProductListItem';
 
 interface ProductGridProps {
   selectedCategory?: string;
@@ -101,7 +101,9 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
     // Show visual feedback on button
     const pid =
-      typeof product.id === 'string' ? parseInt(product.id) : product.id;
+      typeof product.id === 'string'
+        ? Number.parseInt(product.id, 10)
+        : product.id;
     setAddedItems((prev) => [...prev, pid]);
     setTimeout(() => {
       setAddedItems((prev) => prev.filter((id) => id !== pid));
@@ -184,7 +186,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             {filteredProducts.map((product, index) => {
               const pid =
                 typeof product.id === 'string'
-                  ? parseInt(product.id)
+                  ? Number.parseInt(product.id, 10)
                   : product.id;
               const isAdded = addedItems.includes(pid);
               const isWishlisted = wishlist.includes(pid);

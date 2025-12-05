@@ -1,22 +1,20 @@
 // @ts-nocheck - Template preview
 
-import React, { useState } from 'react';
 import {
-  FileText,
-  Download,
-  Search,
-  CheckCircle2,
-  ChevronRight,
-  CreditCard,
-  ExternalLink,
-  X,
   AlertCircle,
+  CheckCircle2,
   Clock,
+  ExternalLink,
+  FileText,
   Leaf,
+  Search,
+  X,
 } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 import { products } from '../data/products';
-import { ReceiptModal, ReceiptData } from './ReceiptModal';
 import { EmptyState } from './EmptyState';
+import { type ReceiptData, ReceiptModal } from './ReceiptModal';
 
 export const ReceiptsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');

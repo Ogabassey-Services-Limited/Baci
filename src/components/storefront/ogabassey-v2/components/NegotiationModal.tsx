@@ -1,6 +1,8 @@
 // @ts-nocheck - Template preview
-import React, { useState, useEffect } from 'react';
-import { X, HandCoins, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+
+import { AlertCircle, CheckCircle2, HandCoins, Loader2, X } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 
 interface NegotiationModalProps {
   isOpen: boolean;
@@ -39,7 +41,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     if (!offer) return;
 
     setStatus('processing');
-    const offerAmount = parseFloat(offer);
+    const offerAmount = Number.parseFloat(offer);
 
     // Simulate AI thinking delay
     setTimeout(() => {
@@ -69,7 +71,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
-      ></div>
+      />
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden z-10 animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="bg-[#1a1a1a] p-4 flex justify-between items-center">
@@ -113,7 +115,6 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   onChange={(e) => setOffer(e.target.value)}
                   className="w-full pl-4 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition-all text-lg font-bold text-gray-900 placeholder:font-normal"
                   placeholder="Enter amount..."
-                  autoFocus
                 />
               </div>
               <button

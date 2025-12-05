@@ -1,14 +1,14 @@
-import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import React, { useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
-import { useSaved } from './saved-context';
 import { AdUnit } from './ad-unit';
+import { AdvancedProductFilters } from './advanced-product-filters';
+import { products } from './data';
+import { FloatingParticles, type Particle } from './floating-particles';
 import { ProductGridItem } from './product-grid-item';
 import { ProductListItem } from './product-list-item';
-import { AdvancedProductFilters } from './advanced-product-filters';
-import { FloatingParticles, Particle } from './floating-particles';
-import { Product } from './types';
-import { products } from './data';
+import { useSaved } from './saved-context';
+import type { Product } from './types';
 
 interface InteractiveProductGridProps {
   selectedCategory?: string;
@@ -113,7 +113,9 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
 
     // Show visual feedback on button
     const pid =
-      typeof product.id === 'string' ? parseInt(product.id) : product.id;
+      typeof product.id === 'string'
+        ? Number.parseInt(product.id, 10)
+        : product.id;
     setAddedItems((prev) => [...prev, pid]);
     setTimeout(() => {
       setAddedItems((prev) => prev.filter((id) => id !== pid));
@@ -196,7 +198,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
             {filteredProducts.map((product, index) => {
               const pid =
                 typeof product.id === 'string'
-                  ? parseInt(product.id)
+                  ? Number.parseInt(product.id, 10)
                   : product.id;
               const isAdded = addedItems.includes(pid);
               const isWishlisted = isSaved(pid);

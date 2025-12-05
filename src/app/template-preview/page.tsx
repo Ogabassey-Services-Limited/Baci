@@ -1,5 +1,4 @@
-import type { Metadata } from 'next';
-import type { Route } from 'next';
+import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import {

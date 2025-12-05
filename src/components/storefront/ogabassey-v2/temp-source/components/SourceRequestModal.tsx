@@ -1,6 +1,8 @@
 // @ts-nocheck - Template preview
-import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, Loader2, Search } from 'lucide-react';
+
+import { CheckCircle2, Loader2, Search, X } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 
 interface SourceRequestModalProps {
   isOpen: boolean;
@@ -47,7 +49,7 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
-      ></div>
+      />
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden z-10 animate-in zoom-in-95 duration-200">
         <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
           <div className="flex items-center gap-2">

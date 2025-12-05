@@ -1,19 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import {
-  ShoppingCart,
-  Star,
   Check,
-  Heart,
   ChevronLeft,
   ChevronRight,
+  Heart,
+  ShoppingCart,
+  Star,
 } from 'lucide-react';
-import Link from 'next/link';
 import type { Route } from 'next';
 import Image from 'next/image';
-import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import type { Product } from '@/lib/products';
+import { cn } from '@/lib/utils';
 
 interface LuminaProductGridItemProps {
   product: Product;
@@ -63,7 +63,7 @@ export function LuminaProductGridItem({
   // Reset loading state when image source changes
   useEffect(() => {
     setIsImageLoaded(false);
-  }, [currentImage]);
+  }, []);
 
   const handlePrevVariant = (e: React.MouseEvent) => {
     e.preventDefault();

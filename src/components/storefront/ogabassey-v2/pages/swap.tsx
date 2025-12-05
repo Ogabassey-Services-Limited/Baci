@@ -1,15 +1,14 @@
 // @ts-nocheck - Template preview
 'use client';
 
-import React from 'react';
 import {
-  RefreshCw,
   ArrowRight,
-  Smartphone,
   Check,
   DollarSign,
   Leaf,
   Recycle,
+  RefreshCw,
+  Smartphone,
 } from 'lucide-react';
 
 export function OgabasseyV2Swap() {
@@ -44,7 +43,7 @@ export function OgabasseyV2Swap() {
           </div>
 
           {/* Background Decorations */}
-          <div className="absolute right-0 bottom-0 w-64 h-64 bg-white/10 rounded-full blur-3xl transform translate-y-1/2 translate-x-1/2"></div>
+          <div className="absolute right-0 bottom-0 w-64 h-64 bg-white/10 rounded-full blur-3xl transform translate-y-1/2 translate-x-1/2" />
           <RefreshCw className="absolute -right-12 top-1/2 -translate-y-1/2 text-white/10 w-80 h-80 rotate-12" />
         </div>
 

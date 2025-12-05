@@ -1,37 +1,38 @@
 // @ts-nocheck - Template preview
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
-  Star,
-  Truck,
-  ShieldCheck,
-  Share2,
+  AlertCircle,
+  ArrowRightLeft,
+  Check,
+  ChevronRight,
+  HandCoins,
   Heart,
+  Info,
+  MapPin,
   Minus,
   Plus,
-  ChevronRight,
-  ArrowRightLeft,
-  Trash2,
-  HandCoins,
-  AlertCircle,
-  X,
-  ShoppingCart,
-  Check,
-  MapPin,
-  User,
-  Info,
   Search,
+  Share2,
+  ShieldCheck,
+  ShoppingCart,
+  Star,
+  Trash2,
+  Truck,
+  User,
+  X,
 } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
-import { useSaved } from '../contexts/SavedContext';
 import { useComparison } from '../contexts/ComparisonContext';
-import { Product } from '../types';
+import { useSaved } from '../contexts/SavedContext';
 import { products } from '../data/products';
+import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
+import { BannerCarousel } from './BannerCarousel';
 import { BlogSnippet } from './BlogSnippet';
 import { NegotiationModal } from './NegotiationModal';
-import { BannerCarousel } from './BannerCarousel';
 import { SEO } from './SEO';
 
 // Fallback Mock data if product is not found
@@ -209,7 +210,7 @@ export const ProductDetails: React.FC = () => {
       colors: normalizedColors,
       storage: normalizedStorage,
     };
-  }, [productFound]);
+  }, [productFound, getColorHex]);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<number | null>(null);
@@ -259,7 +260,7 @@ export const ProductDetails: React.FC = () => {
   // Scroll to top on load
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [id]);
+  }, []);
 
   const isLiked = isSaved(productData.id);
 
@@ -591,7 +592,7 @@ export const ProductDetails: React.FC = () => {
                           choice is out of stock.
                         </span>
                       </div>
-                      <div className="w-2 h-2 bg-gray-900 rotate-45 ml-6 -mt-1"></div>
+                      <div className="w-2 h-2 bg-gray-900 rotate-45 ml-6 -mt-1" />
                     </div>
                   )}
 
@@ -639,7 +640,7 @@ export const ProductDetails: React.FC = () => {
                         <div
                           className="w-11 h-11 rounded-full border border-black/5 shadow-inner"
                           style={{ backgroundColor: color.value }}
-                        ></div>
+                        />
 
                         {/* Primary Badge (1) */}
                         {isPrimary && (
@@ -893,7 +894,7 @@ export const ProductDetails: React.FC = () => {
                               width:
                                 num === 5 ? '80%' : num === 4 ? '15%' : '2%',
                             }}
-                          ></div>
+                          />
                         </div>
                       </div>
                     ))}
@@ -1162,7 +1163,7 @@ export const ProductDetails: React.FC = () => {
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsSelectionModalOpen(false)}
-          ></div>
+          />
           <div className="bg-white w-full md:max-w-md md:rounded-2xl rounded-t-2xl shadow-2xl relative z-10 animate-in slide-in-from-bottom-10 duration-300">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3
@@ -1229,7 +1230,7 @@ export const ProductDetails: React.FC = () => {
                           <div
                             className="w-11 h-11 rounded-full border border-black/5 shadow-inner"
                             style={{ backgroundColor: color.value }}
-                          ></div>
+                          />
                           {isSelected && (
                             <div className="absolute inset-0 flex items-center justify-center z-10">
                               <Check

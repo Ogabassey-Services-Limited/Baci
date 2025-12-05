@@ -1,18 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { ArrowLeft, Check, CreditCard, Lock, Truck } from 'lucide-react';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  Check,
-  CreditCard,
-  Truck,
-  ShieldCheck,
-  Lock,
-} from 'lucide-react';
-import { Navbar } from './navbar';
-import { Footer } from './footer';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { Footer } from './footer';
+import { Navbar } from './navbar';
 
 export const CheckoutPage: React.FC = () => {
   const { cart, cartTotal } = useCart();
@@ -72,7 +66,7 @@ export const CheckoutPage: React.FC = () => {
               </div>
               <div
                 className={`flex-1 h-1 mx-4 rounded-full ${step >= 2 ? 'bg-red-600' : 'bg-gray-200'}`}
-              ></div>
+              />
               <div
                 className={`flex flex-col items-center gap-2 ${step >= 2 ? 'text-red-600' : 'text-gray-400'}`}
               >
@@ -85,7 +79,7 @@ export const CheckoutPage: React.FC = () => {
               </div>
               <div
                 className={`flex-1 h-1 mx-4 rounded-full ${step >= 3 ? 'bg-red-600' : 'bg-gray-200'}`}
-              ></div>
+              />
               <div
                 className={`flex flex-col items-center gap-2 ${step >= 3 ? 'text-red-600' : 'text-gray-400'}`}
               >
@@ -200,7 +194,7 @@ export const CheckoutPage: React.FC = () => {
                 <div className="space-y-4 mb-8">
                   <label className="flex items-center gap-4 p-4 border border-red-600 bg-red-50 rounded-xl cursor-pointer">
                     <div className="w-5 h-5 rounded-full border-2 border-red-600 flex items-center justify-center">
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-600"></div>
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
                     </div>
                     <div className="flex-1">
                       <span className="font-bold text-gray-900 block">
@@ -218,7 +212,7 @@ export const CheckoutPage: React.FC = () => {
                   </label>
 
                   <label className="flex items-center gap-4 p-4 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                    <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
                     <div className="flex-1">
                       <span className="font-bold text-gray-900 block">
                         Bank Transfer

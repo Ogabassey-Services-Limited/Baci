@@ -1,24 +1,24 @@
 // @ts-nocheck - Template preview
 
-import React, { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
+  CheckCircle2,
   ChevronLeft,
-  Package,
-  MapPin,
+  Clock,
   CreditCard,
   Download,
-  Truck,
-  CheckCircle2,
-  Clock,
-  XCircle,
+  MapPin,
+  Package,
   ShoppingBag,
-  ArrowRight,
+  Truck,
+  XCircle,
 } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useCart } from '../contexts/CartContext';
 import { orders } from '../data/orders';
 import { EmptyState } from './EmptyState';
-import { InvoiceModal, InvoiceOrderData } from './InvoiceModal';
-import { useCart } from '../contexts/CartContext';
+import { InvoiceModal, type InvoiceOrderData } from './InvoiceModal';
 
 export const OrderDetailsPage: React.FC = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -124,7 +124,7 @@ export const OrderDetailsPage: React.FC = () => {
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className={`h-full rounded-full ${order.status === 'Delivered' ? 'bg-green-500 w-full' : order.status === 'Cancelled' ? 'bg-red-500 w-full' : 'bg-blue-500 w-1/3'}`}
-                  ></div>
+                  />
                 </div>
                 <div className="flex justify-between text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-wide">
                   <span>Placed</span>

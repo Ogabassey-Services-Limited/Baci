@@ -1,11 +1,11 @@
 // @ts-nocheck - Template preview
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { products } from '../data/products';
 import { useCart } from '../contexts/CartContext';
+import { products } from '../data/products';
+import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
 import { ProductCard } from './ProductCard';
-import { Product } from '../types';
 
 interface FeaturedProductsProps {
   selectedCategory?: string;
@@ -50,7 +50,9 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
 
     // Show visual feedback
     const pid =
-      typeof product.id === 'string' ? parseInt(product.id) : product.id;
+      typeof product.id === 'string'
+        ? Number.parseInt(product.id, 10)
+        : product.id;
     setAddedItems((prev) => [...prev, pid]);
     setTimeout(() => {
       setAddedItems((prev) => prev.filter((id) => id !== pid));
@@ -110,7 +112,9 @@ export const FeaturedProducts: React.FC<FeaturedProductsProps> = ({
           {filteredProducts.map((product, index) => {
             // Helper to check if item is added
             const isAdded = addedItems.includes(
-              typeof product.id === 'string' ? parseInt(product.id) : product.id
+              typeof product.id === 'string'
+                ? Number.parseInt(product.id, 10)
+                : product.id
             );
 
             return (

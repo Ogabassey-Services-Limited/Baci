@@ -8,23 +8,19 @@
 
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useSaved } from '@/hooks/use-saved';
-import {
-  adaptProducts,
-  toCartProduct,
-  type TemplateProduct,
-} from '@/templates/product-adapter';
+import type { Product as BaciProduct } from '@/lib/products';
+import { adaptProducts } from '@/templates/product-adapter';
 import { products as mockProducts } from '../data/products';
+import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
-import { ProductGridItem } from './ProductGridItem';
-import { ProductListItem } from './ProductListItem';
 import { AdvancedProductFilters } from './AdvancedProductFilters';
 import { FloatingParticles, type Particle } from './FloatingParticles';
-import type { Product } from '../types';
-import type { Product as BaciProduct } from '@/lib/products';
+import { ProductGridItem } from './ProductGridItem';
+import { ProductListItem } from './ProductListItem';
 
 interface EngineProductGridProps {
   /** Store slug - if provided, fetches real products */
@@ -59,7 +55,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   limit,
 }) => {
   // Use safe version that doesn't throw outside provider
-  const merchantContext = useMerchantSafe();
+  const _merchantContext = useMerchantSafe();
   const { addToCart } = useCart();
   const { toggleSaved, isSaved } = useSaved();
 

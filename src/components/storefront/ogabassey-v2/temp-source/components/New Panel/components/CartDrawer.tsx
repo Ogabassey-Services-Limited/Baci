@@ -1,6 +1,7 @@
 // @ts-nocheck - Template preview
-import React from 'react';
-import { X, ShoppingBag, Plus, Minus, Trash2 } from 'lucide-react';
+
+import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
+import type React from 'react';
 import { useCart } from '../contexts/CartContext';
 
 export const CartDrawer: React.FC = () => {

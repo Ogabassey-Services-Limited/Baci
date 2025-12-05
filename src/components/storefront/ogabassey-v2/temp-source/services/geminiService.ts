@@ -1,6 +1,6 @@
 // @ts-nocheck - Template source file
 import { GoogleGenAI, Type } from '@google/genai';
-import { ProductRecommendation } from '../types';
+import type { ProductRecommendation } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 

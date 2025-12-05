@@ -1,6 +1,3 @@
-// @ts-nocheck - Template preview
-import React from 'react';
-
 export const OgabasseyV2ImeiChecker = () => {
   return (
     <div className="p-8 text-center">

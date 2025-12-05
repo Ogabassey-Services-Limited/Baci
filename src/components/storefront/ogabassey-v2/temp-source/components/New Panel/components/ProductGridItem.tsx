@@ -1,8 +1,9 @@
 // @ts-nocheck - Template preview
-import React from 'react';
-import { ShoppingCart, Star, Check } from 'lucide-react';
+
+import { Check, ShoppingCart, Star } from 'lucide-react';
+import type React from 'react';
 import { Link } from 'react-router-dom';
-import { Product } from '../types';
+import type { Product } from '../types';
 
 interface ProductGridItemProps {
   product: Product;
@@ -19,10 +20,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 }) => {
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col h-full relative">
-      <Link
-        to={`/product/${product.id}`}
-        className="absolute inset-0 z-0"
-      ></Link>
+      <Link to={`/product/${product.id}`} className="absolute inset-0 z-0" />
 
       {/* Image Container - Gray Box with Overlapping Button */}
       {/* overflow-visible needed for the button to hang off the edge */}

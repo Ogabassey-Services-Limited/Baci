@@ -25,14 +25,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    // Explicitly fetch session first - this is more reliable than waiting for onAuthStateChange
-    // on initial load, especially after server-side redirects where cookies may take a moment
-    // to be available in document.cookie
+    // Use getUser() which makes an API call to verify the session with Supabase
+    // This is more reliable than getSession() after server-side redirects where
+    // cookies may take a moment to be available in document.cookie
     const initializeAuth = async () => {
+      // First try: Use getUser() which verifies session with the server
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
+        data: { user: verifiedUser },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (verifiedUser) {
+        setUser(verifiedUser);
+        setLoading(false);
+        return;
+      }
+
+      // If no user found but no error (could be race condition after login),
+      // wait briefly and try once more. This handles the case where
+      // server-side cookies haven't fully propagated to the client yet.
+      if (!error || error.message?.includes('session')) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        const { data: retryData } = await supabase.auth.getUser();
+        if (retryData.user) {
+          setUser(retryData.user);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // No valid session found
+      setUser(null);
       setLoading(false);
     };
 

@@ -1,5 +1,5 @@
 // @ts-nocheck - Template preview
-import React from 'react';
+import type React from 'react';
 
 interface Particle {
   id: number;

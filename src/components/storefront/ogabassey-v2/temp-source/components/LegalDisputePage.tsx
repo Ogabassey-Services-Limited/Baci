@@ -1,15 +1,16 @@
 // @ts-nocheck - Template preview
 
-import React, { useEffect } from 'react';
 import {
-  Scale,
-  ShieldAlert,
-  Gavel,
-  FileText,
-  Mail,
   AlertTriangle,
   CheckCircle2,
+  FileText,
+  Gavel,
+  Mail,
+  Scale,
+  ShieldAlert,
 } from 'lucide-react';
+import type React from 'react';
+import { useEffect } from 'react';
 
 export const LegalDisputePage: React.FC = () => {
   useEffect(() => {
@@ -116,7 +117,7 @@ export const LegalDisputePage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Hero Header */}
       <div className="bg-[#1a1a1a] text-white py-16 md:py-20 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/gplay.png')]"></div>
+        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/gplay.png')]" />
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 relative z-10 text-center">
           <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6 backdrop-blur-sm border border-white/10">
             <Scale size={32} className="text-red-500" />

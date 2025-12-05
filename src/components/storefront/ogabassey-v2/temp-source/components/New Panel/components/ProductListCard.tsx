@@ -1,8 +1,9 @@
 // @ts-nocheck - Template preview
-import React from 'react';
-import { ShoppingCart, Star, Check } from 'lucide-react';
+
+import { Check, ShoppingCart, Star } from 'lucide-react';
+import type React from 'react';
 import { Link } from 'react-router-dom';
-import { Product } from '../types';
+import type { Product } from '../types';
 
 interface ProductListCardProps {
   product: Product;
@@ -17,10 +18,7 @@ export const ProductListCard: React.FC<ProductListCardProps> = ({
 }) => {
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:border-red-100 transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative">
-      <Link
-        to={`/product/${product.id}`}
-        className="absolute inset-0 z-0"
-      ></Link>
+      <Link to={`/product/${product.id}`} className="absolute inset-0 z-0" />
 
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">

@@ -1,6 +1,7 @@
 // @ts-nocheck - Template preview
-import React from 'react';
+
 import { Megaphone } from 'lucide-react';
+import type React from 'react';
 
 export const AdUnit: React.FC<{ placementKey: string }> = ({
   placementKey,

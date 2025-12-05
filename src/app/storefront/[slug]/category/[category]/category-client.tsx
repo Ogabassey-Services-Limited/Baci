@@ -1,13 +1,13 @@
 'use client';
 
-import { useMerchant } from '@/hooks/use-merchant';
 import { AppBody } from '@/components/storefront/app-body';
-import { OgabasseyV2Navbar } from '@/components/storefront/ogabassey-v2/layout/navbar';
+import { ComparisonProvider } from '@/components/storefront/ogabassey-v2/contexts/ComparisonContext';
+import { SavedProvider } from '@/components/storefront/ogabassey-v2/contexts/SavedContext';
 import { OgabasseyV2Footer } from '@/components/storefront/ogabassey-v2/layout/footer';
 import { OgabasseyV2MobileFooter } from '@/components/storefront/ogabassey-v2/layout/mobile-footer';
+import { OgabasseyV2Navbar } from '@/components/storefront/ogabassey-v2/layout/navbar';
 import { OgabasseyV2CategoryPage } from '@/components/storefront/ogabassey-v2/pages/category';
-import { SavedProvider } from '@/components/storefront/ogabassey-v2/contexts/SavedContext';
-import { ComparisonProvider } from '@/components/storefront/ogabassey-v2/contexts/ComparisonContext';
+import { useMerchant } from '@/hooks/use-merchant';
 
 interface CategoryClientProps {
   slug: string;

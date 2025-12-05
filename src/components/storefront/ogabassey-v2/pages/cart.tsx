@@ -1,24 +1,25 @@
 // @ts-nocheck - Template preview
-import React, { useState, useEffect } from 'react';
+
 import {
+  ArrowRight,
+  Calculator,
+  Check,
+  HandCoins,
   Minus,
   Plus,
-  Trash2,
-  ArrowRight,
-  HandCoins,
-  Check,
-  Calculator,
   ShieldCheck,
   ShoppingCart,
-  ArrowLeft,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { AdUnit } from '../components/AdUnit';
-import { NegotiationModal } from '../components/NegotiationModal';
 import { EmptyState } from '../components/empty-state';
-import { CartItem } from '../types';
+import { NegotiationModal } from '../components/NegotiationModal';
+import type { CartItem } from '../types';
 
 interface NegotiationState {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
   } = useCart();
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
-  const router = useRouter();
+  const _router = useRouter();
 
   // Calculate subtotal
   const subtotal = cart.reduce((acc, item) => {
@@ -186,7 +187,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                                     item.selectedColorValue ||
                                     item.selectedColor,
                                 }}
-                              ></span>
+                              />
                               <span className="text-[10px] text-gray-600">
                                 {item.selectedColor}
                               </span>
@@ -220,7 +221,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                     </div>
 
                     {/* Separator */}
-                    <div className="my-3 border-t border-dashed border-gray-100"></div>
+                    <div className="my-3 border-t border-dashed border-gray-100" />
 
                     {/* Middle Row: Controls & Price */}
                     <div className="flex items-center justify-between gap-3">
@@ -275,7 +276,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                             onChange={() => toggleAssurance(item.cartItemId)}
                             className="peer sr-only"
                           />
-                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                          <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
                         </div>
                         <div className="flex flex-col">
                           <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
@@ -345,7 +346,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                     <span>Shipping</span>
                     <span className="text-green-600 font-medium">Free</span>
                   </div>
-                  <div className="border-t border-dashed border-gray-200 my-2"></div>
+                  <div className="border-t border-dashed border-gray-200 my-2" />
                   <div className="flex justify-between text-gray-900 font-bold text-lg">
                     <span>Total</span>
                     <span>₦{subtotal.toLocaleString()}</span>

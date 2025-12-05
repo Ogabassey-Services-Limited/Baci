@@ -1,23 +1,25 @@
 // @ts-nocheck - Template preview
-import React, { useState } from 'react';
+
 import {
-  X,
+  ArrowRight,
+  Calculator,
+  Check,
+  HandCoins,
   Minus,
   Plus,
+  ShieldCheck,
   ShoppingBag,
   Trash2,
-  ArrowRight,
-  HandCoins,
-  Check,
-  Calculator,
-  ShieldCheck,
+  X,
 } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
+import type { CartItem } from '../types';
 import { AdUnit } from './AdUnit';
-import { NegotiationModal } from './NegotiationModal';
 import { EmptyState } from './EmptyState';
-import { CartItem } from '../types';
+import { NegotiationModal } from './NegotiationModal';
 
 // Helper type to manage modal state more cleanly
 interface NegotiationState {
@@ -89,7 +91,7 @@ export const CartSidebar: React.FC = () => {
         <div
           className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
           onClick={() => setIsCartOpen(false)}
-        ></div>
+        />
 
         {/* Sidebar Panel - SWIPES FROM LEFT */}
         <div className="absolute inset-y-0 left-0 max-w-full flex">
@@ -191,7 +193,7 @@ export const CartSidebar: React.FC = () => {
                                           item.selectedColorValue ||
                                           item.selectedColor,
                                       }}
-                                    ></span>
+                                    />
                                     {item.selectedColor}
                                   </span>
                                 )}
@@ -290,7 +292,7 @@ export const CartSidebar: React.FC = () => {
                                   }
                                   className="peer sr-only"
                                 />
-                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                                <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
                               </div>
                               <div className="flex-1">
                                 <div className="flex justify-between items-center">

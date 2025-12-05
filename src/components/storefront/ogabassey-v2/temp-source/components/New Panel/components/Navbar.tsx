@@ -1,22 +1,24 @@
 // @ts-nocheck - Template preview
-import React, { useState, useRef, useEffect } from 'react';
+
 import {
+  AlertCircle,
+  Bell,
+  Bot,
+  LayoutGrid,
+  Loader2,
+  Menu,
   Search,
   ShoppingCart,
-  Bell,
-  User,
-  Loader2,
   Sparkles,
+  User,
   X,
-  LayoutGrid,
-  Menu,
-  AlertCircle,
-  Bot,
 } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { searchProductsWithGemini } from '../services/geminiService';
-import { ProductRecommendation } from '../types';
 import { useCart } from '../contexts/CartContext';
+import { searchProductsWithGemini } from '../services/geminiService';
+import type { ProductRecommendation } from '../types';
 import { Logo } from './Logo';
 
 export const Navbar: React.FC = () => {
@@ -95,7 +97,7 @@ export const Navbar: React.FC = () => {
           backgroundImage: `radial-gradient(circle at 2px 2px, rgba(255,255,255,0.15) 1px, transparent 0)`,
           backgroundSize: '24px 24px',
         }}
-      ></div>
+      />
 
       <div className="max-w-[1400px] mx-auto relative z-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-3 pb-0 pt-1 md:py-5 px-4 md:px-6">
@@ -167,7 +169,7 @@ export const Navbar: React.FC = () => {
                 >
                   <X size={16} />
                 </button>
-                <div className="h-6 w-px bg-gray-200 mx-1 hidden md:block"></div>
+                <div className="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
                 <button
                   type="submit"
                   disabled={isSearching}

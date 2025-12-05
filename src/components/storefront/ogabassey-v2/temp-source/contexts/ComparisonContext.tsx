@@ -1,7 +1,8 @@
 // @ts-nocheck - Template preview
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Product } from '../types';
+import type React from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import type { Product } from '../types';
 
 interface ComparisonContextType {
   compareItems: Product[];

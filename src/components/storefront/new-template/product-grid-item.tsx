@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
 import {
-  ShoppingCart,
-  Star,
   Check,
-  Heart,
   ChevronLeft,
   ChevronRight,
+  Heart,
+  ShoppingCart,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
-import { Product } from './types';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import type { Product } from './types';
 
 interface ProductGridItemProps {
   product: Product;
@@ -37,14 +38,14 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   // Reset loading state when image source changes
   useEffect(() => {
     setIsImageLoaded(false);
-  }, [currentImage]);
+  }, []);
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!product.colors || product.colors.length === 0) return;
     setActiveColorIndex((prev) =>
-      prev === 0 ? product.colors!.length - 1 : prev - 1
+      prev === 0 ? (product.colors?.length ?? 1) - 1 : prev - 1
     );
   };
 
@@ -53,7 +54,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
     e.stopPropagation();
     if (!product.colors || product.colors.length === 0) return;
     setActiveColorIndex((prev) =>
-      prev === product.colors!.length - 1 ? 0 : prev + 1
+      prev === (product.colors?.length ?? 1) - 1 ? 0 : prev + 1
     );
   };
 
@@ -68,7 +69,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
       <Link
         href={`/product/${product.id}` as any}
         className="absolute inset-0 z-0"
-      ></Link>
+      />
 
       {/* Image Container - Gray Box with Overlapping Button */}
       {/* overflow-visible needed for the button to hang off the edge */}

@@ -1,5 +1,5 @@
 // @ts-nocheck - Template source file
-import React from 'react';
+import type React from 'react';
 
 export interface ProductRecommendation {
   name: string;

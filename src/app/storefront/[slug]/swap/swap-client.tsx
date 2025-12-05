@@ -1,12 +1,12 @@
 'use client';
 
-import { useMerchant } from '@/hooks/use-merchant';
 import { Loader2 } from 'lucide-react';
-import { OgabasseyV2Navbar } from '@/components/storefront/ogabassey-v2/layout/navbar';
+import AppBody from '@/components/app-body';
 import { OgabasseyV2Footer } from '@/components/storefront/ogabassey-v2/layout/footer';
 import { OgabasseyV2MobileFooter } from '@/components/storefront/ogabassey-v2/layout/mobile-footer';
+import { OgabasseyV2Navbar } from '@/components/storefront/ogabassey-v2/layout/navbar';
 import { OgabasseyV2Swap } from '@/components/storefront/ogabassey-v2/pages/swap';
-import AppBody from '@/components/app-body';
+import { useMerchant } from '@/hooks/use-merchant';
 
 export function SwapClient({ slug }: { slug: string }) {
   const { merchant, loading } = useMerchant();

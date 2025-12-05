@@ -1,7 +1,8 @@
 // @ts-nocheck - Template preview
 
-import React, { useEffect } from 'react';
 import { Heart, X } from 'lucide-react';
+import type React from 'react';
+import { useEffect } from 'react';
 
 interface SavedToastProps {
   isVisible: boolean;

@@ -1,6 +1,7 @@
 // @ts-nocheck - Template preview
-import React from 'react';
+
 import { Heart, ShoppingCart } from 'lucide-react';
+import type React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../contexts/CartContext';
 import { useSaved } from '../contexts/SavedContext';
@@ -39,7 +40,7 @@ export const SavedPage: React.FC = () => {
                 <Link
                   to={`/product/${product.id}`}
                   className="absolute inset-0 z-0"
-                ></Link>
+                />
 
                 <div className="relative aspect-square mb-3 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
                   <img

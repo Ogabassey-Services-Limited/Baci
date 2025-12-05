@@ -1,11 +1,12 @@
 // @ts-nocheck - Template preview
 
-import React, { useState } from 'react';
+import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 import Link from 'next/link';
-import { ShoppingCart, Star, Heart, ArrowRightLeft } from 'lucide-react';
-import { Product } from '../types';
-import { useSaved } from '../contexts/SavedContext';
+import type React from 'react';
+import { useState } from 'react';
 import { useComparison } from '../contexts/ComparisonContext';
+import { useSaved } from '../contexts/SavedContext';
+import type { Product } from '../types';
 
 interface ProductCardProps {
   product: Product;
@@ -57,7 +58,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <Link
           href={`/product/${product.id}`}
           className="absolute inset-0 z-0"
-        ></Link>
+        />
 
         {/* Image Container */}
         <div className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
@@ -169,10 +170,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   // --- LIST VIEW ---
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation">
-      <Link
-        href={`/product/${product.id}`}
-        className="absolute inset-0 z-0"
-      ></Link>
+      <Link href={`/product/${product.id}`} className="absolute inset-0 z-0" />
 
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">

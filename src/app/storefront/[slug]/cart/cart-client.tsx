@@ -1,14 +1,14 @@
 'use client';
 
-import React from 'react';
-import { SavedProvider } from '@/hooks/use-saved';
-import { ComparisonProvider } from '@/hooks/use-comparison';
+import type React from 'react';
 import { AppBody } from '@/components/storefront/ogabassey-v2/layout/app-body';
-import { OgabasseyV2Navbar } from '@/components/storefront/ogabassey-v2/layout/navbar';
 import { OgabasseyV2Footer } from '@/components/storefront/ogabassey-v2/layout/footer';
 import { MobileFooter } from '@/components/storefront/ogabassey-v2/layout/mobile-footer';
+import { OgabasseyV2Navbar } from '@/components/storefront/ogabassey-v2/layout/navbar';
 import { OgabasseyV2CartPage } from '@/components/storefront/ogabassey-v2/pages/cart';
+import { ComparisonProvider } from '@/hooks/use-comparison';
 import { useMerchant } from '@/hooks/use-merchant';
+import { SavedProvider } from '@/hooks/use-saved';
 
 interface CartClientProps {
   slug: string;

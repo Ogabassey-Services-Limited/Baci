@@ -1,6 +1,8 @@
 // @ts-nocheck - Template preview
-import React, { useState, useEffect } from 'react';
-import { WifiOff, RefreshCw } from 'lucide-react';
+
+import { RefreshCw, WifiOff } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 
 export const OfflineNotice: React.FC = () => {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);

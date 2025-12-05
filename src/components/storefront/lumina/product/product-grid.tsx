@@ -1,16 +1,16 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
-import Link from 'next/link';
 import type { Route } from 'next';
-import { cn } from '@/lib/utils';
+import Link from 'next/link';
+import { useCallback, useMemo, useState } from 'react';
 import type { Product } from '@/lib/products';
-import { LuminaProductGridItem } from './product-grid-item';
-import { LuminaProductFilters } from './product-filters';
+import { cn } from '@/lib/utils';
 import {
   FloatingParticles,
   type Particle,
 } from '../components/floating-particles';
+import { LuminaProductFilters } from './product-filters';
+import { LuminaProductGridItem } from './product-grid-item';
 
 interface LuminaProductGridProps {
   products: Product[];

@@ -1,9 +1,11 @@
 // @ts-nocheck - Template preview
-import React, { useEffect, useState } from 'react';
-import { Sparkles, Plus, X } from 'lucide-react';
-import { Product } from '../types';
+
+import { Plus, Sparkles, X } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { products } from '../data/products';
+import type { Product } from '../types';
 
 // Mock upsell logic mapping categories to accessory recommendations
 const UPSELL_MAPPING: Record<string, number[]> = {

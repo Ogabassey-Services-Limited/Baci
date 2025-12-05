@@ -1,9 +1,8 @@
 // @ts-nocheck - Template preview
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import type React from 'react';
+import { BannerCarousel } from './BannerCarousel';
 import { Hero } from './Hero';
 import { InteractiveProductGrid } from './InteractiveProductGrid';
-import { BannerCarousel } from './BannerCarousel';
 
 export const Home: React.FC = () => {
   return (

@@ -1,12 +1,12 @@
 'use client';
 
-import { useMerchant } from '@/hooks/use-merchant';
 import { Loader2 } from 'lucide-react';
-import { OgabasseyV2Navbar } from '@/components/storefront/ogabassey-v2/layout/navbar';
+import AppBody from '@/components/app-body';
 import { OgabasseyV2Footer } from '@/components/storefront/ogabassey-v2/layout/footer';
 import { OgabasseyV2MobileFooter } from '@/components/storefront/ogabassey-v2/layout/mobile-footer';
+import { OgabasseyV2Navbar } from '@/components/storefront/ogabassey-v2/layout/navbar';
 import { OgabasseyV2ImeiChecker } from '@/components/storefront/ogabassey-v2/pages/imei-checker';
-import AppBody from '@/components/app-body';
+import { useMerchant } from '@/hooks/use-merchant';
 
 export function ImeiCheckClient({ slug }: { slug: string }) {
   const { merchant, loading } = useMerchant();

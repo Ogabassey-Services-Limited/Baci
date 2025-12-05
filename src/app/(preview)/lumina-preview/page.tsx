@@ -373,7 +373,7 @@ export default function LuminaPreviewPage() {
   const [cartIds, setCartIds] = useState<Set<string>>(new Set());
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
 
-  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+  const handleAddToCart = (_e: React.MouseEvent, product: Product) => {
     setCartIds((prev) => {
       const next = new Set(prev);
       if (next.has(product.id)) {

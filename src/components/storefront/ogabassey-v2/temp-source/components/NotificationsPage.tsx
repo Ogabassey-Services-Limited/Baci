@@ -1,16 +1,20 @@
 // @ts-nocheck - Template preview
-import React, { useState } from 'react';
+
 import {
   Bell,
   Check,
-  Trash2,
-  Package,
-  Gift,
-  Shield,
   CheckCircle2,
-  BellOff,
+  Gift,
+  Package,
+  Shield,
+  Trash2,
 } from 'lucide-react';
-import { useNotification, Notification } from '../contexts/NotificationContext';
+import type React from 'react';
+import { useState } from 'react';
+import {
+  type Notification,
+  useNotification,
+} from '../contexts/NotificationContext';
 import { EmptyState } from './EmptyState';
 
 export const NotificationsPage: React.FC = () => {
@@ -124,7 +128,7 @@ export const NotificationsPage: React.FC = () => {
                       className={`relative p-4 rounded-xl border transition-all duration-200 group ${notification.read ? 'bg-white border-gray-100' : 'bg-white border-red-100 shadow-sm'}`}
                     >
                       {!notification.read && (
-                        <div className="absolute top-4 right-4 w-2 h-2 bg-red-600 rounded-full"></div>
+                        <div className="absolute top-4 right-4 w-2 h-2 bg-red-600 rounded-full" />
                       )}
 
                       <div className="flex gap-4">

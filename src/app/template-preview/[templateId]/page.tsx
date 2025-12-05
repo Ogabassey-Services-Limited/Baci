@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { TEMPLATE_REGISTRY, getAllTemplateIds } from '@/templates/registry';
+import { getAllTemplateIds, TEMPLATE_REGISTRY } from '@/templates/registry';
 import { TemplatePreviewClient } from './preview-client';
 
 // Generate static params for all templates

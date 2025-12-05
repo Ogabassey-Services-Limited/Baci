@@ -1,9 +1,10 @@
 // @ts-nocheck - Template preview
 
-import React, { useState } from 'react';
-import { X, Download } from 'lucide-react';
+import { Download, X } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
+import type { Product } from '../types';
 import { Logo } from './Logo';
-import { Product } from '../types';
 
 // Define interface to match the structure in data/orders
 export interface InvoiceOrderData {
@@ -48,7 +49,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
-      ></div>
+      />
       <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl shrink-0">
@@ -66,7 +67,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           {/* A4 Paper Container */}
           <div className="bg-white shadow-xl border border-gray-200 p-12 md:p-16 min-h-[1123px] relative mx-auto max-w-[794px] flex flex-col">
             {/* Decorative Top Bar */}
-            <div className="absolute top-0 left-0 right-0 h-2 bg-red-600"></div>
+            <div className="absolute top-0 left-0 right-0 h-2 bg-red-600" />
 
             {/* Invoice Header */}
             <div className="flex justify-between items-start mb-20 mt-4">

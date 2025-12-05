@@ -1,6 +1,8 @@
 // @ts-nocheck - Template preview
-import React, { useState } from 'react';
-import { Search, ChevronDown, ChevronUp, Check, X } from 'lucide-react';
+
+import { Check, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 
 interface FilterSectionProps {
   title: string;
@@ -162,7 +164,10 @@ export const CategoryFiltersSidebar: React.FC<CategoryFiltersSidebarProps> = ({
               type="number"
               value={filters.minPrice || ''}
               onChange={(e) =>
-                onFilterChange('minPrice', parseInt(e.target.value) || 0)
+                onFilterChange(
+                  'minPrice',
+                  Number.parseInt(e.target.value, 10) || 0
+                )
               }
               placeholder="Min"
               className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-red-500"
@@ -174,7 +179,10 @@ export const CategoryFiltersSidebar: React.FC<CategoryFiltersSidebarProps> = ({
               type="number"
               value={filters.maxPrice || ''}
               onChange={(e) =>
-                onFilterChange('maxPrice', parseInt(e.target.value) || 0)
+                onFilterChange(
+                  'maxPrice',
+                  Number.parseInt(e.target.value, 10) || 0
+                )
               }
               placeholder="Max"
               className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-red-500"

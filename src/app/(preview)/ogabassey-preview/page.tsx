@@ -1,15 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import { LuminaProductGrid } from '@/components/storefront/lumina';
 import {
-  OgabasseyV2Navbar,
+  BannerCarousel,
   OgabasseyV2Footer,
   OgabasseyV2MobileFooter,
-  BannerCarousel,
+  OgabasseyV2Navbar,
 } from '@/components/storefront/ogabassey-v2';
-import { Hero } from '@/components/storefront/ogabassey-v2/components/Hero';
 import { BlogSnippet } from '@/components/storefront/ogabassey-v2/components/BlogSnippet';
-import { LuminaProductGrid } from '@/components/storefront/lumina';
+import { Hero } from '@/components/storefront/ogabassey-v2/components/Hero';
 import type { Product } from '@/lib/products';
 
 // Sample products for the featured grid - matching Baci's Product type
@@ -381,7 +381,7 @@ export default function OgabasseyPreviewPage() {
   const [cartIds, setCartIds] = useState<Set<string>>(new Set());
   const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
 
-  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+  const handleAddToCart = (_e: React.MouseEvent, product: Product) => {
     setCartIds((prev) => {
       const next = new Set(prev);
       if (next.has(product.id)) {

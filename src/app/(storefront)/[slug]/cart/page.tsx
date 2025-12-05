@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
-import { getCachedMerchant } from '@/lib/cached-data';
-import { NewTemplateCartPage } from '@/components/storefront/new-template';
-import { StorefrontHeader as Header } from '@/components/storefront/header';
 import { StorefrontFooter as Footer } from '@/components/storefront/footer';
+import { StorefrontHeader as Header } from '@/components/storefront/header';
+import { NewTemplateCartPage } from '@/components/storefront/new-template';
+import { getCachedMerchant } from '@/lib/cached-data';
 
 export default async function CartPage({
   params,
@@ -16,12 +16,11 @@ export default async function CartPage({
     notFound();
   }
 
-  // Let's assume I find it. If not, I'll use a placeholder or find where it is.
-  // Actually, I'll wait for find_by_name result.
-  // But I can cast merchant to any meanwhile.
-
   // Check for new template
-  if ((merchant as any).template_id === 'new-template') {
+  if (
+    (merchant as unknown as { template_id?: string }).template_id ===
+    'new-template'
+  ) {
     return <NewTemplateCartPage />;
   }
 

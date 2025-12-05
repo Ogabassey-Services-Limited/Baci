@@ -13,8 +13,8 @@
  * ```
  */
 
-import type { Product } from '@/lib/products';
 import type { MerchantData } from '@/hooks/use-merchant';
+import type { Product } from '@/lib/products';
 
 // =============================================================================
 // MOCK PRODUCTS

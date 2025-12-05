@@ -1,20 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
 import {
+  ArrowLeft,
+  ArrowRight,
   Minus,
   Plus,
-  Trash2,
-  ArrowRight,
   ShieldCheck,
   ShoppingBag,
-  ArrowLeft,
+  Trash2,
 } from 'lucide-react';
-import { Navbar } from './navbar';
-import { Footer } from './footer';
+import Link from 'next/link';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
-import { CartItem } from './types';
+import { Footer } from './footer';
+import { Navbar } from './navbar';
 
 export const CartPage: React.FC = () => {
   const { cart, updateQuantity, removeFromCart, cartTotal } = useCart();

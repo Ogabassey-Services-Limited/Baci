@@ -1,35 +1,33 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
-  Star,
-  ShieldCheck,
-  Truck,
-  RotateCcw,
+  AlertCircle,
+  Check,
   ChevronRight,
+  HandCoins,
+  Heart,
   Minus,
   Plus,
+  ShieldCheck,
   ShoppingCart,
-  Heart,
-  Share2,
-  Check,
-  AlertCircle,
-  HandCoins,
+  Star,
+  Truck,
   X,
 } from 'lucide-react';
-import { Navbar } from './navbar';
-import { Footer } from './footer';
-import { NegotiationModal } from './negotiation-modal';
-import { products } from './data';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { products } from './data';
+import { Footer } from './footer';
+import { Navbar } from './navbar';
+import { NegotiationModal } from './negotiation-modal';
 import { useSaved } from './saved-context'; // We created a stub for this
-import { Product } from './types';
 
 export const ProductDetails: React.FC = () => {
   const params = useParams();
-  const router = useRouter();
+  const _router = useRouter();
   const { addToCart, cart } = useCart();
   const { savedItems, toggleSaved } = useSaved();
 
@@ -39,7 +37,7 @@ export const ProductDetails: React.FC = () => {
   const productData = products.find((p) => p.id === productSlug) || products[0];
 
   const [selectedColor, setSelectedColor] = useState<number | null>(null);
-  const [secondaryColor, setSecondaryColor] = useState<number | null>(null);
+  const [_secondaryColor, _setSecondaryColor] = useState<number | null>(null);
   const [selectedStorage, setSelectedStorage] = useState<number | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -50,7 +48,7 @@ export const ProductDetails: React.FC = () => {
   // Scroll to top on mount
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [productSlug]);
+  }, []);
 
   if (!productData) {
     return <div>Product not found</div>;
@@ -60,7 +58,7 @@ export const ProductDetails: React.FC = () => {
 
   // Calculate quantity in cart for this product
   // Note: This is a simplification. Real cart might have multiple items for same product with different variants.
-  const quantityInCart = cart
+  const _quantityInCart = cart
     .filter((item: any) => item.id === productData.id)
     .reduce((acc: number, item: any) => acc + item.quantity, 0);
 
@@ -89,7 +87,7 @@ export const ProductDetails: React.FC = () => {
       return;
     }
 
-    const productToAdd = getProductForCart();
+    const _productToAdd = getProductForCart();
 
     addToCart(
       {
@@ -321,7 +319,7 @@ export const ProductDetails: React.FC = () => {
                               <div
                                 className="w-9 h-9 rounded-full border border-black/5 shadow-inner"
                                 style={{ backgroundColor: color.value }}
-                              ></div>
+                              />
                               {isSelected && (
                                 <div className="absolute inset-0 flex items-center justify-center z-10">
                                   <Check
@@ -460,7 +458,7 @@ export const ProductDetails: React.FC = () => {
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsSelectionModalOpen(false)}
-          ></div>
+          />
           <div className="bg-white w-full md:max-w-md md:rounded-2xl rounded-t-2xl shadow-2xl relative z-10 animate-in slide-in-from-bottom-10 duration-300">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3
@@ -528,7 +526,7 @@ export const ProductDetails: React.FC = () => {
                             <div
                               className="w-11 h-11 rounded-full border border-black/5 shadow-inner"
                               style={{ backgroundColor: color.value }}
-                            ></div>
+                            />
                             {isSelected && (
                               <div className="absolute inset-0 flex items-center justify-center z-10">
                                 <Check
@@ -611,7 +609,7 @@ export const ProductDetails: React.FC = () => {
             (selectedStorage !== null || !productData.storage?.length)
           ) {
             // Add to cart with negotiated price
-            const productToAdd = getProductForCart();
+            const _productToAdd = getProductForCart();
             // Note: This logic assumes addToCart supports price override or we handle it.
             // For now, we just add it.
             validateAndAddToCart();

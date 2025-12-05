@@ -1,26 +1,26 @@
 // @ts-nocheck - Template preview
 
-import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  X,
-  User,
-  Heart,
-  Wallet,
-  ShoppingBag,
-  HelpCircle,
-  Star,
   Crown,
   FileText,
+  Heart,
+  HelpCircle,
   MapPin,
-  Wrench,
-  RefreshCw,
   Palette,
-  Snowflake,
+  RefreshCw,
   ScanBarcode,
+  ShoppingBag,
+  Snowflake,
+  Star,
+  User,
+  Wallet,
+  Wrench,
+  X,
 } from 'lucide-react';
-import { Logo } from './Logo';
+import type React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { Logo } from './Logo';
 
 interface MobileMenuProps {
   isOpen: boolean;
@@ -60,7 +60,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={onClose}
-      ></div>
+      />
 
       {/* Sidebar */}
       <div className="absolute inset-y-0 left-0 w-[85%] max-w-[320px] bg-white shadow-2xl animate-in slide-in-from-left duration-300 flex flex-col">
@@ -129,7 +129,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
                 >
                   <div
                     className={`absolute top-1 left-1 w-3 h-3 bg-white rounded-full transition-transform ${theme === 'santa' ? 'translate-x-5' : 'translate-x-0'}`}
-                  ></div>
+                  />
                 </div>
               </button>
             </div>

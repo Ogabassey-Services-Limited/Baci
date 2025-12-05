@@ -1,5 +1,6 @@
 // @ts-nocheck - Template preview
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import type React from 'react';
+import { createContext, useContext, useState } from 'react';
 
 export type ThemeMode = 'standard' | 'santa';
 

@@ -1,22 +1,24 @@
 // @ts-nocheck - Template preview
-import React, { useState } from 'react';
+
 import {
-  Package,
-  Truck,
   CheckCircle2,
-  Clock,
   ChevronRight,
-  XCircle,
+  Clock,
+  Package,
   Search,
+  Truck,
   X,
+  XCircle,
 } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { orders } from '../data/orders';
 import { EmptyState } from './EmptyState';
 
 export const OrdersPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
 
   // Filter Logic
   const filteredOrders = orders.filter((order) => {

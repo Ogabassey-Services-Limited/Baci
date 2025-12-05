@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
-import { Navbar } from './navbar';
-import { Hero } from './hero';
+import type React from 'react';
 import { BannerCarousel } from './banner-carousel';
+import { Hero } from './hero';
 import { InteractiveProductGrid } from './interactive-product-grid';
+import { Navbar } from './navbar';
 import { SavedProvider } from './saved-context';
 
 export const Home: React.FC = () => {

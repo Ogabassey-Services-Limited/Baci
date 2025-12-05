@@ -1,9 +1,11 @@
 // @ts-nocheck - Template preview
-import React, { useEffect, useState } from 'react';
-import { Sparkles, Plus, X } from 'lucide-react';
-import { Product } from '../types';
-import { products } from '../data/products';
+
+import { Plus, Sparkles, X } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '../contexts/CartContext';
+import { products } from '../data/products';
+import type { Product } from '../types';
 
 interface UpsellToastProps {
   product: Product | null;
@@ -88,7 +90,7 @@ export const UpsellToast: React.FC<UpsellToastProps> = ({
         onClose();
       }
     }
-  }, [product, anchorRect, onClose]);
+  }, [product, anchorRect, onClose, handleDismiss]);
 
   const handleDismiss = () => {
     setIsVisible(false);

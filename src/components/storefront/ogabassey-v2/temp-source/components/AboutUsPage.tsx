@@ -1,16 +1,17 @@
 // @ts-nocheck - Template preview
 
-import React, { useEffect } from 'react';
 import {
-  Target,
-  Users,
   Award,
-  Smile,
-  ChevronRight,
   CheckCircle2,
-  TrendingUp,
+  ChevronRight,
   ShieldCheck,
+  Smile,
+  Target,
+  TrendingUp,
+  Users,
 } from 'lucide-react';
+import type React from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AdUnit } from './AdUnit';
 
@@ -51,7 +52,7 @@ export const AboutUsPage: React.FC = () => {
     <div className="min-h-screen bg-white pb-20">
       {/* Hero Section */}
       <div className="relative bg-[#1a1a1a] text-white py-20 md:py-32 overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
+        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]" />
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 relative z-10 text-center">
           <span className="inline-block py-1 px-3 rounded-full bg-red-600/20 text-red-400 text-xs font-bold uppercase tracking-widest mb-6 border border-red-600/30">
             Our Story
@@ -68,8 +69,8 @@ export const AboutUsPage: React.FC = () => {
         </div>
 
         {/* Decorative Elements */}
-        <div className="absolute top-1/2 left-10 w-24 h-24 border-4 border-white/5 rounded-full animate-pulse"></div>
-        <div className="absolute bottom-10 right-10 w-32 h-32 bg-red-600/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 left-10 w-24 h-24 border-4 border-white/5 rounded-full animate-pulse" />
+        <div className="absolute bottom-10 right-10 w-32 h-32 bg-red-600/10 rounded-full blur-3xl" />
       </div>
 
       {/* Stats Strip */}
@@ -104,7 +105,7 @@ export const AboutUsPage: React.FC = () => {
                 alt="Our Team"
                 className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
               <div className="absolute bottom-6 left-6 text-white">
                 <p className="font-bold text-lg">The Ogabassey HQ</p>
                 <p className="text-sm opacity-80">Lagos, Nigeria</p>
@@ -208,8 +209,8 @@ export const AboutUsPage: React.FC = () => {
           </div>
 
           {/* Background circles */}
-          <div className="absolute top-0 left-0 w-64 h-64 bg-white/10 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full translate-x-1/3 translate-y-1/3"></div>
+          <div className="absolute top-0 left-0 w-64 h-64 bg-white/10 rounded-full -translate-x-1/2 -translate-y-1/2" />
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full translate-x-1/3 translate-y-1/3" />
         </div>
       </div>
     </div>

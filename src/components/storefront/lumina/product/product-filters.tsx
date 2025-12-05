@@ -1,22 +1,22 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
 import {
-  SlidersHorizontal,
-  Smartphone,
+  Check,
+  ChevronDown,
   Gamepad2,
-  Laptop,
   Headphones,
-  Printer,
+  Laptop,
+  Layers,
   LayoutGrid,
   List,
-  Check,
+  type LucideIcon,
+  Printer,
+  SlidersHorizontal,
+  Smartphone,
   Star,
   Tag,
-  Layers,
-  ChevronDown,
-  type LucideIcon,
 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface LuminaProductFiltersProps {

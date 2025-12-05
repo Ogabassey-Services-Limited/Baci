@@ -1,23 +1,23 @@
 // @ts-nocheck - Template preview
 
-import React from 'react';
 import {
-  User,
-  Package,
-  Heart,
-  Wallet,
-  MapPin,
-  Settings,
-  LogOut,
-  HelpCircle,
-  ChevronRight,
   Bell,
-  Shield,
-  Palette,
-  Sparkles,
-  Snowflake,
+  ChevronRight,
+  Heart,
+  HelpCircle,
   History,
+  LogOut,
+  MapPin,
+  Package,
+  Palette,
+  Settings,
+  Shield,
+  Snowflake,
+  Sparkles,
+  User,
+  Wallet,
 } from 'lucide-react';
+import type React from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -98,7 +98,7 @@ export const ProfilePage: React.FC = () => {
           {/* Left Column: Profile Card */}
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col items-center text-center relative overflow-hidden">
-              <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-gray-900 to-gray-800"></div>
+              <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-r from-gray-900 to-gray-800" />
 
               <div className="relative w-24 h-24 rounded-full border-4 border-white shadow-md mb-4 mt-8">
                 <img

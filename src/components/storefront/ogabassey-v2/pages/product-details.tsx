@@ -1,38 +1,34 @@
 // @ts-nocheck - Template preview
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import {
-  Star,
-  Truck,
-  ShieldCheck,
-  Share2,
+  ArrowRightLeft,
+  Check,
+  ChevronRight,
   Heart,
+  Info,
+  MapPin,
   Minus,
   Plus,
-  ChevronRight,
-  ArrowRightLeft,
+  Share2,
+  ShieldCheck,
+  Star,
   Trash2,
-  HandCoins,
-  AlertCircle,
-  X,
-  ShoppingCart,
-  Check,
-  MapPin,
+  Truck,
   User,
-  Info,
-  Search,
+  X,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import type React from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
-import { useSaved } from '../contexts/SavedContext';
-import { useComparison } from '../contexts/ComparisonContext';
-import { Product } from '../types';
-import { products } from '../data/products';
 import { AdUnit } from '../components/AdUnit';
-import { BlogSnippet } from '../components/BlogSnippet';
-import { NegotiationModal } from '../components/NegotiationModal';
 import { BannerCarousel } from '../components/BannerCarousel';
+import { BlogSnippet } from '../components/BlogSnippet';
+import { useComparison } from '../contexts/ComparisonContext';
+import { useSaved } from '../contexts/SavedContext';
+import { products } from '../data/products';
+import type { Product } from '../types';
 
 // Fallback Mock data if product is not found
 const FALLBACK_PRODUCT = {
@@ -123,7 +119,7 @@ interface OgabasseyV2ProductDetailsProps {
 export const OgabasseyV2ProductDetails: React.FC<
   OgabasseyV2ProductDetailsProps
 > = ({ storeSlug, productId }) => {
-  const router = useRouter();
+  const _router = useRouter();
   const { addToCart, cart, updateQuantity, removeFromCart } = useCart();
   const { toggleSaved, isSaved } = useSaved();
   const { compareItems, addToCompare, removeFromCompare, isInCompare } =
@@ -209,7 +205,7 @@ export const OgabasseyV2ProductDetails: React.FC<
       colors: normalizedColors,
       storage: normalizedStorage,
     };
-  }, [productFound]);
+  }, [productFound, getColorHex]);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<number | null>(null);
@@ -224,11 +220,11 @@ export const OgabasseyV2ProductDetails: React.FC<
   const [showColorToast, setShowColorToast] = useState(false);
 
   // Negotiation Logic
-  const [isNegotiationOpen, setIsNegotiationOpen] = useState(false);
+  const [_isNegotiationOpen, _setIsNegotiationOpen] = useState(false);
 
   // Selection Logic
-  const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
-  const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [_isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
+  const [_missingFields, setMissingFields] = useState<string[]>([]);
 
   // Comparison Logic - Compute comparable items
   const comparableProducts = useMemo(() => {
@@ -259,7 +255,7 @@ export const OgabasseyV2ProductDetails: React.FC<
   // Scroll to top on load
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [productId]);
+  }, []);
 
   const isLiked = isSaved(productData.id);
 
@@ -612,7 +608,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                           choice is out of stock.
                         </span>
                       </div>
-                      <div className="w-2 h-2 bg-gray-900 rotate-45 ml-6 -mt-1"></div>
+                      <div className="w-2 h-2 bg-gray-900 rotate-45 ml-6 -mt-1" />
                     </div>
                   )}
 
@@ -660,7 +656,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                         <div
                           className="w-11 h-11 rounded-full border border-black/5 shadow-inner"
                           style={{ backgroundColor: color.value }}
-                        ></div>
+                        />
 
                         {/* Primary Badge (1) */}
                         {isPrimary && (
@@ -914,7 +910,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                               width:
                                 num === 5 ? '80%' : num === 4 ? '15%' : '2%',
                             }}
-                          ></div>
+                          />
                         </div>
                       </div>
                     ))}

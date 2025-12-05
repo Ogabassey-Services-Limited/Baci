@@ -1,20 +1,21 @@
 // @ts-nocheck - Template preview
-import React, { useState } from 'react';
+
 import {
-  Shield,
-  Lock,
-  Smartphone,
-  Globe,
-  LogOut,
-  ChevronRight,
-  Key,
   AlertTriangle,
   CheckCircle2,
-  X,
   Eye,
   EyeOff,
+  Globe,
+  Key,
   Loader2,
+  Lock,
+  LogOut,
+  Shield,
+  Smartphone,
+  X,
 } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 
 export const SecurityPage: React.FC = () => {
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -248,15 +249,15 @@ export const SecurityPage: React.FC = () => {
               </h3>
               <ul className="space-y-3">
                 <li className="flex gap-2 text-sm text-blue-800">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   Use a strong password with symbols and numbers.
                 </li>
                 <li className="flex gap-2 text-sm text-blue-800">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   Enable 2FA for maximum protection.
                 </li>
                 <li className="flex gap-2 text-sm text-blue-800">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0"></div>
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                   Log out from public devices immediately after use.
                 </li>
               </ul>
@@ -285,7 +286,7 @@ export const SecurityPage: React.FC = () => {
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setIsPasswordModalOpen(false)}
-          ></div>
+          />
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl relative z-10 p-6 animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-bold text-gray-900 text-lg">

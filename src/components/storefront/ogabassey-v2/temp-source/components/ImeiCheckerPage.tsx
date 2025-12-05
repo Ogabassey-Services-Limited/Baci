@@ -1,21 +1,16 @@
 // @ts-nocheck - Template preview
 
-import React, { useState } from 'react';
 import {
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Smartphone,
-  Loader2,
-  ScanBarcode,
-  ArrowRight,
-  ShieldCheck,
-  Lock,
-  Globe,
-  Search,
-  RefreshCw,
   Calendar,
+  Globe,
+  Loader2,
+  Lock,
+  RefreshCw,
+  ScanBarcode,
+  ShieldCheck,
 } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 
 export const ImeiCheckerPage: React.FC = () => {
   const [imei, setImei] = useState('');
@@ -108,7 +103,7 @@ export const ImeiCheckerPage: React.FC = () => {
                 device
               </span>
             </div>
-            <div className="hidden md:block w-1 h-1 bg-gray-300 rounded-full"></div>
+            <div className="hidden md:block w-1 h-1 bg-gray-300 rounded-full" />
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs font-bold text-gray-700">
                 2

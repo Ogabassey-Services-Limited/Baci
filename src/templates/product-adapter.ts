@@ -51,20 +51,29 @@ function formatPrice(priceInKobo: number): string {
 
 /**
  * Map Baci condition to template condition format
+ * Now supports expanded enum: new, used, open_box, refurbished
  */
 function mapCondition(
-  condition?: 'new' | 'used',
+  condition?: 'new' | 'used' | 'open_box' | 'refurbished',
   conditionDetail?: string
 ): 'New' | 'Used' | 'Open Box' {
   if (condition === 'new') return 'New';
+  if (condition === 'open_box') return 'Open Box';
+  // 'used' and 'refurbished' both map to 'Used' in template format
+  // But check conditionDetail as fallback for legacy data
   if (conditionDetail?.toLowerCase().includes('open box')) return 'Open Box';
   return 'Used';
 }
 
 /**
- * Extract rating from schema markup if available
+ * Get rating - prefer direct rating field, fallback to schema markup
  */
 function extractRating(product: BaciProduct): number {
+  // Direct rating field (2025 best practice - flattened for UI)
+  if (product.rating !== undefined) {
+    return product.rating;
+  }
+  // Fallback to schema_markup for backward compatibility
   const schemaRating = product.schema_markup?.aggregateRating;
   if (
     schemaRating &&
@@ -74,6 +83,26 @@ function extractRating(product: BaciProduct): number {
     return Number(schemaRating.ratingValue) || 4.5;
   }
   return 4.5;
+}
+
+/**
+ * Get review count - prefer direct field, fallback to schema
+ */
+function extractReviewCount(product: BaciProduct): number {
+  // Direct review_count field (2025 best practice)
+  if (product.review_count !== undefined) {
+    return product.review_count;
+  }
+  // Fallback to schema_markup
+  const schemaRating = product.schema_markup?.aggregateRating;
+  if (
+    schemaRating &&
+    typeof schemaRating === 'object' &&
+    'reviewCount' in schemaRating
+  ) {
+    return Number(schemaRating.reviewCount) || 0;
+  }
+  return 0;
 }
 
 /**
@@ -129,7 +158,7 @@ export function adaptProduct(product: BaciProduct): TemplateProduct {
     description: product.description,
     brand: product.brand,
     rating: extractRating(product),
-    reviews: 0,
+    reviews: extractReviewCount(product),
     condition: mapCondition(product.condition, product.condition_detail),
     inStock: product.manage_stock ? (product.stock ?? 0) > 0 : true,
     isNew: product.condition === 'new',

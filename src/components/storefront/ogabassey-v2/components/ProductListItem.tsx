@@ -1,15 +1,17 @@
 // @ts-nocheck - Template preview
-import React, { useState, useEffect } from 'react';
+
 import {
-  ShoppingCart,
-  Star,
   Check,
-  Heart,
   ChevronLeft,
   ChevronRight,
+  Heart,
+  ShoppingCart,
+  Star,
 } from 'lucide-react';
 import Link from 'next/link';
-import { Product } from '../types';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import type { Product } from '../types';
 
 interface ProductListItemProps {
   product: Product;
@@ -35,14 +37,14 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   // Reset loading state when image source changes
   useEffect(() => {
     setIsImageLoaded(false);
-  }, [currentImage]);
+  }, []);
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!product.colors || product.colors.length === 0) return;
     setActiveColorIndex((prev) =>
-      prev === 0 ? product.colors!.length - 1 : prev - 1
+      prev === 0 ? product.colors?.length - 1 : prev - 1
     );
   };
 
@@ -51,7 +53,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
     e.stopPropagation();
     if (!product.colors || product.colors.length === 0) return;
     setActiveColorIndex((prev) =>
-      prev === product.colors!.length - 1 ? 0 : prev + 1
+      prev === product.colors?.length - 1 ? 0 : prev + 1
     );
   };
 
@@ -63,10 +65,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative">
-      <Link
-        href={`/product/${product.id}`}
-        className="absolute inset-0 z-0"
-      ></Link>
+      <Link href={`/product/${product.id}`} className="absolute inset-0 z-0" />
 
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">

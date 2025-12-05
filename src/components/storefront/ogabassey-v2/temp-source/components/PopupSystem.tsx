@@ -1,6 +1,8 @@
 // @ts-nocheck - Template preview
-import React, { useState, useEffect } from 'react';
-import { X, Mail, ArrowRight } from 'lucide-react';
+
+import { ArrowRight, Mail, X } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { AdUnit } from './AdUnit';
 
 export const PopupSystem: React.FC = () => {
@@ -39,7 +41,7 @@ export const PopupSystem: React.FC = () => {
           <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={handleCloseNewsletter}
-          ></div>
+          />
           <div className="bg-[#1a1a1a] rounded-2xl shadow-2xl max-w-md w-full relative overflow-hidden z-10 animate-in zoom-in-95 duration-300 border border-white/10">
             {/* Decorative Header */}
             <div className="h-32 bg-[#1a1a1a] relative flex items-center justify-center overflow-hidden">
@@ -48,7 +50,7 @@ export const PopupSystem: React.FC = () => {
                 style={{
                   backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
                 }}
-              ></div>
+              />
               <div className="relative z-10 w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg">
                 <Mail size={32} className="text-red-600" />
               </div>

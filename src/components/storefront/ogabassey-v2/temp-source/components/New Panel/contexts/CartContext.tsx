@@ -1,6 +1,7 @@
 // @ts-nocheck - Template preview
-import React, { createContext, useContext, useState, useMemo } from 'react';
-import { CartItem, Product } from '../types';
+import type React from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
+import type { CartItem, Product } from '../types';
 
 interface CartContextType {
   items: CartItem[];

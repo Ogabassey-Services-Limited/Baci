@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import type React from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const SavedContext = createContext<any>(null);
 
@@ -9,14 +10,16 @@ export const SavedProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const toggleSaved = (product: any) => {
     const id =
-      typeof product.id === 'string' ? parseInt(product.id) : product.id;
+      typeof product.id === 'string'
+        ? Number.parseInt(product.id, 10)
+        : product.id;
     setSavedItems((prev) =>
       prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
   };
 
   const isSaved = (id: number | string) => {
-    const numId = typeof id === 'string' ? parseInt(id) : id;
+    const numId = typeof id === 'string' ? Number.parseInt(id, 10) : id;
     return savedItems.includes(numId);
   };
 

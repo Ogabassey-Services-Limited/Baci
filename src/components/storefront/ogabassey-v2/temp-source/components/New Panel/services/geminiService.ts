@@ -1,7 +1,7 @@
 // @ts-nocheck - Template source file
-import { GoogleGenAI, Type, Schema } from '@google/genai';
-import { ProductRecommendation } from '../types';
+import { GoogleGenAI, type Schema, Type } from '@google/genai';
 import { products } from '../data/products';
+import type { ProductRecommendation } from '../types';
 
 // Initialize Gemini Client
 // Note: process.env.API_KEY is injected by the environment.

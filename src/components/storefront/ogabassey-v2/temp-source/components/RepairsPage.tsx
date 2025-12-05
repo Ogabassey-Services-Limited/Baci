@@ -1,21 +1,22 @@
 // @ts-nocheck - Template preview
 
-import React, { useEffect } from 'react';
 import {
-  Wrench,
-  Smartphone,
-  Laptop,
-  Battery,
-  Monitor,
-  ChevronRight,
-  ShieldCheck,
-  Sparkles,
-  Recycle,
-  Leaf,
-  HeartPulse,
-  Zap,
   AlertTriangle,
+  Battery,
+  ChevronRight,
+  HeartPulse,
+  Laptop,
+  Leaf,
+  Monitor,
+  Recycle,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Wrench,
+  Zap,
 } from 'lucide-react';
+import type React from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 export const RepairsPage: React.FC = () => {
@@ -93,10 +94,10 @@ export const RepairsPage: React.FC = () => {
           </div>
 
           {/* Abstract Tech Pattern */}
-          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/circuit.png')]"></div>
+          <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/circuit.png')]" />
 
           {/* Red Glow Effect */}
-          <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-red-600 rounded-full blur-[120px] opacity-20"></div>
+          <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-red-600 rounded-full blur-[120px] opacity-20" />
         </div>
 
         {/* The Repair Impact */}

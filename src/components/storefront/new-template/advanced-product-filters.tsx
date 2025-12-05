@@ -1,13 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
 import {
-  Filter,
-  ChevronDown,
   Check,
-  Star,
+  ChevronDown,
+  Filter,
   LayoutGrid,
   List,
-  X,
+  Star,
 } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface AdvancedProductFiltersProps {
   categories: string[];
@@ -147,7 +147,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
               </div>
 
               {/* Vertical Divider */}
-              <div className="h-8 w-px bg-gray-200"></div>
+              <div className="h-8 w-px bg-gray-200" />
 
               {/* Dynamic Controls */}
               <div className="flex-1 lg:w-64 flex items-center gap-2 animate-in fade-in duration-300 min-w-0">
@@ -161,11 +161,11 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                         type="text"
                         value={minPrice > 0 ? minPrice.toLocaleString() : ''}
                         onChange={(e) => {
-                          const val = parseInt(
+                          const val = Number.parseInt(
                             e.target.value.replace(/[^0-9]/g, ''),
                             10
                           );
-                          onPriceChange(isNaN(val) ? 0 : val, maxPrice);
+                          onPriceChange(Number.isNaN(val) ? 0 : val, maxPrice);
                         }}
                         placeholder="Min"
                         className="w-full pl-6 pr-2 py-2 text-sm bg-gray-100 border-transparent rounded-lg focus:bg-white focus:border-red-500 focus:ring-0 transition-colors font-medium text-gray-900 placeholder-gray-400"
@@ -185,11 +185,11 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                             : ''
                         }
                         onChange={(e) => {
-                          const val = parseInt(
+                          const val = Number.parseInt(
                             e.target.value.replace(/[^0-9]/g, ''),
                             10
                           );
-                          onPriceChange(minPrice, isNaN(val) ? 0 : val);
+                          onPriceChange(minPrice, Number.isNaN(val) ? 0 : val);
                         }}
                         placeholder="Max"
                         className="w-full pl-6 pr-2 py-2 text-sm bg-gray-100 border-transparent rounded-lg focus:bg-white focus:border-red-500 focus:ring-0 transition-colors font-medium text-gray-900 placeholder-gray-400"

@@ -1,7 +1,7 @@
 // @ts-nocheck - Template preview
 
-import React from 'react';
 import { ArrowRight, BookOpen } from 'lucide-react';
+import type React from 'react';
 import { Link } from 'react-router-dom';
 
 interface BlogSnippetProps {
@@ -74,7 +74,7 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({ category }) => {
               alt={post.title}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
             />
-            <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+            <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
             <div className="absolute top-4 left-4 bg-white/90 backdrop-blur text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider text-gray-800">
               {category}
             </div>

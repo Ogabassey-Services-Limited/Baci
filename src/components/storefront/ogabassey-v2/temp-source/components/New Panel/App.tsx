@@ -1,12 +1,13 @@
 // @ts-nocheck - Template preview
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 import { HashRouter as Router } from 'react-router-dom';
-import { CartProvider } from './contexts/CartContext';
 import { CartDrawer } from './components/CartDrawer';
+import { FloatingParticles } from './components/FloatingParticles';
 import { ProductGrid } from './components/ProductGrid';
 import { UpsellToast } from './components/UpsellToast';
-import { FloatingParticles } from './components/FloatingParticles';
-import { Product } from './types';
+import { CartProvider } from './contexts/CartContext';
+import type { Product } from './types';
 
 const App: React.FC = () => {
   const [notificationProduct, setNotificationProduct] =

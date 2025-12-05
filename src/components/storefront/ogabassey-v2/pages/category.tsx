@@ -1,19 +1,19 @@
 // @ts-nocheck - Template preview
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { ChevronRight, Filter, LayoutGrid, List, X } from 'lucide-react';
 import Link from 'next/link';
-import { ChevronRight, Filter, X, LayoutGrid, List } from 'lucide-react';
-import {
-  CategoryFiltersSidebar,
-  FilterState,
-} from '../components/CategoryFiltersSidebar';
-import { ProductCard } from '../components/ProductCard';
+import { useRouter } from 'next/navigation';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useCart } from '@/hooks/use-cart';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
+import {
+  CategoryFiltersSidebar,
+  type FilterState,
+} from '../components/CategoryFiltersSidebar';
+import { ProductCard } from '../components/ProductCard';
 import { products } from '../data/products';
-import { useCart } from '@/hooks/use-cart';
-import { Product } from '../types';
+import type { Product } from '../types';
 
 interface OgabasseyV2CategoryPageProps {
   storeSlug?: string;
@@ -23,7 +23,7 @@ interface OgabasseyV2CategoryPageProps {
 export const OgabasseyV2CategoryPage: React.FC<
   OgabasseyV2CategoryPageProps
 > = ({ storeSlug, categoryName }) => {
-  const router = useRouter();
+  const _router = useRouter();
   const { addToCart } = useCart();
   const [addedItems, setAddedItems] = useState<number[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -49,7 +49,7 @@ export const OgabasseyV2CategoryPage: React.FC<
   useEffect(() => {
     window.scrollTo(0, 0);
     setFilters(initialFilterState);
-  }, [categoryName]);
+  }, []);
 
   // Derived Data: Products in the current Category
   const categoryProducts = useMemo(() => {
@@ -174,7 +174,9 @@ export const OgabasseyV2CategoryPage: React.FC<
     addToCart(product, 1);
 
     const pid =
-      typeof product.id === 'string' ? parseInt(product.id) : product.id;
+      typeof product.id === 'string'
+        ? Number.parseInt(product.id, 10)
+        : product.id;
     setAddedItems((prev) => [...prev, pid]);
     setTimeout(() => {
       setAddedItems((prev) => prev.filter((id) => id !== pid));
@@ -287,7 +289,7 @@ export const OgabasseyV2CategoryPage: React.FC<
                 {filteredProducts.map((product, index) => {
                   const isAdded = addedItems.includes(
                     typeof product.id === 'string'
-                      ? parseInt(product.id)
+                      ? Number.parseInt(product.id, 10)
                       : product.id
                   );
                   return (
@@ -324,7 +326,7 @@ export const OgabasseyV2CategoryPage: React.FC<
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setIsMobileFilterOpen(false)}
-          ></div>
+          />
           <div className="relative w-full max-w-xs bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
             <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="font-bold text-lg text-gray-900">Filters</h3>

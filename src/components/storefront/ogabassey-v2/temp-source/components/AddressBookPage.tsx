@@ -1,6 +1,7 @@
 // @ts-nocheck - Template preview
-import React from 'react';
-import { MapPin, Plus, Edit2, Trash2, CheckCircle2 } from 'lucide-react';
+
+import { CheckCircle2, Edit2, MapPin, Plus, Trash2 } from 'lucide-react';
+import type React from 'react';
 
 export const AddressBookPage: React.FC = () => {
   const addresses = [

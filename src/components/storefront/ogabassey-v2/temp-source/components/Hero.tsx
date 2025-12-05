@@ -1,6 +1,8 @@
 // @ts-nocheck - Template preview
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Gamepad2 } from 'lucide-react';
+
+import { Gamepad2, Play } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AdUnit } from './AdUnit';
 
 type SlideType = 'image' | 'video' | 'ad';
@@ -102,7 +104,7 @@ const RotatingWord = () => {
 export const Hero: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [currentIphoneSlide, setCurrentIphoneSlide] = useState(0);
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
+  const _videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
   // Auto-rotate Mobile slides
   useEffect(() => {
@@ -135,7 +137,7 @@ export const Hero: React.FC = () => {
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='150' height='150' viewBox='0 0 150 150' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='1.5'%3E%3Cpath d='M0 5 q5 -10 10 0 t10 0' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E")`,
             backgroundSize: '140px 140px',
           }}
-        ></div>
+        />
       </div>
 
       <section className="max-w-[1400px] mx-auto px-4 md:px-6 relative z-10 pt-4 md:pt-6 flex flex-col">
@@ -187,7 +189,7 @@ export const Hero: React.FC = () => {
                     loop
                     playsInline
                   />
-                  <div className="absolute inset-0 bg-black/30 z-[1]"></div>
+                  <div className="absolute inset-0 bg-black/30 z-[1]" />
                   <div className="relative h-full flex flex-col justify-center p-6 z-10 text-white">
                     <span className="bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse w-fit mb-2">
                       Live Demo
@@ -240,7 +242,7 @@ export const Hero: React.FC = () => {
                         ? 'w-1.5 bg-white/40'
                         : 'w-1.5 bg-gray-900/20'
                   }`}
-                ></div>
+                />
               );
             })}
           </div>
@@ -262,7 +264,7 @@ export const Hero: React.FC = () => {
                       ? 'from-black/90 via-black/40 to-transparent'
                       : 'from-[#e4e4e6] via-[#e4e4e6]/60 to-transparent'
                   }`}
-                ></div>
+                />
 
                 {/* Content */}
                 <div
@@ -279,7 +281,7 @@ export const Hero: React.FC = () => {
                     </p>
 
                     <div className="pt-8">
-                      <div className="h-1.5 w-20 bg-red-600 rounded-full mb-6"></div>
+                      <div className="h-1.5 w-20 bg-red-600 rounded-full mb-6" />
                       <p className="text-2xl font-medium tracking-wide opacity-80 font-serif italic">
                         {slide.headline}
                         <span className="block font-sans font-black not-italic text-3xl lg:text-4xl uppercase tracking-widest mt-1">
@@ -320,7 +322,7 @@ export const Hero: React.FC = () => {
                       : 'w-3 bg-gray-400/50 hover:bg-gray-400 hover:w-5'
                   }`}
                   aria-label={`Go to slide ${idx + 1}`}
-                ></button>
+                />
               ))}
             </div>
           </div>
@@ -334,7 +336,7 @@ export const Hero: React.FC = () => {
                 alt="MacBook Pro"
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10" />
 
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[120px] font-bold text-white/5 pointer-events-none select-none leading-none z-10">
                 M4
@@ -366,7 +368,7 @@ export const Hero: React.FC = () => {
                 alt="PS5 Controller"
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0 opacity-80"
               />
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#2D0C7E] via-[#2D0C7E]/60 to-transparent z-10"></div>
+              <div className="absolute inset-0 bg-gradient-to-tr from-[#2D0C7E] via-[#2D0C7E]/60 to-transparent z-10" />
 
               <div className="absolute left-[-20px] bottom-10 text-[80px] font-bold text-white/5 -rotate-90 pointer-events-none select-none z-10 tracking-widest">
                 PLAYSTATION
@@ -415,7 +417,7 @@ export const Hero: React.FC = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
                 </svg>
               </div>
               <span className="text-xs font-bold text-gray-700">Airtime</span>
@@ -432,10 +434,10 @@ export const Hero: React.FC = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
-                  <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
-                  <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-                  <line x1="12" y1="20" x2="12.01" y2="20"></line>
+                  <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                  <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                  <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                  <line x1="12" y1="20" x2="12.01" y2="20" />
                 </svg>
               </div>
               <span className="text-xs font-bold text-gray-700">Data</span>
@@ -452,8 +454,8 @@ export const Hero: React.FC = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
-                  <polyline points="17 2 12 7 7 2"></polyline>
+                  <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+                  <polyline points="17 2 12 7 7 2" />
                 </svg>
               </div>
               <span className="text-xs font-bold text-gray-700">Tv</span>
@@ -470,7 +472,7 @@ export const Hero: React.FC = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                 </svg>
               </div>
               <span className="text-xs font-bold text-gray-700">Power</span>

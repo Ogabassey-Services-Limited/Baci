@@ -1,18 +1,11 @@
 // @ts-nocheck - Template preview
 
-import React, { useState } from 'react';
-import {
-  Star,
-  MessageSquare,
-  ThumbsUp,
-  ChevronRight,
-  X,
-  Loader2,
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Loader2, Star, X } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 import { products } from '../data/products';
+import type { Product } from '../types';
 import { EmptyState } from './EmptyState';
-import { Product } from '../types';
 
 interface RatingModalProps {
   isOpen: boolean;
@@ -50,7 +43,7 @@ const RatingModal: React.FC<RatingModalProps> = ({
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
-      ></div>
+      />
       <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl relative z-10 p-6 animate-in zoom-in-95 duration-200">
         <button
           onClick={onClose}
@@ -189,7 +182,7 @@ export const ReviewsPage: React.FC = () => {
           >
             To Review ({pendingReviews.length})
             {activeTab === 'pending' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600"></div>
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600" />
             )}
           </button>
           <button
@@ -198,7 +191,7 @@ export const ReviewsPage: React.FC = () => {
           >
             History ({historyReviews.length})
             {activeTab === 'history' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600"></div>
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-red-600" />
             )}
           </button>
         </div>

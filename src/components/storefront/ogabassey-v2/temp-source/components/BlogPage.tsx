@@ -1,16 +1,8 @@
 // @ts-nocheck - Template preview
 
-import React, { useEffect, useState } from 'react';
-import {
-  BookOpen,
-  Calendar,
-  User,
-  ArrowRight,
-  Tag,
-  Battery,
-  Smartphone,
-  Shield,
-} from 'lucide-react';
+import { ArrowRight, Battery, Calendar, User } from 'lucide-react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { AdUnit } from './AdUnit';
 
 interface BlogPost {
@@ -134,7 +126,7 @@ export const BlogPage: React.FC = () => {
               alt={featuredPost.title}
               className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
             <div className="absolute bottom-0 left-0 p-8 md:p-12 w-full md:w-2/3 text-white">
               <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-4 inline-block">
                 Featured

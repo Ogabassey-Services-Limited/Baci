@@ -1,20 +1,21 @@
 // @ts-nocheck - Template preview
 
-import React, { useEffect } from 'react';
 import {
-  Leaf,
+  ArrowRight,
+  Battery,
+  BookOpen,
+  Cpu,
   FileDigit,
-  Recycle,
   Globe,
+  Leaf,
+  Recycle,
+  Sparkles,
   TreePine,
   Wind,
-  ArrowRight,
   Wrench,
-  Battery,
-  Cpu,
-  BookOpen,
-  Sparkles,
 } from 'lucide-react';
+import type React from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 export const SustainabilityPage: React.FC = () => {
@@ -62,7 +63,7 @@ export const SustainabilityPage: React.FC = () => {
     <div className="min-h-screen bg-white pb-20">
       {/* Hero Section */}
       <div className="relative bg-[#064e3b] text-white py-20 md:py-32 overflow-hidden">
-        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/leaf.png')]"></div>
+        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/leaf.png')]" />
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 relative z-10 text-center">
           <span className="inline-block py-1 px-3 rounded-full bg-green-500/20 text-green-300 text-xs font-bold uppercase tracking-widest mb-6 border border-green-500/30">
             Our Green Promise
@@ -365,7 +366,7 @@ export const SustainabilityPage: React.FC = () => {
           </div>
 
           {/* Abstract Pattern */}
-          <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')]"></div>
+          <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/wood-pattern.png')]" />
         </div>
       </div>
     </div>

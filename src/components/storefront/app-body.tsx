@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import type React from 'react';
 import type { MerchantData } from '@/hooks/use-merchant';
 
 interface AppBodyProps {

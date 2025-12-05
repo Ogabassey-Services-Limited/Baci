@@ -1,7 +1,8 @@
 // @ts-nocheck - Template preview
-import React, { useState, useEffect } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import type { AD_CONFIG } from '../adLocations/config';
 import { AdUnit } from './AdUnit';
-import { AD_CONFIG } from '../adLocations/config';
 
 interface BannerSlide {
   id: number;

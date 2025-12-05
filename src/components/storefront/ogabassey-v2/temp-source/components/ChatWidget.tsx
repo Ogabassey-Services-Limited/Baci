@@ -1,20 +1,20 @@
 // @ts-nocheck - Template preview
-import React, { useState, useRef, useEffect } from 'react';
+
 import {
-  X,
-  Send,
-  User,
-  Loader2,
   Headphones,
-  Sparkles,
-  ChevronRight,
+  Send,
   ShoppingBag,
+  Sparkles,
   Truck,
+  User,
+  X,
   Zap,
 } from 'lucide-react';
-import { chatWithGemini, ChatMessage } from '../services/geminiService';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCart } from '../contexts/CartContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { type ChatMessage, chatWithGemini } from '../services/geminiService';
 
 const SUGGESTIONS = [
   {
@@ -126,7 +126,7 @@ export const ChatWidget: React.FC = () => {
         ]);
       }
     }
-  }, [theme]); // Only run if theme changes and messages are empty (or we can reset logic if needed)
+  }, [theme, messages.length]); // Only run if theme changes and messages are empty (or we can reset logic if needed)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -134,7 +134,7 @@ export const ChatWidget: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isOpen]);
+  }, [scrollToBottom]);
 
   const handleSend = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -147,7 +147,7 @@ export const ChatWidget: React.FC = () => {
     try {
       const aiResponseText = await chatWithGemini(messages, userMessage);
       setMessages((prev) => [...prev, { role: 'model', text: aiResponseText }]);
-    } catch (error) {
+    } catch (_error) {
       setMessages((prev) => [
         ...prev,
         {
@@ -191,7 +191,7 @@ export const ChatWidget: React.FC = () => {
                     <Sparkles size={18} className="text-red-600" />
                   )}
                 </div>
-                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white animate-pulse" />
               </div>
               <div>
                 <h3 className="font-bold text-gray-900 text-[15px] flex items-center gap-2">
@@ -221,7 +221,7 @@ export const ChatWidget: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-4 bg-[#F8F9FA] scroll-smooth relative">
             {/* Background decoration for Santa theme */}
             {isSanta && (
-              <div className="absolute inset-0 pointer-events-none opacity-5 bg-[url('https://www.transparenttextures.com/patterns/snow.png')]"></div>
+              <div className="absolute inset-0 pointer-events-none opacity-5 bg-[url('https://www.transparenttextures.com/patterns/snow.png')]" />
             )}
 
             <div className="space-y-6 relative z-10">
@@ -283,9 +283,9 @@ export const ChatWidget: React.FC = () => {
                     )}
                   </div>
                   <div className="bg-white border border-gray-100 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span>
-                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
-                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" />
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]" />
                   </div>
                 </div>
               )}
@@ -371,7 +371,7 @@ export const ChatWidget: React.FC = () => {
               />
             )}
             <span className="absolute -top-1 -right-1 flex h-4 w-4">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-4 w-4 bg-red-600 text-[9px] font-bold text-white items-center justify-center shadow-sm border border-white">
                 AI
               </span>

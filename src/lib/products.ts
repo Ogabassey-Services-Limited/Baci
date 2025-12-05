@@ -111,9 +111,13 @@ export interface Product {
   taxable?: boolean;
   tax_code?: string;
 
-  // Classification
-  condition?: 'new' | 'used';
+  // Classification - expanded condition enum (2025 best practice)
+  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
   condition_detail?: string; // "Brand New", "Premium Used", etc.
+
+  // Display fields for UI (flattened from schema_markup for convenience)
+  rating?: number; // 0-5 star rating, flattened from schema_markup.aggregateRating
+  review_count?: number; // Number of reviews, flattened from schema_markup.aggregateRating
 
   // Additional attributes
   material?: string;

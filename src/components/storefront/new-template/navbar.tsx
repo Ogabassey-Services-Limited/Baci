@@ -1,37 +1,32 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
 import {
-  Search,
-  ShoppingCart,
   Bell,
   BellOff,
-  User,
-  X,
-  LayoutGrid,
-  Menu,
-  ArrowRight,
   ChevronDown,
-  Smartphone,
-  Laptop,
   Gamepad2,
   Headphones,
+  Laptop,
+  LayoutGrid,
+  Menu,
   Printer,
   ScanBarcode,
-  Wrench,
+  Search,
+  ShoppingCart,
+  Smartphone,
+  User,
   Wallet,
-  Package,
-  Shield,
-  Check,
-  Gift,
+  Wrench,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
-import { Logo } from './logo';
-import { SourceRequestModal } from './source-request-modal';
-import { MobileMenu } from './mobile-menu';
 import { cn } from '@/lib/utils';
+import { Logo } from './logo';
+import { MobileMenu } from './mobile-menu';
+import { SourceRequestModal } from './source-request-modal';
 
 // Mock useNotification for now
 const useNotification = () => ({
@@ -57,8 +52,8 @@ export const Navbar: React.FC = () => {
   const { notifications, unreadCount, markAsRead, markAllAsRead } =
     useNotification();
   const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [_searchResults, setSearchResults] = useState<any[]>([]);
+  const [_showDropdown, setShowDropdown] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Notification UI State
@@ -150,7 +145,7 @@ export const Navbar: React.FC = () => {
     }
   };
 
-  const openSourceModal = () => setIsSourceModalOpen(true);
+  const _openSourceModal = () => setIsSourceModalOpen(true);
 
   return (
     <>
@@ -205,7 +200,7 @@ export const Navbar: React.FC = () => {
               >
                 <Bell size={22} />
                 {unreadCount > 0 && (
-                  <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                  <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white" />
                 )}
               </button>
 
@@ -233,7 +228,7 @@ export const Navbar: React.FC = () => {
                           <div className="flex gap-3">
                             <div
                               className={`w-2 h-2 mt-2 rounded-full shrink-0 ${!notif.read ? 'bg-red-500' : 'bg-gray-300'}`}
-                            ></div>
+                            />
                             <div>
                               <p className="text-sm text-gray-800 leading-relaxed">
                                 {notif.message}
@@ -308,7 +303,7 @@ export const Navbar: React.FC = () => {
                 {/* Dropdown Menu */}
                 {showCategoryDropdown && (
                   <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
-                    <div className="absolute -top-1.5 left-8 w-3 h-3 bg-white rotate-45 border-l border-t border-gray-100"></div>
+                    <div className="absolute -top-1.5 left-8 w-3 h-3 bg-white rotate-45 border-l border-t border-gray-100" />
                     {NAV_CATEGORIES.map((cat) => {
                       const categoryHref = `/category/${cat.name.toLowerCase()}`;
                       return (
@@ -333,7 +328,7 @@ export const Navbar: React.FC = () => {
                 )}
               </div>
 
-              <div className="h-4 w-px bg-gray-200"></div>
+              <div className="h-4 w-px bg-gray-200" />
 
               {/* IMEI Checker */}
               <Link
@@ -344,7 +339,7 @@ export const Navbar: React.FC = () => {
                 IMEI Checker
               </Link>
 
-              <div className="h-4 w-px bg-gray-200"></div>
+              <div className="h-4 w-px bg-gray-200" />
 
               {/* Repairs */}
               <Link
@@ -355,7 +350,7 @@ export const Navbar: React.FC = () => {
                 Repairs
               </Link>
 
-              <div className="h-4 w-px bg-gray-200"></div>
+              <div className="h-4 w-px bg-gray-200" />
 
               {/* Wallet */}
               <Link

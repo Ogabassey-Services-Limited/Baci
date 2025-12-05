@@ -1,6 +1,7 @@
 // @ts-nocheck - Template preview
-import React from 'react';
+
 import { ArrowRight } from 'lucide-react';
+import type React from 'react';
 
 export const Hero: React.FC = () => {
   return (
@@ -37,7 +38,7 @@ export const Hero: React.FC = () => {
           </div>
 
           <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-red-600 to-orange-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-red-600 to-orange-600 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-1000" />
             <div className="relative bg-[#1a1a1a] rounded-2xl overflow-hidden border border-white/10 aspect-[4/3] flex items-center justify-center">
               <img
                 src="https://picsum.photos/800/600"

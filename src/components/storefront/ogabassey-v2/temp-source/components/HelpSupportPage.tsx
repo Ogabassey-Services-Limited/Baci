@@ -1,20 +1,21 @@
 // @ts-nocheck - Template preview
 
-import React, { useState } from 'react';
 import {
-  HelpCircle,
-  Search,
   ChevronDown,
   ChevronUp,
-  Truck,
-  RefreshCw,
   CreditCard,
-  Smartphone,
-  Mail,
-  Phone,
-  MessageSquare,
   ExternalLink,
+  HelpCircle,
+  Mail,
+  MessageSquare,
+  Phone,
+  RefreshCw,
+  Search,
+  Smartphone,
+  Truck,
 } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 
 interface FaqItem {
   question: string;
@@ -218,7 +219,7 @@ export const HelpSupportPage: React.FC = () => {
                   </div>
                 </div>
                 {/* Decoration */}
-                <div className="absolute -top-10 -right-10 w-32 h-32 bg-red-600 rounded-full blur-3xl opacity-20"></div>
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-red-600 rounded-full blur-3xl opacity-20" />
               </div>
 
               <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">

@@ -1,16 +1,10 @@
 // @ts-nocheck - Template preview
 
-import React from 'react';
-import {
-  History,
-  ShoppingCart,
-  Calendar,
-  ArrowRight,
-  ExternalLink,
-} from 'lucide-react';
-import { products } from '../data/products';
-import { useCart } from '../contexts/CartContext';
+import { Calendar, ExternalLink, History, ShoppingCart } from 'lucide-react';
+import type React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCart } from '../contexts/CartContext';
+import { products } from '../data/products';
 import { EmptyState } from './EmptyState';
 
 export const PurchaseHistoryPage: React.FC = () => {

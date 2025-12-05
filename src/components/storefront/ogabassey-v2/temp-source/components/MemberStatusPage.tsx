@@ -1,16 +1,7 @@
 // @ts-nocheck - Template preview
-import React from 'react';
-import {
-  Crown,
-  Check,
-  Zap,
-  Truck,
-  ShieldCheck,
-  Star,
-  TrendingUp,
-  Gift,
-  UserCheck,
-} from 'lucide-react';
+
+import { Check, Crown, Gift, Star, TrendingUp, UserCheck } from 'lucide-react';
+import type React from 'react';
 
 const TIERS = [
   {
@@ -136,7 +127,7 @@ export const MemberStatusPage: React.FC = () => {
                   <div
                     className="h-full bg-white/90 shadow-[0_0_10px_rgba(255,255,255,0.5)] rounded-full transition-all duration-1000 ease-out"
                     style={{ width: `${progress}%` }}
-                  ></div>
+                  />
                 </div>
                 <p className="text-right text-xs text-white/80 font-medium">
                   {pointsToNext.toLocaleString()} points to level up
@@ -260,7 +251,7 @@ export const MemberStatusPage: React.FC = () => {
                     <div className="flex items-center gap-3 mb-2">
                       <div
                         className={`w-3 h-3 rounded-full bg-gradient-to-br ${tier.color}`}
-                      ></div>
+                      />
                       <h4
                         className={`font-bold ${isUnlocked ? 'text-gray-900' : 'text-gray-500'}`}
                       >
@@ -283,7 +274,7 @@ export const MemberStatusPage: React.FC = () => {
                           key={i}
                           className={`text-xs flex items-start gap-2 ${isUnlocked ? 'text-gray-600' : 'text-gray-400'}`}
                         >
-                          <span className="mt-0.5 w-1 h-1 rounded-full bg-gray-300 shrink-0"></span>
+                          <span className="mt-0.5 w-1 h-1 rounded-full bg-gray-300 shrink-0" />
                           {benefit}
                         </li>
                       ))}

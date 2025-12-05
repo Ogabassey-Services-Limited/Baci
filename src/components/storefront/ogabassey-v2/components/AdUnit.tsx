@@ -1,5 +1,5 @@
 // @ts-nocheck - Template preview
-import React from 'react';
+import type React from 'react';
 import { AD_CONFIG } from '../adLocations/config';
 
 interface AdUnitProps {

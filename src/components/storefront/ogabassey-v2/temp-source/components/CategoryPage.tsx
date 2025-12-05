@@ -1,18 +1,22 @@
 // @ts-nocheck - Template preview
-import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ChevronRight, Filter, X, LayoutGrid, List } from 'lucide-react';
-import { CategoryFiltersSidebar, FilterState } from './CategoryFiltersSidebar';
-import { ProductCard } from './ProductCard';
+
+import { ChevronRight, Filter, LayoutGrid, List, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useCart } from '../contexts/CartContext';
+import { products } from '../data/products';
+import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
 import { BannerCarousel } from './BannerCarousel';
-import { products } from '../data/products';
-import { useCart } from '../contexts/CartContext';
-import { Product } from '../types';
+import {
+  CategoryFiltersSidebar,
+  type FilterState,
+} from './CategoryFiltersSidebar';
+import { ProductCard } from './ProductCard';
 
 export const CategoryPage: React.FC = () => {
   const { categoryName } = useParams<{ categoryName: string }>();
-  const navigate = useNavigate();
+  const _navigate = useNavigate();
   const { addToCart } = useCart();
   const [addedItems, setAddedItems] = useState<number[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -38,7 +42,7 @@ export const CategoryPage: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
     setFilters(initialFilterState);
-  }, [categoryName]);
+  }, []);
 
   // Derived Data: Products in the current Category
   const categoryProducts = useMemo(() => {
@@ -161,7 +165,9 @@ export const CategoryPage: React.FC = () => {
     addToCart(product, 1);
 
     const pid =
-      typeof product.id === 'string' ? parseInt(product.id) : product.id;
+      typeof product.id === 'string'
+        ? Number.parseInt(product.id, 10)
+        : product.id;
     setAddedItems((prev) => [...prev, pid]);
     setTimeout(() => {
       setAddedItems((prev) => prev.filter((id) => id !== pid));
@@ -272,7 +278,7 @@ export const CategoryPage: React.FC = () => {
                 {filteredProducts.map((product, index) => {
                   const isAdded = addedItems.includes(
                     typeof product.id === 'string'
-                      ? parseInt(product.id)
+                      ? Number.parseInt(product.id, 10)
                       : product.id
                   );
                   return (
@@ -309,7 +315,7 @@ export const CategoryPage: React.FC = () => {
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setIsMobileFilterOpen(false)}
-          ></div>
+          />
           <div className="relative w-full max-w-xs bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
             <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="font-bold text-lg text-gray-900">Filters</h3>
