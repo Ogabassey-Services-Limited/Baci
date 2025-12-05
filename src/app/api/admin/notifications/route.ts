@@ -457,7 +457,8 @@ async function getSegmentMerchantIds(
       );
       return [];
     default:
-      console.warn(`Unknown segment "${segment}", returning empty set`);
+      // Use separate arguments to avoid format string vulnerabilities
+      console.warn('Unknown segment, returning empty set:', segment);
       return [];
   }
 
