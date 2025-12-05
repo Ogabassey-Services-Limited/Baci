@@ -9,9 +9,11 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import {
   Card,
   CardContent,
@@ -28,7 +30,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { CartProvider } from '@/hooks/use-cart';
-import { MerchantProvider } from '@/hooks/use-merchant';
+import { MerchantProvider, useMerchant } from '@/hooks/use-merchant';
 import {
   TEMPLATE_REGISTRY,
   type TemplateComponents,
@@ -80,6 +82,13 @@ function DevToolbar({ template }: { template: TemplateDefinition }) {
         </SheetHeader>
 
         <div className="mt-6 space-y-6">
+          {/* Activation Action - Prominent at top */}
+          <Card className="border-green-100 bg-green-50/50">
+            <CardContent className="pt-6">
+              <ActivateButton templateId={template.id} />
+            </CardContent>
+          </Card>
+
           {/* Template Details */}
           <Card>
             <CardHeader className="pb-3">
@@ -175,15 +184,97 @@ function DevToolbar({ template }: { template: TemplateDefinition }) {
             </div>
           )}
 
-          {/* Actions */}
-          <div className="space-y-2">
+          <div className="space-y-3 pt-4 border-t">
             <Button asChild className="w-full" variant="outline">
-              <Link href="/admin/templates">View All Templates</Link>
+              <Link href="/template-preview">View All Templates</Link>
             </Button>
           </div>
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+// Helper component for Activation to access context
+function ActivateButton({ templateId }: { templateId: string }) {
+  const { updateMerchant, merchant } = useMerchant();
+  const { toast } = useToast();
+  const router = useRouter();
+  const [isActivating, setIsActivating] = useState(false);
+
+  const handleActivate = async () => {
+    // If we are in purely mock mode (no real merchant logged in), show warning
+    if (!merchant || merchant.id === 'preview-merchant' || merchant.id.endsWith('-preview')) {
+      // Check if we have a REAL merchant ID in the URL or context?
+      // Actually, PreviewClient is wrapped in MerchantProvider with a MOCK slug.
+      // So 'useMerchant ' will return the MOCK merchant.
+      // We cannot update the mock merchant.
+      // We need to fetch the REAL merchant status to update.
+      // However, this page is `/template-preview/id`.
+      // If the user IS logged in, they have a session.
+      // But the MerchantProvider is initialized with the TEMPLATE'S mock slug in line 356.
+      // So `useMerchant` returns the MOCK data.
+
+      // This is a problem. The user wants to update THEIR REAL store.
+      // We need access to the real merchant context, not the mock one provided by the preview.
+      // But wait, the task is to enable switching.
+      // If I am a merchant, I go to dashboard > templates > preview > activate.
+      // The preview page currently forces a Mock Merchant Provider.
+
+      // Solution:
+      // We need to know if there is a real authenticated user/merchant.
+      // Since we are inside a Mock MerchantProvider, we can't easily get the real one via that context.
+      // However, we might rely on the `updateMerchant` failure or check `createClient` for session.
+
+      toast({
+        title: "Simulated Activation",
+        description: "In this preview, we are simulating activation. In a real scenario, this would update your live store.",
+      });
+      return;
+    }
+
+    setIsActivating(true);
+    try {
+      // Update published_config with new template ID
+      const currentConfig = merchant.published_config || {};
+      await updateMerchant({
+        published_config: {
+          ...currentConfig,
+          templateId: templateId
+        }
+      });
+
+      toast({
+        title: "Template Activated!",
+        description: "Your store is now using this template.",
+      });
+
+      router.push('/dashboard/settings');
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Activation Failed",
+        description: "Could not update store settings.",
+        variant: 'destructive'
+      });
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  return (
+    <Button
+      className="w-full bg-green-600 hover:bg-green-700 text-white"
+      onClick={handleActivate}
+      disabled={isActivating}
+    >
+      {isActivating ? (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      ) : (
+        <CheckCircle className="mr-2 h-4 w-4" />
+      )}
+      {isActivating ? "Activating..." : "Use This Template"}
+    </Button>
   );
 }
 

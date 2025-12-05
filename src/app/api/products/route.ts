@@ -15,6 +15,33 @@ import {
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 
+/**
+ * Extract denormalized variant attributes for fast UI rendering
+ * Called when saving products with variants
+ */
+function extractVariantAttributes(variants: Record<string, unknown>[]): {
+  colors: string[];
+  storage_options: string[];
+  available_sizes: string[];
+} {
+  const colors = new Set<string>();
+  const storage = new Set<string>();
+  const sizes = new Set<string>();
+
+  for (const v of variants) {
+    const attrs = v.attributes as Record<string, string> | undefined;
+    if (attrs?.color) colors.add(attrs.color);
+    if (attrs?.storage) storage.add(attrs.storage);
+    if (attrs?.size) sizes.add(attrs.size);
+  }
+
+  return {
+    colors: [...colors],
+    storage_options: [...storage],
+    available_sizes: [...sizes],
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const cookieStore = await cookies();
@@ -95,77 +122,114 @@ export async function GET(request: NextRequest) {
 
     // Transform to match UI Product interface
     const transformedProducts: Product[] =
-      products?.map((p) => ({
-        id: p.id,
-        name: p.name,
-        description: p.description || '',
-        status: p.status || (p.is_active ? 'active' : 'draft'), // Fallback for migration
-        price: Number.parseFloat(p.price),
-        manage_stock: p.manage_stock ?? true,
-        stock: p.stock_quantity,
-        minimum_order_quantity: p.min_order_quantity,
+      products?.map((p) => {
+        // Extract denormalized attributes from variants for fast UI access
+        const variantAttrs = p.variants?.length
+          ? extractVariantAttributes(p.variants)
+          : { colors: [], storage_options: [], available_sizes: [] };
 
-        // Image handling
-        image:
-          p.images?.[0]?.url ||
-          p.image_small ||
-          'https://picsum.photos/seed/placeholder/80/80',
-        imageLarge:
-          p.images?.[0]?.url ||
-          p.image_large ||
-          'https://picsum.photos/seed/placeholder/600/400',
-        imageHint: p.image_hint || '',
-        images: p.images || [],
+        // Extract rating from schema_markup if available
+        const schemaRating = p.schema_markup?.aggregateRating;
+        const rating =
+          typeof schemaRating?.ratingValue === 'number'
+            ? schemaRating.ratingValue
+            : undefined;
+        const review_count =
+          typeof schemaRating?.reviewCount === 'number'
+            ? schemaRating.reviewCount
+            : undefined;
 
-        brand: p.brand || '',
-        gtin: p.gtin || '',
-        mpn: p.mpn || '',
-        google_product_category: p.google_product_category,
+        return {
+          id: p.id,
+          name: p.name,
+          description: p.description || '',
+          status: p.status || (p.is_active ? 'active' : 'draft'),
+          price: Number.parseFloat(p.price),
+          manage_stock: p.manage_stock ?? true,
+          stock: p.stock_quantity,
+          minimum_order_quantity: p.min_order_quantity,
 
-        has_variants: p.has_variants || false,
-        // Map variants if they exist
-        variants:
-          p.variants?.map((v: Record<string, unknown>) => ({
-            id: v.id,
-            product_id: v.product_id,
-            merchant_id: v.merchant_id,
-            attributes: v.attributes,
-            price_override: v.price_override,
-            stock_quantity: v.stock_quantity,
-            sku: v.sku,
-            primary_image: v.primary_image,
-            images: v.images,
-          })) || [],
-        category: p.category || 'General',
-        color: p.color,
+          // Image handling
+          image:
+            p.images?.[0]?.url ||
+            p.image_small ||
+            'https://picsum.photos/seed/placeholder/80/80',
+          imageLarge:
+            p.images?.[0]?.url ||
+            p.image_large ||
+            'https://picsum.photos/seed/placeholder/600/400',
+          imageHint: p.image_hint || '',
+          images: p.images || [],
 
-        // New fields
-        sku: p.sku,
-        slug: p.slug,
-        compare_at_price: p.compare_at_price
-          ? Number.parseFloat(p.compare_at_price)
-          : undefined,
-        cost_price: p.cost_price ? Number.parseFloat(p.cost_price) : undefined,
-        low_stock_threshold: p.low_stock_threshold,
+          brand: p.brand || '',
+          gtin: p.gtin || '',
+          mpn: p.mpn || '',
+          google_product_category: p.google_product_category,
 
-        weight_value: p.weight_value
-          ? Number.parseFloat(p.weight_value)
-          : undefined,
-        weight_unit: p.weight_unit,
-        dimensions: p.dimensions,
+          has_variants: p.has_variants || false,
+          variants:
+            p.variants?.map((v: Record<string, unknown>) => ({
+              id: v.id,
+              product_id: v.product_id,
+              merchant_id: v.merchant_id,
+              attributes: v.attributes,
+              price_override: v.price_override,
+              stock_quantity: v.stock_quantity,
+              sku: v.sku,
+              primary_image: v.primary_image,
+              images: v.images,
+            })) || [],
+          category: p.category || 'General',
+          color: p.color,
 
-        taxable: p.taxable,
-        tax_code: p.tax_code,
+          // Denormalized fields for fast UI rendering
+          colors:
+            variantAttrs.colors.length > 0
+              ? variantAttrs.colors
+              : p.color
+                ? [p.color]
+                : undefined,
+          storage_options:
+            variantAttrs.storage_options.length > 0
+              ? variantAttrs.storage_options
+              : undefined,
+          available_sizes:
+            variantAttrs.available_sizes.length > 0
+              ? variantAttrs.available_sizes
+              : undefined,
+          rating,
+          review_count,
 
-        condition: p.condition,
-        condition_detail: p.condition_detail,
+          // Other fields
+          sku: p.sku,
+          slug: p.slug,
+          compare_at_price: p.compare_at_price
+            ? Number.parseFloat(p.compare_at_price)
+            : undefined,
+          cost_price: p.cost_price
+            ? Number.parseFloat(p.cost_price)
+            : undefined,
+          low_stock_threshold: p.low_stock_threshold,
 
-        meta_title: p.meta_title,
-        meta_description: p.meta_description,
-        keywords: p.keywords,
-        canonical_url: p.canonical_url,
-        schema_markup: p.schema_markup,
-      })) || [];
+          weight_value: p.weight_value
+            ? Number.parseFloat(p.weight_value)
+            : undefined,
+          weight_unit: p.weight_unit,
+          dimensions: p.dimensions,
+
+          taxable: p.taxable,
+          tax_code: p.tax_code,
+
+          condition: p.condition,
+          condition_detail: p.condition_detail,
+
+          meta_title: p.meta_title,
+          meta_description: p.meta_description,
+          keywords: p.keywords,
+          canonical_url: p.canonical_url,
+          schema_markup: p.schema_markup,
+        };
+      }) || [];
 
     // Calculate stats
     const { data: allStats } = await supabase

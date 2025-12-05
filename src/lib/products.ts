@@ -119,6 +119,11 @@ export interface Product {
   rating?: number; // 0-5 star rating, flattened from schema_markup.aggregateRating
   review_count?: number; // Number of reviews, flattened from schema_markup.aggregateRating
 
+  // Denormalized variant attributes for fast UI rendering (auto-populated on save)
+  colors?: string[]; // Unique colors from variants, e.g., ["Black", "Silver", "Gold"]
+  storage_options?: string[]; // Unique storage options, e.g., ["128GB", "256GB", "512GB"]
+  available_sizes?: string[]; // Unique sizes, e.g., ["S", "M", "L", "XL"]
+
   // Additional attributes
   material?: string;
   size_attribute?: string;

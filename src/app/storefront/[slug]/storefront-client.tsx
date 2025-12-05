@@ -19,7 +19,7 @@ const GadgetCustomTemplateOgabassey = dynamic(
   { loading: () => <div className="h-screen w-full bg-white" /> }
 );
 
-const GadgetDefaultTemplate = dynamic(
+const _GadgetDefaultTemplate = dynamic(
   () =>
     import('@/components/storefront/templates/gadget-default-template').then(
       (mod) => mod.GadgetDefaultTemplate
@@ -27,7 +27,7 @@ const GadgetDefaultTemplate = dynamic(
   { loading: () => <div className="h-screen w-full bg-white" /> }
 );
 
-const PremiumDefaultTemplate = dynamic(
+const _PremiumDefaultTemplate = dynamic(
   () =>
     import('@/components/storefront/templates/premium-default').then(
       (mod) => mod.PremiumDefaultTemplate
@@ -35,7 +35,7 @@ const PremiumDefaultTemplate = dynamic(
   { loading: () => <div className="h-screen w-full bg-white" /> }
 );
 
-const GadgetCustomTemplateOgabasseyV2 = dynamic(
+const _GadgetCustomTemplateOgabasseyV2 = dynamic(
   () =>
     import(
       '@/components/storefront/templates/gadget-custom-template-ogabassey-v2'
@@ -43,7 +43,7 @@ const GadgetCustomTemplateOgabasseyV2 = dynamic(
   { loading: () => <div className="h-screen w-full bg-slate-900" /> }
 );
 
-const NewTemplateHome = dynamic(
+const _NewTemplateHome = dynamic(
   () =>
     import('@/components/storefront/new-template/home').then((mod) => mod.Home),
   { loading: () => <div className="h-screen w-full bg-white" /> }
@@ -509,9 +509,78 @@ export function StorefrontContent() {
 }
 
 // Imports moved to top
+import {
+  getTemplate,
+  TEMPLATE_REGISTRY,
+  type TemplatePageProps,
+} from '@/templates/registry';
 
 export function Storefront({ slug }: { slug?: string }) {
   const { merchant, loading } = useMerchant();
+  const [DynamicTemplate, setDynamicTemplate] =
+    useState<React.ComponentType<TemplatePageProps> | null>(null);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+
+  // Effect to load template with cleanup to prevent state updates on unmounted component
+  useEffect(() => {
+    if (!merchant && !slug) return;
+
+    let isMounted = true;
+
+    const loadTemplate = async () => {
+      try {
+        // Determine Template ID
+        // Priority: A. Explicit slug -> B. Merchant config -> C. Default
+        let templateId = 'premium-default';
+
+        // Map slug to registry ID if it exists
+        if (slug && TEMPLATE_REGISTRY[slug]) {
+          templateId = slug;
+        }
+        // Handle specific legacy slugs that might not match registry IDs 1:1
+        else if (slug === 'new-template-demo') {
+          templateId = 'new-template';
+        }
+        // If no slug, check merchant config
+        else if (merchant?.published_config?.templateId) {
+          const configId = merchant.published_config.templateId as string;
+          if (TEMPLATE_REGISTRY[configId]) {
+            templateId = configId;
+          }
+        }
+
+        const templateDef = getTemplate(templateId);
+
+        if (!templateDef) {
+          // Fallback to Premium Default if somehow ID is invalid
+          const defaultTemplate = getTemplate('premium-default');
+          if (defaultTemplate) {
+            const components = await defaultTemplate.getComponents();
+            if (isMounted) {
+              setDynamicTemplate(() => components.Home);
+            }
+          }
+          return;
+        }
+
+        const components = await templateDef.getComponents();
+        if (isMounted) {
+          setDynamicTemplate(() => components.Home);
+        }
+      } catch (err) {
+        console.error('Failed to load template:', err);
+        if (isMounted) {
+          setTemplateError('Failed to load storefront template.');
+        }
+      }
+    };
+
+    loadTemplate();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [merchant, slug]);
 
   if (loading) {
     return (
@@ -539,7 +608,7 @@ export function Storefront({ slug }: { slug?: string }) {
     );
   }
 
-  // For demo/preview purposes, check for specific slug
+  // Handle specific legacy component overrides that aren't in registry or need special handling
   if (slug === 'gadget-custom-template-ogabassey') {
     return (
       <ThemedStorefrontLayout>
@@ -548,65 +617,25 @@ export function Storefront({ slug }: { slug?: string }) {
     );
   }
 
-  if (slug === 'ogabassey-v2') {
+  if (templateError) {
     return (
-      <ThemedStorefrontLayout>
-        <GadgetCustomTemplateOgabasseyV2 />
-      </ThemedStorefrontLayout>
-    );
-  }
-
-  if (slug === 'gadget-default-template') {
-    return (
-      <ThemedStorefrontLayout>
-        <GadgetDefaultTemplate />
-      </ThemedStorefrontLayout>
-    );
-  }
-
-  // Ogabassey V2 template demo
-  if (slug === 'ogabassey-v2') {
-    return (
-      <ThemedStorefrontLayout>
-        <GadgetCustomTemplateOgabasseyV2 />
-      </ThemedStorefrontLayout>
-    );
-  }
-
-  // Premium Default template demo
-  if (slug === 'premium-default') {
-    return (
-      <ThemedStorefrontLayout>
-        <PremiumDefaultTemplate />
-      </ThemedStorefrontLayout>
-    );
-  }
-
-  // New Template demo
-  if (slug === 'new-template-demo') {
-    return (
-      <ThemedStorefrontLayout>
-        <NewTemplateHome />
-      </ThemedStorefrontLayout>
-    );
-  }
-
-  // const businessTypeConfig = getBusinessTypeById(merchant.business_type);
-  // Default to Premium template if no specific business type template
-  const TemplateComponent = PremiumDefaultTemplate;
-
-  if (!TemplateComponent) {
-    return (
-      <div>
-        Error: Store template not found for business type '
-        {merchant.business_type}'.
+      <div className="h-screen w-full flex items-center justify-center text-red-500">
+        {templateError}
       </div>
+    );
+  }
+
+  if (!DynamicTemplate) {
+    return (
+      <ThemedStorefrontLayout>
+        <div className="h-screen w-full bg-white" />
+      </ThemedStorefrontLayout>
     );
   }
 
   return (
     <ThemedStorefrontLayout>
-      <TemplateComponent />
+      <DynamicTemplate />
     </ThemedStorefrontLayout>
   );
 }

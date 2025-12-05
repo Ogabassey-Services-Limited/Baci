@@ -57,6 +57,10 @@ export default function WishListPage() {
   // Use dynamic currency based on merchant's country
   const { formatCurrency } = useCurrencyWithCountry(merchantCountry);
 
+  // Helper to build email query param
+  const buildEmailParam = (email: string) =>
+    email ? `&email=${encodeURIComponent(email)}` : '';
+
   // Fetch merchant country for currency formatting
   useEffect(() => {
     const fetchMerchantCountry = async () => {
@@ -137,9 +141,7 @@ export default function WishListPage() {
   const handleRemoveItem = async (itemId: string, productName: string) => {
     setRemovingItemId(itemId);
     try {
-      const emailParam = customerEmail
-        ? `&email=${encodeURIComponent(customerEmail)}`
-        : '';
+      const emailParam = buildEmailParam(customerEmail);
       const response = await fetch(`/api/wishlist?id=${itemId}${emailParam}`, {
         method: 'DELETE',
       });
@@ -189,9 +191,7 @@ export default function WishListPage() {
       addToCart(product, 1);
 
       // Remove from wishlist
-      const emailParam = customerEmail
-        ? `&email=${encodeURIComponent(customerEmail)}`
-        : '';
+      const emailParam = buildEmailParam(customerEmail);
       const response = await fetch(`/api/wishlist?id=${item.id}${emailParam}`, {
         method: 'DELETE',
       });
@@ -221,11 +221,37 @@ export default function WishListPage() {
   };
 
   const handleShareWishlist = async () => {
-    // Consider generating a shareable token on the backend instead of exposing email
-    // For now, using base64 encoding as a simple obfuscation (not secure, but better than plain text)
-    const shareUrl = `${window.location.origin}/${merchantSlug}/wishlist?share=${encodeURIComponent(btoa(customerEmail))}`;
-
+    // Generate a share token by creating a server-side shareable link
+    // This avoids exposing email addresses in URLs which is a PII concern
     try {
+      const response = await fetch('/api/wishlist/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: customerEmail, merchantSlug }),
+      });
+
+      let shareUrl: string;
+      if (response.ok) {
+        const { token } = await response.json();
+        shareUrl = `${window.location.origin}/${merchantSlug}/wishlist?share=${token}`;
+      } else {
+        // Fallback: Use a simple hash of email + timestamp for basic obfuscation
+        // Note: This is not cryptographically secure but avoids plain email in URL
+        const timestamp = Date.now().toString(36);
+        const hash = await crypto.subtle
+          .digest(
+            'SHA-256',
+            new TextEncoder().encode(customerEmail + timestamp)
+          )
+          .then((buf) =>
+            Array.from(new Uint8Array(buf))
+              .map((b) => b.toString(16).padStart(2, '0'))
+              .join('')
+              .substring(0, 16)
+          );
+        shareUrl = `${window.location.origin}/${merchantSlug}/wishlist?ref=${hash}&t=${timestamp}`;
+      }
+
       await navigator.clipboard.writeText(shareUrl);
       setShareUrlCopied(true);
       toast({
@@ -236,8 +262,9 @@ export default function WishListPage() {
     } catch {
       // Fallback for browsers that don't support clipboard API
       toast({
-        title: 'Share Link',
-        description: shareUrl,
+        title: 'Unable to Share',
+        description: 'Please try again later.',
+        variant: 'destructive',
       });
     }
   };

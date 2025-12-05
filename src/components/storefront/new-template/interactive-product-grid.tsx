@@ -5,7 +5,7 @@ import React, { useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { AdUnit } from './ad-unit';
 import { AdvancedProductFilters } from './advanced-product-filters';
-import { products } from './data';
+import { products as staticProducts } from './data';
 import { FloatingParticles, type Particle } from './floating-particles';
 import { ProductGridItem } from './product-grid-item';
 import { ProductListItem } from './product-list-item';
@@ -13,6 +13,7 @@ import { useSaved } from './saved-context';
 import type { Product } from './types';
 
 interface InteractiveProductGridProps {
+  products?: Product[];
   selectedCategory?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -21,12 +22,16 @@ interface InteractiveProductGridProps {
 }
 
 export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
+  products: externalProducts,
   selectedCategory: defaultCategory = 'All',
   minPrice: defaultMin = 0,
   maxPrice: defaultMax = 100000000,
   title = 'Featured Products',
   showViewAll = true,
 }) => {
+  // Use external products if provided, otherwise fallback to static data
+  const gridProducts = externalProducts || staticProducts;
+
   const { addToCart } = useCart();
   const { toggleSaved, isSaved } = useSaved();
   const [addedItems, setAddedItems] = useState<number[]>([]);
@@ -46,16 +51,16 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
 
   // Derive categories and brands dynamically from products
   const categories = useMemo(() => {
-    return ['All', ...Array.from(new Set(products.map((p) => p.category)))];
-  }, []);
+    return ['All', ...Array.from(new Set(gridProducts.map((p) => p.category)))];
+  }, [gridProducts]);
 
   const brands = useMemo(() => {
     return Array.from(
-      new Set(products.map((p) => p.brand).filter(Boolean) as string[])
+      new Set(gridProducts.map((p) => p.brand).filter(Boolean) as string[])
     );
-  }, []);
+  }, [gridProducts]);
 
-  const filteredProducts = products.filter((product) => {
+  const filteredProducts = gridProducts.filter((product) => {
     // Category Filter
     if (selectedCategory !== 'All' && product.category !== selectedCategory) {
       return false;

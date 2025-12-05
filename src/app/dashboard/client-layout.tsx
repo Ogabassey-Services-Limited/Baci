@@ -6,6 +6,7 @@ import {
   FileText,
   Gift,
   LayoutDashboard,
+  LayoutTemplate,
   Loader2,
   LogOut,
   Menu,
@@ -315,6 +316,11 @@ export default function DashboardClientLayout({
       href: '/dashboard/pages' as Route,
       icon: FileText,
       label: 'Pages',
+    },
+    {
+      href: '/template-preview' as Route,
+      icon: LayoutTemplate,
+      label: 'Templates',
     },
     {
       icon: Paintbrush,

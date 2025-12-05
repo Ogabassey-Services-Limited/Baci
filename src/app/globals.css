@@ -855,4 +855,33 @@
       transform: none;
     }
   }
+
+  /*
+   * React Grid Layout - Responsive Overrides
+   * Forces the grid to respect container boundaries and prevents horizontal overflow
+   */
+  .react-grid-layout {
+    max-width: 100% !important;
+    width: 100% !important;
+    overflow: visible;
+  }
+
+  .react-grid-item {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Ensure grid items don't cause overflow */
+  .react-grid-item > div {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Force text in grid items to wrap or truncate */
+  .react-grid-item .text-2xl,
+  .react-grid-item .text-xl {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }

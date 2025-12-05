@@ -13,7 +13,7 @@ import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { useSaved } from '@/hooks/use-saved';
 import type { Product as BaciProduct } from '@/lib/products';
-import { adaptProducts } from '@/templates/product-adapter';
+import { formatCurrency } from '@/lib/utils';
 import { products as mockProducts } from '../data/products';
 import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
@@ -21,6 +21,40 @@ import { AdvancedProductFilters } from './AdvancedProductFilters';
 import { FloatingParticles, type Particle } from './FloatingParticles';
 import { ProductGridItem } from './ProductGridItem';
 import { ProductListItem } from './ProductListItem';
+
+/** Product condition display labels */
+type ConditionLabel = 'New' | 'Used' | 'Open Box';
+
+const CONDITION_LABELS: Record<string, ConditionLabel> = {
+  'open_box': 'Open Box',
+  'new': 'New',
+  'used': 'Used',
+};
+
+const mapCondition = (condition?: string): ConditionLabel => {
+  return CONDITION_LABELS[condition || ''] || 'New';
+};
+
+/**
+ * Transform Baci products to template format (inline, no adapter needed)
+ */
+function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
+  return baciProducts.map((p) => ({
+    id: p.id,
+    name: p.name,
+    price: formatCurrency(p.price), // Kobo to formatted string
+    rawPrice: p.price / 100, // Kobo to Naira for filtering
+    image: p.image,
+    description: p.description,
+    rating: p.rating ?? 4.5,
+    category: p.category || 'General',
+    condition: mapCondition(p.condition),
+    brand: p.brand,
+    colors: p.colors,
+    storage: p.storage_options?.[0],
+    images: p.images?.map((img) => img.url),
+  }));
+}
 
 interface EngineProductGridProps {
   /** Store slug - if provided, fetches real products */
@@ -80,7 +114,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     async function fetchProducts() {
       // If external products provided, use those
       if (externalProducts) {
-        setProducts(adaptProducts(externalProducts));
+        setProducts(toTemplateProducts(externalProducts));
         setLoading(false);
         return;
       }
@@ -104,7 +138,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
         const data = await response.json();
 
         if (data.products && Array.isArray(data.products)) {
-          setProducts(adaptProducts(data.products));
+          setProducts(toTemplateProducts(data.products));
         } else {
           // Fallback to mock data if no products
           setProducts(mockProducts);
@@ -370,9 +404,8 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                   {/* Ad insertion */}
                   {(index + 1 === 4 || index + 1 === 8) && (
                     <div
-                      className={`col-span-2 ${
-                        viewMode === 'grid' ? 'lg:col-span-4' : 'w-full'
-                      } flex items-center justify-center my-2 md:my-4`}
+                      className={`col-span-2 ${viewMode === 'grid' ? 'lg:col-span-4' : 'w-full'
+                        } flex items-center justify-center my-2 md:my-4`}
                     >
                       <AdUnit placementKey="PRODUCT_GRID_IN_FEED" />
                     </div>

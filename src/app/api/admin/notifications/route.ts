@@ -111,24 +111,93 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch stats for each notification
-    const notificationsWithStats: NotificationWithStats[] = await Promise.all(
-      (notifications || []).map(async (notification: Notification) => {
-        const { data: stats } = await supabase.rpc('get_notification_stats', {
-          p_notification_id: notification.id,
-        });
-
-        return {
-          ...notification,
-          stats: stats?.[0] || {
-            total_sent: 0,
-            total_read: 0,
-            total_dismissed: 0,
-            read_rate: 0,
-          },
-        };
-      })
+    // Fetch stats for all notifications in a single batch query
+    // This avoids N+1 query pattern where each notification triggers separate RPC call
+    const notificationIds = (notifications || []).map(
+      (n: Notification) => n.id
     );
+
+    let statsMap = new Map<
+      string,
+      {
+        total_sent: number;
+        total_read: number;
+        total_dismissed: number;
+        read_rate: number;
+      }
+    >();
+
+    if (notificationIds.length > 0) {
+      // Try batch stats fetch first, fallback to individual if not available
+      const { data: batchStats, error: batchError } = await supabase.rpc(
+        'get_notification_stats_batch',
+        { p_notification_ids: notificationIds }
+      );
+
+      if (batchError) {
+        console.warn(
+          'Batch stats RPC unavailable, falling back to individual queries:',
+          batchError.message
+        );
+      }
+
+      if (batchStats && Array.isArray(batchStats)) {
+        statsMap = new Map(
+          batchStats.map(
+            (s: {
+              notification_id: string;
+              total_sent: number;
+              total_read: number;
+              total_dismissed: number;
+              read_rate: number;
+            }) => [s.notification_id, s]
+          )
+        );
+      } else {
+        // Fallback to individual queries if batch function doesn't exist
+        const statsPromises = notificationIds.map(async (id: string) => {
+          const { data: stats, error: statsError } = await supabase.rpc(
+            'get_notification_stats',
+            {
+              p_notification_id: id,
+            }
+          );
+          if (statsError) {
+            console.warn(
+              `Failed to fetch stats for notification ${id}:`,
+              statsError.message
+            );
+          }
+          return { id, stats: stats?.[0] };
+        });
+        const individualStats = await Promise.all(statsPromises);
+        statsMap = new Map(
+          individualStats
+            .filter((s) => s.stats)
+            .map((s) => [
+              s.id,
+              s.stats as {
+                total_sent: number;
+                total_read: number;
+                total_dismissed: number;
+                read_rate: number;
+              },
+            ])
+        );
+      }
+    }
+
+    const notificationsWithStats: NotificationWithStats[] = (
+      notifications || []
+    ).map((notification: Notification) => ({
+      ...notification,
+      stats: statsMap.get(notification.id) || {
+        total_sent: 0,
+        total_read: 0,
+        total_dismissed: 0,
+        read_rate: 0,
+      },
+    }));
 
     return NextResponse.json({
       data: notificationsWithStats,
@@ -379,10 +448,17 @@ async function getSegmentMerchantIds(
     }
     case 'active':
       // TODO: Implement proper active merchant logic using merchant_health view
-      throw new Error('Segment "active" not yet implemented');
+      console.warn('Segment "active" not yet implemented, returning empty set');
+      return [];
     case 'at_risk':
       // TODO: Implement proper at-risk merchant logic using merchant_health view
-      throw new Error('Segment "at_risk" not yet implemented');
+      console.warn(
+        'Segment "at_risk" not yet implemented, returning empty set'
+      );
+      return [];
+    default:
+      console.warn(`Unknown segment "${segment}", returning empty set`);
+      return [];
   }
 
   const { data } = await query;

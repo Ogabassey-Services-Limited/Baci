@@ -96,7 +96,7 @@ AI features are orchestrated using Google Genkit. All flows are defined in `/src
     *   **Purpose:** Creates a compelling product description tailored to the business type.
     *   **Input:** `productName`, `businessType`, `productDetails`.
     *   **Output:** `description` (string).
-**
+3.  **enhanceProductImage**
     *   **File:** `enhance-product-images.ts`
     *   **Purpose:** Removes the background from a product photo and enhances the lighting.
     *   **Input:** `photoDataUri`.

@@ -233,15 +233,14 @@ export const Hero: React.FC = () => {
                 <div
                   key={idx}
                   onClick={() => setCurrentSlide(idx)}
-                  className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${
-                    isActive
+                  className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${isActive
                       ? isWhiteText
                         ? 'w-5 bg-white'
                         : 'w-5 bg-gray-900'
                       : isWhiteText
                         ? 'w-1.5 bg-white/40'
                         : 'w-1.5 bg-gray-900/20'
-                  }`}
+                    }`}
                 />
               );
             })}
@@ -249,9 +248,9 @@ export const Hero: React.FC = () => {
         </div>
 
         {/* --- DESKTOP HERO GRID (RESTRUCTURED FOR 3:1 LAYOUT) --- */}
-        <div className="hidden md:grid grid-cols-1 lg:grid-cols-4 gap-4 h-auto lg:h-[600px] order-2">
+        <div className="hidden md:grid grid-cols-1 lg:grid-cols-4 gap-4 h-auto lg:h-[480px] order-2">
           {/* 1. Main Carousel - Spans 3 Columns (Large Left Area) */}
-          <div className="relative overflow-hidden rounded-2xl group cursor-pointer lg:col-span-3 h-[400px] lg:h-full bg-gray-50 flex flex-col shadow-lg hover:shadow-xl transition-all duration-300 ring-1 ring-black/5">
+          <div className="relative overflow-hidden rounded-2xl group cursor-pointer lg:col-span-3 h-[320px] lg:h-full bg-gray-50 flex flex-col shadow-lg hover:shadow-xl transition-all duration-300 ring-1 ring-black/5">
             {DESKTOP_IPHONE_SLIDES.map((slide, idx) => (
               <div
                 key={slide.id}
@@ -259,18 +258,16 @@ export const Hero: React.FC = () => {
               >
                 {/* Gradient Overlay for Readability */}
                 <div
-                  className={`absolute inset-0 z-10 bg-gradient-to-r ${
-                    slide.theme === 'dark'
+                  className={`absolute inset-0 z-10 bg-gradient-to-r ${slide.theme === 'dark'
                       ? 'from-black/90 via-black/40 to-transparent'
                       : 'from-[#e4e4e6] via-[#e4e4e6]/60 to-transparent'
-                  }`}
+                    }`}
                 />
 
                 {/* Content */}
                 <div
-                  className={`relative z-20 flex flex-col justify-center h-full px-12 lg:px-20 ${
-                    slide.theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}
+                  className={`relative z-20 flex flex-col justify-center h-full px-12 lg:px-20 ${slide.theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}
                 >
                   <div className="max-w-lg space-y-4 transform translate-x-0 transition-transform duration-700">
                     <h1 className="text-6xl lg:text-8xl font-bold tracking-tighter leading-none">
@@ -316,11 +313,10 @@ export const Hero: React.FC = () => {
                     e.stopPropagation();
                     setCurrentIphoneSlide(idx);
                   }}
-                  className={`h-2 rounded-full transition-all duration-300 backdrop-blur-sm ${
-                    idx === currentIphoneSlide
+                  className={`h-2 rounded-full transition-all duration-300 backdrop-blur-sm ${idx === currentIphoneSlide
                       ? 'w-10 bg-red-600'
                       : 'w-3 bg-gray-400/50 hover:bg-gray-400 hover:w-5'
-                  }`}
+                    }`}
                   aria-label={`Go to slide ${idx + 1}`}
                 />
               ))}

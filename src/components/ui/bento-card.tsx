@@ -31,27 +31,25 @@ export function BentoCard({
       <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100 pointer-events-none" />
 
       {(title || Icon) && (
-        <div className="flex items-center justify-between p-6 pb-2 relative z-10">
-          <div className="flex items-start gap-4 flex-1 min-w-0">
+        <div className="p-4 pb-1 relative z-10">
+          {/* Top row: Icon + Action badge */}
+          <div className="flex items-center justify-between mb-2">
             {Icon && (
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary/20 shrink-0">
-                <Icon className="h-5 w-5" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary/20 shrink-0">
+                <Icon className="h-4 w-4" />
               </div>
             )}
-            <div className="flex-1 min-w-0">
-              {title && (
-                <h3 className="text-lg font-semibold tracking-tight text-foreground/90 whitespace-normal break-words">
-                  {title}
-                </h3>
-              )}
-              {description && (
-                <p className="text-sm text-muted-foreground whitespace-normal break-words">
-                  {description}
-                </p>
-              )}
-            </div>
+            {action}
           </div>
-          {action}
+          {/* Title row: Full width, no truncation */}
+          {title && (
+            <h3 className="text-sm font-semibold tracking-tight text-foreground/90 leading-snug">
+              {title}
+            </h3>
+          )}
+          {description && (
+            <p className="text-xs text-muted-foreground mt-1">{description}</p>
+          )}
         </div>
       )}
       <div className={cn('relative z-10 h-full', !noPadding && 'p-6 pt-2')}>

@@ -1,6 +1,7 @@
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -123,88 +124,184 @@ function TemplateCard({ template }: { template: TemplateDefinition }) {
 export default function TemplateGalleryPage() {
   const templates = getAllTemplates();
 
-  // Group templates by status
-  const productionTemplates = templates.filter(
-    (t) => t.status === 'production'
-  );
+  // Group templates
+  const productionTemplates = templates.filter((t) => t.status === 'production');
   const betaTemplates = templates.filter((t) => t.status === 'beta');
   const draftTemplates = templates.filter((t) => t.status === 'draft');
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="container mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Template Gallery
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            Browse and preview all available storefront templates. Click any
-            template to see it in action.
-          </p>
-          <div className="flex gap-4 mt-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
-              {productionTemplates.length} Production
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-yellow-500" />
-              {betaTemplates.length} Beta
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-gray-400" />
-              {draftTemplates.length} Draft
-            </span>
+    <div className="min-h-screen bg-[#0F172A] text-white selection:bg-purple-500/30">
+      {/* Premium Header */}
+      <div className="relative border-b border-white/10 bg-[#0F172A]/80 backdrop-blur-xl sticky top-0 z-50">
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-transparent pointer-events-none" />
+        <div className="container mx-auto px-6 py-6 flex items-center justify-between relative">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/70">
+              Template Gallery
+            </h1>
+            <p className="text-sm text-gray-400 mt-1">
+              Explore our collection of premium storefront designs
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/developers/submit">
+              <Button className="bg-white text-black hover:bg-gray-100 border-0 font-medium px-6">
+                Submit Template
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 space-y-12">
-        {/* Production Templates */}
+      <div className="container mx-auto px-6 py-12 space-y-16">
+        {/* Production Section - Featured */}
         {productionTemplates.length > 0 && (
           <section>
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
-              Production Ready
-            </h2>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="h-8 w-1 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
+              <h2 className="text-2xl font-bold">Production Ready</h2>
+              <span className="px-3 py-1 rounded-full bg-green-500/10 text-green-400 text-xs font-medium border border-green-500/20">
+                Stable
+              </span>
+            </div>
+            <div className="grid gap-8 lg:grid-cols-2">
               {productionTemplates.map((template) => (
-                <TemplateCard key={template.id} template={template} />
+                <LivePreviewCard key={template.id} template={template} />
               ))}
             </div>
           </section>
         )}
 
-        {/* Beta Templates */}
+        {/* Beta Section */}
         {betaTemplates.length > 0 && (
           <section>
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-yellow-500" />
-              Beta
-            </h2>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="h-8 w-1 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)]" />
+              <h2 className="text-2xl font-bold">Beta Access</h2>
+              <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium border border-amber-500/20">
+                Testing
+              </span>
+            </div>
+            <div className="grid gap-8 lg:grid-cols-2">
               {betaTemplates.map((template) => (
-                <TemplateCard key={template.id} template={template} />
+                <LivePreviewCard key={template.id} template={template} />
               ))}
             </div>
           </section>
         )}
 
-        {/* Draft Templates */}
+        {/* Draft Section - Grid Layout */}
         {draftTemplates.length > 0 && (
           <section>
-            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-gray-400" />
-              Work in Progress
-            </h2>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="h-8 w-1 bg-purple-500 rounded-full shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
+              <h2 className="text-2xl font-bold">In Development</h2>
+              <span className="px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 text-xs font-medium border border-purple-500/20">
+                Experimental
+              </span>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {draftTemplates.map((template) => (
-                <TemplateCard key={template.id} template={template} />
+                <SmallPreviewCard key={template.id} template={template} />
               ))}
             </div>
           </section>
         )}
       </div>
-    </div>
+    </div >
+  );
+}
+
+function LivePreviewCard({ template }: { template: TemplateDefinition }) {
+  return (
+    <Link
+      href={`/template-preview/${template.id}` as Route}
+      className="group block relative bg-[#1E293B] rounded-2xl overflow-hidden border border-white/5 hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)]"
+    >
+      {/* Browser Chrome */}
+      <div className="h-8 bg-[#0F172A] flex items-center px-4 gap-2 border-b border-white/5">
+        <div className="flex gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-500/80" />
+          <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
+        </div>
+        <div className="ml-4 h-4 bg-white/5 rounded-full w-40 text-[10px] flex items-center pl-2 text-gray-500 font-mono">
+          baci.store/{template.id}
+        </div>
+      </div>
+
+      {/* Live Preview Iframe (Scaled Down) */}
+      <div className="h-[400px] w-[200%] origin-top-left scale-50 bg-white relative pointer-events-none">
+        <iframe
+          src={`/template-preview/${template.id}`}
+          className="w-full h-full border-0"
+          tabIndex={-1}
+          title={`${template.name} Preview`}
+          scrolling="no"
+          loading="lazy"
+        />
+        {/* Overlay to prevent interactions but allow click-through to link */}
+        <div className="absolute inset-0 z-10" />
+      </div>
+
+      {/* Info Overlay */}
+      <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/90 to-transparent pt-24 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-xl font-bold text-white group-hover:text-purple-400 transition-colors">
+              {template.name}
+            </h3>
+            <p className="text-gray-400 text-sm mt-1 max-w-md line-clamp-2">
+              {template.description}
+            </p>
+          </div>
+          <Badge
+            variant="outline"
+            className="bg-white/5 border-white/10 text-white"
+          >
+            {template.category}
+          </Badge>
+        </div>
+
+        {/* Tags */}
+        <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
+          {template.tags?.slice(0, 3).map(tag => (
+            <span key={tag} className="text-[10px] uppercase tracking-wider font-semibold text-gray-500 bg-white/5 px-2 py-1 rounded">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function SmallPreviewCard({ template }: { template: TemplateDefinition }) {
+  return (
+    <Link
+      href={`/template-preview/${template.id}` as Route}
+      className="group block relative bg-[#1E293B] rounded-xl overflow-hidden border border-white/5 hover:border-white/20 transition-all hover:-translate-y-1"
+    >
+      <div className="aspect-[4/3] bg-[#020617] relative">
+        {/* Mini Browser Bar */}
+        <div className="absolute top-0 inset-x-0 h-6 bg-black/20 backdrop-blur flex items-center px-3 z-10">
+          <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+        </div>
+
+        {/* Simplified Preview Content */}
+        <div className="h-full w-full flex items-center justify-center text-white/5 group-hover:text-white/10 transition-colors">
+          <div className="text-6xl font-black opacity-20 select-none">
+            {template.name.charAt(0)}
+          </div>
+        </div>
+
+        <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B] to-transparent opacity-50" />
+      </div>
+
+      <div className="p-4">
+        <h3 className="font-semibold text-white">{template.name}</h3>
+        <p className="text-xs text-gray-400 mt-1 line-clamp-1">{template.description}</p>
+      </div>
+    </Link>
   );
 }

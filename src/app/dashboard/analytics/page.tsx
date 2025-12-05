@@ -203,7 +203,7 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 relative">
+    <div className="flex flex-col gap-6 relative overflow-hidden max-w-full min-w-0">
       {/* Dynamic Background Elements from Login Page */}
       <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10 pointer-events-none" />
       <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] -z-10 pointer-events-none opacity-50" />
@@ -222,7 +222,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Analytics Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sticky top-0 z-10 py-4 bg-background/60 backdrop-blur-xl -mx-6 px-6 border-b border-white/10">
+      <div className="flex flex-col gap-4 sticky top-0 z-10 py-4 bg-background/60 backdrop-blur-xl -mx-6 px-6 border-b border-white/10">
         <AnalyticsCategoryNav
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}

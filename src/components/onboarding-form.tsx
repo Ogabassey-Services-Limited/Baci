@@ -1479,7 +1479,7 @@ export default function OnboardingForm() {
       className={cn(
         'transition-all duration-500 ease-in-out w-full',
         showPreview
-          ? 'max-w-[90rem] px-4 md:px-8 h-[calc(100vh-1rem)] flex items-center justify-center'
+          ? 'max-w-[90rem] px-4 md:px-8 h-auto lg:h-[calc(100vh-1rem)] flex flex-col lg:flex-row items-center justify-center'
           : 'max-w-2xl mx-auto px-4 py-8'
       )}
     >
@@ -1582,7 +1582,7 @@ export default function OnboardingForm() {
               'transition-all duration-500 ease-in-out',
               isPreviewExpanded
                 ? 'fixed inset-0 z-50 bg-background/95 backdrop-blur-xl p-8 flex items-center justify-center'
-                : 'hidden lg:block w-full lg:w-1/2 xl:w-[50%] flex items-center justify-center animate-in fade-in slide-in-from-right-8 duration-700'
+                : 'w-full lg:w-1/2 xl:w-[50%] flex items-center justify-center animate-in fade-in slide-in-from-right-8 duration-700 mt-8 lg:mt-0'
             )}
           >
             <div
