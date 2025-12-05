@@ -218,7 +218,7 @@ export default function CustomerSettingsPage() {
                   <dd className="text-lg font-medium">
                     {customer.created_at
                       ? new Date(customer.created_at).toLocaleDateString(
-                          'en-US',
+                          undefined,
                           {
                             month: 'long',
                             year: 'numeric',

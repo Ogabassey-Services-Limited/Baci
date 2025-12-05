@@ -93,6 +93,9 @@ export function checkRateLimit(
 
 /**
  * Retry configuration for AI requests
+ *
+ * Note: `maxRetries` means the number of additional attempts after the initial try.
+ * Total attempts = 1 (initial) + maxRetries = 4 attempts with default config.
  */
 export const AI_RETRY_CONFIG = {
   maxRetries: 3,

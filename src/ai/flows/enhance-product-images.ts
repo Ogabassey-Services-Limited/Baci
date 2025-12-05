@@ -72,7 +72,8 @@ Generate the enhanced product image.`,
     if (!imageFile || !imageFile.base64) {
       logger.error({
         message: 'No enhanced image returned from AI',
-        files: result.files,
+        fileCount: result.files?.length ?? 0,
+        fileTypes: result.files?.map((f) => f.mediaType) ?? [],
       });
       throw new Error('AI did not return an enhanced image.');
     }

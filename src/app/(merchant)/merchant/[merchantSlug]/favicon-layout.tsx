@@ -11,13 +11,17 @@ export async function generateMetadata({
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const { data: merchant } = await supabase
+  const { data: merchant, error } = await supabase
     .from('merchants')
     .select(
       'favicon_svg_url, favicon_png_32_url, favicon_png_192_url, favicon_apple_touch_url, business_name, favicon_uploaded_at'
     )
     .eq('slug', merchantSlug)
     .single();
+
+  if (error) {
+    console.error('[favicon-layout] Supabase query error:', error.message);
+  }
 
   if (!merchant) {
     return {}; // Fallback to default
