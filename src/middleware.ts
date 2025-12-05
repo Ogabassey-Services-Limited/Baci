@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
@@ -240,12 +241,62 @@ function generateCSP(
 
 /**
  * Next.js Middleware Function
- * Handles multi-tenant routing, security headers, and caching
+ * Handles multi-tenant routing, security headers, caching, and authentication
  */
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const pathname = request.nextUrl.pathname;
   const userAgent = request.headers.get('user-agent') || '';
+
+  // ==== AUTH MIDDLEWARE (Server-side session verification) ====
+  // For protected routes, verify auth BEFORE rendering
+  const isProtectedRoute =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/builder') ||
+    pathname.startsWith('/admin');
+
+  const isAuthRoute =
+    pathname === '/login' ||
+    pathname === '/onboarding' ||
+    pathname === '/reset-password';
+
+  // Only run auth check for protected or auth routes (skip for public routes)
+  if (isProtectedRoute || isAuthRoute) {
+    const { supabaseResponse, user } = await updateSession(request);
+
+    // Protected routes: redirect to login if no user
+    if (isProtectedRoute && !user) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.searchParams.set('redirectTo', pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // Auth routes: redirect to dashboard if already logged in
+    if (isAuthRoute && user) {
+      const redirectTo = request.nextUrl.searchParams.get('redirectTo');
+      const url = request.nextUrl.clone();
+      url.pathname = redirectTo || '/dashboard';
+      url.search = '';
+      return NextResponse.redirect(url);
+    }
+
+    // For protected routes, apply security headers to the supabase response
+    if (isProtectedRoute) {
+      const routeType = getRouteType(pathname);
+      const nonce =
+        routeType === 'admin' || routeType === 'auth'
+          ? crypto.randomUUID()
+          : undefined;
+      return applySecurityHeaders(
+        supabaseResponse,
+        pathname,
+        userAgent,
+        routeType,
+        nonce
+      );
+    }
+  }
 
   // Extract subdomain with proper validation
   let subdomain: string | null = null;

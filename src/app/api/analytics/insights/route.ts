@@ -123,43 +123,44 @@ Be specific and constructive.
   return { data: object };
 }
 
+async function handleInsightsRequest() {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Get merchant
+  const { data: merchant, error: merchantError } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (merchantError || !merchant) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  const result = await generateInsights(supabase, merchant.id, user.id);
+
+  if (result.error) {
+    return NextResponse.json(
+      { error: result.error, details: result.details },
+      { status: result.status }
+    );
+  }
+
+  return NextResponse.json(result.data);
+}
+
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    const result = await generateInsights(supabase, merchant.id, user.id);
-
-    if (result.error) {
-      return NextResponse.json(
-        { error: result.error, details: result.details },
-        { status: result.status }
-      );
-    }
-
-    return NextResponse.json(result.data);
+    return await handleInsightsRequest();
   } catch (error) {
     console.error('Error generating insights:', error);
     return NextResponse.json(
@@ -169,43 +170,10 @@ export async function GET() {
   }
 }
 
-export async function POST(_request: Request) {
+// POST handler - same behavior as GET, kept for API compatibility
+export async function POST() {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq('user_id', user.id)
-      .single();
-
-    if (merchantError || !merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    const result = await generateInsights(supabase, merchant.id, user.id);
-
-    if (result.error) {
-      return NextResponse.json(
-        { error: result.error, details: result.details },
-        { status: result.status }
-      );
-    }
-
-    return NextResponse.json(result.data);
+    return await handleInsightsRequest();
   } catch (error) {
     console.error('Error generating insights:', error);
     return NextResponse.json(

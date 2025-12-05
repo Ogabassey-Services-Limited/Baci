@@ -235,6 +235,7 @@ export default async function BlogPostPage({ params }: PageProps) {
                   alt={post.featured_image_alt || post.title}
                   fill
                   className="object-cover"
+                  priority
                 />
               </div>
             )}

@@ -78,13 +78,14 @@ export async function guideBusinessOnboarding(
     if (!input.logoUrl) {
       throw new Error('logoUrl is required for color extraction.');
     }
+    // Store in const after validation to help TypeScript narrow the type
+    const logoUrl = input.logoUrl;
     logger.info({
       message: 'Extracting colors from logo.',
       flow: 'guideBusinessOnboarding',
     });
 
     try {
-      const logoUrl = input.logoUrl; // Already validated on line 78
       const { object } = await withRetry(async () => {
         return await generateObject({
           model: geminiFlash,

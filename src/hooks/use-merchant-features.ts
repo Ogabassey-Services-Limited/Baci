@@ -90,6 +90,11 @@ export interface MerchantFeatureSettings {
   email_notifications_enabled: boolean;
   sms_notifications_enabled: boolean;
 
+  // Shipping Insurance (MyCover.ai)
+  shipping_insurance_enabled: boolean;
+  shipping_insurance_min_order_value: number | null;
+  shipping_insurance_opt_in_default: boolean;
+
   // Custom
   custom_settings: Record<string, unknown>;
 
@@ -302,6 +307,11 @@ export function useMerchantFeatures() {
     autoBlogEnabled: settings?.auto_blog_enabled ?? false,
     googleReviewsEnabled: settings?.google_reviews_enabled ?? false,
     googlePlaceId: settings?.google_place_id ?? null,
+    shippingInsuranceEnabled: settings?.shipping_insurance_enabled ?? false,
+    shippingInsuranceMinOrderValue:
+      settings?.shipping_insurance_min_order_value ?? 5000,
+    shippingInsuranceOptInDefault:
+      settings?.shipping_insurance_opt_in_default ?? false,
   };
 }
 

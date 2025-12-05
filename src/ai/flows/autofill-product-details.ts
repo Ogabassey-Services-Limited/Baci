@@ -148,16 +148,11 @@ export async function autofillProductDetails(
 
     logger.info({
       message: 'Product details autofilled successfully',
-      details: object,
+      suggestedName: object.suggestedName,
+      category: object.category,
+      brand: object.brand,
+      variantCount: object.suggestedVariants?.length ?? 0,
     });
-
-    // Debug logging for variant suggestions
-    if (object.suggestedVariants && object.suggestedVariants.length > 0) {
-      logger.info({
-        message: 'AI Variant Suggestions Detail',
-        suggestions: object.suggestedVariants,
-      });
-    }
 
     return {
       details: object,

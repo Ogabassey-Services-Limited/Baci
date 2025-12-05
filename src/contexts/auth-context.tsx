@@ -21,13 +21,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Start with loading as true
+  const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    // Explicitly fetch session first - this is more reliable than waiting for onAuthStateChange
-    // on initial load, especially after server-side redirects where cookies may take a moment
-    // to be available in document.cookie
+    // Get initial session - middleware already verified auth for protected routes,
+    // so this is just for client-side state synchronization
     const initializeAuth = async () => {
       const {
         data: { session },
@@ -38,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initializeAuth();
 
-    // Listen for subsequent auth changes (login, logout, token refresh)
+    // Listen for auth changes (login, logout, token refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {

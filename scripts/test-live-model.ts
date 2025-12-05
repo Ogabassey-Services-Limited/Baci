@@ -1,7 +1,6 @@
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateText } from 'ai';
 import dotenv from 'dotenv';
-import { writeFileSync } from 'fs';
 
 dotenv.config({ path: '.env.local' });
 dotenv.config({ path: '.env' });

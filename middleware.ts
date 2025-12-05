@@ -90,7 +90,8 @@ export async function middleware(request: NextRequest) {
   });
 
   // Refresh the auth session to ensure cookies are up to date
-  await supabase.auth.getSession();
+  // Using getUser() for stronger security (validates JWT with Supabase Auth server)
+  await supabase.auth.getUser();
 
   const rootDomain = getRootDomain();
 

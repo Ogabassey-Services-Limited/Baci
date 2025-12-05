@@ -271,7 +271,7 @@ export default function RewardsPage() {
                               <p className="text-xs text-muted-foreground">
                                 {new Date(
                                   transaction.created_at
-                                ).toLocaleDateString('en-NG', {
+                                ).toLocaleDateString(undefined, {
                                   year: 'numeric',
                                   month: 'short',
                                   day: 'numeric',

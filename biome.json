@@ -16,7 +16,14 @@
       "!**/reproduce_issue.ts",
       "!**/src/app/page.backup.tsx",
       "!**/src/app/page.tsx.bak",
-      "!**/src/app/globals.css"
+      "!**/src/app/globals.css",
+      "!**/temp-source",
+      "!**/src/components/storefront/new-template",
+      "!**/src/components/storefront/ogabassey-v2",
+      "!**/src/components/storefront/lumina",
+      "!**/src/app/template-preview",
+      "!**/src/app/preview",
+      "!**/src/templates"
     ]
   },
   "formatter": {
@@ -231,6 +238,35 @@
         "rules": {
           "suspicious": {
             "noExplicitAny": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "src/components/storefront/new-template/**",
+        "src/components/storefront/ogabassey-v2/**",
+        "src/components/storefront/lumina/**",
+        "src/app/(preview)/**",
+        "src/app/preview/**",
+        "src/app/template-preview/**",
+        "src/templates/**"
+      ],
+      "linter": {
+        "rules": {
+          "a11y": {
+            "useButtonType": "warn",
+            "noLabelWithoutControl": "warn"
+          },
+          "performance": {
+            "noImgElement": "warn"
+          },
+          "suspicious": {
+            "noArrayIndexKey": "warn",
+            "noExplicitAny": "warn"
+          },
+          "style": {
+            "noNonNullAssertion": "warn"
           }
         }
       }
