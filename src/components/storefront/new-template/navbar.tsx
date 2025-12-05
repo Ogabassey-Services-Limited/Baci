@@ -305,12 +305,10 @@ export const Navbar: React.FC = () => {
                   <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
                     <div className="absolute -top-1.5 left-8 w-3 h-3 bg-white rotate-45 border-l border-t border-gray-100" />
                     {NAV_CATEGORIES.map((cat) => {
-                      const categoryHref = `/category/${cat.name.toLowerCase()}`;
                       return (
-                        <Link
+                        <a
                           key={cat.name}
-                          // @ts-expect-error - dynamic category routes in template
-                          href={categoryHref}
+                          href={`/category/${cat.name.toLowerCase()}`}
                           onClick={() => setShowCategoryDropdown(false)}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 hover:text-red-600 transition-colors group"
                         >
@@ -321,7 +319,7 @@ export const Navbar: React.FC = () => {
                           <span className="font-medium text-gray-700 group-hover:text-red-900">
                             {cat.name}
                           </span>
-                        </Link>
+                        </a>
                       );
                     })}
                   </div>
