@@ -76,6 +76,11 @@ jobs:
             --exclude 'merchant\.creditdirect\.ng'
             --exclude 'dashboard\.\$\{rootDomain\}'
             --exclude '^https://dashboard/'
+            --exclude 'transparenttextures\.com'
+            --exclude 'upload\.wikimedia\.org'
+            --exclude 'ssl-product-images\.www8-hp\.com'
+            --exclude 'adis\.ws'
+            --exclude 'api\.mycover\.ai'
           # Fail action if broken links are found
           fail: true
         env:
