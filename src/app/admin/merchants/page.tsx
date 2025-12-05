@@ -58,13 +58,13 @@ interface MerchantHealth {
   health_status: 'healthy' | 'at_risk' | 'churned' | 'new';
 }
 
-function formatCurrency(value: number): string {
-  if (value >= 1000000) {
-    return `$${(value / 1000000).toFixed(2)}M`;
-  } else if (value >= 1000) {
-    return `$${(value / 1000).toFixed(1)}K`;
-  }
-  return `$${value.toFixed(2)}`;
+function formatCurrency(value: number, currency = 'USD'): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    notation: value >= 1000000 ? 'compact' : 'standard',
+    maximumFractionDigits: value >= 1000 ? 1 : 2,
+  }).format(value);
 }
 
 function formatDate(dateStr: string | null): string {

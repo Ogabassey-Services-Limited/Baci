@@ -23,7 +23,7 @@ export default async function Image({ params }: ImageProps) {
   // Get merchant
   const { data: merchant } = await supabase
     .from('merchants')
-    .select('id, business_name, logo_url, brand_colors')
+    .select('id, business_name, logo_url, brand_colors, country')
     .eq('slug', slug)
     .single();
 
@@ -103,10 +103,28 @@ export default async function Image({ params }: ImageProps) {
       ? product.images[0]
       : null;
 
+  // Get currency based on merchant's country
+  const getCurrencyForCountry = (country: string | null): string => {
+    const currencyMap: Record<string, string> = {
+      NG: 'NGN',
+      US: 'USD',
+      GB: 'GBP',
+      EU: 'EUR',
+      CA: 'CAD',
+      AU: 'AUD',
+      KE: 'KES',
+      GH: 'GHS',
+      ZA: 'ZAR',
+    };
+    return currencyMap[country || ''] || 'USD';
+  };
+
+  const currency = getCurrencyForCountry(merchant.country);
+
   // Format price
   const formattedPrice = new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency,
   }).format(product.price || 0);
 
   return new ImageResponse(

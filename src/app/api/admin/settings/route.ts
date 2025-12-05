@@ -154,6 +154,57 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Validate numeric fields
+    const numericFields = [
+      'platform_fee_percentage',
+      'platform_fee_flat',
+      'payment_processor_fee_percentage',
+      'payment_processor_fee_flat',
+    ];
+    for (const field of numericFields) {
+      if (field in updateData) {
+        const value = Number(updateData[field]);
+        if (Number.isNaN(value) || value < 0) {
+          return NextResponse.json(
+            { error: `${field} must be a non-negative number` },
+            { status: 400 }
+          );
+        }
+        updateData[field] = value;
+      }
+    }
+
+    // Validate boolean fields
+    const booleanFields = [
+      'enable_merchant_signups',
+      'enable_custom_domains',
+      'enable_analytics_export',
+      'maintenance_mode',
+    ];
+    for (const field of booleanFields) {
+      if (field in updateData && typeof updateData[field] !== 'boolean') {
+        return NextResponse.json(
+          { error: `${field} must be a boolean` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate email format
+    if (
+      'support_email' in updateData &&
+      updateData.support_email &&
+      typeof updateData.support_email === 'string'
+    ) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(updateData.support_email)) {
+        return NextResponse.json(
+          { error: 'support_email must be a valid email address' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Update platform settings
     const { data: settings, error: updateError } = await supabase
       .from('platform_settings')
