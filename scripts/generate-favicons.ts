@@ -65,15 +65,7 @@ async function generateFavicons() {
         // Generate multi-size ICO file
         console.log('\n🔧 Generating favicon.ico...');
 
-        // Generate 16x16 and 32x32 for ICO
-        const ico16 = await sharp(svgBuffer)
-            .resize(16, 16, {
-                fit: 'contain',
-                background: { r: 255, g: 255, b: 255, alpha: 0 },
-            })
-            .png()
-            .toBuffer();
-
+        // Generate 32x32 for ICO (16x16 not needed as we use 32x32 only)
         const ico32 = await sharp(svgBuffer)
             .resize(32, 32, {
                 fit: 'contain',
