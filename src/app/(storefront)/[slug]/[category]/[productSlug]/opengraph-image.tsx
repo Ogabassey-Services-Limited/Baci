@@ -110,11 +110,20 @@ export default async function Image({ params }: ImageProps) {
   // Format price using merchant's country for currency and locale
   const currency = getCurrencyForCountry(merchant.country);
   const locale = getLocaleForCountry(merchant.country);
-  const formattedPrice = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency,
-    currencyDisplay: 'symbol',
-  }).format(product.price || 0);
+  let formattedPrice: string;
+  try {
+    formattedPrice = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'symbol',
+    }).format(product.price || 0);
+  } catch {
+    // Fallback to basic USD formatting if locale/currency is invalid
+    formattedPrice = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(product.price || 0);
+  }
 
   return new ImageResponse(
     <div

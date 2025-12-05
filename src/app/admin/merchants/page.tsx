@@ -58,13 +58,24 @@ interface MerchantHealth {
   health_status: 'healthy' | 'at_risk' | 'churned' | 'new';
 }
 
-function formatCurrency(value: number, currency = 'USD'): string {
+function formatCurrency(value: number | string, currency = 'USD'): string {
+  // Parse value safely - Supabase returns numeric columns as strings for precision
+  const numValue = typeof value === 'string' ? Number.parseFloat(value) : value;
+
+  // Handle NaN or invalid values
+  if (!Number.isFinite(numValue)) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+    }).format(0);
+  }
+
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,
-    notation: value >= 1000000 ? 'compact' : 'standard',
-    maximumFractionDigits: value >= 1000 ? 1 : 2,
-  }).format(value);
+    notation: numValue >= 1000000 ? 'compact' : 'standard',
+    maximumFractionDigits: numValue >= 1000 ? 1 : 2,
+  }).format(numValue);
 }
 
 function formatDate(dateStr: string | null): string {
@@ -187,20 +198,28 @@ export default function MerchantsPage() {
   );
 
   // Stats
-  const stats = useMemo(
-    () => ({
+  const stats = useMemo(() => {
+    // Safe number parsing helper
+    const safeParseNumber = (
+      value: number | string | null | undefined
+    ): number => {
+      if (value === null || value === undefined) return 0;
+      const num = typeof value === 'string' ? Number.parseFloat(value) : value;
+      return Number.isFinite(num) ? num : 0;
+    };
+
+    return {
       total: merchants.length,
       healthy: merchants.filter((m) => m.health_status === 'healthy').length,
       atRisk: merchants.filter((m) => m.health_status === 'at_risk').length,
       churned: merchants.filter((m) => m.health_status === 'churned').length,
       new: merchants.filter((m) => m.health_status === 'new').length,
       totalGmv: merchants.reduce(
-        (sum, m) => sum + (Number(m.total_gmv) || 0),
+        (sum, m) => sum + safeParseNumber(m.total_gmv),
         0
       ),
-    }),
-    [merchants]
-  );
+    };
+  }, [merchants]);
 
   return (
     <div className="space-y-6">
@@ -382,7 +401,7 @@ export default function MerchantsPage() {
                         {getHealthBadge(merchant.health_status)}
                       </TableCell>
                       <TableCell className="text-right font-medium">
-                        {formatCurrency(Number(merchant.total_gmv) || 0)}
+                        {formatCurrency(merchant.total_gmv)}
                       </TableCell>
                       <TableCell className="text-right">
                         {merchant.total_orders || 0}

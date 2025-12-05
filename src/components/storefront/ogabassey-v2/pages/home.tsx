@@ -1,10 +1,14 @@
 // @ts-nocheck - Template preview
 import type React from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { BannerCarousel } from '../components/BannerCarousel';
 import { Hero } from '../components/Hero';
-import { InteractiveProductGrid } from '../components/InteractiveProductGrid';
+import { EngineProductGrid } from '../components/EngineProductGrid';
 
 export const OgabasseyV2HomePage: React.FC = () => {
+  const merchantContext = useMerchantSafe();
+  const storeSlug = merchantContext?.merchant?.slug;
+
   return (
     <>
       <Hero />
@@ -14,7 +18,11 @@ export const OgabasseyV2HomePage: React.FC = () => {
         <BannerCarousel className="h-40 md:h-52" />
       </div>
 
-      <InteractiveProductGrid />
+      <EngineProductGrid
+        title="Featured Products"
+        storeSlug={storeSlug}
+        useMockData={!storeSlug}
+      />
     </>
   );
 };
