@@ -30,6 +30,14 @@ export interface Order {
   source: string;
   tracking_number?: string;
   shipping_provider?: string;
+  items: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+    image?: string;
+    variant?: string;
+  }>;
 }
 
 export interface OrderStats {
@@ -62,7 +70,7 @@ export async function getOrders(
 
   let query = supabase
     .from('orders')
-    .select('*, order_items(*)')
+    .select('*, order_items(*, product:products(name, image))')
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
 
@@ -110,6 +118,14 @@ export async function getOrders(
     source: order.source === 'online_store' ? 'other' : order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
+    items: (order.order_items || []).map((item: any) => ({
+      id: item.id,
+      name: item.product?.name || 'Unknown Product',
+      quantity: item.quantity,
+      price: Number.parseFloat(item.total || item.price || 0),
+      image: item.product?.image || null,
+      variant: item.variant_name || null,
+    })),
   }));
 }
 
@@ -201,6 +217,13 @@ export async function getOrder(
     source: order.source === 'online_store' ? 'other' : order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
-    // Add items if needed by the frontend type, distinct from the list type
+    items: (order.order_items || []).map((item: any) => ({
+      id: item.id,
+      name: item.product?.name || 'Unknown Product',
+      quantity: item.quantity,
+      price: Number.parseFloat(item.total || item.price || 0),
+      image: item.product?.image || null,
+      variant: item.variant_name || null,
+    })),
   };
 }

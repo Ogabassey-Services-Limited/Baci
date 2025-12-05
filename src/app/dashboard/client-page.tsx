@@ -317,28 +317,28 @@ export default function DashboardClientPage({
             <div className="h-[60px] mt-4 flex items-end justify-between gap-1">
               {monthlyChartData.length > 0
                 ? monthlyChartData.map((data, _i) => {
-                    const maxRevenue = Math.max(
-                      ...monthlyChartData.map((d) => d.revenue)
-                    );
-                    const height =
-                      maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
-                    return (
-                      <div
-                        key={data.month}
-                        className="w-full bg-primary/30 rounded-t-sm transition-all"
-                        style={{ height: `${height}%` }}
-                        title={`${data.month}: ${formatPrice(data.revenue, merchant?.country || null)}`}
-                      />
-                    );
-                  })
-                : [40, 25, 60, 30, 70, 45].map((h, i) => (
+                  const maxRevenue = Math.max(
+                    ...monthlyChartData.map((d) => d.revenue)
+                  );
+                  const height =
+                    maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
+                  return (
                     <div
-                      // biome-ignore lint/suspicious/noArrayIndexKey: List is static
-                      key={i}
-                      className="w-full bg-primary/20 rounded-t-sm"
-                      style={{ height: `${h}%` }}
+                      key={data.month}
+                      className="w-full bg-primary/30 rounded-t-sm transition-all"
+                      style={{ height: `${height}%` }}
+                      title={`${data.month}: ${formatPrice(data.revenue, merchant?.country || null)}`}
                     />
-                  ))}
+                  );
+                })
+                : [40, 25, 60, 30, 70, 45].map((h, i) => (
+                  <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: List is static
+                    key={i}
+                    className="w-full bg-primary/20 rounded-t-sm"
+                    style={{ height: `${h}%` }}
+                  />
+                ))}
             </div>
           </BentoCard>
         </motion.div>
@@ -374,43 +374,55 @@ export default function DashboardClientPage({
         >
           <BentoCard title="Recent Sales" icon={CreditCard} className="h-full">
             <div className="space-y-4 mt-2">
-              {recentSales.map((sale) => (
-                <div
-                  key={sale.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-                      {sale.name.charAt(0)}
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-sm font-medium leading-none">
-                        {sale.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {sale.email}
-                      </p>
-                    </div>
+              {recentSales.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+                  <div className="rounded-full bg-muted p-3 mb-3">
+                    <CreditCard className="h-6 w-6" />
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">
-                      +{formatPrice(sale.amount, merchant?.country || null)}
-                    </p>
-                    <p
-                      className={cn(
-                        'text-[10px] font-medium',
-                        sale.status === 'Completed'
-                          ? 'text-green-500'
-                          : sale.status === 'Processing'
-                            ? 'text-blue-500'
-                            : 'text-red-500'
-                      )}
-                    >
-                      {sale.status}
-                    </p>
-                  </div>
+                  <p className="text-sm font-medium">No recent sales yet</p>
+                  <p className="text-xs max-w-[200px] mt-1">
+                    Transactions will appear here once you start receiving orders.
+                  </p>
                 </div>
-              ))}
+              ) : (
+                recentSales.map((sale) => (
+                  <div
+                    key={sale.id}
+                    className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
+                        {sale.name.charAt(0)}
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium leading-none">
+                          {sale.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {sale.email}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium">
+                        +{formatPrice(sale.amount, merchant?.country || null)}
+                      </p>
+                      <p
+                        className={cn(
+                          'text-[10px] font-medium',
+                          sale.status === 'Completed'
+                            ? 'text-green-500'
+                            : sale.status === 'Processing'
+                              ? 'text-blue-500'
+                              : 'text-red-500'
+                        )}
+                      >
+                        {sale.status}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
               <Button
                 variant="ghost"
                 className="w-full text-xs text-muted-foreground hover:text-foreground"

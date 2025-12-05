@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -33,12 +33,70 @@ const GITHUB_URL_PATTERN = /^https:\/\/github\.com\/[\w-]+\/[\w.-]+(?:\.git)?$/;
 export default function SubmitTemplatePage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [submissionType, setSubmissionType] =
-    useState<SubmissionType>('github');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submissionType, setSubmissionType] = useState<'github' | 'zip'>(
+    'github'
+  );
   const [repoUrl, setRepoUrl] = useState('');
   const [repoError, setRepoError] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      if (selectedFile.size > 50 * 1024 * 1024) {
+        toast({
+          title: 'Error',
+          description: 'File size must be under 50MB',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setFile(selectedFile);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const droppedFile = e.dataTransfer.files?.[0];
+    if (droppedFile) {
+      if (
+        !droppedFile.name.endsWith('.zip') &&
+        !droppedFile.name.endsWith('.tar') &&
+        !droppedFile.name.endsWith('.tar.gz')
+      ) {
+        toast({
+          title: 'Error',
+          description: 'Only ZIP or TAR files are allowed',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (droppedFile.size > 50 * 1024 * 1024) {
+        toast({
+          title: 'Error',
+          description: 'File size must be under 50MB',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setFile(droppedFile);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
 
   const validateGitHubUrl = (url: string): boolean => {
     if (!url) return true; // Don't show error for empty (required will handle it)
@@ -178,6 +236,7 @@ export default function SubmitTemplatePage() {
                   <button
                     type="button"
                     onClick={() => setSubmissionType('github')}
+                    aria-pressed={submissionType === 'github'}
                     className={cn(
                       'flex items-center justify-center p-4 border rounded-xl transition-all duration-200',
                       submissionType === 'github'
@@ -192,6 +251,7 @@ export default function SubmitTemplatePage() {
                   <button
                     type="button"
                     onClick={() => setSubmissionType('zip')}
+                    aria-pressed={submissionType === 'zip'}
                     className={cn(
                       'flex items-center justify-center p-4 border rounded-xl transition-all duration-200',
                       submissionType === 'zip'
@@ -228,7 +288,7 @@ export default function SubmitTemplatePage() {
                         className={cn(
                           'pl-9 bg-white',
                           repoError &&
-                            'border-red-500 focus-visible:ring-red-500'
+                          'border-red-500 focus-visible:ring-red-500'
                         )}
                         required
                         aria-invalid={!!repoError}
@@ -257,7 +317,25 @@ export default function SubmitTemplatePage() {
                     <Label htmlFor="file" className="text-gray-700">
                       Project Archive
                     </Label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center bg-white hover:bg-gray-50/50 transition-colors cursor-pointer">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => fileInputRef.current?.click()}
+                      onDrop={handleDrop}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          fileInputRef.current?.click();
+                        }
+                      }}
+                      className={cn(
+                        'border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer',
+                        isDragOver
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-300 bg-white hover:bg-gray-50/50'
+                      )}
+                    >
                       <Upload className="w-8 h-8 text-gray-400 mx-auto mb-3" />
                       <p className="text-sm font-medium text-gray-900">
                         Click to upload or drag and drop
@@ -265,8 +343,21 @@ export default function SubmitTemplatePage() {
                       <p className="text-xs text-gray-500 mt-1">
                         ZIP, TAR up to 50MB
                       </p>
-                      <Input id="file" type="file" className="hidden" />
+                      <Input
+                        id="file"
+                        type="file"
+                        className="hidden"
+                        ref={fileInputRef}
+                        accept=".zip,.tar,.tar.gz"
+                        onChange={handleFileChange}
+                      />
                     </div>
+                    {file && (
+                      <p className="text-sm text-green-600 flex items-center mt-2">
+                        <span className="font-semibold mr-1">Selected:</span>{' '}
+                        {file.name}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -275,7 +366,7 @@ export default function SubmitTemplatePage() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => router.back()}
+                  onClick={() => router.push('/template-preview')}
                 >
                   Cancel
                 </Button>

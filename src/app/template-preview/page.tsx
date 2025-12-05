@@ -227,7 +227,7 @@ function LivePreviewCard({ template }: { template: TemplateDefinition }) {
           <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
         </div>
         <div className="ml-4 h-4 bg-white/5 rounded-full w-40 text-[10px] flex items-center pl-2 text-gray-500 font-mono">
-          baci.store/{template.id}
+          <p>baci.store/{template.id}</p>
         </div>
       </div>
 

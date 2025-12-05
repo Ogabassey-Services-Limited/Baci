@@ -39,6 +39,26 @@ export async function getCustomers(
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return [];
+  }
+
+  // Verify merchantId belongs to authenticated user
+  const { data: merchant } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('id', merchantId)
+    .single();
+
+  if (!merchant) {
+    return [];
+  }
+
   let query = supabase
     .from('customers')
     .select('*')

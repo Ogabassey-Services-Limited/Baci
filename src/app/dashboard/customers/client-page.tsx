@@ -119,7 +119,7 @@ export default function CustomersClientPage({
     );
 
     return () => clearTimeout(timer);
-  }, [searchTerm, authLoading, user, merchant?.id, toast, initialCustomers]);
+  }, [searchTerm, authLoading, user, merchant?.id, toast, initialCustomers.length]);
 
   const handleAddCustomer = async () => {
     try {

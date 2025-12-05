@@ -863,7 +863,7 @@
   .react-grid-layout {
     max-width: 100% !important;
     width: 100% !important;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .react-grid-item {
@@ -872,7 +872,7 @@
   }
 
   /* Ensure grid items don't cause overflow */
-  .react-grid-item > div {
+  .react-grid-item>div {
     max-width: 100%;
     overflow: hidden;
   }
