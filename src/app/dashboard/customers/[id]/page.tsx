@@ -1,5 +1,5 @@
-import { getMerchantForUser } from '@/lib/merchant-server';
 import { notFound } from 'next/navigation';
+import { getMerchantForUser } from '@/lib/merchant-server';
 import { getCustomer, getCustomerOrders } from '../actions';
 import CustomerDetailClientPage from './client-page';
 

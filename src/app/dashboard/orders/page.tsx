@@ -1,5 +1,5 @@
 import { getMerchantForUser } from '@/lib/merchant-server';
-import { getOrders, getOrderStats } from './actions';
+import { getOrderStats, getOrders } from './actions';
 import OrdersClientPage from './client-page';
 
 export const metadata = {
@@ -20,7 +20,8 @@ export default async function OrdersPage() {
   ]);
 
   const orders = results[0].status === 'fulfilled' ? results[0].value : [];
-  const stats = results[1].status === 'fulfilled' ? results[1].value : undefined;
+  const stats =
+    results[1].status === 'fulfilled' ? results[1].value : undefined;
 
   // Log any errors for debugging
   if (results[0].status === 'rejected') {

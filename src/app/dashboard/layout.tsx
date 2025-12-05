@@ -1,29 +1,21 @@
-'use client';
+import type { ReactNode } from 'react';
+import { getMerchantForUser } from '@/lib/merchant-server';
+import { DashboardProviders } from './providers';
 
-import AppBody from '@/components/app-body';
-import { MerchantProvider, useMerchant } from '@/hooks/use-merchant';
-import DashboardClientLayout from './client-layout';
-
-// New component to handle fetching merchant and applying theme
-function ThemedDashboardLayout({ children }: { children: React.ReactNode }) {
-  const { merchant } = useMerchant();
-  return (
-    <AppBody merchant={merchant} showNewsletterWidget={false}>
-      {children}
-    </AppBody>
-  );
-}
-
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
+  // Fetch merchant data server-side
+  const { merchant, staffAccess } = await getMerchantForUser();
+
   return (
-    <MerchantProvider>
-      <DashboardClientLayout>
-        <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
-      </DashboardClientLayout>
-    </MerchantProvider>
+    <DashboardProviders
+      initialMerchant={merchant}
+      initialStaffAccess={staffAccess}
+    >
+      {children}
+    </DashboardProviders>
   );
 }

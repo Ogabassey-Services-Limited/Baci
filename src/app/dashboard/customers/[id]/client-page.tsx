@@ -46,7 +46,7 @@ export default function CustomerDetailClientPage({
   const router = useRouter();
   const { toast } = useToast();
   const [customer, setCustomer] = useState<Customer>(initialCustomer);
-  const [orders, setOrders] = useState<CustomerOrder[]>(initialOrders);
+  const [orders] = useState<CustomerOrder[]>(initialOrders);
 
   // Loading states are no longer needed for initial load, but maybe for mutations?
   // We can keep simple state for mutations.

@@ -217,3 +217,24 @@ export function getContrastColor(hexColor: string): 'black' | 'white' {
 
   return luminance > 0.5 ? 'black' : 'white';
 }
+
+/**
+ * Format currency amount
+ * - Takes amount in minor units (kobo/cents) by default
+ * - Returns formatted string (e.g., "₦1,000.00")
+ */
+export const formatCurrency = (
+  amount: number,
+  currencyCode = 'NGN'
+): string => {
+  // Convert from minor units (kobo) to major units (Naira)
+  // Most currencies including NGN and USD use 2 decimal places
+  const majorAmount = amount / 100;
+
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: currencyCode,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0, // No decimals for Naira usually, unless cents are critical
+  }).format(majorAmount);
+};

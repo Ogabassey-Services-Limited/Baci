@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { useAuth } from '@/contexts/auth-context';
@@ -101,6 +102,8 @@ const MerchantContext = createContext<MerchantContextType | undefined>(
 interface MerchantProviderProps {
   children: ReactNode;
   slug?: string; // Optional slug for storefronts
+  initialMerchant?: MerchantData | null;
+  initialStaffAccess?: StaffAccess;
 }
 
 const defaultStaffAccess: StaffAccess = {
@@ -110,20 +113,43 @@ const defaultStaffAccess: StaffAccess = {
   permissions: {},
 };
 
-export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
+export const MerchantProvider = ({
+  children,
+  slug,
+  initialMerchant,
+  initialStaffAccess,
+}: MerchantProviderProps) => {
   const { user, loading: authLoading } = useAuth();
-  const [merchant, setMerchant] = useState<MerchantData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [staffAccess, setStaffAccess] =
-    useState<StaffAccess>(defaultStaffAccess);
+
+  // Initialize state with props if available
+  const [merchant, setMerchant] = useState<MerchantData | null>(
+    initialMerchant ?? null
+  );
+  // If we have initial data, we're not loading unless fetching explicitly
+  const [loading, setLoading] = useState(!initialMerchant);
+  const [staffAccess, setStaffAccess] = useState<StaffAccess>(
+    initialStaffAccess ?? defaultStaffAccess
+  );
   const supabase = createClient();
+  const hasHydrated = useRef(false);
+
+  // Set initial hydration state
+  useEffect(() => {
+    if (initialMerchant && !hasHydrated.current) {
+      hasHydrated.current = true;
+    }
+  }, [initialMerchant]);
 
   const loadData = useCallback(async () => {
+    // If we provided initial data, skip the first automatic fetch
+    if (initialMerchant && !slug && !hasHydrated.current) {
+      hasHydrated.current = true;
+      return;
+    }
+
     // For storefront mode (slug provided), load immediately
     // For dashboard mode (no slug), wait for auth to finish loading
     if (!slug && authLoading) {
-      // Keep loading state as true - don't set to false until auth is ready
-      // This prevents premature redirect to onboarding
       return;
     }
 
@@ -336,7 +362,7 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
     } finally {
       setLoading(false);
     }
-  }, [slug, authLoading, user, supabase]);
+  }, [slug, authLoading, user, supabase, initialMerchant]);
 
   useEffect(() => {
     loadData();

@@ -25,11 +25,11 @@ export async function getLandingMetrics(): Promise<LandingMetrics> {
       .from('orders')
       .select('*', { count: 'exact', head: true });
 
-    // Calculate total sales from orders using SQL aggregation for efficiency
+    // Fetch all order totals to calculate sum (for small-medium datasets)
+    // For very large datasets, consider creating a Supabase RPC function
     const { data: salesData, error: salesError } = await supabase
       .from('orders')
-      .select('total.sum()')
-      .single();
+      .select('total');
 
     if (merchantError) {
       console.error('Error fetching merchant count:', merchantError);
@@ -41,8 +41,10 @@ export async function getLandingMetrics(): Promise<LandingMetrics> {
       console.error('Error fetching sales total:', salesError);
     }
 
-    // Calculate total sales from aggregated result
-    const totalSales = Number(salesData?.sum) || 0;
+    // Calculate total sales by summing all order totals
+    const totalSales =
+      salesData?.reduce((sum, order) => sum + (Number(order.total) || 0), 0) ??
+      0;
 
     // Format sales display
     let salesDisplay: string | number;

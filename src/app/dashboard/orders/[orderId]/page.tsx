@@ -1,6 +1,6 @@
-import { getMerchantForUser } from '@/lib/merchant-server';
 import { notFound } from 'next/navigation';
-import { getOrder } from '../actions';
+import { getMerchantForUser } from '@/lib/merchant-server';
+import { getOrder, type Order } from '../actions';
 import OrderDetailsClientPage from './client-page';
 
 export const metadata = {
@@ -19,7 +19,7 @@ export default async function OrderDetailsPage({ params }: Props) {
     return notFound();
   }
 
-  let order;
+  let order: Order | null;
   try {
     order = await getOrder(merchant.id, orderId);
   } catch (error) {

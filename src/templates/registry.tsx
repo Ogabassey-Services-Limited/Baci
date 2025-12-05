@@ -347,8 +347,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     status: 'draft',
     version: '0.1.0',
     engine: {
-      products: false,
-      cart: false,
+      products: true,
+      cart: false, // Still needs cart connection
       checkout: false,
       customerAuth: false,
       wishlist: false,
@@ -356,14 +356,17 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     },
     getComponents: async () => {
       // Lumina currently only has product grid, not a full home page
-      const { LuminaProductGrid } = await import(
-        '@/components/storefront/lumina'
+      const { LuminaEngineGrid } = await import(
+        '@/components/storefront/lumina/engine-grid'
       );
       // Create a wrapper component
-      const LuminaHome: ComponentType<TemplatePageProps> = () => {
+      const LuminaHome: ComponentType<TemplatePageProps> = (props) => {
         return (
           <div className="min-h-screen bg-white">
-            <LuminaProductGrid products={[]} storeSlug="lumina-preview" />
+            <LuminaEngineGrid
+              storeSlug={props.storeSlug || 'lumina-preview'}
+              useMockData={props.isPreview ?? false}
+            />
           </div>
         );
       };
@@ -383,6 +386,183 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
       },
     },
     tags: ['minimal', 'clean', 'light', 'wip'],
+  },
+
+  artisan: {
+    id: 'artisan',
+    name: 'Artisan',
+    description: 'Handcrafted template for artisan and boutique stores',
+    category: 'general',
+    status: 'draft',
+    version: '0.1.0',
+    engine: {
+      products: false,
+      cart: false,
+      checkout: false,
+      customerAuth: false,
+      wishlist: false,
+      orderTracking: false,
+    },
+    getComponents: async () => {
+      const ArtisanHome: ComponentType<TemplatePageProps> = (props) => {
+        return (
+          <div className="min-h-screen bg-amber-50">
+            <div className="max-w-4xl mx-auto py-20 px-6 text-center">
+              <h1 className="text-4xl font-serif text-amber-900 mb-4">
+                {props.merchant?.business_name || 'Artisan Store'}
+              </h1>
+              <p className="text-amber-700 mb-8">
+                Handcrafted goods made with love
+              </p>
+              <div className="bg-white rounded-lg shadow-lg p-8">
+                <p className="text-gray-600">
+                  🎨 Artisan template coming soon. This will feature warm colors,
+                  serif typography, and a handcrafted aesthetic.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      };
+      return { Home: ArtisanHome };
+    },
+    mockData: {
+      merchant: {
+        ...defaultMockMerchant,
+        id: 'artisan-preview',
+        business_name: 'Artisan Crafts',
+        business_type: 'GENERAL',
+        brand_colors: {
+          primary: '#92400E',
+          background: '#FFFBEB',
+          accent: '#D97706',
+        },
+      },
+    },
+    tags: ['artisan', 'boutique', 'handcrafted', 'warm', 'wip'],
+  },
+
+  modern: {
+    id: 'modern',
+    name: 'Modern',
+    description: 'Clean, minimalist template for contemporary brands',
+    category: 'fashion',
+    status: 'draft',
+    version: '0.1.0',
+    engine: {
+      products: false,
+      cart: false,
+      checkout: false,
+      customerAuth: false,
+      wishlist: false,
+      orderTracking: false,
+    },
+    getComponents: async () => {
+      const ModernHome: ComponentType<TemplatePageProps> = (props) => {
+        return (
+          <div className="min-h-screen bg-white">
+            <div className="max-w-6xl mx-auto py-20 px-6">
+              <h1 className="text-6xl font-light tracking-tight text-gray-900 mb-4">
+                {props.merchant?.business_name || 'Modern Store'}
+              </h1>
+              <p className="text-xl text-gray-500 mb-12">
+                Less is more. Quality over quantity.
+              </p>
+              <div className="grid grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="aspect-square bg-gray-100 rounded-sm" />
+                ))}
+              </div>
+              <div className="mt-12 p-8 border border-gray-200 rounded-sm">
+                <p className="text-gray-600 text-center">
+                  ✨ Modern template coming soon. Clean lines, lots of whitespace,
+                  and contemporary aesthetics.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      };
+      return { Home: ModernHome };
+    },
+    mockData: {
+      merchant: {
+        ...defaultMockMerchant,
+        id: 'modern-preview',
+        business_name: 'Modern Studio',
+        business_type: 'FASHION',
+        brand_colors: {
+          primary: '#111827',
+          background: '#FFFFFF',
+          accent: '#6B7280',
+        },
+      },
+    },
+    tags: ['modern', 'minimal', 'clean', 'contemporary', 'wip'],
+  },
+
+  tech: {
+    id: 'tech',
+    name: 'Tech',
+    description: 'Dark theme template optimized for electronics and tech stores',
+    category: 'gadgets',
+    status: 'draft',
+    version: '0.1.0',
+    engine: {
+      products: false,
+      cart: false,
+      checkout: false,
+      customerAuth: false,
+      wishlist: false,
+      orderTracking: false,
+    },
+    getComponents: async () => {
+      const TechHome: ComponentType<TemplatePageProps> = (props) => {
+        return (
+          <div className="min-h-screen bg-gray-950 text-white">
+            <div className="max-w-6xl mx-auto py-20 px-6">
+              <div className="text-center mb-16">
+                <h1 className="text-5xl font-bold tracking-tight mb-4 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+                  {props.merchant?.business_name || 'Tech Store'}
+                </h1>
+                <p className="text-gray-400 text-lg">
+                  The future of technology, today.
+                </p>
+              </div>
+              <div className="grid grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="aspect-square bg-gray-900 rounded-lg border border-gray-800"
+                  />
+                ))}
+              </div>
+              <div className="mt-12 p-8 bg-gray-900 rounded-lg border border-gray-800 text-center">
+                <p className="text-gray-400">
+                  🚀 Tech template coming soon. Dark mode, neon accents,
+                  and futuristic vibes.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      };
+      return { Home: TechHome };
+    },
+    mockData: {
+      merchant: {
+        ...defaultMockMerchant,
+        id: 'tech-preview',
+        business_name: 'TechZone',
+        business_type: 'ELECTRONICS',
+        brand_colors: {
+          primary: '#06B6D4',
+          background: '#030712',
+          accent: '#3B82F6',
+        },
+      },
+    },
+    tags: ['tech', 'electronics', 'dark', 'futuristic', 'wip'],
   },
 };
 

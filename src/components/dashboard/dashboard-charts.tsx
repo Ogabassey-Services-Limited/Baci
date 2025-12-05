@@ -16,6 +16,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
+import { formatPrice } from '@/lib/currency-utils';
 
 interface ChartDataPoint {
   month: string;
@@ -27,6 +28,7 @@ interface ChartDataPoint {
 interface DashboardChartsProps {
   data: ChartDataPoint[];
   config: ChartConfig;
+  country?: string | null;
 }
 
 export function RevenueSparkline({ data, config }: DashboardChartsProps) {
@@ -60,7 +62,11 @@ export function RevenueSparkline({ data, config }: DashboardChartsProps) {
   );
 }
 
-export function RevenueBarChart({ data, config }: DashboardChartsProps) {
+export function RevenueBarChart({
+  data,
+  config,
+  country,
+}: DashboardChartsProps) {
   return (
     <ChartContainer config={config} className="h-full w-full">
       <BarChart data={data} barGap={2}>
@@ -79,12 +85,22 @@ export function RevenueBarChart({ data, config }: DashboardChartsProps) {
         <YAxis
           tickLine={false}
           axisLine={false}
-          tickFormatter={(value) => `$${value}`}
+          tickFormatter={(value) =>
+            formatPrice(value, country || null, {
+              notation: 'compact',
+              maximumFractionDigits: 1,
+            })
+          }
           tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
         />
         <ChartTooltip
           cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-          content={<ChartTooltipContent indicator="dot" />}
+          content={
+            <ChartTooltipContent
+              indicator="dot"
+              formatter={(value) => formatPrice(Number(value), country || null)}
+            />
+          }
         />
         <Legend
           verticalAlign="top"

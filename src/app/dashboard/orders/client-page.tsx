@@ -1,0 +1,786 @@
+'use client';
+
+import {
+  AlertCircle as AlertCircleIcon,
+  AlertTriangle,
+  CheckCircle,
+  ChevronDown,
+  CircleDot,
+  Clock,
+  CreditCard,
+  File,
+  FileWarning,
+  Hourglass,
+  List,
+  ListFilter,
+  MoreVertical,
+  PackageCheck,
+  PlusCircle,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  ShoppingCart,
+  Truck,
+  Undo2,
+  X,
+} from 'lucide-react';
+import Link from 'next/link';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { useAuth } from '@/contexts/auth-context';
+import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
+import { apiPatch } from '@/lib/api-client';
+import { getCountryByCode } from '@/lib/countries';
+import { cn } from '@/lib/utils';
+import {
+  getOrders,
+  type Order,
+  type OrderStats,
+  type PaymentStatus,
+  type ShippingStatus,
+} from './actions';
+
+export const StatusBadge = ({
+  status,
+  type,
+}: {
+  status: string;
+  type: 'payment' | 'shipping';
+}) => {
+  const paymentVariants: { [key: string]: string } = {
+    Paid: 'bg-green-100 text-green-800 border-green-200',
+    Unpaid: 'bg-red-100 text-red-800 border-red-200',
+    Pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    'Partially Paid': 'bg-blue-100 text-blue-800 border-blue-200',
+    Refunded: 'bg-gray-100 text-gray-800 border-gray-200',
+  };
+
+  const shippingVariants: { [key: string]: string } = {
+    Pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    Processing: 'bg-blue-100 text-blue-800 border-blue-200',
+    Shipped: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    Delivered: 'bg-green-100 text-green-800 border-green-200',
+    Canceled: 'bg-red-100 text-red-800 border-red-200',
+    Returned: 'bg-purple-100 text-purple-800 border-purple-200',
+  };
+
+  const className =
+    type === 'payment' ? paymentVariants[status] : shippingVariants[status];
+
+  return (
+    <Badge
+      variant={'outline'}
+      className={cn('capitalize justify-center', className)}
+    >
+      {status}
+    </Badge>
+  );
+};
+
+const StatusDropdown = ({
+  order,
+  onStatusUpdate,
+}: {
+  order: Order;
+  onStatusUpdate: (orderNumber: string, newStatus: ShippingStatus) => void;
+}) => {
+  const { shippingStatus } = order;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2 capitalize w-full justify-between"
+        >
+          <StatusBadge status={shippingStatus} type="shipping" />
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {shippingStatus === 'Pending' && (
+          <DropdownMenuItem
+            onSelect={() => onStatusUpdate(order.orderNumber, 'Processing')}
+          >
+            <CheckCircle className="mr-2 h-4 w-4" />
+            <span>Confirm Order</span>
+          </DropdownMenuItem>
+        )}
+        {shippingStatus === 'Processing' && (
+          <DropdownMenuItem
+            onSelect={() => onStatusUpdate(order.orderNumber, 'Shipped')}
+          >
+            <Truck className="mr-2 h-4 w-4" />
+            <span>Ship Order</span>
+          </DropdownMenuItem>
+        )}
+        {shippingStatus === 'Shipped' && (
+          <DropdownMenuItem
+            onSelect={() => onStatusUpdate(order.orderNumber, 'Delivered')}
+          >
+            <PackageCheck className="mr-2 h-4 w-4" />
+            <span>Mark as Delivered</span>
+          </DropdownMenuItem>
+        )}
+        {shippingStatus === 'Delivered' && (
+          <DropdownMenuItem
+            onSelect={() => onStatusUpdate(order.orderNumber, 'Returned')}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            <span>Process Return</span>
+          </DropdownMenuItem>
+        )}
+        {(shippingStatus === 'Pending' || shippingStatus === 'Processing') && (
+          <DropdownMenuItem
+            onSelect={() => onStatusUpdate(order.orderNumber, 'Canceled')}
+            className="text-red-600 focus:text-red-600 focus:bg-red-50"
+          >
+            <X className="mr-2 h-4 w-4" />
+            <span>Cancel Order</span>
+          </DropdownMenuItem>
+        )}
+        {(shippingStatus === 'Canceled' || shippingStatus === 'Returned') && (
+          <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+export const SourceIcon = ({ source }: { source: string }) => {
+  if (source === 'whatsapp') {
+    return (
+      <svg
+        className="h-6 w-6 text-green-500"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M12.04 2C6.58 2 2.13 6.45 2.13 12c0 1.74.45 3.38 1.26 4.84l-1.33 4.85 4.97-1.3c1.4.78 2.98 1.21 4.61 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-5.46-4.45-9.91-9.91-9.91zM17.48 15.36c-.21.6-1.3 1.12-1.79 1.18-.49.06-1.04.06-1.57-.09-.53-.15-1.12-.34-1.84-1.1-1.02-1.08-1.7-2.35-1.93-2.76-.23-.41-.03-.63.18-.84.2-.21.41-.35.56-.53.15-.18.2-.3.15-.49-.06-.18-.53-1.27-.73-1.76s-.4-.41-.56-.41h-.48c-.18 0-.4.18-.56.41-.18.21-.69.69-.69 1.69s.71 1.97.81 2.12c.1.15 1.41 2.35 3.43 3.21.49.21.87.34 1.18.43.53.15.99.12 1.36-.03.44-.18.69-.81.79-1.53.1-.71.1-1.3-.03-1.48-.06-.18-.24-.27-.45-.45z" />
+      </svg>
+    );
+  }
+  if (source === 'instagram') {
+    return (
+      <svg
+        className="h-6 w-6"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+        <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+        <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+      </svg>
+    );
+  }
+  return <div className="h-6 w-6 rounded-full bg-gray-200" />;
+};
+
+interface OrdersClientPageProps {
+  initialOrders?: Order[];
+  initialStats?: OrderStats;
+}
+
+export default function OrdersClientPage({
+  initialOrders = [],
+  initialStats = {
+    totalOrders: 0,
+    completedOrders: 0,
+    unpaidOrders: 0,
+    urgentOrders: 0,
+  },
+}: OrdersClientPageProps) {
+  const { merchant, loading: merchantLoading } = useMerchant();
+  const { loading: authLoading } = useAuth();
+  const [paymentFilter, setPaymentFilter] = useState('All');
+  const [shippingFilter, setShippingFilter] = useState('All');
+  const [searchTerm, setSearchTerm] = useState('');
+  const { toast } = useToast();
+  const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [showAlert, setShowAlert] = useState(true);
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [stats, _setStats] = useState<OrderStats>(initialStats);
+  const [statsLoading, _setStatsLoading] = useState(false);
+  const [ordersError, _setOrdersError] = useState<string | null>(null);
+
+  // Track first render/hydration
+  const isHydrated = useRef(false);
+
+  // Helper function to format status from DB to UI
+  const _formatStatus = useCallback((status: string): string => {
+    if (!status) return 'Pending';
+    return status
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }, []);
+
+  // Helper function to format status from UI to DB
+  function formatStatusForDB(status: string): string {
+    return status.toLowerCase().replace(' ', '_');
+  }
+
+  // Fetch orders from Server Action
+  useEffect(() => {
+    // Skip initial fetch if hydration occurred and filters are default
+    if (
+      !isHydrated.current &&
+      initialOrders.length > 0 &&
+      paymentFilter === 'All' &&
+      shippingFilter === 'All' &&
+      !searchTerm
+    ) {
+      isHydrated.current = true;
+      return;
+    }
+    isHydrated.current = true; // Mark as hydrated for subsequent updates
+
+    if (!merchant?.id) return;
+
+    const fetchOrders = async () => {
+      setOrdersLoading(true);
+      try {
+        const fetchedOrders = await getOrders(merchant.id, {
+          paymentStatus: paymentFilter,
+          shippingStatus: shippingFilter,
+          search: searchTerm,
+        });
+        setOrders(fetchedOrders);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        toast({
+          title: 'Error Fetching Orders',
+          description: 'Could not load orders. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setOrdersLoading(false);
+      }
+    };
+
+    // Debounce search
+    const timer = setTimeout(
+      () => {
+        fetchOrders();
+      },
+      searchTerm ? 500 : 0
+    );
+
+    return () => clearTimeout(timer);
+  }, [
+    merchant?.id,
+    paymentFilter,
+    shippingFilter,
+    searchTerm,
+    toast,
+    initialOrders.length,
+  ]);
+
+  // Fetch stats only if needed (e.g. periodically or on explicit refresh),
+  // currently we assume passed stats are fresh enough for initial load.
+  // We can leave stats static or refetch them.
+  // For now let's only refetch stats if we know they might be stale OR explicitly requested.
+  // But unlike original code, we WON'T fetch stats on plain filter changes (stats should be global).
+
+  const handleUpdateStatus = async (
+    orderNumber: string,
+    newStatus: ShippingStatus
+  ) => {
+    // Find the order to get its database ID
+    const order = orders.find((o) => o.orderNumber === orderNumber);
+    if (!order || !order.id) {
+      toast({
+        title: 'Error',
+        description: `Could not find order ${orderNumber} to update.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      await apiPatch(`/api/orders/${order.id}`, {
+        shipping_status: formatStatusForDB(newStatus),
+      });
+
+      // Update local state on success
+      setOrders((currentOrders) =>
+        currentOrders.map((o) =>
+          o.orderNumber === orderNumber
+            ? { ...o, shippingStatus: newStatus }
+            : o
+        )
+      );
+
+      toast({
+        title: `Order ${newStatus}! 🎉`,
+        description: `Order ${orderNumber} has been updated.`,
+      });
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: 'Failed to update order status. Please try again.',
+      });
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    const country = merchant?.country
+      ? getCountryByCode(merchant.country)
+      : undefined;
+    const locale = country ? `en-${country.code}` : 'en-US';
+    const currency = country ? country.currency : 'USD';
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+      currencyDisplay: 'symbol',
+    }).format(amount);
+  };
+
+  const filteredOrders = orders.filter((order) => {
+    const paymentMatch =
+      paymentFilter === 'All' || order.paymentStatus === paymentFilter;
+    const shippingMatch =
+      shippingFilter === 'All' || order.shippingStatus === shippingFilter;
+    const searchMatch =
+      searchTerm === '' ||
+      order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    return paymentMatch && shippingMatch && searchMatch;
+  });
+
+  const paymentStatuses: { name: PaymentStatus; icon: React.ElementType }[] = [
+    { name: 'Paid', icon: CheckCircle },
+    { name: 'Unpaid', icon: AlertCircleIcon },
+    { name: 'Pending', icon: Hourglass },
+    { name: 'Partially Paid', icon: CircleDot },
+    { name: 'Refunded', icon: Undo2 },
+  ];
+  const shippingStatuses: { name: ShippingStatus; icon: React.ElementType }[] =
+    [
+      { name: 'Pending', icon: Clock },
+      { name: 'Processing', icon: RefreshCw },
+      { name: 'Shipped', icon: Truck },
+      { name: 'Delivered', icon: PackageCheck },
+      { name: 'Canceled', icon: X },
+      { name: 'Returned', icon: RotateCcw },
+    ];
+
+  const handleSelectOrder = (orderNumber: string, isSelected: boolean) => {
+    setSelectedOrders((prev) => {
+      const newSelection = new Set(prev);
+      if (isSelected) {
+        newSelection.add(orderNumber);
+      } else {
+        newSelection.delete(orderNumber);
+      }
+      return newSelection;
+    });
+  };
+
+  const handleSelectAll = (isSelected: boolean) => {
+    if (isSelected) {
+      setSelectedOrders(new Set(filteredOrders.map((o) => o.orderNumber)));
+    } else {
+      setSelectedOrders(new Set());
+    }
+  };
+
+  if (authLoading || merchantLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <BagLoader size={32} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full gap-4 relative">
+      {/* Dynamic Background Elements */}
+      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10 pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] -z-10 pointer-events-none opacity-50" />
+
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+          Orders 📦
+        </h1>
+        <div className="flex items-center gap-2">
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-11 w-11 min-w-[44px] min-h-[44px]"
+          >
+            <File className="h-4 w-4" />
+            <span className="sr-only">Export</span>
+          </Button>
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-11 w-11 min-w-[44px] min-h-[44px]"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span className="sr-only">Refresh</span>
+          </Button>
+          <Link href="/dashboard/orders/create">
+            <Button size="sm" className="h-11 min-h-[44px] gap-1">
+              <PlusCircle className="h-4 w-4" />
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                Create Order
+              </span>
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="bg-blue-50/50 backdrop-blur-sm border-blue-200 transition-transform transform hover:scale-105">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-blue-800">
+              Total Orders 🛍️
+            </CardTitle>
+            <ShoppingCart className="h-5 w-5 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-stat text-blue-900">
+              {statsLoading ? (
+                <BagLoader size={24} />
+              ) : (
+                stats.totalOrders.toLocaleString()
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-yellow-50/50 backdrop-blur-sm border-yellow-200 transition-transform transform hover:scale-105">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-yellow-800">
+              Completed Orders ✅
+            </CardTitle>
+            <PackageCheck className="h-5 w-5 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-stat text-yellow-900">
+              {statsLoading ? (
+                <BagLoader size={24} />
+              ) : (
+                stats.completedOrders.toLocaleString()
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-blue-50/50 backdrop-blur-sm border-blue-200 transition-transform transform hover:scale-105">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-blue-800">
+              Unpaid Orders 💸
+            </CardTitle>
+            <FileWarning className="h-5 w-5 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-stat text-blue-900">
+              {statsLoading ? (
+                <BagLoader size={24} />
+              ) : (
+                stats.unpaidOrders.toLocaleString()
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search orders..."
+          className="w-full bg-background/50 backdrop-blur-sm pl-8"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
+      {showAlert && stats.urgentOrders > 0 && (
+        <Alert className="bg-yellow-50/80 backdrop-blur-sm border-yellow-200 text-yellow-900 relative">
+          <AlertTriangle className="h-4 w-4 text-yellow-600" />
+          <AlertTitle className="font-semibold">
+            {statsLoading ? (
+              <span className="flex items-center gap-2">
+                <BagLoader size={16} />
+                Checking orders...
+              </span>
+            ) : (
+              `${stats.urgentOrders.toLocaleString()} order${stats.urgentOrders !== 1 ? 's' : ''} require${stats.urgentOrders === 1 ? 's' : ''} urgent attention.`
+            )}
+          </AlertTitle>
+          <AlertDescription>
+            <button
+              type="button"
+              className="font-medium underline bg-transparent border-none p-0 cursor-pointer text-inherit"
+              onClick={() => {
+                // TODO: Implement resolve action - filter to show only urgent orders
+                toast({
+                  title: 'Coming Soon',
+                  description:
+                    'This feature will filter to show only urgent orders.',
+                });
+              }}
+            >
+              Click to resolve
+            </button>
+          </AlertDescription>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 h-6 w-6"
+            onClick={() => setShowAlert(false)}
+          >
+            <BagLoader size={32} />
+            <span className="sr-only">Dismiss</span>
+          </Button>
+        </Alert>
+      )}
+
+      <div className="flex gap-2 items-center text-sm text-muted-foreground">
+        <div className="flex gap-2 items-center">
+          <ListFilter className="h-4 w-4 text-blue-800" />
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900"
+            >
+              <CreditCard className="h-4 w-4" />
+              <span>
+                {paymentFilter === 'All' ? 'Payment Status' : paymentFilter}
+              </span>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuCheckboxItem
+              checked={paymentFilter === 'All'}
+              onCheckedChange={() => setPaymentFilter('All')}
+              className="text-blue-800"
+            >
+              <List className="mr-2 h-4 w-4" />
+              All
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
+            {paymentStatuses.map((status) => (
+              <DropdownMenuCheckboxItem
+                key={status.name}
+                checked={paymentFilter === status.name}
+                onCheckedChange={() => setPaymentFilter(status.name)}
+                className="text-blue-800"
+              >
+                <status.icon className="mr-2 h-4 w-4" />
+                {status.name}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              className="gap-1 border-blue-200 bg-blue-50/50 text-blue-800 hover:bg-blue-100 hover:text-blue-900"
+            >
+              <Truck className="h-4 w-4" />
+              <span>
+                {shippingFilter === 'All' ? 'Shipping Status' : shippingFilter}
+              </span>
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuCheckboxItem
+              checked={shippingFilter === 'All'}
+              onCheckedChange={() => setShippingFilter('All')}
+              className="text-blue-800"
+            >
+              <List className="mr-2 h-4 w-4" />
+              All
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuSeparator />
+            {shippingStatuses.map((status) => (
+              <DropdownMenuCheckboxItem
+                key={status.name}
+                checked={shippingFilter === status.name}
+                onCheckedChange={() => setShippingFilter(status.name)}
+                className="text-blue-800"
+              >
+                <status.icon className="mr-2 h-4 w-4" />
+                {status.name}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <Card className="glass bg-white/60 dark:bg-black/40 backdrop-blur-xl">
+        <CardHeader className="px-4 pt-4 pb-0 border-b border-blue-200/50">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold">Recent Orders</h3>
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1"
+                    disabled={selectedOrders.size === 0}
+                  >
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                      Bulk Actions
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>Mark as Paid</DropdownMenuItem>
+                  <DropdownMenuItem>Mark as Unpaid</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>Fulfill Orders</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-red-600">
+                    Delete Selected
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 py-4">
+            <Checkbox
+              id="select-all"
+              onCheckedChange={(checked) => handleSelectAll(checked as boolean)}
+              checked={
+                selectedOrders.size > 0 &&
+                selectedOrders.size === filteredOrders.length
+              }
+              aria-label="Select all orders"
+            />
+            <label htmlFor="select-all" className="text-sm font-medium">
+              Select All
+            </label>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="flex-1 overflow-y-auto space-y-3 pb-4 px-4">
+            {ordersLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <BagLoader size={32} />
+              </div>
+            ) : ordersError ? (
+              <Alert variant="destructive" className="m-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Failed to Load Orders</AlertTitle>
+                <AlertDescription>
+                  {ordersError} Please try again.
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto ml-2"
+                    onClick={() => window.location.reload()}
+                  >
+                    Refresh
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              filteredOrders.map((order) => (
+                <Card
+                  key={order.orderNumber}
+                  className="transition-shadow hover:shadow-md bg-white/50 dark:bg-black/20"
+                >
+                  <CardContent className="p-4 flex items-center gap-4 overflow-x-auto">
+                    <Checkbox
+                      onCheckedChange={(checked) =>
+                        handleSelectOrder(order.orderNumber, checked as boolean)
+                      }
+                      checked={selectedOrders.has(order.orderNumber)}
+                      aria-label={`Select order ${order.orderNumber}`}
+                      className="mt-1 shrink-0"
+                    />
+                    <div className="flex-shrink-0 mt-1">
+                      <SourceIcon source={order.source} />
+                    </div>
+                    <div className="flex-1 min-w-[200px]">
+                      <Link
+                        href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}
+                        className="font-semibold hover:underline"
+                      >
+                        {order.customerName}
+                      </Link>
+                      <p className="text-sm text-muted-foreground">
+                        {order.orderNumber} &middot; {order.date}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-end gap-4 text-sm w-[280px] shrink-0">
+                      <div className="w-[110px] text-center">
+                        <StatusBadge
+                          status={order.paymentStatus}
+                          type="payment"
+                        />
+                      </div>
+                      <div className="w-[140px]">
+                        <StatusDropdown
+                          order={order}
+                          onStatusUpdate={handleUpdateStatus}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-right w-28 shrink-0">
+                      <p className="font-bold text-lg">
+                        {formatCurrency(order.total)}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0 -mr-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem>View Details</DropdownMenuItem>
+                          <DropdownMenuItem>Contact Customer</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem>Print Invoice</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

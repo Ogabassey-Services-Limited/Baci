@@ -1,6 +1,7 @@
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -142,19 +143,28 @@ export default function TemplateGalleryPage() {
             Browse and preview all available storefront templates. Click any
             template to see it in action.
           </p>
-          <div className="flex gap-4 mt-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
-              {productionTemplates.length} Production
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-yellow-500" />
-              {betaTemplates.length} Beta
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-gray-400" />
-              {draftTemplates.length} Draft
-            </span>
+
+          <div className="flex flex-wrap items-center justify-between gap-4 mt-6">
+            <div className="flex gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-green-500" />
+                {productionTemplates.length} Production
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                {betaTemplates.length} Beta
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-gray-400" />
+                {draftTemplates.length} Draft
+              </span>
+            </div>
+
+            <Link href="/developers/submit">
+              <Button>
+                Submit Template
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -205,6 +215,6 @@ export default function TemplateGalleryPage() {
           </section>
         )}
       </div>
-    </div>
+    </div >
   );
 }
