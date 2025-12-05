@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import React, { useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';

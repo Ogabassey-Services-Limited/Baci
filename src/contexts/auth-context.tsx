@@ -21,47 +21,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Start with loading as true
+  const [loading, setLoading] = useState(true);
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    // Use getUser() which makes an API call to verify the session with Supabase
-    // This is more reliable than getSession() after server-side redirects where
-    // cookies may take a moment to be available in document.cookie
+    // Get initial session - middleware already verified auth for protected routes,
+    // so this is just for client-side state synchronization
     const initializeAuth = async () => {
-      // First try: Use getUser() which verifies session with the server
       const {
-        data: { user: verifiedUser },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (verifiedUser) {
-        setUser(verifiedUser);
-        setLoading(false);
-        return;
-      }
-
-      // If no user found but no error (could be race condition after login),
-      // wait briefly and try once more. This handles the case where
-      // server-side cookies haven't fully propagated to the client yet.
-      if (!error || error.message?.includes('session')) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        const { data: retryData } = await supabase.auth.getUser();
-        if (retryData.user) {
-          setUser(retryData.user);
-          setLoading(false);
-          return;
-        }
-      }
-
-      // No valid session found
-      setUser(null);
+        data: { session },
+      } = await supabase.auth.getSession();
+      setUser(session?.user ?? null);
       setLoading(false);
     };
 
     initializeAuth();
 
-    // Listen for subsequent auth changes (login, logout, token refresh)
+    // Listen for auth changes (login, logout, token refresh)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
