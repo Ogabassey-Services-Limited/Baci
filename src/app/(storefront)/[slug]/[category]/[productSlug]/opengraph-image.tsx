@@ -1,4 +1,8 @@
 import { ImageResponse } from 'next/og';
+import {
+  getCurrencyForCountry,
+  getLocaleForCountry,
+} from '@/lib/currency-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export const runtime = 'edge';
@@ -103,28 +107,13 @@ export default async function Image({ params }: ImageProps) {
       ? product.images[0]
       : null;
 
-  // Get currency based on merchant's country
-  const getCurrencyForCountry = (country: string | null): string => {
-    const currencyMap: Record<string, string> = {
-      NG: 'NGN',
-      US: 'USD',
-      GB: 'GBP',
-      EU: 'EUR',
-      CA: 'CAD',
-      AU: 'AUD',
-      KE: 'KES',
-      GH: 'GHS',
-      ZA: 'ZAR',
-    };
-    return currencyMap[country || ''] || 'USD';
-  };
-
+  // Format price using merchant's country for currency and locale
   const currency = getCurrencyForCountry(merchant.country);
-
-  // Format price
-  const formattedPrice = new Intl.NumberFormat('en-US', {
+  const locale = getLocaleForCountry(merchant.country);
+  const formattedPrice = new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
+    currencyDisplay: 'symbol',
   }).format(product.price || 0);
 
   return new ImageResponse(

@@ -129,10 +129,17 @@ export async function GET(request: NextRequest) {
 
     if (notificationIds.length > 0) {
       // Try batch stats fetch first, fallback to individual if not available
-      const { data: batchStats } = await supabase.rpc(
+      const { data: batchStats, error: batchError } = await supabase.rpc(
         'get_notification_stats_batch',
         { p_notification_ids: notificationIds }
       );
+
+      if (batchError) {
+        console.warn(
+          'Batch stats RPC unavailable, falling back to individual queries:',
+          batchError.message
+        );
+      }
 
       if (batchStats && Array.isArray(batchStats)) {
         statsMap = new Map(
@@ -149,9 +156,18 @@ export async function GET(request: NextRequest) {
       } else {
         // Fallback to individual queries if batch function doesn't exist
         const statsPromises = notificationIds.map(async (id: string) => {
-          const { data: stats } = await supabase.rpc('get_notification_stats', {
-            p_notification_id: id,
-          });
+          const { data: stats, error: statsError } = await supabase.rpc(
+            'get_notification_stats',
+            {
+              p_notification_id: id,
+            }
+          );
+          if (statsError) {
+            console.warn(
+              `Failed to fetch stats for notification ${id}:`,
+              statsError.message
+            );
+          }
           return { id, stats: stats?.[0] };
         });
         const individualStats = await Promise.all(statsPromises);

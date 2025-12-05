@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { LoyaltyEnrollmentForm } from '@/components/storefront/loyalty/loyalty-enrollment-form';
 import { LoyaltyStatusCard } from '@/components/storefront/loyalty/loyalty-status-card';
 import { RewardsCatalog } from '@/components/storefront/loyalty/rewards-catalog';
@@ -38,26 +38,30 @@ export default function RewardsPage() {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [merchantName, setMerchantName] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
+  const [isRetrying, setIsRetrying] = useState(false);
 
-  // Fetch merchant info
-  useEffect(() => {
-    const fetchMerchant = async () => {
-      try {
-        const response = await fetch(`/api/storefront/merchant?slug=${slug}`);
-        if (response.ok) {
-          const data = await response.json();
-          setMerchantId(data.id);
-          setMerchantName(data.business_name || '');
-          setError(null);
-        } else {
-          setError('Failed to load merchant information');
-        }
-      } catch (err) {
-        console.error('Failed to fetch merchant:', err);
+  // Fetch merchant info - extracted for retry functionality
+  const fetchMerchant = useCallback(async () => {
+    setIsRetrying(true);
+    try {
+      const response = await fetch(`/api/storefront/merchant?slug=${slug}`);
+      if (response.ok) {
+        const data = await response.json();
+        setMerchantId(data.id);
+        setMerchantName(data.business_name || '');
+        setError(null);
+      } else {
         setError('Failed to load merchant information');
       }
-    };
+    } catch (err) {
+      console.error('Failed to fetch merchant:', err);
+      setError('Failed to load merchant information');
+    } finally {
+      setIsRetrying(false);
+    }
+  }, [slug]);
 
+  useEffect(() => {
     // Check for logged in customer (from localStorage or auth context)
     try {
       const storedCustomerId = localStorage.getItem('customer_id');
@@ -70,7 +74,7 @@ export default function RewardsPage() {
     }
 
     fetchMerchant();
-  }, [slug]);
+  }, [fetchMerchant]);
 
   const { enrolled, loading, recentTransactions, getTierInfo, tier } =
     useLoyalty(merchantId || undefined, customerId || undefined);
@@ -87,8 +91,8 @@ export default function RewardsPage() {
                 Unable to Load Rewards
               </h2>
               <p className="text-muted-foreground mb-4">{error}</p>
-              <Button onClick={() => window.location.reload()}>
-                Try Again
+              <Button onClick={fetchMerchant} disabled={isRetrying}>
+                {isRetrying ? 'Retrying...' : 'Try Again'}
               </Button>
             </div>
           </CardContent>
