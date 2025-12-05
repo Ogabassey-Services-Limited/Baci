@@ -43,13 +43,13 @@ export default function RewardsPage() {
   // Fetch merchant info - extracted for retry functionality
   const fetchMerchant = useCallback(async () => {
     setIsRetrying(true);
+    setError(null); // Clear error at start of retry for better UX
     try {
       const response = await fetch(`/api/storefront/merchant?slug=${slug}`);
       if (response.ok) {
         const data = await response.json();
         setMerchantId(data.id);
         setMerchantName(data.business_name || '');
-        setError(null);
       } else {
         setError('Failed to load merchant information');
       }
