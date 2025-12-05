@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ogabassey | Easybuy Gadgets</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              brand: {
+                red: '#FF0000',
+                dark: '#1a1a1a',
+                purple: '#6B21A8'
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+      .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+      
+      /* Snowfall Keyframes for Festive Theme */
+      @keyframes snowfall {
+        0% {
+          transform: translateY(-10px) translateX(0) rotate(0deg);
+        }
+        25% {
+          transform: translateY(25vh) translateX(15px) rotate(45deg);
+        }
+        50% {
+          transform: translateY(50vh) translateX(-15px) rotate(90deg);
+        }
+        75% {
+          transform: translateY(75vh) translateX(15px) rotate(135deg);
+        }
+        100% {
+          transform: translateY(105vh) translateX(0) rotate(180deg);
+        }
+      }
+      .snowflake {
+        will-change: transform;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^6.22.0",
+    "react-router": "https://aistudiocdn.com/react-router@^6.22.0",
+    "@remix-run/router": "https://aistudiocdn.com/@remix-run/router@^1.15.0"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

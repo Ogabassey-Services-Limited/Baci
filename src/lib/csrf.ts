@@ -143,9 +143,14 @@ export async function checkCsrfProtection(request: NextRequest): Promise<{
 
   // Skip CSRF check for certain endpoints (e.g., webhooks, public analytics)
   const pathname = request.nextUrl.pathname;
-  const skipPaths = ['/api/webhooks/', '/api/auth/', '/api/platform/events'];
+  // Use startsWith for directory-style routes, exact match for specific endpoints
+  const skipPathPrefixes = ['/api/webhooks/', '/api/auth/'];
+  const skipExactPaths = ['/api/platform/events']; // Public analytics endpoint
 
-  if (skipPaths.some((path) => pathname.startsWith(path))) {
+  if (
+    skipPathPrefixes.some((path) => pathname.startsWith(path)) ||
+    skipExactPaths.includes(pathname)
+  ) {
     return { valid: true };
   }
 

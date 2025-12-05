@@ -1,0 +1,310 @@
+'use server';
+
+import { type NextRequest, NextResponse } from 'next/server';
+import {
+  generateInvoiceBlob,
+  type InvoiceData,
+  type InvoiceLineItem,
+  type TaxSubtotal,
+} from '@/lib/invoice-generator';
+import { createClient } from '@/lib/supabase/server';
+
+interface OrderItem {
+  id: string;
+  line_id: number | null;
+  name: string;
+  item_description: string | null;
+  quantity: number;
+  price: number;
+  unit_code: string | null;
+  line_extension_amount: number | null;
+  vat_category_code: string | null;
+  vat_rate: number | null;
+  vat_amount: number | null;
+  sellers_item_id: string | null;
+  product_id: string | null;
+}
+
+interface TaxSubtotalRow {
+  vat_category_code: string;
+  vat_rate: number;
+  taxable_amount: number;
+  tax_amount: number;
+  exemption_reason: string | null;
+}
+
+interface RegisteredAddress {
+  street?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+}
+
+interface ShippingAddress {
+  address?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  phone?: string;
+}
+
+/**
+ * GET /api/orders/[id]/invoice
+ * Generate and download a Peppol BIS 3.0 compliant invoice PDF
+ */
+import { cookies } from 'next/headers';
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: orderId } = await params;
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    // Verify authentication
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Fetch order with all related data
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select(
+        `
+        *,
+        merchants!inner (
+          id,
+          user_id,
+          business_name,
+          legal_entity_name,
+          tax_identification_number,
+          cac_rc_number,
+          vat_registration_status,
+          vat_rate,
+          registered_address,
+          support_email,
+          support_phone,
+          logo_url
+        )
+      `
+      )
+      .eq('id', orderId)
+      .single();
+
+    if (orderError || !order) {
+      console.error('Error fetching order:', orderError);
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    // Verify user owns this merchant
+    const merchant = order.merchants as {
+      id: string;
+      user_id: string;
+      business_name: string;
+      legal_entity_name: string | null;
+      tax_identification_number: string | null;
+      cac_rc_number: string | null;
+      vat_registration_status: string | null;
+      vat_rate: number | null;
+      registered_address: RegisteredAddress | null;
+      support_email: string | null;
+      support_phone: string | null;
+      logo_url: string | null;
+    };
+
+    if (merchant.user_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Fetch order items
+    const { data: orderItems, error: itemsError } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('line_id', { ascending: true });
+
+    if (itemsError) {
+      console.error('Error fetching order items:', itemsError);
+      return NextResponse.json(
+        { error: 'Failed to fetch order items' },
+        { status: 500 }
+      );
+    }
+
+    // Fetch tax subtotals if VAT registered
+    let taxSubtotals: TaxSubtotalRow[] = [];
+    if (merchant.vat_registration_status === 'registered') {
+      const { data: subtotals } = await supabase
+        .from('order_tax_subtotals')
+        .select('*')
+        .eq('order_id', orderId);
+
+      taxSubtotals = subtotals || [];
+    }
+
+    // Build invoice line items
+    const items: InvoiceLineItem[] = (orderItems as OrderItem[]).map(
+      (item, index) => ({
+        line_id: item.line_id || index + 1,
+        product_id: item.product_id || undefined,
+        name: item.name,
+        description: item.item_description || undefined,
+        quantity: item.quantity,
+        unit_code: item.unit_code || 'EA',
+        price: Number(item.price),
+        line_extension_amount:
+          item.line_extension_amount || item.quantity * Number(item.price),
+        vat_category_code: item.vat_category_code || 'S',
+        vat_rate: item.vat_rate || merchant.vat_rate || 7.5,
+        vat_amount: item.vat_amount || 0,
+        sellers_item_id: item.sellers_item_id || undefined,
+      })
+    );
+
+    // Build tax subtotals for invoice
+    const invoiceTaxSubtotals: TaxSubtotal[] = taxSubtotals.map((st) => ({
+      vat_category_code: st.vat_category_code,
+      vat_rate: st.vat_rate,
+      taxable_amount: Number(st.taxable_amount),
+      tax_amount: Number(st.tax_amount),
+      exemption_reason: st.exemption_reason || undefined,
+    }));
+
+    // If no tax subtotals exist, create a default one
+    if (
+      invoiceTaxSubtotals.length === 0 &&
+      merchant.vat_registration_status === 'registered'
+    ) {
+      const taxableAmount = items.reduce(
+        (sum, item) => sum + item.line_extension_amount,
+        0
+      );
+      const taxAmount = items.reduce((sum, item) => sum + item.vat_amount, 0);
+      invoiceTaxSubtotals.push({
+        vat_category_code: 'S',
+        vat_rate: merchant.vat_rate || 7.5,
+        taxable_amount: taxableAmount,
+        tax_amount: taxAmount,
+      });
+    }
+
+    // Parse shipping address
+    const shippingAddr = order.shipping_address as ShippingAddress | null;
+    const customerAddress = shippingAddr
+      ? {
+        street: shippingAddr.address || shippingAddr.street,
+        city: shippingAddr.city,
+        state: shippingAddr.state,
+        postal_code: shippingAddr.postal_code,
+        country: shippingAddr.country || 'NG',
+      }
+      : undefined;
+
+    // Build the invoice data structure
+    const invoiceData: InvoiceData = {
+      // Document identifiers
+      invoice_number:
+        order.order_number || `INV-${order.id.slice(0, 8).toUpperCase()}`,
+      invoice_type_code: order.invoice_type_code || '380',
+      issue_date: order.invoice_issue_date
+        ? new Date(order.invoice_issue_date)
+        : new Date(order.created_at),
+      tax_point_date: order.tax_point_date
+        ? new Date(order.tax_point_date)
+        : undefined,
+      due_date: order.payment_due_date
+        ? new Date(order.payment_due_date)
+        : undefined,
+
+      // Currency
+      currency: order.currency || 'NGN',
+
+      // References
+      buyer_reference: order.buyer_reference || undefined,
+      purchase_order_reference: order.purchase_order_reference || undefined,
+
+      // Merchant (Seller)
+      merchant: {
+        business_name: merchant.business_name,
+        legal_entity_name: merchant.legal_entity_name || undefined,
+        tax_identification_number:
+          merchant.tax_identification_number || undefined,
+        cac_rc_number: merchant.cac_rc_number || undefined,
+        vat_registration_status:
+          merchant.vat_registration_status || 'not_registered',
+        vat_rate: merchant.vat_rate || 7.5,
+        registered_address: merchant.registered_address || undefined,
+        support_email: merchant.support_email || undefined,
+        support_phone: merchant.support_phone || undefined,
+        logo_url: merchant.logo_url || undefined,
+      },
+
+      // Customer (Buyer)
+      customer: {
+        name: order.customer_name || 'Customer',
+        email: order.customer_email || undefined,
+        phone: order.customer_phone || undefined,
+        address: customerAddress,
+      },
+
+      // Line items
+      items,
+
+      // Tax breakdown
+      tax_subtotals: invoiceTaxSubtotals,
+
+      // Totals
+      subtotal: Number(order.subtotal || 0),
+      tax_exclusive_amount: Number(
+        order.tax_exclusive_amount || order.subtotal || 0
+      ),
+      tax_amount: Number(order.tax_amount || 0),
+      tax_inclusive_amount: Number(
+        order.tax_inclusive_amount ||
+        (order.subtotal || 0) + (order.tax_amount || 0)
+      ),
+      shipping_fee: Number(order.shipping_fee || 0),
+      discount_amount: Number(order.discount_amount || 0),
+      total: Number(order.total || 0),
+
+      // Additional info
+      notes: order.invoice_note || order.notes || undefined,
+      payment_terms: order.payment_terms || undefined,
+
+      // FIRS specific
+      firs_irn: order.firs_irn || undefined,
+      firs_csid: order.firs_csid || undefined,
+      firs_qr_code: order.firs_qr_code || undefined,
+    };
+
+    // Generate the PDF
+    const pdfBlob = generateInvoiceBlob(invoiceData);
+
+    // Return the PDF as a response
+    const pdfArrayBuffer = await pdfBlob.arrayBuffer();
+
+    return new NextResponse(pdfArrayBuffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="invoice-${invoiceData.invoice_number}.pdf"`,
+        'Cache-Control': 'no-cache',
+      },
+    });
+  } catch (error) {
+    console.error('Error generating invoice:', error);
+    return NextResponse.json(
+      { error: 'Failed to generate invoice' },
+      { status: 500 }
+    );
+  }
+}

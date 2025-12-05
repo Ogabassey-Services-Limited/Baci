@@ -84,7 +84,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
     Record<string, string>
   >({});
 
-  // Initialize variant selection
+  // Initialize variant selection - use product.id to prevent re-running on reference changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally using product.id only to prevent re-initialization on object reference changes
   useEffect(() => {
     if (
       product?.has_variants &&
@@ -98,9 +99,11 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         setSelectedImage(firstVariant.primary_image);
       }
     }
-  }, [product]);
+  }, [product?.id]);
 
   // Track product view for recently viewed and analytics
+  // Use product.id instead of product object to prevent duplicate tracking on reference changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Intentionally using product.id to prevent duplicate analytics calls on object reference changes
   useEffect(() => {
     if (product?.id) {
       addToRecentlyViewed(product.id);
@@ -109,7 +112,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
         trackEvent.productView(merchant.id, product, currencyCode);
       }
     }
-  }, [product, merchant?.id, currencyCode, addToRecentlyViewed]);
+  }, [product?.id, merchant?.id, currencyCode, addToRecentlyViewed]);
 
   // Product is guaranteed to exist by server component, but guard against archived status
   // Note: Can't call notFound() after hooks in client components, so we render null

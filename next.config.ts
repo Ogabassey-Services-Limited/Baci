@@ -75,6 +75,16 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'www.gstatic.com',
       },
+      {
+        // Apple CDN for product images (store previews)
+        protocol: 'https',
+        hostname: 'store.storeimages.cdn-apple.com',
+      },
+      {
+        // Common data storage (sample videos)
+        protocol: 'https',
+        hostname: 'commondatastorage.googleapis.com',
+      },
     ],
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",

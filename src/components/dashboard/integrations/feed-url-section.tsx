@@ -15,6 +15,27 @@ interface FeedUrlSectionProps {
   platform: string;
 }
 
+// Validate that URL is safe to fetch (same-origin or trusted domains)
+function isValidFeedUrl(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url, window.location.origin);
+    // Only allow same-origin URLs or our own API endpoints
+    // This prevents SSRF attacks from fetching arbitrary external URLs
+    if (parsedUrl.origin === window.location.origin) {
+      return true;
+    }
+    // Allow fetching from our known feed domains
+    const trustedDomains = ['usebaci.com', 'www.usebaci.com'];
+    return trustedDomains.some(
+      (domain) =>
+        parsedUrl.hostname === domain ||
+        parsedUrl.hostname.endsWith(`.${domain}`)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function FeedUrlSection({
   id,
   label,
@@ -34,8 +55,20 @@ export function FeedUrlSection({
   };
 
   const validateFeed = async () => {
+    // Security: Validate URL before fetching to prevent SSRF
+    if (!isValidFeedUrl(feedUrl)) {
+      toast({
+        title: 'Invalid feed URL',
+        description: 'The feed URL is not from a trusted source',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setValidating(true);
     try {
+      // nosemgrep: typescript.react.security.audit.react-ssrf.react-ssrf
+      // Safe: URL validated via isValidFeedUrl() - only allows same-origin or trusted domain (usebaci.com)
       const response = await fetch(feedUrl);
       if (response.ok) {
         toast({

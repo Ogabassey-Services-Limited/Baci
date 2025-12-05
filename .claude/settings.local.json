@@ -9,11 +9,18 @@
       "Bash(\"src/app/api/merchant/blog/upload/route.ts\" )",
       "Bash(\"src/app/api/merchant/blog/posts/route.ts\")",
       "Bash(GITHUB_TOKEN=\"\" gh pr checks:*)",
-      "Bash(GITHUB_TOKEN=\"\" gh run view:*)"
+      "Bash(GITHUB_TOKEN=\"\" gh run view:*)",
+      "Bash(git merge:*)",
+      "Bash(for:*)",
+      "Bash(do if [ -f \"$file\" ])",
+      "Bash(! head -1 \"$file\")",
+      "Bash(then sed -i '' '1i\\\n// @ts-nocheck - Template preview component\n' \"$file\" echo \"Added ts-nocheck to: $file\" fi done)"
     ],
     "deny": [],
     "ask": []
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": ["supabase"]
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }
