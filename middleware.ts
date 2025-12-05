@@ -34,11 +34,12 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  // Apply CSRF protection to API routes (except webhooks and auth)
+  // Apply CSRF protection to API routes (except webhooks, auth, and public analytics)
   if (
     pathname.startsWith('/api/') &&
     !pathname.startsWith('/api/webhooks/') &&
-    !pathname.startsWith('/api/auth/')
+    !pathname.startsWith('/api/auth/') &&
+    pathname !== '/api/platform/events' // Exact match - public analytics endpoint
   ) {
     const csrfResult = await checkCsrfProtection(request);
 
