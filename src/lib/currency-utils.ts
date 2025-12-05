@@ -98,6 +98,89 @@ export function getCurrencyForCountry(country: string | null): string {
 }
 
 /**
+ * Maps ISO 3166-1 alpha-2 country codes to BCP 47 locale strings.
+ * Extracted as module constant for performance (avoids recreation on each call).
+ */
+const COUNTRY_LOCALE_MAP: Record<string, string> = {
+  // Africa
+  NG: 'en-NG',
+  KE: 'en-KE',
+  GH: 'en-GH',
+  ZA: 'en-ZA',
+  EG: 'ar-EG',
+  MA: 'ar-MA',
+  TZ: 'sw-TZ',
+  UG: 'en-UG',
+  RW: 'rw-RW',
+  // Americas
+  US: 'en-US',
+  CA: 'en-CA',
+  MX: 'es-MX',
+  BR: 'pt-BR',
+  AR: 'es-AR',
+  CO: 'es-CO',
+  CL: 'es-CL',
+  // Europe - Eurozone
+  DE: 'de-DE',
+  FR: 'fr-FR',
+  IT: 'it-IT',
+  ES: 'es-ES',
+  NL: 'nl-NL',
+  BE: 'nl-BE',
+  AT: 'de-AT',
+  PT: 'pt-PT',
+  IE: 'en-IE',
+  FI: 'fi-FI',
+  GR: 'el-GR',
+  SK: 'sk-SK',
+  SI: 'sl-SI',
+  LU: 'fr-LU',
+  EE: 'et-EE',
+  LV: 'lv-LV',
+  LT: 'lt-LT',
+  CY: 'el-CY',
+  MT: 'mt-MT',
+  HR: 'hr-HR',
+  // Europe - Non-Eurozone
+  GB: 'en-GB',
+  CH: 'de-CH',
+  SE: 'sv-SE',
+  NO: 'nb-NO',
+  DK: 'da-DK',
+  PL: 'pl-PL',
+  CZ: 'cs-CZ',
+  HU: 'hu-HU',
+  RO: 'ro-RO',
+  BG: 'bg-BG',
+  // Asia Pacific
+  AU: 'en-AU',
+  NZ: 'en-NZ',
+  JP: 'ja-JP',
+  CN: 'zh-CN',
+  HK: 'zh-HK',
+  SG: 'en-SG',
+  MY: 'ms-MY',
+  ID: 'id-ID',
+  TH: 'th-TH',
+  PH: 'en-PH',
+  VN: 'vi-VN',
+  IN: 'en-IN',
+  PK: 'ur-PK',
+  BD: 'bn-BD',
+  KR: 'ko-KR',
+  TW: 'zh-TW',
+  // Middle East
+  AE: 'ar-AE',
+  SA: 'ar-SA',
+  IL: 'he-IL',
+  TR: 'tr-TR',
+  QA: 'ar-QA',
+  KW: 'ar-KW',
+  BH: 'ar-BH',
+  OM: 'ar-OM',
+};
+
+/**
  * Get locale string for a given country code.
  * Used for proper number/currency formatting with Intl.NumberFormat.
  *
@@ -105,91 +188,8 @@ export function getCurrencyForCountry(country: string | null): string {
  * @returns BCP 47 locale string (e.g., 'en-NG', 'en-US', 'en-GB')
  */
 export function getLocaleForCountry(country: string | null): string {
-  const localeMap: Record<string, string> = {
-    // Africa
-    NG: 'en-NG',
-    KE: 'en-KE',
-    GH: 'en-GH',
-    ZA: 'en-ZA',
-    EG: 'ar-EG',
-    MA: 'ar-MA',
-    TZ: 'sw-TZ',
-    UG: 'en-UG',
-    RW: 'rw-RW',
-
-    // Americas
-    US: 'en-US',
-    CA: 'en-CA',
-    MX: 'es-MX',
-    BR: 'pt-BR',
-    AR: 'es-AR',
-    CO: 'es-CO',
-    CL: 'es-CL',
-
-    // Europe - Eurozone
-    DE: 'de-DE',
-    FR: 'fr-FR',
-    IT: 'it-IT',
-    ES: 'es-ES',
-    NL: 'nl-NL',
-    BE: 'nl-BE',
-    AT: 'de-AT',
-    PT: 'pt-PT',
-    IE: 'en-IE',
-    FI: 'fi-FI',
-    GR: 'el-GR',
-    SK: 'sk-SK',
-    SI: 'sl-SI',
-    LU: 'fr-LU',
-    EE: 'et-EE',
-    LV: 'lv-LV',
-    LT: 'lt-LT',
-    CY: 'el-CY',
-    MT: 'mt-MT',
-    HR: 'hr-HR',
-
-    // Europe - Non-Eurozone
-    GB: 'en-GB',
-    CH: 'de-CH',
-    SE: 'sv-SE',
-    NO: 'nb-NO',
-    DK: 'da-DK',
-    PL: 'pl-PL',
-    CZ: 'cs-CZ',
-    HU: 'hu-HU',
-    RO: 'ro-RO',
-    BG: 'bg-BG',
-
-    // Asia Pacific
-    AU: 'en-AU',
-    NZ: 'en-NZ',
-    JP: 'ja-JP',
-    CN: 'zh-CN',
-    HK: 'zh-HK',
-    SG: 'en-SG',
-    MY: 'ms-MY',
-    ID: 'id-ID',
-    TH: 'th-TH',
-    PH: 'en-PH',
-    VN: 'vi-VN',
-    IN: 'en-IN',
-    PK: 'ur-PK',
-    BD: 'bn-BD',
-    KR: 'ko-KR',
-    TW: 'zh-TW',
-
-    // Middle East
-    AE: 'ar-AE',
-    SA: 'ar-SA',
-    IL: 'he-IL',
-    TR: 'tr-TR',
-    QA: 'ar-QA',
-    KW: 'ar-KW',
-    BH: 'ar-BH',
-    OM: 'ar-OM',
-  };
-
-  return localeMap[country || ''] || 'en-US';
+  const normalized = (country || '').toUpperCase();
+  return COUNTRY_LOCALE_MAP[normalized] || 'en-US';
 }
 
 /**

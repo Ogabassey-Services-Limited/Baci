@@ -84,6 +84,8 @@ export interface TemplatePageProps {
   products?: Product[];
   /** Whether this is a preview mode */
   isPreview?: boolean;
+  /** Explicitly force mock data usage (for previews) */
+  useMockData?: boolean;
 }
 
 /**

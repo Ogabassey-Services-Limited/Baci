@@ -128,21 +128,21 @@ interface DraggableAnalyticsGridProps {
 
 const DEFAULT_LAYOUTS: Layouts = {
   lg: [
-    // Row 1: Primary KPIs (3 cards across -> w: 4)
-    { i: 'summary-revenue', x: 0, y: 0, w: 4, h: 1 },
-    { i: 'summary-orders', x: 4, y: 0, w: 4, h: 1 },
-    { i: 'summary-profit', x: 8, y: 0, w: 4, h: 1 },
+    // Row 1: Primary KPIs (4 cards across -> w: 3)
+    { i: 'summary-revenue', x: 0, y: 0, w: 3, h: 1 },
+    { i: 'summary-orders', x: 3, y: 0, w: 3, h: 1 },
+    { i: 'summary-profit', x: 6, y: 0, w: 3, h: 1 },
+    { i: 'summary-customers', x: 9, y: 0, w: 3, h: 1 },
 
-    // Row 2: Primary KPIs continued
-    { i: 'summary-customers', x: 0, y: 1, w: 4, h: 1 },
-    { i: 'summary-tax', x: 4, y: 1, w: 4, h: 1 },
-    { i: 'summary-active', x: 8, y: 1, w: 4, h: 1 },
+    // Row 2: Primary KPIs continued (2 cards left)
+    { i: 'summary-tax', x: 0, y: 1, w: 3, h: 1 },
+    { i: 'summary-active', x: 3, y: 1, w: 3, h: 1 },
 
-    // Row 3: Secondary KPIs (4 cards across -> w: 3)
-    { i: 'summary-aov', x: 0, y: 2, w: 3, h: 1 },
-    { i: 'summary-margin', x: 3, y: 2, w: 3, h: 1 },
-    { i: 'summary-refund-rate', x: 6, y: 2, w: 3, h: 1 },
-    { i: 'summary-ltv', x: 9, y: 2, w: 3, h: 1 },
+    // Row 2: Secondary KPIs (4 cards across -> w: 3)
+    { i: 'summary-aov', x: 6, y: 1, w: 3, h: 1 },
+    { i: 'summary-margin', x: 9, y: 1, w: 3, h: 1 },
+    { i: 'summary-refund-rate', x: 0, y: 2, w: 3, h: 1 },
+    { i: 'summary-ltv', x: 3, y: 2, w: 3, h: 1 },
 
     // Row 4: Payment Methods (fits in 4 cols flow?)
     // Payment methods was w:4 h:2. Let's keep it similar or adapt.
@@ -595,8 +595,8 @@ export function DraggableAnalyticsGrid({
           </Button>
         </div>
 
-        {/* Primary Stats Grid - 3 columns on large screens, 2 on medium, 1 on small */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Primary Stats Grid - 4 columns on large screens, 2 on medium, 1 on small */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {isWidgetVisible('summary-revenue') &&
             renderMetricCard(
               'summary-revenue',
@@ -1375,10 +1375,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'At Risk'
                         )?.avg_clv
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'At Risk'
-                              )?.avg_clv || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'At Risk'
+                            )?.avg_clv || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1421,10 +1421,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'Champions'
                         )?.avg_order_value
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'Champions'
-                              )?.avg_order_value || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'Champions'
+                            )?.avg_order_value || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1437,10 +1437,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'Champions'
                         )?.avg_clv
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'Champions'
-                              )?.avg_clv || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'Champions'
+                            )?.avg_clv || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">

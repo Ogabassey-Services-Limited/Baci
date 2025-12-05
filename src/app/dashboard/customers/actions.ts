@@ -89,13 +89,18 @@ export async function createCustomer(formData: CreateCustomerData) {
   // Sanitize input
   const { first_name, last_name, email, phone, address } = formData;
 
+  // Validate required fields
+  if (!first_name?.trim() || !last_name?.trim() || !email?.trim() || !phone?.trim()) {
+    throw new Error('First name, last name, email, and phone are required');
+  }
+
   const { data: customer, error } = await supabase
     .from('customers')
     .insert({
-      first_name: first_name ? sanitizeText(first_name, 100) : null,
-      last_name: last_name ? sanitizeText(last_name, 100) : null,
-      email: email ? sanitizeEmail(email) : null,
-      phone: phone ? sanitizePhone(phone) : null,
+      first_name: sanitizeText(first_name, 100),
+      last_name: sanitizeText(last_name, 100),
+      email: sanitizeEmail(email),
+      phone: sanitizePhone(phone),
       address: address ? sanitizeText(address, 500) : null,
       merchant_id: merchant.id,
     })
@@ -145,7 +150,7 @@ export async function getCustomer(
     .single();
 
   if (error || !customer) {
-    console.error('Error fetching customer:', error);
+    console.error('Error fetching customer:', error?.message || 'Customer not found');
     return null;
   }
 

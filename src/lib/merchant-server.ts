@@ -44,7 +44,13 @@ export async function getMerchantForUser() {
         role: null,
         permissions: { full_access: { all: true } },
       };
-    } else if (ownerError && ownerError.code === 'PGRST116') {
+    } else if (ownerError) {
+      // PGRST116 = no rows found, meaning user is not owner - check staff
+      if (ownerError.code !== 'PGRST116') {
+        // Actual DB error - log and throw
+        console.error('Database error querying merchants:', ownerError.message);
+        throw new Error(`Failed to query merchants: ${ownerError.message}`);
+      }
       // User is not a merchant owner, check if they're staff
       const { data: staffMember, error: staffError } = await supabase
         .from('staff_members')

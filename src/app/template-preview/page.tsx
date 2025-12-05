@@ -212,6 +212,7 @@ export default function TemplateGalleryPage() {
   );
 }
 
+// LivePreviewCard
 function LivePreviewCard({ template }: { template: TemplateDefinition }) {
   return (
     <Link
@@ -233,7 +234,7 @@ function LivePreviewCard({ template }: { template: TemplateDefinition }) {
       {/* Live Preview Iframe (Scaled Down) */}
       <div className="h-[400px] w-[200%] origin-top-left scale-50 bg-white relative pointer-events-none">
         <iframe
-          src={`/template-preview/${template.id}`}
+          src={`/template-preview/${template.id}?hideToolbar=true`}
           className="w-full h-full border-0"
           tabIndex={-1}
           title={`${template.name} Preview`}
@@ -282,23 +283,30 @@ function SmallPreviewCard({ template }: { template: TemplateDefinition }) {
       href={`/template-preview/${template.id}` as Route}
       className="group block relative bg-[#1E293B] rounded-xl overflow-hidden border border-white/5 hover:border-white/20 transition-all hover:-translate-y-1"
     >
-      <div className="aspect-[4/3] bg-[#020617] relative">
-        {/* Mini Browser Bar */}
-        <div className="absolute top-0 inset-x-0 h-6 bg-black/20 backdrop-blur flex items-center px-3 z-10">
+      <div className="aspect-[4/3] bg-[#020617] relative overflow-hidden">
+        {/* Live Preview Iframe (Scaled Down) */}
+        <div className="absolute inset-0 w-[200%] h-[200%] origin-top-left scale-50 bg-white pointer-events-none">
+          <iframe
+            src={`/template-preview/${template.id}?hideToolbar=true`}
+            className="w-full h-full border-0"
+            tabIndex={-1}
+            title={`${template.name} Preview`}
+            scrolling="no"
+            loading="lazy"
+          />
+          {/* Overlay to prevent interactions */}
+          <div className="absolute inset-0 z-10" />
+        </div>
+
+        {/* Mini Browser Bar Overlay (To keep consistent look) */}
+        <div className="absolute top-0 inset-x-0 h-6 bg-black/20 backdrop-blur flex items-center px-3 z-20">
           <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
         </div>
 
-        {/* Simplified Preview Content */}
-        <div className="h-full w-full flex items-center justify-center text-white/5 group-hover:text-white/10 transition-colors">
-          <div className="text-6xl font-black opacity-20 select-none">
-            {template.name.charAt(0)}
-          </div>
-        </div>
-
-        <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B] to-transparent opacity-50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B] via-transparent to-transparent opacity-50 z-20 pointer-events-none" />
       </div>
 
-      <div className="p-4">
+      <div className="p-4 relative z-30 bg-[#1E293B]">
         <h3 className="font-semibold text-white">{template.name}</h3>
         <p className="text-xs text-gray-400 mt-1 line-clamp-1">{template.description}</p>
       </div>

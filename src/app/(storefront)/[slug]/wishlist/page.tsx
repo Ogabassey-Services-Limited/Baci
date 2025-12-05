@@ -230,27 +230,12 @@ export default function WishListPage() {
         body: JSON.stringify({ email: customerEmail, merchantSlug }),
       });
 
-      let shareUrl: string;
-      if (response.ok) {
-        const { token } = await response.json();
-        shareUrl = `${window.location.origin}/${merchantSlug}/wishlist?share=${token}`;
-      } else {
-        // Fallback: Use a simple hash of email + timestamp for basic obfuscation
-        // Note: This is not cryptographically secure but avoids plain email in URL
-        const timestamp = Date.now().toString(36);
-        const hash = await crypto.subtle
-          .digest(
-            'SHA-256',
-            new TextEncoder().encode(customerEmail + timestamp)
-          )
-          .then((buf) =>
-            Array.from(new Uint8Array(buf))
-              .map((b) => b.toString(16).padStart(2, '0'))
-              .join('')
-              .substring(0, 16)
-          );
-        shareUrl = `${window.location.origin}/${merchantSlug}/wishlist?ref=${hash}&t=${timestamp}`;
+      if (!response.ok) {
+        throw new Error('Failed to generate share link');
       }
+
+      const { token } = await response.json();
+      const shareUrl = `${window.location.origin}/${merchantSlug}/wishlist?share=${token}`;
 
       await navigator.clipboard.writeText(shareUrl);
       setShareUrlCopied(true);
@@ -260,10 +245,10 @@ export default function WishListPage() {
       });
       setTimeout(() => setShareUrlCopied(false), 2000);
     } catch {
-      // Fallback for browsers that don't support clipboard API
+      // Show error - don't create broken fallback URLs
       toast({
         title: 'Unable to Share',
-        description: 'Please try again later.',
+        description: 'Sharing is temporarily unavailable. Please try again later.',
         variant: 'destructive',
       });
     }

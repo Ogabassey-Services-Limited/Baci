@@ -202,9 +202,9 @@ export function getContrastColor(hexColor: string): 'black' | 'white' {
   const fullHex =
     hex.length === 3
       ? hex
-          .split('')
-          .map((char) => char + char)
-          .join('')
+        .split('')
+        .map((char) => char + char)
+        .join('')
       : hex;
 
   // Parse RGB
@@ -219,17 +219,41 @@ export function getContrastColor(hexColor: string): 'black' | 'white' {
 }
 
 /**
+ * ISO 4217 currency decimal places mapping.
+ * Most currencies use 2 decimal places, but some exceptions exist:
+ * - Zero-decimal: JPY, KRW, VND, etc.
+ * - Three-decimal: BHD, KWD, OMR
+ */
+const CURRENCY_DECIMALS: Record<string, number> = {
+  // Zero-decimal currencies
+  JPY: 0, // Japanese Yen
+  KRW: 0, // South Korean Won
+  VND: 0, // Vietnamese Dong
+  CLP: 0, // Chilean Peso
+  HUF: 0, // Hungarian Forint (often treated as 0)
+  ISK: 0, // Icelandic Króna
+  UGX: 0, // Ugandan Shilling
+  RWF: 0, // Rwandan Franc
+  // Three-decimal currencies
+  BHD: 3, // Bahraini Dinar
+  KWD: 3, // Kuwaiti Dinar
+  OMR: 3, // Omani Rial
+};
+
+/**
  * Format currency amount
  * - Takes amount in minor units (kobo/cents) by default
  * - Returns formatted string (e.g., "₦1,000.00")
+ * - Correctly handles zero-decimal and three-decimal currencies per ISO 4217
  */
 export const formatCurrency = (
   amount: number,
   currencyCode = 'NGN'
 ): string => {
-  // Convert from minor units (kobo) to major units (Naira)
-  // Most currencies including NGN and USD use 2 decimal places
-  const majorAmount = amount / 100;
+  // Get decimal places for this currency (default to 2 for most currencies)
+  const decimals = CURRENCY_DECIMALS[currencyCode] ?? 2;
+  const divisor = Math.pow(10, decimals);
+  const majorAmount = amount / divisor;
 
   return new Intl.NumberFormat('en-NG', {
     style: 'currency',

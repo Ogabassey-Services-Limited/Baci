@@ -25,7 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -80,7 +80,9 @@ export const StatusBadge = ({
   };
 
   const className =
-    type === 'payment' ? paymentVariants[status] : shippingVariants[status];
+    type === 'payment'
+      ? (paymentVariants[status] || 'bg-gray-100 text-gray-800 border-gray-200')
+      : (shippingVariants[status] || 'bg-gray-100 text-gray-800 border-gray-200');
 
   return (
     <Badge
@@ -228,18 +230,11 @@ export default function OrdersClientPage({
   // Track first render/hydration
   const isHydrated = useRef(false);
 
-  // Helper function to format status from DB to UI
-  const _formatStatus = useCallback((status: string): string => {
-    if (!status) return 'Pending';
-    return status
-      .split('_')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  }, []);
+
 
   // Helper function to format status from UI to DB
   function formatStatusForDB(status: string): string {
-    return status.toLowerCase().replace(' ', '_');
+    return status.toLowerCase().replaceAll(' ', '_');
   }
 
   // Fetch orders from Server Action
@@ -295,7 +290,6 @@ export default function OrdersClientPage({
     shippingFilter,
     searchTerm,
     toast,
-    initialOrders.length,
   ]);
 
   // Fetch stats only if needed (e.g. periodically or on explicit refresh),
@@ -303,6 +297,29 @@ export default function OrdersClientPage({
   // We can leave stats static or refetch them.
   // For now let's only refetch stats if we know they might be stale OR explicitly requested.
   // But unlike original code, we WON'T fetch stats on plain filter changes (stats should be global).
+
+  // Refetch orders function (avoids hard page reload)
+  const refetchOrders = async () => {
+    if (!merchant?.id) return;
+    setOrdersLoading(true);
+    try {
+      const fetchedOrders = await getOrders(merchant.id, {
+        paymentStatus: paymentFilter,
+        shippingStatus: shippingFilter,
+        search: searchTerm,
+      });
+      setOrders(fetchedOrders);
+    } catch (error) {
+      console.error('Error refetching orders:', error);
+      toast({
+        title: 'Error Fetching Orders',
+        description: 'Could not load orders. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
 
   const handleUpdateStatus = async (
     orderNumber: string,
@@ -360,17 +377,20 @@ export default function OrdersClientPage({
     }).format(amount);
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const paymentMatch =
-      paymentFilter === 'All' || order.paymentStatus === paymentFilter;
-    const shippingMatch =
-      shippingFilter === 'All' || order.shippingStatus === shippingFilter;
-    const searchMatch =
-      searchTerm === '' ||
-      order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    return paymentMatch && shippingMatch && searchMatch;
-  });
+  // Memoize filtered orders to avoid recomputation on every render
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const paymentMatch =
+        paymentFilter === 'All' || order.paymentStatus === paymentFilter;
+      const shippingMatch =
+        shippingFilter === 'All' || order.shippingStatus === shippingFilter;
+      const searchMatch =
+        searchTerm === '' ||
+        order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase());
+      return paymentMatch && shippingMatch && searchMatch;
+    });
+  }, [orders, paymentFilter, shippingFilter, searchTerm]);
 
   const paymentStatuses: { name: PaymentStatus; icon: React.ElementType }[] = [
     { name: 'Paid', icon: CheckCircle },
@@ -432,6 +452,12 @@ export default function OrdersClientPage({
             size="icon"
             variant="outline"
             className="h-11 w-11 min-w-[44px] min-h-[44px]"
+            onClick={() => {
+              toast({
+                title: 'Coming Soon',
+                description: 'Export functionality will be available soon.',
+              });
+            }}
           >
             <File className="h-4 w-4" />
             <span className="sr-only">Export</span>
@@ -440,6 +466,7 @@ export default function OrdersClientPage({
             size="icon"
             variant="outline"
             className="h-11 w-11 min-w-[44px] min-h-[44px]"
+            onClick={refetchOrders}
           >
             <RefreshCw className="h-4 w-4" />
             <span className="sr-only">Refresh</span>
@@ -701,7 +728,7 @@ export default function OrdersClientPage({
                   <Button
                     variant="link"
                     className="p-0 h-auto ml-2"
-                    onClick={() => window.location.reload()}
+                    onClick={refetchOrders}
                   >
                     Refresh
                   </Button>

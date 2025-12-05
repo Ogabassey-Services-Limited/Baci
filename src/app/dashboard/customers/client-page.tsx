@@ -339,12 +339,8 @@ export default function CustomersClientPage({
                   <TableCell>
                     <Avatar className="h-8 w-8">
                       <AvatarFallback>
-                        {customer.first_name && customer.first_name.length > 0
-                          ? customer.first_name.substring(0, 1).toUpperCase()
-                          : '?'}
-                        {customer.last_name && customer.last_name.length > 0
-                          ? customer.last_name.substring(0, 1).toUpperCase()
-                          : ''}
+                        {customer.first_name?.[0]?.toUpperCase() || '?'}
+                        {customer.last_name?.[0]?.toUpperCase() || ''}
                       </AvatarFallback>
                     </Avatar>
                   </TableCell>

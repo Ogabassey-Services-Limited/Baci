@@ -9,7 +9,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -216,12 +216,6 @@ function ActivateButton({ templateId }: { templateId: string }) {
       // So `useMerchant` returns the MOCK data.
 
       // This is a problem. The user wants to update THEIR REAL store.
-      // We need access to the real merchant context, not the mock one provided by the preview.
-      // But wait, the task is to enable switching.
-      // If I am a merchant, I go to dashboard > templates > preview > activate.
-      // The preview page currently forces a Mock Merchant Provider.
-
-      // Solution:
       // We need to know if there is a real authenticated user/merchant.
       // Since we are inside a Mock MerchantProvider, we can't easily get the real one via that context.
       // However, we might rely on the `updateMerchant` failure or check `createClient` for session.
@@ -315,6 +309,9 @@ function LoadingDisplay() {
 export function TemplatePreviewClient({
   templateId,
 }: TemplatePreviewClientProps) {
+  const searchParams = useSearchParams();
+  const hideToolbar = searchParams.get('hideToolbar') === 'true';
+
   const [components, setComponents] = useState<TemplateComponents | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -364,15 +361,20 @@ export function TemplatePreviewClient({
 
   return (
     <CartProvider>
-      <MerchantProvider slug={template.mockData.merchant.slug}>
+      <MerchantProvider
+        slug={template.mockData.merchant.slug}
+        initialMerchant={template.mockData.merchant}
+      >
         <Suspense fallback={<LoadingDisplay />}>
           <HomeComponent
             storeSlug={template.mockData.merchant.slug}
             merchant={template.mockData.merchant}
             isPreview={true}
+            // Explicitly force mock data for all engine-aware components
+            useMockData={true}
           />
         </Suspense>
-        <DevToolbar template={template} />
+        {!hideToolbar && <DevToolbar template={template} />}
       </MerchantProvider>
     </CartProvider>
   );

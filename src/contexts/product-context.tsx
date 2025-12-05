@@ -12,6 +12,7 @@ import {
 import type { AIResponse, Change } from '@/app/dashboard/products/actions';
 import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/lib/products';
+import { usePathname } from 'next/navigation';
 import { useAuth } from './auth-context'; // Import the useAuth hook
 
 export type WorkflowStep = 'view' | 'upload' | 'processing' | 'review';
@@ -95,7 +96,15 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({
     setEditingProduct(null);
   };
 
+  const pathname = usePathname();
+
   const fetchProducts = useCallback(async () => {
+    // **FIX**: only fetch products if we are on a dashboard route
+    if (!pathname?.startsWith('/dashboard')) {
+      setIsLoading(false);
+      return;
+    }
+
     // **FIX**: Do not fetch if auth is still loading or if there's no user
     if (authLoading || !user) {
       // If we know there's no user, stop loading and clear data.
@@ -155,6 +164,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({
     toast,
     authLoading,
     user,
+    pathname,
   ]);
 
   useEffect(() => {
