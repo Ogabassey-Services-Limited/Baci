@@ -163,10 +163,8 @@ export async function GET(request: NextRequest) {
             }
           );
           if (statsError) {
-            console.warn(
-              `Failed to fetch stats for notification ${id}:`,
-              statsError.message
-            );
+            // Use separate arguments to avoid format string vulnerabilities
+            console.warn('Failed to fetch notification stats:', id, statsError.message);
           }
           return { id, stats: stats?.[0] };
         });

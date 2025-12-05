@@ -117,14 +117,42 @@ const nextConfig: NextConfig = {
     // cacheComponents: true,
 
     // Bundle optimization - tree-shake large libraries
+    // This reduces JS bundle size by ensuring only used exports are included
     optimizePackageImports: [
+      // Icons - prevent loading entire icon sets
       'lucide-react',
-      'recharts',
-      'date-fns',
-      'framer-motion',
+      'iconoir-react',
       '@radix-ui/react-icons',
+      // Charts and visualization
+      'recharts',
+      // Animation library
+      'framer-motion',
+      // Carousel
+      'embla-carousel-react',
+      // Date utilities
+      'date-fns',
+      // Core utilities
       'lodash-es',
       '@supabase/supabase-js',
+      // Form and validation
+      'react-hook-form',
+      'zod',
+      // Rich text editor (multiple packages)
+      '@tiptap/react',
+      '@tiptap/starter-kit',
+      '@tiptap/extension-image',
+      '@tiptap/extension-link',
+      '@tiptap/extension-placeholder',
+      // Search library
+      'fuse.js',
+      // UI primitives
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-dropdown-menu',
+      '@radix-ui/react-tabs',
+      '@radix-ui/react-tooltip',
+      '@radix-ui/react-popover',
+      '@radix-ui/react-select',
+      '@radix-ui/react-accordion',
     ],
 
     // Enable Turbopack file system caching for faster dev rebuilds (Next.js 16 beta)

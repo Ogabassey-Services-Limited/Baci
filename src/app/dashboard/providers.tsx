@@ -1,6 +1,7 @@
 'use client';
 
 import AppBody from '@/components/app-body';
+import { ProductProvider } from '@/contexts/product-context';
 import {
   type MerchantData,
   MerchantProvider,
@@ -25,6 +26,11 @@ interface DashboardProvidersProps {
   initialStaffAccess?: StaffAccess;
 }
 
+/**
+ * Dashboard-specific providers.
+ * ProductProvider is scoped to dashboard only (not global) to reduce
+ * client-side JavaScript bundle on public pages.
+ */
 export function DashboardProviders({
   children,
   initialMerchant,
@@ -35,9 +41,11 @@ export function DashboardProviders({
       initialMerchant={initialMerchant}
       initialStaffAccess={initialStaffAccess}
     >
-      <DashboardClientLayout>
-        <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
-      </DashboardClientLayout>
+      <ProductProvider>
+        <DashboardClientLayout>
+          <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
+        </DashboardClientLayout>
+      </ProductProvider>
     </MerchantProvider>
   );
 }

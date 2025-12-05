@@ -29,16 +29,14 @@ export default async function DashboardPage() {
   const monthlyChartData =
     results[2].status === 'fulfilled' ? results[2].value : [];
 
-  // Log any errors for debugging
+  // Log any errors for debugging (structured logging avoids format string injection)
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
       const errorContext = ['metrics', 'recentSales', 'monthlyChartData'][
         index
       ];
-      console.error(
-        `Failed to fetch dashboard ${errorContext}:`,
-        result.reason
-      );
+      // Use separate arguments to avoid format string vulnerabilities
+      console.error('Dashboard fetch failed:', errorContext, result.reason);
     }
   });
 

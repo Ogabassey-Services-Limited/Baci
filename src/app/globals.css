@@ -871,15 +871,14 @@
     overflow: hidden;
   }
 
-  /* Ensure grid items don't cause overflow */
-  .react-grid-item>div {
+  /* Target direct content wrapper if it exists, otherwise use a safe general rule */
+  .react-grid-item>.grid-item-content {
     max-width: 100%;
     overflow: hidden;
   }
 
-  /* Force text in grid items to wrap or truncate */
-  .react-grid-item .text-2xl,
-  .react-grid-item .text-xl {
+  /* Utility to force truncation only when explicitly added */
+  .react-grid-item .truncate-text {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
