@@ -70,7 +70,9 @@ export async function GET(request: NextRequest) {
       // Increment view count (fire and forget with silent error handling)
       void (async () => {
         try {
-          await supabase.rpc('increment_blog_post_views', { p_post_id: post.id });
+          await supabase.rpc('increment_blog_post_views', {
+            p_post_id: post.id,
+          });
         } catch {
           // Silently ignore view count errors - non-critical
         }

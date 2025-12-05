@@ -29,10 +29,12 @@ export const OfflineNotice: React.FC = () => {
           </div>
           <div>
             <p className="text-sm font-bold">No Internet Connection</p>
-            <p className="text-xs text-gray-400">Please check your network settings.</p>
+            <p className="text-xs text-gray-400">
+              Please check your network settings.
+            </p>
           </div>
         </div>
-        <button 
+        <button
           onClick={() => window.location.reload()}
           className="bg-white/10 hover:bg-white/20 p-2 rounded-lg transition-colors text-gray-300 hover:text-white"
         >

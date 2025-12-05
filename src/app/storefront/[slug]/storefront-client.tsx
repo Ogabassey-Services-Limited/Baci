@@ -35,6 +35,20 @@ const PremiumDefaultTemplate = dynamic(
   { loading: () => <div className="h-screen w-full bg-white" /> }
 );
 
+const GadgetCustomTemplateOgabasseyV2 = dynamic(
+  () =>
+    import(
+      '@/components/storefront/templates/gadget-custom-template-ogabassey-v2'
+    ).then((mod) => mod.GadgetCustomTemplateOgabasseyV2),
+  { loading: () => <div className="h-screen w-full bg-slate-900" /> }
+);
+
+const NewTemplateHome = dynamic(
+  () =>
+    import('@/components/storefront/new-template/home').then((mod) => mod.Home),
+  { loading: () => <div className="h-screen w-full bg-white" /> }
+);
+
 import {
   ThemedBadge,
   ThemedButton,
@@ -534,10 +548,45 @@ export function Storefront({ slug }: { slug?: string }) {
     );
   }
 
+  if (slug === 'ogabassey-v2') {
+    return (
+      <ThemedStorefrontLayout>
+        <GadgetCustomTemplateOgabasseyV2 />
+      </ThemedStorefrontLayout>
+    );
+  }
+
   if (slug === 'gadget-default-template') {
     return (
       <ThemedStorefrontLayout>
         <GadgetDefaultTemplate />
+      </ThemedStorefrontLayout>
+    );
+  }
+
+  // Ogabassey V2 template demo
+  if (slug === 'ogabassey-v2') {
+    return (
+      <ThemedStorefrontLayout>
+        <GadgetCustomTemplateOgabasseyV2 />
+      </ThemedStorefrontLayout>
+    );
+  }
+
+  // Premium Default template demo
+  if (slug === 'premium-default') {
+    return (
+      <ThemedStorefrontLayout>
+        <PremiumDefaultTemplate />
+      </ThemedStorefrontLayout>
+    );
+  }
+
+  // New Template demo
+  if (slug === 'new-template-demo') {
+    return (
+      <ThemedStorefrontLayout>
+        <NewTemplateHome />
       </ThemedStorefrontLayout>
     );
   }

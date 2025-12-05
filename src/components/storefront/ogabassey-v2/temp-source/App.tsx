@@ -46,84 +46,83 @@ import { Product } from './types';
 
 // Wrapper component to consume CartContext inside Router
 const AppContent: React.FC = () => {
-    
-    return (
-        <div className="w-full min-h-screen bg-white font-sans text-gray-900 relative">
-          <Navbar />
-          <SnowEffect />
-          
-          <ChatWidget />
-          <PopupSystem />
-          <OfflineNotice />
+  return (
+    <div className="w-full min-h-screen bg-white font-sans text-gray-900 relative">
+      <Navbar />
+      <SnowEffect />
 
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/category/:categoryName" element={<CategoryPage />} />
-            <Route path="/product/:id" element={<ProductDetails />} />
-            <Route path="/saved" element={<SavedPage />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/wallet" element={<WalletPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/reviews" element={<ReviewsPage />} />
-            <Route path="/member-status" element={<MemberStatusPage />} />
-            <Route path="/receipts" element={<ReceiptsPage />} />
-            <Route path="/addresses" element={<AddressBookPage />} />
-            <Route path="/orders" element={<OrdersPage />} />
-            <Route path="/order/:orderId" element={<OrderDetailsPage />} />
-            <Route path="/purchase-history" element={<PurchaseHistoryPage />} />
-            <Route path="/repairs" element={<RepairsPage />} />
-            <Route path="/swap" element={<SwapPage />} />
-            <Route path="/imei-check" element={<ImeiCheckerPage />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/security" element={<SecurityPage />} />
-            <Route path="/help" element={<HelpSupportPage />} />
-            <Route path="/about" element={<AboutUsPage />} />
-            <Route path="/privacy" element={<PrivacyPolicyPage />} />
-            <Route path="/legal" element={<LegalDisputePage />} />
-            <Route path="/sustainability" element={<SustainabilityPage />} />
-            <Route path="/blog" element={<BlogPage />} />
-          </Routes>
-          
-          <div className="max-w-[1400px] mx-auto px-4 md:px-6">
-             <AdUnit placementKey="FOOTER_BANNER" />
-          </div>
-          
-          <Footer />
-          <MobileFooter />
-          
-          <UpsellManager />
-          <SavedToastManager />
-        </div>
-    );
-}
+      <ChatWidget />
+      <PopupSystem />
+      <OfflineNotice />
+
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/category/:categoryName" element={<CategoryPage />} />
+        <Route path="/product/:id" element={<ProductDetails />} />
+        <Route path="/saved" element={<SavedPage />} />
+        <Route path="/cart" element={<CartPage />} />
+        <Route path="/wallet" element={<WalletPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/reviews" element={<ReviewsPage />} />
+        <Route path="/member-status" element={<MemberStatusPage />} />
+        <Route path="/receipts" element={<ReceiptsPage />} />
+        <Route path="/addresses" element={<AddressBookPage />} />
+        <Route path="/orders" element={<OrdersPage />} />
+        <Route path="/order/:orderId" element={<OrderDetailsPage />} />
+        <Route path="/purchase-history" element={<PurchaseHistoryPage />} />
+        <Route path="/repairs" element={<RepairsPage />} />
+        <Route path="/swap" element={<SwapPage />} />
+        <Route path="/imei-check" element={<ImeiCheckerPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/security" element={<SecurityPage />} />
+        <Route path="/help" element={<HelpSupportPage />} />
+        <Route path="/about" element={<AboutUsPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/legal" element={<LegalDisputePage />} />
+        <Route path="/sustainability" element={<SustainabilityPage />} />
+        <Route path="/blog" element={<BlogPage />} />
+      </Routes>
+
+      <div className="max-w-[1400px] mx-auto px-4 md:px-6">
+        <AdUnit placementKey="FOOTER_BANNER" />
+      </div>
+
+      <Footer />
+      <MobileFooter />
+
+      <UpsellManager />
+      <SavedToastManager />
+    </div>
+  );
+};
 
 // Inner component to hook into Cart Context updates
 import { useCart } from './contexts/CartContext';
 import { useSaved } from './contexts/SavedContext';
 
 const UpsellManager = () => {
-    const { lastAddedProduct, showUpsell, dismissUpsell } = useCart();
-    
-    return (
-        <UpsellToast 
-            isVisible={showUpsell} 
-            triggerProduct={lastAddedProduct} 
-            onClose={dismissUpsell} 
-        />
-    );
+  const { lastAddedProduct, showUpsell, dismissUpsell } = useCart();
+
+  return (
+    <UpsellToast
+      isVisible={showUpsell}
+      triggerProduct={lastAddedProduct}
+      onClose={dismissUpsell}
+    />
+  );
 };
 
 const SavedToastManager = () => {
-    const { toastState, dismissToast } = useSaved();
-    return (
-        <SavedToast 
-            isVisible={toastState.show} 
-            message={toastState.message} 
-            type={toastState.type}
-            onClose={dismissToast} 
-        />
-    );
-}
+  const { toastState, dismissToast } = useSaved();
+  return (
+    <SavedToast
+      isVisible={toastState.show}
+      message={toastState.message}
+      type={toastState.type}
+      onClose={dismissToast}
+    />
+  );
+};
 
 const App: React.FC = () => {
   return (
@@ -132,9 +131,9 @@ const App: React.FC = () => {
         <CartProvider>
           <SavedProvider>
             <ComparisonProvider>
-                <HashRouter>
+              <HashRouter>
                 <AppContent />
-                </HashRouter>
+              </HashRouter>
             </ComparisonProvider>
           </SavedProvider>
         </CartProvider>

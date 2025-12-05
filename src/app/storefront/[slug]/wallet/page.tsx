@@ -4,15 +4,15 @@ import { MerchantProvider } from '@/hooks/use-merchant';
 import { WalletClient } from './wallet-client';
 
 export default async function WalletPage({
-    params,
+  params,
 }: {
-    params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-    const { slug } = await params;
+  const { slug } = await params;
 
-    return (
-        <MerchantProvider slug={slug}>
-            <WalletClient slug={slug} />
-        </MerchantProvider>
-    );
+  return (
+    <MerchantProvider slug={slug}>
+      <WalletClient slug={slug} />
+    </MerchantProvider>
+  );
 }

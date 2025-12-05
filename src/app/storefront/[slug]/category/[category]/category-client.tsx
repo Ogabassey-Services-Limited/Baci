@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMerchant } from '@/hooks/use-merchant';
@@ -11,33 +10,33 @@ import { SavedProvider } from '@/components/storefront/ogabassey-v2/contexts/Sav
 import { ComparisonProvider } from '@/components/storefront/ogabassey-v2/contexts/ComparisonContext';
 
 interface CategoryClientProps {
-    slug: string;
-    categoryName: string;
+  slug: string;
+  categoryName: string;
 }
 
 export function CategoryClient({ slug, categoryName }: CategoryClientProps) {
-    const { merchant, loading } = useMerchant();
+  const { merchant, loading } = useMerchant();
 
-    if (loading || !merchant) {
-        return <div className="min-h-screen bg-white" />;
-    }
+  if (loading || !merchant) {
+    return <div className="min-h-screen bg-white" />;
+  }
 
-    return (
-        <SavedProvider>
-            <ComparisonProvider>
-                <AppBody merchant={merchant}>
-                    <OgabasseyV2Navbar
-                        logo={merchant.logo_url}
-                        storeName={merchant.business_name}
-                    />
-                    <OgabasseyV2CategoryPage
-                        storeSlug={slug}
-                        categoryName={categoryName}
-                    />
-                    <OgabasseyV2MobileFooter />
-                    <OgabasseyV2Footer />
-                </AppBody>
-            </ComparisonProvider>
-        </SavedProvider>
-    );
+  return (
+    <SavedProvider>
+      <ComparisonProvider>
+        <AppBody merchant={merchant}>
+          <OgabasseyV2Navbar
+            logo={merchant.logo_url}
+            storeName={merchant.business_name}
+          />
+          <OgabasseyV2CategoryPage
+            storeSlug={slug}
+            categoryName={categoryName}
+          />
+          <OgabasseyV2MobileFooter />
+          <OgabasseyV2Footer />
+        </AppBody>
+      </ComparisonProvider>
+    </SavedProvider>
+  );
 }

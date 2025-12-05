@@ -11,7 +11,9 @@ interface ComparisonContextType {
   clearCompare: () => void;
 }
 
-const ComparisonContext = createContext<ComparisonContextType | undefined>(undefined);
+const ComparisonContext = createContext<ComparisonContextType | undefined>(
+  undefined
+);
 
 export const useComparison = () => {
   const context = useContext(ComparisonContext);
@@ -21,7 +23,9 @@ export const useComparison = () => {
   return context;
 };
 
-export const ComparisonProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ComparisonProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [compareItems, setCompareItems] = useState<Product[]>([]);
 
   useEffect(() => {
@@ -30,7 +34,7 @@ export const ComparisonProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       try {
         setCompareItems(JSON.parse(stored));
       } catch (e) {
-        console.error("Failed to parse comparison items", e);
+        console.error('Failed to parse comparison items', e);
       }
     }
   }, []);
@@ -40,31 +44,41 @@ export const ComparisonProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   }, [compareItems]);
 
   const addToCompare = (product: Product) => {
-    setCompareItems(prev => {
+    setCompareItems((prev) => {
       // Avoid duplicates
-      if (prev.some(p => String(p.id) === String(product.id))) return prev;
-      
+      if (prev.some((p) => String(p.id) === String(product.id))) return prev;
+
       // Limit to 4 items for UI sanity (1 main + 3 comparisons)
       if (prev.length >= 4) {
-          // Remove first, add new
-          return [...prev.slice(1), product];
+        // Remove first, add new
+        return [...prev.slice(1), product];
       }
       return [...prev, product];
     });
   };
 
   const removeFromCompare = (productId: number | string) => {
-    setCompareItems(prev => prev.filter(p => String(p.id) !== String(productId)));
+    setCompareItems((prev) =>
+      prev.filter((p) => String(p.id) !== String(productId))
+    );
   };
 
   const isInCompare = (productId: number | string) => {
-    return compareItems.some(p => String(p.id) === String(productId));
+    return compareItems.some((p) => String(p.id) === String(productId));
   };
 
   const clearCompare = () => setCompareItems([]);
 
   return (
-    <ComparisonContext.Provider value={{ compareItems, addToCompare, removeFromCompare, isInCompare, clearCompare }}>
+    <ComparisonContext.Provider
+      value={{
+        compareItems,
+        addToCompare,
+        removeFromCompare,
+        isInCompare,
+        clearCompare,
+      }}
+    >
       {children}
     </ComparisonContext.Provider>
   );

@@ -4,4 +4,7 @@ export { LuminaProductFilters } from './product/product-filters';
 export { LuminaProductGrid } from './product/product-grid';
 
 // UI Components
-export { FloatingParticles, type Particle } from './components/floating-particles';
+export {
+  FloatingParticles,
+  type Particle,
+} from './components/floating-particles';

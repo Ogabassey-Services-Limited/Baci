@@ -11,3 +11,8 @@ export { NegotiationModal } from './components/NegotiationModal';
 export { OgabasseyV2CartSidebar as CartSidebar } from './components/CartSidebar';
 export { BlogSnippet } from './components/BlogSnippet';
 export { AdUnit } from './components/AdUnit';
+export { InteractiveProductGrid } from './components/InteractiveProductGrid';
+export { EngineProductGrid } from './components/EngineProductGrid';
+
+// Pages
+export { OgabasseyV2HomePage } from './pages/home';

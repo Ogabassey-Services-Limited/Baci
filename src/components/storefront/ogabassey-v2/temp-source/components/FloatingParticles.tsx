@@ -11,7 +11,9 @@ interface FloatingParticlesProps {
   particles: Particle[];
 }
 
-export const FloatingParticles: React.FC<FloatingParticlesProps> = ({ particles }) => {
+export const FloatingParticles: React.FC<FloatingParticlesProps> = ({
+  particles,
+}) => {
   if (particles.length === 0) return null;
 
   return (

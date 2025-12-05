@@ -44,7 +44,7 @@ export interface Product {
   displayType?: string;
   displaySize?: string;
   // New fields for Interactive Grid
-  images?: string[]; 
+  images?: string[];
   spec?: string;
   reviews?: number;
 }

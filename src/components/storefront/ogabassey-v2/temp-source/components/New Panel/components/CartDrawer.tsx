@@ -4,18 +4,24 @@ import { X, ShoppingBag, Plus, Minus, Trash2 } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 
 export const CartDrawer: React.FC = () => {
-  const { isCartOpen, setIsCartOpen, items, updateQuantity, removeFromCart, totalPrice } = useCart();
+  const {
+    isCartOpen,
+    setIsCartOpen,
+    items,
+    updateQuantity,
+    removeFromCart,
+    totalPrice,
+  } = useCart();
 
   if (!isCartOpen) return null;
 
   return (
     <>
-      <div 
+      <div
         className="fixed inset-0 bg-black/50 z-[60] backdrop-blur-sm transition-opacity"
         onClick={() => setIsCartOpen(false)}
       />
       <div className="fixed top-0 right-0 h-full w-full max-w-md bg-white z-[70] shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-        
         {/* Header */}
         <div className="p-5 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -25,7 +31,7 @@ export const CartDrawer: React.FC = () => {
               {items.length} items
             </span>
           </div>
-          <button 
+          <button
             onClick={() => setIsCartOpen(false)}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500"
           >
@@ -41,10 +47,14 @@ export const CartDrawer: React.FC = () => {
                 <ShoppingBag size={40} className="text-gray-300" />
               </div>
               <div>
-                <p className="text-lg font-medium text-gray-900">Your cart is empty</p>
-                <p className="text-gray-500 mt-1">Looks like you haven't added anything yet.</p>
+                <p className="text-lg font-medium text-gray-900">
+                  Your cart is empty
+                </p>
+                <p className="text-gray-500 mt-1">
+                  Looks like you haven't added anything yet.
+                </p>
               </div>
-              <button 
+              <button
                 onClick={() => setIsCartOpen(false)}
                 className="mt-4 px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
               >
@@ -56,28 +66,34 @@ export const CartDrawer: React.FC = () => {
               {items.map((item) => (
                 <li key={item.id} className="flex gap-4">
                   <div className="w-20 h-24 bg-gray-100 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
-                    <img 
-                      src={item.image} 
-                      alt={item.name} 
+                    <img
+                      src={item.image}
+                      alt={item.name}
                       className="w-full h-full object-cover mix-blend-multiply"
                     />
                   </div>
                   <div className="flex-1 flex flex-col justify-between">
                     <div>
-                      <h3 className="font-semibold text-gray-900 line-clamp-2">{item.name}</h3>
-                      <p className="text-sm text-gray-500 mt-1">{item.category}</p>
+                      <h3 className="font-semibold text-gray-900 line-clamp-2">
+                        {item.name}
+                      </h3>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {item.category}
+                      </p>
                     </div>
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center gap-3 bg-gray-50 rounded-lg p-1">
-                        <button 
+                        <button
                           onClick={() => updateQuantity(item.id, -1)}
                           className="p-1 hover:bg-white rounded shadow-sm transition-all text-gray-600 disabled:opacity-50"
                           disabled={item.quantity <= 1}
                         >
                           <Minus size={14} />
                         </button>
-                        <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
-                        <button 
+                        <span className="text-sm font-medium w-4 text-center">
+                          {item.quantity}
+                        </span>
+                        <button
                           onClick={() => updateQuantity(item.id, 1)}
                           className="p-1 hover:bg-white rounded shadow-sm transition-all text-gray-600"
                         >
@@ -85,11 +101,13 @@ export const CartDrawer: React.FC = () => {
                         </button>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-gray-900">₦{(item.rawPrice * item.quantity).toLocaleString()}</p>
+                        <p className="font-bold text-gray-900">
+                          ₦{(item.rawPrice * item.quantity).toLocaleString()}
+                        </p>
                       </div>
                     </div>
                   </div>
-                  <button 
+                  <button
                     onClick={() => removeFromCart(item.id)}
                     className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
                   >

@@ -143,10 +143,7 @@ async function handleInsightsRequest() {
     .single();
 
   if (merchantError || !merchant) {
-    return NextResponse.json(
-      { error: 'Merchant not found' },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
 
   const result = await generateInsights(supabase, merchant.id, user.id);

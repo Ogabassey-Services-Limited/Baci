@@ -9,7 +9,11 @@ interface AppBodyProps {
   merchant?: MerchantData;
 }
 
-export const AppBody: React.FC<AppBodyProps> = ({ children, font, merchant }) => {
+export const AppBody: React.FC<AppBodyProps> = ({
+  children,
+  font,
+  merchant,
+}) => {
   // Apply custom font if provided
   const fontClass = font ? `font-${font}` : 'font-sans';
 

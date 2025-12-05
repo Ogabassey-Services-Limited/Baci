@@ -162,6 +162,73 @@ export const MerchantProvider = ({ children, slug }: MerchantProviderProps) => {
           return;
         }
 
+        // Mock data for Ogabassey V2 template demo
+        if (slug === 'ogabassey-v2') {
+          merchantData = {
+            id: 'demo-ogabassey-v2',
+            user_id: 'demo-user',
+            business_name: 'Ogabassey V2',
+            business_type: 'GADGETS',
+            logo_url:
+              'https://ogabassey.com/wp-content/uploads/2023/06/Ogabassey-Logo-1.png',
+            brand_colors: {
+              primary: '#3B82F6',
+              background: '#0F172A',
+              accent: '#22D3EE',
+            },
+            country: 'NG',
+            slug: slug,
+            published_config: null,
+          };
+          setMerchant(merchantData);
+          setLoading(false);
+          return;
+        }
+
+        // Mock data for Premium Default template demo
+        if (slug === 'premium-default') {
+          merchantData = {
+            id: 'demo-premium',
+            user_id: 'demo-user',
+            business_name: 'Premium Store',
+            business_type: 'FASHION',
+            logo_url: undefined,
+            brand_colors: {
+              primary: '#000000',
+              background: '#FAFAFA',
+              accent: '#D4AF37',
+            },
+            country: 'NG',
+            slug: slug,
+            published_config: null,
+          };
+          setMerchant(merchantData);
+          setLoading(false);
+          return;
+        }
+
+        // Mock data for New Template demo
+        if (slug === 'new-template-demo') {
+          merchantData = {
+            id: 'demo-new-template',
+            user_id: 'demo-user',
+            business_name: 'Modern Gadgets',
+            business_type: 'GADGETS',
+            logo_url: undefined,
+            brand_colors: {
+              primary: '#DC2626',
+              background: '#FFFFFF',
+              accent: '#111827',
+            },
+            country: 'NG',
+            slug: slug,
+            published_config: null,
+          };
+          setMerchant(merchantData);
+          setLoading(false);
+          return;
+        }
+
         // Storefront mode - load by slug
         const { data, error } = await supabase
           .from('merchants')

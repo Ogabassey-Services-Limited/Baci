@@ -2,13 +2,13 @@
 import React from 'react';
 
 interface AppBodyProps {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }
 
 export const AppBody: React.FC<AppBodyProps> = ({ children }) => {
-    return (
-        <div className="w-full min-h-screen bg-white font-sans text-gray-900 relative">
-            {/* 
+  return (
+    <div className="w-full min-h-screen bg-white font-sans text-gray-900 relative">
+      {/* 
         TODO: Add global components here when migrated:
         - SnowEffect
         - ChatWidget
@@ -17,7 +17,7 @@ export const AppBody: React.FC<AppBodyProps> = ({ children }) => {
         - UpsellToast
         - SavedToast
       */}
-            {children}
-        </div>
-    );
+      {children}
+    </div>
+  );
 };

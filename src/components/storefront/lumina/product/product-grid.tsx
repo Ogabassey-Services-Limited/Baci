@@ -7,7 +7,10 @@ import { cn } from '@/lib/utils';
 import type { Product } from '@/lib/products';
 import { LuminaProductGridItem } from './product-grid-item';
 import { LuminaProductFilters } from './product-filters';
-import { FloatingParticles, type Particle } from '../components/floating-particles';
+import {
+  FloatingParticles,
+  type Particle,
+} from '../components/floating-particles';
 
 interface LuminaProductGridProps {
   products: Product[];
@@ -113,10 +116,12 @@ export function LuminaProductGrid({
     // Condition filter
     if (selectedCondition !== 'All') {
       const conditionMap: Record<string, string> = {
-        'New': 'new',
-        'Used': 'used',
+        New: 'new',
+        Used: 'used',
       };
-      result = result.filter((p) => p.condition === conditionMap[selectedCondition]);
+      result = result.filter(
+        (p) => p.condition === conditionMap[selectedCondition]
+      );
     }
 
     // Price filter
@@ -131,7 +136,15 @@ export function LuminaProductGrid({
     }
 
     return result;
-  }, [products, selectedCategory, selectedBrand, selectedCondition, minPrice, maxPrice, minRating]);
+  }, [
+    products,
+    selectedCategory,
+    selectedBrand,
+    selectedCondition,
+    minPrice,
+    maxPrice,
+    minRating,
+  ]);
 
   const handlePriceChange = (min: number, max: number) => {
     setMinPrice(min);
@@ -171,7 +184,9 @@ export function LuminaProductGrid({
                 Best Sellers
               </span>
             )}
-            <h2 className="text-xl md:text-3xl font-bold text-gray-900 mt-1">{title}</h2>
+            <h2 className="text-xl md:text-3xl font-bold text-gray-900 mt-1">
+              {title}
+            </h2>
           </div>
 
           <div className="flex items-center gap-4">
@@ -189,7 +204,9 @@ export function LuminaProductGrid({
         {/* Product Grid/List */}
         {filteredProducts.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-gray-100">
-            <p className="text-gray-500 text-lg">No products found matching your filters.</p>
+            <p className="text-gray-500 text-lg">
+              No products found matching your filters.
+            </p>
             <button
               type="button"
               onClick={() => {
@@ -219,7 +236,9 @@ export function LuminaProductGrid({
                 product={product}
                 storeSlug={storeSlug}
                 viewMode={viewMode}
-                isAdded={cartProductIds.has(product.id) || addedItems.has(product.id)}
+                isAdded={
+                  cartProductIds.has(product.id) || addedItems.has(product.id)
+                }
                 isWishlisted={wishlistProductIds.has(product.id)}
                 onAddToCart={handleAddToCartWithAnimation}
                 onToggleWishlist={() => onToggleWishlist?.(product.id)}

@@ -27,9 +27,8 @@ export const SEO: React.FC<SEOProps> = ({
   availability = 'InStock',
   brand,
   rating,
-  reviewCount
+  reviewCount,
 }) => {
-
   useEffect(() => {
     // 1. Update Title
     document.title = `${title} | Ogabassey`;
@@ -78,57 +77,69 @@ export const SEO: React.FC<SEOProps> = ({
 
     if (type === 'product') {
       schemaData = {
-        "@context": "https://schema.org/",
-        "@type": "Product",
-        "name": title,
-        "image": image ? [image] : [],
-        "description": description,
-        "brand": {
-          "@type": "Brand",
-          "name": brand || "Ogabassey"
+        '@context': 'https://schema.org/',
+        '@type': 'Product',
+        name: title,
+        image: image ? [image] : [],
+        description: description,
+        brand: {
+          '@type': 'Brand',
+          name: brand || 'Ogabassey',
         },
-        "offers": {
-          "@type": "Offer",
-          "url": url,
-          "priceCurrency": currency,
-          "price": price,
-          "availability": `https://schema.org/${availability}`,
-          "itemCondition": "https://schema.org/NewCondition"
-        }
+        offers: {
+          '@type': 'Offer',
+          url: url,
+          priceCurrency: currency,
+          price: price,
+          availability: `https://schema.org/${availability}`,
+          itemCondition: 'https://schema.org/NewCondition',
+        },
       };
 
       if (rating && reviewCount) {
         schemaData = {
-            ...schemaData,
-            "aggregateRating": {
-                "@type": "AggregateRating",
-                "ratingValue": rating,
-                "reviewCount": reviewCount,
-                "bestRating": "5",
-                "worstRating": "1"
-            }
+          ...schemaData,
+          aggregateRating: {
+            '@type': 'AggregateRating',
+            ratingValue: rating,
+            reviewCount: reviewCount,
+            bestRating: '5',
+            worstRating: '1',
+          },
         };
       }
     }
 
     // Inject JSON-LD
     if (schemaData) {
-        let script = document.querySelector('#seo-schema');
-        if (!script) {
-            script = document.createElement('script');
-            script.id = 'seo-schema';
-            script.setAttribute('type', 'application/ld+json');
-            document.head.appendChild(script);
-        }
-        script.textContent = JSON.stringify(schemaData);
+      let script = document.querySelector('#seo-schema');
+      if (!script) {
+        script = document.createElement('script');
+        script.id = 'seo-schema';
+        script.setAttribute('type', 'application/ld+json');
+        document.head.appendChild(script);
+      }
+      script.textContent = JSON.stringify(schemaData);
     }
 
     // Cleanup function (optional, but good for SPAs)
     return () => {
-        // We generally leave tags as is when unmounting until the next page overwrites them,
-        // but we could clean up specific ones if needed.
+      // We generally leave tags as is when unmounting until the next page overwrites them,
+      // but we could clean up specific ones if needed.
     };
-  }, [title, description, image, url, type, price, currency, availability, brand, rating, reviewCount]);
+  }, [
+    title,
+    description,
+    image,
+    url,
+    type,
+    price,
+    currency,
+    availability,
+    brand,
+    rating,
+    reviewCount,
+  ]);
 
   return null;
 };

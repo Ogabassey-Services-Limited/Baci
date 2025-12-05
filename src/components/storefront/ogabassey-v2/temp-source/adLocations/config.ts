@@ -22,7 +22,7 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     height: 90,
     mobileWidth: 320,
     mobileHeight: 100,
-    type: 'banner'
+    type: 'banner',
   },
 
   // 2. HOMEPAGE STRIP (High Impact)
@@ -36,7 +36,7 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     height: 90,
     mobileWidth: 320,
     mobileHeight: 50,
-    type: 'banner'
+    type: 'banner',
   },
 
   // 3. PRODUCT SIDEBAR (Half Page - High CPM)
@@ -51,7 +51,7 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     height: 600,
     mobileWidth: 300,
     mobileHeight: 250,
-    type: 'sidebar'
+    type: 'sidebar',
   },
 
   // 4. PRODUCT GRID (Medium Rectangle)
@@ -66,7 +66,7 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     height: 250,
     mobileWidth: 300,
     mobileHeight: 250,
-    type: 'in-feed'
+    type: 'in-feed',
   },
 
   // 5. CONTENT BREAK (Leaderboard)
@@ -80,7 +80,7 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     height: 90,
     mobileWidth: 320,
     mobileHeight: 50,
-    type: 'banner'
+    type: 'banner',
   },
 
   // 6. CART SIDEBAR (Medium Rectangle)
@@ -94,7 +94,7 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     height: 250,
     mobileWidth: 300,
     mobileHeight: 250,
-    type: 'sidebar'
+    type: 'sidebar',
   },
 
   // 7. FOOTER (Billboard/Leaderboard)
@@ -108,6 +108,6 @@ export const AD_CONFIG: Record<string, AdPlacement> = {
     height: 250,
     mobileWidth: 320,
     mobileHeight: 100,
-    type: 'banner'
-  }
+    type: 'banner',
+  },
 };

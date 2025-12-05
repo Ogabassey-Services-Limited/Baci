@@ -11,29 +11,26 @@ import { OgabasseyV2CartPage } from '@/components/storefront/ogabassey-v2/pages/
 import { useMerchant } from '@/hooks/use-merchant';
 
 interface CartClientProps {
-    slug: string;
+  slug: string;
 }
 
 export const CartClient: React.FC<CartClientProps> = ({ slug }) => {
-    const { merchant } = useMerchant();
+  const { merchant } = useMerchant();
 
-    return (
-        <SavedProvider>
-            <ComparisonProvider>
-                <AppBody>
-                    <OgabasseyV2Navbar
-                        logo={merchant?.logo_url}
-                        storeName={merchant?.business_name}
-                        storeSlug={slug}
-                    />
-                    <OgabasseyV2CartPage storeSlug={slug} />
-                    <OgabasseyV2Footer
-                        storeSlug={slug}
-                        logo={merchant?.logo_url}
-                    />
-                    <MobileFooter />
-                </AppBody>
-            </ComparisonProvider>
-        </SavedProvider>
-    );
+  return (
+    <SavedProvider>
+      <ComparisonProvider>
+        <AppBody>
+          <OgabasseyV2Navbar
+            logo={merchant?.logo_url}
+            storeName={merchant?.business_name}
+            storeSlug={slug}
+          />
+          <OgabasseyV2CartPage storeSlug={slug} />
+          <OgabasseyV2Footer storeSlug={slug} logo={merchant?.logo_url} />
+          <MobileFooter />
+        </AppBody>
+      </ComparisonProvider>
+    </SavedProvider>
+  );
 };

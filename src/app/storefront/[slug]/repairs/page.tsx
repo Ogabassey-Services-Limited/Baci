@@ -4,15 +4,15 @@ import { MerchantProvider } from '@/hooks/use-merchant';
 import { RepairsClient } from './repairs-client';
 
 export default async function RepairsPage({
-    params,
+  params,
 }: {
-    params: Promise<{ slug: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-    const { slug } = await params;
+  const { slug } = await params;
 
-    return (
-        <MerchantProvider slug={slug}>
-            <RepairsClient slug={slug} />
-        </MerchantProvider>
-    );
+  return (
+    <MerchantProvider slug={slug}>
+      <RepairsClient slug={slug} />
+    </MerchantProvider>
+  );
 }

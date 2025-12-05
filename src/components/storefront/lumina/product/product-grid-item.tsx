@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ShoppingCart, Star, Check, Heart, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  ShoppingCart,
+  Star,
+  Check,
+  Heart,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react';
 import Link from 'next/link';
 import type { Route } from 'next';
 import Image from 'next/image';
@@ -35,14 +42,20 @@ export function LuminaProductGridItem({
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   // Get variant colors from attributes
-  const variantColors = product.variants
-    ?.map((v) => v.attributes?.color)
-    .filter(Boolean) as string[] || [];
+  const variantColors =
+    (product.variants
+      ?.map((v) => v.attributes?.color)
+      .filter(Boolean) as string[]) || [];
 
   // Get all images (from variants or product images)
   const allImages = product.images?.map((img) => img.url) || [];
   const variantImages = product.variants?.flatMap((v) => v.images || []) || [];
-  const images = allImages.length > 0 ? allImages : variantImages.length > 0 ? variantImages : [product.image];
+  const images =
+    allImages.length > 0
+      ? allImages
+      : variantImages.length > 0
+        ? variantImages
+        : [product.image];
 
   // Determine current image based on active variant
   const currentImage = images[activeVariantIndex] || product.image || '';
@@ -56,14 +69,18 @@ export function LuminaProductGridItem({
     e.preventDefault();
     e.stopPropagation();
     if (variantColors.length === 0) return;
-    setActiveVariantIndex((prev) => (prev === 0 ? variantColors.length - 1 : prev - 1));
+    setActiveVariantIndex((prev) =>
+      prev === 0 ? variantColors.length - 1 : prev - 1
+    );
   };
 
   const handleNextVariant = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (variantColors.length === 0) return;
-    setActiveVariantIndex((prev) => (prev === variantColors.length - 1 ? 0 : prev + 1));
+    setActiveVariantIndex((prev) =>
+      prev === variantColors.length - 1 ? 0 : prev + 1
+    );
   };
 
   const handleColorSelect = (e: React.MouseEvent, index: number) => {
@@ -98,7 +115,10 @@ export function LuminaProductGridItem({
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative">
-      <Link href={`${baseUrl}/product/${product.slug || product.id}` as Route} className="absolute inset-0 z-0" />
+      <Link
+        href={`${baseUrl}/product/${product.slug || product.id}` as Route}
+        className="absolute inset-0 z-0"
+      />
 
       {/* Image Container */}
       <div className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-visible z-10 pointer-events-none">
@@ -154,7 +174,8 @@ export function LuminaProductGridItem({
               product.condition === 'new' ? 'bg-gray-900' : 'bg-stone-500'
             )}
           >
-            {product.condition_detail || (product.condition === 'new' ? 'New' : 'Used')}
+            {product.condition_detail ||
+              (product.condition === 'new' ? 'New' : 'Used')}
           </div>
         )}
 
@@ -216,7 +237,11 @@ export function LuminaProductGridItem({
               : 'bg-white text-gray-900 md:hover:text-red-600 md:hover:border-red-100'
           )}
         >
-          {isAdded ? <Check size={iconSize} /> : <ShoppingCart size={iconSize} />}
+          {isAdded ? (
+            <Check size={iconSize} />
+          ) : (
+            <ShoppingCart size={iconSize} />
+          )}
         </button>
       </div>
 

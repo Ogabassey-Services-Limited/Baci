@@ -81,7 +81,10 @@ export function LuminaProductFilters({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+      if (
+        filterMenuRef.current &&
+        !filterMenuRef.current.contains(event.target as Node)
+      ) {
         setIsFilterMenuOpen(false);
       }
     };
@@ -185,7 +188,9 @@ export function LuminaProductFilters({
                         >
                           <item.icon size={16} />
                           {item.label}
-                          {activeFilterType === item.id && <Check size={14} className="ml-auto" />}
+                          {activeFilterType === item.id && (
+                            <Check size={14} className="ml-auto" />
+                          )}
                         </button>
                       ))}
                     </div>
@@ -208,7 +213,10 @@ export function LuminaProductFilters({
                         type="text"
                         value={minPrice > 0 ? minPrice.toLocaleString() : ''}
                         onChange={(e) => {
-                          const val = Number.parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                          const val = Number.parseInt(
+                            e.target.value.replace(/[^0-9]/g, ''),
+                            10
+                          );
                           onPriceChange(Number.isNaN(val) ? 0 : val, maxPrice);
                         }}
                         placeholder="Min"
@@ -222,9 +230,16 @@ export function LuminaProductFilters({
                       </span>
                       <input
                         type="text"
-                        value={maxPrice > 0 && maxPrice < 10000000 ? maxPrice.toLocaleString() : ''}
+                        value={
+                          maxPrice > 0 && maxPrice < 10000000
+                            ? maxPrice.toLocaleString()
+                            : ''
+                        }
                         onChange={(e) => {
-                          const val = Number.parseInt(e.target.value.replace(/[^0-9]/g, ''), 10);
+                          const val = Number.parseInt(
+                            e.target.value.replace(/[^0-9]/g, ''),
+                            10
+                          );
                           onPriceChange(minPrice, Number.isNaN(val) ? 0 : val);
                         }}
                         placeholder="Max"
@@ -282,7 +297,9 @@ export function LuminaProductFilters({
                       <button
                         type="button"
                         key={rating}
-                        onClick={() => onSelectRating(minRating === rating ? 0 : rating)}
+                        onClick={() =>
+                          onSelectRating(minRating === rating ? 0 : rating)
+                        }
                         className={cn(
                           'flex items-center gap-1 text-xs font-bold px-2 py-1 rounded transition-colors',
                           minRating === rating
@@ -291,7 +308,10 @@ export function LuminaProductFilters({
                         )}
                       >
                         <span>{rating}+</span>
-                        <Star size={10} className="fill-amber-400 text-amber-400" />
+                        <Star
+                          size={10}
+                          className="fill-amber-400 text-amber-400"
+                        />
                       </button>
                     ))}
                     <button
@@ -299,7 +319,8 @@ export function LuminaProductFilters({
                       onClick={() => onSelectRating(0)}
                       className={cn(
                         'text-xs font-medium px-2 py-1 rounded text-gray-400 hover:text-gray-600',
-                        minRating === 0 && 'text-gray-900 underline decoration-red-500'
+                        minRating === 0 &&
+                          'text-gray-900 underline decoration-red-500'
                       )}
                     >
                       Any

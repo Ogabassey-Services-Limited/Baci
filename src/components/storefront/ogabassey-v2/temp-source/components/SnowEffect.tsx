@@ -14,7 +14,7 @@ export const SnowEffect: React.FC = () => {
     animationDuration: `${Math.random() * 3 + 5}s`,
     animationDelay: `${Math.random() * 5}s`,
     opacity: Math.random(),
-    size: `${Math.random() * 5 + 3}px`
+    size: `${Math.random() * 5 + 3}px`,
   }));
 
   return (
@@ -30,7 +30,7 @@ export const SnowEffect: React.FC = () => {
             opacity: flake.opacity,
             animation: `snowfall ${flake.animationDuration} linear infinite`,
             animationDelay: flake.animationDelay,
-            boxShadow: '0 0 5px rgba(255,255,255,0.8)'
+            boxShadow: '0 0 5px rgba(255,255,255,0.8)',
           }}
         />
       ))}

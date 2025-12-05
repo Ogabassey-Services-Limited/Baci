@@ -19,11 +19,13 @@ export const useTheme = () => {
   return context;
 };
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [theme, setTheme] = useState<ThemeMode>('standard');
 
   const toggleTheme = () => {
-    setTheme(prev => prev === 'standard' ? 'santa' : 'standard');
+    setTheme((prev) => (prev === 'standard' ? 'santa' : 'standard'));
   };
 
   return (

@@ -1,6 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  type ReactNode,
+} from 'react';
 
 interface SavedContextType {
   savedIds: Set<string>;
@@ -42,7 +48,9 @@ export function SavedProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <SavedContext.Provider value={{ savedIds, isSaved, toggleSaved, addSaved, removeSaved }}>
+    <SavedContext.Provider
+      value={{ savedIds, isSaved, toggleSaved, addSaved, removeSaved }}
+    >
       {children}
     </SavedContext.Provider>
   );

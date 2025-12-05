@@ -201,12 +201,12 @@ export async function GET(
     const shippingAddr = order.shipping_address as ShippingAddress | null;
     const customerAddress = shippingAddr
       ? {
-        street: shippingAddr.address || shippingAddr.street,
-        city: shippingAddr.city,
-        state: shippingAddr.state,
-        postal_code: shippingAddr.postal_code,
-        country: shippingAddr.country || 'NG',
-      }
+          street: shippingAddr.address || shippingAddr.street,
+          city: shippingAddr.city,
+          state: shippingAddr.state,
+          postal_code: shippingAddr.postal_code,
+          country: shippingAddr.country || 'NG',
+        }
       : undefined;
 
     // Build the invoice data structure
@@ -270,7 +270,7 @@ export async function GET(
       tax_amount: Number(order.tax_amount || 0),
       tax_inclusive_amount: Number(
         order.tax_inclusive_amount ||
-        (order.subtotal || 0) + (order.tax_amount || 0)
+          (order.subtotal || 0) + (order.tax_amount || 0)
       ),
       shipping_fee: Number(order.shipping_fee || 0),
       discount_amount: Number(order.discount_amount || 0),
