@@ -73,13 +73,13 @@ interface FacebookEvent {
   event_id: string;
   event_source_url?: string;
   action_source:
-    | 'website'
-    | 'app'
-    | 'email'
-    | 'phone_call'
-    | 'chat'
-    | 'physical_store'
-    | 'other';
+  | 'website'
+  | 'app'
+  | 'email'
+  | 'phone_call'
+  | 'chat'
+  | 'physical_store'
+  | 'other';
   user_data: Record<string, string | undefined>;
   custom_data?: Record<string, unknown>;
   opt_out?: boolean;
@@ -233,7 +233,7 @@ export async function sendFacebookCAPIEvent(
           access_token: accessToken,
           // Enable test mode in development
           ...(process.env.NODE_ENV === 'development' &&
-          process.env.FB_TEST_EVENT_CODE
+            process.env.FB_TEST_EVENT_CODE
             ? { test_event_code: process.env.FB_TEST_EVENT_CODE }
             : {}),
         }),
@@ -392,5 +392,3 @@ export const facebookCAPI = {
     );
   },
 };
-
-export default facebookCAPI;

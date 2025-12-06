@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import {
   Brain,
   Feather,
@@ -40,32 +39,20 @@ function BenefitPill({
   className,
 }: BenefitPillProps) {
   return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.5 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        y: [0, -10, 0],
-      }}
-      transition={{
-        duration: 0.8,
-        delay: delay,
-        ease: 'easeOut',
-        y: {
-          duration: 4,
-          repeat: Number.POSITIVE_INFINITY,
-          ease: 'easeInOut',
-          repeatType: 'reverse',
-          delay: delay,
-        },
-      }}
+    <div
       className={cn(
         'absolute hidden xl:flex items-center gap-2.5 px-4 py-2.5 rounded-full',
         'bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-white/40 dark:border-white/10',
         'shadow-sm dark:shadow-none z-10',
+        'animate-in fade-in zoom-in duration-700', // CSS Entry Animation
         className
       )}
-      style={{ left: x, top: y }}
+      style={{
+        left: x,
+        top: y,
+        animationFillMode: 'both',
+        animationDelay: `${delay}s`,
+      }}
     >
       <div
         className={cn(
@@ -78,7 +65,7 @@ function BenefitPill({
       <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
         {label}
       </span>
-    </motion.div>
+    </div>
   );
 }
 
@@ -100,95 +87,79 @@ function NetworkLines() {
       </defs>
 
       {/* Connections Left - Scattered Paths */}
-      <motion.path
+      <path
         d="M 6 15 Q 15 25 5 38"
         fill="transparent"
         stroke="url(#line-gradient)"
         strokeWidth="0.2"
         strokeDasharray="0.4 0.4"
-        className="text-purple-500"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, ease: 'easeInOut' }}
+        className="text-purple-500 animate-in fade-in duration-1000"
+        style={{ animationDelay: '0s' }}
       />
-      <motion.path
+      <path
         d="M 5 38 Q 12 50 8 62"
         fill="transparent"
         stroke="url(#line-gradient)"
         strokeWidth="0.2"
         strokeDasharray="0.4 0.4"
-        className="text-amber-500"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.3, ease: 'easeInOut' }}
+        className="text-amber-500 animate-in fade-in duration-1000"
+        style={{ animationDelay: '0.3s' }}
       />
-      <motion.path
+      <path
         d="M 8 62 Q 15 75 5 85"
         fill="transparent"
         stroke="url(#line-gradient)"
         strokeWidth="0.2"
         strokeDasharray="0.4 0.4"
-        className="text-orange-500"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.6, ease: 'easeInOut' }}
+        className="text-orange-500 animate-in fade-in duration-1000"
+        style={{ animationDelay: '0.6s' }}
       />
-      <motion.path
+      <path
         d="M 5 85 Q 2 92 10 95"
         fill="transparent"
         stroke="url(#line-gradient)"
         strokeWidth="0.2"
         strokeDasharray="0.4 0.4"
-        className="text-pink-500"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.9, ease: 'easeInOut' }}
+        className="text-pink-500 animate-in fade-in duration-1000"
+        style={{ animationDelay: '0.9s' }}
       />
 
       {/* Connections Right - Scattered Paths */}
-      <motion.path
+      <path
         d="M 88 15 Q 80 25 82 38"
         fill="transparent"
         stroke="url(#line-gradient)"
         strokeWidth="0.2"
         strokeDasharray="0.4 0.4"
-        className="text-blue-500"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.2, ease: 'easeInOut' }}
+        className="text-blue-500 animate-in fade-in duration-1000"
+        style={{ animationDelay: '0.2s' }}
       />
-      <motion.path
+      <path
         d="M 82 38 Q 75 50 88 62"
         fill="transparent"
         stroke="url(#line-gradient)"
         strokeWidth="0.2"
         strokeDasharray="0.4 0.4"
-        className="text-emerald-500"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.5, ease: 'easeInOut' }}
+        className="text-emerald-500 animate-in fade-in duration-1000"
+        style={{ animationDelay: '0.5s' }}
       />
-      <motion.path
+      <path
         d="M 88 62 Q 95 75 84 85"
         fill="transparent"
         stroke="url(#line-gradient)"
         strokeWidth="0.2"
         strokeDasharray="0.4 0.4"
-        className="text-indigo-500"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 0.8, ease: 'easeInOut' }}
+        className="text-indigo-500 animate-in fade-in duration-1000"
+        style={{ animationDelay: '0.8s' }}
       />
-      <motion.path
+      <path
         d="M 84 85 Q 80 92 90 95"
         fill="transparent"
         stroke="url(#line-gradient)"
         strokeWidth="0.2"
         strokeDasharray="0.4 0.4"
-        className="text-cyan-500"
-        initial={{ pathLength: 0, opacity: 0 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 2, delay: 1.1, ease: 'easeInOut' }}
+        className="text-cyan-500 animate-in fade-in duration-1000"
+        style={{ animationDelay: '1.1s' }}
       />
     </svg>
   );
@@ -280,16 +251,12 @@ export function OnboardingBackground() {
         className="-rotate-2"
       />
 
-      {/* Decorative Nodes */}
-      <motion.div
-        animate={{ opacity: [0.2, 0.5, 0.2] }}
-        transition={{ duration: 4, repeat: Number.POSITIVE_INFINITY }}
-        className="absolute top-1/3 left-[15%] w-2 h-2 rounded-full bg-purple-400/50 hidden xl:block"
+      {/* Decorative Nodes - Simplified to static or simple CSS animation */}
+      <div
+        className="absolute top-1/3 left-[15%] w-2 h-2 rounded-full bg-purple-400/50 hidden xl:block animate-pulse duration-[4000ms]"
       />
-      <motion.div
-        animate={{ opacity: [0.2, 0.5, 0.2] }}
-        transition={{ duration: 5, repeat: Number.POSITIVE_INFINITY, delay: 1 }}
-        className="absolute bottom-1/3 right-[15%] w-3 h-3 rounded-full bg-blue-400/50 hidden xl:block"
+      <div
+        className="absolute bottom-1/3 right-[15%] w-3 h-3 rounded-full bg-blue-400/50 hidden xl:block animate-pulse duration-[5000ms]"
       />
     </div>
   );

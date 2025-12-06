@@ -190,5 +190,3 @@ export const tiktokEventsAPI = {
     });
   },
 };
-
-export default tiktokEventsAPI;

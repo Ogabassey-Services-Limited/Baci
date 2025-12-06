@@ -179,5 +179,3 @@ export const snapchatCAPI = {
     });
   },
 };
-
-export default snapchatCAPI;

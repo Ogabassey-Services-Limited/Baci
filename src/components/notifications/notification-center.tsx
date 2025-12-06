@@ -226,5 +226,3 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
     </button>
   );
 }
-
-export default NotificationCenter;

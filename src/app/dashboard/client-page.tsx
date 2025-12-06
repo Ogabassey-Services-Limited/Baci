@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import {
   Activity,
   ArrowRight,
@@ -142,20 +141,18 @@ export default function DashboardClientPage({
       </div>
 
       {/* Setup Checklist - Shows prominently until store is fully set up */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+      <div
+        className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+        style={{ animationFillMode: 'both' }}
       >
         <SetupChecklist dismissible />
-      </motion.div>
+      </div>
 
       {/* AI Insight Hero - Only show when store is published */}
       {merchant?.is_published && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
+        <div
+          className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+          style={{ animationFillMode: 'both', animationDelay: '0.1s' }}
         >
           <BentoCard
             className="bg-gradient-to-br from-primary/10 via-background to-accent/5 border-primary/20"
@@ -200,17 +197,15 @@ export default function DashboardClientPage({
               </Button>
             </div>
           </BentoCard>
-        </motion.div>
+        </div>
       )}
 
       {/* Main Bento Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metrics */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="col-span-1"
+        <div
+          className="col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
+          style={{ animationFillMode: 'both', animationDelay: '0.1s' }}
         >
           <BentoCard title="Total Revenue" icon={DollarSign}>
             <div className="mt-2 space-y-1">
@@ -229,13 +224,11 @@ export default function DashboardClientPage({
               <RevenueSparkline data={monthlyChartData} config={chartConfig} />
             </div>
           </BentoCard>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="col-span-1"
+        <div
+          className="col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
+          style={{ animationFillMode: 'both', animationDelay: '0.2s' }}
         >
           <BentoCard title="Active Orders" icon={ShoppingBag}>
             <div className="mt-2 space-y-1">
@@ -259,13 +252,11 @@ export default function DashboardClientPage({
               </span>
             </div>
           </BentoCard>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="col-span-1"
+        <div
+          className="col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
+          style={{ animationFillMode: 'both', animationDelay: '0.3s' }}
         >
           <BentoCard title="Customers" icon={Users}>
             <div className="mt-2 space-y-1">
@@ -296,13 +287,11 @@ export default function DashboardClientPage({
               )}
             </div>
           </BentoCard>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="col-span-1"
+        <div
+          className="col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
+          style={{ animationFillMode: 'both', animationDelay: '0.4s' }}
         >
           <BentoCard title="Avg. Order Value" icon={Activity}>
             <div className="mt-2 space-y-1">
@@ -317,38 +306,36 @@ export default function DashboardClientPage({
             <div className="h-[60px] mt-4 flex items-end justify-between gap-1">
               {monthlyChartData.length > 0
                 ? monthlyChartData.map((data, _i) => {
-                    const maxRevenue = Math.max(
-                      ...monthlyChartData.map((d) => d.revenue)
-                    );
-                    const height =
-                      maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
-                    return (
-                      <div
-                        key={data.month}
-                        className="w-full bg-primary/30 rounded-t-sm transition-all"
-                        style={{ height: `${height}%` }}
-                        title={`${data.month}: ${formatPrice(data.revenue, merchant?.country || null)}`}
-                      />
-                    );
-                  })
-                : [40, 25, 60, 30, 70, 45].map((h, i) => (
+                  const maxRevenue = Math.max(
+                    ...monthlyChartData.map((d) => d.revenue)
+                  );
+                  const height =
+                    maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
+                  return (
                     <div
-                      // biome-ignore lint/suspicious/noArrayIndexKey: List is static
-                      key={i}
-                      className="w-full bg-primary/20 rounded-t-sm"
-                      style={{ height: `${h}%` }}
+                      key={data.month}
+                      className="w-full bg-primary/30 rounded-t-sm transition-all"
+                      style={{ height: `${height}%` }}
+                      title={`${data.month}: ${formatPrice(data.revenue, merchant?.country || null)}`}
                     />
-                  ))}
+                  );
+                })
+                : [40, 25, 60, 30, 70, 45].map((h, i) => (
+                  <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: List is static
+                    key={i}
+                    className="w-full bg-primary/20 rounded-t-sm"
+                    style={{ height: `${h}%` }}
+                  />
+                ))}
             </div>
           </BentoCard>
-        </motion.div>
+        </div>
 
         {/* Big Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="col-span-1 md:col-span-2 lg:col-span-3 row-span-2"
+        <div
+          className="col-span-1 md:col-span-2 lg:col-span-3 row-span-2 animate-in fade-in slide-in-from-bottom-4 duration-500"
+          style={{ animationFillMode: 'both', animationDelay: '0.5s' }}
         >
           <BentoCard
             title="Revenue Overview"
@@ -363,14 +350,12 @@ export default function DashboardClientPage({
               />
             </div>
           </BentoCard>
-        </motion.div>
+        </div>
 
         {/* Recent Sales List */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.6 }}
-          className="col-span-1 md:col-span-2 lg:col-span-1 row-span-2"
+        <div
+          className="col-span-1 md:col-span-2 lg:col-span-1 row-span-2 animate-in fade-in slide-in-from-bottom-4 duration-500"
+          style={{ animationFillMode: 'both', animationDelay: '0.6s' }}
         >
           <BentoCard title="Recent Sales" icon={CreditCard} className="h-full">
             <div className="space-y-4 mt-2">
@@ -419,7 +404,7 @@ export default function DashboardClientPage({
               </Button>
             </div>
           </BentoCard>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

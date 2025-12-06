@@ -1,7 +1,6 @@
 'use server';
 
-import { cookies } from 'next/headers';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 interface LandingMetrics {
   merchants: number;
@@ -12,8 +11,8 @@ interface LandingMetrics {
 
 export async function getLandingMetrics(): Promise<LandingMetrics> {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Use service client for public data to allow static generation (no cookies needed)
+    const supabase = createServiceClient();
 
     // Fetch merchant count
     const { count: merchantCount, error: merchantError } = await supabase

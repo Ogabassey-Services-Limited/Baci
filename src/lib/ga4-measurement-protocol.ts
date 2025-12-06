@@ -289,5 +289,3 @@ export const ga4MeasurementProtocol = {
     });
   },
 };
-
-export default ga4MeasurementProtocol;
