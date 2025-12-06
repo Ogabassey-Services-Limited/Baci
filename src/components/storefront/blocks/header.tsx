@@ -467,7 +467,7 @@ export function Header({
                 {showAccount && (
                   <div className="pt-4 border-t space-y-4">
                     {customerSession?.authenticated &&
-                    customerSession.customer ? (
+                      customerSession.customer ? (
                       <>
                         <div className="text-sm text-muted-foreground">
                           Signed in as {customerSession.customer.email}

@@ -8,10 +8,10 @@ interface LoyaltyReward {
   description: string;
   points_required: number;
   reward_type:
-    | 'discount'
-    | 'free_shipping'
-    | 'free_product'
-    | 'exclusive_access';
+  | 'discount'
+  | 'free_shipping'
+  | 'free_product'
+  | 'exclusive_access';
   discount_type?: 'percentage' | 'fixed';
   discount_value?: number;
   min_tier?: string;
