@@ -212,6 +212,7 @@ export default function TemplateGalleryPage() {
   );
 }
 
+// LivePreviewCard - Lightweight version without iframe to prevent infinite loading
 function LivePreviewCard({ template }: { template: TemplateDefinition }) {
   return (
     <Link
@@ -230,18 +231,42 @@ function LivePreviewCard({ template }: { template: TemplateDefinition }) {
         </div>
       </div>
 
-      {/* Live Preview Iframe (Scaled Down) */}
-      <div className="h-[400px] w-[200%] origin-top-left scale-50 bg-white relative pointer-events-none">
-        <iframe
-          src={`/template-preview/${template.id}`}
-          className="w-full h-full border-0"
-          tabIndex={-1}
-          title={`${template.name} Preview`}
-          scrolling="no"
-          loading="lazy"
-        />
-        {/* Overlay to prevent interactions but allow click-through to link */}
-        <div className="absolute inset-0 z-10" />
+      {/* Preview Screenshot or Mockup */}
+      <div className="h-[400px] bg-gradient-to-br from-gray-900 to-gray-800 relative overflow-hidden">
+        {template.thumbnail ? (
+          <>
+            {/* Actual Template Screenshot */}
+            <img
+              src={template.thumbnail}
+              alt={`${template.name} Preview`}
+              className="absolute inset-0 w-full h-full object-cover object-top"
+            />
+            {/* Gradient overlay for better text contrast */}
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/40 to-transparent" />
+          </>
+        ) : (
+          <>
+            {/* Fallback mockup if no screenshot */}
+            <div className="absolute inset-0 p-8 opacity-60 group-hover:opacity-80 transition-opacity">
+              <div className="h-12 bg-white/10 backdrop-blur rounded-lg mb-4" />
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="h-32 bg-white/10 backdrop-blur rounded-lg" />
+                <div className="h-32 bg-white/10 backdrop-blur rounded-lg" />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-24 bg-white/10 backdrop-blur rounded-lg" />
+                ))}
+              </div>
+            </div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-8xl font-black text-white/5 select-none">
+                {template.name.charAt(0)}
+              </div>
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-transparent opacity-70" />
+          </>
+        )}
       </div>
 
       {/* Info Overlay */}
@@ -271,6 +296,11 @@ function LivePreviewCard({ template }: { template: TemplateDefinition }) {
             </span>
           ))}
         </div>
+
+        {/* Click to preview hint */}
+        <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-150">
+          <span className="text-xs text-purple-400 font-medium">Click to preview →</span>
+        </div>
       </div>
     </Link>
   );
@@ -282,9 +312,9 @@ function SmallPreviewCard({ template }: { template: TemplateDefinition }) {
       href={`/template-preview/${template.id}` as Route}
       className="group block relative bg-[#1E293B] rounded-xl overflow-hidden border border-white/5 hover:border-white/20 transition-all hover:-translate-y-1"
     >
-      <div className="aspect-[4/3] bg-[#020617] relative">
-        {/* Mini Browser Bar */}
-        <div className="absolute top-0 inset-x-0 h-6 bg-black/20 backdrop-blur flex items-center px-3 z-10">
+      <div className="aspect-[4/3] bg-gradient-to-br from-gray-900 to-gray-800 relative overflow-hidden">
+        {/* Mini Browser Bar Overlay */}
+        <div className="absolute top-0 inset-x-0 h-6 bg-black/20 backdrop-blur flex items-center px-3 z-20">
           <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
         </div>
 
@@ -295,10 +325,10 @@ function SmallPreviewCard({ template }: { template: TemplateDefinition }) {
           </div>
         </div>
 
-        <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B] to-transparent opacity-50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#1E293B] via-transparent to-transparent opacity-50 z-20 pointer-events-none" />
       </div>
 
-      <div className="p-4">
+      <div className="p-4 relative z-30 bg-[#1E293B]">
         <h3 className="font-semibold text-white">{template.name}</h3>
         <p className="text-xs text-gray-400 mt-1 line-clamp-1">{template.description}</p>
       </div>
