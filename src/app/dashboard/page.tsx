@@ -13,16 +13,6 @@ export const metadata = {
 // Configuration constants
 const RECENT_SALES_LIMIT = 5;
 
-// Promise configurations for dashboard data fetching
-const createPromiseConfigs = (merchantId: string) => [
-  { promise: () => getDashboardMetrics(merchantId), context: 'metrics' },
-  {
-    promise: () => getRecentSales(merchantId, RECENT_SALES_LIMIT),
-    context: 'recentSales',
-  },
-  { promise: () => getMonthlyChartData(merchantId), context: 'monthlyChartData' },
-];
-
 // Sanitize error output to avoid leaking sensitive info
 function sanitizeError(reason: unknown): string {
   if (
@@ -46,30 +36,40 @@ export default async function DashboardPage() {
     return <DashboardClientPage />;
   }
 
-  const promiseConfigs = createPromiseConfigs(merchant.id);
-
   // Use Promise.allSettled to handle partial failures gracefully
-  const results = await Promise.allSettled(
-    promiseConfigs.map((cfg) => cfg.promise())
-  );
+  const [metricsResult, recentSalesResult, chartDataResult] =
+    await Promise.allSettled([
+      getDashboardMetrics(merchant.id),
+      getRecentSales(merchant.id, RECENT_SALES_LIMIT),
+      getMonthlyChartData(merchant.id),
+    ]);
 
-  const metrics = results[0].status === 'fulfilled' ? results[0].value : null;
-  const recentSales = results[1].status === 'fulfilled' ? results[1].value : [];
+  const metrics =
+    metricsResult.status === 'fulfilled' ? metricsResult.value : null;
+  const recentSales =
+    recentSalesResult.status === 'fulfilled' ? recentSalesResult.value : [];
   const monthlyChartData =
-    results[2].status === 'fulfilled' ? results[2].value : [];
+    chartDataResult.status === 'fulfilled' ? chartDataResult.value : [];
 
   // Log any errors for debugging
-  results.forEach((result, index) => {
-    if (result.status === 'rejected') {
-      const errorContext = promiseConfigs[index].context;
-      // Log only a sanitized version of the error
-      console.error(
-        'Failed to fetch dashboard data:',
-        errorContext,
-        sanitizeError(result.reason)
-      );
-    }
-  });
+  if (metricsResult.status === 'rejected') {
+    console.error(
+      'Failed to fetch dashboard metrics:',
+      sanitizeError(metricsResult.reason)
+    );
+  }
+  if (recentSalesResult.status === 'rejected') {
+    console.error(
+      'Failed to fetch recent sales:',
+      sanitizeError(recentSalesResult.reason)
+    );
+  }
+  if (chartDataResult.status === 'rejected') {
+    console.error(
+      'Failed to fetch chart data:',
+      sanitizeError(chartDataResult.reason)
+    );
+  }
 
   return (
     <DashboardClientPage
