@@ -23,6 +23,9 @@ import {
   Truck,
   Undo2,
   X,
+  ChevronUp,
+  Box,
+  MapPin,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -195,6 +198,157 @@ export const SourceIcon = ({ source }: { source: string }) => {
     );
   }
   return <div className="h-6 w-6 rounded-full bg-gray-200" />;
+};
+
+const OrderCard = ({
+  order,
+  isSelected,
+  onSelect,
+  onStatusUpdate,
+  formatCurrency,
+}: {
+  order: Order;
+  isSelected: boolean;
+  onSelect: (orderNumber: string, isSelected: boolean) => void;
+  onStatusUpdate: (orderNumber: string, newStatus: ShippingStatus) => void;
+  formatCurrency: (amount: number) => string;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const itemsSummary =
+    order.items && order.items.length > 0
+      ? `${order.items.length} item${order.items.length > 1 ? 's' : ''}: ${order.items
+        .map((i) => i.name)
+        .join(', ')}`
+      : 'No items details';
+
+  return (
+    <Card className="mb-3 transition-all hover:shadow-md bg-white/50 dark:bg-black/20 overflow-hidden border-l-4 border-l-primary/20">
+      <div className="p-4 flex flex-col sm:flex-row gap-4">
+        {/* Top Row / Main Summary */}
+        <div className="flex items-start gap-4 flex-1">
+          <Checkbox
+            onCheckedChange={(checked) =>
+              onSelect(order.orderNumber, checked as boolean)
+            }
+            checked={isSelected}
+            className="mt-1"
+          />
+          <SourceIcon source={order.source} />
+
+          <div
+            className="flex-1 cursor-pointer group"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {/* Primary Info: What was bought */}
+            <h4 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors line-clamp-1">
+              {itemsSummary}
+            </h4>
+
+            {/* Secondary Info: Who & When */}
+            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground mt-1 items-center">
+              <span className="font-medium text-foreground/80">
+                {order.customerName}
+              </span>
+              <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+              <span>{order.orderNumber}</span>
+              <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+              <span>{order.date}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Status & Actions */}
+        <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+          <div className="flex flex-col items-end gap-1">
+            <p className="font-bold text-lg">{formatCurrency(order.total)}</p>
+            <StatusBadge status={order.paymentStatus} type="payment" />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <StatusDropdown order={order} onStatusUpdate={onStatusUpdate} />
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="shrink-0"
+            >
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded Details */}
+      {isExpanded && (
+        <div className="bg-muted/10 border-t p-4 animate-in slide-in-from-top-2">
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Order Items List */}
+            <div className="space-y-3">
+              <h5 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                <Box className="w-4 h-4" /> Order Items
+              </h5>
+              <div className="space-y-2">
+                {order.items?.map((item, idx) => (
+                  <div
+                    key={item.id || idx}
+                    className="flex items-center gap-3 p-2 rounded-lg bg-background/50 border"
+                  >
+                    <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center">
+                      <Box className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {item.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.variant && <span className="mr-2">{item.variant}</span>}
+                        Qty: {item.quantity}
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold">
+                      {formatCurrency(item.price * item.quantity)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Customer & Shipping Info */}
+            <div className="space-y-3">
+              <h5 className="text-sm font-semibold flex items-center gap-2 mb-2">
+                <MapPin className="w-4 h-4" /> Shipping Details
+              </h5>
+              <div className="p-3 rounded-lg bg-background/50 border space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Provider:</span>
+                  <span className="font-medium">{order.shipping_provider || 'Not set'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tracking:</span>
+                  <span className="font-medium font-mono">{order.tracking_number || 'None'}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <span className="text-muted-foreground">Status:</span>
+                  <StatusBadge status={order.shippingStatus} type="shipping" />
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-2 justify-end">
+                <Link href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}>
+                  <Button variant="outline" size="sm">View Full Details</Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
 };
 
 interface OrdersClientPageProps {
@@ -708,75 +862,19 @@ export default function OrdersClientPage({
                 </AlertDescription>
               </Alert>
             ) : (
-              filteredOrders.map((order) => (
-                <Card
-                  key={order.orderNumber}
-                  className="transition-shadow hover:shadow-md bg-white/50 dark:bg-black/20"
-                >
-                  <CardContent className="p-4 flex items-center gap-4 overflow-x-auto">
-                    <Checkbox
-                      onCheckedChange={(checked) =>
-                        handleSelectOrder(order.orderNumber, checked as boolean)
-                      }
-                      checked={selectedOrders.has(order.orderNumber)}
-                      aria-label={`Select order ${order.orderNumber}`}
-                      className="mt-1 shrink-0"
-                    />
-                    <div className="flex-shrink-0 mt-1">
-                      <SourceIcon source={order.source} />
-                    </div>
-                    <div className="flex-1 min-w-[200px]">
-                      <Link
-                        href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}
-                        className="font-semibold hover:underline"
-                      >
-                        {order.customerName}
-                      </Link>
-                      <p className="text-sm text-muted-foreground">
-                        {order.orderNumber} &middot; {order.date}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-end gap-4 text-sm w-[280px] shrink-0">
-                      <div className="w-[110px] text-center">
-                        <StatusBadge
-                          status={order.paymentStatus}
-                          type="payment"
-                        />
-                      </div>
-                      <div className="w-[140px]">
-                        <StatusDropdown
-                          order={order}
-                          onStatusUpdate={handleUpdateStatus}
-                        />
-                      </div>
-                    </div>
-                    <div className="text-right w-28 shrink-0">
-                      <p className="font-bold text-lg">
-                        {formatCurrency(order.total)}
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0 -mr-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Contact Customer</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>Print Invoice</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+              // New Collapsible Order Cards
+              <div className="space-y-2">
+                {filteredOrders.map((order) => (
+                  <OrderCard
+                    key={order.orderNumber}
+                    order={order}
+                    isSelected={selectedOrders.has(order.orderNumber)}
+                    onSelect={handleSelectOrder}
+                    onStatusUpdate={handleUpdateStatus}
+                    formatCurrency={formatCurrency}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </CardContent>
