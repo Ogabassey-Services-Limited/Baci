@@ -454,7 +454,8 @@ export function StorefrontProductGrid({
             {searchResults.map((product, index) => {
               const cartItem = cart.find((item) => item.id === product.id);
               // Stagger animation class (1-8, then loops)
-              const staggerClass = STAGGER_CLASSES[index % STAGGER_CLASSES.length];
+              const staggerClass =
+                STAGGER_CLASSES[index % STAGGER_CLASSES.length];
 
               return (
                 <ThemedCard

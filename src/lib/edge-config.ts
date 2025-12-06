@@ -7,7 +7,7 @@ import { get } from '@vercel/edge-config';
  * Format: { [domain]: merchantSlug }
  */
 export interface DomainMapping {
-    slug: string;
+  slug: string;
 }
 
 /**
@@ -18,23 +18,23 @@ export interface DomainMapping {
  * @returns The merchant slug or null if not found
  */
 export async function getMerchantSlugFromEdgeConfig(
-    domain: string
+  domain: string
 ): Promise<string | null> {
-    // Skip if Edge Config is not configured
-    if (!process.env.EDGE_CONFIG) {
-        console.warn('[Edge Config] EDGE_CONFIG environment variable not set');
-        return null;
-    }
+  // Skip if Edge Config is not configured
+  if (!process.env.EDGE_CONFIG) {
+    console.warn('[Edge Config] EDGE_CONFIG environment variable not set');
+    return null;
+  }
 
-    try {
-        // Edge Config stores domain → slug mappings
-        // Key format: "example.com" → "merchant-slug"
-        const slug = await get<string>(domain);
-        return slug || null;
-    } catch (error) {
-        console.error('[Edge Config] Failed to read:', error);
-        return null;
-    }
+  try {
+    // Edge Config stores domain → slug mappings
+    // Key format: "example.com" → "merchant-slug"
+    const slug = await get<string>(domain);
+    return slug || null;
+  } catch (error) {
+    console.error('[Edge Config] Failed to read:', error);
+    return null;
+  }
 }
 
 /**
@@ -42,18 +42,18 @@ export async function getMerchantSlugFromEdgeConfig(
  * Used for syncing and debugging.
  */
 export async function getAllDomainMappings(): Promise<Record<
-    string,
-    string
+  string,
+  string
 > | null> {
-    if (!process.env.EDGE_CONFIG) {
-        return null;
-    }
+  if (!process.env.EDGE_CONFIG) {
+    return null;
+  }
 
-    try {
-        const mappings = await get<Record<string, string>>('domains');
-        return mappings || null;
-    } catch (error) {
-        console.error('[Edge Config] Failed to read all mappings:', error);
-        return null;
-    }
+  try {
+    const mappings = await get<Record<string, string>>('domains');
+    return mappings || null;
+  } catch (error) {
+    console.error('[Edge Config] Failed to read all mappings:', error);
+    return null;
+  }
 }

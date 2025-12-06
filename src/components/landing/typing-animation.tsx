@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Comprehensive list of store types covering major e-commerce categories
 // Every word MUST make grammatical sense when followed by "Store"
