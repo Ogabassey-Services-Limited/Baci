@@ -69,7 +69,7 @@ function getSessionId(): string {
   let sessionId = sessionStorage.getItem('baci_session_id');
   if (!sessionId) {
     // Use crypto.randomUUID() for cryptographically secure session IDs
-    sessionId = `sess_${Date.now()}_${crypto.randomUUID()}`;
+    sessionId = `sess_${crypto.randomUUID()}`;
     sessionStorage.setItem('baci_session_id', sessionId);
   }
   return sessionId;

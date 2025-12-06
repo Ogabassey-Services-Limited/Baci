@@ -108,7 +108,7 @@ export async function sendTikTokEvent(
     context: {
       user,
       page: {
-        url: properties?.orderId ? undefined : undefined, // Add if available
+        // url: properties?.url, // Uncomment & implement if event page URL is available as properties.url
       },
     },
     properties: eventProperties,

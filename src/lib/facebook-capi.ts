@@ -242,7 +242,17 @@ export async function sendFacebookCAPIEvent(
 
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Facebook CAPI error:', errorData);
+      // Sanitize error logging to avoid exposing sensitive data
+      if (errorData?.error) {
+        const { message, type, code, fbtrace_id } = errorData.error;
+        console.error(
+          `Facebook CAPI error${type ? ` [${type}]` : ''}${code ? ` (code ${code})` : ''}: ${
+            message || 'Unknown error'
+          }${fbtrace_id ? ` [fbtrace_id: ${fbtrace_id}]` : ''}`
+        );
+      } else {
+        console.error('Facebook CAPI error: Unknown error structure');
+      }
       return {
         success: false,
         error: errorData.error?.message || 'Unknown error',
@@ -252,7 +262,12 @@ export async function sendFacebookCAPIEvent(
     const result = (await response.json()) as CAPIResponse;
     return { success: true, response: result };
   } catch (error) {
-    console.error('Facebook CAPI request failed:', error);
+    // Sanitize error logging to avoid exposing sensitive data like tokens
+    if (error instanceof Error) {
+      console.error('Facebook CAPI request failed:', error.message);
+    } else {
+      console.error('Facebook CAPI request failed: Network error');
+    }
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Network error',
