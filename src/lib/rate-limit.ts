@@ -1,5 +1,9 @@
 // Rate Limiting Middleware
 // Implements token bucket algorithm for API rate limiting
+// Note: This implementation uses an in-memory store (`Map`).
+// In a serverless/edge environment (like Vercel), this store is NOT shared across instances.
+// It is effective for basic protection against single-instance floods but is not a global rate limiter.
+// For production-grade global rate limiting, use Redis (e.g., Vercel KV or Upstash).
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
@@ -18,11 +22,14 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   default: { maxRequests: 50, windowMs: 60000 }, // Default: 50 requests per minute
 };
 
-// In-memory store for rate limiting (use Redis in production)
+// In-memory store for rate limiting
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
+// Maximum size for the map to prevent memory leaks in long-running containers
+const MAX_STORE_SIZE = 10000;
+
 /**
- * Get client identifier (IP address or user ID)
+ * Get client identifier (IP address)
  */
 function getClientIdentifier(request: NextRequest): string {
   // Try to get IP from various headers (for proxies/load balancers)
@@ -46,6 +53,20 @@ function getRateLimitConfig(pathname: string): RateLimitConfig {
 }
 
 /**
+ * Prune expired entries from the store.
+ * Only runs if the store gets too big to avoid blocking the event loop on every request.
+ */
+function pruneStore(now: number) {
+  if (rateLimitStore.size < MAX_STORE_SIZE) return;
+
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (now > entry.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+}
+
+/**
  * Check if request should be rate limited
  */
 export function checkRateLimit(request: NextRequest): {
@@ -60,6 +81,9 @@ export function checkRateLimit(request: NextRequest): {
 
   const key = `${identifier}:${pathname}`;
   const now = Date.now();
+
+  // Lazy prune if store is too large
+  pruneStore(now);
 
   // Get or create rate limit entry
   let entry = rateLimitStore.get(key);
@@ -114,21 +138,4 @@ export function createRateLimitResponse(
   );
 
   return response;
-}
-
-/**
- * Cleanup old entries (call periodically)
- */
-export function cleanupRateLimitStore(): void {
-  const now = Date.now();
-  for (const [key, entry] of rateLimitStore.entries()) {
-    if (now > entry.resetTime) {
-      rateLimitStore.delete(key);
-    }
-  }
-}
-
-// Cleanup every 5 minutes
-if (typeof setInterval !== 'undefined') {
-  setInterval(cleanupRateLimitStore, 5 * 60 * 1000);
 }
