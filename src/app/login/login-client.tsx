@@ -1,7 +1,7 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { Loader2 } from 'lucide-react';
 
 // Enable SSR for faster initial paint (form renders on server)
 const LoginForm = dynamic(() => import('@/components/login-form'), {
