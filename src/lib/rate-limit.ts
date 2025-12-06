@@ -1,5 +1,9 @@
 // Rate Limiting Middleware
 // Implements token bucket algorithm for API rate limiting
+// Note: This implementation uses an in-memory store (`Map`).
+// In a serverless/edge environment (like Vercel), this store is NOT shared across instances.
+// It is effective for basic protection against single-instance floods but is not a global rate limiter.
+// For production-grade global rate limiting, use Redis (e.g., Vercel KV or Upstash).
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';

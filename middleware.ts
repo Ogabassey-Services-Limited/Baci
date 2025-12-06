@@ -5,11 +5,27 @@ import { getRootDomain, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 
+// Global cache for custom domain lookups (persists across warm invocations in Edge)
+// Key: hostname, Value: { slug: string, expiresAt: number }
+const domainCache = new Map<string, { slug: string; expiresAt: number }>();
+const DOMAIN_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const MAX_CACHE_SIZE = 1000; // Prevent unbounded memory growth
+
+// Prune expired entries when cache gets too large
+function pruneDomainCache(now: number): void {
+  if (domainCache.size < MAX_CACHE_SIZE) return;
+  domainCache.forEach((value, key) => {
+    if (now > value.expiresAt) {
+      domainCache.delete(key);
+    }
+  });
+}
+
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
   const pathname = url.pathname;
 
-  // Apply rate limiting to API routes
+  // 1. Rate Limiting (API Only)
   if (pathname.startsWith('/api/')) {
     const rateLimitResult = checkRateLimit(request);
 
@@ -20,26 +36,14 @@ export async function middleware(request: NextRequest) {
         rateLimitResult.resetTime
       );
     }
-
-    // Add rate limit headers to response
-    const response = NextResponse.next();
-    response.headers.set('X-RateLimit-Limit', rateLimitResult.limit.toString());
-    response.headers.set(
-      'X-RateLimit-Remaining',
-      rateLimitResult.remaining.toString()
-    );
-    response.headers.set(
-      'X-RateLimit-Reset',
-      new Date(rateLimitResult.resetTime).toISOString()
-    );
   }
 
-  // Apply CSRF protection to API routes (except webhooks, auth, and public analytics)
+  // 2. CSRF Protection (API Only)
   if (
     pathname.startsWith('/api/') &&
     !pathname.startsWith('/api/webhooks/') &&
     !pathname.startsWith('/api/auth/') &&
-    pathname !== '/api/platform/events' // Exact match - public analytics endpoint
+    pathname !== '/api/platform/events'
   ) {
     const csrfResult = await checkCsrfProtection(request);
 
@@ -47,7 +51,9 @@ export async function middleware(request: NextRequest) {
       return csrfResult.response;
     }
   }
+
   const { hostname } = url;
+  const rootDomain = getRootDomain();
 
   // Create a response object to update cookies
   const response = NextResponse.next({
@@ -55,6 +61,25 @@ export async function middleware(request: NextRequest) {
       headers: request.headers,
     },
   });
+
+  // 3. Supabase Auth Optimization
+  // Only initialize and check auth for protected routes to reduce latency on public storefronts
+  const isMainSite =
+    hostname === 'localhost' ||
+    hostname === '0.0.0.0' ||
+    hostname === rootDomain ||
+    hostname === `www.${rootDomain}`;
+
+  // Protected routes that require fresh auth validation
+  const isProtectedRoute =
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/admin') ||
+    (pathname.startsWith('/api/') &&
+      !pathname.startsWith('/api/webhooks/') &&
+      !pathname.startsWith('/api/platform/events'));
+
+  // Only check auth for main site or protected routes (skip for public storefronts)
+  const shouldCheckAuth = isMainSite || isProtectedRoute;
 
   // Create Supabase client for middleware to manage auth session
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
@@ -89,18 +114,13 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // Refresh the auth session to ensure cookies are up to date
-  // Using getUser() for stronger security (validates JWT with Supabase Auth server)
-  await supabase.auth.getUser();
+  if (shouldCheckAuth) {
+    // Refresh the auth session to ensure cookies are up to date
+    // Using getUser() for stronger security (validates JWT with Supabase Auth server)
+    await supabase.auth.getUser();
+  }
 
-  const rootDomain = getRootDomain();
-
-  // Check if the request is for the main marketing site or a dev environment
-  const isMainSite =
-    hostname === 'localhost' || // local dev
-    hostname === '0.0.0.0' ||
-    hostname === rootDomain ||
-    hostname === `www.${rootDomain}`;
+  // 4. Domain Routing
 
   if (isMainSite) {
     return response;
@@ -111,26 +131,50 @@ export async function middleware(request: NextRequest) {
     !hostname.endsWith(`.${rootDomain}`) && !hostname.includes('localhost');
 
   if (isCustomDomain) {
-    // Look up custom domain in database
-    const { data: domainRecord } = await supabase
-      .from('domains')
-      .select('merchant_id, status, merchants!inner(slug)')
-      .eq('domain', hostname)
-      .eq('status', 'active')
-      .single();
+    let merchantSlug: string | undefined;
 
-    if (domainRecord) {
-      // @ts-expect-error - Supabase typing issue with nested select
-      const merchantSlug = domainRecord.merchants?.slug;
-      if (merchantSlug) {
-        url.pathname = `/storefront/${merchantSlug}${url.pathname}`;
-        return NextResponse.rewrite(url, {
-          request: {
-            headers: request.headers,
-          },
-          headers: response.headers,
-        });
+    // Check cache first (and prune if needed)
+    const now = Date.now();
+    pruneDomainCache(now);
+    const cached = domainCache.get(hostname);
+    if (cached && now < cached.expiresAt) {
+      merchantSlug = cached.slug;
+    } else {
+      // Look up custom domain in database
+      try {
+        const { data: domainRecord, error } = await supabase
+          .from('domains')
+          .select('merchant_id, status, merchants!inner(slug)')
+          .eq('domain', hostname)
+          .eq('status', 'active')
+          .single();
+
+        if (!error && domainRecord) {
+          // @ts-expect-error - Supabase typing issue with nested select
+          merchantSlug = domainRecord.merchants?.slug;
+
+          // Cache the result
+          if (merchantSlug) {
+            domainCache.set(hostname, {
+              slug: merchantSlug,
+              expiresAt: now + DOMAIN_CACHE_TTL_MS,
+            });
+          }
+        }
+      } catch {
+        // On database error, fall through to redirect to main site
+        // This prevents middleware from crashing on transient DB issues
       }
+    }
+
+    if (merchantSlug) {
+      url.pathname = `/storefront/${merchantSlug}${url.pathname}`;
+      return NextResponse.rewrite(url, {
+        request: {
+          headers: request.headers,
+        },
+        headers: response.headers,
+      });
     }
 
     // Custom domain not found or not active - redirect to main site
