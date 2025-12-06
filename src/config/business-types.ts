@@ -24,10 +24,16 @@ import {
   Sparks,
 } from 'iconoir-react';
 import type { LucideIcon } from 'lucide-react';
+import { Pill } from 'lucide-react';
 import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
-import { ArtisanTemplate } from '@/templates/artisan';
+import { GadgetDefaultTemplate } from '@/components/storefront/templates/gadget-default-template';
+import { HomeGoodsTemplate, HomeGoodsHome } from '@/templates/home-goods';
 import { ModernTemplate } from '@/templates/modern';
-import { TechTemplate } from '@/templates/tech';
+import { ArtisanTemplate } from '@/templates/artisan';
+import { PharmaceuticalTemplate } from '@/templates/pharmaceutical';
+import { BeautyTemplate } from '@/templates/beauty';
+import { FoodBeverageTemplate } from '@/templates/food-beverage';
+import { HairExtensionsTemplate } from '@/templates/hair-extensions';
 
 /**
  * Business type journey configuration
@@ -133,7 +139,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
       'comparison-tables',
       'compatibility-guides',
     ],
-    template: TechTemplate,
+    template: GadgetDefaultTemplate,
     icon: Laptop,
     journey: {
       onboarding: {
@@ -162,7 +168,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
       'material-samples',
       'style-collections',
     ],
-    template: ArtisanTemplate,
+    template: HomeGoodsTemplate,
     icon: Home,
     journey: {
       onboarding: {
@@ -194,9 +200,9 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
       'ingredient-lists',
       'skin-type-filters',
       'before-after',
-      'routine-builders',
+      'virtual-try-on',
     ],
-    template: ModernTemplate,
+    template: BeautyTemplate,
     icon: Sparks,
     journey: {
       onboarding: {
@@ -266,7 +272,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
       'recipes',
       'pairing-guides',
     ],
-    template: ArtisanTemplate,
+    template: FoodBeverageTemplate,
     icon: CoffeeCup,
     journey: {
       onboarding: {
@@ -302,7 +308,7 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
       'care-instructions',
       'styling-tutorials',
     ],
-    template: PremiumDefaultTemplate,
+    template: HairExtensionsTemplate,
     icon: Scissor,
     journey: {
       onboarding: {
@@ -316,6 +322,42 @@ export const BUSINESS_TYPES: Record<string, BusinessTypeConfig> = {
           'luxurious and aspirational, emphasizes quality, texture, versatility, and styling options',
         imageRequirements:
           'High-quality shots showing texture, multiple angles, styled and unstyled, color accuracy',
+      },
+    },
+  },
+
+  PHARMACEUTICALS: {
+    id: 'pharmaceuticals',
+    label: 'Pharmaceuticals & Medical',
+    description: 'Pharmacy, medications, medical supplies, and health products',
+    aiPromptContext:
+      'pharmaceutical and medical with focus on safety, efficacy, and healthcare compliance',
+    recommendedFeatures: [
+      'prescription-upload',
+      'pharmacist-consultation',
+      'drug-interactions',
+      'dosage-calculator',
+    ],
+    template: PharmaceuticalTemplate,
+    icon: Pill,
+    journey: {
+      onboarding: {
+        logoStyle: 'professional, medical, trustworthy with healthcare symbols',
+        colorScheme: 'blue and white medical tones with green wellness accents',
+        additionalSteps: ['licensing-verification', 'compliance-setup'],
+      },
+      productCreation: {
+        requiredFields: [
+          'dosage',
+          'active-ingredients',
+          'usage-instructions',
+          'warnings',
+          'expiration-date',
+        ],
+        aiDescriptionStyle:
+          'medically accurate, emphasizes safety and efficacy, includes clear usage instructions and warnings',
+        imageRequirements:
+          'Clean product shots, clear labeling visible, dosage information readable, packaging details',
       },
     },
   },

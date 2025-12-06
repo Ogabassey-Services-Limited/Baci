@@ -172,6 +172,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     id: 'gadget-default',
     name: 'Gadget Default',
     description: 'Standard template for electronics and gadget stores',
+    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/gadget_default_preview_after_wait_1765030055914.png',
     category: 'gadgets',
     status: 'production',
     version: '1.0.0',
@@ -211,6 +212,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     id: 'premium-default',
     name: 'Premium Default',
     description: 'Elegant template for fashion and luxury brands',
+    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/premium_default_preview_after_wait_1765030083226.png',
     category: 'fashion',
     status: 'production',
     version: '1.0.0',
@@ -246,6 +248,186 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     tags: ['fashion', 'luxury', 'elegant', 'premium'],
   },
 
+  'home-goods': {
+    id: 'home-goods',
+    name: 'Haven Home',
+    description: 'Warm, lifestyle-focused template for furniture and home decor stores',
+    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/home_goods_template_preview_1765032079483.png',
+    category: 'general',
+    status: 'production',
+    version: '1.0.0',
+    engine: {
+      products: true,
+      cart: true,
+      checkout: true,
+      customerAuth: false,
+      wishlist: false,
+      orderTracking: false,
+    },
+    getComponents: async () => {
+      const { HomeGoodsHome } = await import('./home-goods');
+      return { Home: HomeGoodsHome };
+    },
+    mockData: {
+      merchant: {
+        ...defaultMockMerchant,
+        id: 'home-goods-preview',
+        business_name: 'Haven Home',
+        business_type: 'HOME_GOODS',
+        brand_colors: {
+          primary: '#8B4513',
+          background: '#FAF8F5',
+          accent: '#D4A574',
+        },
+      },
+    },
+    tags: ['home', 'furniture', 'decor', 'lifestyle', 'warm'],
+  },
+
+  'food-beverage': {
+    id: 'food-beverage',
+    name: 'Artisan Kitchen',
+    description: 'Warm, rustic template for gourmet food e-commerce with dietary filters and recipe inspiration',
+    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/food_template_hero_1765034186701.png',
+    category: 'general',
+    status: 'production',
+    version: '1.0.0',
+    engine: {
+      products: true,
+      cart: true,
+      checkout: true,
+      customerAuth: false,
+      wishlist: false,
+      orderTracking: false,
+    },
+    getComponents: async () => {
+      const { FoodBeverageHome } = await import('./food-beverage');
+      return { Home: FoodBeverageHome };
+    },
+    mockData: {
+      merchant: {
+        ...defaultMockMerchant,
+        id: 'food-beverage-preview',
+        business_name: 'Artisan Kitchen',
+        business_type: 'FOOD_BEVERAGE',
+        brand_colors: {
+          primary: '#D2691E',
+          background: '#FFF8E7',
+          accent: '#556B2F',
+        },
+      },
+    },
+    tags: ['food', 'gourmet', 'organic', 'artisan', 'recipes'],
+  },
+
+  beauty: {
+    id: 'beauty',
+    name: 'Radiant Beauty',
+    description: 'Minimalist luxury template for health & beauty brands with skin quiz and ingredient focus',
+    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/beauty_products_section_1765033465009.png',
+    category: 'general',
+    status: 'production',
+    version: '1.0.0',
+    engine: {
+      products: true,
+      cart: true,
+      checkout: true,
+      customerAuth: false,
+      wishlist: false,
+      orderTracking: false,
+    },
+    getComponents: async () => {
+      const { BeautyHome } = await import('./beauty');
+      return { Home: BeautyHome };
+    },
+    mockData: {
+      merchant: {
+        ...defaultMockMerchant,
+        id: 'beauty-preview',
+        business_name: 'Radiant Beauty',
+        business_type: 'HEALTH_BEAUTY',
+        brand_colors: {
+          primary: '#FFD6E8',
+          background: '#FAF9F6',
+          accent: '#B76E79',
+        },
+      },
+    },
+    tags: ['beauty', 'skincare', 'wellness', 'luxury', 'minimalist'],
+  },
+
+  'hair-extensions': {
+    id: 'hair-extensions',
+    name: 'Glamour Hair Studio',
+    description: 'Dark luxury template for hair extensions and wigs with texture/length filters and tutorials',
+    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/hair_template_hero_1765034748122.png',
+    category: 'general',
+    status: 'production',
+    version: '1.0.0',
+    engine: {
+      products: true,
+      cart: true,
+      checkout: true,
+      customerAuth: false,
+      wishlist: false,
+      orderTracking: false,
+    },
+    getComponents: async () => {
+      const { HairExtensionsHome } = await import('./hair-extensions');
+      return { Home: HairExtensionsHome };
+    },
+    mockData: {
+      merchant: {
+        ...defaultMockMerchant,
+        id: 'hair-extensions-preview',
+        business_name: 'Glamour Hair Studio',
+        business_type: 'HAIR_EXTENSIONS',
+        brand_colors: {
+          primary: '#B76E79',
+          background: '#1A1A1A',
+          accent: '#F5D0C5',
+        },
+      },
+    },
+    tags: ['hair', 'extensions', 'wigs', 'beauty', 'glamour'],
+  },
+
+  pharmaceutical: {
+    id: 'pharmaceutical',
+    name: 'MedCare Pharmacy',
+    description: 'Professional pharmacy template with trust signals and prescription upload',
+    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/pharmaceutical_template_screenshot_final_1765032763119.png',
+    category: 'general',
+    status: 'production',
+    version: '1.0.0',
+    engine: {
+      products: true,
+      cart: true,
+      checkout: true,
+      customerAuth: false,
+      wishlist: false,
+      orderTracking: false,
+    },
+    getComponents: async () => {
+      const { PharmaceuticalHome } = await import('./pharmaceutical');
+      return { Home: PharmaceuticalHome };
+    },
+    mockData: {
+      merchant: {
+        ...defaultMockMerchant,
+        id: 'pharmaceutical-preview',
+        business_name: 'MedCare Pharmacy',
+        business_type: 'PHARMACEUTICALS',
+        brand_colors: {
+          primary: '#2563EB',
+          background: '#FFFFFF',
+          accent: '#10B981',
+        },
+      },
+    },
+    tags: ['pharmacy', 'medical', 'healthcare', 'professional', 'trust'],
+  },
+
   // ---------------------------------------------------------------------------
   // BETA TEMPLATES
   // ---------------------------------------------------------------------------
@@ -254,6 +436,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     id: 'ogabassey-v2',
     name: 'Ogabassey V2',
     description: 'Modern dark theme for gadget stores with advanced features',
+    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/ogabassey_v2_preview_1765030123136.png',
     category: 'gadgets',
     status: 'beta',
     version: '2.1.0-beta',
@@ -390,56 +573,38 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
 
   artisan: {
     id: 'artisan',
-    name: 'Artisan',
-    description: 'Handcrafted template for artisan and boutique stores',
+    name: 'The Artisan Collective',
+    description: 'Warm, authentic template for handcrafted and artisan products with maker story and custom orders',
+    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/artisan_template_hero_1765035110905.png',
     category: 'general',
-    status: 'draft',
-    version: '0.1.0',
+    status: 'production',
+    version: '1.0.0',
     engine: {
-      products: false,
-      cart: false,
-      checkout: false,
+      products: true,
+      cart: true,
+      checkout: true,
       customerAuth: false,
       wishlist: false,
       orderTracking: false,
     },
     getComponents: async () => {
-      const ArtisanHome: ComponentType<TemplatePageProps> = (props) => {
-        return (
-          <div className="min-h-screen bg-amber-50">
-            <div className="max-w-4xl mx-auto py-20 px-6 text-center">
-              <h1 className="text-4xl font-serif text-amber-900 mb-4">
-                {props.merchant?.business_name || 'Artisan Store'}
-              </h1>
-              <p className="text-amber-700 mb-8">
-                Handcrafted goods made with love
-              </p>
-              <div className="bg-white rounded-lg shadow-lg p-8">
-                <p className="text-gray-600">
-                  🎨 Artisan template coming soon. This will feature warm colors,
-                  serif typography, and a handcrafted aesthetic.
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      };
-      return { Home: ArtisanHome };
+      const { HandmadeHome } = await import('./artisan');
+      return { Home: HandmadeHome };
     },
     mockData: {
       merchant: {
         ...defaultMockMerchant,
         id: 'artisan-preview',
-        business_name: 'Artisan Crafts',
-        business_type: 'GENERAL',
+        business_name: 'The Artisan Collective',
+        business_type: 'HANDMADE',
         brand_colors: {
-          primary: '#92400E',
-          background: '#FFFBEB',
-          accent: '#D97706',
+          primary: '#C4785E',
+          background: '#FAF6F1',
+          accent: '#7D8B6C',
         },
       },
     },
-    tags: ['artisan', 'boutique', 'handcrafted', 'warm', 'work-in-progress'],
+    tags: ['artisan', 'handmade', 'crafts', 'boutique', 'maker'],
   },
 
   modern: {
@@ -499,70 +664,6 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
       },
     },
     tags: ['modern', 'minimal', 'clean', 'contemporary', 'work-in-progress'],
-  },
-
-  tech: {
-    id: 'tech',
-    name: 'Tech',
-    description: 'Dark theme template optimized for electronics and tech stores',
-    category: 'gadgets',
-    status: 'draft',
-    version: '0.1.0',
-    engine: {
-      products: false,
-      cart: false,
-      checkout: false,
-      customerAuth: false,
-      wishlist: false,
-      orderTracking: false,
-    },
-    getComponents: async () => {
-      const TechHome: ComponentType<TemplatePageProps> = (props) => {
-        return (
-          <div className="min-h-screen bg-gray-950 text-white">
-            <div className="max-w-6xl mx-auto py-20 px-6">
-              <div className="text-center mb-16">
-                <h1 className="text-5xl font-bold tracking-tight mb-4 bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                  {props.merchant?.business_name || 'Tech Store'}
-                </h1>
-                <p className="text-gray-400 text-lg">
-                  The future of technology, today.
-                </p>
-              </div>
-              <div className="grid grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map((i) => (
-                  <div
-                    key={i}
-                    className="aspect-square bg-gray-900 rounded-lg border border-gray-800"
-                  />
-                ))}
-              </div>
-              <div className="mt-12 p-8 bg-gray-900 rounded-lg border border-gray-800 text-center">
-                <p className="text-gray-400">
-                  🚀 Tech template coming soon. Dark mode, neon accents,
-                  and futuristic vibes.
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      };
-      return { Home: TechHome };
-    },
-    mockData: {
-      merchant: {
-        ...defaultMockMerchant,
-        id: 'tech-preview',
-        business_name: 'TechZone',
-        business_type: 'ELECTRONICS',
-        brand_colors: {
-          primary: '#06B6D4',
-          background: '#030712',
-          accent: '#3B82F6',
-        },
-      },
-    },
-    tags: ['tech', 'electronics', 'dark', 'futuristic', 'work-in-progress'],
   },
 };
 
