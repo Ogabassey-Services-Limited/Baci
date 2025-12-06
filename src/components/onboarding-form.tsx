@@ -24,6 +24,7 @@ import {
   Upload,
   Wand2,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -50,9 +51,7 @@ import {
   trackMerchantSignupCompleted,
   trackMerchantSignupStarted,
 } from '@/components/analytics/platform-analytics-provider';
-import { BusinessNameGeneratorModal } from '@/components/business-name-generator-modal';
 import { Logo } from '@/components/logo';
-import { LogoGeneratorModal } from '@/components/logo-generator-modal';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { Button } from '@/components/ui/button';
 import {
@@ -76,6 +75,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { TypingPlaceholderInput } from '@/components/ui/typing-placeholder-input';
 import { getAllBusinessTypes } from '@/config/business-types';
 import { useToast } from '@/hooks/use-toast';
@@ -90,10 +90,53 @@ import {
 } from '@/schemas/onboarding';
 import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
 import type { BrandColors } from '@/types';
-import { ColorPicker } from './color-picker';
-import { OnboardingPuckPreview } from './onboarding-puck-preview';
-import { OnboardingTemplateEditor } from './onboarding-template-editor';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+
+// Dynamically import heavy interactive components
+const ColorPicker = dynamic(
+  () => import('./color-picker').then((mod) => mod.ColorPicker),
+  {
+    loading: () => <Skeleton className="h-[200px] w-full rounded-md" />,
+  }
+);
+
+const OnboardingPuckPreview = dynamic(
+  () =>
+    import('./onboarding-puck-preview').then(
+      (mod) => mod.OnboardingPuckPreview
+    ),
+  {
+    ssr: false, // Puck is client-side only
+    loading: () => <Skeleton className="h-full w-full min-h-[500px]" />,
+  }
+);
+
+const OnboardingTemplateEditor = dynamic(
+  () =>
+    import('./onboarding-template-editor').then(
+      (mod) => mod.OnboardingTemplateEditor
+    ),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-full w-full min-h-[400px]" />,
+  }
+);
+
+const BusinessNameGeneratorModal = dynamic(
+  () =>
+    import('@/components/business-name-generator-modal').then(
+      (mod) => mod.BusinessNameGeneratorModal
+    ),
+  { ssr: false }
+);
+
+const LogoGeneratorModal = dynamic(
+  () =>
+    import('@/components/logo-generator-modal').then(
+      (mod) => mod.LogoGeneratorModal
+    ),
+  { ssr: false }
+);
 
 extend([a11yPlugin]);
 

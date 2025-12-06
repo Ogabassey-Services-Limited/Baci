@@ -253,5 +253,3 @@ export function NotificationBannerStack({
     </div>
   );
 }
-
-export default NotificationBanner;

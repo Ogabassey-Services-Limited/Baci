@@ -167,5 +167,3 @@ export function WebVitalsReporter({
   // This component doesn't render anything
   return null;
 }
-
-export default WebVitalsReporter;

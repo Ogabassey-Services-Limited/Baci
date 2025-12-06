@@ -302,5 +302,3 @@ export const trackEvent = {
     analytics.pageView(pageUrl, pageTitle);
   },
 };
-
-export default trackEvent;

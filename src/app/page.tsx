@@ -22,6 +22,9 @@ import { PlatformHeader } from '@/components/platform/header';
 import { Button } from '@/components/ui/button';
 import { getLandingMetrics } from './actions';
 
+// Revalidate every 12 hours (ISR)
+export const revalidate = 43200;
+
 // Interface for metrics
 interface LandingMetrics {
   merchants: number;

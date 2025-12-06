@@ -403,5 +403,3 @@ export function SetupInstructions({
     </Collapsible>
   );
 }
-
-export default SetupInstructions;

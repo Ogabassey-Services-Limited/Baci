@@ -314,5 +314,3 @@ export function useMerchantFeatures() {
       settings?.shipping_insurance_opt_in_default ?? false,
   };
 }
-
-export default useMerchantFeatures;

@@ -334,7 +334,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
         },
       },
     },
-    tags: ['gadgets', 'modern', 'interactive', 'wip'],
+    tags: ['gadgets', 'modern', 'interactive', 'work-in-progress'],
     createdAt: '2024-12-04',
     updatedAt: '2024-12-05',
   },
@@ -385,7 +385,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
         },
       },
     },
-    tags: ['minimal', 'clean', 'light', 'wip'],
+    tags: ['minimal', 'clean', 'light', 'work-in-progress'],
   },
 
   artisan: {
@@ -439,7 +439,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
         },
       },
     },
-    tags: ['artisan', 'boutique', 'handcrafted', 'warm', 'wip'],
+    tags: ['artisan', 'boutique', 'handcrafted', 'warm', 'work-in-progress'],
   },
 
   modern: {
@@ -498,7 +498,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
         },
       },
     },
-    tags: ['modern', 'minimal', 'clean', 'contemporary', 'wip'],
+    tags: ['modern', 'minimal', 'clean', 'contemporary', 'work-in-progress'],
   },
 
   tech: {
@@ -562,7 +562,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
         },
       },
     },
-    tags: ['tech', 'electronics', 'dark', 'futuristic', 'wip'],
+    tags: ['tech', 'electronics', 'dark', 'futuristic', 'work-in-progress'],
   },
 };
 

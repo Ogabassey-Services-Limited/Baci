@@ -326,5 +326,3 @@ export const analytics = {
     sendFBEvent('Lead', { value, currency });
   },
 };
-
-export default analytics;

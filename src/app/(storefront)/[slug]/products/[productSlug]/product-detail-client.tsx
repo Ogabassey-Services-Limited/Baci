@@ -1,14 +1,11 @@
 'use client';
 
 import { ArrowLeft, Check, Info, Minus, Plus, ShoppingBag } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Cart } from '@/components/cart';
 import { Breadcrumbs } from '@/components/storefront/breadcrumbs';
-import { RecentlyViewedProducts } from '@/components/storefront/recently-viewed';
-import { RelatedProducts } from '@/components/storefront/related-products';
-import { ReviewsSection } from '@/components/storefront/reviews-section';
 import { StickyAddToCart } from '@/components/storefront/sticky-add-to-cart';
 import { ThemedBadge, ThemedButton } from '@/components/themed';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -16,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrency } from '@/hooks/use-currency';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -25,6 +23,41 @@ import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { trackEvent } from '@/lib/event-tracking';
 import type { Product, ProductVariant } from '@/lib/products';
 import { cn } from '@/lib/utils';
+
+// Lazy load heavy components to reduce initial bundle size
+const Cart = dynamic(() => import('@/components/cart').then((mod) => mod.Cart), {
+  ssr: false, // Cart is client-side only
+});
+
+const ReviewsSection = dynamic(
+  () =>
+    import('@/components/storefront/reviews-section').then(
+      (mod) => mod.ReviewsSection
+    ),
+  {
+    loading: () => <Skeleton className="h-[400px] w-full rounded-xl" />,
+  }
+);
+
+const RelatedProducts = dynamic(
+  () =>
+    import('@/components/storefront/related-products').then(
+      (mod) => mod.RelatedProducts
+    ),
+  {
+    loading: () => <Skeleton className="h-[300px] w-full rounded-xl" />,
+  }
+);
+
+const RecentlyViewedProducts = dynamic(
+  () =>
+    import('@/components/storefront/recently-viewed').then(
+      (mod) => mod.RecentlyViewedProducts
+    ),
+  {
+    loading: () => <Skeleton className="h-[300px] w-full rounded-xl" />,
+  }
+);
 
 /**
  * Extract unique attribute types and their values from variants
@@ -169,9 +202,9 @@ export default function ProductDetailClient({ product }: { product: Product }) {
       quantity,
       selectedVariant
         ? {
-            variantId: selectedVariant.id,
-            variantAttributes: selectedAttributes,
-          }
+          variantId: selectedVariant.id,
+          variantAttributes: selectedAttributes,
+        }
         : undefined
     );
 
@@ -224,10 +257,10 @@ export default function ProductDetailClient({ product }: { product: Product }) {
 
   const brandColors = merchant?.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -284,11 +317,11 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               items={[
                 ...(product.category
                   ? [
-                      {
-                        label: product.category,
-                        href: `/?category=${encodeURIComponent(product.category)}`,
-                      },
-                    ]
+                    {
+                      label: product.category,
+                      href: `/?category=${encodeURIComponent(product.category)}`,
+                    },
+                  ]
                   : []),
                 { label: product.name },
               ]}
@@ -533,8 +566,8 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                               product.id,
                               Math.max(
                                 Number.parseInt(e.target.value, 10) ||
-                                  product.minimum_order_quantity ||
-                                  1,
+                                product.minimum_order_quantity ||
+                                1,
                                 product.minimum_order_quantity || 1
                               ),
                               selectedVariant?.id
