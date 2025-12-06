@@ -52,11 +52,15 @@ export async function generateMetadata({
     };
   }
 
-  const title = merchant.site_title || merchant.business_name;
+  const title =
+    merchant?.site_title ||
+    (merchant?.business_name
+      ? `${merchant.business_name} - Official Online Store`
+      : 'Official Online Store');
   const description =
     merchant.site_description ||
     merchant.site_tagline ||
-    `Welcome to ${merchant.business_name}`;
+    `Shop at ${merchant.business_name}. Browse our collection and enjoy convenient delivery.`;
 
   const headersList = await headers();
   const host = headersList.get('host') || `${slug}.localhost:3000`;
