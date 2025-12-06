@@ -208,7 +208,7 @@ export default function TemplateGalleryPage() {
           </section>
         )}
       </div>
-    </div >
+    </div>
   );
 }
 

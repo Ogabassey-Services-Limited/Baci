@@ -6,7 +6,6 @@ import {
     Shield,
     Truck,
     Phone,
-    Clock,
     Upload,
     CheckCircle2,
     Pill,

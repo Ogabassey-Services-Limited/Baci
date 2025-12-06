@@ -120,110 +120,17 @@ export async function getOrders(
     source: order.source === 'online_store' ? 'other' : order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
-    items: (order.order_items || [])
-      .map((item: any) => ({
-        id: item.id,
-        name: item.name || 'Unknown Product',
-        quantity: item.quantity,
-        price: Number.parseFloat(item.price || 0),
-        image: undefined,
-        variant: item.variant_name || undefined,
-      }))
-      .concat(
-        order.order_number === '#00000001'
-          ? [
-              {
-                id: 'mock1',
-                name: 'Vintage Sunglasses',
-                quantity: 1,
-                price: 4500,
-                image: undefined,
-                variant: 'Black',
-              },
-              {
-                id: 'mock2',
-                name: 'Cotton T-Shirt',
-                quantity: 2,
-                price: 2000,
-                image: undefined,
-                variant: 'L / White',
-              },
-              {
-                id: 'mock3',
-                name: 'Leather Belt',
-                quantity: 1,
-                price: 3500,
-                image: undefined,
-                variant: 'Brown',
-              },
-            ]
-          : []
-      ),
+    items: (order.order_items || []).map((item: any) => ({
+      id: item.id,
+      name: item.name || 'Unknown Product',
+      quantity: item.quantity,
+      price: Number.parseFloat(item.price || 0),
+      image: undefined,
+      variant: item.variant_name || undefined,
+    })),
   }));
 
-  // --- MOCK DATA GENERATION FOR UI TESTING ---
-  const mockOrders: Order[] = [];
-  const customers = [
-    'Alice Johnson',
-    'Bob Smith',
-    'Charlie Brown',
-    'Diana Prince',
-    'Evan Wright',
-  ];
-  const products = [
-    { name: 'Wireless Headphones', price: 15000 },
-    { name: 'Running Shoes', price: 25000 },
-    { name: 'Yoga Mat', price: 5000 },
-    { name: 'Water Bottle', price: 3000 },
-    { name: 'Protein Powder', price: 12000 },
-    { name: 'Smart Watch', price: 45000 },
-    { name: 'Gym Bag', price: 8000 },
-    { name: 'Resistance Bands', price: 2500 },
-  ];
-
-  for (let i = 1; i <= 10; i++) {
-    const randomDate = new Date();
-    randomDate.setDate(randomDate.getDate() - Math.floor(Math.random() * 7));
-
-    const itemCount = [3, 5, 7, 2, 8][Math.floor(Math.random() * 5)];
-    const mockItems = Array.from({ length: itemCount }).map((_, idx) => {
-      const prod = products[Math.floor(Math.random() * products.length)];
-      return {
-        id: `mock-item-${i}-${idx}`,
-        name: prod.name,
-        quantity: Math.floor(Math.random() * 3) + 1,
-        price: prod.price,
-        image: undefined,
-        variant: Math.random() > 0.5 ? 'Default' : undefined,
-      };
-    });
-
-    mockOrders.push({
-      id: `mock-order-${i}`,
-      orderNumber: `#MOCK${i.toString().padStart(4, '0')}`,
-      customerName: customers[Math.floor(Math.random() * customers.length)],
-      total: mockItems.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0
-      ),
-      shippingStatus: ['Pending', 'Processing', 'Shipped', 'Delivered'][
-        Math.floor(Math.random() * 4)
-      ] as ShippingStatus,
-      paymentStatus: ['Paid', 'Unpaid', 'Pending'][
-        Math.floor(Math.random() * 3)
-      ] as PaymentStatus,
-      date: randomDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      }),
-      createdAt: randomDate.getTime(),
-      source: Math.random() > 0.5 ? 'online_store' : 'instagram',
-      items: mockItems,
-    });
-  }
-
-  return [...realOrders, ...mockOrders];
+  return realOrders;
 }
 
 export async function getOrderStats(merchantId: string): Promise<OrderStats> {

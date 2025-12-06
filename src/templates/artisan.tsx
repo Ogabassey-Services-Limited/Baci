@@ -11,7 +11,6 @@ import {
   Leaf,
   Package,
   MessageCircle,
-  Award
 } from 'lucide-react';
 import { useState } from 'react';
 

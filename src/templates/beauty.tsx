@@ -8,7 +8,6 @@ import {
     Sun,
     Moon,
     Heart,
-    Leaf,
     ShieldCheck,
     Star
 } from 'lucide-react';
