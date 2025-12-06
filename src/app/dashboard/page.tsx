@@ -35,10 +35,8 @@ export default async function DashboardPage() {
       const errorContext = ['metrics', 'recentSales', 'monthlyChartData'][
         index
       ];
-      console.error(
-        `Failed to fetch dashboard ${errorContext}:`,
-        result.reason
-      );
+      // Use separate arguments for structured logging and to prevent log injection
+      console.error('Failed to fetch dashboard data:', errorContext, result.reason);
     }
   });
 
