@@ -10,6 +10,35 @@ export const metadata = {
   title: 'Dashboard - Baci',
 };
 
+// Configuration constants
+const RECENT_SALES_LIMIT = 5;
+
+// Promise configurations for dashboard data fetching
+const createPromiseConfigs = (merchantId: string) => [
+  { promise: () => getDashboardMetrics(merchantId), context: 'metrics' },
+  {
+    promise: () => getRecentSales(merchantId, RECENT_SALES_LIMIT),
+    context: 'recentSales',
+  },
+  { promise: () => getMonthlyChartData(merchantId), context: 'monthlyChartData' },
+];
+
+// Sanitize error output to avoid leaking sensitive info
+function sanitizeError(reason: unknown): string {
+  if (
+    reason &&
+    typeof reason === 'object' &&
+    'message' in reason &&
+    typeof (reason as { message: unknown }).message === 'string'
+  ) {
+    return (reason as { message: string }).message;
+  }
+  if (typeof reason === 'string') {
+    return reason;
+  }
+  return 'Unknown error';
+}
+
 export default async function DashboardPage() {
   const { merchant } = await getMerchantForUser();
 
@@ -17,12 +46,12 @@ export default async function DashboardPage() {
     return <DashboardClientPage />;
   }
 
+  const promiseConfigs = createPromiseConfigs(merchant.id);
+
   // Use Promise.allSettled to handle partial failures gracefully
-  const results = await Promise.allSettled([
-    getDashboardMetrics(merchant.id),
-    getRecentSales(merchant.id, 5),
-    getMonthlyChartData(merchant.id),
-  ]);
+  const results = await Promise.allSettled(
+    promiseConfigs.map((cfg) => cfg.promise())
+  );
 
   const metrics = results[0].status === 'fulfilled' ? results[0].value : null;
   const recentSales = results[1].status === 'fulfilled' ? results[1].value : [];
@@ -32,17 +61,19 @@ export default async function DashboardPage() {
   // Log any errors for debugging
   results.forEach((result, index) => {
     if (result.status === 'rejected') {
-      const errorContext = ['metrics', 'recentSales', 'monthlyChartData'][
-        index
-      ];
-      // Use separate arguments for structured logging and to prevent log injection
-      console.error('Failed to fetch dashboard data:', errorContext, result.reason);
+      const errorContext = promiseConfigs[index].context;
+      // Log only a sanitized version of the error
+      console.error(
+        'Failed to fetch dashboard data:',
+        errorContext,
+        sanitizeError(result.reason)
+      );
     }
   });
 
   return (
     <DashboardClientPage
-      initialMetrics={metrics || undefined}
+      initialMetrics={metrics ?? undefined}
       initialRecentSales={recentSales}
       initialChartData={monthlyChartData}
     />

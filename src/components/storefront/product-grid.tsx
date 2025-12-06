@@ -28,6 +28,26 @@ interface StorefrontProductGridProps {
   showFilters?: boolean;
 }
 
+// Static Tailwind class mappings to ensure classes are included in the build
+const GRID_COLUMN_CLASSES: Record<number, string> = {
+  2: 'lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+  4: 'lg:grid-cols-4',
+  5: 'lg:grid-cols-5',
+  6: 'lg:grid-cols-6',
+};
+
+const STAGGER_CLASSES = [
+  'stagger-1',
+  'stagger-2',
+  'stagger-3',
+  'stagger-4',
+  'stagger-5',
+  'stagger-6',
+  'stagger-7',
+  'stagger-8',
+];
+
 export function StorefrontProductGrid({
   title = 'Shop By',
   columns = 4,
@@ -280,7 +300,7 @@ export function StorefrontProductGrid({
     filterType,
     useServerSearch,
     serverSearchResults,
-    priceRanges.find,
+    priceRanges,
   ]);
 
   const handleAddToCart = (product: Product) => {
@@ -429,12 +449,12 @@ export function StorefrontProductGrid({
           />
         ) : searchResults.length > 0 ? (
           <div
-            className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-${columns} gap-6`}
+            className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 ${GRID_COLUMN_CLASSES[columns] || GRID_COLUMN_CLASSES[4]} gap-6`}
           >
             {searchResults.map((product, index) => {
               const cartItem = cart.find((item) => item.id === product.id);
               // Stagger animation class (1-8, then loops)
-              const staggerClass = `stagger-${(index % 8) + 1}`;
+              const staggerClass = STAGGER_CLASSES[index % STAGGER_CLASSES.length];
 
               return (
                 <ThemedCard

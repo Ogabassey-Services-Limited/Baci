@@ -154,38 +154,12 @@ export async function GET(request: NextRequest) {
           )
         );
       } else {
-        // Fallback to individual queries if batch function doesn't exist
-        const statsPromises = notificationIds.map(async (id: string) => {
-          const { data: stats, error: statsError } = await supabase.rpc(
-            'get_notification_stats',
-            {
-              p_notification_id: id,
-            }
-          );
-          if (statsError) {
-            // Use separate arguments for consistency with security best practices
-            console.warn(
-              'Failed to fetch stats for notification:',
-              id,
-              statsError.message
-            );
-          }
-          return { id, stats: stats?.[0] };
-        });
-        const individualStats = await Promise.all(statsPromises);
-        statsMap = new Map(
-          individualStats
-            .filter((s) => s.stats)
-            .map((s) => [
-              s.id,
-              s.stats as {
-                total_sent: number;
-                total_read: number;
-                total_dismissed: number;
-                read_rate: number;
-              },
-            ])
+        // If batch function is unavailable, stats will be missing for notifications.
+        // Instead of performing N+1 individual queries, we'll proceed with default stats.
+        console.warn(
+          'Batch stats RPC unavailable, proceeding with default stats'
         );
+        statsMap = new Map();
       }
     }
 
@@ -343,7 +317,18 @@ export async function POST(request: NextRequest) {
 
         if (rpcError) {
           console.error('Error sending to all merchants:', rpcError);
-          // Consider rolling back or marking notification as failed
+          // Mark notification as failed in the database for consistency
+          await supabase
+            .from('notifications')
+            .update({ status: 'failed' })
+            .eq('id', notification.id);
+          return NextResponse.json(
+            {
+              error: 'Failed to send notification to all merchants',
+              notification_id: notification.id,
+            },
+            { status: 500 }
+          );
         }
         merchantsSent = count || 0;
 
@@ -398,8 +383,6 @@ export async function POST(request: NextRequest) {
 
       // Broadcast to connected clients via Supabase Realtime
       // This is done by creating a broadcast message on the notification channel
-      // Broadcast to connected clients via Supabase Realtime
-      // This is done by creating a broadcast message on the notification channel
       await broadcastNotification(supabase, notification, broadcastMerchantIds);
 
       return NextResponse.json(
@@ -450,18 +433,13 @@ async function getSegmentMerchantIds(
     }
     case 'active':
       // TODO: Implement proper active merchant logic using merchant_health view
-      console.warn('Segment "active" not yet implemented, returning empty set');
-      return [];
+      throw new Error('Segment "active" is not yet implemented');
     case 'at_risk':
       // TODO: Implement proper at-risk merchant logic using merchant_health view
-      console.warn(
-        'Segment "at_risk" not yet implemented, returning empty set'
-      );
-      return [];
+      throw new Error('Segment "at_risk" is not yet implemented');
     default:
-      // Use separate arguments for structured logging and to prevent log injection
-      console.warn('Unknown segment, returning empty set:', segment);
-      return [];
+      // Reject unknown segments explicitly
+      throw new Error(`Unknown segment "${segment}" requested`);
   }
 
   const { data } = await query;

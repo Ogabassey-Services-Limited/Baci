@@ -25,7 +25,6 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
@@ -58,9 +57,10 @@ export const OgabasseyV2Navbar: React.FC<NavbarProps> = ({
   const { cart } = useCart();
   const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
   // const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
-  const notifications: any[] = [];
+  // Temporary notification state until NotificationContext is migrated
+  const notifications: { id: string; message: string }[] = [];
   const unreadCount = 0;
-  const markAsRead = (_id: any) => {};
+  const markAsRead = (_id: string) => {};
   const markAllAsRead = () => {};
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
@@ -70,15 +70,13 @@ export const OgabasseyV2Navbar: React.FC<NavbarProps> = ({
   // Notification UI State
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const [_isSourceModalOpen, setIsSourceModalOpen] = useState(false);
+  const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const searchRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const categoryRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
-
-  const _router = useRouter();
 
   // Scroll visibility logic
   const [isVisible, setIsVisible] = useState(true);
