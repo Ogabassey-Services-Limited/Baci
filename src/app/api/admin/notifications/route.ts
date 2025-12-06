@@ -163,8 +163,10 @@ export async function GET(request: NextRequest) {
             }
           );
           if (statsError) {
+            // Use separate arguments for consistency with security best practices
             console.warn(
-              `Failed to fetch stats for notification ${id}:`,
+              'Failed to fetch stats for notification:',
+              id,
               statsError.message
             );
           }
@@ -457,7 +459,8 @@ async function getSegmentMerchantIds(
       );
       return [];
     default:
-      console.warn(`Unknown segment "${segment}", returning empty set`);
+      // Use separate arguments for structured logging and to prevent log injection
+      console.warn('Unknown segment, returning empty set:', segment);
       return [];
   }
 

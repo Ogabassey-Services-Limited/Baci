@@ -17,7 +17,6 @@
       "!**/src/app/page.backup.tsx",
       "!**/src/app/page.tsx.bak",
       "!**/src/app/globals.css",
-      "!**/temp-source",
       "!**/src/components/storefront/new-template",
       "!**/src/components/storefront/ogabassey-v2",
       "!**/src/components/storefront/lumina",
