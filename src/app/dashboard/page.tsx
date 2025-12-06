@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import {
   getDashboardMetrics,
@@ -5,6 +6,7 @@ import {
   getRecentSales,
 } from './actions';
 import DashboardClientPage from './client-page';
+import DashboardLoading from './loading';
 
 export const metadata = {
   title: 'Dashboard - Baci',
@@ -29,7 +31,8 @@ function sanitizeError(reason: unknown): string {
   return 'Unknown error';
 }
 
-export default async function DashboardPage() {
+// Component to fetch and pass data
+async function DashboardData() {
   const { merchant } = await getMerchantForUser();
 
   if (!merchant) {
@@ -51,7 +54,7 @@ export default async function DashboardPage() {
   const monthlyChartData =
     chartDataResult.status === 'fulfilled' ? chartDataResult.value : [];
 
-  // Log any errors for debugging
+  // Log any errors for debugging with sanitized output
   if (metricsResult.status === 'rejected') {
     console.error(
       'Failed to fetch dashboard metrics:',
@@ -77,5 +80,13 @@ export default async function DashboardPage() {
       initialRecentSales={recentSales}
       initialChartData={monthlyChartData}
     />
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      <DashboardData />
+    </Suspense>
   );
 }
