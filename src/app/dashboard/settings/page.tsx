@@ -26,7 +26,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { SetupInstructions } from '@/components/analytics/setup-instructions';
+
 import { ColorPicker } from '@/components/color-picker';
 import { Button } from '@/components/ui/button';
 import {
@@ -141,17 +141,7 @@ export default function SettingsPage() {
     support_phone: '',
     business_address: '',
   });
-  const [analyticsSettings, setAnalyticsSettings] = useState({
-    google_analytics_id: '',
-    ga4_api_secret: '',
-    facebook_pixel_id: '',
-    facebook_capi_token: '',
-    tiktok_pixel_id: '',
-    tiktok_access_token: '',
-    snapchat_pixel_id: '',
-    snapchat_capi_token: '',
-    twitter_pixel_id: '',
-  });
+  /* Analytics moved to Integrations pages */
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
@@ -187,17 +177,7 @@ export default function SettingsPage() {
         support_phone: (merchantData.support_phone as string) || '',
         business_address: (merchantData.business_address as string) || '',
       });
-      setAnalyticsSettings({
-        google_analytics_id: (merchantData.google_analytics_id as string) || '',
-        ga4_api_secret: (merchantData.ga4_api_secret as string) || '',
-        facebook_pixel_id: (merchantData.facebook_pixel_id as string) || '',
-        facebook_capi_token: (merchantData.facebook_capi_token as string) || '',
-        tiktok_pixel_id: (merchantData.tiktok_pixel_id as string) || '',
-        tiktok_access_token: (merchantData.tiktok_access_token as string) || '',
-        snapchat_pixel_id: (merchantData.snapchat_pixel_id as string) || '',
-        snapchat_capi_token: (merchantData.snapchat_capi_token as string) || '',
-        twitter_pixel_id: (merchantData.twitter_pixel_id as string) || '',
-      });
+      /* Analytics hydration moved */
     }
   }, [merchant, form]);
 
@@ -315,15 +295,7 @@ export default function SettingsPage() {
         support_email: contactInfo.support_email || null,
         support_phone: contactInfo.support_phone || null,
         business_address: contactInfo.business_address || null,
-        google_analytics_id: analyticsSettings.google_analytics_id || null,
-        ga4_api_secret: analyticsSettings.ga4_api_secret || null,
-        facebook_pixel_id: analyticsSettings.facebook_pixel_id || null,
-        facebook_capi_token: analyticsSettings.facebook_capi_token || null,
-        tiktok_pixel_id: analyticsSettings.tiktok_pixel_id || null,
-        tiktok_access_token: analyticsSettings.tiktok_access_token || null,
-        snapchat_pixel_id: analyticsSettings.snapchat_pixel_id || null,
-        snapchat_capi_token: analyticsSettings.snapchat_capi_token || null,
-        twitter_pixel_id: analyticsSettings.twitter_pixel_id || null,
+        /* Analytics fields updated via Integrations pages */
       } as Parameters<typeof updateMerchant>[0]);
       toast({
         title: 'Settings Saved!',
@@ -436,7 +408,7 @@ export default function SettingsPage() {
                                     style={{
                                       backgroundColor:
                                         brandColors[
-                                          role as keyof typeof brandColors
+                                        role as keyof typeof brandColors
                                         ],
                                     }}
                                   />
@@ -449,7 +421,7 @@ export default function SettingsPage() {
                                 <ColorPicker
                                   color={
                                     brandColors[
-                                      role as keyof typeof brandColors
+                                    role as keyof typeof brandColors
                                     ]
                                   }
                                   onChange={(newColor) =>
@@ -817,8 +789,8 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Contact Information</CardTitle>
               <CardDescription>
-                Add your contact details to display in your store footer. This
-                helps customers reach you.
+                These details will be displayed in your store footer, making it
+                easy for customers to contact you for support.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -891,269 +863,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          <Card className="glass">
-            <CardHeader>
-              <CardTitle>Analytics & Tracking</CardTitle>
-              <CardDescription>
-                Connect your analytics accounts to track visitor behavior and
-                conversions.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Google Analytics */}
-              <div className="space-y-2">
-                <Label
-                  htmlFor="google_analytics_id"
-                  className="flex items-center gap-2"
-                >
-                  <svg
-                    className="w-4 h-4 text-orange-500"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-label="Google Analytics"
-                    role="img"
-                  >
-                    <path d="M22.84 2.998a2.157 2.157 0 0 0-2.157-2.16 2.157 2.157 0 1 0 0 4.314 2.157 2.157 0 0 0 2.157-2.154zm-2.157 6.312a2.157 2.157 0 0 0-2.157 2.157v10.376a2.157 2.157 0 0 0 4.314 0V11.467a2.157 2.157 0 0 0-2.157-2.157zM7.157 0A7.157 7.157 0 0 0 0 7.157v9.686a7.157 7.157 0 0 0 14.314 0V7.157A7.157 7.157 0 0 0 7.157 0zm2.843 16.843a2.843 2.843 0 1 1-5.686 0V7.157a2.843 2.843 0 0 1 5.686 0v9.686z" />
-                  </svg>
-                  Google Analytics 4
-                </Label>
-                <Input
-                  id="google_analytics_id"
-                  placeholder="G-XXXXXXXXXX"
-                  value={analyticsSettings.google_analytics_id}
-                  onChange={(e) =>
-                    setAnalyticsSettings({
-                      ...analyticsSettings,
-                      google_analytics_id: e.target.value,
-                    })
-                  }
-                />
-                <SetupInstructions platform="google" />
 
-                {analyticsSettings.google_analytics_id && (
-                  <div className="mt-3 pl-4 border-l-2 border-orange-200 space-y-2">
-                    <Label
-                      htmlFor="ga4_api_secret"
-                      className="text-sm text-muted-foreground"
-                    >
-                      Measurement Protocol API Secret (Server-Side)
-                      <span className="ml-2 text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">
-                        Recommended
-                      </span>
-                    </Label>
-                    <Input
-                      id="ga4_api_secret"
-                      type="password"
-                      placeholder="xxxxxxxxxxxxxxxx"
-                      value={analyticsSettings.ga4_api_secret}
-                      onChange={(e) =>
-                        setAnalyticsSettings({
-                          ...analyticsSettings,
-                          ga4_api_secret: e.target.value,
-                        })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Enables server-side tracking. Get from GA4 Admin → Data
-                      Streams → Measurement Protocol API secrets.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Facebook/Meta */}
-              <div className="space-y-2 pt-4 border-t">
-                <Label
-                  htmlFor="facebook_pixel_id"
-                  className="flex items-center gap-2"
-                >
-                  <Facebook className="w-4 h-4 text-blue-600" />
-                  Facebook/Meta Pixel
-                </Label>
-                <Input
-                  id="facebook_pixel_id"
-                  placeholder="1234567890123456"
-                  value={analyticsSettings.facebook_pixel_id}
-                  onChange={(e) =>
-                    setAnalyticsSettings({
-                      ...analyticsSettings,
-                      facebook_pixel_id: e.target.value,
-                    })
-                  }
-                />
-                <SetupInstructions platform="facebook" />
-
-                {analyticsSettings.facebook_pixel_id && (
-                  <div className="mt-3 pl-4 border-l-2 border-blue-200 space-y-2">
-                    <Label
-                      htmlFor="facebook_capi_token"
-                      className="text-sm text-muted-foreground"
-                    >
-                      Conversions API Token (Server-Side)
-                      <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
-                        Recommended
-                      </span>
-                    </Label>
-                    <Input
-                      id="facebook_capi_token"
-                      type="password"
-                      placeholder="EAAxxxxxxxx..."
-                      value={analyticsSettings.facebook_capi_token}
-                      onChange={(e) =>
-                        setAnalyticsSettings({
-                          ...analyticsSettings,
-                          facebook_capi_token: e.target.value,
-                        })
-                      }
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Improves tracking accuracy by 10-20%. Bypasses ad
-                      blockers.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* TikTok */}
-              <div className="space-y-2 pt-4 border-t">
-                <Label
-                  htmlFor="tiktok_pixel_id"
-                  className="flex items-center gap-2"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-label="TikTok Pixel"
-                    role="img"
-                  >
-                    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
-                  </svg>
-                  TikTok Pixel
-                </Label>
-                <Input
-                  id="tiktok_pixel_id"
-                  placeholder="C1234ABCD5678EFG"
-                  value={analyticsSettings.tiktok_pixel_id}
-                  onChange={(e) =>
-                    setAnalyticsSettings({
-                      ...analyticsSettings,
-                      tiktok_pixel_id: e.target.value,
-                    })
-                  }
-                />
-                <SetupInstructions platform="tiktok" />
-
-                {analyticsSettings.tiktok_pixel_id && (
-                  <div className="mt-3 pl-4 border-l-2 border-gray-200 space-y-2">
-                    <Label
-                      htmlFor="tiktok_access_token"
-                      className="text-sm text-muted-foreground"
-                    >
-                      Events API Access Token (Server-Side)
-                    </Label>
-                    <Input
-                      id="tiktok_access_token"
-                      type="password"
-                      placeholder="Access token..."
-                      value={analyticsSettings.tiktok_access_token}
-                      onChange={(e) =>
-                        setAnalyticsSettings({
-                          ...analyticsSettings,
-                          tiktok_access_token: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Snapchat */}
-              <div className="space-y-2 pt-4 border-t">
-                <Label
-                  htmlFor="snapchat_pixel_id"
-                  className="flex items-center gap-2"
-                >
-                  <svg
-                    className="w-4 h-4 text-yellow-400"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-label="Snapchat Pixel"
-                    role="img"
-                  >
-                    <path d="M12.206.793c.99 0 4.347.276 5.93 3.821.529 1.193.403 3.219.299 4.847l-.003.06c-.012.18-.022.345-.03.51.075.045.203.09.401.09.3-.016.659-.12 1.033-.301.165-.088.344-.104.464-.104.182 0 .359.029.509.09.45.149.734.479.734.838.015.449-.39.839-1.213 1.168-.089.029-.209.075-.344.119-.45.135-1.139.36-1.333.81-.09.224-.061.524.12.868l.015.015c.06.136 1.526 3.475 4.791 4.014.255.044.435.27.42.509 0 .075-.015.149-.045.225-.24.569-1.273.988-3.146 1.271-.059.091-.12.375-.164.57-.029.179-.074.36-.134.553-.076.271-.27.405-.555.405h-.03c-.135 0-.313-.031-.538-.074-.36-.075-.765-.135-1.273-.135-.3 0-.599.015-.913.074-.6.104-1.123.464-1.723.884-.853.599-1.826 1.288-3.294 1.288-.06 0-.119-.015-.18-.015h-.149c-1.468 0-2.427-.675-3.279-1.288-.599-.42-1.107-.779-1.707-.884-.314-.045-.629-.074-.928-.074-.54 0-.958.089-1.272.149-.211.043-.391.074-.54.074-.374 0-.523-.224-.583-.42-.061-.192-.09-.389-.135-.567-.046-.181-.105-.494-.166-.57-1.918-.222-2.95-.642-3.189-1.226-.031-.063-.052-.15-.055-.225-.015-.243.165-.465.42-.509 3.264-.54 4.73-3.879 4.791-4.02l.016-.029c.18-.345.224-.645.119-.869-.195-.434-.884-.658-1.332-.809-.121-.029-.24-.074-.346-.119-1.107-.435-1.257-.93-1.197-1.273.09-.479.674-.793 1.168-.793.146 0 .27.029.383.074.42.194.789.3 1.104.3.234 0 .384-.06.465-.105l-.046-.569c-.098-1.626-.225-3.651.307-4.837C7.392 1.077 10.739.807 11.727.807l.419-.015h.06z" />
-                  </svg>
-                  Snapchat Pixel
-                </Label>
-                <Input
-                  id="snapchat_pixel_id"
-                  placeholder="abc12345-6789-def0-1234-567890abcdef"
-                  value={analyticsSettings.snapchat_pixel_id}
-                  onChange={(e) =>
-                    setAnalyticsSettings({
-                      ...analyticsSettings,
-                      snapchat_pixel_id: e.target.value,
-                    })
-                  }
-                />
-                <SetupInstructions platform="snapchat" />
-
-                {analyticsSettings.snapchat_pixel_id && (
-                  <div className="mt-3 pl-4 border-l-2 border-yellow-200 space-y-2">
-                    <Label
-                      htmlFor="snapchat_capi_token"
-                      className="text-sm text-muted-foreground"
-                    >
-                      Conversions API Token (Server-Side)
-                    </Label>
-                    <Input
-                      id="snapchat_capi_token"
-                      type="password"
-                      placeholder="Access token..."
-                      value={analyticsSettings.snapchat_capi_token}
-                      onChange={(e) =>
-                        setAnalyticsSettings({
-                          ...analyticsSettings,
-                          snapchat_capi_token: e.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Twitter/X */}
-              <div className="space-y-2 pt-4 border-t">
-                <Label
-                  htmlFor="twitter_pixel_id"
-                  className="flex items-center gap-2"
-                >
-                  <Twitter className="w-4 h-4" />
-                  Twitter/X Pixel
-                </Label>
-                <Input
-                  id="twitter_pixel_id"
-                  placeholder="o1234"
-                  value={analyticsSettings.twitter_pixel_id}
-                  onChange={(e) =>
-                    setAnalyticsSettings({
-                      ...analyticsSettings,
-                      twitter_pixel_id: e.target.value,
-                    })
-                  }
-                />
-                <SetupInstructions platform="twitter" />
-              </div>
-
-              <div className="pt-4 border-t">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Privacy Note:</strong> All tracking scripts respect
-                  cookie consent. They only load when visitors accept
-                  analytics/marketing cookies.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
 
           <Card className="glass">
             <CardHeader>
