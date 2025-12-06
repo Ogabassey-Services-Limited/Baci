@@ -1,19 +1,47 @@
 'use client';
 
-import { CookieConsent } from '@/components/storefront/cookie-consent';
-import { NewsletterWidget } from '@/components/storefront/newsletter-widget';
+import dynamic from 'next/dynamic';
 import type { MerchantData } from '@/hooks/use-merchant';
 import { getContrastingTextColor } from '@/lib/color-utils';
 import { cn } from '@/lib/utils';
+
+// Dynamically import non-critical components to reduce initial bundle size
+// These components appear after user interaction or with delay
+const CookieConsent = dynamic(
+  () =>
+    import('@/components/storefront/cookie-consent').then(
+      (mod) => mod.CookieConsent
+    ),
+  { ssr: false }
+);
+
+const NewsletterWidget = dynamic(
+  () =>
+    import('@/components/storefront/newsletter-widget').then(
+      (mod) => mod.NewsletterWidget
+    ),
+  { ssr: false }
+);
+
+// Platform analytics - dynamically imported for non-blocking initial render
+const PlatformAnalyticsProvider = dynamic(
+  () =>
+    import('@/components/analytics/platform-analytics-provider').then(
+      (mod) => mod.PlatformAnalyticsProvider
+    ),
+  { ssr: false }
+);
 
 export default function AppBody({
   children,
   merchant,
   showNewsletterWidget = true,
+  showPlatformAnalytics = false,
 }: {
   children: React.ReactNode;
   merchant?: MerchantData | null;
   showNewsletterWidget?: boolean;
+  showPlatformAnalytics?: boolean;
 }) {
   // Define CSS variables for the merchant's theme
   const themeStyle = merchant?.brand_colors
@@ -48,12 +76,14 @@ export default function AppBody({
         paddingRight: 'env(safe-area-inset-right)',
       }}
     >
-      {/* Dynamic Background Elements */}
+      {/* Dynamic Background Elements - GPU accelerated with will-change */}
       <div className="fixed inset-0 -z-10 h-full w-full bg-background">
         <div className="absolute h-full w-full bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]" />
-        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/20 opacity-20 blur-[100px]" />
-        <div className="absolute right-0 bottom-0 -z-10 h-[310px] w-[310px] rounded-full bg-accent/20 opacity-20 blur-[100px]" />
+        <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/20 opacity-20 blur-[100px] will-change-transform" />
+        <div className="absolute right-0 bottom-0 -z-10 h-[310px] w-[310px] rounded-full bg-accent/20 opacity-20 blur-[100px] will-change-transform" />
       </div>
+
+      {showPlatformAnalytics && <PlatformAnalyticsProvider />}
 
       <div className="relative z-0">{children}</div>
 

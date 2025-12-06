@@ -14,6 +14,33 @@ interface MetricCardProps {
   duration?: number;
 }
 
+// Shared IntersectionObserver instance for all MetricCards
+// Reduces memory usage and improves performance vs. one observer per card
+let sharedObserver: IntersectionObserver | null = null;
+const observerCallbacks = new Map<Element, () => void>();
+
+function getSharedObserver(): IntersectionObserver {
+  if (!sharedObserver) {
+    sharedObserver = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const callback = observerCallbacks.get(entry.target);
+            if (callback) {
+              callback();
+              // Unobserve after triggering to prevent re-animation
+              sharedObserver?.unobserve(entry.target);
+              observerCallbacks.delete(entry.target);
+            }
+          }
+        });
+      },
+      { threshold: 0.2 }
+    );
+  }
+  return sharedObserver;
+}
+
 /**
  * Parses a value string like "10,000+", "$5M+", "4.9/5.0" into a numeric target
  * Returns { prefix, number, suffix } for reconstruction
@@ -98,24 +125,24 @@ export function MetricCard({
   }, [delay, duration, targetNumber, decimals]);
 
   useEffect(() => {
-    // Use Intersection Observer to start animation when card is visible
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && !hasAnimated) {
-            setHasAnimated(true);
-            startAnimation();
-          }
-        });
-      },
-      { threshold: 0.2 }
-    );
+    const element = cardRef.current;
+    if (!element || hasAnimated) return;
 
-    if (cardRef.current) {
-      observer.observe(cardRef.current);
-    }
+    // Use shared IntersectionObserver for better performance
+    const observer = getSharedObserver();
 
-    return () => observer.disconnect();
+    const handleIntersection = () => {
+      setHasAnimated(true);
+      startAnimation();
+    };
+
+    observerCallbacks.set(element, handleIntersection);
+    observer.observe(element);
+
+    return () => {
+      observer.unobserve(element);
+      observerCallbacks.delete(element);
+    };
   }, [hasAnimated, startAnimation]);
 
   return (
