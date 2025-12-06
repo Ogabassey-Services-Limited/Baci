@@ -9,6 +9,17 @@ import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 // Key: hostname, Value: { slug: string, expiresAt: number }
 const domainCache = new Map<string, { slug: string; expiresAt: number }>();
 const DOMAIN_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const MAX_CACHE_SIZE = 1000; // Prevent unbounded memory growth
+
+// Prune expired entries when cache gets too large
+function pruneDomainCache(now: number): void {
+  if (domainCache.size < MAX_CACHE_SIZE) return;
+  domainCache.forEach((value, key) => {
+    if (now > value.expiresAt) {
+      domainCache.delete(key);
+    }
+  });
+}
 
 export async function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -122,31 +133,37 @@ export async function middleware(request: NextRequest) {
   if (isCustomDomain) {
     let merchantSlug: string | undefined;
 
-    // Check cache first
+    // Check cache first (and prune if needed)
     const now = Date.now();
+    pruneDomainCache(now);
     const cached = domainCache.get(hostname);
     if (cached && now < cached.expiresAt) {
       merchantSlug = cached.slug;
     } else {
       // Look up custom domain in database
-      const { data: domainRecord } = await supabase
-        .from('domains')
-        .select('merchant_id, status, merchants!inner(slug)')
-        .eq('domain', hostname)
-        .eq('status', 'active')
-        .single();
+      try {
+        const { data: domainRecord, error } = await supabase
+          .from('domains')
+          .select('merchant_id, status, merchants!inner(slug)')
+          .eq('domain', hostname)
+          .eq('status', 'active')
+          .single();
 
-      if (domainRecord) {
-        // @ts-expect-error - Supabase typing issue with nested select
-        merchantSlug = domainRecord.merchants?.slug;
+        if (!error && domainRecord) {
+          // @ts-expect-error - Supabase typing issue with nested select
+          merchantSlug = domainRecord.merchants?.slug;
 
-        // Cache the result
-        if (merchantSlug) {
-          domainCache.set(hostname, {
-            slug: merchantSlug,
-            expiresAt: now + DOMAIN_CACHE_TTL_MS,
-          });
+          // Cache the result
+          if (merchantSlug) {
+            domainCache.set(hostname, {
+              slug: merchantSlug,
+              expiresAt: now + DOMAIN_CACHE_TTL_MS,
+            });
+          }
         }
+      } catch {
+        // On database error, fall through to redirect to main site
+        // This prevents middleware from crashing on transient DB issues
       }
     }
 
