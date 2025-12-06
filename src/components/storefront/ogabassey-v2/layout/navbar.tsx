@@ -89,12 +89,12 @@ export const OgabasseyV2Navbar: React.FC<NavbarProps> = ({
       const currentScrollY = window.scrollY;
 
       if (currentScrollY > lastScrollY && currentScrollY > 10) {
-        if (isVisible) setIsVisible(false);
+        setIsVisible(false);
         setShowDropdown(false);
         setShowCategoryDropdown(false);
         setShowNotifications(false);
       } else if (currentScrollY < lastScrollY) {
-        if (!isVisible) setIsVisible(true);
+        setIsVisible(true);
       }
 
       setLastScrollY(currentScrollY);
