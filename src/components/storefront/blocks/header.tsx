@@ -58,6 +58,7 @@ export interface HeaderProps {
   paddingY?: 'sm' | 'md' | 'lg';
   glassEffect?: boolean;
   backgroundImage?: string;
+  isPreview?: boolean;
 }
 
 export function Header({
@@ -79,6 +80,7 @@ export function Header({
   paddingY = 'md',
   glassEffect = true,
   backgroundImage,
+  isPreview = false,
 }: HeaderProps) {
   const { merchant } = useMerchant();
   const { cartCount } = useCart();
@@ -96,7 +98,7 @@ export function Header({
   // Check customer session
   useEffect(() => {
     const merchantSlug = merchant?.slug;
-    if (!showAccount || !merchantSlug) return;
+    if (!showAccount || !merchantSlug || isPreview) return;
 
     const checkSession = async () => {
       try {
@@ -114,7 +116,7 @@ export function Header({
     };
 
     checkSession();
-  }, [showAccount, merchant?.slug]);
+  }, [showAccount, merchant?.slug, isPreview]);
 
   const handleLogout = async () => {
     try {
@@ -465,7 +467,7 @@ export function Header({
                 {showAccount && (
                   <div className="pt-4 border-t space-y-4">
                     {customerSession?.authenticated &&
-                    customerSession.customer ? (
+                      customerSession.customer ? (
                       <>
                         <div className="text-sm text-muted-foreground">
                           Signed in as {customerSession.customer.email}

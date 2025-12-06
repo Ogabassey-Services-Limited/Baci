@@ -8,10 +8,10 @@ interface LoyaltyReward {
   description: string;
   points_required: number;
   reward_type:
-    | 'discount'
-    | 'free_shipping'
-    | 'free_product'
-    | 'exclusive_access';
+  | 'discount'
+  | 'free_shipping'
+  | 'free_product'
+  | 'exclusive_access';
   discount_type?: 'percentage' | 'fixed';
   discount_value?: number;
   min_tier?: string;
@@ -79,6 +79,36 @@ export function useLoyalty(merchantId?: string, customerId?: string) {
 
   const fetchLoyaltyData = useCallback(async () => {
     if (!merchantId || !customerId) {
+      setLoading(false);
+      return;
+    }
+
+    // Mock data for preview/demo merchants
+    if (merchantId.endsWith('-preview') || merchantId.startsWith('demo-')) {
+      setData({
+        enrolled: true,
+        points_balance: 150,
+        lifetime_points: 500,
+        tier: 'silver',
+        next_tier: 'gold',
+        points_to_next_tier: 350,
+        tier_thresholds: {
+          bronze: 0,
+          silver: 100,
+          gold: 500,
+          platinum: 1000,
+        },
+        available_rewards: [],
+        redeemable_rewards: [],
+        recent_transactions: [],
+        settings: {
+          points_per_naira: 1,
+          naira_per_point: 1,
+          welcome_bonus: 50,
+          referral_bonus_referrer: 50,
+          referral_bonus_referee: 50,
+        },
+      });
       setLoading(false);
       return;
     }

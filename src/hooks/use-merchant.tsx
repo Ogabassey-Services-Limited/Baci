@@ -154,6 +154,13 @@ export const MerchantProvider = ({
       let access: StaffAccess = { ...defaultStaffAccess };
 
       if (slug) {
+        // If we provided initial mock data that matches this slug, use it and don't fetch
+        if (initialMerchant && initialMerchant.slug === slug) {
+          setMerchant(initialMerchant);
+          setLoading(false);
+          return;
+        }
+
         // Mock data for Ogabassey demo
         if (
           slug === 'ogabassey1' ||

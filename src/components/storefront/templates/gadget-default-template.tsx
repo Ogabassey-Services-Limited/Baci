@@ -14,7 +14,9 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
-export function GadgetDefaultTemplate() {
+import { type TemplatePageProps } from '@/templates/registry';
+
+export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
   const { merchant } = useMerchant();
   const theme = useIndustryTheme(merchant?.business_type);
 
@@ -96,6 +98,7 @@ export function GadgetDefaultTemplate() {
         showMenu={true}
         layout="logo-left-nav-center"
         sticky={true}
+        isPreview={isPreview}
       />
 
       <main>
@@ -199,7 +202,7 @@ export function GadgetDefaultTemplate() {
                   'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',
                   radiusClass,
                   theme.layout.categoryRail === 'circle' &&
-                    'aspect-square rounded-full',
+                  'aspect-square rounded-full',
                   theme.layout.categoryRail === 'pill' && 'aspect-[2/1]',
                   theme.layout.categoryRail === 'square' && 'aspect-square',
                   theme.layout.categoryRail === 'card' && 'aspect-[4/3]'
@@ -228,9 +231,9 @@ export function GadgetDefaultTemplate() {
             title="Featured Products"
             columns={4}
             limit={4}
-            // We can pass styles to the grid if it supports them,
-            // otherwise we rely on global theme vars or wrapper styles.
-            // For now, the grid is standard, but we wrap it to control context if needed.
+          // We can pass styles to the grid if it supports them,
+          // otherwise we rely on global theme vars or wrapper styles.
+          // For now, the grid is standard, but we wrap it to control context if needed.
           />
         </section>
 

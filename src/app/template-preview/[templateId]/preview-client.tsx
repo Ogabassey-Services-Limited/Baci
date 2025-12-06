@@ -364,11 +364,13 @@ export function TemplatePreviewClient({
 
   return (
     <CartProvider>
-      <MerchantProvider slug={template.mockData.merchant.slug}>
+      <MerchantProvider
+        slug={template.mockData.merchant.slug}
+        initialMerchant={template.mockData.merchant}
+      >
         <Suspense fallback={<LoadingDisplay />}>
           <HomeComponent
             storeSlug={template.mockData.merchant.slug}
-            merchant={template.mockData.merchant}
             isPreview={true}
           />
         </Suspense>
