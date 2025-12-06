@@ -7,7 +7,7 @@ import { NewsletterSection } from '@/components/storefront/blocks/newsletter-sec
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { useMerchant } from '@/hooks/use-merchant';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { type TemplatePageProps } from '@/templates/registry';
+import type { TemplatePageProps } from '@/templates/registry';
 
 export function PremiumDefaultTemplate({ isPreview }: TemplatePageProps) {
   const { merchant } = useMerchant();
