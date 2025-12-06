@@ -131,18 +131,12 @@ export const MerchantProvider = ({
     initialStaffAccess ?? defaultStaffAccess
   );
   const supabase = createClient();
-  const hasHydrated = useRef(false);
-
-  // Set initial hydration state
-  useEffect(() => {
-    if (initialMerchant && !hasHydrated.current) {
-      hasHydrated.current = true;
-    }
-  }, [initialMerchant]);
+  // Initialize ref with prop value to avoid race condition
+  const hasHydrated = useRef(!!initialMerchant);
 
   const loadData = useCallback(async () => {
     // If we provided initial data, skip the first automatic fetch
-    if (initialMerchant && !slug && !hasHydrated.current) {
+    if (!hasHydrated.current && initialMerchant && !slug) {
       hasHydrated.current = true;
       return;
     }
