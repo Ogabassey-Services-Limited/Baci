@@ -7,8 +7,9 @@ import { NewsletterSection } from '@/components/storefront/blocks/newsletter-sec
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
 import { useMerchant } from '@/hooks/use-merchant';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import type { TemplatePageProps } from '@/templates/registry';
 
-export function PremiumDefaultTemplate() {
+export function PremiumDefaultTemplate({ isPreview }: TemplatePageProps) {
   const { merchant } = useMerchant();
 
   // Default slides if no merchant data or specific config
@@ -72,6 +73,7 @@ export function PremiumDefaultTemplate() {
     <div className="min-h-screen bg-neutral-50 font-sans selection:bg-black selection:text-white">
       {/* 1. Header Block */}
       <Header
+        isPreview={isPreview}
         showLogo={true}
         showSearch={true}
         showCart={true}

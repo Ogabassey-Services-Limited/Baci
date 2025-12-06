@@ -22,48 +22,136 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   default: { maxRequests: 50, windowMs: 60000 }, // Default: 50 requests per minute
 };
 
-// In-memory store for rate limiting
+// =============================================================================
+// IP VALIDATION (Edge-compatible, no Node.js 'net' module)
+// =============================================================================
+
+// IPv4 regex pattern
+const IPV4_REGEX =
+  /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+// IPv6 regex pattern (simplified, covers most common formats)
+const IPV6_REGEX =
+  /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::(?:[0-9a-fA-F]{1,4}:){0,6}[0-9a-fA-F]{1,4}$|^[0-9a-fA-F]{1,4}::(?:[0-9a-fA-F]{1,4}:){0,5}[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}$|^(?:[0-9a-fA-F]{1,4}:){1,7}:$|^::$/;
+
+/**
+ * Validate if a string is a valid IP address (IPv4 or IPv6)
+ */
+function isValidIP(ip: string): boolean {
+  return IPV4_REGEX.test(ip) || IPV6_REGEX.test(ip);
+}
+
+// =============================================================================
+// TRIE-BASED PREFIX MATCHING
+// =============================================================================
+
+/**
+ * Trie node for O(k) prefix pattern matching (k = path depth)
+ */
+class TrieNode {
+  children: Map<string, TrieNode>;
+  config: RateLimitConfig | null;
+  constructor() {
+    this.children = new Map();
+    this.config = null;
+  }
+}
+
+/**
+ * Builds a Trie from the RATE_LIMITS object for prefix matching
+ */
+function buildTrie(patterns: Record<string, RateLimitConfig>): TrieNode {
+  const root = new TrieNode();
+  for (const [pattern, config] of Object.entries(patterns)) {
+    if (pattern === 'default') continue;
+    const segments = pattern.split('/').filter(Boolean);
+    let node = root;
+    for (const segment of segments) {
+      if (!node.children.has(segment)) {
+        node.children.set(segment, new TrieNode());
+      }
+      const childNode = node.children.get(segment);
+      if (childNode) node = childNode;
+    }
+    node.config = config;
+  }
+  return root;
+}
+
+// Build the Trie once at module load
+const rateLimitTrie = buildTrie(RATE_LIMITS);
+
+// In-memory store for rate limiting (use Redis in production)
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
-// Maximum size for the map to prevent memory leaks in long-running containers
+// Maximum store size to prevent unbounded memory growth
 const MAX_STORE_SIZE = 10000;
+
+// Batch size for incremental pruning to avoid blocking event loop
+const PRUNE_BATCH_SIZE = 100;
 
 /**
  * Get client identifier (IP address)
+ * Validates IP format to prevent header spoofing bypasses
  */
 function getClientIdentifier(request: NextRequest): string {
   // Try to get IP from various headers (for proxies/load balancers)
   const forwarded = request.headers.get('x-forwarded-for');
   const realIp = request.headers.get('x-real-ip');
-  const ip = forwarded?.split(',')[0] || realIp || 'unknown';
 
-  return ip;
+  // Get first valid forwarded IP if header exists
+  if (forwarded) {
+    const ips = forwarded.split(',').map((ip) => ip.trim());
+    const validIp = ips.find((ip) => isValidIP(ip));
+    if (validIp) return validIp;
+  }
+
+  // Check x-real-ip header
+  if (realIp && isValidIP(realIp)) {
+    return realIp;
+  }
+
+  // Fallback if no valid IP found
+  return 'unknown';
 }
 
 /**
- * Get rate limit config for the endpoint
+ * Get rate limit config for the endpoint using Trie lookup
+ * O(k) where k is the path depth, instead of O(n) pattern iteration
  */
 function getRateLimitConfig(pathname: string): RateLimitConfig {
-  for (const [pattern, config] of Object.entries(RATE_LIMITS)) {
-    if (pathname.startsWith(pattern)) {
-      return config;
+  const segments = pathname.split('/').filter(Boolean);
+  let node = rateLimitTrie;
+  let lastConfig: RateLimitConfig | null = null;
+
+  for (const segment of segments) {
+    const childNode = node.children.get(segment);
+    if (childNode) {
+      node = childNode;
+      if (node.config) lastConfig = node.config;
+    } else {
+      break;
     }
   }
-  return RATE_LIMITS.default;
+
+  return lastConfig ?? RATE_LIMITS.default;
 }
 
 /**
- * Prune expired entries from the store.
- * Only runs if the store gets too big to avoid blocking the event loop on every request.
+ * Incremental pruning to avoid blocking the event loop
+ * Only prunes PRUNE_BATCH_SIZE entries per invocation
  */
-function pruneStore(now: number) {
+function pruneStore(now: number): void {
   if (rateLimitStore.size < MAX_STORE_SIZE) return;
 
-  rateLimitStore.forEach((entry, key) => {
+  let pruned = 0;
+  for (const [key, entry] of rateLimitStore) {
     if (now > entry.resetTime) {
       rateLimitStore.delete(key);
+      pruned++;
+      if (pruned >= PRUNE_BATCH_SIZE) break;
     }
-  });
+  }
 }
 
 /**
@@ -82,7 +170,7 @@ export function checkRateLimit(request: NextRequest): {
   const key = `${identifier}:${pathname}`;
   const now = Date.now();
 
-  // Lazy prune if store is too large
+  // Incremental pruning on each request
   pruneStore(now);
 
   // Get or create rate limit entry
@@ -114,17 +202,24 @@ export function checkRateLimit(request: NextRequest): {
 
 /**
  * Create rate limit response
+ * Uses Math.max(0, ...) to ensure non-negative Retry-After values
  */
 export function createRateLimitResponse(
   limit: number,
   remaining: number,
   resetTime: number
 ): NextResponse {
+  // Ensure non-negative retryAfter per HTTP spec
+  const retryAfterSeconds = Math.max(
+    0,
+    Math.ceil((resetTime - Date.now()) / 1000)
+  );
+
   const response = NextResponse.json(
     {
       error: 'Too many requests',
       message: 'Rate limit exceeded. Please try again later.',
-      retryAfter: Math.ceil((resetTime - Date.now()) / 1000),
+      retryAfter: retryAfterSeconds,
     },
     { status: 429 }
   );
@@ -132,10 +227,24 @@ export function createRateLimitResponse(
   response.headers.set('X-RateLimit-Limit', limit.toString());
   response.headers.set('X-RateLimit-Remaining', remaining.toString());
   response.headers.set('X-RateLimit-Reset', new Date(resetTime).toISOString());
-  response.headers.set(
-    'Retry-After',
-    Math.ceil((resetTime - Date.now()) / 1000).toString()
-  );
+  response.headers.set('Retry-After', retryAfterSeconds.toString());
 
   return response;
+}
+
+/**
+ * Cleanup old entries (call periodically)
+ */
+export function cleanupRateLimitStore(): void {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore.entries()) {
+    if (now > entry.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+}
+
+// Cleanup every 5 minutes (only in environments that support setInterval)
+if (typeof setInterval !== 'undefined') {
+  setInterval(cleanupRateLimitStore, 5 * 60 * 1000);
 }

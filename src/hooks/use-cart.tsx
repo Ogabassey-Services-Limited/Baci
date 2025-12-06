@@ -106,20 +106,31 @@ const saveMerchantSlugToStorage = (slug: string | null) => {
   }
 };
 
+/**
+ * Cart Provider with lazy initialization.
+ * localStorage reads are deferred to useEffect (non-blocking) to improve
+ * initial page load performance. The isHydrated state prevents hydration
+ * mismatches between server and client.
+ */
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [merchantSlug, setMerchantSlugState] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     // Load cart and merchant slug from localStorage on initial client-side render
+    // This is deferred to useEffect to avoid blocking the main thread during SSR hydration
     setCart(getCartFromStorage());
     setMerchantSlugState(getMerchantSlugFromStorage());
+    setIsHydrated(true);
   }, []);
 
   useEffect(() => {
-    // Save cart to localStorage whenever it changes
-    saveCartToStorage(cart);
-  }, [cart]);
+    // Only save to localStorage after hydration to avoid unnecessary writes
+    if (isHydrated) {
+      saveCartToStorage(cart);
+    }
+  }, [cart, isHydrated]);
 
   const addToCart = useCallback(
     (product: Product, quantity: number = 1, options?: AddToCartOptions) => {

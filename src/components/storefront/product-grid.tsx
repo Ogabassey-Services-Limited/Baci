@@ -86,7 +86,10 @@ export function StorefrontProductGrid({
     }
   };
 
-  const isPreviewMode = !merchantContext;
+  const isPreviewMode =
+    !merchantContext ||
+    merchant?.id?.endsWith('-preview') ||
+    merchant?.id?.startsWith('demo-');
   const [products, setProducts] = useState<Product[]>(() => {
     if (isPreviewMode) {
       return sampleProductsByCategory.fashion || sampleProductsByCategory.other;
@@ -105,7 +108,7 @@ export function StorefrontProductGrid({
   // Check product count and determine search method
 
   useEffect(() => {
-    if (merchant?.id) {
+    if (merchant?.id && !isPreviewMode) {
       // Fetch products
       apiGet<{ products: Product[] }>(
         `/api/storefront/products?merchant_id=${merchant.id}`
@@ -133,7 +136,7 @@ export function StorefrontProductGrid({
           setUseServerSearch(false);
         });
     }
-  }, [merchant?.id]);
+  }, [merchant?.id, isPreviewMode]);
 
   // Perform server-side search when needed
   useEffect(() => {

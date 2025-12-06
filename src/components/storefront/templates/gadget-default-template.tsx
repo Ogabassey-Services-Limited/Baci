@@ -14,7 +14,9 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
-export function GadgetDefaultTemplate() {
+import type { TemplatePageProps } from '@/templates/registry';
+
+export function GadgetDefaultTemplate({ isPreview }: TemplatePageProps) {
   const { merchant } = useMerchant();
   const theme = useIndustryTheme(merchant?.business_type);
 
@@ -96,6 +98,7 @@ export function GadgetDefaultTemplate() {
         showMenu={true}
         layout="logo-left-nav-center"
         sticky={true}
+        isPreview={isPreview}
       />
 
       <main>

@@ -24,7 +24,6 @@ import {
   Sparks,
 } from 'iconoir-react';
 import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
 import { ArtisanTemplate } from '@/templates/artisan';
 import { ModernTemplate } from '@/templates/modern';
@@ -70,7 +69,8 @@ export interface BusinessTypeConfig {
   /** Recommended features for this business type (future) */
   recommendedFeatures?: string[];
   /** Template component to use for storefronts */
-  template: React.ComponentType<{ children: ReactNode }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  template: React.ComponentType<any>;
   /** Lucide icon component for UI */
   icon: LucideIcon;
   /** Journey configuration for onboarding and product creation */
