@@ -15,7 +15,10 @@ export function PlatformHeader() {
         }}
       >
         <Link href="/" className="flex items-center gap-2 group">
-          <Logo className="transition-transform group-hover:scale-105" />
+          <Logo
+            className="transition-transform group-hover:scale-105"
+            priority
+          />
           <span className="sr-only">Baci</span>
         </Link>
         <nav className="hidden md:flex items-center gap-8">
