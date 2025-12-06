@@ -1,19 +1,9 @@
 'use client';
 
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
-import { useStorefrontSafe } from '@/contexts/storefront-context';
 import type { TemplatePageProps } from '@/templates/registry';
 import { Home as HomeIcon, Sofa, Utensils, Bed } from 'lucide-react';
-import Image from 'next/image';
-import { useState, createContext } from 'react';
-
-// Create context for this template's state
-const HomeGoodsContext = createContext<{
-    searchQuery: string;
-    setSearchQuery: (query: string) => void;
-    selectedCategory: string;
-    setSelectedCategory: (category: string) => void;
-} | null>(null);
+import { useState } from 'react';
 
 /**
  * Home Goods Template - Warm, lifestyle-focused design for furniture and decor stores
@@ -24,7 +14,6 @@ export function HomeGoodsTemplate({ children }: { children: React.ReactNode }) {
 }
 
 export function HomeGoodsHome(props: TemplatePageProps) {
-    const [searchQuery, setSearchQuery] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('All');
 
     const merchant = props.merchant || {
@@ -45,15 +34,7 @@ export function HomeGoodsHome(props: TemplatePageProps) {
     ];
 
     return (
-        <HomeGoodsContext.Provider
-            value={{
-                searchQuery,
-                setSearchQuery,
-                selectedCategory,
-                setSelectedCategory,
-            }}
-        >
-            <div className="min-h-screen bg-stone-50">
+        <div className="min-h-screen bg-stone-50">
                 {/* Hero Section - Warm & Inviting */}
                 <section className="relative h-[70vh] overflow-hidden bg-gradient-to-br from-amber-50 to-stone-100">
                     <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM5OTk5OTkiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItaDJ2LTJoLTJ6bTAgNHYyaDJ2LTJoLTJ6bS0yIDJoLTJ2Mmgydi0yek0zMiAzOGgtMnYyaDJ2LTJ6bTAgNGgtMnYyaDJ2LTJ6bS0yIDJoLTJ2Mmgydi0yek0yOCA0MmgtMnYyaDJ2LTJ6bTAgNGgtMnYyaDJ2LTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
@@ -250,6 +231,5 @@ export function HomeGoodsHome(props: TemplatePageProps) {
                     </div>
                 </footer>
             </div>
-        </HomeGoodsContext.Provider>
     );
 }

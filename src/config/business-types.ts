@@ -25,15 +25,14 @@ import {
 } from 'iconoir-react';
 import type { LucideIcon } from 'lucide-react';
 import { Pill } from 'lucide-react';
-import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
 import { GadgetDefaultTemplate } from '@/components/storefront/templates/gadget-default-template';
-import { HomeGoodsTemplate, HomeGoodsHome } from '@/templates/home-goods';
-import { ModernTemplate } from '@/templates/modern';
+import { PremiumDefaultTemplate } from '@/components/storefront/templates/premium-default';
 import { ArtisanTemplate } from '@/templates/artisan';
-import { PharmaceuticalTemplate } from '@/templates/pharmaceutical';
 import { BeautyTemplate } from '@/templates/beauty';
 import { FoodBeverageTemplate } from '@/templates/food-beverage';
 import { HairExtensionsTemplate } from '@/templates/hair-extensions';
+import { HomeGoodsTemplate } from '@/templates/home-goods';
+import { PharmaceuticalTemplate } from '@/templates/pharmaceutical';
 
 /**
  * Business type journey configuration

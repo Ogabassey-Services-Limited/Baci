@@ -149,7 +149,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
 
             {/* Shop by Texture */}
             <section className="py-16 bg-[#1A1A1A]">
-                <div className="max-w-7xl mx.auto px-6">
+                <div className="max-w-7xl mx-auto px-6">
                     <h2 className="text-3xl font-bold text-center mb-4">
                         Shop by <span className="text-[#B76E79]">Texture</span>
                     </h2>

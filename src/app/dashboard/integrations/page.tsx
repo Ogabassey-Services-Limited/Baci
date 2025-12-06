@@ -92,8 +92,7 @@ const integrations = [
   {
     id: 'twitter',
     name: 'Twitter (X)',
-    description:
-      'Track conversions and optimize ads with the X Pixel.',
+    description: 'Track conversions and optimize ads with the X Pixel.',
     href: '/dashboard/integrations/twitter',
     icon: (
       <svg

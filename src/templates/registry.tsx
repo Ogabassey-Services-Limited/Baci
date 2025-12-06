@@ -34,7 +34,9 @@ export type TemplateCategory =
   | 'general'
   | 'food'
   | 'services'
-  | 'beauty';
+  | 'beauty'
+  | 'health'
+  | 'home';
 
 /**
  * Engine integration flags - indicates which e-commerce features work
@@ -253,7 +255,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     name: 'Haven Home',
     description: 'Warm, lifestyle-focused template for furniture and home decor stores',
     thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/home_goods_template_preview_1765032079483.png',
-    category: 'general',
+    category: 'home',
     status: 'production',
     version: '1.0.0',
     engine: {
@@ -289,7 +291,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     name: 'Artisan Kitchen',
     description: 'Warm, rustic template for gourmet food e-commerce with dietary filters and recipe inspiration',
     thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/food_template_hero_1765034186701.png',
-    category: 'general',
+    category: 'food',
     status: 'production',
     version: '1.0.0',
     engine: {
@@ -325,7 +327,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     name: 'Radiant Beauty',
     description: 'Minimalist luxury template for health & beauty brands with skin quiz and ingredient focus',
     thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/beauty_products_section_1765033465009.png',
-    category: 'general',
+    category: 'beauty',
     status: 'production',
     version: '1.0.0',
     engine: {
@@ -361,7 +363,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     name: 'Glamour Hair Studio',
     description: 'Dark luxury template for hair extensions and wigs with texture/length filters and tutorials',
     thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/hair_template_hero_1765034748122.png',
-    category: 'general',
+    category: 'beauty',
     status: 'production',
     version: '1.0.0',
     engine: {
@@ -397,7 +399,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     name: 'MedCare Pharmacy',
     description: 'Professional pharmacy template with trust signals and prescription upload',
     thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/pharmaceutical_template_screenshot_final_1765032763119.png',
-    category: 'general',
+    category: 'health',
     status: 'production',
     version: '1.0.0',
     engine: {

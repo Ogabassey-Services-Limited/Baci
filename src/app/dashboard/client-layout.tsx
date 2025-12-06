@@ -74,9 +74,9 @@ const StoreLink = ({
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
     : cn(
-      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
-      isCollapsed && 'justify-center'
-    );
+        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
+        isCollapsed && 'justify-center'
+      );
 
   const isReady = !merchantLoading && storeUrl !== '#';
 
@@ -265,12 +265,12 @@ export default function DashboardClientLayout({
     router.push('/login');
   };
 
-
   const unfilledPagesCount = (() => {
     if (!merchant?.pages) return 6; // All pages missing if object doesn't exist
     const pages = merchant.pages as Record<string, string>;
     const keys = ['about', 'contact', 'privacy', 'terms', 'faq', 'legal'];
-    return keys.filter((key) => !pages[key] || pages[key].trim().length === 0).length;
+    return keys.filter((key) => !pages[key] || pages[key].trim().length === 0)
+      .length;
   })();
 
   const navItems: {
@@ -280,75 +280,75 @@ export default function DashboardClientLayout({
     badge?: number;
     badgeVariant?: 'default' | 'destructive';
   }[] = [
-      {
-        href: '/dashboard' as Route,
-        icon: LayoutDashboard,
-        label: 'Dashboard',
-      },
-      {
-        href: '/dashboard/analytics' as Route,
-        icon: BarChart3,
-        label: 'Analytics',
-      },
-      {
-        href: '/dashboard/orders' as Route,
-        icon: ShoppingCart,
-        label: 'Orders',
-        badge: ordersCount > 0 ? ordersCount : undefined,
-      },
-      {
-        href: '/dashboard/products' as Route,
-        icon: Package,
-        label: 'Products',
-      },
-      {
-        href: '/dashboard/customers' as Route,
-        icon: Users,
-        label: 'Customers',
-      },
-      {
-        href: '/dashboard/loyalty' as Route,
-        icon: Gift,
-        label: 'Loyalty',
-      },
-      {
-        href: '/dashboard/wallet' as Route,
-        icon: Wallet,
-        label: 'Wallet',
-      },
-      {
-        href: '/dashboard/seo' as Route,
-        icon: Search,
-        label: 'SEO',
-      },
-      {
-        href: '/dashboard/pages' as Route,
-        icon: FileText,
-        label: 'Pages',
-        badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
-        badgeVariant: 'destructive',
-      },
-      {
-        href: '/dashboard/templates' as Route, // Updated path
-        icon: LayoutTemplate,
-        label: 'Templates',
-      },
-      {
-        icon: Paintbrush,
-        label: 'Customize Website',
-        href: '/builder' as Route,
-      },
-      {
-        href: '/dashboard/integrations' as Route,
-        icon: Plug,
-        label: 'Integrations',
-      },
-      {
-        href: '/dashboard/settings' as Route,
-        icon: Settings,
-        label: 'Settings',
-      },
-    ];
+    {
+      href: '/dashboard' as Route,
+      icon: LayoutDashboard,
+      label: 'Dashboard',
+    },
+    {
+      href: '/dashboard/analytics' as Route,
+      icon: BarChart3,
+      label: 'Analytics',
+    },
+    {
+      href: '/dashboard/orders' as Route,
+      icon: ShoppingCart,
+      label: 'Orders',
+      badge: ordersCount > 0 ? ordersCount : undefined,
+    },
+    {
+      href: '/dashboard/products' as Route,
+      icon: Package,
+      label: 'Products',
+    },
+    {
+      href: '/dashboard/customers' as Route,
+      icon: Users,
+      label: 'Customers',
+    },
+    {
+      href: '/dashboard/loyalty' as Route,
+      icon: Gift,
+      label: 'Loyalty',
+    },
+    {
+      href: '/dashboard/wallet' as Route,
+      icon: Wallet,
+      label: 'Wallet',
+    },
+    {
+      href: '/dashboard/seo' as Route,
+      icon: Search,
+      label: 'SEO',
+    },
+    {
+      href: '/dashboard/pages' as Route,
+      icon: FileText,
+      label: 'Pages',
+      badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
+      badgeVariant: 'destructive',
+    },
+    {
+      href: '/dashboard/templates' as Route, // Updated path
+      icon: LayoutTemplate,
+      label: 'Templates',
+    },
+    {
+      icon: Paintbrush,
+      label: 'Customize Website',
+      href: '/builder' as Route,
+    },
+    {
+      href: '/dashboard/integrations' as Route,
+      icon: Plug,
+      label: 'Integrations',
+    },
+    {
+      href: '/dashboard/settings' as Route,
+      icon: Settings,
+      label: 'Settings',
+    },
+  ];
 
   // While checking auth OR if auth has succeeded but we are still waiting for the merchant,
   // show a full-page loading screen. This prevents content flashes and incorrect redirects.
@@ -445,12 +445,12 @@ export default function DashboardClientLayout({
 
                         {!isCollapsed && item.badge && (
                           <Badge
-                            variant={item.badgeVariant || "default"}
+                            variant={item.badgeVariant || 'default'}
                             className={cn(
-                              "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px]",
+                              'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px]',
                               item.badgeVariant === 'destructive'
-                                ? "bg-red-500 hover:bg-red-600 text-white"
-                                : "bg-accent text-accent-foreground"
+                                ? 'bg-red-500 hover:bg-red-600 text-white'
+                                : 'bg-accent text-accent-foreground'
                             )}
                           >
                             {/* If it's the Pages alert, show an Exclamation mark if preferred, or just the number. 

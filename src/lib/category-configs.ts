@@ -533,7 +533,7 @@ export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {
     ],
   },
 
-  'pharmaceuticals': {
+  pharmaceuticals: {
     displayName: 'Pharmaceuticals & Medical',
     description: 'Pharmacy, medications, medical supplies, and health products',
     supportsVariants: true,
@@ -572,7 +572,14 @@ export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {
         key: 'form',
         label: 'Form',
         type: 'select',
-        options: ['Tablets', 'Capsules', 'Syrup', 'Injection', 'Cream', 'Drops'],
+        options: [
+          'Tablets',
+          'Capsules',
+          'Syrup',
+          'Injection',
+          'Cream',
+          'Drops',
+        ],
       },
     ],
     fulfillmentIdentifiers: [
@@ -617,7 +624,8 @@ export const CATEGORY_CONFIGS: Record<string, CategoryConfig> = {
 
   'hair-extensions': {
     displayName: 'Hair & Extensions',
-    description: 'Wigs, weaves, bundles, closures, frontals, and hair care products',
+    description:
+      'Wigs, weaves, bundles, closures, frontals, and hair care products',
     supportsVariants: true,
     variantAttributes: [
       {

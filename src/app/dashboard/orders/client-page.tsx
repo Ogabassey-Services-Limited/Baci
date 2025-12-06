@@ -3,8 +3,10 @@
 import {
   AlertCircle as AlertCircleIcon,
   AlertTriangle,
+  Box,
   CheckCircle,
   ChevronDown,
+  ChevronUp,
   CircleDot,
   Clock,
   CreditCard,
@@ -13,7 +15,7 @@ import {
   Hourglass,
   List,
   ListFilter,
-  MoreVertical,
+  MapPin,
   PackageCheck,
   PlusCircle,
   RefreshCw,
@@ -23,9 +25,6 @@ import {
   Truck,
   Undo2,
   X,
-  ChevronUp,
-  Box,
-  MapPin,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -222,7 +221,10 @@ const OrderCard = ({
 
   // Urgency Logic
   const orderTime = order.createdAt || new Date(order.date).getTime();
-  const hoursAgo = Math.max(0, Math.floor((Date.now() - orderTime) / (1000 * 60 * 60)));
+  const hoursAgo = Math.max(
+    0,
+    Math.floor((Date.now() - orderTime) / (1000 * 60 * 60))
+  );
 
   // "Actionable" states: Pending/Processing shipping OR Unpaid/Pending payment
   const isActionable =
@@ -231,8 +233,9 @@ const OrderCard = ({
 
   // Exclude fully completed flows
   const isCompleted =
-    ['Shipped', 'Delivered', 'Canceled', 'Returned'].includes(order.shippingStatus) &&
-    ['Paid', 'Refunded'].includes(order.paymentStatus);
+    ['Shipped', 'Delivered', 'Canceled', 'Returned'].includes(
+      order.shippingStatus
+    ) && ['Paid', 'Refunded'].includes(order.paymentStatus);
 
   const isUrgent = isActionable && !isCompleted && hoursAgo > 48;
   const isWarning = isActionable && !isCompleted && hoursAgo > 24 && !isUrgent;
@@ -245,7 +248,8 @@ const OrderCard = ({
   })();
 
   const contextLabel = (() => {
-    if (['Unpaid', 'Pending'].includes(order.paymentStatus)) return 'Payment Pending';
+    if (['Unpaid', 'Pending'].includes(order.paymentStatus))
+      return 'Payment Pending';
     if (order.shippingStatus === 'Pending') return 'Unfulfilled';
     if (order.shippingStatus === 'Processing') return 'Processing';
     return 'Attention';
@@ -258,7 +262,9 @@ const OrderCard = ({
       : 'border-l-primary/20 bg-card hover:bg-accent/50';
 
   return (
-    <Card className={`mb-3 transition-all hover:shadow-md overflow-hidden border-l-4 group ${cardStyle}`}>
+    <Card
+      className={`mb-3 transition-all hover:shadow-md overflow-hidden border-l-4 group ${cardStyle}`}
+    >
       <div className="p-4 flex flex-col md:flex-row gap-4">
         {/* Left: Checkbox & Logic */}
         <div className="flex items-start gap-4 flex-1 min-w-0">
@@ -272,7 +278,7 @@ const OrderCard = ({
           {/* Main Click Area */}
           <div
             className="flex-1 min-w-0"
-          /* Removed generic onClick to prevent conflict with Name Link.
+            /* Removed generic onClick to prevent conflict with Name Link.
              Only expanding on row click if not clicking interactive elements.
              But simpler to let user click Chevron or non-interactive areas. */
           >
@@ -286,20 +292,28 @@ const OrderCard = ({
                 {order.customerName}
               </Link>
               <span className="text-muted-foreground">•</span>
-              <span
+              <button
+                type="button"
                 className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded cursor-pointer hover:text-foreground transition-colors"
                 onClick={() => setIsExpanded(!isExpanded)}
               >
                 {order.orderNumber}
-              </span>
+              </button>
               <span className="text-muted-foreground">•</span>
-              <span className="text-muted-foreground text-xs">{order.date}</span>
+              <span className="text-muted-foreground text-xs">
+                {order.date}
+              </span>
 
               {/* Urgency / Time Badge */}
-              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ml-2 ${isUrgent ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' :
-                isWarning ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' :
-                  'bg-muted text-muted-foreground'
-                }`}>
+              <div
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ml-2 ${
+                  isUrgent
+                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                    : isWarning
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                      : 'bg-muted text-muted-foreground'
+                }`}
+              >
                 {isActionable && (isUrgent || isWarning) && (
                   <span className="font-semibold mr-1">{contextLabel}</span>
                 )}
@@ -313,7 +327,10 @@ const OrderCard = ({
                 {timeDisplay}
               </div>
 
-              <Badge variant="outline" className="ml-auto md:hidden text-[10px] h-5">
+              <Badge
+                variant="outline"
+                className="ml-auto md:hidden text-[10px] h-5"
+              >
                 {order.paymentStatus}
               </Badge>
             </div>
@@ -322,9 +339,16 @@ const OrderCard = ({
             <div className="flex items-center gap-2 mb-1">
               {visibleItems.length > 0 ? (
                 visibleItems.map((item, i) => (
-                  <div key={i} className="relative w-12 h-12 rounded-lg bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0">
+                  <div
+                    key={i}
+                    className="relative w-12 h-12 rounded-lg bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0"
+                  >
                     {item.image ? (
-                      <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       <Box className="w-5 h-5 text-muted-foreground/50" />
                     )}
@@ -337,7 +361,9 @@ const OrderCard = ({
                   </div>
                 ))
               ) : (
-                <span className="text-sm text-muted-foreground italic">No items found</span>
+                <span className="text-sm text-muted-foreground italic">
+                  No items found
+                </span>
               )}
 
               {/* +X More Badge */}
@@ -349,7 +375,7 @@ const OrderCard = ({
             </div>
 
             <p className="text-xs text-muted-foreground truncate max-w-[90%] mt-1 group-hover:text-primary transition-colors">
-              {itemCount} items: {order.items?.map(i => i.name).join(', ')}
+              {itemCount} items: {order.items?.map((i) => i.name).join(', ')}
             </p>
           </div>
         </div>
@@ -358,8 +384,12 @@ const OrderCard = ({
         <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0 mt-2 md:mt-0">
           {/* Financials */}
           <div className="flex flex-col items-end min-w-[100px]">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Total</span>
-            <span className="font-bold text-lg">{formatCurrency(order.total)}</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              Total
+            </span>
+            <span className="font-bold text-lg">
+              {formatCurrency(order.total)}
+            </span>
           </div>
 
           {/* Status Actions */}
@@ -374,7 +404,11 @@ const OrderCard = ({
               onClick={() => setIsExpanded(!isExpanded)}
               className="shrink-0 h-8 w-8"
             >
-              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -390,19 +424,26 @@ const OrderCard = ({
               </h5>
               <div className="space-y-2">
                 {order.items?.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-sm p-2 hover:bg-muted/20 rounded">
+                  <div
+                    key={idx}
+                    className="flex justify-between items-center text-sm p-2 hover:bg-muted/20 rounded"
+                  >
                     <div className="flex gap-3 items-center overflow-hidden">
                       <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
                         <Box className="w-4 h-4 text-muted-foreground/40" />
                       </div>
                       <div className="truncate">
                         <p className="font-medium truncate">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.variant || 'Default Variant'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.variant || 'Default Variant'}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-medium">x{item.quantity}</p>
-                      <p className="text-xs text-muted-foreground">{formatCurrency(item.price)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(item.price)}
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -420,7 +461,9 @@ const OrderCard = ({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Provider</span>
-                  <span className="font-medium">{order.shipping_provider || 'Not assigned'}</span>
+                  <span className="font-medium">
+                    {order.shipping_provider || 'Not assigned'}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-muted-foreground">Tracking #</span>
@@ -429,7 +472,10 @@ const OrderCard = ({
                   </span>
                 </div>
                 <div className="pt-2">
-                  <Link href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`} className="w-full">
+                  <Link
+                    href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}
+                    className="w-full"
+                  >
                     <Button variant="outline" size="sm" className="w-full">
                       Open Order Details
                     </Button>

@@ -120,23 +120,56 @@ export async function getOrders(
     source: order.source === 'online_store' ? 'other' : order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
-    items: (order.order_items || []).map((item: any) => ({
-      id: item.id,
-      name: item.name || 'Unknown Product',
-      quantity: item.quantity,
-      price: Number.parseFloat(item.price || 0),
-      image: undefined,
-      variant: item.variant_name || undefined,
-    })).concat(order.order_number === '#00000001' ? [
-      { id: 'mock1', name: 'Vintage Sunglasses', quantity: 1, price: 4500, image: undefined, variant: 'Black' },
-      { id: 'mock2', name: 'Cotton T-Shirt', quantity: 2, price: 2000, image: undefined, variant: 'L / White' },
-      { id: 'mock3', name: 'Leather Belt', quantity: 1, price: 3500, image: undefined, variant: 'Brown' }
-    ] : []),
+    items: (order.order_items || [])
+      .map((item: any) => ({
+        id: item.id,
+        name: item.name || 'Unknown Product',
+        quantity: item.quantity,
+        price: Number.parseFloat(item.price || 0),
+        image: undefined,
+        variant: item.variant_name || undefined,
+      }))
+      .concat(
+        order.order_number === '#00000001'
+          ? [
+              {
+                id: 'mock1',
+                name: 'Vintage Sunglasses',
+                quantity: 1,
+                price: 4500,
+                image: undefined,
+                variant: 'Black',
+              },
+              {
+                id: 'mock2',
+                name: 'Cotton T-Shirt',
+                quantity: 2,
+                price: 2000,
+                image: undefined,
+                variant: 'L / White',
+              },
+              {
+                id: 'mock3',
+                name: 'Leather Belt',
+                quantity: 1,
+                price: 3500,
+                image: undefined,
+                variant: 'Brown',
+              },
+            ]
+          : []
+      ),
   }));
 
   // --- MOCK DATA GENERATION FOR UI TESTING ---
   const mockOrders: Order[] = [];
-  const customers = ['Alice Johnson', 'Bob Smith', 'Charlie Brown', 'Diana Prince', 'Evan Wright'];
+  const customers = [
+    'Alice Johnson',
+    'Bob Smith',
+    'Charlie Brown',
+    'Diana Prince',
+    'Evan Wright',
+  ];
   const products = [
     { name: 'Wireless Headphones', price: 15000 },
     { name: 'Running Shoes', price: 25000 },
@@ -145,7 +178,7 @@ export async function getOrders(
     { name: 'Protein Powder', price: 12000 },
     { name: 'Smart Watch', price: 45000 },
     { name: 'Gym Bag', price: 8000 },
-    { name: 'Resistance Bands', price: 2500 }
+    { name: 'Resistance Bands', price: 2500 },
   ];
 
   for (let i = 1; i <= 10; i++) {
@@ -161,7 +194,7 @@ export async function getOrders(
         quantity: Math.floor(Math.random() * 3) + 1,
         price: prod.price,
         image: undefined,
-        variant: Math.random() > 0.5 ? 'Default' : undefined
+        variant: Math.random() > 0.5 ? 'Default' : undefined,
       };
     });
 
@@ -169,13 +202,24 @@ export async function getOrders(
       id: `mock-order-${i}`,
       orderNumber: `#MOCK${i.toString().padStart(4, '0')}`,
       customerName: customers[Math.floor(Math.random() * customers.length)],
-      total: mockItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
-      shippingStatus: ['Pending', 'Processing', 'Shipped', 'Delivered'][Math.floor(Math.random() * 4)] as ShippingStatus,
-      paymentStatus: ['Paid', 'Unpaid', 'Pending'][Math.floor(Math.random() * 3)] as PaymentStatus,
-      date: randomDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      total: mockItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      ),
+      shippingStatus: ['Pending', 'Processing', 'Shipped', 'Delivered'][
+        Math.floor(Math.random() * 4)
+      ] as ShippingStatus,
+      paymentStatus: ['Paid', 'Unpaid', 'Pending'][
+        Math.floor(Math.random() * 3)
+      ] as PaymentStatus,
+      date: randomDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
       createdAt: randomDate.getTime(),
       source: Math.random() > 0.5 ? 'online_store' : 'instagram',
-      items: mockItems
+      items: mockItems,
     });
   }
 

@@ -583,10 +583,11 @@ export default function WalletPage() {
                         {tx.description}
                       </TableCell>
                       <TableCell
-                        className={`text-right font-medium ${tx.type === 'credit'
-                          ? 'text-green-600'
-                          : 'text-gray-900 dark:text-gray-100'
-                          }`}
+                        className={`text-right font-medium ${
+                          tx.type === 'credit'
+                            ? 'text-green-600'
+                            : 'text-gray-900 dark:text-gray-100'
+                        }`}
                       >
                         {tx.type === 'credit' ? '+' : '-'}₦
                         {tx.amount.toLocaleString()}

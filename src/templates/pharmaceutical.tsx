@@ -89,7 +89,13 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                             >
                                 Shop Now
                             </button>
-                            <button className="px-8 py-4 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors shadow-lg flex items-center gap-2">
+                            <button
+                                onClick={() => {
+                                    // TODO: Implement prescription upload feature
+                                    alert('Prescription upload coming soon!');
+                                }}
+                                className="px-8 py-4 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 transition-colors shadow-lg flex items-center gap-2"
+                            >
                                 <Upload className="w-5 h-5" />
                                 Upload Prescription
                             </button>
@@ -277,9 +283,9 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                                     </div>
                                     <h3 className="text-xl font-semibold text-gray-900 mb-2">{resource.title}</h3>
                                     <p className="text-gray-600">{resource.description}</p>
-                                    <a href="#" className="inline-block mt-4 text-blue-600 font-medium hover:text-blue-700">
+                                    <span className="inline-block mt-4 text-blue-600 font-medium cursor-pointer hover:text-blue-700">
                                         Learn More →
-                                    </a>
+                                    </span>
                                 </div>
                             );
                         })}
