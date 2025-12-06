@@ -71,6 +71,58 @@ const integrations = [
     ),
     color: 'bg-gray-50',
   },
+  {
+    id: 'snapchat',
+    name: 'Snapchat',
+    description:
+      'Reach the Snapchat generation with dynamic product ads and tracking.',
+    href: '/dashboard/integrations/snapchat',
+    icon: (
+      <svg
+        className="h-10 w-10 text-yellow-500"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M12.003 1.936c-2.096 0-3.905 1.144-4.629 2.651-.233.456-.252.887-.061 1.285.125.267.314.391.734.426.687.058 1.109.281 1.259.664.129.351-.048.835-.615 1.706-.523.79-.806 1.455-.806 1.889 0 .809.529 1.419 1.478 1.693.303.09.554.128.567.242.023.238-.636.526-1.579.69-.64.113-2.094.204-2.83.69-.327.217-.5.53-.5.908 0 .578.432 1.05.972 1.267.399.16.988.225 1.898.242.176.002.324.018.441.045.541.139.734.404.598.812-.08.232-.375.361-1.002.438-1.57.195-2.222.455-2.222 1.044 0 .428.324.78.966 1.05.655.275 2.126.541 4.298.541 2.227 0 3.737-.28 4.402-.562.632-.266.953-.615.953-1.029 0-.578-.621-.839-2.086-1.044-.093-.014-.15-.028-.184-.044-.543-.105-.826-.237-.899-.415-.145-.353.076-.621.611-.796.11-.035.244-.055.405-.055.903 0 1.488-.068 1.884-.23.538-.215.968-.691.968-1.267 0-.374-.17-.688-.492-.904-.733-.487-2.18-.58-2.818-.692-.953-.162-1.613-.45-1.588-.689.012-.112.258-.152.559-.241.956-.275 1.489-.884 1.489-1.693 0-.435-.285-1.096-.807-1.89-.567-.869-.743-1.354-.613-1.705.148-.383.57-.606 1.258-.664.417-.035.606-.159.73-.424.195-.403.176-.832-.057-1.288-.724-1.507-2.531-2.651-4.63-2.651z" />
+      </svg>
+    ),
+    color: 'bg-yellow-50',
+  },
+  {
+    id: 'twitter',
+    name: 'Twitter (X)',
+    description: 'Track conversions and optimize ads with the X Pixel.',
+    href: '/dashboard/integrations/twitter',
+    icon: (
+      <svg
+        className="h-10 w-10 text-black dark:text-white"
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+      </svg>
+    ),
+    color: 'bg-slate-50',
+  },
+  {
+    id: 'google-analytics',
+    name: 'Google Analytics 4',
+    description:
+      'Track website traffic and user behavior with the latest Google Analytics.',
+    href: '/dashboard/integrations/google-analytics',
+    icon: (
+      <Image
+        src="https://www.gstatic.com/analytics-suite/header/suite/v2/ic_analytics.svg"
+        alt="GA4"
+        width={40}
+        height={40}
+        className="h-10 w-10"
+      />
+    ),
+    color: 'bg-orange-50',
+  },
 ];
 
 export default function IntegrationsPage() {

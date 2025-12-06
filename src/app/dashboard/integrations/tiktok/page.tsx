@@ -3,6 +3,7 @@
 import { AlertCircle, ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { FeedUrlSection } from '@/components/dashboard/integrations/feed-url-section';
+import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,7 +17,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
 export default function TikTokIntegrationPage() {
-  const { merchant } = useMerchant();
+  const { merchant, updateMerchant } = useMerchant();
 
   if (!merchant) {
     return <div>Loading...</div>;
@@ -130,6 +131,20 @@ export default function TikTokIntegrationPage() {
           </Alert>
         </CardContent>
       </Card>
+
+      <TrackingPixelSection
+        platform="TikTok"
+        pixelId={(merchant as any).tiktok_pixel_id || ''}
+        accessToken={(merchant as any).tiktok_access_token || ''}
+        pixelLabel="Pixel ID"
+        tokenLabel="Access Token"
+        onSave={async (pixelId, token) => {
+          await updateMerchant({
+            tiktok_pixel_id: pixelId,
+            tiktok_access_token: token,
+          } as any);
+        }}
+      />
     </div>
   );
 }

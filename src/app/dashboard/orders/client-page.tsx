@@ -3,8 +3,10 @@
 import {
   AlertCircle as AlertCircleIcon,
   AlertTriangle,
+  Box,
   CheckCircle,
   ChevronDown,
+  ChevronUp,
   CircleDot,
   Clock,
   CreditCard,
@@ -13,7 +15,7 @@ import {
   Hourglass,
   List,
   ListFilter,
-  MoreVertical,
+  MapPin,
   PackageCheck,
   PlusCircle,
   RefreshCw,
@@ -195,6 +197,297 @@ export const SourceIcon = ({ source }: { source: string }) => {
     );
   }
   return <div className="h-6 w-6 rounded-full bg-gray-200" />;
+};
+
+const OrderCard = ({
+  order,
+  isSelected,
+  onSelect,
+  onStatusUpdate,
+  formatCurrency,
+}: {
+  order: Order;
+  isSelected: boolean;
+  onSelect: (orderNumber: string, isSelected: boolean) => void;
+  onStatusUpdate: (orderNumber: string, newStatus: ShippingStatus) => void;
+  formatCurrency: (amount: number) => string;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const itemCount = order.items?.length || 0;
+
+  // Visual-First: Show thumbnails instead of text
+  const visibleItems = order.items?.slice(0, 4) || [];
+  const remainingItems = itemCount > 4 ? itemCount - 4 : 0;
+
+  // Urgency Logic
+  const orderTime = order.createdAt || new Date(order.date).getTime();
+  const hoursAgo = Math.max(
+    0,
+    Math.floor((Date.now() - orderTime) / (1000 * 60 * 60))
+  );
+
+  // "Actionable" states: Pending/Processing shipping OR Unpaid/Pending payment
+  const isActionable =
+    ['Pending', 'Processing'].includes(order.shippingStatus) ||
+    ['Unpaid', 'Pending'].includes(order.paymentStatus);
+
+  // Exclude fully completed flows
+  const isCompleted =
+    ['Shipped', 'Delivered', 'Canceled', 'Returned'].includes(
+      order.shippingStatus
+    ) && ['Paid', 'Refunded'].includes(order.paymentStatus);
+
+  const isUrgent = isActionable && !isCompleted && hoursAgo > 48;
+  const isWarning = isActionable && !isCompleted && hoursAgo > 24 && !isUrgent;
+
+  const timeDisplay = (() => {
+    if (hoursAgo < 1) return 'Just now';
+    if (hoursAgo < 24) return `${hoursAgo} hr${hoursAgo > 1 ? 's' : ''} ago`;
+    const days = Math.floor(hoursAgo / 24);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  })();
+
+  const contextLabel = (() => {
+    if (['Unpaid', 'Pending'].includes(order.paymentStatus))
+      return 'Payment Pending';
+    if (order.shippingStatus === 'Pending') return 'Unfulfilled';
+    if (order.shippingStatus === 'Processing') return 'Processing';
+    return 'Attention';
+  })();
+
+  const cardStyle = isUrgent
+    ? 'border-l-red-500 bg-red-50/50 dark:bg-red-950/20'
+    : isWarning
+      ? 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20'
+      : 'border-l-primary/20 bg-card hover:bg-accent/50';
+
+  return (
+    <Card
+      className={`mb-3 transition-all hover:shadow-md overflow-hidden border-l-4 group ${cardStyle}`}
+    >
+      <div className="p-4 flex flex-col md:flex-row gap-4">
+        {/* Left: Checkbox & Logic */}
+        <div className="flex items-start gap-4 flex-1 min-w-0">
+          <Checkbox
+            onCheckedChange={(checked) =>
+              onSelect(order.orderNumber, checked as boolean)
+            }
+            checked={isSelected}
+            className="mt-1 shrink-0"
+          />
+          {/* Main Click Area */}
+          <div
+            className="flex-1 min-w-0"
+            /* Removed generic onClick to prevent conflict with Name Link.
+             Only expanding on row click if not clicking interactive elements.
+             But simpler to let user click Chevron or non-interactive areas. */
+          >
+            {/* Header: Customer & Date & Urgency */}
+            <div className="flex flex-wrap gap-2 text-sm mb-3 items-center">
+              <Link
+                href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}
+                className="font-semibold text-foreground hover:underline decoration-primary underline-offset-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {order.customerName}
+              </Link>
+              <span className="text-muted-foreground">•</span>
+              <button
+                type="button"
+                className="font-mono text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded cursor-pointer hover:text-foreground transition-colors"
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                {order.orderNumber}
+              </button>
+              <span className="text-muted-foreground">•</span>
+              <span className="text-muted-foreground text-xs">
+                {order.date}
+              </span>
+
+              {/* Urgency / Time Badge */}
+              <div
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ml-2 ${
+                  isUrgent
+                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                    : isWarning
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                      : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {isActionable && (isUrgent || isWarning) && (
+                  <span className="font-semibold mr-1">{contextLabel}</span>
+                )}
+                {isUrgent ? (
+                  <AlertTriangle className="w-3 h-3" />
+                ) : isWarning ? (
+                  <Clock className="w-3 h-3" />
+                ) : (
+                  <Clock className="w-3 h-3 opacity-50" />
+                )}
+                {timeDisplay}
+              </div>
+
+              <Badge
+                variant="outline"
+                className="ml-auto md:hidden text-[10px] h-5"
+              >
+                {order.paymentStatus}
+              </Badge>
+            </div>
+
+            {/* Visual Row: Product Thumbnails */}
+            <div className="flex items-center gap-2 mb-1">
+              {visibleItems.length > 0 ? (
+                visibleItems.map((item, i) => (
+                  <div
+                    key={i}
+                    className="relative w-12 h-12 rounded-lg bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0"
+                  >
+                    {item.image ? (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Box className="w-5 h-5 text-muted-foreground/50" />
+                    )}
+                    {/* Quantity Badge if > 1 */}
+                    {item.quantity > 1 && (
+                      <div className="absolute -bottom-1 -right-1 bg-foreground text-background text-[10px] font-bold px-1 rounded-full shadow-sm">
+                        x{item.quantity}
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <span className="text-sm text-muted-foreground italic">
+                  No items found
+                </span>
+              )}
+
+              {/* +X More Badge */}
+              {remainingItems > 0 && (
+                <div className="w-12 h-12 rounded-lg bg-muted/50 border border-dashed border-muted-foreground/30 flex items-center justify-center text-xs font-medium text-muted-foreground shrink-0">
+                  +{remainingItems}
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-muted-foreground truncate max-w-[90%] mt-1 group-hover:text-primary transition-colors">
+              {itemCount} items: {order.items?.map((i) => i.name).join(', ')}
+            </p>
+          </div>
+        </div>
+
+        {/* Right: Metrics & Actions */}
+        <div className="flex items-center justify-between md:justify-end gap-6 w-full md:w-auto border-t md:border-t-0 pt-3 md:pt-0 mt-2 md:mt-0">
+          {/* Financials */}
+          <div className="flex flex-col items-end min-w-[100px]">
+            <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">
+              Total
+            </span>
+            <span className="font-bold text-lg">
+              {formatCurrency(order.total)}
+            </span>
+          </div>
+
+          {/* Status Actions */}
+          <div className="flex items-center gap-3">
+            <div className="hidden md:block">
+              <StatusBadge status={order.paymentStatus} type="payment" />
+            </div>
+            <StatusDropdown order={order} onStatusUpdate={onStatusUpdate} />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="shrink-0 h-8 w-8"
+            >
+              {isExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Expanded Details Pane */}
+      {isExpanded && (
+        <div className="bg-muted/10 border-t p-4 animate-in slide-in-from-top-2">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                <Box className="w-3 h-3" /> Item Details
+              </h5>
+              <div className="space-y-2">
+                {order.items?.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="flex justify-between items-center text-sm p-2 hover:bg-muted/20 rounded"
+                  >
+                    <div className="flex gap-3 items-center overflow-hidden">
+                      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
+                        <Box className="w-4 h-4 text-muted-foreground/40" />
+                      </div>
+                      <div className="truncate">
+                        <p className="font-medium truncate">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.variant || 'Default Variant'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-medium">x{item.quantity}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(item.price)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+                <MapPin className="w-3 h-3" /> Fulfillment
+              </h5>
+              <div className="bg-background rounded-lg border p-4 text-sm space-y-3">
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-muted-foreground">Shipping Status</span>
+                  <StatusBadge status={order.shippingStatus} type="shipping" />
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Provider</span>
+                  <span className="font-medium">
+                    {order.shipping_provider || 'Not assigned'}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Tracking #</span>
+                  <span className="font-mono bg-muted px-2 py-0.5 rounded text-xs">
+                    {order.tracking_number || 'PENDING'}
+                  </span>
+                </div>
+                <div className="pt-2">
+                  <Link
+                    href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}
+                    className="w-full"
+                  >
+                    <Button variant="outline" size="sm" className="w-full">
+                      Open Order Details
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
 };
 
 interface OrdersClientPageProps {
@@ -708,75 +1001,19 @@ export default function OrdersClientPage({
                 </AlertDescription>
               </Alert>
             ) : (
-              filteredOrders.map((order) => (
-                <Card
-                  key={order.orderNumber}
-                  className="transition-shadow hover:shadow-md bg-white/50 dark:bg-black/20"
-                >
-                  <CardContent className="p-4 flex items-center gap-4 overflow-x-auto">
-                    <Checkbox
-                      onCheckedChange={(checked) =>
-                        handleSelectOrder(order.orderNumber, checked as boolean)
-                      }
-                      checked={selectedOrders.has(order.orderNumber)}
-                      aria-label={`Select order ${order.orderNumber}`}
-                      className="mt-1 shrink-0"
-                    />
-                    <div className="flex-shrink-0 mt-1">
-                      <SourceIcon source={order.source} />
-                    </div>
-                    <div className="flex-1 min-w-[200px]">
-                      <Link
-                        href={`/dashboard/orders/${order.orderNumber.replace('#', '')}`}
-                        className="font-semibold hover:underline"
-                      >
-                        {order.customerName}
-                      </Link>
-                      <p className="text-sm text-muted-foreground">
-                        {order.orderNumber} &middot; {order.date}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-end gap-4 text-sm w-[280px] shrink-0">
-                      <div className="w-[110px] text-center">
-                        <StatusBadge
-                          status={order.paymentStatus}
-                          type="payment"
-                        />
-                      </div>
-                      <div className="w-[140px]">
-                        <StatusDropdown
-                          order={order}
-                          onStatusUpdate={handleUpdateStatus}
-                        />
-                      </div>
-                    </div>
-                    <div className="text-right w-28 shrink-0">
-                      <p className="font-bold text-lg">
-                        {formatCurrency(order.total)}
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0 -mr-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>View Details</DropdownMenuItem>
-                          <DropdownMenuItem>Contact Customer</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>Print Invoice</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+              // New Collapsible Order Cards
+              <div className="space-y-2">
+                {filteredOrders.map((order) => (
+                  <OrderCard
+                    key={order.orderNumber}
+                    order={order}
+                    isSelected={selectedOrders.has(order.orderNumber)}
+                    onSelect={handleSelectOrder}
+                    onStatusUpdate={handleUpdateStatus}
+                    formatCurrency={formatCurrency}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </CardContent>

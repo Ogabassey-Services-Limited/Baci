@@ -27,9 +27,18 @@ export interface Order {
   shippingStatus: ShippingStatus;
   paymentStatus: PaymentStatus;
   date: string;
+  createdAt: number;
   source: string;
   tracking_number?: string;
   shipping_provider?: string;
+  items: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+    image?: string;
+    variant?: string;
+  }>;
 }
 
 export interface OrderStats {
@@ -95,7 +104,7 @@ export async function getOrders(
     return [];
   }
 
-  return (orders || []).map((order) => ({
+  const realOrders = (orders || []).map((order) => ({
     id: order.id,
     orderNumber: order.order_number,
     customerName: order.customer_name,
@@ -107,10 +116,21 @@ export async function getOrders(
       day: 'numeric',
       year: 'numeric',
     }),
+    createdAt: new Date(order.created_at).getTime(),
     source: order.source === 'online_store' ? 'other' : order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
+    items: (order.order_items || []).map((item: any) => ({
+      id: item.id,
+      name: item.name || 'Unknown Product',
+      quantity: item.quantity,
+      price: Number.parseFloat(item.price || 0),
+      image: undefined,
+      variant: item.variant_name || undefined,
+    })),
   }));
+
+  return realOrders;
 }
 
 export async function getOrderStats(merchantId: string): Promise<OrderStats> {
@@ -157,7 +177,7 @@ export async function getOrder(
   // Try fetching by ID first, then order_number
   let query = supabase
     .from('orders')
-    .select('*, order_items(*, product:products(*))')
+    .select('*, order_items(*)')
     .eq('merchant_id', merchantId);
 
   // Check if identifier is UUID
@@ -198,9 +218,17 @@ export async function getOrder(
       day: 'numeric',
       year: 'numeric',
     }),
+    createdAt: new Date(order.created_at).getTime(),
     source: order.source === 'online_store' ? 'other' : order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
-    // Add items if needed by the frontend type, distinct from the list type
+    items: (order.order_items || []).map((item: any) => ({
+      id: item.id,
+      name: item.name || 'Unknown Product',
+      quantity: item.quantity,
+      price: Number.parseFloat(item.price || 0),
+      image: undefined, // Image not available without product join
+      variant: item.variant_name || undefined,
+    })),
   };
 }

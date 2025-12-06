@@ -265,11 +265,20 @@ export default function DashboardClientLayout({
     router.push('/login');
   };
 
+  const unfilledPagesCount = (() => {
+    if (!merchant?.pages) return 6; // All pages missing if object doesn't exist
+    const pages = merchant.pages as Record<string, string>;
+    const keys = ['about', 'contact', 'privacy', 'terms', 'faq', 'legal'];
+    return keys.filter((key) => !pages[key] || pages[key].trim().length === 0)
+      .length;
+  })();
+
   const navItems: {
     href: Route;
     icon: typeof LayoutDashboard;
     label: string;
     badge?: number;
+    badgeVariant?: 'default' | 'destructive';
   }[] = [
     {
       href: '/dashboard' as Route,
@@ -316,9 +325,11 @@ export default function DashboardClientLayout({
       href: '/dashboard/pages' as Route,
       icon: FileText,
       label: 'Pages',
+      badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
+      badgeVariant: 'destructive',
     },
     {
-      href: '/template-preview' as Route,
+      href: '/dashboard/templates' as Route, // Updated path
       icon: LayoutTemplate,
       label: 'Templates',
     },
@@ -433,8 +444,19 @@ export default function DashboardClientLayout({
                         )}
 
                         {!isCollapsed && item.badge && (
-                          <Badge className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-accent text-accent-foreground px-1.5 text-[10px]">
-                            {item.badge}
+                          <Badge
+                            variant={item.badgeVariant || 'default'}
+                            className={cn(
+                              'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px]',
+                              item.badgeVariant === 'destructive'
+                                ? 'bg-red-500 hover:bg-red-600 text-white'
+                                : 'bg-accent text-accent-foreground'
+                            )}
+                          >
+                            {/* If it's the Pages alert, show an Exclamation mark if preferred, or just the number. 
+                                User asked for 'alert', usually '!' is clearer than a number for 'unfilled'. 
+                                But let's stick to number for now as it gives scope of work. */}
+                            {item.label === 'Pages' ? '!' : item.badge}
                           </Badge>
                         )}
                       </Link>

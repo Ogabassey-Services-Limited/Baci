@@ -303,7 +303,7 @@ export default function CustomersClientPage({
         </div>
       </div>
 
-      <div className="glass border border-primary/20 rounded-md">
+      <div className="glass border border-primary/20 rounded-md bg-white/50 dark:bg-card/30">
         <Table>
           <TableHeader>
             <TableRow>
@@ -364,7 +364,7 @@ export default function CustomersClientPage({
                     {customer.store_credit > 0 ? (
                       <Badge
                         variant="secondary"
-                        className="bg-green-100 text-green-800 hover:bg-green-100"
+                        className="bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-950/30 dark:text-green-300 dark:hover:bg-green-900/40"
                       >
                         {formatCurrency(customer.store_credit)}
                       </Badge>

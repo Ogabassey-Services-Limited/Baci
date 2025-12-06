@@ -149,7 +149,7 @@ export function ProductCatalog({
   };
 
   return (
-    <Card className="flex-1 flex flex-col border border-primary/20 shadow-sm bg-white/50 backdrop-blur-sm">
+    <Card className="flex-1 flex flex-col border border-border/40 shadow-sm bg-white/50 dark:bg-card/30 backdrop-blur-sm">
       <CardHeader className="px-6 py-4 border-b border-primary/10">
         <div className="flex items-center justify-between">
           <div>
@@ -166,7 +166,7 @@ export function ProductCatalog({
       <CardContent className="flex-1 overflow-hidden p-0">
         <div className="h-full overflow-y-auto overflow-x-auto">
           <Table className="min-w-[800px]">
-            <TableHeader className="sticky top-0 bg-white/95 backdrop-blur-md z-10 shadow-sm">
+            <TableHeader className="sticky top-0 bg-white/95 dark:bg-background/95 backdrop-blur-md z-10 shadow-sm">
               <TableRow className="hover:bg-transparent border-b border-primary/10">
                 <TableHead className="w-[400px] pl-6">Product</TableHead>
                 <TableHead>Status</TableHead>
@@ -232,20 +232,20 @@ export function ProductCatalog({
                           className={cn(
                             'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
                             product.status === 'active'
-                              ? 'bg-green-50 text-green-700 border-green-200/50'
+                              ? 'bg-green-50 text-green-700 border-green-200/50 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30'
                               : product.status === 'draft'
-                                ? 'bg-yellow-50 text-yellow-700 border-yellow-200/50'
-                                : 'bg-gray-50 text-gray-600 border-gray-200/50'
+                                ? 'bg-yellow-50 text-yellow-700 border-yellow-200/50 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800/30'
+                                : 'bg-gray-50 text-gray-600 border-gray-200/50 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-700/30'
                           )}
                         >
                           <span
                             className={cn(
                               'mr-1.5 h-1.5 w-1.5 rounded-full',
                               product.status === 'active'
-                                ? 'bg-green-500'
+                                ? 'bg-green-500 dark:bg-green-400'
                                 : product.status === 'draft'
-                                  ? 'bg-yellow-500'
-                                  : 'bg-gray-400'
+                                  ? 'bg-yellow-500 dark:bg-yellow-400'
+                                  : 'bg-gray-400 dark:bg-gray-500'
                             )}
                           />
                           <span className="capitalize">{product.status}</span>
@@ -262,7 +262,7 @@ export function ProductCatalog({
                             onBlur={(e) =>
                               handlePriceChange(product.id, e.target.value)
                             }
-                            className="h-9 text-left pr-3 pl-6 font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm"
+                            className="h-9 text-left pr-3 pl-6 font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-background transition-all shadow-none focus:shadow-sm"
                             aria-label={`Price for ${product.name}`}
                             step="0.01"
                           />
@@ -284,10 +284,10 @@ export function ProductCatalog({
                               className={cn(
                                 'h-8 text-center font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
                                 product.stock === 0 &&
-                                  'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
+                                  'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40',
                                 isLowStock &&
                                   product.stock > 0 &&
-                                  'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
+                                  'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-900/40'
                               )}
                               aria-label={`Stock for ${product.name}`}
                             />

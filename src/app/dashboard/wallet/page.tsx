@@ -23,6 +23,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -259,7 +260,7 @@ export default function WalletPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BagLoader size={48} />
       </div>
     );
   }

@@ -163,8 +163,6 @@ export const MerchantProvider = ({
 
         // Mock data for Ogabassey demo
         if (
-          slug === 'ogabassey1' ||
-          slug === 'ogabassey3' ||
           slug === 'gadget-custom-template-ogabassey' ||
           slug === 'gadget-default-template'
         ) {
