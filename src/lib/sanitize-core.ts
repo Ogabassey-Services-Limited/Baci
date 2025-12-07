@@ -357,12 +357,7 @@ export function sanitizeJson<T>(
   }
 }
 
-/**
- * Alias for sanitizeSchemaMarkup for backward compatibility.
- * @see sanitizeSchemaMarkup
- * @deprecated Use sanitizeSchemaMarkup instead
- */
-export const sanitizeSchemaObject = sanitizeSchemaMarkup;
+
 
 /**
  * Safely stringify a JSON-LD schema object for use in dangerouslySetInnerHTML.
