@@ -56,7 +56,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   showUser = true,
   showBell = true,
 }) => {
-  const { totalItems, setIsCartOpen } = useCart();
+  const { totalItems } = useCart();
   // const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
   // Temporary notification state until NotificationContext is migrated
   const notifications: {

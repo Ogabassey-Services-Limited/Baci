@@ -96,7 +96,7 @@ export async function POST(request: Request) {
               available: r.available,
               price: r.premiumPrice || 15000, // Default price estimate
               renewalPrice: r.premiumPrice || 24000,
-              category: r.isPremium ? 'premium' : 'standard',
+              category: r.isPremium ? 'premium' : 'global',
               popular: true,
               note: 'Pricing may vary - contact support for exact rates',
             })),

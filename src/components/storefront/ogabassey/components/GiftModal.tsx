@@ -24,7 +24,7 @@ interface GiftModalProps {
 }
 
 export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
-  const { cart, cartTotal } = useCart();
+  const { cart } = useCart();
   const router = useRouter();
 
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);

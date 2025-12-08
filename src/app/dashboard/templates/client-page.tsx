@@ -36,6 +36,8 @@ const categoryStyles: Record<string, string> = {
   food: 'bg-orange-100 text-orange-800',
   services: 'bg-purple-100 text-purple-800',
   beauty: 'bg-rose-100 text-rose-800',
+  home: 'bg-amber-100 text-amber-800',
+  health: 'bg-emerald-100 text-emerald-800',
 };
 
 function _TemplateCard({ template }: { template: TemplateDefinition }) {
