@@ -61,7 +61,7 @@ export function HeroCarousel({
                   src={slide.image}
                   alt={slide.title}
                   fill
-                  className="object-cover transition-transform duration-[10000ms] hover:scale-105"
+                  className="object-cover transition-transform duration-10000 hover:scale-105"
                   priority={index === 0}
                   sizes="(max-width: 768px) 100vw, 100vw"
                 />

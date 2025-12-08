@@ -139,16 +139,12 @@ export function StorefrontProductGrid({
   }, [merchant?.id, isPreviewMode]);
 
   // Perform server-side search when needed
+  // Note: We use refs to check current state without adding to dependencies
   useEffect(() => {
     if (!useServerSearch || !searchQuery || !merchant?.id || isPreviewMode) {
-      // Avoid synchronous state updates in effect
-      if (serverSearchResults.length > 0 || didYouMean !== null) {
-        const timer = setTimeout(() => {
-          setServerSearchResults([]);
-          setDidYouMean(null);
-        }, 0);
-        return () => clearTimeout(timer);
-      }
+      // Clear previous search results when conditions change
+      setServerSearchResults([]);
+      setDidYouMean(null);
       return;
     }
 
@@ -176,8 +172,7 @@ export function StorefrontProductGrid({
     useServerSearch,
     merchant?.id,
     isPreviewMode,
-    didYouMean,
-    serverSearchResults.length,
+    // Removed didYouMean and serverSearchResults.length - they're set by this effect
   ]);
 
   const { formatCurrencyCompact } = useCurrency();
@@ -320,10 +315,10 @@ export function StorefrontProductGrid({
 
   const brandColors = merchant?.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -383,11 +378,10 @@ export function StorefrontProductGrid({
                             selectedCategory === option ? 'All' : option
                           )
                         }
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          selectedCategory === option
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === option
                             ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
                             : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
-                        }`}
+                          }`}
                       >
                         {option}
                       </button>

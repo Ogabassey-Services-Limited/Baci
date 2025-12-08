@@ -196,6 +196,8 @@ export function generateEventId(): string {
 
 /**
  * Send event to Facebook Conversions API
+ * @param limitedDataUse - When true, enables Limited Data Use (LDU) mode for CCPA compliance
+ *                         This restricts how Facebook can use the data for California users
  */
 export async function sendFacebookCAPIEvent(
   pixelId: string,
@@ -204,7 +206,8 @@ export async function sendFacebookCAPIEvent(
   userData: FacebookUserData,
   customData?: FacebookCustomData,
   eventSourceUrl?: string,
-  eventId?: string
+  eventId?: string,
+  limitedDataUse?: boolean
 ): Promise<{ success: boolean; response?: CAPIResponse; error?: string }> {
   if (!pixelId || !accessToken) {
     return { success: false, error: 'Missing pixel ID or access token' };
@@ -218,7 +221,31 @@ export async function sendFacebookCAPIEvent(
     action_source: 'website',
     user_data: buildUserData(userData),
     custom_data: customData ? buildCustomData(customData) : undefined,
+    // LDU mode: opt_out restricts data processing for CCPA compliance
+    opt_out: limitedDataUse,
   };
+
+  // Build request body
+  const requestBody: Record<string, unknown> = {
+    data: [event],
+    access_token: accessToken,
+  };
+
+  // Enable test mode in development
+  if (process.env.NODE_ENV === 'development' && process.env.FB_TEST_EVENT_CODE) {
+    requestBody.test_event_code = process.env.FB_TEST_EVENT_CODE;
+  }
+
+  // Add Data Processing Options for LDU (Limited Data Use) - CCPA compliance
+  // This is in addition to opt_out and provides more granular control
+  if (limitedDataUse) {
+    // data_processing_options: ['LDU'] enables Limited Data Use
+    // data_processing_options_country: 1 = USA
+    // data_processing_options_state: 1000 = California
+    requestBody.data_processing_options = ['LDU'];
+    requestBody.data_processing_options_country = 1;
+    requestBody.data_processing_options_state = 1000;
+  }
 
   try {
     const response = await fetch(
@@ -228,15 +255,7 @@ export async function sendFacebookCAPIEvent(
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          data: [event],
-          access_token: accessToken,
-          // Enable test mode in development
-          ...(process.env.NODE_ENV === 'development' &&
-          process.env.FB_TEST_EVENT_CODE
-            ? { test_event_code: process.env.FB_TEST_EVENT_CODE }
-            : {}),
-        }),
+        body: JSON.stringify(requestBody),
       }
     );
 
@@ -281,6 +300,8 @@ export async function sendFacebookCAPIEvent(
 export const facebookCAPI = {
   /**
    * Track a purchase event (server-side)
+   * @param eventId - Optional event ID for deduplication with client-side Pixel
+   * @param limitedDataUse - Set to true for California users (CCPA/LDU compliance)
    */
   purchase: (
     pixelId: string,
@@ -295,7 +316,9 @@ export const facebookCAPI = {
       quantity: number;
       price: number;
     }>,
-    eventSourceUrl?: string
+    eventSourceUrl?: string,
+    eventId?: string,
+    limitedDataUse?: boolean
   ) => {
     return sendFacebookCAPIEvent(
       pixelId,
@@ -315,7 +338,9 @@ export const facebookCAPI = {
         })),
         numItems: products.reduce((sum, p) => sum + p.quantity, 0),
       },
-      eventSourceUrl
+      eventSourceUrl,
+      eventId,
+      limitedDataUse
     );
   },
 

@@ -70,7 +70,7 @@ export default async function ContactPage({ params }: PageProps) {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
   const baseUrl = isDevelopment
-    ? `http://localhost:3000/storefront/${slug}`
+    ? `http://localhost:3000/${slug}`
     : `https://${slug}.${rootDomain}`;
 
   // Generate ContactPage JSON-LD schema

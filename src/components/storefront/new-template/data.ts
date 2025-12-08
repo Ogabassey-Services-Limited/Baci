@@ -26,7 +26,7 @@ export const products: Product[] = [
     price: '₦2,450,000',
     rawPrice: 2450000,
     image:
-      'https://images.unsplash.com/photo-1517336714731-489689fd1ca4?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?auto=format&fit=crop&q=80&w=800',
     category: 'Laptops',
     rating: 4.9,
     reviews: 89,

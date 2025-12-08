@@ -68,14 +68,31 @@ export async function POST() {
     }
 
     // Check for at least one product
-    const { count: productCount } = await supabase
+    const { count: productCount, error: productError } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
       .eq('merchant_id', merchant.id)
       .eq('status', 'published');
 
+    // Also get total products for debugging
+    const { count: totalProducts } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('merchant_id', merchant.id);
+
+    console.log('[Publish API] Product check:', {
+      merchantId: merchant.id,
+      publishedCount: productCount,
+      totalProducts,
+      productError,
+    });
+
     if (!productCount || productCount === 0) {
-      missingItems.push('At least one published product');
+      missingItems.push(
+        totalProducts && totalProducts > 0
+          ? `At least one published product (you have ${totalProducts} product(s) but none are published - go to Products and publish them)`
+          : 'At least one published product'
+      );
     }
 
     // If any required items are missing, return error

@@ -276,7 +276,7 @@ export async function submitOnboarding(
         status: 'active',
         is_primary: true,
         registered_at: new Date().toISOString(),
-        ssl_status: 'active', // Assuming wildcard SSL for *.baci.tech
+        ssl_status: 'active', // Assuming wildcard SSL for *.usebaci.com
       });
 
       if (domainError) {

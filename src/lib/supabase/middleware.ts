@@ -61,16 +61,18 @@ export async function checkAuth(
   const isProtectedRoute =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/builder') ||
-    pathname.startsWith('/admin');
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/onboarding');
 
   // Define auth routes (login, signup, etc.)
   const isAuthRoute =
     pathname === '/login' ||
-    pathname === '/onboarding' ||
+    // pathname === '/onboarding' ||
     pathname === '/reset-password';
 
   // Protected routes: redirect to login if no user
   if (isProtectedRoute && !user) {
+    console.log('Lib Middleware: No user on protected route, redirecting to login', pathname);
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirectTo', pathname);
@@ -79,6 +81,7 @@ export async function checkAuth(
 
   // Auth routes: redirect to dashboard if already logged in
   if (isAuthRoute && user) {
+    console.log('Lib Middleware: User exists on auth route, redirecting to dashboard');
     const redirectTo = request.nextUrl.searchParams.get('redirectTo');
     const url = request.nextUrl.clone();
     url.pathname = redirectTo || '/dashboard';

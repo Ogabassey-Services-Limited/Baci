@@ -1,5 +1,10 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import {
+  CLICK_ID_PARAMS,
+  extractClickIdsFromUrl,
+  generateClickIdCookies,
+} from '@/lib/ad-tracking-cookies';
 import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
@@ -119,11 +124,36 @@ function isVercelPreview(hostname: string): boolean {
 }
 
 /**
- * Check if this is localhost/development environment
+ * Check if this is localhost/development environment (with or without subdomain)
  */
 function isLocalhost(hostname: string): boolean {
   const normalizedHost = normalizeHostname(hostname);
-  return normalizedHost === 'localhost' || normalizedHost === '127.0.0.1';
+  return (
+    normalizedHost === 'localhost' ||
+    normalizedHost === '127.0.0.1' ||
+    normalizedHost.endsWith('.localhost') // subdomain.localhost:3000
+  );
+}
+
+/**
+ * Extract subdomain from localhost for development testing
+ * e.g., ogabassey.localhost:3000 -> ogabassey
+ */
+function extractLocalhostSubdomain(hostname: string): string | null {
+  const normalizedHost = normalizeHostname(hostname);
+
+  if (normalizedHost === 'localhost' || normalizedHost === '127.0.0.1') {
+    return null; // Plain localhost - no subdomain
+  }
+
+  if (normalizedHost.endsWith('.localhost')) {
+    const subdomain = normalizedHost.slice(0, -'.localhost'.length);
+    if (subdomain && !subdomain.includes('.') && isValidSubdomain(subdomain)) {
+      return subdomain;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -250,14 +280,17 @@ export async function middleware(request: NextRequest) {
 
   // ==== AUTH MIDDLEWARE (Server-side session verification) ====
   // For protected routes, verify auth BEFORE rendering
+  // Define protected route patterns
   const isProtectedRoute =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/builder') ||
-    pathname.startsWith('/admin');
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/onboarding');
 
+  // Define auth routes (login, signup, etc.)
   const isAuthRoute =
     pathname === '/login' ||
-    pathname === '/onboarding' ||
+    // pathname === '/onboarding' || // Onboarding is protected, not an auth page to skip
     pathname === '/reset-password';
 
   // Only run auth check for protected or auth routes (skip for public routes)
@@ -266,6 +299,7 @@ export async function middleware(request: NextRequest) {
 
     // Protected routes: redirect to login if no user
     if (isProtectedRoute && !user) {
+      console.log('Middleware: No user found for protected route', pathname);
       const url = request.nextUrl.clone();
       url.pathname = '/login';
       url.searchParams.set('redirectTo', pathname);
@@ -274,6 +308,7 @@ export async function middleware(request: NextRequest) {
 
     // Auth routes: redirect to dashboard if already logged in
     if (isAuthRoute && user) {
+      console.log('Middleware: User found on auth route, redirecting to dashboard');
       const redirectTo = request.nextUrl.searchParams.get('redirectTo');
       const url = request.nextUrl.clone();
       url.pathname = redirectTo || '/dashboard';
@@ -302,9 +337,17 @@ export async function middleware(request: NextRequest) {
   let subdomain: string | null = null;
 
   if (isLocalhost(hostname)) {
-    // In development, use path-based routing: localhost:3000/ogabassey/...
-    // The (storefront)/[slug] routes handle this
-    subdomain = null;
+    // In development, support BOTH:
+    // 1. ogabassey.localhost:3000 (subdomain-based, preferred, matches production)
+    // 2. localhost:3000/ogabassey (path-based, fallback)
+    const localSubdomain = extractLocalhostSubdomain(hostname);
+    console.log(`[Middleware] Localhost detected. Host: ${hostname}, Extracted subdomain: ${localSubdomain}`);
+    if (localSubdomain) {
+      subdomain = localSubdomain;
+    } else {
+      // Plain localhost - let path-based routing handle it
+      subdomain = null;
+    }
   } else {
     const extractedSubdomain = extractSubdomain(hostname, ROOT_DOMAIN);
     if (extractedSubdomain !== null) {
@@ -333,7 +376,8 @@ export async function middleware(request: NextRequest) {
         pathname,
         userAgent,
         routeType,
-        nonce
+        nonce,
+        request // Pass request for click ID capture on storefront
       );
     } else {
       // Invalid/suspicious hostname - reject
@@ -368,7 +412,8 @@ export async function middleware(request: NextRequest) {
       pathname,
       userAgent,
       routeType,
-      nonce
+      nonce,
+      request // Pass request for click ID capture on storefront
     );
   }
 
@@ -380,7 +425,40 @@ export async function middleware(request: NextRequest) {
       ? crypto.randomUUID()
       : undefined;
 
-  return applySecurityHeaders(response, pathname, userAgent, routeType, nonce);
+  return applySecurityHeaders(
+    response,
+    pathname,
+    userAgent,
+    routeType,
+    nonce,
+    request // Pass request for click ID capture on storefront
+  );
+}
+
+/**
+ * Capture ad click IDs from URL params and set cookies
+ * This enables better conversion attribution when sending offline conversions
+ */
+function captureAdClickIds(request: NextRequest, response: NextResponse): void {
+  const searchParams = request.nextUrl.searchParams;
+
+  // Check if any click ID params exist
+  const hasClickIds = Object.keys(CLICK_ID_PARAMS).some((param) =>
+    searchParams.has(param)
+  );
+
+  if (!hasClickIds) return;
+
+  // Extract click IDs from URL
+  const clickIds = extractClickIdsFromUrl(searchParams);
+
+  // Generate cookies
+  const cookies = generateClickIdCookies(clickIds);
+
+  // Set cookies on response
+  for (const cookie of cookies) {
+    response.headers.append('Set-Cookie', cookie);
+  }
 }
 
 function applySecurityHeaders(
@@ -388,8 +466,14 @@ function applySecurityHeaders(
   pathname: string,
   userAgent: string,
   routeType: 'admin' | 'auth' | 'storefront' | 'api',
-  nonce?: string
+  nonce?: string,
+  request?: NextRequest
 ): NextResponse {
+  // Capture ad click IDs from URL params (if request provided)
+  if (request && routeType === 'storefront') {
+    captureAdClickIds(request, response);
+  }
+
   // Apply Content Security Policy
   const csp = generateCSP(routeType, nonce);
   response.headers.set('Content-Security-Policy', csp);
@@ -496,14 +580,12 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - api/auth (auth endpoints - handled by Supabase)
-     * - api/webhook (webhook endpoints - need raw body)
-     * - api/payments/webhook (payment webhooks - need raw body)
+     * - api (all API routes - they handle their own auth)
      * - manifest.webmanifest (PWA manifest)
      * - robots.txt (SEO file)
      * - sitemap.xml (SEO file)
      * - Static files with extensions (.svg, .png, .jpg, etc.)
      */
-    '/((?!_next/image|_next/static|favicon.ico|api/auth|api/webhook|api/payments/webhook|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
+    '/((?!_next/image|_next/static|favicon.ico|api/|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
   ],
 };
