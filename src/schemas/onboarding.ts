@@ -10,7 +10,24 @@ const step1BaseSchema = z.object({
     .min(2, { error: 'Business name must be at least 2 characters.' }),
   businessType: z.string().min(1, { error: 'Please select a business type.' }),
   otherBusinessType: z.string().optional(),
+  // KYC Fields (optional but validated if provided)
+  nin: z
+    .string()
+    .regex(/^\d{11}$/, { error: 'NIN must be exactly 11 digits.' })
+    .optional()
+    .or(z.literal('')),
+  bvn: z
+    .string()
+    .regex(/^\d{11}$/, { error: 'BVN must be exactly 11 digits.' })
+    .optional()
+    .or(z.literal('')),
+  cacNumber: z
+    .string()
+    .min(2, { error: 'Please enter a valid CAC registration number.' })
+    .optional()
+    .or(z.literal('')),
 });
+
 
 /**
  * Step 1: Business Details (with client-side refinement)
