@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import {
   Check,
@@ -75,10 +75,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative">
-      <Link
-        href={`/product/${product.id}` as any}
-        className="absolute inset-0 z-0"
-      />
+      <Link href={`/product/${product.id}`} className="absolute inset-0 z-0" />
 
       {/* Image Container - Gray Box with Overlapping Button */}
       {/* overflow-visible needed for the button to hang off the edge */}

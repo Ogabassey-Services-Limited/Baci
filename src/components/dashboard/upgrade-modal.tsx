@@ -158,6 +158,7 @@ function UpgradeModal() {
 
           {/* Close button */}
           <button
+            type="button"
             onClick={close}
             className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors"
           >
@@ -214,6 +215,7 @@ function UpgradeModal() {
           {/* CTA buttons */}
           <div className="space-y-3">
             <button
+              type="button"
               className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 px-6 rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-purple-200"
               onClick={() => {
                 // TODO: Redirect to pricing page or Stripe checkout
@@ -224,6 +226,7 @@ function UpgradeModal() {
               {targetPlan.charAt(0).toUpperCase() + targetPlan.slice(1)}
             </button>
             <button
+              type="button"
               onClick={close}
               className="w-full text-gray-500 font-medium py-2 hover:text-gray-700 transition-colors"
             >

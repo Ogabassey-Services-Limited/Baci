@@ -1,64 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback } from 'react';
 import { SetupInstructions } from '@/components/analytics/setup-instructions';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Button } from '@/components/ui/button';
-import { useMerchant } from '@/hooks/use-merchant';
-import { useToast } from '@/hooks/use-toast';
+import { useIntegrationSettings } from '@/hooks/use-integration-settings';
 import { asRoute } from '@/lib/routes';
 
+interface TwitterSettings {
+  twitter_pixel_id: string | null;
+}
+
+const SETTINGS_KEYS: (keyof TwitterSettings)[] = ['twitter_pixel_id'];
+
 export default function TwitterIntegrationPage() {
-  const { merchant } = useMerchant();
-  const { toast } = useToast();
-  const [pixelId, setPixelId] = useState('');
-  const [loading, setLoading] = useState(true);
+  const { settings, isLoading, hasMerchant, saveSettings } =
+    useIntegrationSettings<TwitterSettings>({
+      keys: SETTINGS_KEYS,
+      platformName: 'Twitter',
+    });
 
-  useEffect(() => {
-    if (merchant) {
-      fetch('/api/merchant/features')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.twitter_pixel_id) {
-            setPixelId(data.twitter_pixel_id);
-          }
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [merchant]);
-
-  const handleSave = async (newPixelId: string) => {
-    try {
-      const res = await fetch('/api/merchant/features', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          twitter_pixel_id: newPixelId,
-        }),
+  const handleSave = useCallback(
+    async (newPixelId: string) => {
+      await saveSettings({
+        twitter_pixel_id: newPixelId || null,
       });
+    },
+    [saveSettings]
+  );
 
-      if (!res.ok) throw new Error('Failed to save settings');
-
-      setPixelId(newPixelId);
-      toast({
-        title: 'Settings saved',
-        description: 'Your Twitter pixel settings have been updated.',
-      });
-    } catch (error) {
-      console.error('Error saving Twitter settings:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save settings. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  if (loading) {
+  if (!hasMerchant || isLoading) {
     return <div>Loading...</div>;
   }
 
@@ -80,7 +53,7 @@ export default function TwitterIntegrationPage() {
 
       <TrackingPixelSection
         platform="Twitter (X)"
-        pixelId={pixelId}
+        pixelId={settings?.twitter_pixel_id || ''}
         pixelLabel="Pixel ID"
         onSave={handleSave}
         description="The X Pixel allows you to track conversions and optimize your ad campaigns."

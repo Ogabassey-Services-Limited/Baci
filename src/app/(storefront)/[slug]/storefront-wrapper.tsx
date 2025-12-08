@@ -7,7 +7,7 @@ import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import { Button } from '@/components/ui/button';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { useMerchant } from '@/hooks/use-merchant';
-import { getTemplate } from '@/templates/registry';
+import { getTemplate, type TemplatePageProps } from '@/templates/registry';
 
 const DynamicPuckStorefront = dynamic(
   () =>
@@ -24,8 +24,8 @@ const DynamicPuckStorefront = dynamic(
 export function StorefrontWrapper() {
   const { merchant, loading } = useMerchant();
   const [showError, setShowError] = useState(false);
-  // biome-ignore lint/suspicious/noExplicitAny: Template components have varying prop types
-  const [TemplateHome, setTemplateHome] = useState<React.ComponentType<any> | null>(null);
+  const [TemplateHome, setTemplateHome] =
+    useState<React.ComponentType<TemplatePageProps> | null>(null);
   const [templateLoading, setTemplateLoading] = useState(true);
 
   // Load template components based on merchant's template_id

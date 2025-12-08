@@ -273,7 +273,9 @@ export function MerchantBankForm({
                     onKeyDown={(e) => {
                       const filteredBanks = banks.filter(
                         (bank) =>
-                          bank.name.toLowerCase().includes(bankSearchTerm.toLowerCase()) ||
+                          bank.name
+                            .toLowerCase()
+                            .includes(bankSearchTerm.toLowerCase()) ||
                           bank.code.includes(bankSearchTerm)
                       );
 
@@ -284,7 +286,9 @@ export function MerchantBankForm({
                         );
                       } else if (e.key === 'ArrowUp') {
                         e.preventDefault();
-                        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                        setHighlightedIndex((prev) =>
+                          prev > 0 ? prev - 1 : 0
+                        );
                       } else if (e.key === 'Enter' && highlightedIndex >= 0) {
                         e.preventDefault();
                         const selectedBank = filteredBanks[highlightedIndex];
@@ -306,7 +310,9 @@ export function MerchantBankForm({
                     aria-expanded={showBankSuggestions}
                     aria-controls="bank-listbox"
                     aria-activedescendant={
-                      highlightedIndex >= 0 ? `bank-option-${highlightedIndex}` : undefined
+                      highlightedIndex >= 0
+                        ? `bank-option-${highlightedIndex}`
+                        : undefined
                     }
                     aria-autocomplete="list"
                   />
@@ -343,7 +349,8 @@ export function MerchantBankForm({
                         className={cn(
                           'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
                           field.value === bank.code && 'bg-accent/50',
-                          highlightedIndex === index && 'bg-accent text-accent-foreground'
+                          highlightedIndex === index &&
+                            'bg-accent text-accent-foreground'
                         )}
                         onMouseDown={(e) => {
                           // Prevent blur from hiding before click registers
@@ -373,10 +380,10 @@ export function MerchantBankForm({
                   {banks.filter((b) =>
                     b.name.toLowerCase().includes(bankSearchTerm.toLowerCase())
                   ).length === 0 && (
-                      <div className="py-6 text-center text-sm text-muted-foreground">
-                        No bank found.
-                      </div>
-                    )}
+                    <div className="py-6 text-center text-sm text-muted-foreground">
+                      No bank found.
+                    </div>
+                  )}
                 </div>
               )}
               <FormDescription>Type your bank name to filter</FormDescription>

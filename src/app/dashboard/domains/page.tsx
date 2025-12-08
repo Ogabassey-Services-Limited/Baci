@@ -73,6 +73,24 @@ export default function DomainsPage() {
     token: string;
   } | null>(null);
   const [domainToDelete, setDomainToDelete] = useState<Domain | null>(null);
+
+  // Domain search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<
+    Array<{
+      domain: string;
+      tld: string;
+      available: boolean;
+      price: number;
+      originalPrice?: number;
+      renewalPrice?: number;
+      category?: string;
+      popular?: boolean;
+      recommended?: boolean;
+      note?: string;
+    }>
+  >([]);
   const [lastVerificationAttempt, setLastVerificationAttempt] = useState<
     Record<string, Date>
   >({});
@@ -1107,10 +1125,9 @@ export default function DomainsPage() {
                                       <>
                                         {' '}
                                         • Next check at{' '}
-                                        {new Date(
-                                          autoRetryDomains[domain.domain]
-                                            .nextRetryAt!
-                                        ).toLocaleTimeString()}
+                                        {autoRetryDomains[
+                                          domain.domain
+                                        ].nextRetryAt?.toLocaleTimeString()}
                                       </>
                                     )}
                                   </span>

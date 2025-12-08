@@ -15,9 +15,8 @@ export default function DashboardLoading() {
       {/* Metrics Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: simple static list
           <div
-            key={i}
+            key={`metric-skeleton-${i}`}
             className="rounded-xl border bg-card text-card-foreground shadow-sm p-6"
           >
             <div className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -52,8 +51,7 @@ export default function DashboardLoading() {
           </div>
           <div className="p-6 pt-0 space-y-6">
             {Array.from({ length: 5 }).map((_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: simple static list
-              <div key={i} className="flex items-center">
+              <div key={`sale-skeleton-${i}`} className="flex items-center">
                 <Skeleton className="h-9 w-9 rounded-full" />
                 <div className="ml-4 space-y-1">
                   <Skeleton className="h-4 w-32" />
