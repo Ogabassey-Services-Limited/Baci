@@ -43,24 +43,22 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   // Reset loading state when image source changes
   useEffect(() => {
     setIsImageLoaded(false);
-  }, [currentImage]);
+  }, []);
 
   const handlePrevColor = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!product.colors || product.colors.length === 0) return;
-    setActiveColorIndex((prev) =>
-      prev === 0 ? product.colors!.length - 1 : prev - 1
-    );
+    const colorsLength = product.colors.length;
+    setActiveColorIndex((prev) => (prev === 0 ? colorsLength - 1 : prev - 1));
   };
 
   const handleNextColor = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!product.colors || product.colors.length === 0) return;
-    setActiveColorIndex((prev) =>
-      prev === product.colors!.length - 1 ? 0 : prev + 1
-    );
+    const colorsLength = product.colors.length;
+    setActiveColorIndex((prev) => (prev === colorsLength - 1 ? 0 : prev + 1));
   };
 
   const handleColorSelect = (e: React.MouseEvent, index: number) => {

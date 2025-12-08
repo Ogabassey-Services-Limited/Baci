@@ -24,11 +24,8 @@ const DynamicPuckStorefront = dynamic(
 export function StorefrontWrapper() {
   const { merchant, loading } = useMerchant();
   const [showError, setShowError] = useState(false);
-  const [TemplateHome, setTemplateHome] = useState<React.ComponentType<{
-    storeSlug?: string;
-    merchant?: unknown;
-    isPreview?: boolean;
-  }> | null>(null);
+  // biome-ignore lint/suspicious/noExplicitAny: Template components have varying prop types
+  const [TemplateHome, setTemplateHome] = useState<React.ComponentType<any> | null>(null);
   const [templateLoading, setTemplateLoading] = useState(true);
 
   // Load template components based on merchant's template_id
