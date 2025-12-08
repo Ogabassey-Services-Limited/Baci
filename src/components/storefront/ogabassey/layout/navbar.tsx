@@ -68,8 +68,8 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
     read: boolean;
   }[] = [];
   const unreadCount = 0;
-  const markAsRead = (_id: string) => {};
-  const markAllAsRead = () => {};
+  const markAsRead = (_id: string) => { };
+  const markAllAsRead = () => { };
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -266,9 +266,11 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                     className={`relative hover:text-white transition-colors ${showNotifications ? 'text-white' : ''}`}
                   >
                     <Bell size={22} />
+                    {/* TODO: Add notification badge when notifications are implemented
                     {unreadCount > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-[#1a1a1a]" />
                     )}
+                    */}
                   </button>
 
                   {/* Notifications Dropdown */}
@@ -278,6 +280,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                         <h3 className="font-bold text-gray-900 text-sm">
                           Notifications
                         </h3>
+                        {/* TODO: Add mark all read when notifications are implemented
                         {unreadCount > 0 && (
                           <button
                             onClick={markAllAsRead}
@@ -286,6 +289,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                             Mark all read
                           </button>
                         )}
+                        */}
                       </div>
                       <div className="max-h-[300px] overflow-y-auto">
                         {unreadCount === 0 ? (

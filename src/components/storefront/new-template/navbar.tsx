@@ -35,7 +35,7 @@ export const Navbar: React.FC = () => {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Sync local query with storefront context search
-  const setShowDropdown = (_show: boolean) => {}; // No-op - dropdown removed
+  const setShowDropdown = (_show: boolean) => { }; // No-op - dropdown removed
 
   // Notification UI State
   const [showNotifications, setShowNotifications] = useState(false);
@@ -189,9 +189,11 @@ export const Navbar: React.FC = () => {
                   onClick={() => setShowNotifications(!showNotifications)}
                 >
                   <Bell size={22} />
+                  {/* TODO: notification badge when implemented
                   {unreadCount > 0 && (
                     <span className="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-[#0F0F0F]" />
                   )}
+                  */}
                 </button>
 
                 {/* Notification Dropdown */}
@@ -199,6 +201,7 @@ export const Navbar: React.FC = () => {
                   <div className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-white sticky top-0 z-10">
                       <h3 className="font-bold text-gray-900">Notifications</h3>
+                      {/* TODO: mark all read when implemented
                       {unreadCount > 0 && (
                         <button
                           onClick={markAllAsRead}
@@ -207,6 +210,7 @@ export const Navbar: React.FC = () => {
                           Mark all read
                         </button>
                       )}
+                      */}
                     </div>
                     <div className="max-h-[400px] overflow-y-auto">
                       {notifications.length > 0 ? (
