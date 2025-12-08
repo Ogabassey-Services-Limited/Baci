@@ -69,7 +69,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative">
-      <Link href={`/product/${product.id}`} className="absolute inset-0 z-0" />
+      <Link href={`/product/${product.id}` as any} className="absolute inset-0 z-0" />
 
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">

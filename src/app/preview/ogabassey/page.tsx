@@ -5,7 +5,7 @@ import { BlogSnippet } from '@/components/storefront/ogabassey/components/BlogSn
 import { EngineProductGrid } from '@/components/storefront/ogabassey/components/EngineProductGrid';
 import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import { OgabasseyFooter } from '@/components/storefront/ogabassey/layout/footer';
-import { MobileFooter as OgabasseyMobileFooter } from '@/components/storefront/ogabassey/layout/mobile-footer';
+import { MobileFooter } from '@/components/storefront/ogabassey/layout/mobile-footer';
 import { OgabasseyNavbar } from '@/components/storefront/ogabassey/layout/navbar';
 import { CartProvider } from '@/hooks/use-cart';
 import { V2SavedProvider } from '@/components/storefront/ogabassey/providers/v2-saved-context';
@@ -14,7 +14,7 @@ export default function OgabasseyPreviewPage() {
   return (
     <CartProvider enableSmartCartPro={true}>
       <V2SavedProvider>
-        <div className="min-h-screen bg-white">
+        <main className="min-h-screen bg-white">
           {/* Ogabassey Navbar */}
           <OgabasseyNavbar
             storeName="Ogabassey"
@@ -49,8 +49,8 @@ export default function OgabasseyPreviewPage() {
           <OgabasseyFooter storeSlug="ogabassey" />
 
           {/* Ogabassey Mobile Footer */}
-          <OgabasseyMobileFooter />
-        </div>
+          <MobileFooter />
+        </main>
       </V2SavedProvider>
     </CartProvider>
   );

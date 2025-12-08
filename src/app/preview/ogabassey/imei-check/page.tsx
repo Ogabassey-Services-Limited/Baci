@@ -1,7 +1,7 @@
 'use client';
 
 import { OgabasseyFooter } from '@/components/storefront/ogabassey/layout/footer';
-import { MobileFooter as OgabasseyMobileFooter } from '@/components/storefront/ogabassey/layout/mobile-footer';
+import { MobileFooter } from '@/components/storefront/ogabassey/layout/mobile-footer';
 import { OgabasseyNavbar } from '@/components/storefront/ogabassey/layout/navbar';
 import { OgabasseyImeiChecker } from '@/components/storefront/ogabassey/pages/imei-checker';
 import { CartProvider } from '@/hooks/use-cart';
@@ -11,7 +11,7 @@ export default function ImeiCheckPage() {
     return (
         <CartProvider enableSmartCartPro={true}>
             <V2SavedProvider>
-                <div className="min-h-screen bg-white">
+                <main className="min-h-screen bg-white">
                     <OgabasseyNavbar
                         storeName="Ogabassey"
                         storeSlug="ogabassey"
@@ -24,8 +24,8 @@ export default function ImeiCheckPage() {
                     <OgabasseyImeiChecker />
 
                     <OgabasseyFooter storeSlug="ogabassey" />
-                    <OgabasseyMobileFooter />
-                </div>
+                    <MobileFooter />
+                </main>
             </V2SavedProvider>
         </CartProvider>
     );

@@ -23,10 +23,13 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = join(__dirname, '..', 'public', 'template-previews');
 
+// Valid template ID pattern: alphanumeric and hyphens only (prevent path traversal)
+const VALID_TEMPLATE_ID = /^[a-z0-9-]+$/i;
+
 // Templates to capture (from registry)
 // Change this to only capture specific templates if needed
 const TEMPLATES = process.argv.slice(2).length > 0
-  ? process.argv.slice(2) // Capture specific templates if passed as arguments
+  ? process.argv.slice(2).filter(id => VALID_TEMPLATE_ID.test(id)) // Validate CLI args
   : [
     'electronics',
     'fashion',

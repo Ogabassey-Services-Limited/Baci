@@ -28,8 +28,8 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   showViewAll = true,
 }) => {
   const { addToCart } = useCart();
-  // Note: useV2Saved provides toggleSaved/isSaved for wishlist feature
-  const _saved = useV2Saved();
+  // useV2Saved hook available for wishlist feature (currently unused)
+  useV2Saved();
   const [addedItems, setAddedItems] = useState<number[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
 
