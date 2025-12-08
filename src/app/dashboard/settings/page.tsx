@@ -466,7 +466,7 @@ export default function SettingsPage() {
                                     style={{
                                       backgroundColor:
                                         brandColors[
-                                        role as keyof typeof brandColors
+                                          role as keyof typeof brandColors
                                         ],
                                     }}
                                   />
@@ -479,7 +479,7 @@ export default function SettingsPage() {
                                 <ColorPicker
                                   color={
                                     brandColors[
-                                    role as keyof typeof brandColors
+                                      role as keyof typeof brandColors
                                     ]
                                   }
                                   onChange={(newColor) =>

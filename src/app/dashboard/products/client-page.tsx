@@ -108,7 +108,7 @@ function ProductsPageContent() {
     editingProduct,
   } = useProductContext();
   const { merchant } = useMerchant();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [_isProcessing, setIsProcessing] = useState(false);
   const [isGoogleSheetImportOpen, setIsGoogleSheetImportOpen] = useState(false);
   const [isCSVBulkImportOpen, setIsCSVBulkImportOpen] = useState(false);
   const { toast } = useToast();
