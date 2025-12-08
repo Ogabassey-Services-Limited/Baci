@@ -54,7 +54,9 @@ export function MerchantBankForm({
   const [verifiedName, setVerifiedName] = useState<string | null>(
     initialData?.accountName || null
   );
-  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(
+    null
+  );
 
   const form = useForm<BankFormValues>({
     resolver: zodResolver(bankSchema),
@@ -104,7 +106,7 @@ export function MerchantBankForm({
   // Set initial search term when banks load if value exists
   useEffect(() => {
     if (selectedBankCode && banks.length > 0 && !bankSearchTerm) {
-      const bank = banks.find(b => b.code === selectedBankCode);
+      const bank = banks.find((b) => b.code === selectedBankCode);
       if (bank) {
         setBankSearchTerm(bank.name);
       }
@@ -242,7 +244,7 @@ export function MerchantBankForm({
                   <Input
                     placeholder="Type to search your bank (e.g. GTB, Access)"
                     value={
-                      // Be careful: if we have a selected bank code but user hasn't typed, 
+                      // Be careful: if we have a selected bank code but user hasn't typed,
                       // show the bank name. Otherwise show what they are typing.
                       bankSearchTerm
                     }
@@ -263,7 +265,9 @@ export function MerchantBankForm({
                       }
                     }}
                     // Delay hiding suggestions to allow clicking them
-                    onBlur={() => setTimeout(() => setShowBankSuggestions(false), 200)}
+                    onBlur={() =>
+                      setTimeout(() => setShowBankSuggestions(false), 200)
+                    }
                     disabled={isLoadingBanks}
                     autoComplete="off"
                   />
@@ -276,20 +280,23 @@ export function MerchantBankForm({
               </FormControl>
 
               {/* Suggestions Dropdown */}
-              {showBankSuggestions && (banks.length > 0) && (
+              {showBankSuggestions && banks.length > 0 && (
                 <div className="absolute top-[75px] w-full max-h-[250px] overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md z-50">
                   {banks
-                    .filter((bank) =>
-                      bank.name.toLowerCase().includes(bankSearchTerm.toLowerCase()) ||
-                      // Also match prominent synonyms if we wanted, but name search is usually enough
-                      bank.code.includes(bankSearchTerm)
+                    .filter(
+                      (bank) =>
+                        bank.name
+                          .toLowerCase()
+                          .includes(bankSearchTerm.toLowerCase()) ||
+                        // Also match prominent synonyms if we wanted, but name search is usually enough
+                        bank.code.includes(bankSearchTerm)
                     )
                     .map((bank) => (
                       <div
                         key={bank.code}
                         className={cn(
-                          "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground",
-                          field.value === bank.code && "bg-accent/50"
+                          'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
+                          field.value === bank.code && 'bg-accent/50'
                         )}
                         onMouseDown={(e) => {
                           // Prevent blur from hiding before click registers
@@ -304,24 +311,26 @@ export function MerchantBankForm({
                       >
                         <Check
                           className={cn(
-                            "mr-2 h-4 w-4",
-                            field.value === bank.code ? "opacity-100" : "opacity-0"
+                            'mr-2 h-4 w-4',
+                            field.value === bank.code
+                              ? 'opacity-100'
+                              : 'opacity-0'
                           )}
                         />
                         {bank.name}
                       </div>
                     ))}
                   {/* Empty state for search */}
-                  {banks.filter(b => b.name.toLowerCase().includes(bankSearchTerm.toLowerCase())).length === 0 && (
+                  {banks.filter((b) =>
+                    b.name.toLowerCase().includes(bankSearchTerm.toLowerCase())
+                  ).length === 0 && (
                     <div className="py-6 text-center text-sm text-muted-foreground">
                       No bank found.
                     </div>
                   )}
                 </div>
               )}
-              <FormDescription>
-                Type your bank name to filter
-              </FormDescription>
+              <FormDescription>Type your bank name to filter</FormDescription>
               <FormMessage />
             </FormItem>
           )}

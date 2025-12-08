@@ -209,8 +209,10 @@ export async function GET() {
         label: 'Set up analytics',
         description: 'Track visitors and conversions',
         completed: !!(
-          merchant.google_analytics_id || merchant.facebook_pixel_id ||
-          merchant.tiktok_pixel_id || merchant.snapchat_pixel_id ||
+          merchant.google_analytics_id ||
+          merchant.facebook_pixel_id ||
+          merchant.tiktok_pixel_id ||
+          merchant.snapchat_pixel_id ||
           merchant.twitter_pixel_id
         ),
         href: '/dashboard/integrations',

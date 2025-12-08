@@ -25,9 +25,9 @@ import { ProductListItem } from './ProductListItem';
 type ConditionLabel = 'New' | 'Used' | 'Open Box';
 
 const CONDITION_LABELS: Record<string, ConditionLabel> = {
-  'open_box': 'Open Box',
-  'new': 'New',
-  'used': 'Used',
+  open_box: 'Open Box',
+  new: 'New',
+  used: 'Used',
 };
 
 const mapCondition = (condition?: string): ConditionLabel => {
@@ -66,10 +66,7 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
 }
 
 /** Demo slugs that should use mock data instead of live API */
-const DEMO_SLUGS = new Set([
-  'ogabassey-demo',
-  'new-template-demo',
-]);
+const DEMO_SLUGS = new Set(['ogabassey-demo', 'new-template-demo']);
 
 interface EngineProductGridProps {
   /** Store slug - if provided, fetches real products */
@@ -146,7 +143,9 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
         setLoading(true);
 
         // First, get merchant ID from slug
-        const merchantRes = await fetch(`/api/merchants/by-slug?slug=${storeSlug}`);
+        const merchantRes = await fetch(
+          `/api/merchants/by-slug?slug=${storeSlug}`
+        );
         let merchantId: string | null = null;
 
         if (merchantRes.ok) {
@@ -167,7 +166,9 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
         }
 
         // Fetch products using merchant_id
-        const response = await fetch(`/api/storefront/products?merchant_id=${merchantId}`);
+        const response = await fetch(
+          `/api/storefront/products?merchant_id=${merchantId}`
+        );
 
         if (!response.ok) {
           throw new Error('Failed to fetch products');
@@ -175,7 +176,11 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
 
         const data = await response.json();
 
-        if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+        if (
+          data.products &&
+          Array.isArray(data.products) &&
+          data.products.length > 0
+        ) {
           setProducts(toTemplateProducts(data.products));
         } else {
           // Fallback to mock data if no products
@@ -192,7 +197,12 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     }
 
     fetchProducts();
-  }, [storeSlug, useMockData, externalProducts, _merchantContext?.merchant?.id]);
+  }, [
+    storeSlug,
+    useMockData,
+    externalProducts,
+    _merchantContext?.merchant?.id,
+  ]);
 
   // Derive categories and brands from products
   const categories = useMemo(() => {
@@ -428,8 +438,9 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                     {/* Ad insertion */}
                     {(index + 1 === 4 || index + 1 === 8) && (
                       <div
-                        className={`col-span-2 ${viewMode === 'grid' ? 'lg:col-span-4' : 'w-full'
-                          } flex items-center justify-center my-2 md:my-4`}
+                        className={`col-span-2 ${
+                          viewMode === 'grid' ? 'lg:col-span-4' : 'w-full'
+                        } flex items-center justify-center my-2 md:my-4`}
                       >
                         <AdUnit placementKey="PRODUCT_GRID_IN_FEED" />
                       </div>

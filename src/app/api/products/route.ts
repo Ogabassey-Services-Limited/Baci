@@ -376,10 +376,10 @@ export async function POST(request: NextRequest) {
     const schema_markup = body.schema_markup
       ? sanitizeSchemaMarkup(body.schema_markup)
       : generateProductSchema(
-        productForSchema,
-        merchant.business_name,
-        currency
-      );
+          productForSchema,
+          merchant.business_name,
+          currency
+        );
 
     // Insert Product
     const { data: product, error: productError } = await supabase

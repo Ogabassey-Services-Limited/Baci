@@ -11,7 +11,10 @@
  */
 
 import { facebookCAPI, type FacebookUserData } from './facebook-capi';
-import { ga4MeasurementProtocol, generateClientId } from './ga4-measurement-protocol';
+import {
+  ga4MeasurementProtocol,
+  generateClientId,
+} from './ga4-measurement-protocol';
 import { snapchatCAPI, type SnapchatUserData } from './snapchat-capi';
 import { tiktokEventsAPI, type TikTokUserData } from './tiktok-events-api';
 

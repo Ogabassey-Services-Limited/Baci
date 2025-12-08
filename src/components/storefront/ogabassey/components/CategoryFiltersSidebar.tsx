@@ -1,4 +1,4 @@
-"use client";
+'use client';
 // Migrated from temp-source/components/CategoryFiltersSidebar.tsx
 import { Check, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import type React from 'react';

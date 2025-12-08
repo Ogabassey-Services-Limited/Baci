@@ -9,14 +9,14 @@ import { CartProvider } from '@/hooks/use-cart';
  * don't need authentication or product fetching from the API.
  */
 export function PreviewProviders({ children }: { children: React.ReactNode }) {
-    return (
-        <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-        >
-            <CartProvider>{children}</CartProvider>
-        </ThemeProvider>
-    );
+  return (
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <CartProvider>{children}</CartProvider>
+    </ThemeProvider>
+  );
 }

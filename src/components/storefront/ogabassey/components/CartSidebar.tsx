@@ -1,28 +1,48 @@
 'use client';
 
 import React, { useState } from 'react';
-import { X, Minus, Plus, ShoppingBag, Trash2, ArrowRight, HandCoins, Check, Calculator, ShieldCheck } from 'lucide-react';
+import {
+  X,
+  Minus,
+  Plus,
+  ShoppingBag,
+  Trash2,
+  ArrowRight,
+  HandCoins,
+  Check,
+  Calculator,
+  ShieldCheck,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useCart, type CartItem } from '@/hooks/use-cart';
 import { AdUnit } from './AdUnit';
 import { NegotiationModal } from './NegotiationModal';
 import { EmptyState } from './EmptyState';
 
-
 // Helper type to manage modal state more cleanly
 interface NegotiationState {
   isOpen: boolean;
   type: 'single' | 'total';
-  item?: CartItem;     // Present if type is 'single'
+  item?: CartItem; // Present if type is 'single'
   currentPrice: number;
   name: string;
 }
 
 export const CartSidebar: React.FC = () => {
-  const { isCartOpen, setIsCartOpen, cart, removeFromCart, updateQuantity, applyNegotiatedPrice, applyCartWideNegotiation, toggleAssurance, cartTotal } = useCart();
+  const {
+    isCartOpen,
+    setIsCartOpen,
+    cart,
+    removeFromCart,
+    updateQuantity,
+    applyNegotiatedPrice,
+    applyCartWideNegotiation,
+    toggleAssurance,
+    cartTotal,
+  } = useCart();
 
-
-  const [negotiationState, setNegotiationState] = useState<NegotiationState | null>(null);
+  const [negotiationState, setNegotiationState] =
+    useState<NegotiationState | null>(null);
 
   if (!isCartOpen) return null;
 
@@ -48,7 +68,7 @@ export const CartSidebar: React.FC = () => {
       type: 'single',
       item: item,
       currentPrice: currentTotal,
-      name: item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name
+      name: item.quantity > 1 ? `${item.name} (x${item.quantity})` : item.name,
     });
   };
 
@@ -57,7 +77,7 @@ export const CartSidebar: React.FC = () => {
       isOpen: true,
       type: 'total',
       currentPrice: cartTotal,
-      name: "Entire Cart"
+      name: 'Entire Cart',
     });
   };
 
@@ -74,13 +94,14 @@ export const CartSidebar: React.FC = () => {
         {/* Sidebar Panel - SWIPES FROM LEFT */}
         <div className="absolute inset-y-0 left-0 max-w-full flex">
           <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col h-full animate-in slide-in-from-left duration-300">
-
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <ShoppingBag className="text-red-600" />
                 Your Cart
-                <span className="text-sm font-medium text-gray-500 ml-2">({cart.length} items)</span>
+                <span className="text-sm font-medium text-gray-500 ml-2">
+                  ({cart.length} items)
+                </span>
               </h2>
               <button
                 onClick={() => setIsCartOpen(false)}
@@ -91,7 +112,9 @@ export const CartSidebar: React.FC = () => {
             </div>
 
             {/* Cart Items List */}
-            <div className={`flex-1 overflow-y-auto p-6 ${cart.length === 0 ? 'flex flex-col' : 'space-y-6'}`}>
+            <div
+              className={`flex-1 overflow-y-auto p-6 ${cart.length === 0 ? 'flex flex-col' : 'space-y-6'}`}
+            >
               {cart.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center">
                   <EmptyState
@@ -105,19 +128,35 @@ export const CartSidebar: React.FC = () => {
               ) : (
                 <>
                   {cart.map((item) => {
-                    const priceToUse = item.negotiatedPrice !== undefined ? item.negotiatedPrice : item.price;
+                    const priceToUse =
+                      item.negotiatedPrice !== undefined
+                        ? item.negotiatedPrice
+                        : item.price;
                     const itemTotal = priceToUse * item.quantity;
                     const assuranceCost = itemTotal * 0.05;
 
                     return (
-                      <div key={item.cartItemId} className="flex gap-4 animate-in fade-in duration-300 border-b border-gray-50 pb-6 last:border-0 last:pb-0">
-                        <Link href={`/product/${item.id}` as any} className="w-24 h-24 bg-gray-50 rounded-lg border border-gray-100 p-2 flex-shrink-0 self-start mt-1 block">
-                          <img src={item.image} alt={item.name} className="w-full h-full object-contain mix-blend-multiply" />
+                      <div
+                        key={item.cartItemId}
+                        className="flex gap-4 animate-in fade-in duration-300 border-b border-gray-50 pb-6 last:border-0 last:pb-0"
+                      >
+                        <Link
+                          href={`/product/${item.id}` as any}
+                          className="w-24 h-24 bg-gray-50 rounded-lg border border-gray-100 p-2 flex-shrink-0 self-start mt-1 block"
+                        >
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-contain mix-blend-multiply"
+                          />
                         </Link>
                         <div className="flex-1 flex flex-col justify-between min-h-[100px]">
                           <div>
                             <div className="flex justify-between items-start">
-                              <Link href={`/product/${item.id}` as any} className="font-bold text-gray-900 line-clamp-1 text-sm hover:text-red-600 transition-colors">
+                              <Link
+                                href={`/product/${item.id}` as any}
+                                className="font-bold text-gray-900 line-clamp-1 text-sm hover:text-red-600 transition-colors"
+                              >
                                 {item.name}
                               </Link>
                               <button
@@ -131,10 +170,13 @@ export const CartSidebar: React.FC = () => {
                             {/* Item Details: Condition & Color */}
                             <div className="flex flex-wrap items-center gap-2 mt-1.5">
                               {/* Condition Badge */}
-                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${item.condition?.toLowerCase() === 'new'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                : 'bg-amber-50 text-amber-700 border-amber-100'
-                                }`}>
+                              <span
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                                  item.condition?.toLowerCase() === 'new'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                    : 'bg-amber-50 text-amber-700 border-amber-100'
+                                }`}
+                              >
                                 {item.condition}
                               </span>
 
@@ -144,19 +186,24 @@ export const CartSidebar: React.FC = () => {
                                   <span className="flex items-center gap-1">
                                     <span
                                       className="w-2.5 h-2.5 rounded-full border border-gray-300 shadow-sm"
-                                      style={{ backgroundColor: item.selectedColorValue || item.selectedColor }}
+                                      style={{
+                                        backgroundColor:
+                                          item.selectedColorValue ||
+                                          item.selectedColor,
+                                      }}
                                     ></span>
                                     {item.selectedColor}
                                   </span>
                                 )}
                                 {item.secondaryColor && (
-                                  <span className="text-[10px] text-blue-500">(Pref 2: {item.secondaryColor})</span>
+                                  <span className="text-[10px] text-blue-500">
+                                    (Pref 2: {item.secondaryColor})
+                                  </span>
                                 )}
                                 {item.selectedStorage && (
                                   <>
                                     <span>•</span>
                                     <span>{item.selectedStorage}</span>
-
                                   </>
                                 )}
                               </div>
@@ -169,15 +216,27 @@ export const CartSidebar: React.FC = () => {
                               {/* Quantity */}
                               <div className="flex items-center border border-gray-200 rounded-md w-fit">
                                 <button
-                                  onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
+                                  onClick={() =>
+                                    updateQuantity(
+                                      item.cartItemId,
+                                      item.quantity - 1
+                                    )
+                                  }
                                   className="p-1 px-2 hover:bg-gray-50 text-gray-500"
                                   disabled={item.quantity <= 1}
                                 >
                                   <Minus size={12} />
                                 </button>
-                                <span className="w-6 text-center text-xs font-medium">{item.quantity}</span>
+                                <span className="w-6 text-center text-xs font-medium">
+                                  {item.quantity}
+                                </span>
                                 <button
-                                  onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
+                                  onClick={() =>
+                                    updateQuantity(
+                                      item.cartItemId,
+                                      item.quantity + 1
+                                    )
+                                  }
                                   className="p-1 px-2 hover:bg-gray-50 text-gray-500"
                                 >
                                   <Plus size={12} />
@@ -188,7 +247,10 @@ export const CartSidebar: React.FC = () => {
                               {item.negotiationStatus === 'accepted' ? (
                                 <div className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-md w-fit border border-green-100">
                                   <Check size={10} strokeWidth={3} />
-                                  <span>Matched @ ₦{item.negotiatedPrice?.toLocaleString()}</span>
+                                  <span>
+                                    Matched @ ₦
+                                    {item.negotiatedPrice?.toLocaleString()}
+                                  </span>
                                 </div>
                               ) : (
                                 <button
@@ -204,8 +266,15 @@ export const CartSidebar: React.FC = () => {
                             <div className="text-right pb-0.5">
                               {item.negotiatedPrice ? (
                                 <div className="flex flex-col items-end">
-                                  <span className="text-[10px] text-gray-400 line-through decoration-red-400">₦{(item.price * item.quantity).toLocaleString()}</span>
-                                  <span className="font-bold text-green-600 text-sm">₦{itemTotal.toLocaleString()}</span>
+                                  <span className="text-[10px] text-gray-400 line-through decoration-red-400">
+                                    ₦
+                                    {(
+                                      item.price * item.quantity
+                                    ).toLocaleString()}
+                                  </span>
+                                  <span className="font-bold text-green-600 text-sm">
+                                    ₦{itemTotal.toLocaleString()}
+                                  </span>
                                 </div>
                               ) : (
                                 <div className="font-bold text-gray-900 text-sm">
@@ -222,7 +291,9 @@ export const CartSidebar: React.FC = () => {
                                 <input
                                   type="checkbox"
                                   checked={item.hasAssurance || false}
-                                  onChange={() => toggleAssurance?.(item.cartItemId)}
+                                  onChange={() =>
+                                    toggleAssurance?.(item.cartItemId)
+                                  }
                                   className="peer sr-only"
                                 />
                                 <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
@@ -230,27 +301,36 @@ export const CartSidebar: React.FC = () => {
                               <div className="flex-1">
                                 <div className="flex justify-between items-center">
                                   <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                                    <ShieldCheck size={12} className="text-red-600" />
+                                    <ShieldCheck
+                                      size={12}
+                                      className="text-red-600"
+                                    />
                                     Ogabassey Assurance
                                   </span>
                                   {item.hasAssurance && (
-                                    <span className="text-xs font-bold text-gray-900">+₦{assuranceCost.toLocaleString()}</span>
+                                    <span className="text-xs font-bold text-gray-900">
+                                      +₦{assuranceCost.toLocaleString()}
+                                    </span>
                                   )}
                                 </div>
                                 <p className="text-[10px] text-gray-500 leading-tight mt-0.5">
                                   {item.hasAssurance ? (
-                                    <>Covers <span className="font-bold text-gray-700">Screen & Liquid Damage</span></>
+                                    <>
+                                      Covers{' '}
+                                      <span className="font-bold text-gray-700">
+                                        Screen & Liquid Damage
+                                      </span>
+                                    </>
                                   ) : (
-                                    "Device Protection (+5%)"
+                                    'Device Protection (+5%)'
                                   )}
                                 </p>
                               </div>
                             </label>
                           </div>
-
                         </div>
                       </div>
-                    )
+                    );
                   })}
 
                   {/* Dynamic Ad Placement in Cart */}
@@ -271,7 +351,9 @@ export const CartSidebar: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Shipping</span>
-                    <span className="text-green-600">Calculated at checkout</span>
+                    <span className="text-green-600">
+                      Calculated at checkout
+                    </span>
                   </div>
                   <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-200">
                     <span>Total</span>
@@ -290,7 +372,10 @@ export const CartSidebar: React.FC = () => {
 
                 <button className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-200 group">
                   Proceed to Checkout
-                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight
+                    size={20}
+                    className="group-hover:translate-x-1 transition-transform"
+                  />
                 </button>
                 <button
                   onClick={() => setIsCartOpen(false)}

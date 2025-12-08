@@ -1,11 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 // Migrated from temp-source/components/InteractiveProductGrid.tsx
 import React, { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useCart } from '@/hooks/use-cart';
-import { useV2Saved } from '../providers/v2-saved-context';
 import { products } from '../data/products';
+import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
 import { AdvancedProductFilters } from './AdvancedProductFilters';
@@ -28,7 +28,8 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   showViewAll = true,
 }) => {
   const { addToCart } = useCart();
-  const { toggleSaved, isSaved } = useV2Saved();
+  // Note: useV2Saved provides toggleSaved/isSaved for wishlist feature
+  const _saved = useV2Saved();
   const [addedItems, setAddedItems] = useState<number[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
 

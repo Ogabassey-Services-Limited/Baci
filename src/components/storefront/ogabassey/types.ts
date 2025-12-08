@@ -34,7 +34,14 @@ export interface Product {
   description: string;
   rating: number;
   category: string;
-  condition: 'New' | 'Used' | 'Open Box' | 'new' | 'used' | 'open_box' | 'refurbished';
+  condition:
+    | 'New'
+    | 'Used'
+    | 'Open Box'
+    | 'new'
+    | 'used'
+    | 'open_box'
+    | 'refurbished';
   // Detailed specs for filtering
   brand?: string;
   storage?: string | string[];

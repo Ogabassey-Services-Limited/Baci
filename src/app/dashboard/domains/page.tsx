@@ -73,23 +73,36 @@ export default function DomainsPage() {
     token: string;
   } | null>(null);
   const [domainToDelete, setDomainToDelete] = useState<Domain | null>(null);
-  const [lastVerificationAttempt, setLastVerificationAttempt] = useState<Record<string, Date>>({});
-  const [autoRetryDomains, setAutoRetryDomains] = useState<Record<string, { retryCount: number; nextRetryAt: Date | null; intervalId?: NodeJS.Timeout }>>({});
+  const [lastVerificationAttempt, setLastVerificationAttempt] = useState<
+    Record<string, Date>
+  >({});
+  const [autoRetryDomains, setAutoRetryDomains] = useState<
+    Record<
+      string,
+      {
+        retryCount: number;
+        nextRetryAt: Date | null;
+        intervalId?: NodeJS.Timeout;
+      }
+    >
+  >({});
 
   // Domain search state
   const [domainSearchTerm, setDomainSearchTerm] = useState('');
   const [searchingDomains, setSearchingDomains] = useState(false);
-  const [domainSearchResults, setDomainSearchResults] = useState<Array<{
-    domain: string;
-    tld: string;
-    available: boolean;
-    price: number;
-    renewalPrice: number;
-    category: string;
-    popular?: boolean;
-    recommended?: boolean;
-    note?: string;
-  }>>([]);
+  const [domainSearchResults, setDomainSearchResults] = useState<
+    Array<{
+      domain: string;
+      tld: string;
+      available: boolean;
+      price: number;
+      renewalPrice: number;
+      category: string;
+      popular?: boolean;
+      recommended?: boolean;
+      note?: string;
+    }>
+  >([]);
   const [searchWarning, setSearchWarning] = useState<string | null>(null);
 
   const { toast } = useToast();
@@ -166,96 +179,104 @@ export default function DomainsPage() {
   const RETRY_INTERVALS = [30000, 60000, 120000, 240000]; // 30s, 1min, 2min, 4min
   const MAX_RETRIES = 4;
 
-  const startAutoRetry = useCallback((domain: Domain) => {
-    const domainName = domain.domain;
-    const currentRetry = autoRetryDomains[domainName]?.retryCount || 0;
+  const startAutoRetry = useCallback(
+    (domain: Domain) => {
+      const domainName = domain.domain;
+      const currentRetry = autoRetryDomains[domainName]?.retryCount || 0;
 
-    if (currentRetry >= MAX_RETRIES) {
+      if (currentRetry >= MAX_RETRIES) {
+        toast({
+          title: 'Auto-retry stopped',
+          description: `Maximum retries reached for ${domainName}. Please verify DNS and try manually.`,
+          variant: 'destructive',
+        });
+        setAutoRetryDomains((prev) => {
+          const { [domainName]: _, ...rest } = prev;
+          return rest;
+        });
+        return;
+      }
+
+      const delay =
+        RETRY_INTERVALS[currentRetry] ||
+        RETRY_INTERVALS[RETRY_INTERVALS.length - 1];
+      const nextRetryAt = new Date(Date.now() + delay);
+
       toast({
-        title: 'Auto-retry stopped',
-        description: `Maximum retries reached for ${domainName}. Please verify DNS and try manually.`,
-        variant: 'destructive',
+        title: '🔄 Auto-retry enabled',
+        description: `Will automatically check ${domainName} again in ${delay / 1000} seconds.`,
       });
+
+      const intervalId = setTimeout(async () => {
+        // Attempt verification
+        try {
+          const response = await fetch(`/api/domains/${domainName}/verify`, {
+            method: 'POST',
+          });
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            toast({
+              title: '🎉 Domain Verified!',
+              description: `${domainName} has been automatically verified and is now active.`,
+            });
+            setAutoRetryDomains((prev) => {
+              const { [domainName]: _, ...rest } = prev;
+              return rest;
+            });
+            fetchDomains();
+          } else {
+            // Not verified, schedule next retry
+            setAutoRetryDomains((prev) => ({
+              ...prev,
+              [domainName]: {
+                retryCount: (prev[domainName]?.retryCount || 0) + 1,
+                nextRetryAt: null,
+                intervalId: undefined,
+              },
+            }));
+            // Recursively start next retry
+            startAutoRetry(domain);
+          }
+        } catch (error) {
+          console.error('Auto-retry error:', error);
+        }
+
+        setLastVerificationAttempt((prev) => ({
+          ...prev,
+          [domainName]: new Date(),
+        }));
+      }, delay);
+
+      setAutoRetryDomains((prev) => ({
+        ...prev,
+        [domainName]: {
+          retryCount: currentRetry,
+          nextRetryAt,
+          intervalId,
+        },
+      }));
+    },
+    [autoRetryDomains, fetchDomains, toast]
+  );
+
+  const stopAutoRetry = useCallback(
+    (domainName: string) => {
+      const retryInfo = autoRetryDomains[domainName];
+      if (retryInfo?.intervalId) {
+        clearTimeout(retryInfo.intervalId);
+      }
       setAutoRetryDomains((prev) => {
         const { [domainName]: _, ...rest } = prev;
         return rest;
       });
-      return;
-    }
-
-    const delay = RETRY_INTERVALS[currentRetry] || RETRY_INTERVALS[RETRY_INTERVALS.length - 1];
-    const nextRetryAt = new Date(Date.now() + delay);
-
-    toast({
-      title: '🔄 Auto-retry enabled',
-      description: `Will automatically check ${domainName} again in ${delay / 1000} seconds.`,
-    });
-
-    const intervalId = setTimeout(async () => {
-      // Attempt verification
-      try {
-        const response = await fetch(`/api/domains/${domainName}/verify`, {
-          method: 'POST',
-        });
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          toast({
-            title: '🎉 Domain Verified!',
-            description: `${domainName} has been automatically verified and is now active.`,
-          });
-          setAutoRetryDomains((prev) => {
-            const { [domainName]: _, ...rest } = prev;
-            return rest;
-          });
-          fetchDomains();
-        } else {
-          // Not verified, schedule next retry
-          setAutoRetryDomains((prev) => ({
-            ...prev,
-            [domainName]: {
-              retryCount: (prev[domainName]?.retryCount || 0) + 1,
-              nextRetryAt: null,
-              intervalId: undefined,
-            },
-          }));
-          // Recursively start next retry
-          startAutoRetry(domain);
-        }
-      } catch (error) {
-        console.error('Auto-retry error:', error);
-      }
-
-      setLastVerificationAttempt((prev) => ({
-        ...prev,
-        [domainName]: new Date(),
-      }));
-    }, delay);
-
-    setAutoRetryDomains((prev) => ({
-      ...prev,
-      [domainName]: {
-        retryCount: currentRetry,
-        nextRetryAt,
-        intervalId,
-      },
-    }));
-  }, [autoRetryDomains, fetchDomains, toast]);
-
-  const stopAutoRetry = useCallback((domainName: string) => {
-    const retryInfo = autoRetryDomains[domainName];
-    if (retryInfo?.intervalId) {
-      clearTimeout(retryInfo.intervalId);
-    }
-    setAutoRetryDomains((prev) => {
-      const { [domainName]: _, ...rest } = prev;
-      return rest;
-    });
-    toast({
-      title: 'Auto-retry stopped',
-      description: `Automatic verification for ${domainName} has been disabled.`,
-    });
-  }, [autoRetryDomains, toast]);
+      toast({
+        title: 'Auto-retry stopped',
+        description: `Automatic verification for ${domainName} has been disabled.`,
+      });
+    },
+    [autoRetryDomains, toast]
+  );
 
   const handleVerifyDomain = async (domain: Domain) => {
     setVerifyingDomains((prev) => new Set(prev).add(domain.domain));
@@ -356,7 +377,8 @@ export default function DomainsPage() {
     if (!searchTermRegex.test(searchTerm)) {
       toast({
         title: 'Invalid domain name',
-        description: 'Domain names can only contain letters, numbers, and hyphens.',
+        description:
+          'Domain names can only contain letters, numbers, and hyphens.',
         variant: 'destructive',
       });
       return;
@@ -387,7 +409,8 @@ export default function DomainsPage() {
       console.error('Domain search error:', error);
       toast({
         title: 'Search failed',
-        description: error instanceof Error ? error.message : 'Failed to search domains',
+        description:
+          error instanceof Error ? error.message : 'Failed to search domains',
         variant: 'destructive',
       });
     } finally {
@@ -494,15 +517,24 @@ export default function DomainsPage() {
         onValueChange={(v) => setActiveTab(v as 'overview' | 'search')}
       >
         <TabsList className="bg-slate-100/80 dark:bg-slate-800/50 p-1">
-          <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger
+            value="overview"
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
             <Globe className="w-4 h-4 mr-2" />
             My Domains
           </TabsTrigger>
-          <TabsTrigger value="search" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger
+            value="search"
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
             <Search className="w-4 h-4 mr-2" />
             Search & Buy
           </TabsTrigger>
-          <TabsTrigger value="custom" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
+          <TabsTrigger
+            value="custom"
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+          >
             <Plus className="w-4 h-4 mr-2" />
             Connect Existing Domain
           </TabsTrigger>
@@ -517,7 +549,9 @@ export default function DomainsPage() {
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-purple-500/20 flex items-center justify-center animate-pulse">
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />
                   </div>
-                  <p className="text-muted-foreground font-medium">Loading your domains...</p>
+                  <p className="text-muted-foreground font-medium">
+                    Loading your domains...
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -542,7 +576,8 @@ export default function DomainsPage() {
                     No domains yet
                   </h3>
                   <p className="text-muted-foreground max-w-sm mx-auto">
-                    Connect your custom domain or get a free subdomain to make your store accessible to customers
+                    Connect your custom domain or get a free subdomain to make
+                    your store accessible to customers
                   </p>
                 </div>
 
@@ -571,21 +606,27 @@ export default function DomainsPage() {
                       <Check className="w-5 h-5 text-green-600" />
                     </div>
                     <p className="text-sm font-medium">Free SSL</p>
-                    <p className="text-xs text-muted-foreground">Auto-provisioned</p>
+                    <p className="text-xs text-muted-foreground">
+                      Auto-provisioned
+                    </p>
                   </div>
                   <div className="text-center p-3">
                     <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                       <Globe className="w-5 h-5 text-blue-600" />
                     </div>
                     <p className="text-sm font-medium">Free Subdomain</p>
-                    <p className="text-xs text-muted-foreground">yourstore.usebaci.com</p>
+                    <p className="text-xs text-muted-foreground">
+                      yourstore.usebaci.com
+                    </p>
                   </div>
                   <div className="text-center p-3">
                     <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                       <ExternalLink className="w-5 h-5 text-purple-600" />
                     </div>
                     <p className="text-sm font-medium">Custom Domain</p>
-                    <p className="text-xs text-muted-foreground">yourbrand.com</p>
+                    <p className="text-xs text-muted-foreground">
+                      yourbrand.com
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -595,42 +636,54 @@ export default function DomainsPage() {
               {domains.map((domain) => (
                 <Card
                   key={domain.id}
-                  className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg border-2 ${domain.status === 'active'
-                    ? 'border-green-200 dark:border-green-800 hover:border-green-300'
-                    : domain.status === 'failed'
-                      ? 'border-red-200 dark:border-red-800'
-                      : 'border-amber-200 dark:border-amber-800'
-                    }`}
+                  className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg border-2 ${
+                    domain.status === 'active'
+                      ? 'border-green-200 dark:border-green-800 hover:border-green-300'
+                      : domain.status === 'failed'
+                        ? 'border-red-200 dark:border-red-800'
+                        : 'border-amber-200 dark:border-amber-800'
+                  }`}
                 >
                   {/* Status indicator bar at top */}
-                  <div className={`absolute top-0 left-0 right-0 h-1 ${domain.status === 'active'
-                    ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-                    : domain.status === 'failed'
-                      ? 'bg-gradient-to-r from-red-400 to-rose-500'
-                      : 'bg-gradient-to-r from-amber-400 to-yellow-500'
-                    }`} />
+                  <div
+                    className={`absolute top-0 left-0 right-0 h-1 ${
+                      domain.status === 'active'
+                        ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                        : domain.status === 'failed'
+                          ? 'bg-gradient-to-r from-red-400 to-rose-500'
+                          : 'bg-gradient-to-r from-amber-400 to-yellow-500'
+                    }`}
+                  />
 
                   <CardHeader className="pb-3">
                     <div className="flex justify-between items-start">
                       <div className="flex items-start gap-4">
                         {/* Domain Icon with status-based styling */}
-                        <div className={`flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center shadow-sm ${domain.status === 'active'
-                          ? 'bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20'
-                          : domain.status === 'failed'
-                            ? 'bg-gradient-to-br from-red-100 to-rose-50 dark:from-red-900/30 dark:to-rose-900/20'
-                            : 'bg-gradient-to-br from-amber-100 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20'
-                          }`}>
-                          <Globe className={`w-7 h-7 ${domain.status === 'active'
-                            ? 'text-green-600 dark:text-green-400'
-                            : domain.status === 'failed'
-                              ? 'text-red-600 dark:text-red-400'
-                              : 'text-amber-600 dark:text-amber-400'
-                            }`} />
+                        <div
+                          className={`flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center shadow-sm ${
+                            domain.status === 'active'
+                              ? 'bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20'
+                              : domain.status === 'failed'
+                                ? 'bg-gradient-to-br from-red-100 to-rose-50 dark:from-red-900/30 dark:to-rose-900/20'
+                                : 'bg-gradient-to-br from-amber-100 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20'
+                          }`}
+                        >
+                          <Globe
+                            className={`w-7 h-7 ${
+                              domain.status === 'active'
+                                ? 'text-green-600 dark:text-green-400'
+                                : domain.status === 'failed'
+                                  ? 'text-red-600 dark:text-red-400'
+                                  : 'text-amber-600 dark:text-amber-400'
+                            }`}
+                          />
                         </div>
 
                         <div>
                           <CardTitle className="flex items-center gap-2 text-xl">
-                            <span className="font-semibold">{domain.domain}</span>
+                            <span className="font-semibold">
+                              {domain.domain}
+                            </span>
                             {domain.is_primary && (
                               <Badge className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0">
                                 ⭐ Primary
@@ -658,7 +711,9 @@ export default function DomainsPage() {
                           variant="outline"
                           size="sm"
                           className="shadow-sm hover:shadow-md transition-shadow"
-                          onClick={() => window.open(`https://${domain.domain}`, '_blank')}
+                          onClick={() =>
+                            window.open(`https://${domain.domain}`, '_blank')
+                          }
                         >
                           <ExternalLink className="w-4 h-4 mr-2" />
                           Visit
@@ -680,19 +735,25 @@ export default function DomainsPage() {
                     {/* Info Grid with visual cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* SSL Status Card */}
-                      <div className={`p-4 rounded-lg border ${domain.ssl_status === 'active'
-                        ? 'bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800'
-                        : domain.ssl_status === 'failed'
-                          ? 'bg-red-50/50 border-red-200 dark:bg-red-900/10 dark:border-red-800'
-                          : 'bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800'
-                        }`}>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${domain.ssl_status === 'active'
-                            ? 'bg-green-100 dark:bg-green-900/30'
+                      <div
+                        className={`p-4 rounded-lg border ${
+                          domain.ssl_status === 'active'
+                            ? 'bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800'
                             : domain.ssl_status === 'failed'
-                              ? 'bg-red-100 dark:bg-red-900/30'
-                              : 'bg-amber-100 dark:bg-amber-900/30'
-                            }`}>
+                              ? 'bg-red-50/50 border-red-200 dark:bg-red-900/10 dark:border-red-800'
+                              : 'bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              domain.ssl_status === 'active'
+                                ? 'bg-green-100 dark:bg-green-900/30'
+                                : domain.ssl_status === 'failed'
+                                  ? 'bg-red-100 dark:bg-red-900/30'
+                                  : 'bg-amber-100 dark:bg-amber-900/30'
+                            }`}
+                          >
                             {domain.ssl_status === 'active' ? (
                               <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
                             ) : domain.ssl_status === 'failed' ? (
@@ -702,16 +763,23 @@ export default function DomainsPage() {
                             )}
                           </div>
                           <div>
-                            <p className="text-xs text-muted-foreground uppercase font-medium">SSL Certificate</p>
-                            <p className={`font-semibold ${domain.ssl_status === 'active'
-                              ? 'text-green-700 dark:text-green-400'
-                              : domain.ssl_status === 'failed'
-                                ? 'text-red-700 dark:text-red-400'
-                                : 'text-amber-700 dark:text-amber-400'
-                              }`}>
-                              {domain.ssl_status === 'active' ? '🔒 Secured' :
-                                domain.ssl_status === 'failed' ? '⚠️ Failed' :
-                                  '⏳ Provisioning...'}
+                            <p className="text-xs text-muted-foreground uppercase font-medium">
+                              SSL Certificate
+                            </p>
+                            <p
+                              className={`font-semibold ${
+                                domain.ssl_status === 'active'
+                                  ? 'text-green-700 dark:text-green-400'
+                                  : domain.ssl_status === 'failed'
+                                    ? 'text-red-700 dark:text-red-400'
+                                    : 'text-amber-700 dark:text-amber-400'
+                              }`}
+                            >
+                              {domain.ssl_status === 'active'
+                                ? '🔒 Secured'
+                                : domain.ssl_status === 'failed'
+                                  ? '⚠️ Failed'
+                                  : '⏳ Provisioning...'}
                             </p>
                           </div>
                         </div>
@@ -730,13 +798,19 @@ export default function DomainsPage() {
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground uppercase font-medium">
-                              {domain.purchase_info?.expires_at ? 'Expires' : 'Type'}
+                              {domain.purchase_info?.expires_at
+                                ? 'Expires'
+                                : 'Type'}
                             </p>
                             <p className="font-semibold text-slate-700 dark:text-slate-300">
                               {domain.purchase_info?.expires_at
-                                ? new Date(domain.purchase_info.expires_at).toLocaleDateString()
-                                : domain.domain_type === 'subdomain' ? '🆓 Free Subdomain'
-                                  : domain.domain_type === 'custom' ? '🔗 Custom Domain'
+                                ? new Date(
+                                    domain.purchase_info.expires_at
+                                  ).toLocaleDateString()
+                                : domain.domain_type === 'subdomain'
+                                  ? '🆓 Free Subdomain'
+                                  : domain.domain_type === 'custom'
+                                    ? '🔗 Custom Domain'
                                     : '💳 Purchased'}
                             </p>
                           </div>
@@ -752,47 +826,65 @@ export default function DomainsPage() {
                             <AlertDescription className="text-amber-900">
                               <strong>Connect Your Domain</strong>
                               <p className="text-sm mt-1">
-                                To activate <strong>{domain.domain}</strong>, please configure your DNS records below.
+                                To activate <strong>{domain.domain}</strong>,
+                                please configure your DNS records below.
                               </p>
                             </AlertDescription>
                           </Alert>
 
                           <div className="space-y-4">
                             <div className="space-y-2">
-                              <h4 className="text-sm font-semibold">Step 1: Add DNS Records</h4>
+                              <h4 className="text-sm font-semibold">
+                                Step 1: Add DNS Records
+                              </h4>
                               <p className="text-sm text-muted-foreground">
-                                Log in to your domain provider (GoDaddy, Namecheap, etc.) and add these DNS records:
+                                Log in to your domain provider (GoDaddy,
+                                Namecheap, etc.) and add these DNS records:
                               </p>
                             </div>
 
                             {/* A Record */}
                             <div className="space-y-3">
                               <h5 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                <span className="bg-primary text-primary-foreground px-2 py-0.5 rounded text-[10px]">Required</span>
+                                <span className="bg-primary text-primary-foreground px-2 py-0.5 rounded text-[10px]">
+                                  Required
+                                </span>
                                 For your root domain ({domain.domain})
                               </h5>
                               <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
                                 <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                  <span className="text-xs font-semibold uppercase text-muted-foreground">Type</span>
-                                  <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">A</code>
+                                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                    Type
+                                  </span>
+                                  <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">
+                                    A
+                                  </code>
                                   <div />
                                 </div>
                                 <div className="h-[1px] bg-border/50" />
                                 <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                  <span className="text-xs font-semibold uppercase text-muted-foreground">Name</span>
-                                  <code className="text-sm font-mono bg-background px-2 py-1 rounded border">@</code>
+                                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                    Name
+                                  </span>
+                                  <code className="text-sm font-mono bg-background px-2 py-1 rounded border">
+                                    @
+                                  </code>
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => copyToClipboard('@', 'Host Name')}
+                                    onClick={() =>
+                                      copyToClipboard('@', 'Host Name')
+                                    }
                                   >
                                     <Copy className="h-4 w-4" />
                                   </Button>
                                 </div>
                                 <div className="h-[1px] bg-border/50" />
                                 <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                  <span className="text-xs font-semibold uppercase text-muted-foreground">Value</span>
+                                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                    Value
+                                  </span>
                                   <code className="text-2xl font-mono bg-background px-3 py-2 rounded border text-primary font-bold">
                                     76.76.21.21
                                   </code>
@@ -800,7 +892,12 @@ export default function DomainsPage() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => copyToClipboard('76.76.21.21', 'IP Address')}
+                                    onClick={() =>
+                                      copyToClipboard(
+                                        '76.76.21.21',
+                                        'IP Address'
+                                      )
+                                    }
                                   >
                                     <Copy className="h-4 w-4" />
                                   </Button>
@@ -809,7 +906,10 @@ export default function DomainsPage() {
                               <div className="flex gap-2 items-start text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-100">
                                 <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                                 <p>
-                                  <strong>Important:</strong> If you already have an A record for @, you must <strong>delete or edit it</strong> to match this value. Do not keep multiple A records.
+                                  <strong>Important:</strong> If you already
+                                  have an A record for @, you must{' '}
+                                  <strong>delete or edit it</strong> to match
+                                  this value. Do not keep multiple A records.
                                 </p>
                               </div>
                             </div>
@@ -817,31 +917,45 @@ export default function DomainsPage() {
                             {/* CNAME Record */}
                             <div className="space-y-3">
                               <h5 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-[10px]">Optional</span>
+                                <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-[10px]">
+                                  Optional
+                                </span>
                                 For www.{domain.domain}
                               </h5>
                               <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
                                 <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                  <span className="text-xs font-semibold uppercase text-muted-foreground">Type</span>
-                                  <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">CNAME</code>
+                                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                    Type
+                                  </span>
+                                  <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">
+                                    CNAME
+                                  </code>
                                   <div />
                                 </div>
                                 <div className="h-[1px] bg-border/50" />
                                 <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                  <span className="text-xs font-semibold uppercase text-muted-foreground">Name</span>
-                                  <code className="text-sm font-mono bg-background px-2 py-1 rounded border">www</code>
+                                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                    Name
+                                  </span>
+                                  <code className="text-sm font-mono bg-background px-2 py-1 rounded border">
+                                    www
+                                  </code>
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => copyToClipboard('www', 'Host Name')}
+                                    onClick={() =>
+                                      copyToClipboard('www', 'Host Name')
+                                    }
                                   >
                                     <Copy className="h-4 w-4" />
                                   </Button>
                                 </div>
                                 <div className="h-[1px] bg-border/50" />
                                 <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                  <span className="text-xs font-semibold uppercase text-muted-foreground">Value</span>
+                                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                    Value
+                                  </span>
                                   <code className="text-sm font-mono bg-background px-2 py-1 rounded border break-all">
                                     cname.vercel-dns.com
                                   </code>
@@ -849,7 +963,12 @@ export default function DomainsPage() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
-                                    onClick={() => copyToClipboard('cname.vercel-dns.com', 'CNAME Value')}
+                                    onClick={() =>
+                                      copyToClipboard(
+                                        'cname.vercel-dns.com',
+                                        'CNAME Value'
+                                      )
+                                    }
                                   >
                                     <Copy className="h-4 w-4" />
                                   </Button>
@@ -857,47 +976,69 @@ export default function DomainsPage() {
                               </div>
                               <div className="flex gap-2 items-start text-xs text-muted-foreground bg-muted/30 p-2 rounded border border-border/50">
                                 <p>
-                                  Delete any existing CNAME record for "www" before adding this one.
+                                  Delete any existing CNAME record for "www"
+                                  before adding this one.
                                 </p>
                               </div>
                             </div>
 
                             {/* TXT Ownership Verification Record (Only if Vercel requires it) */}
-                            {domain.verification_token?.startsWith('vc-domain-verify=') && (
+                            {domain.verification_token?.startsWith(
+                              'vc-domain-verify='
+                            ) && (
                               <div className="space-y-3">
                                 <h5 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                  <span className="bg-destructive text-destructive-foreground px-2 py-0.5 rounded text-[10px]">Required</span>
+                                  <span className="bg-destructive text-destructive-foreground px-2 py-0.5 rounded text-[10px]">
+                                    Required
+                                  </span>
                                   Ownership Verification
                                 </h5>
-                                <Alert variant="destructive" className="border-red-200 bg-red-50/50">
+                                <Alert
+                                  variant="destructive"
+                                  className="border-red-200 bg-red-50/50"
+                                >
                                   <AlertCircle className="h-4 w-4" />
                                   <AlertDescription className="text-red-900 text-sm">
-                                    <strong>Additional Step Required:</strong> This domain was previously used on another Vercel project.
-                                    You must add this TXT record to prove ownership.
+                                    <strong>Additional Step Required:</strong>{' '}
+                                    This domain was previously used on another
+                                    Vercel project. You must add this TXT record
+                                    to prove ownership.
                                   </AlertDescription>
                                 </Alert>
                                 <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
                                   <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                    <span className="text-xs font-semibold uppercase text-muted-foreground">Type</span>
-                                    <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">TXT</code>
+                                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                      Type
+                                    </span>
+                                    <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">
+                                      TXT
+                                    </code>
                                     <div />
                                   </div>
                                   <div className="h-[1px] bg-border/50" />
                                   <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                    <span className="text-xs font-semibold uppercase text-muted-foreground">Name</span>
-                                    <code className="text-sm font-mono bg-background px-2 py-1 rounded border">_vercel</code>
+                                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                      Name
+                                    </span>
+                                    <code className="text-sm font-mono bg-background px-2 py-1 rounded border">
+                                      _vercel
+                                    </code>
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       className="h-8 w-8"
-                                      onClick={() => copyToClipboard('_vercel', 'Host Name')}
+                                      onClick={() =>
+                                        copyToClipboard('_vercel', 'Host Name')
+                                      }
                                     >
                                       <Copy className="h-4 w-4" />
                                     </Button>
                                   </div>
                                   <div className="h-[1px] bg-border/50" />
                                   <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                    <span className="text-xs font-semibold uppercase text-muted-foreground">Value</span>
+                                    <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                      Value
+                                    </span>
                                     <code className="text-xs font-mono bg-background px-2 py-1.5 rounded border break-all">
                                       {domain.verification_token}
                                     </code>
@@ -905,7 +1046,12 @@ export default function DomainsPage() {
                                       variant="ghost"
                                       size="icon"
                                       className="h-8 w-8"
-                                      onClick={() => copyToClipboard(domain.verification_token || '', 'TXT Value')}
+                                      onClick={() =>
+                                        copyToClipboard(
+                                          domain.verification_token || '',
+                                          'TXT Value'
+                                        )
+                                      }
                                     >
                                       <Copy className="h-4 w-4" />
                                     </Button>
@@ -938,7 +1084,10 @@ export default function DomainsPage() {
                               {lastVerificationAttempt[domain.domain] && (
                                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
-                                  Last checked: {new Date(lastVerificationAttempt[domain.domain]).toLocaleTimeString()}
+                                  Last checked:{' '}
+                                  {new Date(
+                                    lastVerificationAttempt[domain.domain]
+                                  ).toLocaleTimeString()}
                                 </span>
                               )}
                             </div>
@@ -949,9 +1098,20 @@ export default function DomainsPage() {
                                 <div className="flex items-center gap-2 text-xs bg-blue-50 text-blue-700 px-3 py-2 rounded-lg border border-blue-200">
                                   <Loader2 className="w-3 h-3 animate-spin" />
                                   <span>
-                                    Auto-retry enabled (attempt {autoRetryDomains[domain.domain].retryCount + 1}/4)
-                                    {autoRetryDomains[domain.domain].nextRetryAt && (
-                                      <> • Next check at {new Date(autoRetryDomains[domain.domain].nextRetryAt!).toLocaleTimeString()}</>
+                                    Auto-retry enabled (attempt{' '}
+                                    {autoRetryDomains[domain.domain]
+                                      .retryCount + 1}
+                                    /4)
+                                    {autoRetryDomains[domain.domain]
+                                      .nextRetryAt && (
+                                      <>
+                                        {' '}
+                                        • Next check at{' '}
+                                        {new Date(
+                                          autoRetryDomains[domain.domain]
+                                            .nextRetryAt!
+                                        ).toLocaleTimeString()}
+                                      </>
                                     )}
                                   </span>
                                   <Button
@@ -981,9 +1141,13 @@ export default function DomainsPage() {
                           <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg border border-border/50 space-y-1">
                             <p className="flex items-center gap-1.5">
                               <Clock className="w-3 h-3" />
-                              <strong>Propagation Time:</strong> DNS changes can take 1-48 hours to propagate globally.
+                              <strong>Propagation Time:</strong> DNS changes can
+                              take 1-48 hours to propagate globally.
                             </p>
-                            <p>If verification fails, wait a few minutes and try again. Most changes propagate within 5 minutes.</p>
+                            <p>
+                              If verification fails, wait a few minutes and try
+                              again. Most changes propagate within 5 minutes.
+                            </p>
                           </div>
 
                           {/* Cloudflare Tip */}
@@ -993,17 +1157,24 @@ export default function DomainsPage() {
                               <strong>Using Cloudflare?</strong>
                             </p>
                             <p>
-                              Set the A and CNAME records to <strong>DNS only</strong> (grey cloud icon), not "Proxied" (orange cloud).
-                              Vercel handles SSL and caching automatically.
+                              Set the A and CNAME records to{' '}
+                              <strong>DNS only</strong> (grey cloud icon), not
+                              "Proxied" (orange cloud). Vercel handles SSL and
+                              caching automatically.
                             </p>
                           </div>
 
                           {/* Email/MX Record Warning */}
-                          <Alert variant="destructive" className="border-red-200 bg-red-50/50">
+                          <Alert
+                            variant="destructive"
+                            className="border-red-200 bg-red-50/50"
+                          >
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription className="text-red-900 text-xs">
-                              <strong>⚠️ Protect Your Email:</strong> Do NOT delete MX, SPF, or DKIM records.
-                              These are for your email (e.g., Zoho, Google Workspace). Only modify A and CNAME records as instructed above.
+                              <strong>⚠️ Protect Your Email:</strong> Do NOT
+                              delete MX, SPF, or DKIM records. These are for
+                              your email (e.g., Zoho, Google Workspace). Only
+                              modify A and CNAME records as instructed above.
                             </AlertDescription>
                           </Alert>
                         </div>
@@ -1049,7 +1220,10 @@ export default function DomainsPage() {
                     }}
                     disabled={searchingDomains}
                   />
-                  <Button onClick={handleDomainSearch} disabled={searchingDomains}>
+                  <Button
+                    onClick={handleDomainSearch}
+                    disabled={searchingDomains}
+                  >
                     {searchingDomains ? (
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     ) : (
@@ -1090,14 +1264,23 @@ export default function DomainsPage() {
                               <div className="font-medium flex items-center gap-2">
                                 {result.domain}
                                 {result.popular && (
-                                  <Badge variant="secondary" className="text-xs">Popular</Badge>
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-xs"
+                                  >
+                                    Popular
+                                  </Badge>
                                 )}
                                 {result.recommended && (
-                                  <Badge className="text-xs bg-green-600">Recommended</Badge>
+                                  <Badge className="text-xs bg-green-600">
+                                    Recommended
+                                  </Badge>
                                 )}
                               </div>
                               <div className="text-sm text-muted-foreground">
-                                {result.available ? 'Available' : 'Not Available'}
+                                {result.available
+                                  ? 'Available'
+                                  : 'Not Available'}
                                 {result.note && ` • ${result.note}`}
                               </div>
                             </div>
@@ -1108,7 +1291,8 @@ export default function DomainsPage() {
                                 ₦{result.price.toLocaleString()}/yr
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                Renewal: ₦{result.renewalPrice.toLocaleString()}/yr
+                                Renewal: ₦{result.renewalPrice.toLocaleString()}
+                                /yr
                               </div>
                             </div>
                             {result.available && (
@@ -1117,7 +1301,8 @@ export default function DomainsPage() {
                                 onClick={() => {
                                   toast({
                                     title: 'Coming Soon',
-                                    description: 'Domain purchase will be available soon. Please contact support to register this domain.',
+                                    description:
+                                      'Domain purchase will be available soon. Please contact support to register this domain.',
                                   });
                                 }}
                               >
@@ -1196,35 +1381,49 @@ export default function DomainsPage() {
                       <AlertDescription className="text-amber-900">
                         <strong>Connect Your Domain</strong>
                         <p className="text-sm mt-1">
-                          When you connect your domain to your store, visitors will be directed to your Baci storefront.
+                          When you connect your domain to your store, visitors
+                          will be directed to your Baci storefront.
                         </p>
                       </AlertDescription>
                     </Alert>
 
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <h4 className="text-sm font-semibold">Step 1: Add DNS Records</h4>
+                        <h4 className="text-sm font-semibold">
+                          Step 1: Add DNS Records
+                        </h4>
                         <p className="text-sm text-muted-foreground">
-                          Log in to your domain provider (GoDaddy, Namecheap, etc.) and add these DNS records:
+                          Log in to your domain provider (GoDaddy, Namecheap,
+                          etc.) and add these DNS records:
                         </p>
                       </div>
 
                       {/* A Record Section */}
                       <div className="space-y-3">
                         <h5 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                          <span className="bg-primary text-primary-foreground px-2 py-0.5 rounded text-[10px]">Required</span>
+                          <span className="bg-primary text-primary-foreground px-2 py-0.5 rounded text-[10px]">
+                            Required
+                          </span>
                           For your root domain ({verificationInfo.domain})
                         </h5>
                         <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
                           <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                            <span className="text-xs font-semibold uppercase text-muted-foreground">Type</span>
-                            <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">A</code>
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">
+                              Type
+                            </span>
+                            <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">
+                              A
+                            </code>
                             <div />
                           </div>
                           <div className="h-[1px] bg-border/50" />
                           <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                            <span className="text-xs font-semibold uppercase text-muted-foreground">Name</span>
-                            <code className="text-sm font-mono bg-background px-2 py-1 rounded border">@</code>
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">
+                              Name
+                            </span>
+                            <code className="text-sm font-mono bg-background px-2 py-1 rounded border">
+                              @
+                            </code>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1236,7 +1435,9 @@ export default function DomainsPage() {
                           </div>
                           <div className="h-[1px] bg-border/50" />
                           <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                            <span className="text-xs font-semibold uppercase text-muted-foreground">Value</span>
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">
+                              Value
+                            </span>
                             <code className="text-2xl font-mono bg-background px-3 py-2 rounded border text-primary font-bold">
                               76.76.21.21
                             </code>
@@ -1244,7 +1445,9 @@ export default function DomainsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              onClick={() => copyToClipboard('76.76.21.21', 'IP Address')}
+                              onClick={() =>
+                                copyToClipboard('76.76.21.21', 'IP Address')
+                              }
                             >
                               <Copy className="h-4 w-4" />
                             </Button>
@@ -1253,7 +1456,10 @@ export default function DomainsPage() {
                         <div className="flex gap-2 items-start text-xs text-amber-600 bg-amber-50 p-2 rounded border border-amber-100">
                           <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
                           <p>
-                            <strong>Important:</strong> If you already have an A record for @, you must <strong>delete or edit it</strong> to match this value. Do not keep multiple A records.
+                            <strong>Important:</strong> If you already have an A
+                            record for @, you must{' '}
+                            <strong>delete or edit it</strong> to match this
+                            value. Do not keep multiple A records.
                           </p>
                         </div>
                       </div>
@@ -1261,31 +1467,45 @@ export default function DomainsPage() {
                       {/* CNAME Record Section */}
                       <div className="space-y-3">
                         <h5 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                          <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-[10px]">Optional</span>
+                          <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-[10px]">
+                            Optional
+                          </span>
                           For www.{verificationInfo.domain}
                         </h5>
                         <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
                           <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                            <span className="text-xs font-semibold uppercase text-muted-foreground">Type</span>
-                            <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">CNAME</code>
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">
+                              Type
+                            </span>
+                            <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">
+                              CNAME
+                            </code>
                             <div />
                           </div>
                           <div className="h-[1px] bg-border/50" />
                           <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                            <span className="text-xs font-semibold uppercase text-muted-foreground">Name</span>
-                            <code className="text-sm font-mono bg-background px-2 py-1 rounded border">www</code>
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">
+                              Name
+                            </span>
+                            <code className="text-sm font-mono bg-background px-2 py-1 rounded border">
+                              www
+                            </code>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              onClick={() => copyToClipboard('www', 'Host Name')}
+                              onClick={() =>
+                                copyToClipboard('www', 'Host Name')
+                              }
                             >
                               <Copy className="h-4 w-4" />
                             </Button>
                           </div>
                           <div className="h-[1px] bg-border/50" />
                           <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                            <span className="text-xs font-semibold uppercase text-muted-foreground">Value</span>
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">
+                              Value
+                            </span>
                             <code className="text-sm font-mono bg-background px-2 py-1 rounded border break-all">
                               cname.vercel-dns.com
                             </code>
@@ -1293,20 +1513,32 @@ export default function DomainsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              onClick={() => copyToClipboard('cname.vercel-dns.com', 'CNAME Value')}
+                              onClick={() =>
+                                copyToClipboard(
+                                  'cname.vercel-dns.com',
+                                  'CNAME Value'
+                                )
+                              }
                             >
                               <Copy className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Delete any existing CNAME record for "www" before adding this one.
+                          Delete any existing CNAME record for "www" before
+                          adding this one.
                         </p>
                       </div>
                     </div>
 
                     <div className="flex flex-col gap-3 pt-2">
-                      <Button onClick={() => handleVerifyDomain({ domain: verificationInfo.domain } as Domain)}>
+                      <Button
+                        onClick={() =>
+                          handleVerifyDomain({
+                            domain: verificationInfo.domain,
+                          } as Domain)
+                        }
+                      >
                         I've Added the Records, Verify Now
                       </Button>
                       <Button
@@ -1328,12 +1560,16 @@ export default function DomainsPage() {
         </TabsContent>
       </Tabs>
 
-      <AlertDialog open={!!domainToDelete} onOpenChange={(open) => !open && setDomainToDelete(null)}>
+      <AlertDialog
+        open={!!domainToDelete}
+        onOpenChange={(open) => !open && setDomainToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently remove the domain
+              This action cannot be undone. This will permanently remove the
+              domain
               <strong> {domainToDelete?.domain} </strong> from your store.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1348,6 +1584,6 @@ export default function DomainsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div >
+    </div>
   );
 }

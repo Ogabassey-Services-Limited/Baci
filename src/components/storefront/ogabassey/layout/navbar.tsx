@@ -1,4 +1,4 @@
-"use client";
+'use client';
 // @ts-nocheck - Template preview
 
 import {
@@ -59,10 +59,17 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   const { totalItems, setIsCartOpen } = useCart();
   // const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
   // Temporary notification state until NotificationContext is migrated
-  const notifications: { id: string; message: string; type: 'order' | 'promo' | 'security'; title: string; time: string; read: boolean }[] = [];
+  const notifications: {
+    id: string;
+    message: string;
+    type: 'order' | 'promo' | 'security';
+    title: string;
+    time: string;
+    read: boolean;
+  }[] = [];
   const unreadCount = 0;
-  const markAsRead = (_id: string) => { };
-  const markAllAsRead = () => { };
+  const markAsRead = (_id: string) => {};
+  const markAllAsRead = () => {};
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);

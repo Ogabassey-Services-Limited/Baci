@@ -144,7 +144,9 @@ export default function SettingsPage() {
     support_phone: '',
     business_address: '',
   });
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
+    'idle'
+  );
   /* Analytics moved to Integrations pages */
 
   // Autosave function for blur-based saving
@@ -156,7 +158,9 @@ export default function SettingsPage() {
   }) => {
     setSaveStatus('saving');
     try {
-      await updateMerchant(data as Parameters<typeof updateMerchant>[0], { skipReload: true });
+      await updateMerchant(data as Parameters<typeof updateMerchant>[0], {
+        skipReload: true,
+      });
       setSaveStatus('saved');
       // Reset to idle after 2 seconds
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -436,7 +440,7 @@ export default function SettingsPage() {
                                     style={{
                                       backgroundColor:
                                         brandColors[
-                                        role as keyof typeof brandColors
+                                          role as keyof typeof brandColors
                                         ],
                                     }}
                                   />
@@ -449,7 +453,7 @@ export default function SettingsPage() {
                                 <ColorPicker
                                   color={
                                     brandColors[
-                                    role as keyof typeof brandColors
+                                      role as keyof typeof brandColors
                                     ]
                                   }
                                   onChange={(newColor) =>
@@ -596,14 +600,22 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <CardTitle>Social Media</CardTitle>
                 {saveStatus !== 'idle' && (
-                  <span className={cn(
-                    'text-xs font-medium flex items-center gap-1 transition-opacity',
-                    saveStatus === 'saving' ? 'text-muted-foreground' : 'text-green-600'
-                  )}>
+                  <span
+                    className={cn(
+                      'text-xs font-medium flex items-center gap-1 transition-opacity',
+                      saveStatus === 'saving'
+                        ? 'text-muted-foreground'
+                        : 'text-green-600'
+                    )}
+                  >
                     {saveStatus === 'saving' ? (
-                      <><Loader2 className="h-3 w-3 animate-spin" /> Saving...</>
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+                      </>
                     ) : (
-                      <><CheckCircle className="h-3 w-3" /> Saved</>
+                      <>
+                        <CheckCircle className="h-3 w-3" /> Saved
+                      </>
                     )}
                   </span>
                 )}
@@ -846,14 +858,22 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between">
                 <CardTitle>Contact Information</CardTitle>
                 {saveStatus !== 'idle' && (
-                  <span className={cn(
-                    'text-xs font-medium flex items-center gap-1 transition-opacity',
-                    saveStatus === 'saving' ? 'text-muted-foreground' : 'text-green-600'
-                  )}>
+                  <span
+                    className={cn(
+                      'text-xs font-medium flex items-center gap-1 transition-opacity',
+                      saveStatus === 'saving'
+                        ? 'text-muted-foreground'
+                        : 'text-green-600'
+                    )}
+                  >
                     {saveStatus === 'saving' ? (
-                      <><Loader2 className="h-3 w-3 animate-spin" /> Saving...</>
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+                      </>
                     ) : (
-                      <><CheckCircle className="h-3 w-3" /> Saved</>
+                      <>
+                        <CheckCircle className="h-3 w-3" /> Saved
+                      </>
                     )}
                   </span>
                 )}
@@ -883,11 +903,13 @@ export default function SettingsPage() {
                       support_email: e.target.value,
                     })
                   }
-                  onBlur={() => autoSave({
-                    support_email: contactInfo.support_email || null,
-                    support_phone: contactInfo.support_phone || null,
-                    business_address: contactInfo.business_address || null,
-                  })}
+                  onBlur={() =>
+                    autoSave({
+                      support_email: contactInfo.support_email || null,
+                      support_phone: contactInfo.support_phone || null,
+                      business_address: contactInfo.business_address || null,
+                    })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -909,11 +931,13 @@ export default function SettingsPage() {
                       support_phone: value || '',
                     })
                   }
-                  onBlur={() => autoSave({
-                    support_email: contactInfo.support_email || null,
-                    support_phone: contactInfo.support_phone || null,
-                    business_address: contactInfo.business_address || null,
-                  })}
+                  onBlur={() =>
+                    autoSave({
+                      support_email: contactInfo.support_email || null,
+                      support_phone: contactInfo.support_phone || null,
+                      business_address: contactInfo.business_address || null,
+                    })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -948,11 +972,13 @@ export default function SettingsPage() {
                       business_address: place.formattedAddress || null,
                     });
                   }}
-                  onBlur={() => autoSave({
-                    support_email: contactInfo.support_email || null,
-                    support_phone: contactInfo.support_phone || null,
-                    business_address: contactInfo.business_address || null,
-                  })}
+                  onBlur={() =>
+                    autoSave({
+                      support_email: contactInfo.support_email || null,
+                      support_phone: contactInfo.support_phone || null,
+                      business_address: contactInfo.business_address || null,
+                    })
+                  }
                 />
               </div>
               <p className="text-sm text-muted-foreground">

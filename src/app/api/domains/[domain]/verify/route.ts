@@ -6,17 +6,27 @@ import { vercel } from '@/lib/vercel';
 /**
  * Parse Vercel verification challenges into user-friendly error messages
  */
-function getVerificationErrorMessage(verification: Array<{ type: string; domain: string; value: string; reason: string }> | undefined, domain: string): string {
+function getVerificationErrorMessage(
+  verification:
+    | Array<{ type: string; domain: string; value: string; reason: string }>
+    | undefined,
+  domain: string
+): string {
   if (!verification || verification.length === 0) {
     return 'DNS verification failed. Please ensure your A record points to 76.76.21.21';
   }
 
-  const txtChallenge = verification.find(v => v.type === 'TXT');
-  const aRecordIssue = verification.find(v => v.reason?.includes('A record') || v.reason?.includes('Invalid Configuration'));
+  const txtChallenge = verification.find((v) => v.type === 'TXT');
+  const aRecordIssue = verification.find(
+    (v) =>
+      v.reason?.includes('A record') ||
+      v.reason?.includes('Invalid Configuration')
+  );
 
   if (txtChallenge) {
     // Check for underscore restriction hint
-    const underscoreRestrictionHint = txtChallenge.reason?.toLowerCase().includes('underscore') ||
+    const underscoreRestrictionHint =
+      txtChallenge.reason?.toLowerCase().includes('underscore') ||
       txtChallenge.reason?.toLowerCase().includes('invalid hostname');
 
     if (underscoreRestrictionHint) {
@@ -31,8 +41,14 @@ function getVerificationErrorMessage(verification: Array<{ type: string; domain:
   }
 
   // Default: join all reasons
-  const reasons = verification.map(v => v.reason).filter(Boolean).join('. ');
-  return reasons || 'DNS verification failed. Please check your DNS records and try again.';
+  const reasons = verification
+    .map((v) => v.reason)
+    .filter(Boolean)
+    .join('. ');
+  return (
+    reasons ||
+    'DNS verification failed. Please check your DNS records and try again.'
+  );
 }
 
 export async function POST(
@@ -86,10 +102,15 @@ export async function POST(
       verifyResult = await vercel.verifyDomain(domain);
     } catch (vercelError: any) {
       console.error('Vercel verification error:', vercelError);
-      return NextResponse.json({
-        success: false,
-        error: vercelError.message || 'Failed to connect to verification service. Please try again.'
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            vercelError.message ||
+            'Failed to connect to verification service. Please try again.',
+        },
+        { status: 500 }
+      );
     }
 
     const isVerified = verifyResult.verified;
@@ -101,7 +122,7 @@ export async function POST(
         .update({
           status: 'active',
           ssl_status: 'active',
-          verified_at: new Date().toISOString()
+          verified_at: new Date().toISOString(),
         })
         .eq('id', domainRecord.id);
 
@@ -112,16 +133,24 @@ export async function POST(
       return NextResponse.json({
         success: true,
         verified: true,
-        message: 'Domain successfully verified and active! 🎉'
+        message: 'Domain successfully verified and active! 🎉',
       });
     } else {
       // Not verified - provide specific error message
-      const errorMessage = getVerificationErrorMessage(verifyResult.verification, domain);
+      const errorMessage = getVerificationErrorMessage(
+        verifyResult.verification,
+        domain
+      );
 
       // If Vercel returned new verification challenges, update stored token
       if (verifyResult.verification) {
-        const txtChallenge = verifyResult.verification.find((v: any) => v.type === 'TXT');
-        if (txtChallenge && txtChallenge.value !== domainRecord.verification_token) {
+        const txtChallenge = verifyResult.verification.find(
+          (v: any) => v.type === 'TXT'
+        );
+        if (
+          txtChallenge &&
+          txtChallenge.value !== domainRecord.verification_token
+        ) {
           // Update the token in DB so UI shows the correct value
           await supabase
             .from('domains')
@@ -130,18 +159,23 @@ export async function POST(
         }
       }
 
-      return NextResponse.json({
-        success: false,
-        verified: false,
-        error: errorMessage,
-        details: verifyResult.verification
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          success: false,
+          verified: false,
+          error: errorMessage,
+          details: verifyResult.verification,
+        },
+        { status: 400 }
+      );
     }
-
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : 'Failed to verify domain';
     console.error('Error verifying domain:', error);
-    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: errorMessage },
+      { status: 500 }
+    );
   }
 }

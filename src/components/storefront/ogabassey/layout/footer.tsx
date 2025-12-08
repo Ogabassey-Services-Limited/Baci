@@ -23,10 +23,7 @@ interface FooterProps {
   logo?: string;
 }
 
-export const OgabasseyFooter: React.FC<FooterProps> = ({
-  storeSlug,
-  logo,
-}) => {
+export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
   return (
     <footer className="bg-[#1a1a1a] text-white pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans border-t border-gray-800">
       {/* Pattern Overlay - Same as Navbar */}

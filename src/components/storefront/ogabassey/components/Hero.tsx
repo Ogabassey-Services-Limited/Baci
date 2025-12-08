@@ -234,14 +234,15 @@ export const Hero: React.FC = () => {
                 <div
                   key={idx}
                   onClick={() => setCurrentSlide(idx)}
-                  className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${isActive
-                    ? isWhiteText
-                      ? 'w-5 bg-white'
-                      : 'w-5 bg-gray-900'
-                    : isWhiteText
-                      ? 'w-1.5 bg-white/40'
-                      : 'w-1.5 bg-gray-900/20'
-                    }`}
+                  className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${
+                    isActive
+                      ? isWhiteText
+                        ? 'w-5 bg-white'
+                        : 'w-5 bg-gray-900'
+                      : isWhiteText
+                        ? 'w-1.5 bg-white/40'
+                        : 'w-1.5 bg-gray-900/20'
+                  }`}
                 />
               );
             })}
@@ -259,16 +260,18 @@ export const Hero: React.FC = () => {
               >
                 {/* Gradient Overlay for Readability */}
                 <div
-                  className={`absolute inset-0 z-10 bg-gradient-to-r ${slide.theme === 'dark'
-                    ? 'from-black/90 via-black/40 to-transparent'
-                    : 'from-[#e4e4e6] via-[#e4e4e6]/60 to-transparent'
-                    }`}
+                  className={`absolute inset-0 z-10 bg-gradient-to-r ${
+                    slide.theme === 'dark'
+                      ? 'from-black/90 via-black/40 to-transparent'
+                      : 'from-[#e4e4e6] via-[#e4e4e6]/60 to-transparent'
+                  }`}
                 />
 
                 {/* Content */}
                 <div
-                  className={`relative z-20 flex flex-col justify-center h-full px-12 lg:px-20 ${slide.theme === 'dark' ? 'text-white' : 'text-gray-900'
-                    }`}
+                  className={`relative z-20 flex flex-col justify-center h-full px-12 lg:px-20 ${
+                    slide.theme === 'dark' ? 'text-white' : 'text-gray-900'
+                  }`}
                 >
                   <div className="max-w-lg space-y-4 transform translate-x-0 transition-transform duration-700">
                     <h1 className="text-6xl lg:text-8xl font-bold tracking-tighter leading-none">
@@ -314,10 +317,11 @@ export const Hero: React.FC = () => {
                     e.stopPropagation();
                     setCurrentIphoneSlide(idx);
                   }}
-                  className={`h-2 rounded-full transition-all duration-300 backdrop-blur-sm ${idx === currentIphoneSlide
-                    ? 'w-10 bg-red-600'
-                    : 'w-3 bg-gray-400/50 hover:bg-gray-400 hover:w-5'
-                    }`}
+                  className={`h-2 rounded-full transition-all duration-300 backdrop-blur-sm ${
+                    idx === currentIphoneSlide
+                      ? 'w-10 bg-red-600'
+                      : 'w-3 bg-gray-400/50 hover:bg-gray-400 hover:w-5'
+                  }`}
                   aria-label={`Go to slide ${idx + 1}`}
                 />
               ))}

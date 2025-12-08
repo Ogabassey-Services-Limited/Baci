@@ -394,30 +394,41 @@ export async function POST(request: NextRequest) {
 
             // Check if any platform is configured
             const hasAnalytics =
-              (analyticsConfig.facebook_pixel_id && analyticsConfig.facebook_capi_token) ||
-              (analyticsConfig.tiktok_pixel_id && analyticsConfig.tiktok_access_token) ||
-              (analyticsConfig.google_analytics_id && analyticsConfig.ga4_api_secret) ||
-              (analyticsConfig.snapchat_pixel_id && analyticsConfig.snapchat_capi_token);
+              (analyticsConfig.facebook_pixel_id &&
+                analyticsConfig.facebook_capi_token) ||
+              (analyticsConfig.tiktok_pixel_id &&
+                analyticsConfig.tiktok_access_token) ||
+              (analyticsConfig.google_analytics_id &&
+                analyticsConfig.ga4_api_secret) ||
+              (analyticsConfig.snapchat_pixel_id &&
+                analyticsConfig.snapchat_capi_token);
 
             if (hasAnalytics) {
               // Extract ad tracking data stored with the order (from cookies at checkout)
-              const adTracking = order.ad_tracking as Record<string, unknown> | null;
+              const adTracking = order.ad_tracking as Record<
+                string,
+                unknown
+              > | null;
 
               const orderConversionData: OrderConversionData = {
                 orderId: order.id,
-                orderNumber: order.order_number || order.id.slice(0, 8).toUpperCase(),
+                orderNumber:
+                  order.order_number || order.id.slice(0, 8).toUpperCase(),
                 total: Number.parseFloat(order.total || '0'),
                 currency: order.currency || 'NGN',
                 customerEmail: order.customer_email,
                 customerPhone: order.customer_phone,
                 customerName: order.customer_name,
                 customerId: order.customer_id,
-                items: (order.order_items || []).map((item: Record<string, unknown>) => ({
-                  id: (item.product_id as string) || (item.id as string) || '',
-                  name: (item.name as string) || 'Product',
-                  price: Number(item.price) || 0,
-                  quantity: Number(item.quantity) || 1,
-                })),
+                items: (order.order_items || []).map(
+                  (item: Record<string, unknown>) => ({
+                    id:
+                      (item.product_id as string) || (item.id as string) || '',
+                    name: (item.name as string) || 'Product',
+                    price: Number(item.price) || 0,
+                    quantity: Number(item.quantity) || 1,
+                  })
+                ),
                 // Ad tracking IDs for better attribution
                 fbclid: adTracking?.fbclid as string | undefined,
                 fbp: adTracking?.fbp as string | undefined,
@@ -431,13 +442,18 @@ export async function POST(request: NextRequest) {
                 // Event deduplication ID (shared with client-side Pixel)
                 eventId: adTracking?.eventId as string | undefined,
                 // Privacy compliance
-                limitedDataUse: adTracking?.limitedDataUse as boolean | undefined,
+                limitedDataUse: adTracking?.limitedDataUse as
+                  | boolean
+                  | undefined,
               };
 
               // Fire-and-forget: Don't await, let it run in background
               sendPurchaseConversion(analyticsConfig, orderConversionData)
                 .then((results) => {
-                  logConversionResults(orderConversionData.orderNumber, results);
+                  logConversionResults(
+                    orderConversionData.orderNumber,
+                    results
+                  );
                 })
                 .catch((err) => {
                   logger.error({

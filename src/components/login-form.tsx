@@ -269,7 +269,9 @@ export default function LoginForm() {
                 </div>
 
                 <div className="mt-6 text-center text-sm">
-                  <span className="text-muted-foreground">Don&apos;t have an account? </span>
+                  <span className="text-muted-foreground">
+                    Don&apos;t have an account?{' '}
+                  </span>
                   <Link
                     href="/onboarding"
                     className="font-semibold text-primary hover:underline transition-all"

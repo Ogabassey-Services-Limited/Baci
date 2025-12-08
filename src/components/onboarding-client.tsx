@@ -20,4 +20,3 @@ const OnboardingForm = dynamic(
 export default function OnboardingClient() {
   return <OnboardingForm />;
 }
-

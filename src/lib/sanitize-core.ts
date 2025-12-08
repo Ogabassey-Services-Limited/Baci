@@ -357,8 +357,6 @@ export function sanitizeJson<T>(
   }
 }
 
-
-
 /**
  * Safely stringify a JSON-LD schema object for use in dangerouslySetInnerHTML.
  * This function sanitizes all string values and returns a safe JSON string.

@@ -14,7 +14,9 @@ function createCachedMerchantFetcher(slug: string) {
 
       const { data: merchant, error } = await supabase
         .from('merchants')
-        .select('id, business_name, slug, logo_url, brand_colors, country, is_published')
+        .select(
+          'id, business_name, slug, logo_url, brand_colors, country, is_published'
+        )
         .eq('slug', slug)
         .single();
 
@@ -37,10 +39,7 @@ export async function GET(request: NextRequest) {
   const slug = searchParams.get('slug');
 
   if (!slug) {
-    return NextResponse.json(
-      { error: 'Slug is required' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Slug is required' }, { status: 400 });
   }
 
   try {

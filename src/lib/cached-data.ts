@@ -58,7 +58,10 @@ export const getCachedMerchant = unstable_cache(
       .single();
 
     if (error) {
-      console.error(`Error fetching merchant for slug "${slug}":`, JSON.stringify(error, null, 2));
+      console.error(
+        `Error fetching merchant for slug "${slug}":`,
+        JSON.stringify(error, null, 2)
+      );
       // Also log the raw error just in case
       console.error('Raw error:', error);
       return null;

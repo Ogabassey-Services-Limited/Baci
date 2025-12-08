@@ -1,4 +1,4 @@
-"use client";
+'use client';
 // @ts-nocheck - Template preview
 
 import {
@@ -49,7 +49,6 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
   const _router = useRouter();
 
   // Calculate subtotal
-
 
   // Scroll to top on mount
   useEffect(() => {
@@ -165,10 +164,11 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                         {/* Tags */}
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${item.condition?.toLowerCase() === 'new'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                              : 'bg-amber-50 text-amber-700 border-amber-100'
-                              }`}
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                              item.condition?.toLowerCase() === 'new'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                : 'bg-amber-50 text-amber-700 border-amber-100'
+                            }`}
                           >
                             {item.condition}
                           </span>
@@ -222,7 +222,9 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                       {/* Quantity */}
                       <div className="flex items-center border border-gray-200 rounded-lg h-9 md:h-10 bg-gray-50">
                         <button
-                          onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
+                          onClick={() =>
+                            updateQuantity(item.cartItemId, item.quantity - 1)
+                          }
                           className="px-3 h-full hover:bg-white text-gray-500 rounded-l-lg transition-colors border-r border-gray-200 active:bg-gray-200"
                           disabled={item.quantity <= 1}
                         >
@@ -232,7 +234,9 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
+                          onClick={() =>
+                            updateQuantity(item.cartItemId, item.quantity + 1)
+                          }
                           className="px-3 h-full hover:bg-white text-gray-500 rounded-r-lg transition-colors border-l border-gray-200 active:bg-gray-200"
                         >
                           <Plus size={14} />
@@ -244,8 +248,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                         {item.negotiatedPrice ? (
                           <div className="flex flex-col items-end">
                             <span className="text-[10px] text-gray-400 line-through decoration-red-400">
-                              ₦
-                              {(item.price * item.quantity).toLocaleString()}
+                              ₦{(item.price * item.quantity).toLocaleString()}
                             </span>
                             <span className="font-bold text-green-600 text-base md:text-xl">
                               ₦{itemTotal.toLocaleString()}

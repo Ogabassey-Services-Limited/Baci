@@ -140,7 +140,9 @@ export default function DashboardClientPage({
       }
 
       toast({
-        title: merchant?.is_published ? 'Store Unpublished' : 'Store Published!',
+        title: merchant?.is_published
+          ? 'Store Unpublished'
+          : 'Store Published!',
         description: merchant?.is_published
           ? 'Your store is now offline.'
           : 'Your store is now live and accessible to customers.',

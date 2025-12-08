@@ -112,7 +112,11 @@ export const AD_PLACEMENTS: Record<string, AdPlacement> = {
     mobileWidth: 300,
     mobileHeight: 250,
     type: 'sidebar',
-    sizes: [[300, 250], [300, 600], [160, 600]],
+    sizes: [
+      [300, 250],
+      [300, 600],
+      [160, 600],
+    ],
   },
   BLOG_INLINE: {
     id: 'blog-inline',
@@ -208,7 +212,11 @@ export interface RewardedAdSettings {
   // Is rewarded video enabled?
   enabled: boolean;
   // Reward type
-  rewardType: 'discount_percent' | 'discount_fixed' | 'loyalty_points' | 'free_shipping';
+  rewardType:
+    | 'discount_percent'
+    | 'discount_fixed'
+    | 'loyalty_points'
+    | 'free_shipping';
   // Reward value (e.g., 5 for 5% or 500 for ₦500)
   rewardValue: number;
   // Reward expiry in days (0 = never expires)
@@ -468,10 +476,16 @@ export function canEnablePlacement(
 
   // Check special placement types
   const placement = AD_PLACEMENTS[placementKey];
-  if (placement?.type === 'interstitial' && !tierConfig.features.interstitialEnabled) {
+  if (
+    placement?.type === 'interstitial' &&
+    !tierConfig.features.interstitialEnabled
+  ) {
     return false;
   }
-  if (placement?.type === 'rewarded' && !tierConfig.features.rewardedVideoEnabled) {
+  if (
+    placement?.type === 'rewarded' &&
+    !tierConfig.features.rewardedVideoEnabled
+  ) {
     return false;
   }
 

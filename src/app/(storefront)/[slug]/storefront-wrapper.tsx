@@ -24,7 +24,8 @@ const DynamicPuckStorefront = dynamic(
 export function StorefrontWrapper() {
   const { merchant, loading } = useMerchant();
   const [showError, setShowError] = useState(false);
-  const [TemplateHome, setTemplateHome] = useState<React.ComponentType<any> | null>(null);
+  const [TemplateHome, setTemplateHome] =
+    useState<React.ComponentType<any> | null>(null);
   const [templateLoading, setTemplateLoading] = useState(true);
 
   // Load template components based on merchant's template_id
@@ -44,7 +45,9 @@ export function StorefrontWrapper() {
       // Try to load the template from registry
       const template = getTemplate(templateId);
       if (!template) {
-        console.warn(`Template "${templateId}" not found in registry, falling back to Puck`);
+        console.warn(
+          `Template "${templateId}" not found in registry, falling back to Puck`
+        );
         setTemplateHome(null);
         setTemplateLoading(false);
         return;

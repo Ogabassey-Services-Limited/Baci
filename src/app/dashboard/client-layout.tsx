@@ -75,9 +75,9 @@ const StoreLink = ({
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
     : cn(
-      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
-      isCollapsed && 'justify-center'
-    );
+        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
+        isCollapsed && 'justify-center'
+      );
 
   const isReady = !merchantLoading && storeUrl !== '#';
 
@@ -117,8 +117,12 @@ const StoreLink = ({
   const linkContent = (
     <>
       <Store className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
-      {!isCollapsed && !isMobile && <span className="font-medium text-foreground">{displayUrl}</span>}
-      {isMobile && <span className="font-medium text-foreground">{displayUrl}</span>}
+      {!isCollapsed && !isMobile && (
+        <span className="font-medium text-foreground">{displayUrl}</span>
+      )}
+      {isMobile && (
+        <span className="font-medium text-foreground">{displayUrl}</span>
+      )}
     </>
   );
 
@@ -206,10 +210,23 @@ export default function DashboardClientLayout({
 
     // If there IS a user but NO merchant record OR incomplete profile,
     // the blocking UI is handled outside this effect (see below)
-  }, [user, merchant, authLoading, merchantLoading, router, toast, hasAttemptedAuthCheck]);
+  }, [
+    user,
+    merchant,
+    authLoading,
+    merchantLoading,
+    router,
+    toast,
+    hasAttemptedAuthCheck,
+  ]);
 
   // If we are not loading but have no merchant, show the blocking UI here (outside useEffect)
-  if (!authLoading && !merchantLoading && user && (!merchant || !merchant.business_name)) {
+  if (
+    !authLoading &&
+    !merchantLoading &&
+    user &&
+    (!merchant || !merchant.business_name)
+  ) {
     return (
       <div className="flex min-h-screen w-full flex-col items-center justify-center gap-6 bg-muted/40 p-4 text-center">
         <div className="max-w-md space-y-4 rounded-xl border bg-background p-8 shadow-lg">
@@ -218,16 +235,31 @@ export default function DashboardClientLayout({
           </div>
           <h1 className="text-2xl font-bold">Store Setup Required</h1>
           <p className="text-muted-foreground">
-            We couldn't find your store details. You need to complete the onboarding process to access the dashboard.
+            We couldn't find your store details. You need to complete the
+            onboarding process to access the dashboard.
           </p>
           <div className="flex flex-col gap-2">
-            <Button onClick={() => router.push('/onboarding')} className="w-full">
+            <Button
+              onClick={() => router.push('/onboarding')}
+              className="w-full"
+            >
               Complete Setup
             </Button>
-            <Button variant="outline" onClick={() => { updateMerchant({}); window.location.reload(); }} className="w-full">
+            <Button
+              variant="outline"
+              onClick={() => {
+                updateMerchant({});
+                window.location.reload();
+              }}
+              className="w-full"
+            >
               Refresh / Retry
             </Button>
-            <Button variant="ghost" onClick={() => signOut()} className="w-full text-muted-foreground">
+            <Button
+              variant="ghost"
+              onClick={() => signOut()}
+              className="w-full text-muted-foreground"
+            >
               Sign Out
             </Button>
           </div>

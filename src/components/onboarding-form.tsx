@@ -14,11 +14,7 @@ import {
   useState,
   useTransition,
 } from 'react';
-import {
-  FormProvider,
-  useForm,
-  useWatch,
-} from 'react-hook-form';
+import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
 import {
   type ServerActionState,
@@ -48,21 +44,27 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 const Step1_BusinessDetails = dynamic(
   () => import('@/components/onboarding/steps/step1-business-details'),
   {
-    loading: () => <div className="h-[300px] animate-pulse bg-muted/10 rounded-lg" />,
+    loading: () => (
+      <div className="h-[300px] animate-pulse bg-muted/10 rounded-lg" />
+    ),
   }
 );
 
 const Step2_Branding = dynamic(
   () => import('@/components/onboarding/steps/step2-branding'),
   {
-    loading: () => <div className="h-[500px] animate-pulse bg-muted/10 rounded-lg" />,
+    loading: () => (
+      <div className="h-[500px] animate-pulse bg-muted/10 rounded-lg" />
+    ),
   }
 );
 
 const Step3_Account = dynamic(
   () => import('@/components/onboarding/steps/step3-account'),
   {
-    loading: () => <div className="h-[300px] animate-pulse bg-muted/10 rounded-lg" />,
+    loading: () => (
+      <div className="h-[300px] animate-pulse bg-muted/10 rounded-lg" />
+    ),
   }
 );
 
@@ -431,7 +433,16 @@ export default function OnboardingForm() {
     if (step === 2) return !errors.logoUrl && !errors.brandColors;
     if (step === 3) return isStep3Valid;
     return false;
-  }, [step, errors, isStep3Valid, errors.businessName, errors.businessType, errors.otherBusinessType, errors.logoUrl, errors.brandColors]);
+  }, [
+    step,
+    errors,
+    isStep3Valid,
+    errors.businessName,
+    errors.businessType,
+    errors.otherBusinessType,
+    errors.logoUrl,
+    errors.brandColors,
+  ]);
 
   return (
     <div

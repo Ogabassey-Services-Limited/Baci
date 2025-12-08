@@ -36,7 +36,10 @@ interface AdSettingsContextType {
 
   // Actions
   updateSettings: (updates: Partial<AdMonetizationSettings>) => Promise<void>;
-  updatePlacement: (placementKey: string, updates: Partial<AdPlacementSettings>) => Promise<void>;
+  updatePlacement: (
+    placementKey: string,
+    updates: Partial<AdPlacementSettings>
+  ) => Promise<void>;
   updateRewardedAd: (updates: Partial<RewardedAdSettings>) => Promise<void>;
   enableAllPlacements: () => Promise<void>;
   disableAllPlacements: () => Promise<void>;
@@ -48,7 +51,9 @@ interface AdSettingsContextType {
   getEnabledPlacementCount: () => number;
 }
 
-const AdSettingsContext = createContext<AdSettingsContextType | undefined>(undefined);
+const AdSettingsContext = createContext<AdSettingsContextType | undefined>(
+  undefined
+);
 
 // ============================================
 // Provider Component
@@ -128,20 +133,23 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
           adsenseId: mainSettings.adsense_id || undefined,
           provider: mainSettings.provider || 'adsense',
         },
-        placements: placements?.map((p) => ({
-          placementKey: p.placement_key,
-          enabled: p.enabled,
-          customAdUnitId: p.custom_ad_unit_id || undefined,
-          customSizes: p.custom_sizes || undefined,
-          frequency: p.frequency || 1,
-        })) || DEFAULT_AD_SETTINGS.placements,
-        rewardedAd: rewardedSettings ? {
-          enabled: rewardedSettings.enabled,
-          rewardType: rewardedSettings.reward_type,
-          rewardValue: rewardedSettings.reward_value,
-          rewardExpiryDays: rewardedSettings.reward_expiry_days,
-          minOrderValue: rewardedSettings.min_order_value || undefined,
-        } : DEFAULT_AD_SETTINGS.rewardedAd,
+        placements:
+          placements?.map((p) => ({
+            placementKey: p.placement_key,
+            enabled: p.enabled,
+            customAdUnitId: p.custom_ad_unit_id || undefined,
+            customSizes: p.custom_sizes || undefined,
+            frequency: p.frequency || 1,
+          })) || DEFAULT_AD_SETTINGS.placements,
+        rewardedAd: rewardedSettings
+          ? {
+              enabled: rewardedSettings.enabled,
+              rewardType: rewardedSettings.reward_type,
+              rewardValue: rewardedSettings.reward_value,
+              rewardExpiryDays: rewardedSettings.reward_expiry_days,
+              minOrderValue: rewardedSettings.min_order_value || undefined,
+            }
+          : DEFAULT_AD_SETTINGS.rewardedAd,
         revenueSharePercent: mainSettings.revenue_share_percent,
         testMode: mainSettings.test_mode,
         maxAdsPerPage: mainSettings.max_ads_per_page,
@@ -194,28 +202,34 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
       if (updates.revenueSharePercent !== undefined) {
         dbUpdates.revenue_share_percent = updates.revenueSharePercent;
       }
-      if (updates.testMode !== undefined) dbUpdates.test_mode = updates.testMode;
-      if (updates.maxAdsPerPage !== undefined) dbUpdates.max_ads_per_page = updates.maxAdsPerPage;
-      if (updates.trackImpressions !== undefined) dbUpdates.track_impressions = updates.trackImpressions;
-      if (updates.trackClicks !== undefined) dbUpdates.track_clicks = updates.trackClicks;
-      if (updates.showAdLabels !== undefined) dbUpdates.show_ad_labels = updates.showAdLabels;
+      if (updates.testMode !== undefined)
+        dbUpdates.test_mode = updates.testMode;
+      if (updates.maxAdsPerPage !== undefined)
+        dbUpdates.max_ads_per_page = updates.maxAdsPerPage;
+      if (updates.trackImpressions !== undefined)
+        dbUpdates.track_impressions = updates.trackImpressions;
+      if (updates.trackClicks !== undefined)
+        dbUpdates.track_clicks = updates.trackClicks;
+      if (updates.showAdLabels !== undefined)
+        dbUpdates.show_ad_labels = updates.showAdLabels;
 
       // Upsert settings
-      const { error } = await supabase
-        .from('merchant_ad_settings')
-        .upsert({
+      const { error } = await supabase.from('merchant_ad_settings').upsert(
+        {
           merchant_id: merchant.merchant.id,
           ...dbUpdates,
-        }, {
+        },
+        {
           onConflict: 'merchant_id',
-        });
+        }
+      );
 
       if (error) {
         throw error;
       }
 
       // Update local state
-      setSettings((prev) => prev ? { ...prev, ...updates } : null);
+      setSettings((prev) => (prev ? { ...prev, ...updates } : null));
     },
     [merchant?.merchant?.id, settings, supabase]
   );
@@ -229,24 +243,27 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
 
       // Check if can enable
       if (updates.enabled === true) {
-        const currentEnabled = settings.placements.filter((p) => p.enabled).length;
+        const currentEnabled = settings.placements.filter(
+          (p) => p.enabled
+        ).length;
         if (!canEnablePlacement(tier, currentEnabled, placementKey)) {
           throw new Error('Cannot enable more placements on current tier');
         }
       }
 
-      const { error } = await supabase
-        .from('merchant_ad_placements')
-        .upsert({
+      const { error } = await supabase.from('merchant_ad_placements').upsert(
+        {
           merchant_id: merchant.merchant.id,
           placement_key: placementKey,
           enabled: updates.enabled,
           custom_ad_unit_id: updates.customAdUnitId,
           custom_sizes: updates.customSizes,
           frequency: updates.frequency,
-        }, {
+        },
+        {
           onConflict: 'merchant_id,placement_key',
-        });
+        }
+      );
 
       if (error) {
         throw error;
@@ -289,23 +306,28 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
 
       const { error } = await supabase
         .from('merchant_rewarded_ad_settings')
-        .upsert({
-          merchant_id: merchant.merchant.id,
-          enabled: updates.enabled,
-          reward_type: updates.rewardType,
-          reward_value: updates.rewardValue,
-          reward_expiry_days: updates.rewardExpiryDays,
-          min_order_value: updates.minOrderValue,
-        }, {
-          onConflict: 'merchant_id',
-        });
+        .upsert(
+          {
+            merchant_id: merchant.merchant.id,
+            enabled: updates.enabled,
+            reward_type: updates.rewardType,
+            reward_value: updates.rewardValue,
+            reward_expiry_days: updates.rewardExpiryDays,
+            min_order_value: updates.minOrderValue,
+          },
+          {
+            onConflict: 'merchant_id',
+          }
+        );
 
       if (error) {
         throw error;
       }
 
       setSettings((prev) =>
-        prev ? { ...prev, rewardedAd: { ...prev.rewardedAd, ...updates } } : null
+        prev
+          ? { ...prev, rewardedAd: { ...prev.rewardedAd, ...updates } }
+          : null
       );
     },
     [merchant?.merchant?.id, settings, supabase]
@@ -341,7 +363,9 @@ export function AdSettingsProvider({ children }: AdSettingsProviderProps) {
   const isPlacementEnabled = useCallback(
     (placementKey: string): boolean => {
       if (!settings) return false;
-      const placement = settings.placements.find((p) => p.placementKey === placementKey);
+      const placement = settings.placements.find(
+        (p) => p.placementKey === placementKey
+      );
       return placement?.enabled || false;
     },
     [settings]

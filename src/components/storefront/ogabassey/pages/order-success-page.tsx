@@ -1,18 +1,41 @@
-"use client";
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import { useV2Order } from '../providers/v2-order-context';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Check, ShoppingBag, ArrowRight, FileText, Share2, Download } from 'lucide-react';
+import {
+  Check,
+  ShoppingBag,
+  ArrowRight,
+  FileText,
+  Share2,
+  Download,
+} from 'lucide-react';
 import { InvoiceModal } from '../components/InvoiceModal';
 
 const GoogleIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" className={className} xmlns="http://www.w3.org/2000/svg">
-    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.84z" fill="#FBBC05" />
-    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      fill="#4285F4"
+    />
+    <path
+      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      fill="#34A853"
+    />
+    <path
+      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.84z"
+      fill="#FBBC05"
+    />
+    <path
+      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      fill="#EA4335"
+    />
   </svg>
 );
 
@@ -33,20 +56,24 @@ export const OrderSuccessPage: React.FC = () => {
   }, []);
 
   const getTitle = () => {
-    if (successType === 'invoice') return "Invoice Generated!";
-    if (successType === 'payforme') return "Request Sent!";
-    return "Order Successful!";
+    if (successType === 'invoice') return 'Invoice Generated!';
+    if (successType === 'payforme') return 'Request Sent!';
+    return 'Order Successful!';
   };
 
   const getMessage = () => {
-    if (successType === 'invoice') return "Your invoice has been generated successfully. Please complete the transfer to process your order.";
-    if (successType === 'payforme') return `We've sent a payment link to ${payerName}. Your order will be processed once payment is received.`;
-    return "Thank you for shopping with Ogabassey. Your receipt will be available for download after your order has been shipped.";
+    if (successType === 'invoice')
+      return 'Your invoice has been generated successfully. Please complete the transfer to process your order.';
+    if (successType === 'payforme')
+      return `We've sent a payment link to ${payerName}. Your order will be processed once payment is received.`;
+    return 'Thank you for shopping with Ogabassey. Your receipt will be available for download after your order has been shipped.';
   };
 
   const getIcon = () => {
-    if (successType === 'invoice') return <FileText className="text-blue-600 w-10 h-10" />;
-    if (successType === 'payforme') return <Share2 className="text-purple-600 w-10 h-10" />;
+    if (successType === 'invoice')
+      return <FileText className="text-blue-600 w-10 h-10" />;
+    if (successType === 'payforme')
+      return <Share2 className="text-purple-600 w-10 h-10" />;
     return <ShoppingBag className="text-green-600 w-10 h-10" />;
   };
 
@@ -60,13 +87,15 @@ export const OrderSuccessPage: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col gap-4">
         <p>Order not found</p>
-        <Link href="/" className="text-red-600 font-bold hover:underline">Return Home</Link>
+        <Link href="/" className="text-red-600 font-bold hover:underline">
+          Return Home
+        </Link>
       </div>
     );
   }
 
   // If we don't have the order object (e.g. strict ID look up failed or passed via state which we don't have),
-  // we might render based on params or generic success. 
+  // we might render based on params or generic success.
   // For now let's assume getOrder works or we fallback gracefully.
   // Actually, the original code used `orderDetails` from state for invoice type.
   // We should try to get it from context.
@@ -75,10 +104,11 @@ export const OrderSuccessPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 pb-32 text-center">
-
       {/* Success Illustration */}
       <div className="mb-8 relative">
-        <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10 animate-in zoom-in duration-500 border-4 ${getBgColor()}`}>
+        <div
+          className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 relative z-10 animate-in zoom-in duration-500 border-4 ${getBgColor()}`}
+        >
           {getIcon()}
           <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1.5 rounded-full border-4 border-white shadow-sm">
             <Check size={16} strokeWidth={4} />
@@ -91,8 +121,12 @@ export const OrderSuccessPage: React.FC = () => {
 
       {/* Content */}
       <div className="max-w-md w-full animate-in slide-in-from-bottom-5 duration-500 fade-in fill-mode-forwards">
-        <p className="text-gray-400 font-mono text-sm font-bold mb-2 tracking-widest uppercase">Order #{orderId}</p>
-        <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4">{getTitle()}</h1>
+        <p className="text-gray-400 font-mono text-sm font-bold mb-2 tracking-widest uppercase">
+          Order #{orderId}
+        </p>
+        <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4">
+          {getTitle()}
+        </h1>
         <p className="text-gray-600 leading-relaxed mb-8 text-sm md:text-base">
           {getMessage()}
         </p>
@@ -106,13 +140,17 @@ export const OrderSuccessPage: React.FC = () => {
             >
               <Download size={20} /> Download Invoice
             </button>
-            <p className="text-xs text-gray-400 mt-2">PDF format • {displayOrder.total}</p>
+            <p className="text-xs text-gray-400 mt-2">
+              PDF format • {displayOrder.total}
+            </p>
           </div>
         )}
 
         {/* Review Card */}
         <div className="bg-gray-50 rounded-2xl p-6 md:p-8 border border-gray-100 mb-8 shadow-sm">
-          <h3 className="font-bold text-gray-900 mb-4 text-lg">Loved the experience? 🥺</h3>
+          <h3 className="font-bold text-gray-900 mb-4 text-lg">
+            Loved the experience? 🥺
+          </h3>
           <a
             href="#"
             target="_blank"

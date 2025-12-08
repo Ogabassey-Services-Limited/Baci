@@ -545,12 +545,7 @@ export function DraggableAnalyticsGrid({
         'at-risk-customers',
         'champions-list',
       ],
-      ads: [
-        'ads-overview',
-        'ads-platforms',
-        'ads-attribution',
-        'ads-privacy',
-      ],
+      ads: ['ads-overview', 'ads-platforms', 'ads-attribution', 'ads-privacy'],
     };
 
     return categoryMap[activeCategory]?.includes(key);
@@ -896,37 +891,59 @@ export function DraggableAnalyticsGrid({
             {/* Ads Overview */}
             {isWidgetVisible('ads-overview') && (
               <div className="min-h-[300px]">
-                <BentoCard title="Conversion Overview" icon={Zap} className="h-full">
+                <BentoCard
+                  title="Conversion Overview"
+                  icon={Zap}
+                  className="h-full"
+                >
                   {data?.adAnalytics ? (
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10">
                         <div>
-                          <p className="text-sm text-muted-foreground">Total Conversions Tracked</p>
-                          <p className="text-3xl font-bold">{data.adAnalytics.summary.totalConversions}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Total Conversions Tracked
+                          </p>
+                          <p className="text-3xl font-bold">
+                            {data.adAnalytics.summary.totalConversions}
+                          </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm text-muted-foreground">Attributed Revenue</p>
+                          <p className="text-sm text-muted-foreground">
+                            Attributed Revenue
+                          </p>
                           <p className="text-xl font-bold text-green-500">
-                            {formatCurrency(data.adAnalytics.summary.totalAttributedRevenue)}
+                            {formatCurrency(
+                              data.adAnalytics.summary.totalAttributedRevenue
+                            )}
                           </p>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="p-3 rounded-lg bg-muted/30 text-center">
-                          <div className="text-2xl font-bold">{data.adAnalytics.configuredPlatforms}</div>
-                          <div className="text-xs text-muted-foreground">Platforms Active</div>
+                          <div className="text-2xl font-bold">
+                            {data.adAnalytics.configuredPlatforms}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Platforms Active
+                          </div>
                         </div>
                         <div className="p-3 rounded-lg bg-muted/30 text-center">
-                          <div className="text-2xl font-bold">{data.adAnalytics.summary.totalOrders}</div>
-                          <div className="text-xs text-muted-foreground">Total Orders</div>
+                          <div className="text-2xl font-bold">
+                            {data.adAnalytics.summary.totalOrders}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Total Orders
+                          </div>
                         </div>
                       </div>
-                      <div className={cn(
-                        'flex items-center gap-2 p-2 rounded-lg text-sm',
-                        data.adAnalytics.offlineConversionsEnabled
-                          ? 'bg-green-500/10 text-green-600'
-                          : 'bg-amber-500/10 text-amber-600'
-                      )}>
+                      <div
+                        className={cn(
+                          'flex items-center gap-2 p-2 rounded-lg text-sm',
+                          data.adAnalytics.offlineConversionsEnabled
+                            ? 'bg-green-500/10 text-green-600'
+                            : 'bg-amber-500/10 text-amber-600'
+                        )}
+                      >
                         {data.adAnalytics.offlineConversionsEnabled ? (
                           <>
                             <Check className="w-4 h-4" />
@@ -952,7 +969,11 @@ export function DraggableAnalyticsGrid({
             {/* Platform Breakdown */}
             {isWidgetVisible('ads-platforms') && (
               <div className="min-h-[300px]">
-                <BentoCard title="Platform Performance" icon={BarChart3} className="h-full">
+                <BentoCard
+                  title="Platform Performance"
+                  icon={BarChart3}
+                  className="h-full"
+                >
                   {data?.adAnalytics ? (
                     <div className="space-y-3">
                       {data.adAnalytics.platforms.map((platform) => (
@@ -960,12 +981,16 @@ export function DraggableAnalyticsGrid({
                           key={platform.name}
                           className={cn(
                             'p-3 rounded-lg',
-                            platform.configured ? 'bg-muted/30' : 'bg-muted/10 opacity-60'
+                            platform.configured
+                              ? 'bg-muted/30'
+                              : 'bg-muted/10 opacity-60'
                           )}
                         >
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{platform.name}</span>
+                              <span className="font-medium">
+                                {platform.name}
+                              </span>
                               {platform.configured ? (
                                 <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600">
                                   Active
@@ -976,12 +1001,18 @@ export function DraggableAnalyticsGrid({
                                 </span>
                               )}
                             </div>
-                            <span className="text-sm font-bold">{platform.conversions} conversions</span>
+                            <span className="text-sm font-bold">
+                              {platform.conversions} conversions
+                            </span>
                           </div>
                           {platform.configured && (
                             <div className="flex justify-between text-sm text-muted-foreground">
-                              <span>Revenue: {formatCurrency(platform.revenue)}</span>
-                              <span>{platform.clickAttributed} click-attributed</span>
+                              <span>
+                                Revenue: {formatCurrency(platform.revenue)}
+                              </span>
+                              <span>
+                                {platform.clickAttributed} click-attributed
+                              </span>
                             </div>
                           )}
                         </div>
@@ -999,7 +1030,11 @@ export function DraggableAnalyticsGrid({
             {/* Click Attribution */}
             {isWidgetVisible('ads-attribution') && (
               <div className="min-h-[250px]">
-                <BentoCard title="Click Attribution" icon={MousePointerClick} className="h-full">
+                <BentoCard
+                  title="Click Attribution"
+                  icon={MousePointerClick}
+                  className="h-full"
+                >
                   {data?.adAnalytics ? (
                     <div className="space-y-4">
                       <p className="text-sm text-muted-foreground">
@@ -1010,24 +1045,31 @@ export function DraggableAnalyticsGrid({
                           <div className="text-xl font-bold text-blue-600">
                             {data.adAnalytics.summary.trackingRate}%
                           </div>
-                          <div className="text-xs text-muted-foreground">Tracking Rate</div>
+                          <div className="text-xs text-muted-foreground">
+                            Tracking Rate
+                          </div>
                         </div>
                         <div className="p-3 rounded-lg bg-purple-500/10 text-center">
                           <div className="text-xl font-bold text-purple-600">
                             {data.adAnalytics.summary.clickAttributionRate}%
                           </div>
-                          <div className="text-xs text-muted-foreground">Click Attribution</div>
+                          <div className="text-xs text-muted-foreground">
+                            Click Attribution
+                          </div>
                         </div>
                         <div className="p-3 rounded-lg bg-green-500/10 text-center">
                           <div className="text-xl font-bold text-green-600">
                             {data.adAnalytics.details.ordersWithClickIds}
                           </div>
-                          <div className="text-xs text-muted-foreground">With Click IDs</div>
+                          <div className="text-xs text-muted-foreground">
+                            With Click IDs
+                          </div>
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground mt-4">
-                        Click IDs (fbclid, ttclid, gclid, sccid) help platforms attribute conversions
-                        to the original ad click for better ROAS measurement.
+                        Click IDs (fbclid, ttclid, gclid, sccid) help platforms
+                        attribute conversions to the original ad click for
+                        better ROAS measurement.
                       </div>
                     </div>
                   ) : (
@@ -1042,7 +1084,11 @@ export function DraggableAnalyticsGrid({
             {/* Privacy Compliance */}
             {isWidgetVisible('ads-privacy') && (
               <div className="min-h-[250px]">
-                <BentoCard title="Privacy Compliance" icon={Shield} className="h-full">
+                <BentoCard
+                  title="Privacy Compliance"
+                  icon={Shield}
+                  className="h-full"
+                >
                   {data?.adAnalytics ? (
                     <div className="space-y-4">
                       <p className="text-sm text-muted-foreground">
@@ -1051,12 +1097,16 @@ export function DraggableAnalyticsGrid({
                       <div className="p-4 rounded-lg bg-muted/30">
                         <div className="flex items-center justify-between">
                           <span className="text-sm">Orders with LDU flag</span>
-                          <span className="text-lg font-bold">{data.adAnalytics.details.ordersWithLDU}</span>
+                          <span className="text-lg font-bold">
+                            {data.adAnalytics.details.ordersWithLDU}
+                          </span>
                         </div>
                         <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
                           <div
                             className="h-full bg-amber-500 transition-all"
-                            style={{ width: `${Math.min(data.adAnalytics.summary.lduRate, 100)}%` }}
+                            style={{
+                              width: `${Math.min(data.adAnalytics.summary.lduRate, 100)}%`,
+                            }}
                           />
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
@@ -1064,8 +1114,9 @@ export function DraggableAnalyticsGrid({
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        LDU is automatically applied for users in California (CCPA),
-                        EU countries (GDPR), and other privacy-focused regions.
+                        LDU is automatically applied for users in California
+                        (CCPA), EU countries (GDPR), and other privacy-focused
+                        regions.
                       </div>
                     </div>
                   ) : (

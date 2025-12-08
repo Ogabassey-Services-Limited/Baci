@@ -80,14 +80,17 @@ export function useNotifications(): UseNotificationsReturn {
         if (response.status === 429) {
           console.warn('Rate limit exceeded for notifications. Backing off.');
           // Wait 60 seconds before trying again if rate limited
-          await new Promise(resolve => setTimeout(resolve, 60000));
+          await new Promise((resolve) => setTimeout(resolve, 60000));
           return [];
         }
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           // Don't throw for 429s or other actionable errors, just log and return empty
-          console.error(`Failed to fetch notifications: ${response.status}`, errorData);
+          console.error(
+            `Failed to fetch notifications: ${response.status}`,
+            errorData
+          );
           return [];
         }
 

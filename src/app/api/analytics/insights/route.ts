@@ -130,7 +130,8 @@ Be specific and constructive.
       insights: [
         {
           title: 'AI Insights Temporarily Unavailable',
-          description: 'AI-powered analytics are currently unavailable. Please check your API configuration or try again later.',
+          description:
+            'AI-powered analytics are currently unavailable. Please check your API configuration or try again later.',
           type: 'neutral' as const,
           priority: 'low' as const,
           action: 'Check your Google AI API key in environment variables.',

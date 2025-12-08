@@ -119,14 +119,18 @@ export async function GET(request: Request) {
     const platformStats: Record<string, PlatformStats> = {
       facebook: {
         name: 'Facebook',
-        configured: !!(merchant.facebook_pixel_id && merchant.facebook_capi_token),
+        configured: !!(
+          merchant.facebook_pixel_id && merchant.facebook_capi_token
+        ),
         conversions: 0,
         revenue: 0,
         clickAttributed: 0,
       },
       tiktok: {
         name: 'TikTok',
-        configured: !!(merchant.tiktok_pixel_id && merchant.tiktok_access_token),
+        configured: !!(
+          merchant.tiktok_pixel_id && merchant.tiktok_access_token
+        ),
         conversions: 0,
         revenue: 0,
         clickAttributed: 0,
@@ -140,7 +144,9 @@ export async function GET(request: Request) {
       },
       snapchat: {
         name: 'Snapchat',
-        configured: !!(merchant.snapchat_pixel_id && merchant.snapchat_capi_token),
+        configured: !!(
+          merchant.snapchat_pixel_id && merchant.snapchat_capi_token
+        ),
         conversions: 0,
         revenue: 0,
         clickAttributed: 0,
@@ -214,7 +220,9 @@ export async function GET(request: Request) {
         }
 
         // If any platform is configured and we have tracking data, count it
-        const anyConfigured = Object.values(platformStats).some(p => p.configured);
+        const anyConfigured = Object.values(platformStats).some(
+          (p) => p.configured
+        );
         if (anyConfigured) {
           totalConversions++;
           totalAttributedRevenue += revenue;
@@ -224,12 +232,17 @@ export async function GET(request: Request) {
 
     // Calculate percentages
     const totalOrders = orders?.length || 0;
-    const trackingRate = totalOrders > 0 ? (ordersWithTracking / totalOrders) * 100 : 0;
-    const clickAttributionRate = totalOrders > 0 ? (ordersWithClickIds / totalOrders) * 100 : 0;
-    const lduRate = ordersWithTracking > 0 ? (ordersWithLDU / ordersWithTracking) * 100 : 0;
+    const trackingRate =
+      totalOrders > 0 ? (ordersWithTracking / totalOrders) * 100 : 0;
+    const clickAttributionRate =
+      totalOrders > 0 ? (ordersWithClickIds / totalOrders) * 100 : 0;
+    const lduRate =
+      ordersWithTracking > 0 ? (ordersWithLDU / ordersWithTracking) * 100 : 0;
 
     // Count configured platforms
-    const configuredPlatforms = Object.values(platformStats).filter(p => p.configured).length;
+    const configuredPlatforms = Object.values(platformStats).filter(
+      (p) => p.configured
+    ).length;
 
     const responseData = {
       // Overall status

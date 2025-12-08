@@ -59,9 +59,17 @@ export interface CartContextType {
   // Basic cart operations
   cart: CartItem[];
   merchantSlug: string | null;
-  addToCart: (product: Product, quantity?: number, options?: AddToCartOptions) => void;
+  addToCart: (
+    product: Product,
+    quantity?: number,
+    options?: AddToCartOptions
+  ) => void;
   removeFromCart: (cartItemIdOrProductId: string, variantId?: string) => void;
-  updateQuantity: (cartItemIdOrProductId: string, quantity: number, variantId?: string) => void;
+  updateQuantity: (
+    cartItemIdOrProductId: string,
+    quantity: number,
+    variantId?: string
+  ) => void;
   clearCart: () => void;
   setMerchantSlug: (slug: string) => void;
 
@@ -99,7 +107,10 @@ const CART_STORAGE_KEY = 'baci-cart';
 const MERCHANT_SLUG_KEY = 'baci-cart-merchant-slug';
 const DEFAULT_ASSURANCE_RATE = 0.05; // 5%
 
-const generateCartItemId = (productId: string, options?: AddToCartOptions): string => {
+const generateCartItemId = (
+  productId: string,
+  options?: AddToCartOptions
+): string => {
   const parts = [productId];
   if (options?.variantId) parts.push(options.variantId);
   if (options?.color) parts.push(options.color);
@@ -113,7 +124,10 @@ const getCartFromStorage = (): CartItem[] => {
     const item = window.localStorage.getItem(CART_STORAGE_KEY);
     return item ? JSON.parse(item) : [];
   } catch (error) {
-    logger.error({ message: 'Failed to read cart from localStorage', error: error as Error });
+    logger.error({
+      message: 'Failed to read cart from localStorage',
+      error: error as Error,
+    });
     return [];
   }
 };
@@ -123,7 +137,10 @@ const saveCartToStorage = (cart: CartItem[]) => {
   try {
     window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   } catch (error) {
-    logger.error({ message: 'Failed to save cart to localStorage', error: error as Error });
+    logger.error({
+      message: 'Failed to save cart to localStorage',
+      error: error as Error,
+    });
   }
 };
 
@@ -145,7 +162,10 @@ const saveMerchantSlugToStorage = (slug: string | null) => {
       window.localStorage.removeItem(MERCHANT_SLUG_KEY);
     }
   } catch (error) {
-    logger.error({ message: 'Failed to save merchant slug', error: error as Error });
+    logger.error({
+      message: 'Failed to save merchant slug',
+      error: error as Error,
+    });
   }
 };
 
@@ -163,13 +183,13 @@ interface CartProviderProps {
 
 /**
  * Unified Cart Provider
- * 
+ *
  * Combines basic cart functionality with optional Smart Cart Pro features.
  * Smart Cart Pro features are only active when enableSmartCartPro is true.
  */
 export const CartProvider = ({
   children,
-  enableSmartCartPro = false
+  enableSmartCartPro = false,
 }: CartProviderProps) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [merchantSlug, setMerchantSlugState] = useState<string | null>(null);
@@ -177,7 +197,9 @@ export const CartProvider = ({
 
   // Smart Cart Pro state
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [lastAddedProduct, setLastAddedProduct] = useState<Product | null>(null);
+  const [lastAddedProduct, setLastAddedProduct] = useState<Product | null>(
+    null
+  );
   const [showUpsell, setShowUpsell] = useState(false);
   const upsellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -239,7 +261,7 @@ export const CartProvider = ({
             ...item,
             quantity: item.quantity + quantity,
             // Ensure cartItemId is set on legacy item upgrade
-            cartItemId: item.cartItemId || cartItemId
+            cartItemId: item.cartItemId || cartItemId,
           };
           return newCart;
         }
@@ -276,60 +298,77 @@ export const CartProvider = ({
     [enableSmartCartPro]
   );
 
-  const removeFromCart = useCallback((cartItemIdOrProductId: string, variantId?: string) => {
-    setCart((prev) => prev.filter((item) => {
-      // 1. If variantId provided (Platform style), strictly match ID + Variant
-      if (variantId) {
-        return !(item.id === cartItemIdOrProductId && item.variantId === variantId);
-      }
+  const removeFromCart = useCallback(
+    (cartItemIdOrProductId: string, variantId?: string) => {
+      setCart((prev) =>
+        prev.filter((item) => {
+          // 1. If variantId provided (Platform style), strictly match ID + Variant
+          if (variantId) {
+            return !(
+              item.id === cartItemIdOrProductId && item.variantId === variantId
+            );
+          }
 
-      // 2. If no variantId provided...
+          // 2. If no variantId provided...
 
-      // Match by cartItemId (V2 style)
-      if (item.cartItemId && item.cartItemId === cartItemIdOrProductId) return false;
+          // Match by cartItemId (V2 style)
+          if (item.cartItemId && item.cartItemId === cartItemIdOrProductId)
+            return false;
 
-      // Match by Product ID (Simple Product - Platform/Legacy style)
-      // Only remove if item definitely has no variant
-      if (item.id === cartItemIdOrProductId && !item.variantId) return false;
+          // Match by Product ID (Simple Product - Platform/Legacy style)
+          // Only remove if item definitely has no variant
+          if (item.id === cartItemIdOrProductId && !item.variantId)
+            return false;
 
-      return true;
-    }));
-  }, []);
+          return true;
+        })
+      );
+    },
+    []
+  );
 
-  const updateQuantity = useCallback((cartItemIdOrProductId: string, quantity: number, variantId?: string) => {
-    setCart((prev) => {
-      // Find item logic matches removeFromCart logic
-      const targetIndex = prev.findIndex(item => {
-        if (variantId) {
-          return item.id === cartItemIdOrProductId && item.variantId === variantId;
+  const updateQuantity = useCallback(
+    (cartItemIdOrProductId: string, quantity: number, variantId?: string) => {
+      setCart((prev) => {
+        // Find item logic matches removeFromCart logic
+        const targetIndex = prev.findIndex((item) => {
+          if (variantId) {
+            return (
+              item.id === cartItemIdOrProductId && item.variantId === variantId
+            );
+          }
+          return (
+            item.cartItemId === cartItemIdOrProductId ||
+            (item.id === cartItemIdOrProductId && !item.variantId)
+          );
+        });
+
+        if (targetIndex === -1) return prev;
+
+        const item = prev[targetIndex];
+        const moq = item.minimum_order_quantity || 1;
+
+        // Logic: If q <= 0, remove. If q < moq, set to moq. Else set to q.
+        // But if q=0 specifically, user probably clicked "Remove" or minus until 0.
+        // Platform logic: if q < moq -> if q==0 remove, else set to moq.
+
+        if (quantity <= 0) {
+          // Return cart without this item
+          return prev.filter((_, idx) => idx !== targetIndex);
         }
-        return item.cartItemId === cartItemIdOrProductId || (item.id === cartItemIdOrProductId && !item.variantId);
+
+        let finalQuantity = quantity;
+        if (quantity < moq) {
+          finalQuantity = moq;
+        }
+
+        const newCart = [...prev];
+        newCart[targetIndex] = { ...item, quantity: finalQuantity };
+        return newCart;
       });
-
-      if (targetIndex === -1) return prev;
-
-      const item = prev[targetIndex];
-      const moq = item.minimum_order_quantity || 1;
-
-      // Logic: If q <= 0, remove. If q < moq, set to moq. Else set to q.
-      // But if q=0 specifically, user probably clicked "Remove" or minus until 0. 
-      // Platform logic: if q < moq -> if q==0 remove, else set to moq.
-
-      if (quantity <= 0) {
-        // Return cart without this item
-        return prev.filter((_, idx) => idx !== targetIndex);
-      }
-
-      let finalQuantity = quantity;
-      if (quantity < moq) {
-        finalQuantity = moq;
-      }
-
-      const newCart = [...prev];
-      newCart[targetIndex] = { ...item, quantity: finalQuantity };
-      return newCart;
-    });
-  }, []);
+    },
+    []
+  );
 
   const clearCart = useCallback(() => {
     setCart([]);
@@ -351,7 +390,11 @@ export const CartProvider = ({
       setCart((prev) =>
         prev.map((item) =>
           item.cartItemId === cartItemId
-            ? { ...item, negotiatedPrice: newPrice, negotiationStatus: 'accepted' }
+            ? {
+                ...item,
+                negotiatedPrice: newPrice,
+                negotiationStatus: 'accepted',
+              }
             : item
         )
       );
@@ -451,7 +494,9 @@ export const CartProvider = ({
 
     // Smart Cart Pro: Negotiation (only if enabled)
     applyNegotiatedPrice: enableSmartCartPro ? applyNegotiatedPrice : undefined,
-    applyCartWideNegotiation: enableSmartCartPro ? applyCartWideNegotiation : undefined,
+    applyCartWideNegotiation: enableSmartCartPro
+      ? applyCartWideNegotiation
+      : undefined,
 
     // Smart Cart Pro: Assurance (only if enabled)
     toggleAssurance: enableSmartCartPro ? toggleAssurance : undefined,

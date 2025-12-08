@@ -21,9 +21,33 @@ const PRIVACY_STATES = new Set([
 
 // EU countries (GDPR)
 const EU_COUNTRIES = new Set([
-  'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR',
-  'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL',
-  'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
+  'AT',
+  'BE',
+  'BG',
+  'HR',
+  'CY',
+  'CZ',
+  'DK',
+  'EE',
+  'FI',
+  'FR',
+  'DE',
+  'GR',
+  'HU',
+  'IE',
+  'IT',
+  'LV',
+  'LT',
+  'LU',
+  'MT',
+  'NL',
+  'PL',
+  'PT',
+  'RO',
+  'SK',
+  'SI',
+  'ES',
+  'SE',
 ]);
 
 export interface GeoPrivacyInfo {
@@ -58,9 +82,12 @@ export async function getGeoFromHeaders(): Promise<GeoPrivacyInfo> {
 export async function getGeoFromIP(ip: string): Promise<GeoPrivacyInfo> {
   try {
     // Use ip-api.com (free, no API key required, 45 requests/minute)
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,region,regionName,city`, {
-      next: { revalidate: 86400 }, // Cache for 24 hours
-    });
+    const response = await fetch(
+      `http://ip-api.com/json/${ip}?fields=status,country,countryCode,region,regionName,city`,
+      {
+        next: { revalidate: 86400 }, // Cache for 24 hours
+      }
+    );
 
     if (!response.ok) {
       return getDefaultGeoInfo();
@@ -88,7 +115,8 @@ function analyzeGeoForPrivacy(
   city?: string
 ): GeoPrivacyInfo {
   const isCaliforniaUser = country === 'US' && region === 'CA';
-  const isUSPrivacyState = country === 'US' && region ? PRIVACY_STATES.has(region) : false;
+  const isUSPrivacyState =
+    country === 'US' && region ? PRIVACY_STATES.has(region) : false;
   const isEUUser = country ? EU_COUNTRIES.has(country) : false;
 
   return {
@@ -120,7 +148,9 @@ function getDefaultGeoInfo(): GeoPrivacyInfo {
  * Server action to get geo privacy info for the current request
  * Can be used in Server Components or API routes
  */
-export async function detectPrivacyRegion(ip?: string): Promise<GeoPrivacyInfo> {
+export async function detectPrivacyRegion(
+  ip?: string
+): Promise<GeoPrivacyInfo> {
   // First try Vercel headers (fastest, most reliable on Vercel)
   const geoFromHeaders = await getGeoFromHeaders();
 

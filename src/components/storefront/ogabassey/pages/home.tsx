@@ -10,7 +10,7 @@ import { EngineProductGrid } from '../components/EngineProductGrid';
 // Assuming HomePageProps is defined or imported elsewhere,
 // for the sake of syntactic correctness, we'll define a placeholder if not explicitly imported.
 // If HomePageProps is meant to be imported, please provide the import path.
-interface HomePageProps { }
+interface HomePageProps {}
 
 export const OgabasseyHomePage: React.FC<HomePageProps> = () => {
   const merchantContext = useMerchantSafe();

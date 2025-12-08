@@ -18,7 +18,6 @@ import {
   Tag,
 } from 'lucide-react';
 import type React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 
 interface AdvancedProductFiltersProps {
@@ -123,10 +122,11 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                 <button
                   key={category}
                   onClick={() => onSelectCategory(category)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 border active:scale-95 active:bg-gray-50 ${selectedCategory === category
-                    ? 'bg-red-600 text-white border-red-600 shadow-md'
-                    : 'bg-white text-gray-600 border-gray-200 md:hover:border-red-200 md:hover:text-red-600'
-                    }`}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200 border active:scale-95 active:bg-gray-50 ${
+                    selectedCategory === category
+                      ? 'bg-red-600 text-white border-red-600 shadow-md'
+                      : 'bg-white text-gray-600 border-gray-200 md:hover:border-red-200 md:hover:text-red-600'
+                  }`}
                 >
                   <Icon size={16} />
                   {category}
@@ -173,10 +173,11 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                             setActiveFilterType(item.id as FilterType);
                             setIsFilterMenuOpen(false);
                           }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${activeFilterType === item.id
-                            ? 'bg-red-50 text-red-600'
-                            : 'text-gray-600 hover:bg-gray-50'
-                            }`}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                            activeFilterType === item.id
+                              ? 'bg-red-50 text-red-600'
+                              : 'text-gray-600 hover:bg-gray-50'
+                          }`}
                         >
                           <item.icon size={16} />
                           {item.label}
@@ -250,10 +251,11 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                         <button
                           key={brand}
                           onClick={() => onSelectBrand(brand)}
-                          className={`px-3 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-colors border flex-shrink-0 ${selectedBrand === brand
-                            ? 'bg-gray-900 text-white border-gray-900'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                            }`}
+                          className={`px-3 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-colors border flex-shrink-0 ${
+                            selectedBrand === brand
+                              ? 'bg-gray-900 text-white border-gray-900'
+                              : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                          }`}
                         >
                           {brand}
                         </button>
@@ -268,10 +270,11 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                       <button
                         key={condition}
                         onClick={() => onSelectCondition(condition)}
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all whitespace-nowrap px-1 ${selectedCondition === condition
-                          ? 'bg-white text-gray-900 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                          }`}
+                        className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all whitespace-nowrap px-1 ${
+                          selectedCondition === condition
+                            ? 'bg-white text-gray-900 shadow-sm'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
                       >
                         {condition}
                       </button>
@@ -287,10 +290,11 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                         onClick={() =>
                           onSelectRating(minRating === rating ? 0 : rating)
                         }
-                        className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded transition-colors ${minRating === rating
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'text-gray-500 hover:bg-gray-200'
-                          }`}
+                        className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded transition-colors ${
+                          minRating === rating
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'text-gray-500 hover:bg-gray-200'
+                        }`}
                       >
                         <span>{rating}+</span>
                         <Star

@@ -56,7 +56,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   if (viewMode === 'grid') {
     return (
       <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-all duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation">
-        <Link href={`./product/${product.id}` as any} className="absolute inset-0 z-0" />
+        <Link
+          href={`./product/${product.id}` as any}
+          className="absolute inset-0 z-0"
+        />
 
         {/* Image Container */}
         <div className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
@@ -69,8 +72,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* Badge */}
           {product.condition && (
             <div
-              className={`absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 ${product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
-                }`}
+              className={`absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 ${
+                product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
+              }`}
             >
               {product.condition}
             </div>
@@ -80,10 +84,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <div className="absolute top-3 right-3 z-20 flex flex-col gap-2">
             <button
               onClick={toggleLike}
-              className={`h-8 w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
-                ? 'bg-white border-red-100 text-red-600'
-                : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-red-600 md:hover:bg-white'
-                }`}
+              className={`h-8 w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${
+                isLiked
+                  ? 'bg-white border-red-100 text-red-600'
+                  : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-red-600 md:hover:bg-white'
+              }`}
               title="Add to Wishlist"
             >
               <Heart
@@ -95,10 +100,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
             <button
               onClick={toggleCompare}
-              className={`h-8 w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isComparing
-                ? 'bg-red-50 border-red-100 text-red-600'
-                : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-blue-600 md:hover:bg-white'
-                }`}
+              className={`h-8 w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${
+                isComparing
+                  ? 'bg-red-50 border-red-100 text-red-600'
+                  : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-blue-600 md:hover:bg-white'
+              }`}
               title="Compare"
             >
               <ArrowRightLeft size={16} strokeWidth={2} />
@@ -165,7 +171,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   // --- LIST VIEW ---
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation">
-      <Link href={`./product/${product.id}` as any} className="absolute inset-0 z-0" />
+      <Link
+        href={`./product/${product.id}` as any}
+        className="absolute inset-0 z-0"
+      />
 
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
@@ -175,8 +184,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           className="w-full h-full object-cover md:group-hover:scale-110 transition-transform duration-500"
         />
         <div
-          className={`absolute top-2 left-2 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide z-10 ${product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
-            }`}
+          className={`absolute top-2 left-2 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide z-10 ${
+            product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
+          }`}
         >
           {product.condition}
         </div>
@@ -218,10 +228,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {/* Compare Button (List View) */}
             <button
               onClick={toggleCompare}
-              className={`p-2 rounded-lg transition-all duration-200 border ${isComparing
-                ? 'bg-red-50 border-red-100 text-red-600'
-                : 'bg-white border-gray-200 text-gray-400 md:hover:border-red-200 md:hover:text-blue-600'
-                }`}
+              className={`p-2 rounded-lg transition-all duration-200 border ${
+                isComparing
+                  ? 'bg-red-50 border-red-100 text-red-600'
+                  : 'bg-white border-gray-200 text-gray-400 md:hover:border-red-200 md:hover:text-blue-600'
+              }`}
               title="Compare"
             >
               <ArrowRightLeft size={18} strokeWidth={2} />
@@ -245,10 +256,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Wishlist Button - Absolute Top Right of Card in List View */}
       <button
         onClick={toggleLike}
-        className={`absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
-          ? 'bg-red-50 text-red-600'
-          : 'bg-white/80 backdrop-blur-sm text-gray-400 md:hover:bg-red-50 md:hover:text-red-600'
-          }`}
+        className={`absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-200 pointer-events-auto active:scale-90 ${
+          isLiked
+            ? 'bg-red-50 text-red-600'
+            : 'bg-white/80 backdrop-blur-sm text-gray-400 md:hover:bg-red-50 md:hover:text-red-600'
+        }`}
       >
         <Heart
           size={18}

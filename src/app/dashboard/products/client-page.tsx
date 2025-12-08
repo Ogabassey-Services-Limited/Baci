@@ -580,5 +580,3 @@ function ProductsPageContent() {
     </>
   );
 }
-
-

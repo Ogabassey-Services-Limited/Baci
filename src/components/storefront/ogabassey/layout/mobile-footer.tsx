@@ -1,4 +1,4 @@
-"use client";
+'use client';
 // @ts-nocheck - Template preview
 
 import { Heart, Home, ShoppingCart, User, Wallet } from 'lucide-react';

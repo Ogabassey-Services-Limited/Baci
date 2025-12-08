@@ -101,7 +101,10 @@ export interface StaffAccess {
 interface MerchantContextType {
   merchant: MerchantData | null;
   loading: boolean;
-  updateMerchant: (data: Partial<MerchantData>, options?: { skipReload?: boolean }) => Promise<void>;
+  updateMerchant: (
+    data: Partial<MerchantData>,
+    options?: { skipReload?: boolean }
+  ) => Promise<void>;
   reloadMerchant: () => void;
   staffAccess: StaffAccess;
   hasPermission: (resource: string, action: string) => boolean;

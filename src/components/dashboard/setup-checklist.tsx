@@ -41,9 +41,12 @@ const categoryIcons = {
 };
 
 const priorityColors = {
-  required: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800',
-  recommended: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800',
-  optional: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800',
+  required:
+    'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800',
+  recommended:
+    'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800',
+  optional:
+    'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800',
 };
 
 const priorityLabels = {
@@ -84,7 +87,8 @@ export function SetupChecklist({
       toast({
         title: 'Step Completed! 🎉',
         description: 'Great job! Moving to the next step.',
-        className: 'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/50 dark:border-green-800 dark:text-green-200',
+        className:
+          'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/50 dark:border-green-800 dark:text-green-200',
       });
     }
   }, [toast]);
@@ -317,7 +321,8 @@ export function SetupChecklist({
 
 function SetupItemRow({ item, isNext }: { item: SetupItem; isNext?: boolean }) {
   const Icon = categoryIcons[item.category];
-  const href = `${item.href}${item.href.includes('?') ? '&' : '?'}onboarding=true` as Route;
+  const href =
+    `${item.href}${item.href.includes('?') ? '&' : '?'}onboarding=true` as Route;
 
   return (
     <Link
@@ -350,7 +355,9 @@ function SetupItemRow({ item, isNext }: { item: SetupItem; isNext?: boolean }) {
         {item.completed ? (
           <CheckCircle2 className="h-4 w-4" />
         ) : (
-          <Circle className={cn("h-4 w-4", isNext ? "text-primary" : "text-gray-400")} />
+          <Circle
+            className={cn('h-4 w-4', isNext ? 'text-primary' : 'text-gray-400')}
+          />
         )}
       </div>
 

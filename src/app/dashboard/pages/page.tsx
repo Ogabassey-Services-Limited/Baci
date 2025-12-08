@@ -52,46 +52,48 @@ const pageFields: {
   label: string;
   description: string;
 }[] = [
-    {
-      name: 'about',
-      label: 'About Us',
-      description:
-        'Tell your customers your story. What makes your brand special?',
-    },
-    {
-      name: 'contact',
-      label: 'Contact Information',
-      description:
-        'How can customers get in touch? Provide an email, phone number, or address.',
-    },
-    {
-      name: 'privacy',
-      label: 'Privacy Policy',
-      description: 'Explain how you collect, use, and protect customer data.',
-    },
-    {
-      name: 'terms',
-      label: 'Terms and Conditions',
-      description: 'Set the rules for using your store and making purchases.',
-    },
-    {
-      name: 'faq',
-      label: 'Frequently Asked Questions',
-      description: 'Answer common questions your customers might have.',
-    },
-    {
-      name: 'legal',
-      label: 'Legal and Dispute',
-      description:
-        'Provide information on legal policies and how disputes are handled.',
-    },
-  ];
+  {
+    name: 'about',
+    label: 'About Us',
+    description:
+      'Tell your customers your story. What makes your brand special?',
+  },
+  {
+    name: 'contact',
+    label: 'Contact Information',
+    description:
+      'How can customers get in touch? Provide an email, phone number, or address.',
+  },
+  {
+    name: 'privacy',
+    label: 'Privacy Policy',
+    description: 'Explain how you collect, use, and protect customer data.',
+  },
+  {
+    name: 'terms',
+    label: 'Terms and Conditions',
+    description: 'Set the rules for using your store and making purchases.',
+  },
+  {
+    name: 'faq',
+    label: 'Frequently Asked Questions',
+    description: 'Answer common questions your customers might have.',
+  },
+  {
+    name: 'legal',
+    label: 'Legal and Dispute',
+    description:
+      'Provide information on legal policies and how disputes are handled.',
+  },
+];
 
 export default function PagesSettingsPage() {
   const { toast } = useToast();
   const { merchant, loading, updateMerchant } = useMerchant();
   const [isSaving, setIsSaving] = useState(false);
-  const [completedPages, setCompletedPages] = useState<Record<string, boolean>>({});
+  const [completedPages, setCompletedPages] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const form = useForm<PagesFormValues>({
     resolver: zodResolver(pagesSchema),
@@ -110,7 +112,9 @@ export default function PagesSettingsPage() {
       form.reset(merchant.pages);
     }
     if (merchant?.feature_settings?.pages_completed) {
-      setCompletedPages(merchant.feature_settings.pages_completed as Record<string, boolean>);
+      setCompletedPages(
+        merchant.feature_settings.pages_completed as Record<string, boolean>
+      );
     }
   }, [merchant, form]);
 
@@ -227,8 +231,6 @@ export default function PagesSettingsPage() {
                           </FormItem>
                         )}
                       />
-
-
                     </AccordionContent>
                   </AccordionItem>
                 ))}
@@ -242,6 +244,6 @@ export default function PagesSettingsPage() {
           </Form>
         </CardContent>
       </Card>
-    </div >
+    </div>
   );
 }

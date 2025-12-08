@@ -1,4 +1,4 @@
-"use client";
+'use client';
 // @ts-nocheck - Template preview
 
 import {
@@ -180,7 +180,9 @@ export const OgabasseyV2ProductDetails: React.FC<
     let normalizedStorage: string[] = FALLBACK_PRODUCT.storage;
     if (productFound?.storage) {
       const storageValue = productFound.storage;
-      normalizedStorage = Array.isArray(storageValue) ? storageValue : [storageValue];
+      normalizedStorage = Array.isArray(storageValue)
+        ? storageValue
+        : [storageValue];
     } else if (!productFound) {
       normalizedStorage = FALLBACK_PRODUCT.storage;
     } else {

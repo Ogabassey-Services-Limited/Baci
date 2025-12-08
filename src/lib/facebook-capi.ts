@@ -232,7 +232,10 @@ export async function sendFacebookCAPIEvent(
   };
 
   // Enable test mode in development
-  if (process.env.NODE_ENV === 'development' && process.env.FB_TEST_EVENT_CODE) {
+  if (
+    process.env.NODE_ENV === 'development' &&
+    process.env.FB_TEST_EVENT_CODE
+  ) {
     requestBody.test_event_code = process.env.FB_TEST_EVENT_CODE;
   }
 

@@ -117,10 +117,11 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
           <button
             key={idx}
             onClick={() => setCurrentSlide(idx)}
-            className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${idx === currentSlide
-              ? 'w-6 bg-white'
-              : 'w-1.5 bg-white/40 hover:bg-white/70'
-              }`}
+            className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
+              idx === currentSlide
+                ? 'w-6 bg-white'
+                : 'w-1.5 bg-white/40 hover:bg-white/70'
+            }`}
             style={{
               backgroundColor:
                 slide.type === 'ad' && idx === currentSlide

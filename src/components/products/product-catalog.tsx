@@ -57,7 +57,9 @@ export function ProductCatalog({
 
   const debouncedDirtyProducts = useDebounce(dirtyProducts, 1000);
   const [isSaving, setIsSaving] = useState(false);
-  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(
+    new Set()
+  );
 
   const toggleProduct = (productId: string) => {
     setExpandedProducts((prev) => {
@@ -202,8 +204,8 @@ export function ProductCatalog({
                       className={cn(
                         'group hover:bg-muted/30 transition-colors border-b border-primary/5',
                         product.variants &&
-                        product.variants.length > 0 &&
-                        'bg-muted/5'
+                          product.variants.length > 0 &&
+                          'bg-muted/5'
                       )}
                     >
                       <TableCell className="pl-6 py-3">
@@ -277,10 +279,13 @@ export function ProductCatalog({
                           </span>
                           <Input
                             type="text"
-                            defaultValue={product.price.toLocaleString('en-US', {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                            defaultValue={product.price.toLocaleString(
+                              'en-US',
+                              {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              }
+                            )}
                             onBlur={(e) => {
                               handlePriceChange(product.id, e.target.value);
                               // Re-format the input value on blur
@@ -301,7 +306,7 @@ export function ProductCatalog({
                       </TableCell>
                       <TableCell>
                         {product.manage_stock &&
-                          (!product.variants || product.variants.length === 0) ? (
+                        (!product.variants || product.variants.length === 0) ? (
                           <div className="mx-auto w-24 relative">
                             <Input
                               type="number"
@@ -419,10 +424,10 @@ export function ProductCatalog({
                                   className={cn(
                                     'h-7 text-center font-mono text-xs bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-accent transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
                                     variant.stock_quantity === 0 &&
-                                    'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
+                                      'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
                                     isVariantLowStock &&
-                                    variant.stock_quantity > 0 &&
-                                    'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
+                                      variant.stock_quantity > 0 &&
+                                      'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
                                   )}
                                 />
                                 {isVariantLowStock && (
@@ -464,48 +469,46 @@ export function ProductCatalog({
             </div>
           )}
         </div>
-      </CardContent >
-      {
-        pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-border/40 bg-muted/5">
-            <div className="text-xs text-muted-foreground font-medium">
-              Showing{' '}
-              <span className="text-foreground">
-                {(pagination.page - 1) * pagination.limit + 1}
-              </span>{' '}
-              to{' '}
-              <span className="text-foreground">
-                {Math.min(pagination.page * pagination.limit, pagination.total)}
-              </span>{' '}
-              of <span className="text-foreground">{pagination.total}</span>{' '}
-              products
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(pagination.page - 1)}
-                disabled={pagination.page === 1 || isLoading}
-                className="h-8 text-xs"
-              >
-                Previous
-              </Button>
-              <div className="text-xs font-medium px-2">
-                Page {pagination.page} of {pagination.totalPages}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(pagination.page + 1)}
-                disabled={pagination.page === pagination.totalPages || isLoading}
-                className="h-8 text-xs"
-              >
-                Next
-              </Button>
-            </div>
+      </CardContent>
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between px-6 py-3 border-t border-border/40 bg-muted/5">
+          <div className="text-xs text-muted-foreground font-medium">
+            Showing{' '}
+            <span className="text-foreground">
+              {(pagination.page - 1) * pagination.limit + 1}
+            </span>{' '}
+            to{' '}
+            <span className="text-foreground">
+              {Math.min(pagination.page * pagination.limit, pagination.total)}
+            </span>{' '}
+            of <span className="text-foreground">{pagination.total}</span>{' '}
+            products
           </div>
-        )
-      }
-    </Card >
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(pagination.page - 1)}
+              disabled={pagination.page === 1 || isLoading}
+              className="h-8 text-xs"
+            >
+              Previous
+            </Button>
+            <div className="text-xs font-medium px-2">
+              Page {pagination.page} of {pagination.totalPages}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(pagination.page + 1)}
+              disabled={pagination.page === pagination.totalPages || isLoading}
+              className="h-8 text-xs"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }

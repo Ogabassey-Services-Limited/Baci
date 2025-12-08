@@ -1,4 +1,4 @@
-"use client";
+'use client';
 // @ts-nocheck - Template preview
 
 import { ChevronRight, Filter, LayoutGrid, List, X } from 'lucide-react';
@@ -79,7 +79,7 @@ export const OgabasseyV2CategoryPage: React.FC<
       if (p.condition) options.condition.add(p.condition);
       if (p.storage) {
         if (Array.isArray(p.storage)) {
-          p.storage.forEach(s => options.storage.add(s));
+          p.storage.forEach((s) => options.storage.add(s));
         } else {
           // Fallback if loose typing allows string
           options.storage.add(p.storage as unknown as string);
@@ -108,7 +108,10 @@ export const OgabasseyV2CategoryPage: React.FC<
   const filteredProducts = useMemo(() => {
     return categoryProducts.filter((p) => {
       // Price
-      if ((p.rawPrice || 0) < filters.minPrice || (p.rawPrice || 0) > filters.maxPrice)
+      if (
+        (p.rawPrice || 0) < filters.minPrice ||
+        (p.rawPrice || 0) > filters.maxPrice
+      )
         return false;
 
       // Checkbox Filters (OR logic within category, AND logic between categories)

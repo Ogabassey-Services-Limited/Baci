@@ -299,7 +299,11 @@ export async function middleware(request: NextRequest) {
 
     // Protected routes: redirect to login if no user
     if (isProtectedRoute && !user) {
-      console.log('Middleware: No user found for protected route', pathname);
+      const sanitizedPathname = pathname.replace(/[\r\n]/g, '');
+      console.log(
+        'Middleware: No user found for protected route',
+        sanitizedPathname
+      );
       const url = request.nextUrl.clone();
       url.pathname = '/login';
       url.searchParams.set('redirectTo', pathname);
@@ -308,7 +312,9 @@ export async function middleware(request: NextRequest) {
 
     // Auth routes: redirect to dashboard if already logged in
     if (isAuthRoute && user) {
-      console.log('Middleware: User found on auth route, redirecting to dashboard');
+      console.log(
+        'Middleware: User found on auth route, redirecting to dashboard'
+      );
       const redirectTo = request.nextUrl.searchParams.get('redirectTo');
       const url = request.nextUrl.clone();
       url.pathname = redirectTo || '/dashboard';
@@ -341,7 +347,9 @@ export async function middleware(request: NextRequest) {
     // 1. ogabassey.localhost:3000 (subdomain-based, preferred, matches production)
     // 2. localhost:3000/ogabassey (path-based, fallback)
     const localSubdomain = extractLocalhostSubdomain(hostname);
-    console.log(`[Middleware] Localhost detected. Host: ${hostname}, Extracted subdomain: ${localSubdomain}`);
+    console.log(
+      `[Middleware] Localhost detected. Host: ${hostname}, Extracted subdomain: ${localSubdomain}`
+    );
     if (localSubdomain) {
       subdomain = localSubdomain;
     } else {

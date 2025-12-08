@@ -34,10 +34,7 @@ function mapProduct(p: Record<string, unknown>) {
 const getMerchantIdBySlug = unstable_cache(
   async (slug: string) => {
     console.log(`[API] Looking up merchant ID for slug: ${slug}`);
-    const supabase = createStaticClient(
-      getSupabaseUrl(),
-      getSupabaseAnonKey()
-    );
+    const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
 
     const { data, error } = await supabase
       .from('merchants')
@@ -93,7 +90,10 @@ export async function GET(
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error(`[API] Product fetch error for merchant ${merchantId}:`, error);
+      console.error(
+        `[API] Product fetch error for merchant ${merchantId}:`,
+        error
+      );
       throw error;
     }
 

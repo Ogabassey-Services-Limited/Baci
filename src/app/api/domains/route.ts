@@ -133,7 +133,11 @@ export async function POST(request: Request) {
       // If domain is owned by another account, Vercel might return 409
       // We should pass this error to the user
       return NextResponse.json(
-        { error: error.message || 'Failed to add domain to Vercel. It might be in use by another account.' },
+        {
+          error:
+            error.message ||
+            'Failed to add domain to Vercel. It might be in use by another account.',
+        },
         { status: 409 }
       );
     }
@@ -147,13 +151,17 @@ export async function POST(request: Request) {
     let verificationToken = crypto.randomUUID(); // Default fallback
 
     if (vercelResponse.verification) {
-      const txtChallenge = vercelResponse.verification.find((v: any) => v.type === 'TXT');
+      const txtChallenge = vercelResponse.verification.find(
+        (v: any) => v.type === 'TXT'
+      );
       if (txtChallenge) {
         verificationToken = txtChallenge.value;
       }
     }
 
-    const verificationTokenExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+    const verificationTokenExpiresAt = new Date(
+      Date.now() + 48 * 60 * 60 * 1000
+    ).toISOString();
 
     // Insert domain into DB
     const { data: newDomain, error: insertError } = await supabase
@@ -174,12 +182,15 @@ export async function POST(request: Request) {
 
     if (insertError) {
       console.error('Insert error:', insertError);
-      return NextResponse.json({
-        error: insertError.message,
-        details: insertError.details,
-        hint: insertError.hint,
-        code: insertError.code
-      }, { status: 500 });
+      return NextResponse.json(
+        {
+          error: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code,
+        },
+        { status: 500 }
+      );
     }
 
     // Prepare response with verification instructions
@@ -197,9 +208,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       domain: newDomain,
       verification: verificationInstructions,
-      vercel: vercelResponse // Return raw Vercel response for debugging
+      vercel: vercelResponse, // Return raw Vercel response for debugging
     });
-
   } catch (error: any) {
     console.error('Error adding domain:', error);
     return NextResponse.json(

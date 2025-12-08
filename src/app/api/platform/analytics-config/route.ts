@@ -44,7 +44,9 @@ export async function GET() {
 
     // If timed out, return empty config
     if (result === null) {
-      console.warn('Platform analytics config: request timed out, using empty config');
+      console.warn(
+        'Platform analytics config: request timed out, using empty config'
+      );
       return NextResponse.json(EMPTY_CONFIG);
     }
 

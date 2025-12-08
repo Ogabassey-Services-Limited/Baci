@@ -72,7 +72,10 @@ export async function checkAuth(
 
   // Protected routes: redirect to login if no user
   if (isProtectedRoute && !user) {
-    console.log('Lib Middleware: No user on protected route, redirecting to login', pathname);
+    console.log(
+      'Lib Middleware: No user on protected route, redirecting to login',
+      pathname
+    );
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('redirectTo', pathname);
@@ -81,7 +84,9 @@ export async function checkAuth(
 
   // Auth routes: redirect to dashboard if already logged in
   if (isAuthRoute && user) {
-    console.log('Lib Middleware: User exists on auth route, redirecting to dashboard');
+    console.log(
+      'Lib Middleware: User exists on auth route, redirecting to dashboard'
+    );
     const redirectTo = request.nextUrl.searchParams.get('redirectTo');
     const url = request.nextUrl.clone();
     url.pathname = redirectTo || '/dashboard';

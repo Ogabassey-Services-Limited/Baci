@@ -140,17 +140,22 @@ export default function TemplatesClientPage() {
 
   // Determine user's business category
   const userBusinessType = merchant?.business_type;
-  const targetCategories = userBusinessType ? BUSINESS_TYPE_TO_CATEGORY[userBusinessType] : [];
+  const targetCategories = userBusinessType
+    ? BUSINESS_TYPE_TO_CATEGORY[userBusinessType]
+    : [];
 
   // Filter templates
-  const filteredTemplates = templates.filter(t => {
-    if (showAll || !userBusinessType || targetCategories?.length === 0) return true;
+  const filteredTemplates = templates.filter((t) => {
+    if (showAll || !userBusinessType || targetCategories?.length === 0)
+      return true;
     return targetCategories?.includes(t.category);
   });
 
   // If no templates match the filter, show all
-  const displayTemplates = filteredTemplates.length > 0 ? filteredTemplates : templates;
-  const isFiltered = userBusinessType && targetCategories?.length > 0 && !showAll;
+  const displayTemplates =
+    filteredTemplates.length > 0 ? filteredTemplates : templates;
+  const isFiltered =
+    userBusinessType && targetCategories?.length > 0 && !showAll;
 
   // Group templates
   const productionTemplates = displayTemplates.filter(
@@ -175,10 +180,10 @@ export default function TemplatesClientPage() {
         <div className="flex items-center gap-4">
           {userBusinessType && (
             <Button
-              variant={showAll ? "secondary" : "default"}
+              variant={showAll ? 'secondary' : 'default'}
               onClick={() => setShowAll(!showAll)}
             >
-              {showAll ? "Show Recommended Only" : "Show All Templates"}
+              {showAll ? 'Show Recommended Only' : 'Show All Templates'}
             </Button>
           )}
           <Link href="/developers/submit">
@@ -190,8 +195,12 @@ export default function TemplatesClientPage() {
       <div className="space-y-16">
         {displayTemplates.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No templates found for this category.</p>
-            <Button variant="link" onClick={() => setShowAll(true)}>View all templates</Button>
+            <p className="text-muted-foreground">
+              No templates found for this category.
+            </p>
+            <Button variant="link" onClick={() => setShowAll(true)}>
+              View all templates
+            </Button>
           </div>
         )}
 
@@ -254,7 +263,13 @@ export default function TemplatesClientPage() {
 }
 
 // Reusable Apply Template Button
-function ApplyTemplateButton({ templateId, size = 'default' }: { templateId: string; size?: 'default' | 'sm' }) {
+function ApplyTemplateButton({
+  templateId,
+  size = 'default',
+}: {
+  templateId: string;
+  size?: 'default' | 'sm';
+}) {
   const { toast } = useToast();
   const router = useRouter();
   const [isActivating, setIsActivating] = useState(false);
@@ -272,17 +287,20 @@ function ApplyTemplateButton({ templateId, size = 'default' }: { templateId: str
       router.refresh(); // Invalidate server cache to ensure storefront updates
 
       toast({
-        title: "Template Applied!",
-        description: "Your store is now using this new template.",
+        title: 'Template Applied!',
+        description: 'Your store is now using this new template.',
       });
 
       router.push('/dashboard/settings');
     } catch (error) {
       console.error('Template apply error:', error);
       toast({
-        title: "Failed to Apply",
-        description: error instanceof Error ? error.message : "Could not apply template. Please try again.",
-        variant: 'destructive'
+        title: 'Failed to Apply',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Could not apply template. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsActivating(false);
@@ -301,7 +319,7 @@ function ApplyTemplateButton({ templateId, size = 'default' }: { templateId: str
       ) : (
         <CheckCircle className="mr-2 h-4 w-4" />
       )}
-      {isActivating ? "Applying..." : "Apply"}
+      {isActivating ? 'Applying...' : 'Apply'}
     </Button>
   );
 }
@@ -336,7 +354,9 @@ function LivePreviewCard({ template }: { template: TemplateDefinition }) {
                 <div className="text-8xl font-black opacity-10 select-none">
                   {template.name.charAt(0)}
                 </div>
-                <p className="text-sm text-muted-foreground mt-4">Click to preview</p>
+                <p className="text-sm text-muted-foreground mt-4">
+                  Click to preview
+                </p>
               </div>
             </div>
           )}
@@ -347,9 +367,7 @@ function LivePreviewCard({ template }: { template: TemplateDefinition }) {
       <div className="p-6 bg-background">
         <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 className="text-xl font-bold">
-              {template.name}
-            </h3>
+            <h3 className="text-xl font-bold">{template.name}</h3>
             <p className="text-muted-foreground text-sm mt-1 line-clamp-2">
               {template.description}
             </p>

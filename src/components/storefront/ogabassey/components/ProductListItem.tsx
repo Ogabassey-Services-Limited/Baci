@@ -1,4 +1,4 @@
-"use client";
+'use client';
 // @ts-nocheck - Template preview
 
 import {
@@ -33,10 +33,12 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
   // Fallback placeholder for products without images
-  const PLACEHOLDER_IMAGE = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect fill="%23f3f4f6" width="400" height="400"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="48" fill="%239ca3af"%3ENo Image%3C/text%3E%3C/svg%3E';
+  const PLACEHOLDER_IMAGE =
+    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"%3E%3Crect fill="%23f3f4f6" width="400" height="400"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="48" fill="%239ca3af"%3ENo Image%3C/text%3E%3C/svg%3E';
 
   // Determine current image with fallback
-  const currentImage = product.images?.[activeColorIndex] || product.image || PLACEHOLDER_IMAGE;
+  const currentImage =
+    product.images?.[activeColorIndex] || product.image || PLACEHOLDER_IMAGE;
 
   // Reset loading state when image source changes
   useEffect(() => {
@@ -69,7 +71,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
 
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative">
-      <Link href={`/product/${product.id}` as any} className="absolute inset-0 z-0" />
+      <Link
+        href={`/product/${product.id}` as any}
+        className="absolute inset-0 z-0"
+      />
 
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
@@ -109,12 +114,13 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         {/* Condition Badge - Top Left */}
         {product.condition && (
           <div
-            className={`absolute top-2 left-2 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm whitespace-nowrap z-20 ${product.condition === 'New'
-              ? 'bg-gray-900'
-              : product.condition === 'Open Box'
-                ? 'bg-indigo-600'
-                : 'bg-stone-500'
-              }`}
+            className={`absolute top-2 left-2 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm whitespace-nowrap z-20 ${
+              product.condition === 'New'
+                ? 'bg-gray-900'
+                : product.condition === 'Open Box'
+                  ? 'bg-indigo-600'
+                  : 'bg-stone-500'
+            }`}
           >
             {product.condition}
           </div>
@@ -131,10 +137,11 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
                 <button
                   key={idx}
                   onClick={(e) => handleColorSelect(e, idx)}
-                  className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${isSelected
-                    ? 'w-3.5 h-3.5 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
-                    : 'w-3 h-3 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
-                    }`}
+                  className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${
+                    isSelected
+                      ? 'w-3.5 h-3.5 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
+                      : 'w-3 h-3 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
+                  }`}
                   style={{ backgroundColor: hexColor }}
                   title={color}
                 />
@@ -154,10 +161,11 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         >
           <Heart
             size={16}
-            className={`transition-all duration-200 ${isWishlisted
-              ? 'fill-red-500 text-red-500 scale-110'
-              : 'text-gray-400 md:group-hover/heart:text-red-500'
-              }`}
+            className={`transition-all duration-200 ${
+              isWishlisted
+                ? 'fill-red-500 text-red-500 scale-110'
+                : 'text-gray-400 md:group-hover/heart:text-red-500'
+            }`}
           />
         </button>
       </div>
@@ -197,10 +205,11 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
 
           <button
             onClick={(e) => onAddToCart(e, product)}
-            className={`z-20 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 ${isAdded
-              ? 'bg-red-600 text-white pointer-events-none'
-              : 'bg-gray-900 text-white md:hover:bg-red-600 active:bg-red-700 pointer-events-auto'
-              }`}
+            className={`z-20 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 ${
+              isAdded
+                ? 'bg-red-600 text-white pointer-events-none'
+                : 'bg-gray-900 text-white md:hover:bg-red-600 active:bg-red-700 pointer-events-auto'
+            }`}
           >
             {isAdded ? (
               <>

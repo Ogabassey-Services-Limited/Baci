@@ -330,7 +330,8 @@ export async function POST(request: NextRequest) {
             userIp: clientIp || ad_tracking.userIp,
             userAgent: clientUserAgent || ad_tracking.userAgent,
             // Server-detected privacy compliance (overrides client if more restrictive)
-            limitedDataUse: geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
+            limitedDataUse:
+              geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
             // Store geo info for analytics
             geoCountry: geoPrivacy.country,
             geoRegion: geoPrivacy.region,

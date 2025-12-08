@@ -112,7 +112,9 @@ export default function AnalyticsPage() {
         startDate: date.from.toISOString(),
         endDate: date.to.toISOString(),
       });
-      const response = await fetch(`/api/analytics/ads?${queryParams.toString()}`);
+      const response = await fetch(
+        `/api/analytics/ads?${queryParams.toString()}`
+      );
       if (response.ok) {
         const data = await response.json();
         return { adAnalytics: data };
@@ -175,14 +177,18 @@ export default function AnalyticsPage() {
         );
       } else if (activeCategory === 'ads') {
         const adData = await fetchAdAnalyticsData();
-        setAnalyticsData((prev) =>
-          prev ? { ...prev, ...adData } : adData
-        );
+        setAnalyticsData((prev) => (prev ? { ...prev, ...adData } : adData));
       }
     }
 
     fetchCategoryData();
-  }, [activeCategory, merchant, fetchInventoryData, fetchSegmentData, fetchAdAnalyticsData]);
+  }, [
+    activeCategory,
+    merchant,
+    fetchInventoryData,
+    fetchSegmentData,
+    fetchAdAnalyticsData,
+  ]);
 
   const handleExport = (format: 'csv' | 'pdf') => {
     if (!analyticsData) {

@@ -17,4 +17,3 @@ export { OgabasseyNavbar } from './layout/navbar';
 
 // Pages
 export { OgabasseyHomePage } from './pages/home';
-

@@ -234,7 +234,10 @@ export default async function StorefrontPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }}
         />
       )}
-      <MerchantProvider slug={slug} initialMerchant={merchant as unknown as MerchantData}>
+      <MerchantProvider
+        slug={slug}
+        initialMerchant={merchant as unknown as MerchantData}
+      >
         <Suspense fallback={<StorefrontPageSkeleton />}>
           <StorefrontWrapper />
         </Suspense>
