@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { removeBackground } from '@imgly/background-removal';
+// @imgly/background-removal is dynamically imported at point of use to avoid bundling 2MB ONNX runtime
 import { Image as ImageIcon, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useState } from 'react';
@@ -428,6 +428,7 @@ export default function AddProductForm({
         title: 'Removing Background',
         description: 'This may take a moment...',
       });
+      const { removeBackground } = await import('@imgly/background-removal');
       const blob = await removeBackground(imageToEnhance);
       const noBgUrl = URL.createObjectURL(blob);
 
