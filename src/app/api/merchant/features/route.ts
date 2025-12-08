@@ -65,6 +65,7 @@ export interface MerchantFeatureSettings {
   tiktok_access_token: string | null;
   snapchat_pixel_id: string | null;
   snapchat_capi_token: string | null;
+  twitter_pixel_id: string | null;
 
   // SEO
   auto_generate_schema: boolean;
@@ -132,6 +133,7 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   tiktok_access_token: null,
   snapchat_pixel_id: null,
   snapchat_capi_token: null,
+  twitter_pixel_id: null,
   auto_generate_schema: true,
   custom_robots_txt: null,
   email_notifications_enabled: true,
@@ -287,6 +289,7 @@ export async function PATCH(request: NextRequest) {
       'tiktok_access_token',
       'snapchat_pixel_id',
       'snapchat_capi_token',
+      'twitter_pixel_id',
       'auto_generate_schema',
       'custom_robots_txt',
       'email_notifications_enabled',
