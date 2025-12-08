@@ -1,7 +1,10 @@
 'use client';
 
+import { CheckCircle, Eye, Loader2 } from 'lucide-react';
 import type { Route } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 import {
   getAllTemplates,
   type TemplateDefinition,
@@ -32,6 +36,8 @@ const categoryStyles: Record<string, string> = {
   food: 'bg-orange-100 text-orange-800',
   services: 'bg-purple-100 text-purple-800',
   beauty: 'bg-rose-100 text-rose-800',
+  home: 'bg-amber-100 text-amber-800',
+  health: 'bg-emerald-100 text-emerald-800',
 };
 
 function _TemplateCard({ template }: { template: TemplateDefinition }) {
@@ -45,10 +51,11 @@ function _TemplateCard({ template }: { template: TemplateDefinition }) {
         {/* Thumbnail placeholder */}
         <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
           {template.thumbnail ? (
-            <img
+            <Image
               src={template.thumbnail}
               alt={template.name}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-gray-400">
@@ -114,15 +121,52 @@ function _TemplateCard({ template }: { template: TemplateDefinition }) {
   );
 }
 
+import { useState } from 'react';
+import { BUSINESS_TYPES } from '@/config/business-types';
+import { useMerchant } from '@/hooks/use-merchant';
+
+// Map business types to template categories
+const BUSINESS_TYPE_TO_CATEGORY: Record<string, string[]> = {
+  [BUSINESS_TYPES.FASHION.id]: ['fashion'],
+  [BUSINESS_TYPES.ELECTRONICS.id]: ['gadgets'],
+  [BUSINESS_TYPES.HOME_GOODS.id]: ['home'],
+  [BUSINESS_TYPES.HEALTH_BEAUTY.id]: ['beauty'],
+  [BUSINESS_TYPES.HANDMADE.id]: ['general'],
+  [BUSINESS_TYPES.FOOD_BEVERAGE.id]: ['food'],
+  [BUSINESS_TYPES.HAIR_EXTENSIONS.id]: ['beauty'],
+  [BUSINESS_TYPES.PHARMACEUTICALS.id]: ['health'],
+};
+
 export default function TemplatesClientPage() {
+  const { merchant } = useMerchant();
   const templates = getAllTemplates();
+  const [showAll, setShowAll] = useState(false);
+
+  // Determine user's business category
+  const userBusinessType = merchant?.business_type;
+  const targetCategories = userBusinessType
+    ? BUSINESS_TYPE_TO_CATEGORY[userBusinessType]
+    : [];
+
+  // Filter templates
+  const filteredTemplates = templates.filter((t) => {
+    if (showAll || !userBusinessType || targetCategories?.length === 0)
+      return true;
+    return targetCategories?.includes(t.category);
+  });
+
+  // If no templates match the filter, show all
+  const displayTemplates =
+    filteredTemplates.length > 0 ? filteredTemplates : templates;
+  const isFiltered =
+    userBusinessType && targetCategories?.length > 0 && !showAll;
 
   // Group templates
-  const productionTemplates = templates.filter(
+  const productionTemplates = displayTemplates.filter(
     (t) => t.status === 'production'
   );
-  const betaTemplates = templates.filter((t) => t.status === 'beta');
-  const draftTemplates = templates.filter((t) => t.status === 'draft');
+  const betaTemplates = displayTemplates.filter((t) => t.status === 'beta');
+  const draftTemplates = displayTemplates.filter((t) => t.status === 'draft');
 
   return (
     <div className="space-y-6">
@@ -132,10 +176,20 @@ export default function TemplatesClientPage() {
             Template Gallery
           </h1>
           <p className="text-muted-foreground">
-            Explore our collection of premium storefront designs
+            {isFiltered
+              ? `Recommended templates for your ${merchant?.business_name || 'business'}`
+              : 'Explore our collection of premium storefront designs'}
           </p>
         </div>
         <div className="flex items-center gap-4">
+          {userBusinessType && (
+            <Button
+              variant={showAll ? 'secondary' : 'default'}
+              onClick={() => setShowAll(!showAll)}
+            >
+              {showAll ? 'Show Recommended Only' : 'Show All Templates'}
+            </Button>
+          )}
           <Link href="/developers/submit">
             <Button variant="outline">Submit Template</Button>
           </Link>
@@ -143,6 +197,17 @@ export default function TemplatesClientPage() {
       </div>
 
       <div className="space-y-16">
+        {displayTemplates.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              No templates found for this category.
+            </p>
+            <Button variant="link" onClick={() => setShowAll(true)}>
+              View all templates
+            </Button>
+          </div>
+        )}
+
         {/* Production Section - Featured */}
         {productionTemplates.length > 0 && (
           <section>
@@ -201,12 +266,71 @@ export default function TemplatesClientPage() {
   );
 }
 
+// Reusable Apply Template Button
+function ApplyTemplateButton({
+  templateId,
+  size = 'default',
+}: {
+  templateId: string;
+  size?: 'default' | 'sm';
+}) {
+  const { toast } = useToast();
+  const router = useRouter();
+  const [isActivating, setIsActivating] = useState(false);
+
+  const { updateMerchant } = useMerchant();
+
+  const handleApply = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsActivating(true);
+
+    try {
+      await updateMerchant({ template_id: templateId });
+
+      router.refresh(); // Invalidate server cache to ensure storefront updates
+
+      toast({
+        title: 'Template Applied!',
+        description: 'Your store is now using this new template.',
+      });
+
+      router.push('/dashboard/settings');
+    } catch (error) {
+      console.error('Template apply error:', error);
+      toast({
+        title: 'Failed to Apply',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Could not apply template. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsActivating(false);
+    }
+  };
+
+  return (
+    <Button
+      size={size}
+      className="bg-green-600 hover:bg-green-700 text-white"
+      onClick={handleApply}
+      disabled={isActivating}
+    >
+      {isActivating ? (
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      ) : (
+        <CheckCircle className="mr-2 h-4 w-4" />
+      )}
+      {isActivating ? 'Applying...' : 'Apply'}
+    </Button>
+  );
+}
+
 function LivePreviewCard({ template }: { template: TemplateDefinition }) {
   return (
-    <Link
-      href={`/template-preview/${template.id}` as Route}
-      className="group block relative bg-card rounded-2xl overflow-hidden border border-border hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)]"
-    >
+    <div className="group relative bg-card rounded-2xl overflow-hidden border border-border hover:border-purple-500/50 transition-all duration-300 hover:shadow-[0_0_30px_rgba(168,85,247,0.15)]">
       {/* Browser Chrome */}
       <div className="h-8 bg-muted flex items-center px-4 gap-2 border-b border-border">
         <div className="flex gap-1.5 opacity-50 group-hover:opacity-100 transition-opacity">
@@ -219,83 +343,112 @@ function LivePreviewCard({ template }: { template: TemplateDefinition }) {
         </div>
       </div>
 
-      {/* Live Preview Iframe (Scaled Down) */}
-      <div className="h-[400px] w-[200%] origin-top-left scale-50 bg-white relative pointer-events-none">
-        <iframe
-          src={`/template-preview/${template.id}`}
-          className="w-full h-full border-0"
-          tabIndex={-1}
-          title={`${template.name} Preview`}
-          scrolling="no"
-          loading="lazy"
-        />
-        {/* Overlay to prevent interactions but allow click-through to link */}
-        <div className="absolute inset-0 z-10" />
-      </div>
+      {/* Static Thumbnail Preview - Clickable for preview */}
+      <Link href={`/template-preview/${template.id}` as Route}>
+        <div className="h-[320px] overflow-hidden relative bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 cursor-pointer">
+          {template.thumbnail ? (
+            <Image
+              src={template.thumbnail}
+              alt={`${template.name} preview`}
+              fill
+              className="object-cover object-top"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-8xl font-black opacity-10 select-none">
+                  {template.name.charAt(0)}
+                </div>
+                <p className="text-sm text-muted-foreground mt-4">
+                  Click to preview
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </Link>
 
-      {/* Info Overlay */}
-      <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-background via-background/90 to-transparent pt-24 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-        <div className="flex items-start justify-between">
+      {/* Info Section with Buttons */}
+      <div className="p-6 bg-background">
+        <div className="flex items-start justify-between mb-3">
           <div>
-            <h3 className="text-xl font-bold group-hover:text-primary transition-colors">
-              {template.name}
-            </h3>
-            <p className="text-muted-foreground text-sm mt-1 max-w-md line-clamp-2">
+            <h3 className="text-xl font-bold">{template.name}</h3>
+            <p className="text-muted-foreground text-sm mt-1 line-clamp-2">
               {template.description}
             </p>
           </div>
           <Badge
             variant="outline"
-            className="bg-background/5 border-border text-foreground"
+            className="bg-background/5 border-border text-foreground shrink-0 ml-2"
           >
             {template.category}
           </Badge>
         </div>
 
-        {/* Tags */}
-        <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
-          {template.tags?.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground bg-secondary px-2 py-1 rounded"
-            >
-              {tag}
-            </span>
-          ))}
+        {/* Action Buttons */}
+        <div className="flex gap-2 mt-4">
+          <ApplyTemplateButton templateId={template.id} />
+          <Button variant="outline" size="default" asChild>
+            <Link href={`/template-preview/${template.id}` as Route}>
+              <Eye className="mr-2 h-4 w-4" />
+              Preview
+            </Link>
+          </Button>
         </div>
+
+        {/* Tags */}
+        {template.tags && template.tags.length > 0 && (
+          <div className="flex gap-2 mt-4">
+            {template.tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag}
+                className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground bg-secondary px-2 py-1 rounded"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
-    </Link>
+    </div>
   );
 }
 
 function SmallPreviewCard({ template }: { template: TemplateDefinition }) {
   return (
-    <Link
-      href={`/template-preview/${template.id}` as Route}
-      className="group block relative bg-card rounded-xl overflow-hidden border border-border hover:border-ring transition-all hover:-translate-y-1"
-    >
-      <div className="aspect-[4/3] bg-muted relative">
-        {/* Mini Browser Bar */}
-        <div className="absolute top-0 inset-x-0 h-6 bg-black/5 dark:bg-black/20 backdrop-blur flex items-center px-3 z-10">
-          <div className="w-1.5 h-1.5 rounded-full bg-foreground/20" />
-        </div>
-
-        {/* Simplified Preview Content */}
-        <div className="h-full w-full flex items-center justify-center text-muted-foreground/20 group-hover:text-muted-foreground/30 transition-colors">
-          <div className="text-6xl font-black opacity-20 select-none">
-            {template.name.charAt(0)}
+    <div className="group relative bg-card rounded-xl overflow-hidden border border-border hover:border-ring transition-all hover:-translate-y-1">
+      <Link href={`/template-preview/${template.id}` as Route}>
+        <div className="aspect-[4/3] bg-muted relative">
+          {/* Mini Browser Bar */}
+          <div className="absolute top-0 inset-x-0 h-6 bg-black/5 dark:bg-black/20 backdrop-blur flex items-center px-3 z-10">
+            <div className="w-1.5 h-1.5 rounded-full bg-foreground/20" />
           </div>
-        </div>
 
-        <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-50" />
-      </div>
+          {/* Simplified Preview Content */}
+          <div className="h-full w-full flex items-center justify-center text-muted-foreground/20 group-hover:text-muted-foreground/30 transition-colors">
+            <div className="text-6xl font-black opacity-20 select-none">
+              {template.name.charAt(0)}
+            </div>
+          </div>
+
+          <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-50" />
+        </div>
+      </Link>
 
       <div className="p-4">
         <h3 className="font-semibold">{template.name}</h3>
         <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
           {template.description}
         </p>
+        <div className="flex gap-2 mt-3">
+          <ApplyTemplateButton templateId={template.id} size="sm" />
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/template-preview/${template.id}` as Route}>
+              <Eye className="h-3 w-3" />
+            </Link>
+          </Button>
+        </div>
       </div>
-    </Link>
+    </div>
   );
 }

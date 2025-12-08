@@ -7,6 +7,12 @@ import {
 } from '@/lib/email-templates';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import {
+  logConversionResults,
+  type MerchantAnalyticsConfig,
+  type OrderConversionData,
+  sendPurchaseConversion,
+} from '@/lib/offline-conversions';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
@@ -271,7 +277,7 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq('id', transaction.order_id)
-        .select('*, order_items(*)')
+        .select('*, order_items(*), ad_tracking')
         .single();
 
       if (orderError) {
@@ -346,6 +352,129 @@ export async function POST(request: NextRequest) {
           logger.error({
             message: 'Failed to send order confirmation email',
             error: emailError,
+          });
+        }
+
+        // Send offline conversion events to ad platforms (Facebook, TikTok, GA4, Snapchat)
+        try {
+          // Fetch merchant's analytics configuration and feature toggle
+          const { data: merchantAnalytics } = await supabase
+            .from('merchants')
+            .select(`
+              offline_conversions_enabled,
+              facebook_pixel_id,
+              facebook_capi_token,
+              tiktok_pixel_id,
+              tiktok_access_token,
+              google_analytics_id,
+              ga4_api_secret,
+              snapchat_pixel_id,
+              snapchat_capi_token
+            `)
+            .eq('id', transaction.merchant_id)
+            .single();
+
+          // Check if merchant has disabled offline conversions (explicit false, not just missing)
+          if (merchantAnalytics?.offline_conversions_enabled === false) {
+            logger.info({
+              message: 'Offline conversions disabled by merchant',
+              merchantId: transaction.merchant_id,
+            });
+          } else if (merchantAnalytics) {
+            const analyticsConfig: MerchantAnalyticsConfig = {
+              facebook_pixel_id: merchantAnalytics.facebook_pixel_id,
+              facebook_capi_token: merchantAnalytics.facebook_capi_token,
+              tiktok_pixel_id: merchantAnalytics.tiktok_pixel_id,
+              tiktok_access_token: merchantAnalytics.tiktok_access_token,
+              google_analytics_id: merchantAnalytics.google_analytics_id,
+              ga4_api_secret: merchantAnalytics.ga4_api_secret,
+              snapchat_pixel_id: merchantAnalytics.snapchat_pixel_id,
+              snapchat_capi_token: merchantAnalytics.snapchat_capi_token,
+            };
+
+            // Check if any platform is configured
+            const hasAnalytics =
+              (analyticsConfig.facebook_pixel_id &&
+                analyticsConfig.facebook_capi_token) ||
+              (analyticsConfig.tiktok_pixel_id &&
+                analyticsConfig.tiktok_access_token) ||
+              (analyticsConfig.google_analytics_id &&
+                analyticsConfig.ga4_api_secret) ||
+              (analyticsConfig.snapchat_pixel_id &&
+                analyticsConfig.snapchat_capi_token);
+
+            if (hasAnalytics) {
+              // Extract ad tracking data stored with the order (from cookies at checkout)
+              const adTracking = order.ad_tracking as Record<
+                string,
+                unknown
+              > | null;
+
+              const orderConversionData: OrderConversionData = {
+                orderId: order.id,
+                orderNumber:
+                  order.order_number || order.id.slice(0, 8).toUpperCase(),
+                total: Number.parseFloat(order.total || '0'),
+                currency: order.currency || 'NGN',
+                customerEmail: order.customer_email,
+                customerPhone: order.customer_phone,
+                customerName: order.customer_name,
+                customerId: order.customer_id,
+                items: (order.order_items || []).map(
+                  (item: Record<string, unknown>) => ({
+                    id:
+                      (item.product_id as string) || (item.id as string) || '',
+                    name: (item.name as string) || 'Product',
+                    price: Number(item.price) || 0,
+                    quantity: Number(item.quantity) || 1,
+                  })
+                ),
+                // Ad tracking IDs for better attribution
+                fbclid: adTracking?.fbclid as string | undefined,
+                fbp: adTracking?.fbp as string | undefined,
+                ttp: adTracking?.ttp as string | undefined,
+                gclid: adTracking?.gclid as string | undefined,
+                sccid: adTracking?.sccid as string | undefined,
+                gaClientId: adTracking?.gaClientId as string | undefined,
+                // Enhanced matching for better Event Match Quality (EMQ)
+                userIp: adTracking?.userIp as string | undefined,
+                userAgent: adTracking?.userAgent as string | undefined,
+                // Event deduplication ID (shared with client-side Pixel)
+                eventId: adTracking?.eventId as string | undefined,
+                // Privacy compliance
+                limitedDataUse: adTracking?.limitedDataUse as
+                  | boolean
+                  | undefined,
+              };
+
+              // Fire-and-forget: Don't await, let it run in background
+              sendPurchaseConversion(analyticsConfig, orderConversionData)
+                .then((results) => {
+                  logConversionResults(
+                    orderConversionData.orderNumber,
+                    results
+                  );
+                })
+                .catch((err) => {
+                  logger.error({
+                    message: 'Offline conversion tracking failed',
+                    orderId: order.id,
+                    error: err,
+                  });
+                });
+
+              logger.info({
+                message: 'Offline conversion tracking initiated',
+                orderId: order.id,
+                orderNumber: orderConversionData.orderNumber,
+              });
+            }
+          }
+        } catch (conversionError) {
+          // Don't fail the webhook if conversion tracking fails
+          logger.error({
+            message: 'Failed to initiate offline conversion tracking',
+            error: conversionError,
           });
         }
       }

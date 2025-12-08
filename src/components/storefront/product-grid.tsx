@@ -139,16 +139,12 @@ export function StorefrontProductGrid({
   }, [merchant?.id, isPreviewMode]);
 
   // Perform server-side search when needed
+  // Note: We use refs to check current state without adding to dependencies
   useEffect(() => {
     if (!useServerSearch || !searchQuery || !merchant?.id || isPreviewMode) {
-      // Avoid synchronous state updates in effect
-      if (serverSearchResults.length > 0 || didYouMean !== null) {
-        const timer = setTimeout(() => {
-          setServerSearchResults([]);
-          setDidYouMean(null);
-        }, 0);
-        return () => clearTimeout(timer);
-      }
+      // Clear previous search results when conditions change
+      setServerSearchResults([]);
+      setDidYouMean(null);
       return;
     }
 
@@ -176,8 +172,7 @@ export function StorefrontProductGrid({
     useServerSearch,
     merchant?.id,
     isPreviewMode,
-    didYouMean,
-    serverSearchResults.length,
+    // Removed didYouMean and serverSearchResults.length - they're set by this effect
   ]);
 
   const { formatCurrencyCompact } = useCurrency();

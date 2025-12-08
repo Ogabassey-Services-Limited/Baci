@@ -23,11 +23,13 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { ColorPicker } from '@/components/color-picker';
+import { DashboardAdUnit } from '@/components/dashboard/dashboard-ad-unit';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -47,6 +49,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/ui/phone-input';
 import {
   Popover,
   PopoverContent,
@@ -141,7 +144,61 @@ export default function SettingsPage() {
     support_phone: '',
     business_address: '',
   });
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
+    'idle'
+  );
+  const [riderPhone, setRiderPhone] = useState('');
   /* Analytics moved to Integrations pages */
+
+  // Ref to track pending autosave timeout for debouncing
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const latestDataRef = useRef<Record<string, unknown> | null>(null);
+
+  // Debounced autosave function to prevent race conditions
+  const autoSave = useCallback(
+    (data: {
+      social_media?: Record<string, string>;
+      support_email?: string | null;
+      support_phone?: string | null;
+      business_address?: string | null;
+    }) => {
+      // Store latest data
+      latestDataRef.current = data;
+
+      // Clear any pending autosave
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+
+      // Debounce: wait 500ms before saving
+      autoSaveTimeoutRef.current = setTimeout(async () => {
+        const dataToSave = latestDataRef.current;
+        if (!dataToSave) return;
+
+        setSaveStatus('saving');
+        try {
+          await updateMerchant(
+            dataToSave as Parameters<typeof updateMerchant>[0],
+            {
+              skipReload: true,
+            }
+          );
+          setSaveStatus('saved');
+          // Reset to idle after 2 seconds
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        } catch (e) {
+          logger.error({ error: e as Error, message: 'Autosave failed' });
+          setSaveStatus('idle');
+          toast({
+            title: 'Autosave Failed',
+            description: 'Changes could not be saved automatically.',
+            variant: 'destructive',
+          });
+        }
+      }, 500);
+    },
+    [updateMerchant, toast]
+  );
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
@@ -177,6 +234,7 @@ export default function SettingsPage() {
         support_phone: (merchantData.support_phone as string) || '',
         business_address: (merchantData.business_address as string) || '',
       });
+      setRiderPhone((merchantData.rider_phone_number as string) || '');
       /* Analytics hydration moved */
     }
   }, [merchant, form]);
@@ -476,6 +534,9 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Ad Unit: After Favicon */}
+          <DashboardAdUnit variant="horizontal" />
+
           <Card className="glass">
             <CardHeader>
               <CardTitle>Hero Section Carousel</CardTitle>
@@ -562,7 +623,29 @@ export default function SettingsPage() {
 
           <Card className="glass">
             <CardHeader>
-              <CardTitle>Social Media</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Social Media</CardTitle>
+                {saveStatus !== 'idle' && (
+                  <span
+                    className={cn(
+                      'text-xs font-medium flex items-center gap-1 transition-opacity',
+                      saveStatus === 'saving'
+                        ? 'text-muted-foreground'
+                        : 'text-green-600'
+                    )}
+                  >
+                    {saveStatus === 'saving' ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-3 w-3" /> Saved
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
               <CardDescription>
                 Add your social media handles to improve your store's SEO and
                 social sharing.
@@ -585,6 +668,7 @@ export default function SettingsPage() {
                         twitter: e.target.value,
                       })
                     }
+                    onBlur={() => autoSave({ social_media: socialMedia })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -594,7 +678,7 @@ export default function SettingsPage() {
                   </Label>
                   <Input
                     id="facebook"
-                    placeholder="username or page"
+                    placeholder="@username or page"
                     value={socialMedia.facebook}
                     onChange={(e) =>
                       setSocialMedia({
@@ -602,6 +686,7 @@ export default function SettingsPage() {
                         facebook: e.target.value,
                       })
                     }
+                    onBlur={() => autoSave({ social_media: socialMedia })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -622,6 +707,7 @@ export default function SettingsPage() {
                         instagram: e.target.value,
                       })
                     }
+                    onBlur={() => autoSave({ social_media: socialMedia })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -647,6 +733,7 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setSocialMedia({ ...socialMedia, tiktok: e.target.value })
                     }
+                    onBlur={() => autoSave({ social_media: socialMedia })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -672,6 +759,7 @@ export default function SettingsPage() {
                         youtube: e.target.value,
                       })
                     }
+                    onBlur={() => autoSave({ social_media: socialMedia })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -692,7 +780,7 @@ export default function SettingsPage() {
                   </Label>
                   <Input
                     id="pinterest"
-                    placeholder="username"
+                    placeholder="@username"
                     value={socialMedia.pinterest}
                     onChange={(e) =>
                       setSocialMedia({
@@ -700,6 +788,7 @@ export default function SettingsPage() {
                         pinterest: e.target.value,
                       })
                     }
+                    onBlur={() => autoSave({ social_media: socialMedia })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -725,6 +814,7 @@ export default function SettingsPage() {
                         linkedin: e.target.value,
                       })
                     }
+                    onBlur={() => autoSave({ social_media: socialMedia })}
                   />
                 </div>
               </div>
@@ -734,6 +824,9 @@ export default function SettingsPage() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Ad Unit: After Social Media */}
+          <DashboardAdUnit variant="horizontal" />
 
           <Card className="glass">
             <CardHeader>
@@ -773,12 +866,16 @@ export default function SettingsPage() {
                   Enter a phone number to receive WhatsApp notifications for Pay
                   on Delivery orders.
                 </p>
-                <Input
+                <PhoneInput
                   id="rider_phone"
-                  placeholder="+234..."
-                  value={merchant?.rider_phone_number || ''}
-                  onChange={(e) =>
-                    updateMerchant({ rider_phone_number: e.target.value })
+                  placeholder="Enter phone number"
+                  defaultCountry="NG"
+                  value={riderPhone}
+                  onChange={(value) => setRiderPhone(value || '')}
+                  onBlur={() =>
+                    updateMerchant({
+                      rider_phone_number: riderPhone,
+                    })
                   }
                 />
               </div>
@@ -787,7 +884,29 @@ export default function SettingsPage() {
 
           <Card className="glass">
             <CardHeader>
-              <CardTitle>Contact Information</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Contact Information</CardTitle>
+                {saveStatus !== 'idle' && (
+                  <span
+                    className={cn(
+                      'text-xs font-medium flex items-center gap-1 transition-opacity',
+                      saveStatus === 'saving'
+                        ? 'text-muted-foreground'
+                        : 'text-green-600'
+                    )}
+                  >
+                    {saveStatus === 'saving' ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" /> Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="h-3 w-3" /> Saved
+                      </>
+                    )}
+                  </span>
+                )}
+              </div>
               <CardDescription>
                 These details will be displayed in your store footer, making it
                 easy for customers to contact you for support.
@@ -813,6 +932,13 @@ export default function SettingsPage() {
                       support_email: e.target.value,
                     })
                   }
+                  onBlur={() =>
+                    autoSave({
+                      support_email: contactInfo.support_email || null,
+                      support_phone: contactInfo.support_phone || null,
+                      business_address: contactInfo.business_address || null,
+                    })
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -823,15 +949,22 @@ export default function SettingsPage() {
                   <Phone className="w-4 h-4" />
                   Support Phone
                 </Label>
-                <Input
+                <PhoneInput
                   id="support_phone"
-                  type="tel"
-                  placeholder="+234 800 000 0000"
+                  placeholder="Enter phone number"
+                  defaultCountry="NG"
                   value={contactInfo.support_phone}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     setContactInfo({
                       ...contactInfo,
-                      support_phone: e.target.value,
+                      support_phone: value || '',
+                    })
+                  }
+                  onBlur={() =>
+                    autoSave({
+                      support_email: contactInfo.support_email || null,
+                      support_phone: contactInfo.support_phone || null,
+                      business_address: contactInfo.business_address || null,
                     })
                   }
                 />
@@ -844,14 +977,35 @@ export default function SettingsPage() {
                   <MapPin className="w-4 h-4" />
                   Business Address
                 </Label>
-                <Input
+                <AddressAutocomplete
                   id="business_address"
-                  placeholder="123 Main St, Lagos, Nigeria"
+                  placeholder="Start typing your address..."
+                  country="NG"
                   value={contactInfo.business_address}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const newValue = typeof e === 'string' ? e : e.target.value;
                     setContactInfo({
                       ...contactInfo,
-                      business_address: e.target.value,
+                      business_address: newValue,
+                    });
+                  }}
+                  onSelect={(place) => {
+                    setContactInfo({
+                      ...contactInfo,
+                      business_address: place.formattedAddress,
+                    });
+                    // Auto-save after selecting from Google
+                    autoSave({
+                      support_email: contactInfo.support_email || null,
+                      support_phone: contactInfo.support_phone || null,
+                      business_address: place.formattedAddress || null,
+                    });
+                  }}
+                  onBlur={() =>
+                    autoSave({
+                      support_email: contactInfo.support_email || null,
+                      support_phone: contactInfo.support_phone || null,
+                      business_address: contactInfo.business_address || null,
                     })
                   }
                 />
@@ -862,6 +1016,9 @@ export default function SettingsPage() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Ad Unit: After Contact Info */}
+          <DashboardAdUnit variant="horizontal" />
 
           <Card className="glass">
             <CardHeader>

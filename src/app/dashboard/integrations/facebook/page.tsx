@@ -1,32 +1,68 @@
 'use client';
 
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import { useCallback } from 'react';
 import { SetupInstructions } from '@/components/analytics/setup-instructions';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
-import { useMerchant } from '@/hooks/use-merchant';
+import { Button } from '@/components/ui/button';
+import { useIntegrationSettings } from '@/hooks/use-integration-settings';
+import { asRoute } from '@/lib/routes';
+
+interface FacebookSettings {
+  facebook_pixel_id: string | null;
+  facebook_capi_token: string | null;
+}
+
+const SETTINGS_KEYS: (keyof FacebookSettings)[] = [
+  'facebook_pixel_id',
+  'facebook_capi_token',
+];
 
 export default function FacebookIntegrationPage() {
-  const { merchant, updateMerchant } = useMerchant();
+  const { settings, isLoading, hasMerchant, saveSettings } =
+    useIntegrationSettings<FacebookSettings>({
+      keys: SETTINGS_KEYS,
+      platformName: 'Facebook',
+    });
 
-  if (!merchant) {
+  const handleSave = useCallback(
+    async (pixelId: string, token: string) => {
+      await saveSettings({
+        facebook_pixel_id: pixelId || null,
+        facebook_capi_token: token || null,
+      });
+    },
+    [saveSettings]
+  );
+
+  if (!hasMerchant || isLoading) {
     return <div>Loading...</div>;
   }
-  // ... (rest of function until onSave)
+
   return (
     <div className="space-y-6">
-      {/* ... prev content ... */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" asChild>
+          <Link href={asRoute('/dashboard/integrations')}>
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Facebook Pixel</h1>
+          <p className="text-muted-foreground">
+            Track conversions and optimize your Facebook ad campaigns
+          </p>
+        </div>
+      </div>
 
       <TrackingPixelSection
         platform="Facebook"
-        pixelId={(merchant as any).facebook_pixel_id || ''}
-        accessToken={(merchant as any).facebook_capi_token || ''}
+        pixelId={settings?.facebook_pixel_id || ''}
+        accessToken={settings?.facebook_capi_token || ''}
         pixelLabel="Pixel ID"
         tokenLabel="Conversion API Access Token"
-        onSave={async (pixelId, token) => {
-          await updateMerchant({
-            facebook_pixel_id: pixelId,
-            facebook_capi_token: token,
-          } as any);
-        }}
+        onSave={handleSave}
       >
         <SetupInstructions platform="facebook" />
       </TrackingPixelSection>

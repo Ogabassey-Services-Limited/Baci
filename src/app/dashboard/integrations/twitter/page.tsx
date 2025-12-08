@@ -2,16 +2,36 @@
 
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback } from 'react';
 import { SetupInstructions } from '@/components/analytics/setup-instructions';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Button } from '@/components/ui/button';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useIntegrationSettings } from '@/hooks/use-integration-settings';
 import { asRoute } from '@/lib/routes';
 
-export default function TwitterIntegrationPage() {
-  const { merchant, updateMerchant } = useMerchant();
+interface TwitterSettings {
+  twitter_pixel_id: string | null;
+}
 
-  if (!merchant) {
+const SETTINGS_KEYS: (keyof TwitterSettings)[] = ['twitter_pixel_id'];
+
+export default function TwitterIntegrationPage() {
+  const { settings, isLoading, hasMerchant, saveSettings } =
+    useIntegrationSettings<TwitterSettings>({
+      keys: SETTINGS_KEYS,
+      platformName: 'Twitter',
+    });
+
+  const handleSave = useCallback(
+    async (newPixelId: string) => {
+      await saveSettings({
+        twitter_pixel_id: newPixelId || null,
+      });
+    },
+    [saveSettings]
+  );
+
+  if (!hasMerchant || isLoading) {
     return <div>Loading...</div>;
   }
 
@@ -33,13 +53,9 @@ export default function TwitterIntegrationPage() {
 
       <TrackingPixelSection
         platform="Twitter (X)"
-        pixelId={(merchant as any).twitter_pixel_id || ''}
+        pixelId={settings?.twitter_pixel_id || ''}
         pixelLabel="Pixel ID"
-        onSave={async (pixelId, _token) => {
-          await updateMerchant({
-            twitter_pixel_id: pixelId,
-          } as any);
-        }}
+        onSave={handleSave}
         description="The X Pixel allows you to track conversions and optimize your ad campaigns."
       >
         <SetupInstructions platform="twitter" />

@@ -58,8 +58,14 @@ export interface MerchantFeatureSettings {
 
   // Analytics
   google_analytics_id: string | null;
+  ga4_api_secret: string | null;
   facebook_pixel_id: string | null;
+  facebook_capi_token: string | null;
   tiktok_pixel_id: string | null;
+  tiktok_access_token: string | null;
+  snapchat_pixel_id: string | null;
+  snapchat_capi_token: string | null;
+  twitter_pixel_id: string | null;
 
   // SEO
   auto_generate_schema: boolean;
@@ -120,8 +126,14 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   show_stock_levels: true,
   low_stock_threshold: 10,
   google_analytics_id: null,
+  ga4_api_secret: null,
   facebook_pixel_id: null,
+  facebook_capi_token: null,
   tiktok_pixel_id: null,
+  tiktok_access_token: null,
+  snapchat_pixel_id: null,
+  snapchat_capi_token: null,
+  twitter_pixel_id: null,
   auto_generate_schema: true,
   custom_robots_txt: null,
   email_notifications_enabled: true,
@@ -270,8 +282,14 @@ export async function PATCH(request: NextRequest) {
       'show_stock_levels',
       'low_stock_threshold',
       'google_analytics_id',
+      'ga4_api_secret',
       'facebook_pixel_id',
+      'facebook_capi_token',
       'tiktok_pixel_id',
+      'tiktok_access_token',
+      'snapchat_pixel_id',
+      'snapchat_capi_token',
+      'twitter_pixel_id',
       'auto_generate_schema',
       'custom_robots_txt',
       'email_notifications_enabled',

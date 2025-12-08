@@ -18,33 +18,48 @@ function getSupabaseAdmin() {
  * the platform owner's analytics pixels on public pages.
  */
 
+const EMPTY_CONFIG = {
+  google_analytics_id: null,
+  facebook_pixel_id: null,
+  tiktok_pixel_id: null,
+  snapchat_pixel_id: null,
+  twitter_pixel_id: null,
+};
+
 export async function GET() {
   try {
-    // Get platform settings (only analytics IDs, no secrets)
-    const { data: settings, error } = await getSupabaseAdmin()
+    // Add a 5-second timeout to prevent server hangs
+    const timeoutPromise = new Promise<null>((resolve) =>
+      setTimeout(() => resolve(null), 5000)
+    );
+
+    const fetchPromise = getSupabaseAdmin()
       .from('platform_settings')
       .select(
         'google_analytics_id, facebook_pixel_id, tiktok_pixel_id, snapchat_pixel_id, twitter_pixel_id'
       )
       .single();
 
+    const result = await Promise.race([fetchPromise, timeoutPromise]);
+
+    // If timed out, return empty config
+    if (result === null) {
+      console.warn(
+        'Platform analytics config: request timed out, using empty config'
+      );
+      return NextResponse.json(EMPTY_CONFIG);
+    }
+
+    const { data: settings, error } = result;
+
     if (error) {
       // If no settings exist yet, return empty config
       if (error.code === 'PGRST116') {
-        return NextResponse.json({
-          google_analytics_id: null,
-          facebook_pixel_id: null,
-          tiktok_pixel_id: null,
-          snapchat_pixel_id: null,
-          twitter_pixel_id: null,
-        });
+        return NextResponse.json(EMPTY_CONFIG);
       }
 
       console.error('Failed to fetch platform analytics config:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch config' },
-        { status: 500 }
-      );
+      return NextResponse.json(EMPTY_CONFIG); // Return empty instead of 500 to avoid blocking
     }
 
     // Return only pixel IDs (no API secrets or tokens)
@@ -57,9 +72,7 @@ export async function GET() {
     });
   } catch (error) {
     console.error('Platform analytics config error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    // Return empty config instead of 500 to prevent blocking page loads
+    return NextResponse.json(EMPTY_CONFIG);
   }
 }

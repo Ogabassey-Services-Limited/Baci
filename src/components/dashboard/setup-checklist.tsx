@@ -41,9 +41,12 @@ const categoryIcons = {
 };
 
 const priorityColors = {
-  required: 'text-red-600 bg-red-50 border-red-200',
-  recommended: 'text-amber-600 bg-amber-50 border-amber-200',
-  optional: 'text-blue-600 bg-blue-50 border-blue-200',
+  required:
+    'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800',
+  recommended:
+    'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 border-amber-200 dark:border-amber-800',
+  optional:
+    'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 border-blue-200 dark:border-blue-800',
 };
 
 const priorityLabels = {
@@ -69,6 +72,26 @@ export function SetupChecklist({
   const [publishing, setPublishing] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [showAll, setShowAll] = useState(false);
+
+  // Handle completion highlighting - must be before any early returns
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const completedCategory = params.get('setup_complete');
+
+    if (completedCategory) {
+      // Clear the param
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+
+      // Show success toast
+      toast({
+        title: 'Step Completed! 🎉',
+        description: 'Great job! Moving to the next step.',
+        className:
+          'bg-green-50 border-green-200 text-green-800 dark:bg-green-950/50 dark:border-green-800 dark:text-green-200',
+      });
+    }
+  }, [toast]);
 
   useEffect(() => {
     const fetchReadiness = async () => {
@@ -169,7 +192,7 @@ export function SetupChecklist({
       )}
     >
       {/* Dismiss button */}
-      {dismissible && readiness.isPublished && readiness.isReady && (
+      {dismissible && (
         <button
           type="button"
           onClick={() => setDismissed(true)}
@@ -239,13 +262,13 @@ export function SetupChecklist({
       <CardContent className={cn(compact && 'px-0 pb-0')}>
         {/* Required items warning */}
         {!readiness.isReady && requiredIncomplete.length > 0 && (
-          <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+          <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-sm">
             <div className="flex items-center gap-2 font-medium">
               <AlertCircle className="h-4 w-4" />
               {requiredIncomplete.length} required{' '}
               {requiredIncomplete.length === 1 ? 'item' : 'items'} remaining
             </div>
-            <p className="mt-1 text-red-600">
+            <p className="mt-1 text-red-600 dark:text-red-400">
               Complete these to publish your store and start accepting orders.
             </p>
           </div>
@@ -253,8 +276,12 @@ export function SetupChecklist({
 
         {/* Checklist items */}
         <div className="space-y-2">
-          {displayItems.map((item) => (
-            <SetupItemRow key={item.id} item={item} />
+          {displayItems.map((item, index) => (
+            <SetupItemRow
+              key={item.id}
+              item={item}
+              isNext={index === 0 && !item.completed && !compact && showAll}
+            />
           ))}
         </div>
 
@@ -292,30 +319,45 @@ export function SetupChecklist({
   );
 }
 
-function SetupItemRow({ item }: { item: SetupItem }) {
+function SetupItemRow({ item, isNext }: { item: SetupItem; isNext?: boolean }) {
   const Icon = categoryIcons[item.category];
+  const href =
+    `${item.href}${item.href.includes('?') ? '&' : '?'}onboarding=true` as Route;
 
   return (
     <Link
-      href={item.href as Route}
+      href={href}
       className={cn(
-        'flex items-center gap-3 p-3 rounded-lg border transition-all',
+        'flex items-center gap-3 p-3 rounded-lg border transition-all relative group',
         item.completed
-          ? 'bg-green-50/50 border-green-200 hover:bg-green-50'
-          : 'bg-white border-gray-200 hover:border-primary/50 hover:shadow-sm'
+          ? 'bg-green-50/50 dark:bg-green-950/30 border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-950/50'
+          : isNext
+            ? 'bg-primary/5 border-primary/50 shadow-sm ring-1 ring-primary/20'
+            : 'bg-card border-border hover:border-primary/50 hover:shadow-sm'
       )}
     >
+      {/* Pulse indicator for next item */}
+      {isNext && (
+        <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-full animate-pulse" />
+      )}
+
       {/* Completion indicator */}
       <div
         className={cn(
-          'shrink-0 h-6 w-6 rounded-full flex items-center justify-center',
-          item.completed ? 'bg-green-600 text-white' : 'bg-gray-100'
+          'shrink-0 h-6 w-6 rounded-full flex items-center justify-center transition-colors',
+          item.completed
+            ? 'bg-green-600 text-white'
+            : isNext
+              ? 'bg-primary/20 text-primary'
+              : 'bg-muted'
         )}
       >
         {item.completed ? (
           <CheckCircle2 className="h-4 w-4" />
         ) : (
-          <Circle className="h-4 w-4 text-gray-400" />
+          <Circle
+            className={cn('h-4 w-4', isNext ? 'text-primary' : 'text-gray-400')}
+          />
         )}
       </div>
 
@@ -324,8 +366,10 @@ function SetupItemRow({ item }: { item: SetupItem }) {
         className={cn(
           'shrink-0 h-8 w-8 rounded-lg flex items-center justify-center',
           item.completed
-            ? 'bg-green-100 text-green-700'
-            : 'bg-gray-100 text-gray-600'
+            ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400'
+            : isNext
+              ? 'bg-primary/10 text-primary'
+              : 'bg-muted text-muted-foreground'
         )}
       >
         <Icon className="h-4 w-4" />
@@ -333,21 +377,28 @@ function SetupItemRow({ item }: { item: SetupItem }) {
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <p
-          className={cn(
-            'font-medium text-sm',
-            item.completed && 'line-through text-muted-foreground'
+        <div className="flex items-center gap-2">
+          <p
+            className={cn(
+              'font-medium text-sm',
+              item.completed && 'line-through text-muted-foreground'
+            )}
+          >
+            {item.label}
+          </p>
+          {isNext && (
+            <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-1.5 py-0.5 rounded-sm">
+              Next Step
+            </span>
           )}
-        >
-          {item.label}
-        </p>
+        </div>
         <p className="text-xs text-muted-foreground truncate">
           {item.description}
         </p>
       </div>
 
       {/* Priority badge */}
-      {!item.completed && (
+      {!item.completed && !isNext && (
         <span
           className={cn(
             'shrink-0 text-xs px-2 py-0.5 rounded-full border font-medium',
@@ -361,8 +412,12 @@ function SetupItemRow({ item }: { item: SetupItem }) {
       {/* Arrow */}
       <ArrowRight
         className={cn(
-          'shrink-0 h-4 w-4',
-          item.completed ? 'text-green-600' : 'text-gray-400'
+          'shrink-0 h-4 w-4 transition-transform group-hover:translate-x-1',
+          item.completed
+            ? 'text-green-600 dark:text-green-400'
+            : isNext
+              ? 'text-primary'
+              : 'text-muted-foreground'
         )}
       />
     </Link>

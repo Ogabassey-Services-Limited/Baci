@@ -6,6 +6,8 @@ import {
   ArrowUp,
   CreditCard,
   DollarSign,
+  Globe,
+  Loader2,
   ShoppingBag,
   Sparkles,
   TrendingUp,
@@ -19,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import type { ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/currency-utils';
 import { cn } from '@/lib/utils';
 import {
@@ -73,8 +76,10 @@ export default function DashboardClientPage({
   initialRecentSales,
   initialChartData,
 }: DashboardClientPageProps) {
-  const { merchant } = useMerchant();
+  const { merchant, reloadMerchant } = useMerchant();
+  const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardMetrics>(
     initialMetrics || {
       revenue: { value: 0, change: 0 },
@@ -118,15 +123,103 @@ export default function DashboardClientPage({
     }
   }, [merchant?.id, initialMetrics, initialRecentSales, initialChartData]);
 
+  const handlePublishToggle = async () => {
+    setIsPublishing(true);
+    try {
+      const method = merchant?.is_published ? 'DELETE' : 'POST';
+      const response = await fetch('/api/merchant/publish', { method });
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast({
+          title: data.error || 'Failed to update store status',
+          description: data.missingItems?.join(', ') || data.message,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: merchant?.is_published
+          ? 'Store Unpublished'
+          : 'Store Published!',
+        description: merchant?.is_published
+          ? 'Your store is now offline.'
+          : 'Your store is now live and accessible to customers.',
+      });
+      reloadMerchant();
+    } catch (_error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to update store status. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   if (!mounted) return null;
 
   return (
     <div className="space-y-6 p-6 pb-20">
+      {/* Store Publish Status Banner */}
+      <div
+        className={cn(
+          'rounded-lg border p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4',
+          merchant?.is_published
+            ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800'
+            : 'bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800'
+        )}
+      >
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              'p-2 rounded-full',
+              merchant?.is_published
+                ? 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-400'
+                : 'bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-400'
+            )}
+          >
+            <Globe className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="font-medium">
+              {merchant?.is_published ? 'Store is Live' : 'Store is Offline'}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {merchant?.is_published
+                ? 'Customers can access your store and place orders.'
+                : 'Your store is not visible to customers. Publish when ready.'}
+            </p>
+          </div>
+        </div>
+        <Button
+          onClick={handlePublishToggle}
+          disabled={isPublishing}
+          variant={merchant?.is_published ? 'outline' : 'default'}
+          className={cn(
+            !merchant?.is_published && 'bg-green-600 hover:bg-green-700'
+          )}
+        >
+          {isPublishing ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Globe className="mr-2 h-4 w-4" />
+          )}
+          {isPublishing
+            ? 'Updating...'
+            : merchant?.is_published
+              ? 'Unpublish Store'
+              : 'Publish Store'}
+        </Button>
+      </div>
+
       {/* Header Section */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
-            Dashboard 🚀
+            Dashboard
           </h1>
           <p className="text-muted-foreground">
             Overview of your store's performance

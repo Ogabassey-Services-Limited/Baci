@@ -2,6 +2,7 @@
 
 import { AlertCircle, ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback } from 'react';
 import { FeedUrlSection } from '@/components/dashboard/integrations/feed-url-section';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -13,21 +14,47 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { useIntegrationSettings } from '@/hooks/use-integration-settings';
 import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
-export default function TikTokIntegrationPage() {
-  const { merchant, updateMerchant } = useMerchant();
+interface TikTokSettings {
+  tiktok_pixel_id: string | null;
+  tiktok_access_token: string | null;
+}
 
-  if (!merchant) {
+const SETTINGS_KEYS: (keyof TikTokSettings)[] = [
+  'tiktok_pixel_id',
+  'tiktok_access_token',
+];
+
+export default function TikTokIntegrationPage() {
+  const { merchant } = useMerchant();
+  const { settings, isLoading, hasMerchant, saveSettings } =
+    useIntegrationSettings<TikTokSettings>({
+      keys: SETTINGS_KEYS,
+      platformName: 'TikTok',
+    });
+
+  const handleSave = useCallback(
+    async (pixelId: string, token: string) => {
+      await saveSettings({
+        tiktok_pixel_id: pixelId || null,
+        tiktok_access_token: token || null,
+      });
+    },
+    [saveSettings]
+  );
+
+  if (!hasMerchant || isLoading) {
     return <div>Loading...</div>;
   }
 
-  const baseUrl = merchant.custom_domain
+  const baseUrl = merchant?.custom_domain
     ? `https://${merchant.custom_domain}`
-    : `https://${merchant.slug}.baci.app`;
+    : `https://${merchant?.slug}.baci.app`;
 
-  const feedUrl = `${baseUrl}/api/feed/tiktok?merchant_slug=${merchant.slug}`;
+  const feedUrl = `${baseUrl}/api/feed/tiktok?merchant_slug=${merchant?.slug}`;
 
   return (
     <div className="space-y-6">
@@ -134,16 +161,11 @@ export default function TikTokIntegrationPage() {
 
       <TrackingPixelSection
         platform="TikTok"
-        pixelId={(merchant as any).tiktok_pixel_id || ''}
-        accessToken={(merchant as any).tiktok_access_token || ''}
+        pixelId={settings?.tiktok_pixel_id || ''}
+        accessToken={settings?.tiktok_access_token || ''}
         pixelLabel="Pixel ID"
         tokenLabel="Access Token"
-        onSave={async (pixelId, token) => {
-          await updateMerchant({
-            tiktok_pixel_id: pixelId,
-            tiktok_access_token: token,
-          } as any);
-        }}
+        onSave={handleSave}
       />
     </div>
   );

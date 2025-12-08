@@ -170,11 +170,11 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
   // PRODUCTION TEMPLATES
   // ---------------------------------------------------------------------------
 
-  'gadget-default': {
-    id: 'gadget-default',
-    name: 'Gadget Default',
+  'electronics': {
+    id: 'electronics',
+    name: 'Electronics Store',
     description: 'Standard template for electronics and gadget stores',
-    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/gadget_default_preview_after_wait_1765030055914.png',
+    thumbnail: '/template-previews/electronics.png',
     category: 'gadgets',
     status: 'production',
     version: '1.0.0',
@@ -197,7 +197,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     mockData: {
       merchant: {
         ...defaultMockMerchant,
-        id: 'gadget-default-preview',
+        id: 'electronics-preview',
         business_name: 'TechZone Store',
         business_type: 'ELECTRONICS',
         brand_colors: {
@@ -210,11 +210,11 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     tags: ['electronics', 'tech', 'gadgets', 'modern'],
   },
 
-  'premium-default': {
-    id: 'premium-default',
-    name: 'Premium Default',
+  'fashion': {
+    id: 'fashion',
+    name: 'Fashion Store',
     description: 'Elegant template for fashion and luxury brands',
-    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/premium_default_preview_after_wait_1765030083226.png',
+    thumbnail: '/template-previews/fashion.png',
     category: 'fashion',
     status: 'production',
     version: '1.0.0',
@@ -237,7 +237,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     mockData: {
       merchant: {
         ...defaultMockMerchant,
-        id: 'premium-default-preview',
+        id: 'fashion-preview',
         business_name: 'Luxe Fashion',
         business_type: 'FASHION',
         brand_colors: {
@@ -254,7 +254,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     id: 'home-goods',
     name: 'Haven Home',
     description: 'Warm, lifestyle-focused template for furniture and home decor stores',
-    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/home_goods_template_preview_1765032079483.png',
+    thumbnail: '/template-previews/home-goods.png',
     category: 'home',
     status: 'production',
     version: '1.0.0',
@@ -290,7 +290,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     id: 'food-beverage',
     name: 'Artisan Kitchen',
     description: 'Warm, rustic template for gourmet food e-commerce with dietary filters and recipe inspiration',
-    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/food_template_hero_1765034186701.png',
+    thumbnail: '/template-previews/food-beverage.png',
     category: 'food',
     status: 'production',
     version: '1.0.0',
@@ -322,11 +322,11 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     tags: ['food', 'gourmet', 'organic', 'artisan', 'recipes'],
   },
 
-  beauty: {
-    id: 'beauty',
-    name: 'Radiant Beauty',
+  'health-beauty': {
+    id: 'health-beauty',
+    name: 'Health & Beauty Store',
     description: 'Minimalist luxury template for health & beauty brands with skin quiz and ingredient focus',
-    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/beauty_products_section_1765033465009.png',
+    thumbnail: '/template-previews/health-beauty.png',
     category: 'beauty',
     status: 'production',
     version: '1.0.0',
@@ -345,7 +345,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     mockData: {
       merchant: {
         ...defaultMockMerchant,
-        id: 'beauty-preview',
+        id: 'health-beauty-preview',
         business_name: 'Radiant Beauty',
         business_type: 'HEALTH_BEAUTY',
         brand_colors: {
@@ -362,7 +362,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     id: 'hair-extensions',
     name: 'Glamour Hair Studio',
     description: 'Dark luxury template for hair extensions and wigs with texture/length filters and tutorials',
-    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/hair_template_hero_1765034748122.png',
+    thumbnail: '/template-previews/hair-extensions.png',
     category: 'beauty',
     status: 'production',
     version: '1.0.0',
@@ -394,11 +394,11 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     tags: ['hair', 'extensions', 'wigs', 'beauty', 'glamour'],
   },
 
-  pharmaceutical: {
-    id: 'pharmaceutical',
-    name: 'MedCare Pharmacy',
+  'pharmaceuticals': {
+    id: 'pharmaceuticals',
+    name: 'Pharmaceuticals Store',
     description: 'Professional pharmacy template with trust signals and prescription upload',
-    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/pharmaceutical_template_screenshot_final_1765032763119.png',
+    thumbnail: '/template-previews/pharmaceuticals.png',
     category: 'health',
     status: 'production',
     version: '1.0.0',
@@ -417,7 +417,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     mockData: {
       merchant: {
         ...defaultMockMerchant,
-        id: 'pharmaceutical-preview',
+        id: 'pharmaceuticals-preview',
         business_name: 'MedCare Pharmacy',
         business_type: 'PHARMACEUTICALS',
         brand_colors: {
@@ -434,61 +434,113 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
   // BETA TEMPLATES
   // ---------------------------------------------------------------------------
 
-  'ogabassey-v2': {
-    id: 'ogabassey-v2',
-    name: 'Ogabassey V2',
-    description: 'Modern dark theme for gadget stores with advanced features',
-    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/ogabassey_v2_preview_1765030123136.png',
+  // ---------------------------------------------------------------------------
+  // PRODUCTION TEMPLATES (Continued)
+  // ---------------------------------------------------------------------------
+
+  'gadget-universe': {
+    id: 'gadget-universe',
+    name: 'Gadget Universe',
+    description: 'Dynamic block-based template for modern electronics retailers',
+    thumbnail: '/template-previews/gadget-universe.png',
     category: 'gadgets',
-    status: 'beta',
-    version: '2.1.0-beta',
+    status: 'production',
+    version: '1.0.0',
     author: 'Baci Team',
     engine: {
-      products: true, // Now supports engine products via EngineProductGrid
+      products: true,
       cart: true,
-      checkout: false,
-      customerAuth: false,
+      checkout: true,
+      customerAuth: true,
       wishlist: true,
-      orderTracking: false,
+      orderTracking: true,
     },
+    tags: ['gadgets', 'dark', 'modern', 'advanced'],
+    updatedAt: '2024-12-05',
     getComponents: async () => {
-      const { GadgetCustomTemplateOgabasseyV2 } = await import(
-        '@/components/storefront/templates/gadget-custom-template-ogabassey-v2'
+      const { GadgetUniverseTemplate } = await import(
+        '@/components/storefront/templates/gadget-universe'
       );
       return {
-        Home: GadgetCustomTemplateOgabasseyV2 as ComponentType<TemplatePageProps>,
+        Home: GadgetUniverseTemplate as React.ComponentType<any>,
       };
     },
     mockData: {
       merchant: {
         ...defaultMockMerchant,
-        id: 'ogabassey-v2-preview',
+        id: 'gadget-universe-preview',
+        business_name: 'Gadget Universe',
+      },
+    },
+  },
+
+  'ogabassey': {
+    id: 'ogabassey',
+    name: 'Ogabassey',
+    description: 'Premium gadget store template with hero carousel, utility panel, advanced product grid, and full e-commerce engine integration',
+    thumbnail: '/template-previews/ogabassey.png',
+    category: 'gadgets',
+    status: 'production',
+    version: '2.0.0',
+    author: 'Baci Team',
+    engine: {
+      products: true,
+      cart: true,
+      checkout: true,
+      customerAuth: true,
+      wishlist: true,
+      orderTracking: true,
+    },
+    tags: ['gadgets', 'electronics', 'premium', 'dark', 'carousel', 'featured'],
+    createdAt: '2024-12-07',
+    updatedAt: '2024-12-08',
+    getComponents: async () => {
+      const {
+        OgabasseyHomePage,
+        OgabasseyLayout
+      } = await import('@/components/storefront/ogabassey');
+
+      // Wrapper component that uses the layout
+      const OgabasseyHome: React.ComponentType<TemplatePageProps> = (props) => {
+        return (
+          <OgabasseyLayout>
+            <OgabasseyHomePage />
+          </OgabasseyLayout>
+        );
+      };
+
+      return {
+        Home: OgabasseyHome,
+        Layout: OgabasseyLayout,
+      };
+    },
+    mockData: {
+      merchant: {
+        ...defaultMockMerchant,
+        id: 'ogabassey-preview',
         business_name: 'Ogabassey',
-        business_type: 'GADGETS',
-        logo_url:
-          'https://ogabassey.com/wp-content/uploads/2023/06/Ogabassey-Logo-1.png',
+        business_type: 'ELECTRONICS',
         brand_colors: {
           primary: '#DC2626',
-          background: '#0F172A',
-          accent: '#22D3EE',
+          background: '#FFFFFF',
+          accent: '#0F0F0F',
         },
       },
     },
-    tags: ['gadgets', 'dark', 'modern', 'advanced'],
-    updatedAt: '2024-12-05',
   },
 
   // ---------------------------------------------------------------------------
   // DRAFT TEMPLATES (Work in Progress)
   // ---------------------------------------------------------------------------
 
-  'new-template': {
-    id: 'new-template',
-    name: 'New Template',
-    description: 'Modern gadget store with interactive product grid',
+  'gadgets-pro': {
+    id: 'gadgets-pro',
+    name: 'Tech Store Pro',
+    description: 'Modern dark-themed electronics storefront with interactive product grid and price negotiation',
+    thumbnail: '/template-previews/gadgets-pro.png',
     category: 'gadgets',
-    status: 'draft',
-    version: '0.2.0',
+    status: 'production',
+    version: '1.0.0',
     author: 'Baci Team',
     engine: {
       products: true, // Now supports engine products via EngineProductGrid
@@ -509,75 +561,27 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     mockData: {
       merchant: {
         ...defaultMockMerchant,
-        id: 'new-template-preview',
-        business_name: 'Modern Gadgets',
+        id: 'gadgets-pro-preview',
+        business_name: 'Tech Store Pro',
         business_type: 'GADGETS',
         brand_colors: {
           primary: '#DC2626',
-          background: '#FFFFFF',
+          background: '#0F0F0F',
           accent: '#111827',
         },
       },
     },
-    tags: ['gadgets', 'modern', 'interactive', 'work-in-progress'],
+    tags: ['gadgets', 'tech', 'electronics', 'dark', 'modern'],
     createdAt: '2024-12-04',
-    updatedAt: '2024-12-05',
+    updatedAt: '2024-12-07',
   },
 
-  lumina: {
-    id: 'lumina',
-    name: 'Lumina',
-    description: 'Clean, light template with focus on product imagery',
-    category: 'general',
-    status: 'draft',
-    version: '0.1.0',
-    engine: {
-      products: true,
-      cart: false, // Still needs cart connection
-      checkout: false,
-      customerAuth: false,
-      wishlist: false,
-      orderTracking: false,
-    },
-    getComponents: async () => {
-      // Lumina currently only has product grid, not a full home page
-      const { LuminaEngineGrid } = await import(
-        '@/components/storefront/lumina/engine-grid'
-      );
-      // Create a wrapper component
-      const LuminaHome: ComponentType<TemplatePageProps> = (props) => {
-        return (
-          <div className="min-h-screen bg-white">
-            <LuminaEngineGrid
-              storeSlug={props.storeSlug || 'lumina-preview'}
-              useMockData={props.isPreview ?? false}
-            />
-          </div>
-        );
-      };
-      return { Home: LuminaHome };
-    },
-    mockData: {
-      merchant: {
-        ...defaultMockMerchant,
-        id: 'lumina-preview',
-        business_name: 'Lumina Store',
-        business_type: 'FASHION',
-        brand_colors: {
-          primary: '#6366F1',
-          background: '#FFFFFF',
-          accent: '#EC4899',
-        },
-      },
-    },
-    tags: ['minimal', 'clean', 'light', 'work-in-progress'],
-  },
-
-  artisan: {
-    id: 'artisan',
-    name: 'The Artisan Collective',
-    description: 'Warm, authentic template for handcrafted and artisan products with maker story and custom orders',
-    thumbnail: '/.gemini/antigravity/brain/cbb117d5-7762-43f9-a5e1-d1d129af3887/artisan_template_hero_1765035110905.png',
+  'handmade': {
+    id: 'handmade',
+    name: 'Handmade Store',
+    description:
+      'Warm, authentic template for handcrafted and artisan products with maker story and custom orders',
+    thumbnail: '/template-previews/handmade.png',
     category: 'general',
     status: 'production',
     version: '1.0.0',
@@ -596,7 +600,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     mockData: {
       merchant: {
         ...defaultMockMerchant,
-        id: 'artisan-preview',
+        id: 'handmade-preview',
         business_name: 'The Artisan Collective',
         business_type: 'HANDMADE',
         brand_colors: {

@@ -54,6 +54,14 @@ interface OrderFilters {
   search?: string;
 }
 
+interface OrderItem {
+  id: string;
+  name?: string;
+  quantity: number;
+  price?: string | number;
+  variant_name?: string;
+}
+
 function formatStatus(status: string): string {
   if (!status) return 'Pending';
   return status
@@ -120,11 +128,11 @@ export async function getOrders(
     source: order.source === 'online_store' ? 'other' : order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
-    items: (order.order_items || []).map((item: any) => ({
+    items: (order.order_items || []).map((item: OrderItem) => ({
       id: item.id,
       name: item.name || 'Unknown Product',
       quantity: item.quantity,
-      price: Number.parseFloat(item.price || 0),
+      price: Number.parseFloat(String(item.price || 0)),
       image: undefined,
       variant: item.variant_name || undefined,
     })),
@@ -222,11 +230,11 @@ export async function getOrder(
     source: order.source === 'online_store' ? 'other' : order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
-    items: (order.order_items || []).map((item: any) => ({
+    items: (order.order_items || []).map((item: OrderItem) => ({
       id: item.id,
       name: item.name || 'Unknown Product',
       quantity: item.quantity,
-      price: Number.parseFloat(item.price || 0),
+      price: Number.parseFloat(String(item.price || 0)),
       image: undefined, // Image not available without product join
       variant: item.variant_name || undefined,
     })),

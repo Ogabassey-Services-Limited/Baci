@@ -3,17 +3,21 @@
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
   Check,
   Crown,
   DollarSign,
+  MousePointerClick,
   Package,
   Percent,
   RefreshCcw,
   Settings2,
+  Shield,
   ShoppingBag,
   Target,
   TrendingUp,
   Users,
+  Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { type Layout, Responsive, WidthProvider } from 'react-grid-layout';
@@ -96,6 +100,33 @@ interface SegmentSummary {
   champions_count: number;
 }
 
+interface AdPlatformStats {
+  name: string;
+  configured: boolean;
+  conversions: number;
+  revenue: number;
+  clickAttributed: number;
+}
+
+interface AdAnalyticsData {
+  offlineConversionsEnabled: boolean;
+  configuredPlatforms: number;
+  summary: {
+    totalOrders: number;
+    totalConversions: number;
+    totalAttributedRevenue: number;
+    trackingRate: number;
+    clickAttributionRate: number;
+    lduRate: number;
+  };
+  platforms: AdPlatformStats[];
+  details: {
+    ordersWithTracking: number;
+    ordersWithClickIds: number;
+    ordersWithLDU: number;
+  };
+}
+
 export interface AnalyticsData {
   summary?: AnalyticsSummary;
   chartData?: Array<{ date: string; revenue: number }>;
@@ -111,6 +142,8 @@ export interface AnalyticsData {
   outOfStockCount?: number;
   // Segment data
   segmentSummary?: SegmentSummary;
+  // Ad analytics data
+  adAnalytics?: AdAnalyticsData;
 }
 
 interface Layouts {
@@ -170,6 +203,12 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'segment-distribution', x: 3, y: 0, w: 3, h: 2 },
     { i: 'at-risk-customers', x: 6, y: 0, w: 3, h: 2 },
     { i: 'champions-list', x: 9, y: 0, w: 3, h: 2 },
+
+    // Ad analytics widgets
+    { i: 'ads-overview', x: 0, y: 0, w: 6, h: 2 },
+    { i: 'ads-platforms', x: 6, y: 0, w: 6, h: 2 },
+    { i: 'ads-attribution', x: 0, y: 2, w: 6, h: 2 },
+    { i: 'ads-privacy', x: 6, y: 2, w: 6, h: 2 },
   ],
   md: [
     // On md (10 cols), make cards take full width or half width
@@ -196,6 +235,10 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'segment-distribution', x: 5, y: 0, w: 5, h: 2 },
     { i: 'at-risk-customers', x: 0, y: 2, w: 5, h: 2 },
     { i: 'champions-list', x: 5, y: 2, w: 5, h: 2 },
+    { i: 'ads-overview', x: 0, y: 0, w: 5, h: 2 },
+    { i: 'ads-platforms', x: 5, y: 0, w: 5, h: 2 },
+    { i: 'ads-attribution', x: 0, y: 2, w: 5, h: 2 },
+    { i: 'ads-privacy', x: 5, y: 2, w: 5, h: 2 },
   ],
   sm: [
     // On sm (6 cols), stack in 2 columns
@@ -222,6 +265,10 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'segment-distribution', x: 3, y: 0, w: 3, h: 2 },
     { i: 'at-risk-customers', x: 0, y: 2, w: 6, h: 2 },
     { i: 'champions-list', x: 0, y: 4, w: 6, h: 2 },
+    { i: 'ads-overview', x: 0, y: 0, w: 6, h: 2 },
+    { i: 'ads-platforms', x: 0, y: 2, w: 6, h: 2 },
+    { i: 'ads-attribution', x: 0, y: 4, w: 6, h: 2 },
+    { i: 'ads-privacy', x: 0, y: 6, w: 6, h: 2 },
   ],
   xs: [
     // On xs (4 cols), cards take 2 or 4 cols
@@ -248,6 +295,10 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'segment-distribution', x: 2, y: 0, w: 2, h: 2 },
     { i: 'at-risk-customers', x: 0, y: 2, w: 4, h: 2 },
     { i: 'champions-list', x: 0, y: 4, w: 4, h: 2 },
+    { i: 'ads-overview', x: 0, y: 0, w: 4, h: 2 },
+    { i: 'ads-platforms', x: 0, y: 2, w: 4, h: 2 },
+    { i: 'ads-attribution', x: 0, y: 4, w: 4, h: 2 },
+    { i: 'ads-privacy', x: 0, y: 6, w: 4, h: 2 },
   ],
   xxs: [
     // On xxs (2 cols), everything full width
@@ -274,6 +325,10 @@ const DEFAULT_LAYOUTS: Layouts = {
     { i: 'segment-distribution', x: 0, y: 2, w: 2, h: 2 },
     { i: 'at-risk-customers', x: 0, y: 4, w: 2, h: 2 },
     { i: 'champions-list', x: 0, y: 6, w: 2, h: 2 },
+    { i: 'ads-overview', x: 0, y: 0, w: 2, h: 2 },
+    { i: 'ads-platforms', x: 0, y: 2, w: 2, h: 2 },
+    { i: 'ads-attribution', x: 0, y: 4, w: 2, h: 2 },
+    { i: 'ads-privacy', x: 0, y: 6, w: 2, h: 2 },
   ],
 };
 
@@ -325,6 +380,38 @@ const CATEGORY_LAYOUTS: Record<string, Layouts> = {
     xxs: [
       { i: 'summary-customers', x: 0, y: 0, w: 2, h: 1 },
       { i: 'summary-active', x: 0, y: 1, w: 2, h: 1 },
+    ],
+  },
+  ads: {
+    lg: [
+      { i: 'ads-overview', x: 0, y: 0, w: 6, h: 2 },
+      { i: 'ads-platforms', x: 6, y: 0, w: 6, h: 2 },
+      { i: 'ads-attribution', x: 0, y: 2, w: 6, h: 2 },
+      { i: 'ads-privacy', x: 6, y: 2, w: 6, h: 2 },
+    ],
+    md: [
+      { i: 'ads-overview', x: 0, y: 0, w: 5, h: 2 },
+      { i: 'ads-platforms', x: 5, y: 0, w: 5, h: 2 },
+      { i: 'ads-attribution', x: 0, y: 2, w: 5, h: 2 },
+      { i: 'ads-privacy', x: 5, y: 2, w: 5, h: 2 },
+    ],
+    sm: [
+      { i: 'ads-overview', x: 0, y: 0, w: 6, h: 2 },
+      { i: 'ads-platforms', x: 0, y: 2, w: 6, h: 2 },
+      { i: 'ads-attribution', x: 0, y: 4, w: 6, h: 2 },
+      { i: 'ads-privacy', x: 0, y: 6, w: 6, h: 2 },
+    ],
+    xs: [
+      { i: 'ads-overview', x: 0, y: 0, w: 4, h: 2 },
+      { i: 'ads-platforms', x: 0, y: 2, w: 4, h: 2 },
+      { i: 'ads-attribution', x: 0, y: 4, w: 4, h: 2 },
+      { i: 'ads-privacy', x: 0, y: 6, w: 4, h: 2 },
+    ],
+    xxs: [
+      { i: 'ads-overview', x: 0, y: 0, w: 2, h: 2 },
+      { i: 'ads-platforms', x: 0, y: 2, w: 2, h: 2 },
+      { i: 'ads-attribution', x: 0, y: 4, w: 2, h: 2 },
+      { i: 'ads-privacy', x: 0, y: 6, w: 2, h: 2 },
     ],
   },
 };
@@ -444,7 +531,7 @@ export function DraggableAnalyticsGrid({
 
   // Filter widgets based on active category
   const isWidgetVisible = (key: string) => {
-    // Overview shows all standard widgets but not specialized inventory/segment widgets
+    // Overview shows all standard widgets but not specialized inventory/segment/ads widgets
     if (activeCategory === 'overview') {
       const specializedWidgets = [
         'inventory-alerts',
@@ -455,6 +542,10 @@ export function DraggableAnalyticsGrid({
         'segment-distribution',
         'at-risk-customers',
         'champions-list',
+        'ads-overview',
+        'ads-platforms',
+        'ads-attribution',
+        'ads-privacy',
       ];
       return !specializedWidgets.includes(key);
     }
@@ -486,6 +577,7 @@ export function DraggableAnalyticsGrid({
         'at-risk-customers',
         'champions-list',
       ],
+      ads: ['ads-overview', 'ads-platforms', 'ads-attribution', 'ads-privacy'],
     };
 
     return categoryMap[activeCategory]?.includes(key);
@@ -822,6 +914,251 @@ export function DraggableAnalyticsGrid({
                 ))}
               </div>
             </BentoCard>
+          </div>
+        )}
+
+        {/* Ad Analytics Widgets */}
+        {activeCategory === 'ads' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full">
+            {/* Ads Overview */}
+            {isWidgetVisible('ads-overview') && (
+              <div className="min-h-[300px]">
+                <BentoCard
+                  title="Conversion Overview"
+                  icon={Zap}
+                  className="h-full"
+                >
+                  {data?.adAnalytics ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10">
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Total Conversions Tracked
+                          </p>
+                          <p className="text-3xl font-bold">
+                            {data.adAnalytics.summary.totalConversions}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-muted-foreground">
+                            Attributed Revenue
+                          </p>
+                          <p className="text-xl font-bold text-green-500">
+                            {formatCurrency(
+                              data.adAnalytics.summary.totalAttributedRevenue
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 rounded-lg bg-muted/30 text-center">
+                          <div className="text-2xl font-bold">
+                            {data.adAnalytics.configuredPlatforms}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Platforms Active
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-lg bg-muted/30 text-center">
+                          <div className="text-2xl font-bold">
+                            {data.adAnalytics.summary.totalOrders}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Total Orders
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        className={cn(
+                          'flex items-center gap-2 p-2 rounded-lg text-sm',
+                          data.adAnalytics.offlineConversionsEnabled
+                            ? 'bg-green-500/10 text-green-600'
+                            : 'bg-amber-500/10 text-amber-600'
+                        )}
+                      >
+                        {data.adAnalytics.offlineConversionsEnabled ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            <span>Offline conversions enabled</span>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-4 h-4" />
+                            <span>Offline conversions disabled</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-muted-foreground">Loading...</p>
+                    </div>
+                  )}
+                </BentoCard>
+              </div>
+            )}
+
+            {/* Platform Breakdown */}
+            {isWidgetVisible('ads-platforms') && (
+              <div className="min-h-[300px]">
+                <BentoCard
+                  title="Platform Performance"
+                  icon={BarChart3}
+                  className="h-full"
+                >
+                  {data?.adAnalytics ? (
+                    <div className="space-y-3">
+                      {data.adAnalytics.platforms.map((platform) => (
+                        <div
+                          key={platform.name}
+                          className={cn(
+                            'p-3 rounded-lg',
+                            platform.configured
+                              ? 'bg-muted/30'
+                              : 'bg-muted/10 opacity-60'
+                          )}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {platform.name}
+                              </span>
+                              {platform.configured ? (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600">
+                                  Active
+                                </span>
+                              ) : (
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                  Not configured
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-sm font-bold">
+                              {platform.conversions} conversions
+                            </span>
+                          </div>
+                          {platform.configured && (
+                            <div className="flex justify-between text-sm text-muted-foreground">
+                              <span>
+                                Revenue: {formatCurrency(platform.revenue)}
+                              </span>
+                              <span>
+                                {platform.clickAttributed} click-attributed
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-muted-foreground">Loading...</p>
+                    </div>
+                  )}
+                </BentoCard>
+              </div>
+            )}
+
+            {/* Click Attribution */}
+            {isWidgetVisible('ads-attribution') && (
+              <div className="min-h-[250px]">
+                <BentoCard
+                  title="Click Attribution"
+                  icon={MousePointerClick}
+                  className="h-full"
+                >
+                  {data?.adAnalytics ? (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Orders tracked with ad click IDs for better attribution
+                      </p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="p-3 rounded-lg bg-blue-500/10 text-center">
+                          <div className="text-xl font-bold text-blue-600">
+                            {data.adAnalytics.summary.trackingRate}%
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Tracking Rate
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-lg bg-purple-500/10 text-center">
+                          <div className="text-xl font-bold text-purple-600">
+                            {data.adAnalytics.summary.clickAttributionRate}%
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Click Attribution
+                          </div>
+                        </div>
+                        <div className="p-3 rounded-lg bg-green-500/10 text-center">
+                          <div className="text-xl font-bold text-green-600">
+                            {data.adAnalytics.details.ordersWithClickIds}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            With Click IDs
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-4">
+                        Click IDs (fbclid, ttclid, gclid, sccid) help platforms
+                        attribute conversions to the original ad click for
+                        better ROAS measurement.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-muted-foreground">Loading...</p>
+                    </div>
+                  )}
+                </BentoCard>
+              </div>
+            )}
+
+            {/* Privacy Compliance */}
+            {isWidgetVisible('ads-privacy') && (
+              <div className="min-h-[250px]">
+                <BentoCard
+                  title="Privacy Compliance"
+                  icon={Shield}
+                  className="h-full"
+                >
+                  {data?.adAnalytics ? (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        CCPA/GDPR compliance through Limited Data Use (LDU)
+                      </p>
+                      <div className="p-4 rounded-lg bg-muted/30">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">Orders with LDU flag</span>
+                          <span className="text-lg font-bold">
+                            {data.adAnalytics.details.ordersWithLDU}
+                          </span>
+                        </div>
+                        <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-amber-500 transition-all"
+                            style={{
+                              width: `${Math.min(data.adAnalytics.summary.lduRate, 100)}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {data.adAnalytics.summary.lduRate}% of tracked orders
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        LDU is automatically applied for users in California
+                        (CCPA), EU countries (GDPR), and other privacy-focused
+                        regions.
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-muted-foreground">Loading...</p>
+                    </div>
+                  )}
+                </BentoCard>
+              </div>
+            )}
           </div>
         )}
       </div>

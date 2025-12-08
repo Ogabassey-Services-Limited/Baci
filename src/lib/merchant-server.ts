@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 import type {
   MerchantData,
   StaffAccess,
@@ -13,7 +14,9 @@ const defaultStaffAccess: StaffAccess = {
   permissions: {},
 };
 
-export async function getMerchantForUser() {
+// Use React cache() to deduplicate this call within a single request
+// This means layout.tsx and page.tsx will share the same result
+export const getMerchantForUser = cache(async () => {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const {
@@ -106,4 +109,4 @@ export async function getMerchantForUser() {
     console.error('Failed to load merchant data server-side:', error);
     return { merchant: null, staffAccess: defaultStaffAccess, user };
   }
-}
+});

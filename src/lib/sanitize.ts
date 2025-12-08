@@ -22,7 +22,6 @@ export {
   sanitizePhone,
   sanitizePrice,
   sanitizeSchemaMarkup,
-  sanitizeSchemaObject,
   sanitizeSchemaUrl,
   sanitizeSearchQuery,
   sanitizeText,

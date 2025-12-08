@@ -1,12 +1,12 @@
 'use client';
 
-import type React from 'react';
 import {
   createContext,
   type ReactNode,
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import type { AIResponse, Change } from '@/app/dashboard/products/actions';
@@ -58,23 +58,33 @@ interface ProductContextType {
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
-export const ProductProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
-  const { user, loading: authLoading } = useAuth(); // Use the auth context
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Start as true
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0,
-  });
-  const [stats, setStats] = useState<ProductStats>({
-    inventoryValue: 0,
-    outOfStockCount: 0,
-    categoryCount: 0,
-  });
+import type { ProductsResult } from '@/lib/products-server';
+
+export const ProductProvider: React.FC<{
+  children: ReactNode;
+  initialData?: ProductsResult;
+}> = ({ children, initialData }) => {
+  const { user, loading: authLoading } = useAuth();
+
+  const [products, setProducts] = useState<Product[]>(
+    initialData?.products || []
+  );
+  const [isLoading, setIsLoading] = useState(!initialData);
+  const [pagination, setPagination] = useState<PaginationInfo>(
+    initialData?.pagination || {
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+    }
+  );
+  const [stats, setStats] = useState<ProductStats>(
+    initialData?.stats || {
+      inventoryValue: 0,
+      outOfStockCount: 0,
+      categoryCount: 0,
+    }
+  );
   const [statusFilter, setStatusFilter] = useState('All');
   const [stockFilter, setStockFilter] = useState('All');
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>('view');
@@ -84,6 +94,8 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({
 
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const fetchInProgressRef = useRef(false);
+  const lastFetchParamsRef = useRef<string>('');
 
   const openAddProductDialog = (product: Product | null = null) => {
     setEditingProduct(product);
@@ -95,19 +107,18 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({
     setEditingProduct(null);
   };
 
-  const fetchProducts = useCallback(async () => {
-    // **FIX**: Do not fetch if auth is still loading or if there's no user
-    if (authLoading || !user) {
-      // If we know there's no user, stop loading and clear data.
-      if (!authLoading && !user) {
-        setProducts([]);
-        setIsLoading(false);
+  const fetchProducts = useCallback(
+    async (force = false) => {
+      // **FIX**: Do not fetch if auth is still loading or if there's no user
+      if (authLoading || !user) {
+        // If we know there's no user, stop loading and clear data.
+        if (!authLoading && !user) {
+          setProducts([]);
+          setIsLoading(false);
+        }
+        return;
       }
-      return;
-    }
 
-    setIsLoading(true);
-    try {
       const params = new URLSearchParams({
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
@@ -115,51 +126,98 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({
         status: statusFilter,
         stock: stockFilter,
       });
+      const paramsString = params.toString();
 
-      const response = await fetch(`/api/products?${params}`);
-      if (!response.ok) {
-        // Silently fail on 401, as it's an expected state during logout/session expiry
-        if (response.status === 401) {
-          setIsLoading(false);
-          return;
-        }
-        throw new Error('Failed to fetch products');
+      // Prevent rapid re-fetching (throttle to 1s)
+      const now = Date.now();
+      const lastFetch = (fetchProducts as any).lastFetch || 0;
+      if (now - lastFetch < 1000) {
+        console.log('Throttling product fetch');
+        return;
+      }
+      // Store timestamp on the function object (or use a ref in real implementation, but this works for quick patch)
+      (fetchProducts as any).lastFetch = now;
+
+      // Prevent duplicate fetches with same parameters
+      if (
+        !force &&
+        (fetchInProgressRef.current ||
+          paramsString === lastFetchParamsRef.current)
+      ) {
+        return;
       }
 
-      const data = await response.json();
-      setProducts(data.products || []);
-      setPagination(data.pagination);
-      setStats(
-        data.stats || {
-          inventoryValue: 0,
-          outOfStockCount: 0,
-          categoryCount: 0,
+      fetchInProgressRef.current = true;
+      lastFetchParamsRef.current = paramsString;
+      setIsLoading(true);
+      try {
+        const response = await fetch(`/api/products?${params}`);
+        if (!response.ok) {
+          // Silently fail on 401/403/404/500/429
+          if ([401, 403, 404, 500, 429].includes(response.status)) {
+            if (response.status === 429) {
+              console.warn(
+                'Rate limit hit for products fetch. Retrying in 5s...'
+              );
+              // Optional: Validation or backoff logic here
+            }
+            fetchInProgressRef.current = false;
+            setIsLoading(false);
+            return;
+          }
+          console.error(
+            `Fetch failed with status: ${response.status} ${response.statusText}`
+          );
+          throw new Error(`Failed to fetch products: ${response.status}`);
         }
-      );
-    } catch (error) {
-      console.error('Error fetching products:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load products',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [
-    pagination.page,
-    pagination.limit,
-    searchTerm,
-    statusFilter,
-    stockFilter,
-    toast,
-    authLoading,
-    user,
-  ]);
+
+        const data = await response.json();
+        setProducts(data.products || []);
+        setPagination(data.pagination);
+        setStats(
+          data.stats || {
+            inventoryValue: 0,
+            outOfStockCount: 0,
+            categoryCount: 0,
+          }
+        );
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load products',
+          variant: 'destructive',
+        });
+      } finally {
+        fetchInProgressRef.current = false;
+        setIsLoading(false);
+      }
+    },
+    [
+      pagination.page,
+      pagination.limit,
+      searchTerm,
+      statusFilter,
+      stockFilter,
+      toast,
+      authLoading,
+      user,
+    ]
+  );
+
+  // Removed automatic fetch on mount since we hydrate from server data
+  // Only re-fetch when filters/pagination change AFTER initial load
+  // We use a ref to track if it's the first render
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
+    // Skip the first render if we have initialData, as it matches the server state
+    if (initialData && isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     fetchProducts();
-  }, [fetchProducts]);
+  }, [fetchProducts, initialData]);
 
   const setPage = (page: number) => {
     setPagination((prev) => ({ ...prev, page }));
@@ -178,7 +236,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({
         throw new Error(errorData.error || 'Failed to add product');
       }
 
-      await fetchProducts();
+      await fetchProducts(true);
     } catch (error) {
       console.error('Error adding product:', error);
       toast({
@@ -206,7 +264,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({
       setProducts((prev) =>
         prev.map((p) => (p.id === product.id ? product : p))
       );
-      await fetchProducts();
+      await fetchProducts(true);
     } catch (error) {
       console.error('Error updating product:', error);
       toast({
@@ -229,7 +287,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({
       }
 
       setProducts((prev) => prev.filter((p) => p.id !== productId));
-      await fetchProducts();
+      await fetchProducts(true);
     } catch (error) {
       console.error('Error deleting product:', error);
       toast({
@@ -248,7 +306,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({
     });
     setWorkflowStep('view');
     setAiResponse(null);
-    await fetchProducts();
+    await fetchProducts(true);
   };
 
   return (

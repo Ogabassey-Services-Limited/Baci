@@ -24,7 +24,7 @@ GO54_EMAIL=your-email@example.com
 GO54_API_KEY=your-api-key-here
 
 # Root domain for subdomain routing (optional)
-NEXT_PUBLIC_ROOT_DOMAIN=baci.tech
+NEXT_PUBLIC_ROOT_DOMAIN=usebaci.com
 ```
 
 ### How to Get Your API Credentials
@@ -125,7 +125,7 @@ All prices are in Nigerian Naira (NGN) per year.
 
 ### ✅ Custom Domain Routing
 - Middleware automatically routes custom domains to merchant storefronts
-- Supports both subdomain (merchant.baci.tech) and custom domains (merchant.com)
+- Supports both subdomain (merchant.usebaci.com) and custom domains (merchant.com)
 - SSL/HTTPS support via hosting provider
 
 ## How It Works
@@ -133,7 +133,7 @@ All prices are in Nigerian Naira (NGN) per year.
 ### 1. Subdomain Routing (Free)
 - Merchant: "Oga Bassey"
 - Slug: `ogabassey`
-- URL: `ogabassey.baci.tech`
+- URL: `ogabassey.usebaci.com`
 - Middleware rewrites to: `/storefront/ogabassey`
 
 ### 2. Custom Domain (BYOD)
@@ -275,8 +275,8 @@ To test with real availability checks, you need valid Go54 credentials.
 
 4. **Configure DNS**
    - Set up nameservers for custom domains
-   - Configure DNS zone for baci.tech
-   - Set up wildcard SSL certificate for *.baci.tech
+   - Configure DNS zone for usebaci.com
+   - Set up wildcard SSL certificate for *.usebaci.com
 
 5. **Test Flow**
    - Search for available domains

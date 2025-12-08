@@ -171,10 +171,28 @@ export default {
             height: '0',
           },
         },
+        'float-up': {
+          '0%': {
+            opacity: '1',
+            transform: 'translateY(0) scale(1)',
+          },
+          '100%': {
+            opacity: '0',
+            transform: 'translateY(-60px) scale(1.5)',
+          },
+        },
+      },
+      // Named transition durations to avoid Tailwind "ambiguous class" warnings
+      transitionDuration: {
+        '3000': '3000ms',
+        '4000': '4000ms',
+        '5000': '5000ms',
+        '10000': '10000ms',
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
+        'float-up': 'float-up 1s ease-out forwards',
       },
     },
   },

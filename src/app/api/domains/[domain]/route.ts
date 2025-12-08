@@ -8,6 +8,7 @@ import {
   updateDomainNameservers,
 } from '@/lib/go54';
 import { createClient } from '@/lib/supabase/server';
+import { vercel } from '@/lib/vercel';
 
 export async function GET(
   _request: NextRequest,
@@ -141,5 +142,67 @@ export async function POST(
       error instanceof Error ? error.message : 'Failed to update domain';
     console.error('Error updating domain:', error);
     return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ domain: string }> }
+) {
+  try {
+    const { domain } = await params;
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!merchant) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const { error: deleteError } = await supabase
+      .from('domains')
+      .delete()
+      .eq('domain', domain)
+      .eq('merchant_id', merchant.id);
+
+    if (deleteError) {
+      return NextResponse.json(
+        { error: 'Failed to delete domain' },
+        { status: 500 }
+      );
+    }
+
+    // Try to remove from Vercel as well (best effort)
+    try {
+      await vercel.removeDomain(domain);
+    } catch (vercelError) {
+      console.warn('Failed to remove domain from Vercel:', vercelError);
+      // We do not fail the request because DB deletion succeeded
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error: unknown) {
+    console.error('Error deleting domain:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

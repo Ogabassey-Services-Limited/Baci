@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { CheckCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -10,6 +11,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +30,8 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
@@ -87,6 +91,9 @@ export default function PagesSettingsPage() {
   const { toast } = useToast();
   const { merchant, loading, updateMerchant } = useMerchant();
   const [isSaving, setIsSaving] = useState(false);
+  const [completedPages, setCompletedPages] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const form = useForm<PagesFormValues>({
     resolver: zodResolver(pagesSchema),
@@ -104,7 +111,37 @@ export default function PagesSettingsPage() {
     if (merchant?.pages) {
       form.reset(merchant.pages);
     }
+    if (merchant?.feature_settings?.pages_completed) {
+      setCompletedPages(
+        merchant.feature_settings.pages_completed as Record<string, boolean>
+      );
+    }
   }, [merchant, form]);
+
+  const handleStatusChange = async (pageName: string, checked: boolean) => {
+    const newStatus = { ...completedPages, [pageName]: checked };
+    setCompletedPages(newStatus);
+
+    const newFeatureSettings = {
+      ...(merchant?.feature_settings || {}),
+      pages_completed: newStatus,
+    };
+
+    try {
+      await updateMerchant(
+        { feature_settings: newFeatureSettings },
+        { skipReload: true }
+      );
+    } catch (_error) {
+      // Revert on error
+      setCompletedPages({ ...completedPages });
+      toast({
+        title: 'Error',
+        description: 'Failed to update page status.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   async function onSubmit(data: PagesFormValues) {
     setIsSaving(true);
@@ -142,8 +179,36 @@ export default function PagesSettingsPage() {
               <Accordion type="single" collapsible className="w-full">
                 {pageFields.map((page) => (
                   <AccordionItem value={page.name} key={page.name}>
-                    <AccordionTrigger>{page.label}</AccordionTrigger>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-3">
+                        <span>{page.label}</span>
+                        {completedPages[page.name] && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-green-100 text-green-700 hover:bg-green-100/80 gap-1"
+                          >
+                            <CheckCircle className="w-3 h-3" />
+                            Completed
+                          </Badge>
+                        )}
+                      </div>
+                    </AccordionTrigger>
                     <AccordionContent>
+                      <div className="flex items-center space-x-2 mb-6 pb-4 border-b">
+                        <Switch
+                          id={`status-${page.name}`}
+                          checked={!!completedPages[page.name]}
+                          onCheckedChange={(checked) =>
+                            handleStatusChange(page.name, checked)
+                          }
+                        />
+                        <Label
+                          htmlFor={`status-${page.name}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          Mark as Completed
+                        </Label>
+                      </div>
                       <FormField
                         control={form.control}
                         name={page.name}

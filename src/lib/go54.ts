@@ -194,10 +194,75 @@ async function go54Request<T>(
 }
 
 /**
- * Check domain availability using WHOIS
+ * Go54 Domain Lookup Response
+ */
+export interface Go54LookupResponse {
+  domain: string;
+  status: 'available' | 'unavailable';
+  premium: boolean;
+  group: string;
+  message: string | null;
+  addons: {
+    dnsmanagement: number;
+    emailforwarding: number;
+    idprotection: number;
+  };
+  addon_pricing: {
+    dnsmanagement: string;
+    emailforwarding: string;
+    idprotection: string;
+  };
+  pricing: {
+    domainregister: Array<{ period: number; price: string }>;
+    domaintransfer: Array<{ period: number; price: string }>;
+    domainrenew: Array<{ period: number; price: string }>;
+  };
+  suggestions: string[];
+}
+
+/**
+ * Check domain availability using Go54's whoislookup.php endpoint
+ * This is the primary method - returns detailed availability info with pricing
+ */
+export async function lookupDomain(
+  domain: string
+): Promise<Go54LookupResponse | null> {
+  try {
+    if (!domain) return null;
+
+    const response = await fetch(
+      'https://www.whogohost.com/host/whoislookup.php',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: `domain=${encodeURIComponent(domain)}`,
+      }
+    );
+
+    if (!response.ok) {
+      console.error(
+        'Go54 lookup failed:',
+        response.status,
+        response.statusText
+      );
+      return null;
+    }
+
+    const data = await response.json();
+    return data as Go54LookupResponse;
+  } catch (error) {
+    console.error('Error in Go54 domain lookup:', error);
+    return null;
+  }
+}
+
+/**
+ * Check domain availability using Go54's whoislookup.php
+ * Returns boolean for simple availability check
  *
- * Note: The official API 'lookup' action is deprecated.
- * We use direct WHOIS lookup as a fallback.
+ * Note: For full pricing/suggestions, use lookupDomain() instead
  */
 export async function checkDomainAvailability(
   domain: string,
@@ -205,23 +270,33 @@ export async function checkDomainAvailability(
   _isWhmcs: number = 0
 ): Promise<boolean> {
   try {
-    // Basic validation
+    const result = await lookupDomain(domain);
+    if (!result) {
+      // Fallback to WHOIS if Go54 fails
+      return checkDomainAvailabilityFallback(domain);
+    }
+    return result.status === 'available';
+  } catch (error) {
+    console.error('Error checking domain availability:', error);
+    return false;
+  }
+}
+
+/**
+ * Fallback: Check domain availability using WHOIS
+ * Used when Go54 endpoint is unavailable
+ */
+async function checkDomainAvailabilityFallback(
+  domain: string
+): Promise<boolean> {
+  try {
     if (!domain) return false;
 
-    // Perform WHOIS lookup
     const results = await whois(domain);
-    console.log(
-      'WHOIS Results for',
-      domain,
-      ':',
-      JSON.stringify(results, null, 2)
-    );
+    console.log('WHOIS Fallback for', domain);
 
-    // Analyze WHOIS response to determine availability
-    // Common patterns for available domains:
     const responseString = JSON.stringify(results).toLowerCase();
 
-    // Check for specific error object pattern from whois-json
     if (results && typeof results === 'object' && 'error' in results) {
       const errorMsg = (results as Record<string, unknown>).error as string;
       if (errorMsg.includes('no match for') || errorMsg.includes('not found')) {
@@ -239,14 +314,11 @@ export async function checkDomainAvailability(
       'no entries found',
     ];
 
-    const isAvailable = availabilityIndicators.some((indicator) =>
+    return availabilityIndicators.some((indicator) =>
       responseString.includes(indicator)
     );
-
-    return isAvailable;
   } catch (error) {
-    console.error('Error checking domain availability:', error);
-    // Fail safe: assume unavailable if check fails to prevent false positives
+    console.error('WHOIS fallback error:', error);
     return false;
   }
 }

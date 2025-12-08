@@ -197,7 +197,7 @@ export default function LoginForm() {
                         id="password"
                         name="password"
                         type={showPassword ? 'text' : 'password'}
-                        placeholder="••••••••"
+                        placeholder="Enter your password"
                         required
                         minLength={8}
                         className="pl-10 pr-10 h-11 bg-white/50 dark:bg-black/20 border-primary/10 focus:border-primary/50 transition-all"
@@ -266,6 +266,18 @@ export default function LoginForm() {
                     )}
                     GitHub
                   </Button>
+                </div>
+
+                <div className="mt-6 text-center text-sm">
+                  <span className="text-muted-foreground">
+                    Don&apos;t have an account?{' '}
+                  </span>
+                  <Link
+                    href="/onboarding"
+                    className="font-semibold text-primary hover:underline transition-all"
+                  >
+                    Sign Up
+                  </Link>
                 </div>
               </div>
             ) : (

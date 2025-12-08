@@ -40,6 +40,15 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
     }));
 }
 
+/** Demo slugs that should use mock data instead of live API */
+const DEMO_SLUGS = new Set([
+    'ogabassey',
+    'new-template-demo',
+    'gadget-custom-template-ogabassey',
+    'premium-default',
+    'lumina-preview',
+]);
+
 interface EngineProductGridProps {
     storeSlug?: string;
     /** Use mock data instead of fetching from API */
@@ -59,8 +68,8 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
 
     useEffect(() => {
         async function fetchProducts() {
-            // If using mock data or no storeSlug, use static mock products
-            if (useMockData || !storeSlug) {
+            // If using mock data, no storeSlug, or demo slug, use static mock products
+            if (useMockData || !storeSlug || DEMO_SLUGS.has(storeSlug)) {
                 setProducts(mockProducts);
                 setLoading(false);
                 return;

@@ -6,6 +6,7 @@ import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
+import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import { createGiglShipment } from '@/lib/gigl';
 import { logger } from '@/lib/logger';
 import {
@@ -192,6 +193,16 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
     const body = await request.json();
 
+    // Capture IP and User Agent for enhanced ad tracking (improves Event Match Quality)
+    const clientIp =
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+      request.headers.get('x-real-ip') ||
+      undefined;
+    const clientUserAgent = request.headers.get('user-agent') || undefined;
+
+    // Detect privacy region for CCPA/GDPR compliance (LDU flag)
+    const geoPrivacy = await detectPrivacyRegion(clientIp);
+
     const {
       merchant_id,
       customer_email,
@@ -206,6 +217,8 @@ export async function POST(request: NextRequest) {
       shipping_address,
       source = 'online_store',
       notes,
+      // Ad tracking data for offline conversions
+      ad_tracking,
     } = body;
 
     // Validate merchant_id is a valid UUID
@@ -307,6 +320,31 @@ export async function POST(request: NextRequest) {
       shipping_address,
       source,
       notes,
+      // Store ad tracking data for offline conversion attribution
+      // This is stored as JSONB and used when sending CAPI events after payment
+      // Enhanced with server-captured IP/User Agent for better Event Match Quality
+      ad_tracking: ad_tracking
+        ? {
+            ...ad_tracking,
+            // Server-side captured data for better EMQ
+            userIp: clientIp || ad_tracking.userIp,
+            userAgent: clientUserAgent || ad_tracking.userAgent,
+            // Server-detected privacy compliance (overrides client if more restrictive)
+            limitedDataUse:
+              geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
+            // Store geo info for analytics
+            geoCountry: geoPrivacy.country,
+            geoRegion: geoPrivacy.region,
+          }
+        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
+          ? {
+              userIp: clientIp,
+              userAgent: clientUserAgent,
+              limitedDataUse: geoPrivacy.shouldApplyLDU,
+              geoCountry: geoPrivacy.country,
+              geoRegion: geoPrivacy.region,
+            }
+          : null,
     };
 
     // Dynamically handle shipping based on request shipping_provider

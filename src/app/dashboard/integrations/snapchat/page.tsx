@@ -2,16 +2,41 @@
 
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback } from 'react';
 import { SetupInstructions } from '@/components/analytics/setup-instructions';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Button } from '@/components/ui/button';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useIntegrationSettings } from '@/hooks/use-integration-settings';
 import { asRoute } from '@/lib/routes';
 
-export default function SnapchatIntegrationPage() {
-  const { merchant, updateMerchant } = useMerchant();
+interface SnapchatSettings {
+  snapchat_pixel_id: string | null;
+  snapchat_capi_token: string | null;
+}
 
-  if (!merchant) {
+const SETTINGS_KEYS: (keyof SnapchatSettings)[] = [
+  'snapchat_pixel_id',
+  'snapchat_capi_token',
+];
+
+export default function SnapchatIntegrationPage() {
+  const { settings, isLoading, hasMerchant, saveSettings } =
+    useIntegrationSettings<SnapchatSettings>({
+      keys: SETTINGS_KEYS,
+      platformName: 'Snapchat',
+    });
+
+  const handleSave = useCallback(
+    async (pixelId: string, token: string) => {
+      await saveSettings({
+        snapchat_pixel_id: pixelId || null,
+        snapchat_capi_token: token || null,
+      });
+    },
+    [saveSettings]
+  );
+
+  if (!hasMerchant || isLoading) {
     return <div>Loading...</div>;
   }
 
@@ -33,16 +58,11 @@ export default function SnapchatIntegrationPage() {
 
       <TrackingPixelSection
         platform="Snapchat"
-        pixelId={(merchant as any).snapchat_pixel_id || ''}
-        accessToken={(merchant as any).snapchat_capi_token || ''}
+        pixelId={settings?.snapchat_pixel_id || ''}
+        accessToken={settings?.snapchat_capi_token || ''}
         pixelLabel="Snap Pixel ID"
         tokenLabel="Conversion API Token (Optional)"
-        onSave={async (pixelId, token) => {
-          await updateMerchant({
-            snapchat_pixel_id: pixelId,
-            snapchat_capi_token: token,
-          } as any);
-        }}
+        onSave={handleSave}
         description="The Snap Pixel helps you measure the cross-device impact of your campaigns."
       >
         <SetupInstructions platform="snapchat" />

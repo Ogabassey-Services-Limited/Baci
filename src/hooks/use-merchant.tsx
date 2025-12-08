@@ -6,10 +6,11 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
-import { useAuth } from '@/contexts/auth-context';
+import { useAuthSafe } from '@/contexts/auth-context';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/client';
 
@@ -67,6 +68,27 @@ export interface MerchantData {
     // biome-ignore lint/suspicious/noExplicitAny: Feature settings are dynamic and can have any shape
     [key: string]: any;
   };
+  // Template selection
+  template_id?: string;
+  // Plan and Subscription
+  plan_tier?: 'free' | 'starter' | 'pro' | 'business' | 'enterprise';
+  premium_features?: string[]; // stored as JSONB array of feature keys
+  plan_started_at?: string;
+  plan_expires_at?: string;
+  stripe_customer_id?: string;
+  stripe_subscription_id?: string;
+  // Ad tracking settings
+  offline_conversions_enabled?: boolean;
+  // Analytics & Tracking Pixels
+  facebook_pixel_id?: string;
+  facebook_capi_token?: string;
+  google_analytics_id?: string;
+  ga4_api_secret?: string;
+  tiktok_pixel_id?: string;
+  tiktok_access_token?: string;
+  snapchat_pixel_id?: string;
+  snapchat_capi_token?: string;
+  twitter_pixel_id?: string;
 }
 
 export type StaffRole =
@@ -89,7 +111,10 @@ export interface StaffAccess {
 interface MerchantContextType {
   merchant: MerchantData | null;
   loading: boolean;
-  updateMerchant: (data: Partial<MerchantData>) => Promise<void>;
+  updateMerchant: (
+    data: Partial<MerchantData>,
+    options?: { skipReload?: boolean }
+  ) => Promise<void>;
   reloadMerchant: () => void;
   staffAccess: StaffAccess;
   hasPermission: (resource: string, action: string) => boolean;
@@ -119,7 +144,10 @@ export const MerchantProvider = ({
   initialMerchant,
   initialStaffAccess,
 }: MerchantProviderProps) => {
-  const { user, loading: authLoading } = useAuth();
+  // Use safe auth hook - returns null when outside AuthProvider (e.g., template preview)
+  const auth = useAuthSafe();
+  const user = auth?.user ?? null;
+  const authLoading = auth?.loading ?? false;
 
   // Initialize state with props if available
   const [merchant, setMerchant] = useState<MerchantData | null>(
@@ -130,7 +158,7 @@ export const MerchantProvider = ({
   const [staffAccess, setStaffAccess] = useState<StaffAccess>(
     initialStaffAccess ?? defaultStaffAccess
   );
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   // Initialize ref with prop value to avoid race condition
   const hasHydrated = useRef(!!initialMerchant);
 
@@ -181,6 +209,7 @@ export const MerchantProvider = ({
             country: 'NG',
             slug: slug,
             published_config: null,
+            plan_tier: 'pro',
           };
           setMerchant(merchantData);
           setLoading(false);
@@ -188,11 +217,11 @@ export const MerchantProvider = ({
         }
 
         // Mock data for Ogabassey V2 template demo
-        if (slug === 'ogabassey-v2') {
+        if (slug === 'ogabassey') {
           merchantData = {
-            id: 'demo-ogabassey-v2',
+            id: 'demo-ogabassey',
             user_id: 'demo-user',
-            business_name: 'Ogabassey V2',
+            business_name: 'Ogabassey',
             business_type: 'GADGETS',
             logo_url:
               'https://ogabassey.com/wp-content/uploads/2023/06/Ogabassey-Logo-1.png',
@@ -204,6 +233,7 @@ export const MerchantProvider = ({
             country: 'NG',
             slug: slug,
             published_config: null,
+            plan_tier: 'pro',
           };
           setMerchant(merchantData);
           setLoading(false);
@@ -226,6 +256,7 @@ export const MerchantProvider = ({
             country: 'NG',
             slug: slug,
             published_config: null,
+            plan_tier: 'pro',
           };
           setMerchant(merchantData);
           setLoading(false);
@@ -248,6 +279,30 @@ export const MerchantProvider = ({
             country: 'NG',
             slug: slug,
             published_config: null,
+            plan_tier: 'pro',
+          };
+          setMerchant(merchantData);
+          setLoading(false);
+          return;
+        }
+
+        // Mock data for Gadget Universe demo
+        if (slug === 'gadget-universe-demo') {
+          merchantData = {
+            id: 'demo-gadget-universe',
+            user_id: 'demo-user',
+            business_name: 'Gadget Universe',
+            business_type: 'GADGETS',
+            logo_url: undefined, // Use text logo or default
+            brand_colors: {
+              primary: '#DC2626',
+              background: '#FFFFFF',
+              accent: '#111827',
+            },
+            country: 'NG',
+            slug: slug,
+            published_config: null,
+            plan_tier: 'pro',
           };
           setMerchant(merchantData);
           setLoading(false);
@@ -361,7 +416,7 @@ export const MerchantProvider = ({
     } finally {
       setLoading(false);
     }
-  }, [slug, authLoading, user, supabase, initialMerchant]);
+  }, [slug, authLoading, user, initialMerchant, supabase.from]);
 
   useEffect(() => {
     loadData();
@@ -372,7 +427,7 @@ export const MerchantProvider = ({
   }, [loadData]);
 
   const updateMerchant = useCallback(
-    async (data: Partial<MerchantData>) => {
+    async (data: Partial<MerchantData>, options?: { skipReload?: boolean }) => {
       if (!user) {
         const errorMsg = 'Cannot update merchant data, no user logged in.';
         logger.error({ message: errorMsg });
@@ -403,10 +458,16 @@ export const MerchantProvider = ({
         throw error;
       }
 
-      logger.info({ message: 'Merchant data updated, reloading.' });
-      reloadMerchant();
+      // Optimistic update: merge new data into current state
+      if (options?.skipReload) {
+        setMerchant((prev) => (prev ? { ...prev, ...data } : prev));
+        logger.info({ message: 'Merchant data updated optimistically.' });
+      } else {
+        logger.info({ message: 'Merchant data updated, reloading.' });
+        reloadMerchant();
+      }
     },
-    [user, supabase, reloadMerchant, staffAccess, merchant?.id]
+    [user, reloadMerchant, staffAccess, merchant?.id, supabase]
   );
 
   // Helper function to check permissions

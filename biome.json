@@ -18,6 +18,7 @@
       "!**/src/app/page.tsx.bak",
       "!**/src/app/globals.css",
       "!**/src/components/storefront/new-template",
+      "!**/src/components/storefront/ogabassey",
       "!**/src/components/storefront/ogabassey-v2",
       "!**/src/components/storefront/lumina",
       "!**/src/app/template-preview",
@@ -244,6 +245,7 @@
     {
       "includes": [
         "src/components/storefront/new-template/**",
+        "src/components/storefront/ogabassey/**",
         "src/components/storefront/ogabassey-v2/**",
         "src/components/storefront/lumina/**",
         "src/app/(preview)/**",
@@ -255,6 +257,8 @@
         "rules": {
           "a11y": {
             "useButtonType": "warn",
+            "useKeyWithClickEvents": "warn",
+            "noStaticElementInteractions": "warn",
             "noLabelWithoutControl": "warn"
           },
           "performance": {

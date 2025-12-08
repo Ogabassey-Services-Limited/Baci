@@ -26,6 +26,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -338,16 +339,18 @@ const OrderCard = ({
             {/* Visual Row: Product Thumbnails */}
             <div className="flex items-center gap-2 mb-1">
               {visibleItems.length > 0 ? (
-                visibleItems.map((item, i) => (
+                visibleItems.map((item) => (
                   <div
-                    key={i}
+                    key={item.id}
                     className="relative w-12 h-12 rounded-lg bg-muted border border-border flex items-center justify-center overflow-hidden shrink-0"
                   >
                     {item.image ? (
-                      <img
+                      <Image
                         src={item.image}
                         alt={item.name}
-                        className="w-full h-full object-cover"
+                        fill
+                        sizes="48px"
+                        className="object-cover"
                       />
                     ) : (
                       <Box className="w-5 h-5 text-muted-foreground/50" />
@@ -423,9 +426,9 @@ const OrderCard = ({
                 <Box className="w-3 h-3" /> Item Details
               </h5>
               <div className="space-y-2">
-                {order.items?.map((item, idx) => (
+                {order.items?.map((item) => (
                   <div
-                    key={idx}
+                    key={item.id || item.name}
                     className="flex justify-between items-center text-sm p-2 hover:bg-muted/20 rounded"
                   >
                     <div className="flex gap-3 items-center overflow-hidden">

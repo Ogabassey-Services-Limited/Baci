@@ -1,5 +1,5 @@
 -- Migration: Add slug column to merchants table
--- Description: Adds unique slug for subdomain routing (merchant.baci.tech)
+-- Description: Adds unique slug for subdomain routing (merchant.usebaci.com)
 -- Created: 2024-11-25
 
 -- Add slug column
@@ -49,4 +49,4 @@ ALTER TABLE merchants
 ALTER COLUMN slug SET NOT NULL;
 
 -- Add comment
-COMMENT ON COLUMN merchants.slug IS 'URL-safe slug for subdomain routing (e.g., "ogabassey" for ogabassey.baci.tech)';
+COMMENT ON COLUMN merchants.slug IS 'URL-safe slug for subdomain routing (e.g., "ogabassey" for ogabassey.usebaci.com)';

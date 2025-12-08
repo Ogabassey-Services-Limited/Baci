@@ -2,16 +2,41 @@
 
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback } from 'react';
 import { SetupInstructions } from '@/components/analytics/setup-instructions';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Button } from '@/components/ui/button';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useIntegrationSettings } from '@/hooks/use-integration-settings';
 import { asRoute } from '@/lib/routes';
 
-export default function GoogleAnalyticsPage() {
-  const { merchant, updateMerchant } = useMerchant();
+interface GoogleAnalyticsSettings {
+  google_analytics_id: string | null;
+  ga4_api_secret: string | null;
+}
 
-  if (!merchant) {
+const SETTINGS_KEYS: (keyof GoogleAnalyticsSettings)[] = [
+  'google_analytics_id',
+  'ga4_api_secret',
+];
+
+export default function GoogleAnalyticsPage() {
+  const { settings, isLoading, hasMerchant, saveSettings } =
+    useIntegrationSettings<GoogleAnalyticsSettings>({
+      keys: SETTINGS_KEYS,
+      platformName: 'Google Analytics',
+    });
+
+  const handleSave = useCallback(
+    async (measurementId: string, apiSecret: string) => {
+      await saveSettings({
+        google_analytics_id: measurementId || null,
+        ga4_api_secret: apiSecret || null,
+      });
+    },
+    [saveSettings]
+  );
+
+  if (!hasMerchant || isLoading) {
     return <div>Loading...</div>;
   }
 
@@ -35,16 +60,11 @@ export default function GoogleAnalyticsPage() {
 
       <TrackingPixelSection
         platform="Google Analytics 4"
-        pixelId={(merchant as any).google_analytics_id || ''}
-        accessToken={(merchant as any).ga4_api_secret || ''}
+        pixelId={settings?.google_analytics_id || ''}
+        accessToken={settings?.ga4_api_secret || ''}
         pixelLabel="Measurement ID (G-XXXXXXXXXX)"
         tokenLabel="API Secret (Optional)"
-        onSave={async (pixelId, token) => {
-          await updateMerchant({
-            google_analytics_id: pixelId,
-            ga4_api_secret: token,
-          } as any);
-        }}
+        onSave={handleSave}
         description="Connect your store to GA4 to track visitors, events, and ecommerce data."
       >
         <SetupInstructions platform="google" />

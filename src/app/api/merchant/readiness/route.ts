@@ -43,7 +43,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get merchant with all relevant fields
+    // Get merchant with all relevant fields (only columns that exist in the table)
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select(`
@@ -62,24 +62,30 @@ export async function GET() {
         hero_slides,
         google_analytics_id,
         facebook_pixel_id,
+        tiktok_pixel_id,
+        snapchat_pixel_id,
+        twitter_pixel_id,
         is_published
       `)
       .eq('user_id', user.id)
       .single();
 
     if (merchantError || !merchant) {
+      console.error('[Readiness API] Merchant lookup failed:', {
+        userId: user.id,
+        error: merchantError,
+      });
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
     }
 
-    // Get product count
-    const { count: productCount } = await supabase
+    const { count: publishedProductCount } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
       .eq('merchant_id', merchant.id)
-      .eq('status', 'published');
+      .eq('status', 'active');
 
     // Get feature settings (if needed in future for conditional setup items)
     // Currently the result is not used, but the query validates merchant access
@@ -107,10 +113,10 @@ export async function GET() {
       },
       {
         id: 'first_product',
-        label: 'Add your first product',
-        description: 'You need at least one product to start selling',
-        completed: (productCount || 0) > 0,
-        href: '/dashboard/products/new',
+        label: 'Publish your first product',
+        description: 'You need at least one published product to start selling',
+        completed: (publishedProductCount || 0) > 0,
+        href: '/dashboard/products',
         priority: 'required',
         category: 'products',
       },
@@ -170,6 +176,7 @@ export async function GET() {
         priority: 'recommended',
         category: 'store',
       },
+      // Hero carousel - now that hero_slides column exists
       {
         id: 'hero_carousel',
         label: 'Set up hero carousel',
@@ -202,17 +209,21 @@ export async function GET() {
         label: 'Set up analytics',
         description: 'Track visitors and conversions',
         completed: !!(
-          merchant.google_analytics_id || merchant.facebook_pixel_id
+          merchant.google_analytics_id ||
+          merchant.facebook_pixel_id ||
+          merchant.tiktok_pixel_id ||
+          merchant.snapchat_pixel_id ||
+          merchant.twitter_pixel_id
         ),
-        href: '/dashboard/settings',
+        href: '/dashboard/integrations',
         priority: 'optional',
         category: 'marketing',
       },
       {
         id: 'multiple_products',
         label: 'Add more products',
-        description: 'Stores with 5+ products convert better',
-        completed: (productCount || 0) >= 5,
+        description: 'Stores with 5+ published products convert better',
+        completed: (publishedProductCount || 0) >= 5,
         href: '/dashboard/products',
         priority: 'optional',
         category: 'products',

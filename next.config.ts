@@ -127,7 +127,9 @@ const nextConfig: NextConfig = {
       '@supabase/supabase-js',
     ],
 
-    // Enable Turbopack file system caching for faster dev rebuilds (Next.js 16 beta)
+    // Enable Turbopack file system caching for faster dev rebuilds (Next.js 16)
+    // This caches compilation results to disk, dramatically reducing rebuild times
+    // TEMPORARILY DISABLED: Investigating stability issues
     // turbopackFileSystemCacheForDev: true,
   },
 

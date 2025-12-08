@@ -535,7 +535,7 @@ export const metadata = {
   },
   
   alternates: {
-    canonical: 'https://baci.tech/page-url',
+    canonical: 'https://usebaci.com/page-url',
   },
 };
 ```

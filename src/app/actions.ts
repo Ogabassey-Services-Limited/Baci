@@ -16,21 +16,17 @@ async function fetchMetricsInternal(): Promise<LandingMetrics> {
     // Use service client for public data to allow static generation (no cookies needed)
     const supabase = createServiceClient();
 
-    // Execute queries in parallel
+    // Execute queries in parallel - use RPC for sales to avoid fetching all orders
     const [merchantResult, orderResult, salesResult] = await Promise.all([
       supabase.from('merchants').select('*', { count: 'exact', head: true }),
       supabase.from('orders').select('*', { count: 'exact', head: true }),
-      // Fetch only necessary data for sales calculation
-      // Note: For large datasets, this should be replaced with an RPC function
-      // e.g., supabase.rpc('calculate_total_sales')
-      supabase
-        .from('orders')
-        .select('total'),
+      // Use RPC function instead of fetching all orders (huge performance improvement)
+      supabase.rpc('get_total_sales'),
     ]);
 
     const { count: merchantCount, error: merchantError } = merchantResult;
     const { count: orderCount, error: orderError } = orderResult;
-    const { data: salesData, error: salesError } = salesResult;
+    const { data: salesTotal, error: salesError } = salesResult;
 
     if (merchantError) {
       console.error('Error fetching merchant count:', merchantError);
@@ -42,10 +38,8 @@ async function fetchMetricsInternal(): Promise<LandingMetrics> {
       console.error('Error fetching sales total:', salesError);
     }
 
-    // Calculate total sales
-    const totalSales =
-      salesData?.reduce((sum, order) => sum + (Number(order.total) || 0), 0) ??
-      0;
+    // Use RPC result directly (returns a number in kobo/cents)
+    const totalSales = typeof salesTotal === 'number' ? salesTotal / 100 : 0;
 
     // Format sales display
     let salesDisplay: string | number;

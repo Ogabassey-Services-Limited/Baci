@@ -19,7 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -40,9 +39,6 @@ interface PaymentGatewaySettings {
   preferred_international_gateway: 'paystack' | 'korapay';
   // Credit Direct BNPL
   credit_direct_enabled: boolean;
-  credit_direct_public_key: string;
-  credit_direct_min_amount: number;
-  credit_direct_max_amount: number;
 }
 
 const DEFAULT_SETTINGS: PaymentGatewaySettings = {
@@ -52,9 +48,6 @@ const DEFAULT_SETTINGS: PaymentGatewaySettings = {
   preferred_international_gateway: 'korapay',
   // Credit Direct BNPL defaults
   credit_direct_enabled: false,
-  credit_direct_public_key: '',
-  credit_direct_min_amount: 10000,
-  credit_direct_max_amount: 500000,
 };
 
 export default function PaymentSettingsPage() {
@@ -79,9 +72,6 @@ export default function PaymentSettingsPage() {
               data.preferred_international_gateway || 'korapay',
             // Credit Direct BNPL
             credit_direct_enabled: data.credit_direct_enabled ?? false,
-            credit_direct_public_key: data.credit_direct_public_key || '',
-            credit_direct_min_amount: data.credit_direct_min_amount ?? 10000,
-            credit_direct_max_amount: data.credit_direct_max_amount ?? 500000,
           });
         }
       } catch (error) {
@@ -104,6 +94,13 @@ export default function PaymentSettingsPage() {
       });
 
       if (response.ok) {
+        // Check for onboarding flow
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('onboarding') === 'true') {
+          window.location.href = '/dashboard?setup_complete=payments';
+          return;
+        }
+
         toast({
           title: 'Settings Saved',
           description: 'Payment gateway settings have been updated.',
@@ -118,7 +115,9 @@ export default function PaymentSettingsPage() {
         description: 'Failed to save payment settings.',
       });
     } finally {
-      setSaving(false);
+      if (!window.location.search.includes('onboarding=true')) {
+        setSaving(false);
+      }
     }
   };
 
@@ -211,8 +210,8 @@ export default function PaymentSettingsPage() {
             className={cn(
               'p-4 rounded-lg border-2 transition-colors',
               settings.paystack_enabled
-                ? 'border-green-200 bg-green-50/50'
-                : 'border-gray-200'
+                ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800'
+                : 'border-gray-200 dark:border-gray-800'
             )}
           >
             <div className="flex items-start justify-between">
@@ -227,13 +226,13 @@ export default function PaymentSettingsPage() {
                     USSD.
                   </p>
                   <div className="flex gap-2 mt-2">
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full">
                       T+1 Settlement
                     </span>
-                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded-full">
                       Auto-Split
                     </span>
-                    <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 rounded-full">
                       1.5% + N100
                     </span>
                   </div>
@@ -248,7 +247,7 @@ export default function PaymentSettingsPage() {
               />
             </div>
             {!hasPaystackSubaccount && (
-              <p className="text-xs text-yellow-600 mt-2">
+              <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-2">
                 Add bank details above to enable Paystack
               </p>
             )}
@@ -259,8 +258,8 @@ export default function PaymentSettingsPage() {
             className={cn(
               'p-4 rounded-lg border-2 transition-colors',
               settings.korapay_enabled
-                ? 'border-green-200 bg-green-50/50'
-                : 'border-gray-200'
+                ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800'
+                : 'border-gray-200 dark:border-gray-800'
             )}
           >
             <div className="flex items-start justify-between">
@@ -275,13 +274,13 @@ export default function PaymentSettingsPage() {
                     across Africa.
                   </p>
                   <div className="flex gap-2 mt-2 flex-wrap">
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded-full">
                       Instant Bank Transfer
                     </span>
-                    <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300 px-2 py-0.5 rounded-full">
                       Multi-Currency
                     </span>
-                    <span className="text-xs bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 px-2 py-0.5 rounded-full">
                       NGN, KES, GHS, ZAR
                     </span>
                   </div>
@@ -315,8 +314,8 @@ export default function PaymentSettingsPage() {
             className={cn(
               'p-4 rounded-lg border-2 transition-colors',
               settings.credit_direct_enabled
-                ? 'border-green-200 bg-green-50/50'
-                : 'border-gray-200'
+                ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800'
+                : 'border-gray-200 dark:border-gray-800'
             )}
           >
             <div className="flex items-start justify-between">
@@ -331,13 +330,13 @@ export default function PaymentSettingsPage() {
                     instantly.
                   </p>
                   <div className="flex gap-2 mt-2 flex-wrap">
-                    <span className="text-xs bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-0.5 rounded-full">
                       Pay Later
                     </span>
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 px-2 py-0.5 rounded-full">
                       Instant Merchant Payment
                     </span>
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-0.5 rounded-full">
                       No Interest for Customers
                     </span>
                   </div>
@@ -348,101 +347,19 @@ export default function PaymentSettingsPage() {
                 onCheckedChange={(checked) =>
                   setSettings({ ...settings, credit_direct_enabled: checked })
                 }
-                disabled={!settings.credit_direct_public_key}
               />
             </div>
-            {!settings.credit_direct_public_key &&
-              settings.credit_direct_enabled === false && (
-                <p className="text-xs text-yellow-600 mt-2">
-                  Add your Credit Direct public key below to enable BNPL
-                </p>
-              )}
           </div>
 
-          {/* Credit Direct Configuration */}
-          <div className="space-y-4 pt-4 border-t">
-            <div className="space-y-2">
-              <Label htmlFor="credit_direct_public_key">Public Key</Label>
-              <Input
-                id="credit_direct_public_key"
-                type="text"
-                placeholder="Enter your Credit Direct public key"
-                value={settings.credit_direct_public_key}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    credit_direct_public_key: e.target.value,
-                  })
-                }
-              />
-              <p className="text-xs text-muted-foreground">
-                Get your public key from your{' '}
-                <a
-                  href="https://merchant.creditdirect.ng"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary underline"
-                >
-                  Credit Direct dashboard
-                </a>
-              </p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="credit_direct_min_amount">
-                  Minimum Order Amount (NGN)
-                </Label>
-                <Input
-                  id="credit_direct_min_amount"
-                  type="number"
-                  min={1000}
-                  value={settings.credit_direct_min_amount}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      credit_direct_min_amount:
-                        Number.parseInt(e.target.value, 10) || 10000,
-                    })
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Orders below this amount won&apos;t show BNPL option
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="credit_direct_max_amount">
-                  Maximum Order Amount (NGN)
-                </Label>
-                <Input
-                  id="credit_direct_max_amount"
-                  type="number"
-                  min={10000}
-                  value={settings.credit_direct_max_amount}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      credit_direct_max_amount:
-                        Number.parseInt(e.target.value, 10) || 500000,
-                    })
-                  }
-                />
-                <p className="text-xs text-muted-foreground">
-                  Orders above this amount won&apos;t show BNPL option
-                </p>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-lg bg-muted/50 border">
-              <h4 className="font-medium mb-2">How BNPL Works</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>1. Customer selects &quot;Pay Later&quot; at checkout</li>
-                <li>2. Credit Direct approves the customer instantly</li>
-                <li>3. Customer pays 25-40% upfront, rest in installments</li>
-                <li>4. You receive the full order amount from Credit Direct</li>
-              </ul>
-            </div>
+          {/* Credit Direct Info */}
+          <div className="p-4 rounded-lg bg-muted/50 border mt-4">
+            <h4 className="font-medium mb-2">How BNPL Works</h4>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>1. Customer selects &quot;Pay Later&quot; at checkout</li>
+              <li>2. Credit Direct approves the customer instantly</li>
+              <li>3. Customer pays 25-40% upfront, rest in installments</li>
+              <li>4. You receive the full order amount from Credit Direct</li>
+            </ul>
           </div>
         </CardContent>
       </Card>

@@ -96,11 +96,13 @@ async function generateInsights(
   };
 
   // Generate insights with retry logic
-  const { object } = await withRetry(async () => {
-    return await generateObject({
-      model: geminiFlash,
-      schema: InsightSchema,
-      prompt: `
+  // Wrap in try-catch to prevent server freezing if AI API is unavailable
+  try {
+    const { object } = await withRetry(async () => {
+      return await generateObject({
+        model: geminiFlash,
+        schema: InsightSchema,
+        prompt: `
 Analyze the following e-commerce data for a merchant and provide 3-5 actionable insights.
 Focus on trends, opportunities for growth, and potential issues.
 
@@ -114,13 +116,30 @@ Provide insights in the following categories:
 
 Be specific and constructive.
       `,
+      });
     });
-  });
 
-  // Cache the insights for 24 hours (86400 seconds)
-  cache.set(cacheKey, object, 86400);
+    // Cache the insights for 24 hours (86400 seconds)
+    cache.set(cacheKey, object, 86400);
 
-  return { data: object };
+    return { data: object };
+  } catch (error) {
+    console.error('Error generating AI insights (using fallback):', error);
+    // Return fallback insights when AI is unavailable
+    const fallbackInsights = {
+      insights: [
+        {
+          title: 'AI Insights Temporarily Unavailable',
+          description:
+            'AI-powered analytics are currently unavailable. Please check your API configuration or try again later.',
+          type: 'neutral' as const,
+          priority: 'low' as const,
+          action: 'Check your Google AI API key in environment variables.',
+        },
+      ],
+    };
+    return { data: fallbackInsights };
+  }
 }
 
 async function handleInsightsRequest() {

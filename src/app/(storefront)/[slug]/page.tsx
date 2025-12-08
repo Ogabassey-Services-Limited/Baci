@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import { MerchantProvider } from '@/hooks/use-merchant';
+import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
 import { getCachedMerchant } from '@/lib/cached-data';
 import {
   generateLocalBusinessSchema,
@@ -15,11 +15,40 @@ import { StorefrontWrapper } from './storefront-wrapper';
 // Valid slug pattern: alphanumeric and hyphens, no file extensions
 const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 
+// Reserved paths that should NOT be treated as merchant slugs
+const RESERVED_PATHS = new Set([
+  'cart',
+  'checkout',
+  'api',
+  'auth',
+  'login',
+  'logout',
+  'dashboard',
+  'admin',
+  'builder',
+  'onboarding',
+  'preview',
+  'about',
+  'contact',
+  'blog',
+  'pricing',
+  'terms',
+  'privacy',
+  'features',
+  'demo',
+  'developers',
+  'track',
+  'invite',
+  'reset-password',
+  'template-preview',
+]);
+
 function isValidMerchantSlug(slug: string): boolean {
   return (
     typeof slug === 'string' &&
     !!slug.trim() &&
     !slug.includes('.') && // No file extensions
+    !RESERVED_PATHS.has(slug.toLowerCase()) && // Not a reserved path
     VALID_SLUG_REGEX.test(slug.toLowerCase())
   );
 }
@@ -125,7 +154,9 @@ export default async function StorefrontPage({
   }
 
   // Check if store is published - show "coming soon" page if not
-  if (!merchant.is_published) {
+  // In development, allow viewing unpublished stores for testing
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  if (!merchant.is_published && !isDevelopment) {
     return <StoreNotPublished businessName={merchant.business_name} />;
   }
 
@@ -203,7 +234,10 @@ export default async function StorefrontPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }}
         />
       )}
-      <MerchantProvider slug={slug}>
+      <MerchantProvider
+        slug={slug}
+        initialMerchant={merchant as unknown as MerchantData}
+      >
         <Suspense fallback={<StorefrontPageSkeleton />}>
           <StorefrontWrapper />
         </Suspense>
