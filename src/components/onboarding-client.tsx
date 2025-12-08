@@ -1,7 +1,7 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { Logo } from '@/components/logo';
 
 const OnboardingForm = dynamic(
   () => import('@/components/onboarding-form').then((mod) => mod.default),
@@ -9,7 +9,9 @@ const OnboardingForm = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex justify-center items-center h-[400px]">
-        <Loader2 className="h-8 w-8 motion-safe:animate-spin" />
+        <div className="animate-pulse">
+          <Logo width={80} height={25} priority />
+        </div>
       </div>
     ),
   }
@@ -18,3 +20,4 @@ const OnboardingForm = dynamic(
 export default function OnboardingClient() {
   return <OnboardingForm />;
 }
+

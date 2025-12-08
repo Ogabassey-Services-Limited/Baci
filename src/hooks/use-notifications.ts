@@ -49,6 +49,7 @@ export function useNotifications(): UseNotificationsReturn {
   const channelRef = useRef<ReturnType<
     typeof supabaseRef.current.channel
   > | null>(null);
+  const isFetchingRef = useRef(false); // Prevent duplicate parallel fetches
 
   /**
    * Fetch notifications from the API
@@ -57,8 +58,14 @@ export function useNotifications(): UseNotificationsReturn {
     async (append = false) => {
       if (!merchant?.id) return;
 
+      // Prevent duplicate parallel fetches
+      if (isFetchingRef.current && !append) {
+        return;
+      }
+
       try {
         if (!append) {
+          isFetchingRef.current = true;
           setIsLoading(true);
         }
 
@@ -69,8 +76,19 @@ export function useNotifications(): UseNotificationsReturn {
         }
 
         const response = await fetch(`/api/notifications?${params.toString()}`);
+        // Implement throttling to prevent 429s
+        if (response.status === 429) {
+          console.warn('Rate limit exceeded for notifications. Backing off.');
+          // Wait 60 seconds before trying again if rate limited
+          await new Promise(resolve => setTimeout(resolve, 60000));
+          return [];
+        }
+
         if (!response.ok) {
-          throw new Error('Failed to fetch notifications');
+          const errorData = await response.json().catch(() => ({}));
+          // Don't throw for 429s or other actionable errors, just log and return empty
+          console.error(`Failed to fetch notifications: ${response.status}`, errorData);
+          return [];
         }
 
         const data = await response.json();
@@ -92,6 +110,7 @@ export function useNotifications(): UseNotificationsReturn {
         );
       } finally {
         setIsLoading(false);
+        isFetchingRef.current = false;
       }
     },
     [merchant?.id, cursor]

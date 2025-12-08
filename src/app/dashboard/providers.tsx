@@ -1,6 +1,7 @@
 'use client';
 
 import AppBody from '@/components/app-body';
+import { AuthProvider } from '@/contexts/auth-context';
 import {
   type MerchantData,
   MerchantProvider,
@@ -31,13 +32,15 @@ export function DashboardProviders({
   initialStaffAccess,
 }: DashboardProvidersProps) {
   return (
-    <MerchantProvider
-      initialMerchant={initialMerchant}
-      initialStaffAccess={initialStaffAccess}
-    >
-      <DashboardClientLayout>
-        <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
-      </DashboardClientLayout>
-    </MerchantProvider>
+    <AuthProvider>
+      <MerchantProvider
+        initialMerchant={initialMerchant}
+        initialStaffAccess={initialStaffAccess}
+      >
+        <DashboardClientLayout>
+          <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
+        </DashboardClientLayout>
+      </MerchantProvider>
+    </AuthProvider>
   );
 }

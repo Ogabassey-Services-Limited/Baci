@@ -262,58 +262,12 @@ export default function OnboardingForm() {
         });
       }
 
-      const supabase = createClient();
-      const verifyAndRedirect = async () => {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-
-        if (!session) {
-          toast({
-            title: 'Session Error',
-            description: 'Please try logging in manually',
-            variant: 'destructive',
-          });
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 2000);
-          return;
-        }
-
-        const { data: merchant } = await supabase
-          .from('merchants')
-          .select('id, business_name')
-          .eq('user_id', session.user.id)
-          .single();
-
-        if (merchant?.business_name) {
-          window.location.href = '/dashboard';
-        } else {
-          setTimeout(async () => {
-            const { data: retryMerchant } = await supabase
-              .from('merchants')
-              .select('id, business_name')
-              .eq('user_id', session.user.id)
-              .single();
-
-            if (retryMerchant?.business_name) {
-              window.location.href = '/dashboard';
-            } else {
-              toast({
-                title: 'Setup Issue',
-                description:
-                  'Your store was created but there was an issue loading it. Please try logging in.',
-                variant: 'destructive',
-              });
-              setTimeout(() => {
-                window.location.href = '/login';
-              }, 2000);
-            }
-          }, 1500);
-        }
-      };
-
-      verifyAndRedirect();
+      // Server action succeeded - redirect directly to dashboard
+      // The server already verified the session and created the merchant
+      // No need to re-check client-side which can have cookie timing issues
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1500);
     } else if (submissionState.message) {
       const fieldErrors = submissionState.errors?.fieldErrors;
       if (fieldErrors) {
@@ -541,7 +495,7 @@ export default function OnboardingForm() {
                   <section
                     aria-live="polite"
                     aria-atomic="true"
-                    className="min-h-[250px]"
+                    className="min-h-[200px] md:min-h-[250px]"
                   >
                     {step === 1 && (
                       <Step1_BusinessDetails onKeyDown={handleKeyDown} />

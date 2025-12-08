@@ -9,6 +9,7 @@ import {
   Target,
   TrendingUp,
   Users,
+  Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -19,7 +20,8 @@ export type AnalyticsCategory =
   | 'customers'
   | 'marketing'
   | 'inventory'
-  | 'segments';
+  | 'segments'
+  | 'ads';
 
 interface AnalyticsCategoryNavProps {
   activeCategory: AnalyticsCategory;
@@ -44,6 +46,7 @@ export function AnalyticsCategoryNav({
     { id: 'customers', label: 'Customers 👥', icon: Users },
     { id: 'segments', label: 'Segments 🎯', icon: Target },
     { id: 'marketing', label: 'Marketing 📣', icon: Megaphone },
+    { id: 'ads', label: 'Ad Conversions ⚡', icon: Zap },
   ];
 
   return (

@@ -104,6 +104,26 @@ export default function AnalyticsPage() {
     }
   }, []);
 
+  // Fetch ad analytics data when ads tab is active
+  const fetchAdAnalyticsData = useCallback(async () => {
+    if (!date.from || !date.to) return { adAnalytics: undefined };
+    try {
+      const queryParams = new URLSearchParams({
+        startDate: date.from.toISOString(),
+        endDate: date.to.toISOString(),
+      });
+      const response = await fetch(`/api/analytics/ads?${queryParams.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        return { adAnalytics: data };
+      }
+      return { adAnalytics: undefined };
+    } catch (error) {
+      console.error('Error fetching ad analytics:', error);
+      return { adAnalytics: undefined };
+    }
+  }, [date]);
+
   // Fetch analytics data
   useEffect(() => {
     async function fetchAnalytics() {
@@ -153,11 +173,16 @@ export default function AnalyticsPage() {
         setAnalyticsData((prev) =>
           prev ? { ...prev, ...segmentData } : segmentData
         );
+      } else if (activeCategory === 'ads') {
+        const adData = await fetchAdAnalyticsData();
+        setAnalyticsData((prev) =>
+          prev ? { ...prev, ...adData } : adData
+        );
       }
     }
 
     fetchCategoryData();
-  }, [activeCategory, merchant, fetchInventoryData, fetchSegmentData]);
+  }, [activeCategory, merchant, fetchInventoryData, fetchSegmentData, fetchAdAnalyticsData]);
 
   const handleExport = (format: 'csv' | 'pdf') => {
     if (!analyticsData) {

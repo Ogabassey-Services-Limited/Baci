@@ -11,6 +11,7 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { BagLoader } from '@/components/ui/bag-loader';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -28,8 +29,11 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useMerchant } from '@/hooks/use-merchant';
+import { CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const pagesSchema = z.object({
@@ -48,45 +52,46 @@ const pageFields: {
   label: string;
   description: string;
 }[] = [
-  {
-    name: 'about',
-    label: 'About Us',
-    description:
-      'Tell your customers your story. What makes your brand special?',
-  },
-  {
-    name: 'contact',
-    label: 'Contact Information',
-    description:
-      'How can customers get in touch? Provide an email, phone number, or address.',
-  },
-  {
-    name: 'privacy',
-    label: 'Privacy Policy',
-    description: 'Explain how you collect, use, and protect customer data.',
-  },
-  {
-    name: 'terms',
-    label: 'Terms and Conditions',
-    description: 'Set the rules for using your store and making purchases.',
-  },
-  {
-    name: 'faq',
-    label: 'Frequently Asked Questions',
-    description: 'Answer common questions your customers might have.',
-  },
-  {
-    name: 'legal',
-    label: 'Legal and Dispute',
-    description:
-      'Provide information on legal policies and how disputes are handled.',
-  },
-];
+    {
+      name: 'about',
+      label: 'About Us',
+      description:
+        'Tell your customers your story. What makes your brand special?',
+    },
+    {
+      name: 'contact',
+      label: 'Contact Information',
+      description:
+        'How can customers get in touch? Provide an email, phone number, or address.',
+    },
+    {
+      name: 'privacy',
+      label: 'Privacy Policy',
+      description: 'Explain how you collect, use, and protect customer data.',
+    },
+    {
+      name: 'terms',
+      label: 'Terms and Conditions',
+      description: 'Set the rules for using your store and making purchases.',
+    },
+    {
+      name: 'faq',
+      label: 'Frequently Asked Questions',
+      description: 'Answer common questions your customers might have.',
+    },
+    {
+      name: 'legal',
+      label: 'Legal and Dispute',
+      description:
+        'Provide information on legal policies and how disputes are handled.',
+    },
+  ];
 
 export default function PagesSettingsPage() {
   const { toast } = useToast();
   const { merchant, loading, updateMerchant } = useMerchant();
   const [isSaving, setIsSaving] = useState(false);
+  const [completedPages, setCompletedPages] = useState<Record<string, boolean>>({});
 
   const form = useForm<PagesFormValues>({
     resolver: zodResolver(pagesSchema),
@@ -104,7 +109,35 @@ export default function PagesSettingsPage() {
     if (merchant?.pages) {
       form.reset(merchant.pages);
     }
+    if (merchant?.feature_settings?.pages_completed) {
+      setCompletedPages(merchant.feature_settings.pages_completed as Record<string, boolean>);
+    }
   }, [merchant, form]);
+
+  const handleStatusChange = async (pageName: string, checked: boolean) => {
+    const newStatus = { ...completedPages, [pageName]: checked };
+    setCompletedPages(newStatus);
+
+    const newFeatureSettings = {
+      ...(merchant?.feature_settings || {}),
+      pages_completed: newStatus,
+    };
+
+    try {
+      await updateMerchant(
+        { feature_settings: newFeatureSettings },
+        { skipReload: true }
+      );
+    } catch (error) {
+      // Revert on error
+      setCompletedPages({ ...completedPages });
+      toast({
+        title: 'Error',
+        description: 'Failed to update page status.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   async function onSubmit(data: PagesFormValues) {
     setIsSaving(true);
@@ -142,8 +175,36 @@ export default function PagesSettingsPage() {
               <Accordion type="single" collapsible className="w-full">
                 {pageFields.map((page) => (
                   <AccordionItem value={page.name} key={page.name}>
-                    <AccordionTrigger>{page.label}</AccordionTrigger>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex items-center gap-3">
+                        <span>{page.label}</span>
+                        {completedPages[page.name] && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-green-100 text-green-700 hover:bg-green-100/80 gap-1"
+                          >
+                            <CheckCircle className="w-3 h-3" />
+                            Completed
+                          </Badge>
+                        )}
+                      </div>
+                    </AccordionTrigger>
                     <AccordionContent>
+                      <div className="flex items-center space-x-2 mb-6 pb-4 border-b">
+                        <Switch
+                          id={`status-${page.name}`}
+                          checked={!!completedPages[page.name]}
+                          onCheckedChange={(checked) =>
+                            handleStatusChange(page.name, checked)
+                          }
+                        />
+                        <Label
+                          htmlFor={`status-${page.name}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          Mark as Completed
+                        </Label>
+                      </div>
                       <FormField
                         control={form.control}
                         name={page.name}
@@ -166,6 +227,8 @@ export default function PagesSettingsPage() {
                           </FormItem>
                         )}
                       />
+
+
                     </AccordionContent>
                   </AccordionItem>
                 ))}
@@ -179,6 +242,6 @@ export default function PagesSettingsPage() {
           </Form>
         </CardContent>
       </Card>
-    </div>
+    </div >
   );
 }

@@ -33,6 +33,7 @@ import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
 import { OnboardingFormValues } from '@/schemas/onboarding';
 import { BrandColors } from '@/types';
+import { Eye, LayoutTemplate } from 'lucide-react';
 
 // Dynamically import heavy interactive components
 const ColorPicker = dynamic(
@@ -88,6 +89,12 @@ export default function Step2_Branding() {
     );
     const setStoreLogoDataUri = useOnboardingUIStore(
         (state) => state.setLogoDataUri
+    );
+    const setShowMobilePreview = useOnboardingUIStore(
+        (state) => state.setShowMobilePreview
+    );
+    const setShowTemplateSelector = useOnboardingUIStore(
+        (state) => state.setShowTemplateSelector
     );
 
     // Effect to keep currentLogoDataUri updated for client-side operations
@@ -370,7 +377,29 @@ export default function Step2_Branding() {
     };
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
+            {/* Mobile Action Buttons - Preview Store & Choose Template */}
+            <div className="flex gap-3 w-full">
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 h-11 text-sm font-medium border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+                    onClick={() => setShowMobilePreview(true)}
+                >
+                    <Eye className="mr-2 h-4 w-4" />
+                    Preview Store
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 h-11 text-sm font-medium border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+                    onClick={() => setShowTemplateSelector(true)}
+                >
+                    <LayoutTemplate className="mr-2 h-4 w-4" />
+                    Choose Template
+                </Button>
+            </div>
+
             <div className={cn('grid gap-8', 'grid-cols-1 lg:grid-cols-2')}>
                 {/* Left Column: Logo Canvas & Palette */}
                 <div className="space-y-6">
@@ -387,7 +416,7 @@ export default function Step2_Branding() {
                         </div>
 
                         {/* Logo Canvas & Button Wrapper */}
-                        <div className="max-w-[224px] mx-auto space-y-3">
+                        <div className="max-w-[160px] md:max-w-[224px] mx-auto space-y-2 md:space-y-3">
                             {/* Logo Canvas Area */}
                             <div
                                 className={cn(
@@ -485,7 +514,7 @@ export default function Step2_Branding() {
                 </div>
 
                 {/* Right Column: Generator Controls */}
-                <div className="space-y-6 mt-12">
+                <div className="space-y-4 md:space-y-6 mt-0 md:mt-12">
                     {currentLogoDataUri || logoUrl ? (
                         <>
                             <div className="flex items-center gap-2 text-blue-400 h-7">
@@ -496,7 +525,7 @@ export default function Step2_Branding() {
                             </div>
 
                             {/* Generator Control Card */}
-                            <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-5 flex flex-col gap-4 shadow-sm h-full min-h-[200px]">
+                            <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-4 md:p-5 flex flex-col gap-3 md:gap-4 shadow-sm h-full min-h-0 md:min-h-[200px]">
                                 <div className="text-left space-y-2">
                                     <p className="text-sm text-muted-foreground leading-relaxed">
                                         Make the Logo pop by removing the background.
@@ -581,7 +610,7 @@ export default function Step2_Branding() {
                             </div>
 
                             {/* Generator Control Card */}
-                            <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-5 flex flex-col gap-4 shadow-sm h-full min-h-[200px]">
+                            <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-4 md:p-5 flex flex-col gap-3 md:gap-4 shadow-sm h-full min-h-0 md:min-h-[200px]">
                                 <div className="text-left space-y-4">
                                     <p className="text-sm text-muted-foreground leading-relaxed">
                                         Don't have a logo yet? No problem. Our AI can design a
