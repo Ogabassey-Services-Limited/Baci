@@ -2,6 +2,7 @@
 
 import { CheckCircle, Eye, Loader2 } from 'lucide-react';
 import type { Route } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
@@ -48,10 +49,11 @@ function _TemplateCard({ template }: { template: TemplateDefinition }) {
         {/* Thumbnail placeholder */}
         <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
           {template.thumbnail ? (
-            <img
+            <Image
               src={template.thumbnail}
               alt={template.name}
-              className="w-full h-full object-cover"
+              fill
+              className="object-cover"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-gray-400">
@@ -343,10 +345,11 @@ function LivePreviewCard({ template }: { template: TemplateDefinition }) {
       <Link href={`/template-preview/${template.id}` as Route}>
         <div className="h-[320px] overflow-hidden relative bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 cursor-pointer">
           {template.thumbnail ? (
-            <img
+            <Image
               src={template.thumbnail}
               alt={`${template.name} preview`}
-              className="w-full h-full object-cover object-top"
+              fill
+              className="object-cover object-top"
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center">

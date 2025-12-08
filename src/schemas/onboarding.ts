@@ -28,7 +28,6 @@ const step1BaseSchema = z.object({
     .or(z.literal('')),
 });
 
-
 /**
  * Step 1: Business Details (with client-side refinement)
  */

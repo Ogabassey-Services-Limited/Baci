@@ -280,4 +280,3 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
     </div>
   );
 }
-

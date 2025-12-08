@@ -346,6 +346,7 @@ export function MerchantBankForm({
                         id={`bank-option-${index}`}
                         role="option"
                         aria-selected={field.value === bank.code}
+                        tabIndex={0}
                         className={cn(
                           'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
                           field.value === bank.code && 'bg-accent/50',
@@ -363,6 +364,15 @@ export function MerchantBankForm({
                           setShowBankSuggestions(false);
                           setVerifiedName(null); // Re-verify with new bank
                           setHighlightedIndex(-1);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            form.setValue('bankCode', bank.code);
+                            setBankSearchTerm(bank.name);
+                            setShowBankSuggestions(false);
+                            setVerifiedName(null);
+                            setHighlightedIndex(-1);
+                          }
                         }}
                       >
                         <Check

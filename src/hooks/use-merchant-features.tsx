@@ -138,7 +138,10 @@ export function FeatureGate({
         </div>
         <h3 className="font-bold text-gray-900 mb-2">{title}</h3>
         <p className="text-gray-600 text-sm mb-4">{description}</p>
-        <button className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold px-6 py-2 rounded-lg hover:opacity-90 transition-opacity">
+        <button
+          type="button"
+          className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold px-6 py-2 rounded-lg hover:opacity-90 transition-opacity"
+        >
           Upgrade to {targetPlan.charAt(0).toUpperCase() + targetPlan.slice(1)}
         </button>
       </div>

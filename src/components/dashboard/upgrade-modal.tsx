@@ -141,9 +141,11 @@ function UpgradeModal() {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default border-none"
         onClick={close}
+        aria-label="Close modal"
       />
 
       {/* Modal */}
