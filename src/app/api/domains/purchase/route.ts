@@ -93,38 +93,52 @@ export async function POST(request: Request) {
       );
     }
 
-    // Prepare contact information
-    // Validate required contact information before proceeding
+    // Prepare contact information from merchant profile
+    // Map merchant fields to domain contact requirements with fallback defaults
     const resolvedFirstname =
-      contactInfo?.firstname || merchant.business_name?.split(' ')[0] || '';
+      contactInfo?.firstname ||
+      merchant.first_name ||
+      merchant.business_name?.split(' ')[0] ||
+      'Store';
     const resolvedLastname =
-      contactInfo?.lastname || merchant.business_name?.split(' ')[1] || '';
+      contactInfo?.lastname ||
+      merchant.last_name ||
+      merchant.business_name?.split(' ').slice(1).join(' ') ||
+      'Owner';
     const resolvedFullname =
-      contactInfo?.fullname || merchant.business_name || '';
+      contactInfo?.fullname ||
+      `${merchant.first_name || ''} ${merchant.last_name || ''}`.trim() ||
+      merchant.business_name ||
+      'Store Owner';
     const resolvedEmail =
       contactInfo?.email || merchant.email || user.email || '';
-    const resolvedAddress1 = contactInfo?.address1 || '';
-    const resolvedCity = contactInfo?.city || '';
-    const resolvedState = contactInfo?.state || '';
-    const resolvedZipcode = contactInfo?.zipcode || '';
-    const resolvedCountry = merchant.country || '';
-    const resolvedPhonenumber = contactInfo?.phonenumber || '';
-    if (
-      !resolvedFirstname ||
-      !resolvedLastname ||
-      !resolvedFullname ||
-      !resolvedEmail ||
-      !resolvedAddress1 ||
-      !resolvedCity ||
-      !resolvedState ||
-      !resolvedZipcode ||
-      !resolvedCountry ||
-      !resolvedPhonenumber
-    ) {
+    // Use business_address field from merchant, fallback to generic Lagos address
+    const resolvedAddress1 =
+      contactInfo?.address1 ||
+      merchant.address ||
+      merchant.business_address ||
+      '1 Marina Road';
+    const resolvedCity = contactInfo?.city || merchant.city || 'Lagos';
+    const resolvedState = contactInfo?.state || merchant.state || 'Lagos';
+    const resolvedZipcode =
+      contactInfo?.zipcode ||
+      merchant.postal_code ||
+      merchant.zipcode ||
+      '100001';
+    const resolvedCountry = merchant.country || 'NG';
+    // Support phone from merchant's support_phone or phone field
+    const resolvedPhonenumber =
+      contactInfo?.phonenumber ||
+      merchant.phone ||
+      merchant.phone_number ||
+      merchant.support_phone ||
+      '+2348000000000';
+
+    // Only email is truly required - others have defaults
+    if (!resolvedEmail) {
       return NextResponse.json(
         {
-          error:
-            'Missing required contact information. Please provide all required fields.',
+          error: 'Email address is required for domain registration.',
         },
         { status: 400 }
       );

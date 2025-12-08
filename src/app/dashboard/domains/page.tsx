@@ -74,23 +74,7 @@ export default function DomainsPage() {
   } | null>(null);
   const [domainToDelete, setDomainToDelete] = useState<Domain | null>(null);
 
-  // Domain search states
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchResults, setSearchResults] = useState<
-    Array<{
-      domain: string;
-      tld: string;
-      available: boolean;
-      price: number;
-      originalPrice?: number;
-      renewalPrice?: number;
-      category?: string;
-      popular?: boolean;
-      recommended?: boolean;
-      note?: string;
-    }>
-  >([]);
+  // Domain verification retry tracking
   const [lastVerificationAttempt, setLastVerificationAttempt] = useState<
     Record<string, Date>
   >({});
@@ -122,6 +106,11 @@ export default function DomainsPage() {
     }>
   >([]);
   const [searchWarning, setSearchWarning] = useState<string | null>(null);
+  const [purchasingDomain, setPurchasingDomain] = useState<string | null>(null);
+  const [domainToPurchase, setDomainToPurchase] = useState<{
+    domain: string;
+    price: number;
+  } | null>(null);
 
   const { toast } = useToast();
 
@@ -131,6 +120,61 @@ export default function DomainsPage() {
       title: 'Copied!',
       description: `${label} copied to clipboard.`,
     });
+  };
+
+  // Open purchase confirmation dialog
+  const handlePurchaseDomain = (domain: string, price: number) => {
+    setDomainToPurchase({ domain, price });
+  };
+
+  // Execute the actual purchase after confirmation
+  const confirmPurchase = async () => {
+    if (!domainToPurchase) return;
+
+    const { domain } = domainToPurchase;
+    setDomainToPurchase(null);
+    setPurchasingDomain(domain);
+
+    try {
+      const response = await fetch('/api/domains/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ domain, years: 1 }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Purchase failed');
+      }
+
+      toast({
+        title: '🎉 Domain Purchased!',
+        description: data.message || `Successfully registered ${domain}`,
+      });
+
+      // Refresh domains list
+      fetchDomains();
+
+      // Clear search results
+      setDomainSearchResults([]);
+      setDomainSearchTerm('');
+
+      // Switch to overview tab
+      setActiveTab('overview');
+    } catch (error) {
+      console.error('Purchase error:', error);
+      toast({
+        title: 'Purchase Failed',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Please try again or contact support',
+        variant: 'destructive',
+      });
+    } finally {
+      setPurchasingDomain(null);
+    }
   };
 
   const fetchDomains = useCallback(async () => {
@@ -390,9 +434,22 @@ export default function DomainsPage() {
       return;
     }
 
-    // Validate search term (alphanumeric and hyphens only)
-    const searchTermRegex = /^[a-z0-9-]+$/i;
-    if (!searchTermRegex.test(searchTerm)) {
+    // Validate search term
+    // Allow dots for full domains like "claire.com", but reject if just a TLD like ".com"
+    if (searchTerm.startsWith('.')) {
+      toast({
+        title: 'Invalid format',
+        description:
+          'Please enter a domain name (e.g., "mystore" or "mystore.com")',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Extract domain name part (before first dot) for validation
+    const domainPart = searchTerm.split('.')[0];
+    const domainRegex = /^[a-z0-9-]+$/i;
+    if (!domainRegex.test(domainPart)) {
       toast({
         title: 'Invalid domain name',
         description:
@@ -1315,16 +1372,25 @@ export default function DomainsPage() {
                             {result.available && (
                               <Button
                                 size="sm"
-                                onClick={() => {
-                                  toast({
-                                    title: 'Coming Soon',
-                                    description:
-                                      'Domain purchase will be available soon. Please contact support to register this domain.',
-                                  });
-                                }}
+                                onClick={() =>
+                                  handlePurchaseDomain(
+                                    result.domain,
+                                    result.price
+                                  )
+                                }
+                                disabled={purchasingDomain === result.domain}
                               >
-                                <Plus className="w-4 h-4 mr-1" />
-                                Buy
+                                {purchasingDomain === result.domain ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                    Buying...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="w-4 h-4 mr-1" />
+                                    Buy
+                                  </>
+                                )}
                               </Button>
                             )}
                           </div>
@@ -1597,6 +1663,42 @@ export default function DomainsPage() {
               onClick={handleDeleteDomain}
             >
               Delete Domain
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Purchase Confirmation Dialog */}
+      <AlertDialog
+        open={!!domainToPurchase}
+        onOpenChange={(open) => !open && setDomainToPurchase(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Domain Purchase</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                You are about to purchase{' '}
+                <strong className="text-foreground">
+                  {domainToPurchase?.domain}
+                </strong>
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                ₦{domainToPurchase?.price.toLocaleString()}/year
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                This amount will be deducted from your wallet. The domain will
+                be registered and active immediately.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmPurchase}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              Confirm Purchase
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
