@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { X, Gift, MapPin, Info, Check } from 'lucide-react';
-import { V2CartItem as CartItem } from '../types';
-import { useCart } from '@/hooks/use-cart';
+import { Check, Gift, Info, MapPin, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import type React from 'react';
+import { useEffect, useState } from 'react';
+import { useCart } from '@/hooks/use-cart';
 
 export interface GiftData {
   selectedItemIds: string[];
@@ -106,7 +106,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
-      ></div>
+      />
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 rounded-t-2xl shrink-0">

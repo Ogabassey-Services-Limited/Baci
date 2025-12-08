@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useFormContext } from 'react-hook-form';
 import { Sparkles } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { useMemo, useState } from 'react';
+import { useFormContext } from 'react-hook-form';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -23,7 +23,7 @@ import {
 import { TypingPlaceholderInput } from '@/components/ui/typing-placeholder-input';
 import { getAllBusinessTypes } from '@/config/business-types';
 import { cn } from '@/lib/utils';
-import { OnboardingFormValues } from '@/schemas/onboarding';
+import type { OnboardingFormValues } from '@/schemas/onboarding';
 
 // Dynamically import heavy modal
 const BusinessNameGeneratorModal = dynamic(

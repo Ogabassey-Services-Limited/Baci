@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Download } from 'lucide-react';
-import { Logo } from './Logo';
-import { Product } from '../types';
-import { useCart } from '@/hooks/use-cart';
+import { Download, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import type React from 'react';
+import { useState } from 'react';
+import { useCart } from '@/hooks/use-cart';
+import { Logo } from './Logo';
 
 // Define interface to match the structure in data/orders
 export interface InvoiceOrderData {
@@ -31,7 +31,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const { cart, cartTotal } = useCart();
-  const router = useRouter();
+  const _router = useRouter();
 
   // For now, we'll use a dummy order for display purposes since the prop is removed.
   // In a real scenario, you might fetch this based on a cart ID or generate it.
@@ -73,7 +73,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   };
 
   // Calculate dynamic totals if wallet was used
-  const totalVal = parseFloat(dummyOrder.total.replace(/[^0-9.]/g, ''));
+  const totalVal = Number.parseFloat(dummyOrder.total.replace(/[^0-9.]/g, ''));
   const walletDed = dummyOrder.walletDeduction || 0;
   const amountDue = totalVal - walletDed;
 
@@ -82,7 +82,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
-      ></div>
+      />
       <div className="bg-white w-full max-w-3xl rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50 rounded-t-2xl shrink-0">
@@ -100,7 +100,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           {/* A4 Paper Container */}
           <div className="bg-white shadow-xl border border-gray-200 p-8 md:p-12 min-h-[1000px] relative mx-auto max-w-[794px] flex flex-col">
             {/* Decorative Top Bar */}
-            <div className="absolute top-0 left-0 right-0 h-2 bg-red-600"></div>
+            <div className="absolute top-0 left-0 right-0 h-2 bg-red-600" />
 
             {/* Invoice Header */}
             <div className="flex flex-col md:flex-row justify-between items-start mb-12 mt-4 gap-6">

@@ -1,8 +1,8 @@
 'use client';
 
+import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 // Migrated from temp-source/components/ProductCard.tsx
 import Link from 'next/link';
-import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import { useV2Comparison } from '../providers/v2-comparison-context';

@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useFormContext, useWatch } from 'react-hook-form';
-import dynamic from 'next/dynamic';
-import Image from 'next/image';
+import ColorThief from 'colorthief';
 import {
   Eraser,
+  Eye,
+  LayoutTemplate,
   Loader2,
   Pencil,
   RefreshCw,
@@ -14,8 +13,11 @@ import {
   Upload,
   Wand2,
 } from 'lucide-react';
-import ColorThief from 'colorthief';
-
+import dynamic from 'next/dynamic';
+import Image from 'next/image';
+import { useEffect, useMemo, useState } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
+import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { Button } from '@/components/ui/button';
 import { FormLabel } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
@@ -29,11 +31,9 @@ import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { uploadImage } from '@/lib/storage';
 import { cn, getContrastColor } from '@/lib/utils';
-import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
+import type { OnboardingFormValues } from '@/schemas/onboarding';
 import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
-import { OnboardingFormValues } from '@/schemas/onboarding';
-import { BrandColors } from '@/types';
-import { Eye, LayoutTemplate } from 'lucide-react';
+import type { BrandColors } from '@/types';
 
 // Dynamically import heavy interactive components
 const ColorPicker = dynamic(

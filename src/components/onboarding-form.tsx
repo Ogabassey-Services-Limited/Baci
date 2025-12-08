@@ -37,7 +37,7 @@ import {
   step3Schema,
 } from '@/schemas/onboarding';
 import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
-import { BrandColors } from '@/types';
+import type { BrandColors } from '@/types';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 // Dynamically import steps

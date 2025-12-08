@@ -20,8 +20,8 @@ import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
 import type { ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useToast } from '@/hooks/use-toast';
 import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/currency-utils';
 import { cn } from '@/lib/utils';
 import {
@@ -148,7 +148,7 @@ export default function DashboardClientPage({
           : 'Your store is now live and accessible to customers.',
       });
       reloadMerchant();
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Error',
         description: 'Failed to update store status. Please try again.',

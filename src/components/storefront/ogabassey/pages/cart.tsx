@@ -16,10 +16,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { useCart, type CartItem } from '@/hooks/use-cart';
+import { type CartItem, useCart } from '@/hooks/use-cart';
 import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
+
 interface NegotiationState {
   isOpen: boolean;
   type: 'single' | 'total';

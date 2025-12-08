@@ -1,6 +1,7 @@
 // Migrated from temp-source/components/BlogSnippet.tsx
-import Link from 'next/link';
+
 import { ArrowRight, BookOpen } from 'lucide-react';
+import Link from 'next/link';
 import type React from 'react';
 
 interface BlogSnippetProps {

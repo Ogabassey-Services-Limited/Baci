@@ -1,9 +1,9 @@
 'use server';
 
 import {
-  initializeTransaction as paystackInitialize,
   type PaymentInitData,
   type PaymentInitResponse,
+  initializeTransaction as paystackInitialize,
 } from '@/lib/paystack';
 
 interface InitPaymentParams {

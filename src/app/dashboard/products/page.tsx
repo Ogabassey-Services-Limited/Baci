@@ -1,11 +1,10 @@
-import { Suspense } from 'react';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-
-import { createClient } from '@/lib/supabase/server';
+import { Suspense } from 'react';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { getProducts } from '@/lib/products-server';
-import { BagLoader } from '@/components/ui/bag-loader';
+import { createClient } from '@/lib/supabase/server';
 import ProductsClientPage from './client-page';
 
 export const metadata = {
@@ -34,8 +33,10 @@ export default async function ProductsPage({
 
   // 2. Parse Params
   const params = await searchParams;
-  const page = typeof params.page === 'string' ? parseInt(params.page) : 1;
-  const limit = typeof params.limit === 'string' ? parseInt(params.limit) : 10;
+  const page =
+    typeof params.page === 'string' ? Number.parseInt(params.page, 10) : 1;
+  const limit =
+    typeof params.limit === 'string' ? Number.parseInt(params.limit, 10) : 10;
   const status = typeof params.status === 'string' ? params.status : 'All';
   const stock = typeof params.stock === 'string' ? params.stock : 'All';
   const search = typeof params.search === 'string' ? params.search : undefined;

@@ -1,28 +1,23 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
 import {
-  MapPin,
-  Truck,
-  Plane,
   Building2,
-  Wallet,
+  ChevronRight,
   CreditCard,
   FileText,
-  ChevronRight,
-  CheckCircle2,
-  ShieldCheck,
   Info,
-  Plus,
-  AlertCircle,
-  Share2,
-  Mail,
   Loader2,
+  Plane,
+  Plus,
+  Share2,
+  ShieldCheck,
+  Truck,
 } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
 
 interface SavedAddress {
   id: number;
@@ -48,7 +43,7 @@ export const CheckoutPage: React.FC = () => {
   const giftWrappingCost = Number(searchParams.get('giftWrappingCost')) || 0;
 
   // Mock Saved Addresses
-  const [addresses, setAddresses] = useState<SavedAddress[]>([
+  const [addresses, _setAddresses] = useState<SavedAddress[]>([
     {
       id: 1,
       label: 'Home',
@@ -73,7 +68,7 @@ export const CheckoutPage: React.FC = () => {
 
   // Payment State
   const [paymentMethod, setPaymentMethod] = useState('');
-  const [payWithWallet, setPayWithWallet] = useState(false);
+  const [payWithWallet, _setPayWithWallet] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Pay For Me State
@@ -539,11 +534,11 @@ export const CheckoutPage: React.FC = () => {
                 {remainingAmount > 0 && (
                   <div className="animate-in fade-in slide-in-from-top-2 space-y-4 pt-2">
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="h-px bg-gray-200 flex-1"></span>
+                      <span className="h-px bg-gray-200 flex-1" />
                       <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                         Select Payment for Remainder
                       </span>
-                      <span className="h-px bg-gray-200 flex-1"></span>
+                      <span className="h-px bg-gray-200 flex-1" />
                     </div>
 
                     {/* Pay Later */}
@@ -738,7 +733,7 @@ export const CheckoutPage: React.FC = () => {
                 ))}
               </div>
 
-              <div className="border-t border-dashed border-gray-200 my-4"></div>
+              <div className="border-t border-dashed border-gray-200 my-4" />
 
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-gray-600 text-sm">
@@ -774,7 +769,7 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 )}
 
-                <div className="border-t border-dashed border-gray-200 my-2"></div>
+                <div className="border-t border-dashed border-gray-200 my-2" />
 
                 {/* Total or Amount Due */}
                 <div className="flex justify-between text-gray-900 font-bold text-lg">

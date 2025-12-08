@@ -1,6 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { CheckCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -10,8 +11,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { BagLoader } from '@/components/ui/bag-loader';
 import { Badge } from '@/components/ui/badge';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -33,7 +34,6 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useMerchant } from '@/hooks/use-merchant';
-import { CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const pagesSchema = z.object({
@@ -132,7 +132,7 @@ export default function PagesSettingsPage() {
         { feature_settings: newFeatureSettings },
         { skipReload: true }
       );
-    } catch (error) {
+    } catch (_error) {
       // Revert on error
       setCompletedPages({ ...completedPages });
       toast({

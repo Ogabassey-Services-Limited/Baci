@@ -1,8 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useFormContext } from 'react-hook-form';
-import { User } from '@supabase/supabase-js';
+import type { User } from '@supabase/supabase-js';
 import {
   CheckCircle,
   Eye,
@@ -11,7 +9,10 @@ import {
   Loader2,
   Mail,
 } from 'lucide-react';
-
+import { useState } from 'react';
+import { useFormContext } from 'react-hook-form';
+import { sendMagicLink } from '@/app/onboarding/actions';
+import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,11 +23,9 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { useToast } from '@/hooks/use-toast';
 import { checkPasswordStrength } from '@/lib/utils';
-import { sendMagicLink } from '@/app/onboarding/actions';
-import { OnboardingFormValues } from '@/schemas/onboarding';
+import type { OnboardingFormValues } from '@/schemas/onboarding';
 
 interface Step3Props {
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;

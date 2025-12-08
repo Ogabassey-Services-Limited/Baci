@@ -7,4 +7,4 @@
  */
 
 export * from './types';
-export { useAdSettings, AdSettingsProvider } from './use-ad-settings';
+export { AdSettingsProvider, useAdSettings } from './use-ad-settings';

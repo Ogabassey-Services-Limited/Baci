@@ -7,11 +7,9 @@ import {
   Heart,
   HelpCircle,
   MapPin,
-  Palette,
   RefreshCw,
   ScanBarcode,
   ShoppingBag,
-  Snowflake,
   Star,
   User,
   Wallet,
@@ -22,6 +20,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import type React from 'react';
 
 import { Logo } from './logo';
+
 // import { useTheme } from '../contexts/ThemeContext'; // Removed
 
 interface MobileMenuProps {

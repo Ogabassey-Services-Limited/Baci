@@ -1,9 +1,9 @@
 'use client';
 
+import { CheckCircle, Eye, Loader2 } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, Eye, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -118,8 +118,8 @@ function _TemplateCard({ template }: { template: TemplateDefinition }) {
 }
 
 import { useState } from 'react';
+import { BUSINESS_TYPES } from '@/config/business-types';
 import { useMerchant } from '@/hooks/use-merchant';
-import { BUSINESS_TYPES, type BusinessTypeId } from '@/config/business-types';
 
 // Map business types to template categories
 const BUSINESS_TYPE_TO_CATEGORY: Record<string, string[]> = {

@@ -216,7 +216,7 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
               Your Silver Benefits
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {currentTier.benefits.map((benefit, idx) => (
+              {currentTier.benefits.map((benefit, _idx) => (
                 <div
                   key={benefit}
                   className="bg-white p-4 rounded-xl border border-gray-100 flex items-center gap-3 shadow-sm"
@@ -272,7 +272,7 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
                     </p>
 
                     <ul className="space-y-2">
-                      {tier.benefits.map((benefit, i) => (
+                      {tier.benefits.map((benefit, _i) => (
                         <li
                           key={benefit}
                           className={`text-xs flex items-start gap-2 ${isUnlocked ? 'text-gray-600' : 'text-gray-400'}`}

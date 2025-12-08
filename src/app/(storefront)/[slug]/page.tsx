@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import { MerchantProvider, type MerchantData } from '@/hooks/use-merchant';
+import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
 import { getCachedMerchant } from '@/lib/cached-data';
 import {
   generateLocalBusinessSchema,

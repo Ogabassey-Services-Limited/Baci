@@ -9,9 +9,9 @@ import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
 import {
   logConversionResults,
-  sendPurchaseConversion,
   type MerchantAnalyticsConfig,
   type OrderConversionData,
+  sendPurchaseConversion,
 } from '@/lib/offline-conversions';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createClient } from '@/lib/supabase/server';

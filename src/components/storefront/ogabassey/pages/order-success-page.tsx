@@ -1,18 +1,19 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useV2Order } from '../providers/v2-order-context';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  Check,
-  ShoppingBag,
   ArrowRight,
+  Check,
+  Download,
   FileText,
   Share2,
-  Download,
+  ShoppingBag,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { InvoiceModal } from '../components/InvoiceModal';
+import { useV2Order } from '../providers/v2-order-context';
 
 const GoogleIcon = ({ className }: { className?: string }) => (
   <svg
@@ -116,7 +117,7 @@ export const OrderSuccessPage: React.FC = () => {
         </div>
 
         {/* Confetti Effect Background */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-green-100/50 rounded-full blur-3xl -z-10"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-green-100/50 rounded-full blur-3xl -z-10" />
       </div>
 
       {/* Content */}
@@ -163,9 +164,9 @@ export const OrderSuccessPage: React.FC = () => {
         </div>
 
         <p className="text-red-600 font-bold italic mb-8 flex items-center justify-center gap-2">
-          <span className="w-8 h-px bg-red-200"></span>
+          <span className="w-8 h-px bg-red-200" />
           Ogabassey never disappoints ✨
-          <span className="w-8 h-px bg-red-200"></span>
+          <span className="w-8 h-px bg-red-200" />
         </p>
 
         <div className="flex flex-col-reverse md:flex-row gap-3 justify-center">

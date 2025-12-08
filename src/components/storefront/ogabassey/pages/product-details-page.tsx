@@ -25,14 +25,13 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
-
+import { useCart } from '@/hooks/use-cart';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import { BlogSnippet } from '../components/BlogSnippet';
 import { NegotiationModal } from '../components/NegotiationModal';
 import { SEO } from '../components/SEO';
 import { products } from '../data/products';
-import { useCart } from '@/hooks/use-cart';
 import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
@@ -220,7 +219,7 @@ export const ProductDetailsPage: React.FC = () => {
       colors: normalizedColors,
       storage: normalizedStorage,
     };
-  }, [productFound]); // Removed getColorHex from dependencies as it's stable
+  }, [productFound, getColorHex]); // Removed getColorHex from dependencies as it's stable
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<number | null>(null);

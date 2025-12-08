@@ -2,9 +2,9 @@
 // Migrated from temp-source/components/CategoryPage.tsx
 import { ChevronRight, Filter, LayoutGrid, List, X } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState } from 'react';
-
+import { useCart } from '@/hooks/use-cart';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import {
@@ -13,13 +13,12 @@ import {
 } from '../components/CategoryFiltersSidebar';
 import { ProductCard } from '../components/ProductCard';
 import { products } from '../data/products';
-import { useCart } from '@/hooks/use-cart';
 import type { Product } from '../types';
 
 export const CategoryPage: React.FC = () => {
   const params = useParams();
   const categoryName = (params?.category || 'All') as string;
-  const router = useRouter();
+  const _router = useRouter();
   const { addToCart } = useCart();
   const [addedItems, setAddedItems] = useState<number[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
@@ -45,7 +44,7 @@ export const CategoryPage: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
     setFilters(initialFilterState);
-  }, [categoryName]); // Add categoryName dependency for proper reset
+  }, []); // Add categoryName dependency for proper reset
 
   // Derived Data: Products in the current Category
   const categoryProducts = useMemo(() => {
@@ -180,7 +179,7 @@ export const CategoryPage: React.FC = () => {
     }
   };
 
-  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+  const handleAddToCart = (_e: React.MouseEvent, product: Product) => {
     // e.preventDefault(); // handled in ProductCard
     // e.stopPropagation();
 

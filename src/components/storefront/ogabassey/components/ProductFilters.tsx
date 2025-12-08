@@ -1,18 +1,18 @@
 'use client';
-import React, { useState } from 'react';
 import {
+  Gamepad2,
+  Headphones,
+  Laptop,
+  LayoutGrid,
+  List,
+  type LucideIcon,
+  Printer,
   SlidersHorizontal,
   Smartphone,
-  Gamepad2,
-  Laptop,
-  Headphones,
-  Printer,
-  LayoutGrid,
-  LucideIcon,
-  List,
-  Grid,
   X,
 } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
 
 interface ProductFiltersProps {
   categories: string[];
@@ -89,7 +89,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                   Filter
                 </span>
                 {isFilterActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse ml-0.5"></span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse ml-0.5" />
                 )}
               </button>
 

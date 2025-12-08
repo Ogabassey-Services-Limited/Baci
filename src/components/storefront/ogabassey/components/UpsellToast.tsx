@@ -3,9 +3,8 @@
 import { Plus, Sparkles, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-
-import { products } from '../data/products';
 import { useCart } from '@/hooks/use-cart';
+import { products } from '../data/products';
 import type { Product } from '../types';
 
 // Mock upsell logic mapping categories to accessory recommendations

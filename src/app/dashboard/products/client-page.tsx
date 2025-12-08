@@ -259,7 +259,7 @@ function ProductsPageContent() {
       } else {
         throw new Error(result.error);
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Error',
         description: 'Failed to bulk publish products',

@@ -8,25 +8,25 @@
  */
 
 import {
-  Check,
-  Shield,
-  TrendingUp,
-  MessageSquare,
-  Mail,
   BarChart,
+  Check,
+  Mail,
+  MessageSquare,
+  Shield,
   Sparkles,
+  TrendingUp,
   X,
 } from 'lucide-react';
 import {
   createContext,
+  type ReactNode,
+  useCallback,
   useContext,
   useState,
-  useCallback,
-  type ReactNode,
 } from 'react';
 import {
-  type FeatureKey,
   FEATURE_METADATA,
+  type FeatureKey,
   type PlanTier,
 } from '@/lib/feature-flags';
 

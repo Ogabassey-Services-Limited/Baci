@@ -33,9 +33,9 @@ import { useCart } from '@/hooks/use-cart';
 // import { Logo } from './Logo'; // Replaced with prop
 import { products } from '../data/products';
 import type { Product } from '../types';
+import { Logo } from './logo';
 // import { SourceRequestModal } from './SourceRequestModal'; // TODO: Migrate
 import { MobileMenu } from './mobile-menu';
-import { Logo } from './logo';
 
 interface NavbarProps {
   logo?: string;
@@ -78,7 +78,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   // Notification UI State
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const [isSourceModalOpen, setIsSourceModalOpen] = useState(false);
+  const [_isSourceModalOpen, setIsSourceModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const searchRef = useRef<HTMLDivElement>(null);
@@ -108,7 +108,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY, isVisible]);
+  }, [lastScrollY]);
 
   // Search Logic
   useEffect(() => {

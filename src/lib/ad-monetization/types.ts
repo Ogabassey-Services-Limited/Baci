@@ -27,8 +27,8 @@ export interface AdPlacement {
   mobileHeight: number;
   type: AdPlacementType;
   // Multiple sizes for responsive ads
-  sizes?: Array<[number, number]>;
-  mobileSizes?: Array<[number, number]>;
+  sizes?: [number, number][];
+  mobileSizes?: [number, number][];
 }
 
 // Standard IAB ad placements
@@ -203,7 +203,7 @@ export interface AdPlacementSettings {
   // Custom ad unit ID (overrides default)
   customAdUnitId?: string;
   // Custom sizes for this merchant
-  customSizes?: Array<[number, number]>;
+  customSizes?: [number, number][];
   // Frequency capping (for in-feed ads - show every N items)
   frequency?: number;
 }

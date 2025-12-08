@@ -4,9 +4,8 @@ import { Heart, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
-
-import { EmptyState } from '../components/EmptyState';
 import { useCart } from '@/hooks/use-cart';
+import { EmptyState } from '../components/EmptyState';
 import { useV2Saved } from '../providers/v2-saved-context';
 
 export const SavedPage: React.FC = () => {

@@ -1,8 +1,8 @@
 'use client';
 
-import type { Product } from '@/lib/products';
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
+import type { Product } from '@/lib/products';
 
 interface V2ComparisonContextType {
   compareItems: Product[];

@@ -1,4 +1,4 @@
-import { type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Product } from '@/lib/products';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 

@@ -125,7 +125,7 @@ export const OgabasseyV2HelpSupport: React.FC = () => {
                 color: 'text-purple-600',
                 bg: 'bg-purple-50',
               },
-            ].map((topic, idx) => (
+            ].map((topic, _idx) => (
               <button
                 type="button"
                 key={topic.label}

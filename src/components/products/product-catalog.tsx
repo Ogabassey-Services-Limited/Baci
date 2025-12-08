@@ -2,8 +2,8 @@
 
 import {
   AlertTriangle,
-  ChevronRight,
   ChevronDown,
+  ChevronRight,
   Edit,
   Infinity as InfinityIcon,
   Loader2,
@@ -289,10 +289,10 @@ export function ProductCatalog({
                             onBlur={(e) => {
                               handlePriceChange(product.id, e.target.value);
                               // Re-format the input value on blur
-                              const val = parseFloat(
+                              const val = Number.parseFloat(
                                 e.target.value.replace(/[^0-9.]/g, '')
                               );
-                              if (!isNaN(val)) {
+                              if (!Number.isNaN(val)) {
                                 e.target.value = val.toLocaleString('en-US', {
                                   minimumFractionDigits: 2,
                                   maximumFractionDigits: 2,

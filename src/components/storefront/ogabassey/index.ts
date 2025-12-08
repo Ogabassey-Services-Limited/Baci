@@ -1,5 +1,4 @@
 // Layout Components
-export { OgabasseyLayout } from './layout';
 
 export { AdUnit } from './components/AdUnit';
 // Components
@@ -10,6 +9,7 @@ export { EngineProductGrid } from './components/EngineProductGrid';
 export { InteractiveProductGrid } from './components/InteractiveProductGrid';
 export { NegotiationModal } from './components/NegotiationModal';
 export { ProductCard as OgabasseyProductCard } from './components/ProductCard';
+export { OgabasseyLayout } from './layout';
 export { OgabasseyFooter } from './layout/footer';
 export { MobileFooter as OgabasseyMobileFooter } from './layout/mobile-footer';
 export { MobileMenu as OgabasseyMobileMenu } from './layout/mobile-menu';

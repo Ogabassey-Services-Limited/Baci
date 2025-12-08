@@ -1,17 +1,9 @@
 'use client';
 
-import React from 'react';
-import {
-  X,
-  Download,
-  Printer,
-  Share2,
-  Copy,
-  AlertCircle,
-  CheckCircle2,
-} from 'lucide-react';
+import { CheckCircle2, Download, Printer, X } from 'lucide-react';
+import type React from 'react';
+import type { V2CartItem as CartItem } from '../types';
 import { Logo } from './Logo';
-import { Product, V2CartItem as CartItem } from '../types';
 
 export interface ReceiptData {
   id: string;
@@ -82,7 +74,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
-      ></div>
+      />
 
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
         {/* Header Actions */}
@@ -114,7 +106,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-gray-50 relative">
           <div className="bg-white shadow-sm border border-gray-200 rounded-xl p-6 md:p-8 relative overflow-hidden">
             {/* Decorative Top Border */}
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-[url('https://www.transparenttextures.com/patterns/diagonal-striped-brick.png')] bg-red-600"></div>
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-[url('https://www.transparenttextures.com/patterns/diagonal-striped-brick.png')] bg-red-600" />
 
             {/* Watermark Overlay */}
             {renderWatermark()}
@@ -242,7 +234,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                       </span>
                     </div>
                   )}
-                  <div className="border-t border-dashed border-yellow-200 my-2"></div>
+                  <div className="border-t border-dashed border-yellow-200 my-2" />
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-red-600 font-bold">Balance Due</span>
                     <span className="font-bold text-red-600 text-lg">

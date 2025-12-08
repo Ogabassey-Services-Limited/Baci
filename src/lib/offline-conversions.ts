@@ -10,13 +10,13 @@
  * - Better data for ad optimization
  */
 
-import { facebookCAPI, type FacebookUserData } from './facebook-capi';
+import { type FacebookUserData, facebookCAPI } from './facebook-capi';
 import {
   ga4MeasurementProtocol,
   generateClientId,
 } from './ga4-measurement-protocol';
-import { snapchatCAPI, type SnapchatUserData } from './snapchat-capi';
-import { tiktokEventsAPI, type TikTokUserData } from './tiktok-events-api';
+import { type SnapchatUserData, snapchatCAPI } from './snapchat-capi';
+import { type TikTokUserData, tiktokEventsAPI } from './tiktok-events-api';
 
 // Merchant analytics configuration
 export interface MerchantAnalyticsConfig {

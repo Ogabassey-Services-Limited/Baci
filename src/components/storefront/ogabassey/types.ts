@@ -57,7 +57,7 @@ export interface Product {
   stock?: number;
 }
 
-import { CartItem } from '@/hooks/use-cart';
+import type { CartItem } from '@/hooks/use-cart';
 
 export type V2CartItem = CartItem;
 

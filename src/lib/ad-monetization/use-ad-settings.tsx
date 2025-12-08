@@ -2,23 +2,23 @@
 
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
-  type ReactNode,
 } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { createClient } from '@/lib/supabase/client';
 import {
+  AD_PLACEMENTS,
+  type AdFeatureTier,
   type AdMonetizationSettings,
   type AdPlacementSettings,
-  type RewardedAdSettings,
-  type AdFeatureTier,
-  DEFAULT_AD_SETTINGS,
-  AD_PLACEMENTS,
   canEnablePlacement,
+  DEFAULT_AD_SETTINGS,
+  type RewardedAdSettings,
 } from './types';
 
 // ============================================

@@ -15,11 +15,10 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-
+import { type CartItem, useCart } from '@/hooks/use-cart';
 import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/EmptyState';
 import { NegotiationModal } from '../components/NegotiationModal';
-import { useCart, type CartItem } from '@/hooks/use-cart';
 
 interface NegotiationState {
   isOpen: boolean;
@@ -42,7 +41,7 @@ export const CartPage: React.FC = () => {
 
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
-  const router = useRouter();
+  const _router = useRouter();
 
   // Scroll to top on mount
   useEffect(() => {

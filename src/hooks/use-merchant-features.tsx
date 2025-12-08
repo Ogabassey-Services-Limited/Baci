@@ -14,13 +14,13 @@
 import { useMemo } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import {
+  FEATURE_METADATA,
   type FeatureKey,
+  getPlanFeatures,
+  getUpgradeCTA,
+  hasSmartCartPro,
   type PlanTier,
   planHasFeature,
-  getPlanFeatures,
-  hasSmartCartPro,
-  FEATURE_METADATA,
-  getUpgradeCTA,
 } from '@/lib/feature-flags';
 
 interface MerchantFeaturesResult {
@@ -129,7 +129,7 @@ export function FeatureGate({
 
   if (showUpgrade) {
     const { title, description, targetPlan } = getUpgradeInfo(feature);
-    const metadata = FEATURE_METADATA[feature];
+    const _metadata = FEATURE_METADATA[feature];
 
     return (
       <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-6 text-center">
