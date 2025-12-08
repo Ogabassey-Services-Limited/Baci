@@ -108,7 +108,7 @@ function ProductsPageContent() {
     editingProduct,
   } = useProductContext();
   const { merchant } = useMerchant();
-  const [_isProcessing, setIsProcessing] = useState(false);
+
   const [isGoogleSheetImportOpen, setIsGoogleSheetImportOpen] = useState(false);
   const [isCSVBulkImportOpen, setIsCSVBulkImportOpen] = useState(false);
   const { toast } = useToast();
@@ -147,7 +147,6 @@ function ProductsPageContent() {
     vendor: string,
     fileType: string
   ) => {
-    setIsProcessing(true);
     setWorkflowStep('processing');
     try {
       // Create AI job instead of calling processPriceList directly
@@ -195,7 +194,7 @@ function ProductsPageContent() {
             cleanup();
             setAiResponse(updatedJob.output);
             setWorkflowStep('review');
-            setIsProcessing(false);
+
             setSearchTerm('');
           } else if (updatedJob.status === 'failed') {
             cleanup();
@@ -206,7 +205,6 @@ function ProductsPageContent() {
               variant: 'destructive',
             });
             setWorkflowStep('view');
-            setIsProcessing(false);
           }
         } catch (pollError) {
           console.error('Poll error:', pollError);
@@ -225,7 +223,6 @@ function ProductsPageContent() {
             variant: 'destructive',
           });
           setWorkflowStep('view');
-          setIsProcessing(false);
         }
       }, 60000);
     } catch (error) {
@@ -236,7 +233,6 @@ function ProductsPageContent() {
         variant: 'destructive',
       });
       setWorkflowStep('view');
-      setIsProcessing(false);
     }
   };
 
