@@ -57,6 +57,7 @@ export function MerchantBankForm({
   const [verificationError, setVerificationError] = useState<string | null>(
     null
   );
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   const form = useForm<BankFormValues>({
     resolver: zodResolver(bankSchema),
@@ -252,6 +253,7 @@ export function MerchantBankForm({
                       const value = e.target.value;
                       setBankSearchTerm(value);
                       setShowBankSuggestions(true);
+                      setHighlightedIndex(-1);
 
                       // If they clear the input, clear the selection
                       if (value === '') {
@@ -268,8 +270,45 @@ export function MerchantBankForm({
                     onBlur={() =>
                       setTimeout(() => setShowBankSuggestions(false), 200)
                     }
+                    onKeyDown={(e) => {
+                      const filteredBanks = banks.filter(
+                        (bank) =>
+                          bank.name.toLowerCase().includes(bankSearchTerm.toLowerCase()) ||
+                          bank.code.includes(bankSearchTerm)
+                      );
+
+                      if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        setHighlightedIndex((prev) =>
+                          prev < filteredBanks.length - 1 ? prev + 1 : prev
+                        );
+                      } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                      } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+                        e.preventDefault();
+                        const selectedBank = filteredBanks[highlightedIndex];
+                        if (selectedBank) {
+                          form.setValue('bankCode', selectedBank.code);
+                          setBankSearchTerm(selectedBank.name);
+                          setShowBankSuggestions(false);
+                          setVerifiedName(null);
+                          setHighlightedIndex(-1);
+                        }
+                      } else if (e.key === 'Escape') {
+                        setShowBankSuggestions(false);
+                        setHighlightedIndex(-1);
+                      }
+                    }}
                     disabled={isLoadingBanks}
                     autoComplete="off"
+                    role="combobox"
+                    aria-expanded={showBankSuggestions}
+                    aria-controls="bank-listbox"
+                    aria-activedescendant={
+                      highlightedIndex >= 0 ? `bank-option-${highlightedIndex}` : undefined
+                    }
+                    aria-autocomplete="list"
                   />
                   {isLoadingBanks && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -281,7 +320,11 @@ export function MerchantBankForm({
 
               {/* Suggestions Dropdown */}
               {showBankSuggestions && banks.length > 0 && (
-                <div className="absolute top-[75px] w-full max-h-[250px] overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md z-50">
+                <div
+                  id="bank-listbox"
+                  role="listbox"
+                  className="absolute top-[75px] w-full max-h-[250px] overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md z-50"
+                >
                   {banks
                     .filter(
                       (bank) =>
@@ -291,22 +334,28 @@ export function MerchantBankForm({
                         // Also match prominent synonyms if we wanted, but name search is usually enough
                         bank.code.includes(bankSearchTerm)
                     )
-                    .map((bank) => (
+                    .map((bank, index) => (
                       <div
                         key={bank.code}
+                        id={`bank-option-${index}`}
+                        role="option"
+                        aria-selected={field.value === bank.code}
                         className={cn(
                           'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
-                          field.value === bank.code && 'bg-accent/50'
+                          field.value === bank.code && 'bg-accent/50',
+                          highlightedIndex === index && 'bg-accent text-accent-foreground'
                         )}
                         onMouseDown={(e) => {
                           // Prevent blur from hiding before click registers
                           e.preventDefault();
                         }}
+                        onMouseEnter={() => setHighlightedIndex(index)}
                         onClick={() => {
                           form.setValue('bankCode', bank.code);
                           setBankSearchTerm(bank.name); // Set input to full name
                           setShowBankSuggestions(false);
                           setVerifiedName(null); // Re-verify with new bank
+                          setHighlightedIndex(-1);
                         }}
                       >
                         <Check
@@ -324,10 +373,10 @@ export function MerchantBankForm({
                   {banks.filter((b) =>
                     b.name.toLowerCase().includes(bankSearchTerm.toLowerCase())
                   ).length === 0 && (
-                    <div className="py-6 text-center text-sm text-muted-foreground">
-                      No bank found.
-                    </div>
-                  )}
+                      <div className="py-6 text-center text-sm text-muted-foreground">
+                        No bank found.
+                      </div>
+                    )}
                 </div>
               )}
               <FormDescription>Type your bank name to filter</FormDescription>

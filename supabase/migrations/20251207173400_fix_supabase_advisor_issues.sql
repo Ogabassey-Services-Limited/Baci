@@ -33,13 +33,19 @@ DECLARE
   v_wallet_id UUID;
   v_transaction_id UUID;
 BEGIN
-  -- Get or create wallet
-  SELECT id INTO v_wallet_id FROM merchant_wallets WHERE merchant_id = p_merchant_id;
+  -- Get or create wallet with conflict handling for concurrent inserts
+  SELECT id INTO v_wallet_id FROM merchant_wallets WHERE merchant_id = p_merchant_id FOR UPDATE;
   
   IF v_wallet_id IS NULL THEN
     INSERT INTO merchant_wallets (merchant_id, balance, pending_balance, currency)
     VALUES (p_merchant_id, 0, 0, 'NGN')
+    ON CONFLICT (merchant_id) DO NOTHING
     RETURNING id INTO v_wallet_id;
+    
+    -- If insert returned NULL due to conflict, another transaction created the wallet
+    IF v_wallet_id IS NULL THEN
+      SELECT id INTO v_wallet_id FROM merchant_wallets WHERE merchant_id = p_merchant_id FOR UPDATE;
+    END IF;
   END IF;
   
   -- Update balance
@@ -74,9 +80,9 @@ DECLARE
   v_current_balance BIGINT;
   v_transaction_id UUID;
 BEGIN
-  -- Get wallet
+  -- Get wallet with row lock to prevent concurrent modifications
   SELECT id, balance INTO v_wallet_id, v_current_balance 
-  FROM merchant_wallets WHERE merchant_id = p_merchant_id;
+  FROM merchant_wallets WHERE merchant_id = p_merchant_id FOR UPDATE;
   
   IF v_wallet_id IS NULL THEN
     RAISE EXCEPTION 'Wallet not found for merchant %', p_merchant_id;
@@ -159,12 +165,20 @@ AS $$
 DECLARE
   v_wallet_id UUID;
 BEGIN
-  SELECT id INTO v_wallet_id FROM merchant_wallets WHERE merchant_id = p_merchant_id;
+  -- Try to get existing wallet with lock
+  SELECT id INTO v_wallet_id FROM merchant_wallets WHERE merchant_id = p_merchant_id FOR UPDATE;
   
   IF v_wallet_id IS NULL THEN
+    -- Attempt insert with conflict handling for concurrent creates
     INSERT INTO merchant_wallets (merchant_id, balance, pending_balance, currency)
     VALUES (p_merchant_id, 0, 0, 'NGN')
+    ON CONFLICT (merchant_id) DO NOTHING
     RETURNING id INTO v_wallet_id;
+    
+    -- If insert returned NULL, another transaction created the wallet
+    IF v_wallet_id IS NULL THEN
+      SELECT id INTO v_wallet_id FROM merchant_wallets WHERE merchant_id = p_merchant_id;
+    END IF;
   END IF;
   
   RETURN v_wallet_id;
