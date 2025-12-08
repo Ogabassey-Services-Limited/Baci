@@ -10,9 +10,7 @@ import {
   Store,
   Zap,
 } from 'lucide-react';
-// import { Logo } from '@/components/logo';
 import Link from 'next/link';
-import { PlatformAnalyticsProvider } from '@/components/analytics/platform-analytics-provider';
 import AppBody from '@/components/app-body';
 import { FAQItem } from '@/components/landing/faq-item';
 import { MetricCard } from '@/components/landing/metric-card';
@@ -75,9 +73,9 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
       <main id="main-content" className="flex-1 pt-16">
         {/* Hero Section */}
         <section className="relative w-full pt-3 pb-7 md:pb-10 lg:pb-14 overflow-hidden bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-background min-h-[85vh] flex items-center">
-          {/* Background Elements */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-accent/5 rounded-full blur-[100px] -z-10" />
-          <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-primary/5 rounded-full blur-[100px] -z-10" />
+          {/* Background Elements - GPU accelerated with will-change */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-accent/5 rounded-full blur-[100px] -z-10 will-change-transform" />
+          <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-primary/5 rounded-full blur-[100px] -z-10 will-change-transform" />
 
           <div
             className="container relative z-10"
@@ -165,8 +163,8 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
         <section className="py-24 relative overflow-hidden">
           <div className="absolute inset-0 bg-primary dark:bg-slate-950">
             <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-accent/20 rounded-full blur-[120px]" />
-            <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px]" />
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-accent/20 rounded-full blur-[120px] will-change-transform" />
+            <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-purple-500/20 rounded-full blur-[120px] will-change-transform" />
           </div>
 
           <div
@@ -572,8 +570,7 @@ export default async function HomePage() {
   const metrics = await getLandingMetrics();
 
   return (
-    <AppBody>
-      <PlatformAnalyticsProvider />
+    <AppBody showPlatformAnalytics>
       <BaciLandingPage metrics={metrics} />
     </AppBody>
   );

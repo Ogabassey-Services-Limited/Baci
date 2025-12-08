@@ -561,7 +561,7 @@ export const CheckoutPage: React.FC = () => {
                                 )}
 
                                 {/* Wallet Deduction Line */}
-                                {payWithWallet && walletAmountUsed > 0 && (
+                                {payWithWallet && (
                                     <div className="flex justify-between text-green-700 text-sm font-medium animate-in fade-in">
                                         <span>Wallet Debit</span>
                                         <span>-₦{walletAmountUsed.toLocaleString()}</span>

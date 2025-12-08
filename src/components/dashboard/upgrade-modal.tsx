@@ -18,7 +18,7 @@ import {
     X
 } from 'lucide-react';
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { FEATURES, type FeatureKey, FEATURE_METADATA, type PlanTier } from '@/lib/feature-flags';
+import { type FeatureKey, FEATURE_METADATA, type PlanTier } from '@/lib/feature-flags';
 
 // ============================================================================
 // TYPES

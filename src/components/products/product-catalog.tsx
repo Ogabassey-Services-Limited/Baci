@@ -270,7 +270,6 @@ export function ProductCatalog({
                           </div>
                         </div>
                       </TableCell>
-
                       <TableCell className="text-right">
                         <div className="relative ml-auto w-40 group/input">
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground/70 font-medium">
@@ -316,10 +315,10 @@ export function ProductCatalog({
                               className={cn(
                                 'h-8 text-center font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-accent transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
                                 product.stock === 0 &&
-                                'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40',
+                                  'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40',
                                 isLowStock &&
-                                product.stock > 0 &&
-                                'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-900/40'
+                                  product.stock > 0 &&
+                                  'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-900/40'
                               )}
                               aria-label={`Stock for ${product.name}`}
                             />

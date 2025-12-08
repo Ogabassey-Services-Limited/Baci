@@ -36,7 +36,7 @@ const TEMPLATES = process.argv.slice(2).length > 0
     'hair-extensions',
     'pharmaceuticals',
     'gadget-universe',
-    'ogabassey-v2',
+    'ogabassey',
     'gadgets-pro',
     'handmade',
     // Draft templates (optional)
@@ -46,7 +46,7 @@ const TEMPLATES = process.argv.slice(2).length > 0
 
 const BASE_URL = 'http://localhost:3000';
 const VIEWPORT = { width: 1440, height: 900 };
-const WAIT_TIME = 5000; // Wait for page to fully render
+const CONCURRENCY = 3; // Number of parallel screenshot captures
 
 async function captureScreenshot(browser, templateId) {
   const page = await browser.newPage();
@@ -58,12 +58,12 @@ async function captureScreenshot(browser, templateId) {
 
   try {
     await page.goto(url, {
-      waitUntil: 'domcontentloaded',
+      waitUntil: 'networkidle2', // Wait for network to be idle
       timeout: 30000
     });
 
-    // Wait for content to fully render
-    await new Promise(resolve => setTimeout(resolve, WAIT_TIME));
+    // Small additional wait for any final animations
+    await new Promise(resolve => setTimeout(resolve, 1000));
 
     // Hide the preview action bar at the bottom for cleaner screenshot
     await page.evaluate(() => {
@@ -100,14 +100,21 @@ async function main() {
     console.log(`📁 Created output directory: ${OUTPUT_DIR}\n`);
   }
 
-  // Check if dev server is running
+  // Check if dev server is running with timeout
   try {
-    const response = await fetch(BASE_URL);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(BASE_URL, { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error('Server not responding');
     }
   } catch (error) {
-    console.error('❌ Error: Dev server is not running on localhost:3000');
+    if (error.name === 'AbortError') {
+      console.error('❌ Error: Dev server connection timed out');
+    } else {
+      console.error('❌ Error: Dev server is not running on localhost:3000');
+    }
     console.error('   Please start it with: npm run dev\n');
     process.exit(1);
   }
@@ -120,13 +127,17 @@ async function main() {
     args: ['--no-sandbox', '--disable-setuid-sandbox'],
   });
 
-  console.log(`📋 Capturing ${TEMPLATES.length} templates...\n`);
+  console.log(`📋 Capturing ${TEMPLATES.length} templates (${CONCURRENCY} at a time)...\n`);
 
   const results = [];
 
-  for (const templateId of TEMPLATES) {
-    const result = await captureScreenshot(browser, templateId);
-    results.push(result);
+  // Process templates in parallel batches
+  for (let i = 0; i < TEMPLATES.length; i += CONCURRENCY) {
+    const batch = TEMPLATES.slice(i, i + CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map(templateId => captureScreenshot(browser, templateId))
+    );
+    results.push(...batchResults);
     console.log('');
   }
 

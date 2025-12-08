@@ -128,7 +128,7 @@ export const ProductProvider: React.FC<{
     // Prevent rapid re-fetching (throttle to 1s)
     const now = Date.now();
     const lastFetch = (fetchProducts as any).lastFetch || 0;
-    if (now - lastFetch < 1000 && !authLoading) {
+    if (now - lastFetch < 1000) {
       console.log('Throttling product fetch');
       return;
     }

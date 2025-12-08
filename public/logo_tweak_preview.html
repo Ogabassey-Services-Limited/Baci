@@ -52,6 +52,28 @@
             width: 70%;
             height: 70%;
         }
+
+        /* Print-friendly styles */
+        @media print {
+            @page {
+                margin: 1cm;
+            }
+
+            body {
+                background-color: white;
+                padding: 20px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .card {
+                break-inside: avoid;
+                box-shadow: none;
+                border: 1px solid #ccc;
+            }
+        }
     </style>
 </head>
 

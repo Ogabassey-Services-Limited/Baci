@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { User } from '@supabase/supabase-js';
 import {
-    AlertCircle,
     CheckCircle,
     Eye,
     EyeOff,
