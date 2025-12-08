@@ -25,13 +25,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    // Get initial session - middleware already verified auth for protected routes,
-    // so this is just for client-side state synchronization
+    // Get initial user - use getUser() instead of getSession() to ensure
+    // we get fresh auth state after server-side login redirects.
+    // getUser() validates the JWT with Supabase's server, preventing stale states.
     const initializeAuth = async () => {
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
+        data: { user: initialUser },
+      } = await supabase.auth.getUser();
+      setUser(initialUser ?? null);
       setLoading(false);
     };
 
@@ -62,4 +63,13 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+/**
+ * Safe version that returns null instead of throwing when outside AuthProvider
+ * Useful for components that may render in preview/demo mode without auth
+ */
+export function useAuthSafe(): AuthContextType | null {
+  const context = useContext(AuthContext);
+  return context ?? null;
 }
