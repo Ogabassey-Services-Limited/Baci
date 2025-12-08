@@ -22,6 +22,7 @@ import {
   User,
   Users,
   Wallet,
+  Globe,
 } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -74,9 +75,9 @@ const StoreLink = ({
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
     : cn(
-        'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
-        isCollapsed && 'justify-center'
-      );
+      'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground',
+      isCollapsed && 'justify-center'
+    );
 
   const isReady = !merchantLoading && storeUrl !== '#';
 
@@ -104,11 +105,20 @@ const StoreLink = ({
     );
   }
 
+  const displayUrl = (() => {
+    try {
+      const url = new URL(storeUrl);
+      return url.hostname;
+    } catch {
+      return 'Visit Store';
+    }
+  })();
+
   const linkContent = (
     <>
       <Store className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} />
-      {!isCollapsed && !isMobile && 'Visit Store'}
-      {isMobile && 'Visit Store'}
+      {!isCollapsed && !isMobile && <span className="font-medium text-foreground">{displayUrl}</span>}
+      {isMobile && <span className="font-medium text-foreground">{displayUrl}</span>}
     </>
   );
 
@@ -168,33 +178,63 @@ export default function DashboardClientLayout({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { toast } = useToast();
 
+  // Track if we've already attempted a redirect to prevent loops
+  const [hasAttemptedAuthCheck, setHasAttemptedAuthCheck] = useState(false);
+
   useEffect(() => {
     // Wait for both auth and merchant loading to finish before making decisions
     if (authLoading || merchantLoading) {
       return;
     }
 
-    // If there's no user, redirect to login page. This is the primary auth check.
+    // If there's no user, add a small delay before redirecting to allow session hydration
+    // This prevents race conditions after server-side login redirects
     if (!user) {
+      if (!hasAttemptedAuthCheck) {
+        // First check - wait 500ms for session to hydrate
+        setHasAttemptedAuthCheck(true);
+        const timer = setTimeout(() => {
+          // Force a re-render which will trigger this effect again
+          setHasAttemptedAuthCheck(true);
+        }, 500);
+        return () => clearTimeout(timer);
+      }
+      // Second check - still no user, redirect to login
       router.push('/login');
       return;
     }
 
-    // If there IS a user but NO merchant record, they haven't completed onboarding.
-    // This is the critical security and UX fix.
-    // If there IS a user but NO merchant record OR incomplete profile, they haven't completed onboarding.
-    // This is the critical security and UX fix.
-    if (!merchant || !merchant.business_name) {
-      toast({
-        title: 'Onboarding Incomplete',
-        description:
-          'Please complete your store setup to access the dashboard.',
-        variant: 'destructive',
-      });
-      router.push('/onboarding');
-      return;
-    }
-  }, [user, merchant, authLoading, merchantLoading, router, toast]);
+    // If there IS a user but NO merchant record OR incomplete profile,
+    // the blocking UI is handled outside this effect (see below)
+  }, [user, merchant, authLoading, merchantLoading, router, toast, hasAttemptedAuthCheck]);
+
+  // If we are not loading but have no merchant, show the blocking UI here (outside useEffect)
+  if (!authLoading && !merchantLoading && user && (!merchant || !merchant.business_name)) {
+    return (
+      <div className="flex min-h-screen w-full flex-col items-center justify-center gap-6 bg-muted/40 p-4 text-center">
+        <div className="max-w-md space-y-4 rounded-xl border bg-background p-8 shadow-lg">
+          <div className="flex justify-center">
+            <Store className="h-12 w-12 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold">Store Setup Required</h1>
+          <p className="text-muted-foreground">
+            We couldn't find your store details. You need to complete the onboarding process to access the dashboard.
+          </p>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => router.push('/onboarding')} className="w-full">
+              Complete Setup
+            </Button>
+            <Button variant="outline" onClick={() => { updateMerchant({}); window.location.reload(); }} className="w-full">
+              Refresh / Retry
+            </Button>
+            <Button variant="ghost" onClick={() => signOut()} className="w-full text-muted-foreground">
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Auto-collapse sidebar on main content interaction
   useEffect(() => {
@@ -229,15 +269,24 @@ export default function DashboardClientLayout({
     };
   }, [isCollapsed]);
 
+  // Orders count for sidebar badge - fetched lazily to not block initial render
   const [ordersCount, setOrdersCount] = useState(0);
 
   useEffect(() => {
-    if (merchant?.id) {
-      getDashboardMetrics(merchant.id).then((metrics) => {
-        setOrdersCount(metrics.orders.value);
+    // Only fetch if merchant exists and we're on dashboard
+    // This is a lightweight call just for the badge count
+    if (merchant?.id && ordersCount === 0) {
+      // Use a simpler query just for count instead of full metrics
+      import('@/lib/supabase/client').then(({ createClient }) => {
+        const supabase = createClient();
+        supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('merchant_id', merchant.id)
+          .then(({ count }) => setOrdersCount(count || 0));
       });
     }
-  }, [merchant?.id]);
+  }, [merchant?.id, ordersCount]);
 
   const selectedCountry = merchant?.country
     ? getCountryByCode(merchant.country)
@@ -249,8 +298,8 @@ export default function DashboardClientLayout({
     const isDevelopment = process.env.NODE_ENV === 'development';
 
     if (isDevelopment) {
-      // In development, use localhost with the storefront path
-      return `http://localhost:3000/storefront/${merchant.slug}`;
+      // In development, use localhost with direct slug path
+      return `http://localhost:3000/${merchant.slug}`;
     }
 
     // In production, use subdomain URL
@@ -262,6 +311,7 @@ export default function DashboardClientLayout({
 
   const handleSignOut = async () => {
     await signOut();
+    router.refresh(); // Clear Next.js router cache
     router.push('/login');
   };
 
@@ -280,75 +330,80 @@ export default function DashboardClientLayout({
     badge?: number;
     badgeVariant?: 'default' | 'destructive';
   }[] = [
-    {
-      href: '/dashboard' as Route,
-      icon: LayoutDashboard,
-      label: 'Dashboard',
-    },
-    {
-      href: '/dashboard/analytics' as Route,
-      icon: BarChart3,
-      label: 'Analytics',
-    },
-    {
-      href: '/dashboard/orders' as Route,
-      icon: ShoppingCart,
-      label: 'Orders',
-      badge: ordersCount > 0 ? ordersCount : undefined,
-    },
-    {
-      href: '/dashboard/products' as Route,
-      icon: Package,
-      label: 'Products',
-    },
-    {
-      href: '/dashboard/customers' as Route,
-      icon: Users,
-      label: 'Customers',
-    },
-    {
-      href: '/dashboard/loyalty' as Route,
-      icon: Gift,
-      label: 'Loyalty',
-    },
-    {
-      href: '/dashboard/wallet' as Route,
-      icon: Wallet,
-      label: 'Wallet',
-    },
-    {
-      href: '/dashboard/seo' as Route,
-      icon: Search,
-      label: 'SEO',
-    },
-    {
-      href: '/dashboard/pages' as Route,
-      icon: FileText,
-      label: 'Pages',
-      badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
-      badgeVariant: 'destructive',
-    },
-    {
-      href: '/dashboard/templates' as Route, // Updated path
-      icon: LayoutTemplate,
-      label: 'Templates',
-    },
-    {
-      icon: Paintbrush,
-      label: 'Customize Website',
-      href: '/builder' as Route,
-    },
-    {
-      href: '/dashboard/integrations' as Route,
-      icon: Plug,
-      label: 'Integrations',
-    },
-    {
-      href: '/dashboard/settings' as Route,
-      icon: Settings,
-      label: 'Settings',
-    },
-  ];
+      {
+        href: '/dashboard' as Route,
+        icon: LayoutDashboard,
+        label: 'Dashboard',
+      },
+      {
+        href: '/dashboard/analytics' as Route,
+        icon: BarChart3,
+        label: 'Analytics',
+      },
+      {
+        href: '/dashboard/orders' as Route,
+        icon: ShoppingCart,
+        label: 'Orders',
+        badge: ordersCount > 0 ? ordersCount : undefined,
+      },
+      {
+        href: '/dashboard/products' as Route,
+        icon: Package,
+        label: 'Products',
+      },
+      {
+        href: '/dashboard/customers' as Route,
+        icon: Users,
+        label: 'Customers',
+      },
+      {
+        href: '/dashboard/loyalty' as Route,
+        icon: Gift,
+        label: 'Loyalty',
+      },
+      {
+        href: '/dashboard/wallet' as Route,
+        icon: Wallet,
+        label: 'Wallet',
+      },
+      {
+        href: '/dashboard/seo' as Route,
+        icon: Search,
+        label: 'SEO',
+      },
+      {
+        href: '/dashboard/domains' as Route,
+        icon: Globe,
+        label: 'Domains',
+      },
+      {
+        href: '/dashboard/pages' as Route,
+        icon: FileText,
+        label: 'Pages',
+        badge: unfilledPagesCount > 0 ? unfilledPagesCount : undefined,
+        badgeVariant: 'destructive',
+      },
+      {
+        href: '/dashboard/templates' as Route, // Updated path
+        icon: LayoutTemplate,
+        label: 'Templates',
+      },
+      {
+        icon: Paintbrush,
+        label: 'Customize Website',
+        href: '/builder' as Route,
+      },
+      {
+        href: '/dashboard/integrations' as Route,
+        icon: Plug,
+        label: 'Integrations',
+      },
+      {
+        href: '/dashboard/settings' as Route,
+        icon: Settings,
+        label: 'Settings',
+      },
+    ];
 
   // While checking auth OR if auth has succeeded but we are still waiting for the merchant,
   // show a full-page loading screen. This prevents content flashes and incorrect redirects.
@@ -598,6 +653,14 @@ export default function DashboardClientLayout({
           {/* Desktop Header Actions (Floating) */}
           <div className="hidden md:flex absolute top-6 right-8 z-20 items-center gap-3">
             <div className="flex items-center gap-2 p-1.5 rounded-full bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/20 shadow-sm">
+              <StoreLink
+                isMobile={false}
+                isCollapsed={false}
+                merchantLoading={merchantLoading}
+                storeUrl={storeUrl}
+              />
+              <div className="w-[1px] h-4 bg-border/50" />
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

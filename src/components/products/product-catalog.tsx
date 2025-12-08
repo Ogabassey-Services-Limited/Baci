@@ -2,6 +2,8 @@
 
 import {
   AlertTriangle,
+  ChevronRight,
+  ChevronDown,
   Edit,
   Infinity as InfinityIcon,
   Loader2,
@@ -55,13 +57,28 @@ export function ProductCatalog({
 
   const debouncedDirtyProducts = useDebounce(dirtyProducts, 1000);
   const [isSaving, setIsSaving] = useState(false);
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
+
+  const toggleProduct = (productId: string) => {
+    setExpandedProducts((prev) => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     setLocalProducts(products);
   }, [products]);
 
   const handlePriceChange = (productId: string, newPrice: string) => {
-    const priceValue = Number.parseFloat(newPrice);
+    // Remove all characters except digits and dots
+    const cleanPrice = newPrice.replace(/[^0-9.]/g, '');
+    const priceValue = Number.parseFloat(cleanPrice);
     if (!Number.isNaN(priceValue)) {
       setLocalProducts((current) =>
         current.map((p) =>
@@ -168,8 +185,7 @@ export function ProductCatalog({
           <Table className="min-w-[800px]">
             <TableHeader className="sticky top-0 bg-white/95 dark:bg-background/95 backdrop-blur-md z-10 shadow-sm">
               <TableRow className="hover:bg-transparent border-b border-primary/10">
-                <TableHead className="w-[400px] pl-6">Product</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead className="w-[400px]">Product</TableHead>
                 <TableHead className="text-right">Price</TableHead>
                 <TableHead className="text-center">Stock</TableHead>
                 <TableHead className="w-[50px]" />
@@ -186,12 +202,28 @@ export function ProductCatalog({
                       className={cn(
                         'group hover:bg-muted/30 transition-colors border-b border-primary/5',
                         product.variants &&
-                          product.variants.length > 0 &&
-                          'bg-muted/5'
+                        product.variants.length > 0 &&
+                        'bg-muted/5'
                       )}
                     >
                       <TableCell className="pl-6 py-3">
                         <div className="flex items-center gap-4">
+                          {product.variants && product.variants.length > 0 ? (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 p-0 hover:bg-transparent"
+                              onClick={() => toggleProduct(product.id)}
+                            >
+                              {expandedProducts.has(product.id) ? (
+                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          ) : (
+                            <div className="w-6" />
+                          )}
                           <div className="relative h-12 w-12 rounded-lg overflow-hidden border border-border/50 bg-muted/20 shrink-0">
                             {product.image ? (
                               <Image
@@ -208,10 +240,21 @@ export function ProductCatalog({
                             )}
                           </div>
                           <div className="flex flex-col gap-0.5">
-                            <span className="font-medium text-foreground/90 group-hover:text-primary transition-colors">
+                            <span className="font-medium text-foreground flex items-center gap-2">
+                              <span
+                                className={cn(
+                                  'h-2 w-2 rounded-full',
+                                  product.status === 'active'
+                                    ? 'bg-green-500'
+                                    : product.status === 'draft'
+                                      ? 'bg-yellow-500'
+                                      : 'bg-red-500'
+                                )}
+                                title={`Status: ${product.status}`}
+                              />
                               {product.name}
                             </span>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               {product.sku && (
                                 <span className="text-[11px] text-muted-foreground font-mono">
                                   SKU: {product.sku}
@@ -227,50 +270,39 @@ export function ProductCatalog({
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div
-                          className={cn(
-                            'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
-                            product.status === 'active'
-                              ? 'bg-green-50 text-green-700 border-green-200/50 dark:bg-green-950/30 dark:text-green-300 dark:border-green-800/30'
-                              : product.status === 'draft'
-                                ? 'bg-yellow-50 text-yellow-700 border-yellow-200/50 dark:bg-yellow-950/30 dark:text-yellow-300 dark:border-yellow-800/30'
-                                : 'bg-gray-50 text-gray-600 border-gray-200/50 dark:bg-gray-800/50 dark:text-gray-300 dark:border-gray-700/30'
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              'mr-1.5 h-1.5 w-1.5 rounded-full',
-                              product.status === 'active'
-                                ? 'bg-green-500 dark:bg-green-400'
-                                : product.status === 'draft'
-                                  ? 'bg-yellow-500 dark:bg-yellow-400'
-                                  : 'bg-gray-400 dark:bg-gray-500'
-                            )}
-                          />
-                          <span className="capitalize">{product.status}</span>
-                        </div>
-                      </TableCell>
+
                       <TableCell className="text-right">
-                        <div className="relative ml-auto w-28 group/input">
+                        <div className="relative ml-auto w-40 group/input">
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground/70 font-medium">
                             {formatCurrency(0).replace(/[0-9.,\s]/g, '')}
                           </span>
                           <Input
-                            type="number"
-                            defaultValue={product.price.toFixed(2)}
-                            onBlur={(e) =>
-                              handlePriceChange(product.id, e.target.value)
-                            }
-                            className="h-9 text-left pr-3 pl-6 font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-background transition-all shadow-none focus:shadow-sm"
+                            type="text"
+                            defaultValue={product.price.toLocaleString('en-US', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                            onBlur={(e) => {
+                              handlePriceChange(product.id, e.target.value);
+                              // Re-format the input value on blur
+                              const val = parseFloat(
+                                e.target.value.replace(/[^0-9.]/g, '')
+                              );
+                              if (!isNaN(val)) {
+                                e.target.value = val.toLocaleString('en-US', {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                });
+                              }
+                            }}
+                            className="h-9 text-right pr-3 pl-6 font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-background transition-all shadow-none focus:shadow-sm"
                             aria-label={`Price for ${product.name}`}
-                            step="0.01"
                           />
                         </div>
                       </TableCell>
                       <TableCell>
                         {product.manage_stock &&
-                        (!product.variants || product.variants.length === 0) ? (
+                          (!product.variants || product.variants.length === 0) ? (
                           <div className="mx-auto w-24 relative">
                             <Input
                               type="number"
@@ -282,12 +314,12 @@ export function ProductCatalog({
                                 )
                               }
                               className={cn(
-                                'h-8 text-center font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
+                                'h-8 text-center font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-accent transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
                                 product.stock === 0 &&
-                                  'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40',
+                                'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40',
                                 isLowStock &&
-                                  product.stock > 0 &&
-                                  'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-900/40'
+                                product.stock > 0 &&
+                                'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-900/40'
                               )}
                               aria-label={`Stock for ${product.name}`}
                             />
@@ -324,89 +356,90 @@ export function ProductCatalog({
                         </Button>
                       </TableCell>
                     </TableRow>
-                    {product.variants?.map((variant) => {
-                      const isVariantLowStock =
-                        variant.stock_quantity <=
-                        (product.low_stock_threshold || 5);
-                      return (
-                        <TableRow
-                          key={variant.id}
-                          className="bg-muted/10 hover:bg-muted/20 border-b border-border/40"
-                        >
-                          <TableCell className="pl-12 py-2">
-                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded overflow-hidden border border-border/50 bg-background shrink-0">
-                                {variant.primary_image ? (
-                                  <Image
-                                    src={variant.primary_image}
-                                    alt="Variant"
-                                    width={32}
-                                    height={32}
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="h-full w-full flex items-center justify-center text-muted-foreground/20">
-                                    <Package className="h-3 w-3" />
+                    {expandedProducts.has(product.id) &&
+                      product.variants?.map((variant) => {
+                        const isVariantLowStock =
+                          variant.stock_quantity <=
+                          (product.low_stock_threshold || 5);
+                        return (
+                          <TableRow
+                            key={variant.id}
+                            className="bg-muted/10 hover:bg-muted/20 border-b border-border/40"
+                          >
+                            <TableCell className="pl-12 py-2">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded overflow-hidden border border-border/50 bg-background shrink-0">
+                                  {variant.primary_image ? (
+                                    <Image
+                                      src={variant.primary_image}
+                                      alt="Variant"
+                                      width={32}
+                                      height={32}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="h-full w-full flex items-center justify-center text-muted-foreground/20">
+                                      <Package className="h-3 w-3" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-sm text-muted-foreground">
+                                    {Object.values(variant.attributes).join(
+                                      ' / '
+                                    )}
+                                  </span>
+                                  {variant.sku && (
+                                    <span className="text-[10px] text-muted-foreground/70 font-mono">
+                                      SKU: {variant.sku}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+
+                            <TableCell className="text-right">
+                              {variant.price_override && (
+                                <span className="text-sm text-muted-foreground font-mono">
+                                  {formatCurrency(variant.price_override)}
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="mx-auto w-24 relative">
+                                <Input
+                                  type="number"
+                                  value={variant.stock_quantity}
+                                  onChange={(e) =>
+                                    handleStockChange(
+                                      product.id,
+                                      Number.parseInt(e.target.value, 10) || 0,
+                                      variant.id
+                                    )
+                                  }
+                                  className={cn(
+                                    'h-7 text-center font-mono text-xs bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-accent transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
+                                    variant.stock_quantity === 0 &&
+                                    'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
+                                    isVariantLowStock &&
+                                    variant.stock_quantity > 0 &&
+                                    'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
+                                  )}
+                                />
+                                {isVariantLowStock && (
+                                  <div
+                                    className="absolute -right-6 top-1/2 -translate-y-1/2"
+                                    title={`Low Stock (Threshold: ${product.low_stock_threshold || 5})`}
+                                  >
+                                    <AlertTriangle className="h-3 w-3 text-amber-500" />
                                   </div>
                                 )}
                               </div>
-                              <div className="flex flex-col">
-                                <span className="text-sm text-muted-foreground">
-                                  {Object.values(variant.attributes).join(
-                                    ' / '
-                                  )}
-                                </span>
-                                {variant.sku && (
-                                  <span className="text-[10px] text-muted-foreground/70 font-mono">
-                                    SKU: {variant.sku}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell />
-                          <TableCell className="text-right">
-                            {variant.price_override && (
-                              <span className="text-sm text-muted-foreground font-mono">
-                                {formatCurrency(variant.price_override)}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="mx-auto w-24 relative">
-                              <Input
-                                type="number"
-                                value={variant.stock_quantity}
-                                onChange={(e) =>
-                                  handleStockChange(
-                                    product.id,
-                                    Number.parseInt(e.target.value, 10) || 0,
-                                    variant.id
-                                  )
-                                }
-                                className={cn(
-                                  'h-7 text-center font-mono text-xs bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-white transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
-                                  variant.stock_quantity === 0 &&
-                                    'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
-                                  isVariantLowStock &&
-                                    variant.stock_quantity > 0 &&
-                                    'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
-                                )}
-                              />
-                              {isVariantLowStock && (
-                                <div
-                                  className="absolute -right-6 top-1/2 -translate-y-1/2"
-                                  title={`Low Stock (Threshold: ${product.low_stock_threshold || 5})`}
-                                >
-                                  <AlertTriangle className="h-3 w-3 text-amber-500" />
-                                </div>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell />
-                        </TableRow>
-                      );
-                    })}
+                            </TableCell>
+                            <TableCell />
+                          </TableRow>
+                        );
+                      })}
                   </React.Fragment>
                 );
               })}
@@ -432,46 +465,48 @@ export function ProductCatalog({
             </div>
           )}
         </div>
-      </CardContent>
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between px-6 py-3 border-t border-border/40 bg-muted/5">
-          <div className="text-xs text-muted-foreground font-medium">
-            Showing{' '}
-            <span className="text-foreground">
-              {(pagination.page - 1) * pagination.limit + 1}
-            </span>{' '}
-            to{' '}
-            <span className="text-foreground">
-              {Math.min(pagination.page * pagination.limit, pagination.total)}
-            </span>{' '}
-            of <span className="text-foreground">{pagination.total}</span>{' '}
-            products
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(pagination.page - 1)}
-              disabled={pagination.page === 1 || isLoading}
-              className="h-8 text-xs"
-            >
-              Previous
-            </Button>
-            <div className="text-xs font-medium px-2">
-              Page {pagination.page} of {pagination.totalPages}
+      </CardContent >
+      {
+        pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-border/40 bg-muted/5">
+            <div className="text-xs text-muted-foreground font-medium">
+              Showing{' '}
+              <span className="text-foreground">
+                {(pagination.page - 1) * pagination.limit + 1}
+              </span>{' '}
+              to{' '}
+              <span className="text-foreground">
+                {Math.min(pagination.page * pagination.limit, pagination.total)}
+              </span>{' '}
+              of <span className="text-foreground">{pagination.total}</span>{' '}
+              products
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(pagination.page + 1)}
-              disabled={pagination.page === pagination.totalPages || isLoading}
-              className="h-8 text-xs"
-            >
-              Next
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(pagination.page - 1)}
+                disabled={pagination.page === 1 || isLoading}
+                className="h-8 text-xs"
+              >
+                Previous
+              </Button>
+              <div className="text-xs font-medium px-2">
+                Page {pagination.page} of {pagination.totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(pagination.page + 1)}
+                disabled={pagination.page === pagination.totalPages || isLoading}
+                className="h-8 text-xs"
+              >
+                Next
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
-    </Card>
+        )
+      }
+    </Card >
   );
 }
