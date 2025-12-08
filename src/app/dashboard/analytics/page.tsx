@@ -185,6 +185,7 @@ export default function AnalyticsPage() {
   }, [
     activeCategory,
     merchant,
+    date, // Refetch ads data when date range changes
     fetchInventoryData,
     fetchSegmentData,
     fetchAdAnalyticsData,

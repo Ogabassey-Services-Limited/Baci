@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 
@@ -147,33 +147,58 @@ export default function SettingsPage() {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
     'idle'
   );
+  const [riderPhone, setRiderPhone] = useState('');
   /* Analytics moved to Integrations pages */
 
-  // Autosave function for blur-based saving
-  const autoSave = async (data: {
-    social_media?: Record<string, string>;
-    support_email?: string | null;
-    support_phone?: string | null;
-    business_address?: string | null;
-  }) => {
-    setSaveStatus('saving');
-    try {
-      await updateMerchant(data as Parameters<typeof updateMerchant>[0], {
-        skipReload: true,
-      });
-      setSaveStatus('saved');
-      // Reset to idle after 2 seconds
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch (e) {
-      logger.error({ error: e as Error, message: 'Autosave failed' });
-      setSaveStatus('idle');
-      toast({
-        title: 'Autosave Failed',
-        description: 'Changes could not be saved automatically.',
-        variant: 'destructive',
-      });
-    }
-  };
+  // Ref to track pending autosave timeout for debouncing
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const latestDataRef = useRef<Record<string, unknown> | null>(null);
+
+  // Debounced autosave function to prevent race conditions
+  const autoSave = useCallback(
+    (data: {
+      social_media?: Record<string, string>;
+      support_email?: string | null;
+      support_phone?: string | null;
+      business_address?: string | null;
+    }) => {
+      // Store latest data
+      latestDataRef.current = data;
+
+      // Clear any pending autosave
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+
+      // Debounce: wait 500ms before saving
+      autoSaveTimeoutRef.current = setTimeout(async () => {
+        const dataToSave = latestDataRef.current;
+        if (!dataToSave) return;
+
+        setSaveStatus('saving');
+        try {
+          await updateMerchant(
+            dataToSave as Parameters<typeof updateMerchant>[0],
+            {
+              skipReload: true,
+            }
+          );
+          setSaveStatus('saved');
+          // Reset to idle after 2 seconds
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        } catch (e) {
+          logger.error({ error: e as Error, message: 'Autosave failed' });
+          setSaveStatus('idle');
+          toast({
+            title: 'Autosave Failed',
+            description: 'Changes could not be saved automatically.',
+            variant: 'destructive',
+          });
+        }
+      }, 500);
+    },
+    [updateMerchant, toast]
+  );
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
@@ -209,6 +234,7 @@ export default function SettingsPage() {
         support_phone: (merchantData.support_phone as string) || '',
         business_address: (merchantData.business_address as string) || '',
       });
+      setRiderPhone((merchantData.rider_phone_number as string) || '');
       /* Analytics hydration moved */
     }
   }, [merchant, form]);
@@ -440,7 +466,7 @@ export default function SettingsPage() {
                                     style={{
                                       backgroundColor:
                                         brandColors[
-                                          role as keyof typeof brandColors
+                                        role as keyof typeof brandColors
                                         ],
                                     }}
                                   />
@@ -453,7 +479,7 @@ export default function SettingsPage() {
                                 <ColorPicker
                                   color={
                                     brandColors[
-                                      role as keyof typeof brandColors
+                                    role as keyof typeof brandColors
                                     ]
                                   }
                                   onChange={(newColor) =>
@@ -844,9 +870,12 @@ export default function SettingsPage() {
                   id="rider_phone"
                   placeholder="Enter phone number"
                   defaultCountry="NG"
-                  value={merchant?.rider_phone_number || ''}
-                  onChange={(value) =>
-                    updateMerchant({ rider_phone_number: value || '' })
+                  value={riderPhone}
+                  onChange={(value) => setRiderPhone(value || '')}
+                  onBlur={() =>
+                    updateMerchant({
+                      rider_phone_number: riderPhone,
+                    })
                   }
                 />
               </div>

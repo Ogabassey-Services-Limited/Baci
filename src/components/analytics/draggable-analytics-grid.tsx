@@ -382,6 +382,38 @@ const CATEGORY_LAYOUTS: Record<string, Layouts> = {
       { i: 'summary-active', x: 0, y: 1, w: 2, h: 1 },
     ],
   },
+  ads: {
+    lg: [
+      { i: 'ads-overview', x: 0, y: 0, w: 6, h: 2 },
+      { i: 'ads-platforms', x: 6, y: 0, w: 6, h: 2 },
+      { i: 'ads-attribution', x: 0, y: 2, w: 6, h: 2 },
+      { i: 'ads-privacy', x: 6, y: 2, w: 6, h: 2 },
+    ],
+    md: [
+      { i: 'ads-overview', x: 0, y: 0, w: 5, h: 2 },
+      { i: 'ads-platforms', x: 5, y: 0, w: 5, h: 2 },
+      { i: 'ads-attribution', x: 0, y: 2, w: 5, h: 2 },
+      { i: 'ads-privacy', x: 5, y: 2, w: 5, h: 2 },
+    ],
+    sm: [
+      { i: 'ads-overview', x: 0, y: 0, w: 6, h: 2 },
+      { i: 'ads-platforms', x: 0, y: 2, w: 6, h: 2 },
+      { i: 'ads-attribution', x: 0, y: 4, w: 6, h: 2 },
+      { i: 'ads-privacy', x: 0, y: 6, w: 6, h: 2 },
+    ],
+    xs: [
+      { i: 'ads-overview', x: 0, y: 0, w: 4, h: 2 },
+      { i: 'ads-platforms', x: 0, y: 2, w: 4, h: 2 },
+      { i: 'ads-attribution', x: 0, y: 4, w: 4, h: 2 },
+      { i: 'ads-privacy', x: 0, y: 6, w: 4, h: 2 },
+    ],
+    xxs: [
+      { i: 'ads-overview', x: 0, y: 0, w: 2, h: 2 },
+      { i: 'ads-platforms', x: 0, y: 2, w: 2, h: 2 },
+      { i: 'ads-attribution', x: 0, y: 4, w: 2, h: 2 },
+      { i: 'ads-privacy', x: 0, y: 6, w: 2, h: 2 },
+    ],
+  },
 };
 
 export function DraggableAnalyticsGrid({
@@ -1680,10 +1712,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'At Risk'
                         )?.avg_clv
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'At Risk'
-                              )?.avg_clv || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'At Risk'
+                            )?.avg_clv || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1726,10 +1758,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'Champions'
                         )?.avg_order_value
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'Champions'
-                              )?.avg_order_value || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'Champions'
+                            )?.avg_order_value || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1742,10 +1774,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'Champions'
                         )?.avg_clv
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'Champions'
-                              )?.avg_clv || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'Champions'
+                            )?.avg_clv || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">

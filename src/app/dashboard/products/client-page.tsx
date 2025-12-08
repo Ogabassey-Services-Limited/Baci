@@ -172,35 +172,52 @@ function ProductsPageContent() {
       const { job } = await response.json();
 
       let pollInterval: NodeJS.Timeout | null = null;
+      let timeoutId: NodeJS.Timeout | null = null;
+      let isPollingActive = true; // Local flag to track if we're still polling
+
+      const cleanup = () => {
+        isPollingActive = false;
+        if (pollInterval) clearInterval(pollInterval);
+        if (timeoutId) clearTimeout(timeoutId);
+        pollInterval = null;
+        timeoutId = null;
+      };
 
       // Poll for job completion
       pollInterval = setInterval(async () => {
-        const jobResponse = await fetch(`/api/ai-jobs/${job.id}`);
-        const { job: updatedJob } = await jobResponse.json();
+        if (!isPollingActive) return; // Guard against stale interval executions
 
-        if (updatedJob.status === 'completed') {
-          if (pollInterval) clearInterval(pollInterval);
-          setAiResponse(updatedJob.output);
-          setWorkflowStep('review');
-          setIsProcessing(false);
-          setSearchTerm('');
-        } else if (updatedJob.status === 'failed') {
-          if (pollInterval) clearInterval(pollInterval);
-          console.error('AI processing failed:', updatedJob.error);
-          toast({
-            title: 'AI Processing Failed',
-            description: updatedJob.error || 'An error occurred',
-            variant: 'destructive',
-          });
-          setWorkflowStep('view');
-          setIsProcessing(false);
+        try {
+          const jobResponse = await fetch(`/api/ai-jobs/${job.id}`);
+          const { job: updatedJob } = await jobResponse.json();
+
+          if (updatedJob.status === 'completed') {
+            cleanup();
+            setAiResponse(updatedJob.output);
+            setWorkflowStep('review');
+            setIsProcessing(false);
+            setSearchTerm('');
+          } else if (updatedJob.status === 'failed') {
+            cleanup();
+            console.error('AI processing failed:', updatedJob.error);
+            toast({
+              title: 'AI Processing Failed',
+              description: updatedJob.error || 'An error occurred',
+              variant: 'destructive',
+            });
+            setWorkflowStep('view');
+            setIsProcessing(false);
+          }
+        } catch (pollError) {
+          console.error('Poll error:', pollError);
+          // Don't cleanup on poll error - might be transient
         }
       }, 2000); // Poll every 2 seconds
 
       // Timeout after 60 seconds
-      setTimeout(() => {
-        if (pollInterval) clearInterval(pollInterval);
-        if (isProcessing) {
+      timeoutId = setTimeout(() => {
+        if (isPollingActive) {
+          cleanup();
           toast({
             title: 'Processing Timeout',
             description:
