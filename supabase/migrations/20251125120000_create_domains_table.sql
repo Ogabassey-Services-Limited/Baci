@@ -120,7 +120,7 @@ CREATE TRIGGER ensure_single_primary_domain_trigger
 
 -- Add comments for documentation
 COMMENT ON TABLE domains IS 'Custom domains and subdomains for merchant storefronts';
-COMMENT ON COLUMN domains.domain_type IS 'subdomain (free .baci.tech), custom (BYOD), or purchased (via Go54)';
+COMMENT ON COLUMN domains.domain_type IS 'subdomain (free .usebaci.com), custom (BYOD), or purchased (via Go54)';
 COMMENT ON COLUMN domains.status IS 'pending (awaiting verification), active (live), inactive (disabled), expired (needs renewal), failed (error)';
 COMMENT ON COLUMN domains.verification_token IS 'Token for DNS TXT record verification (_baci-verification)';
 COMMENT ON COLUMN domains.go54_order_id IS 'Go54 API order ID for purchased domains';
