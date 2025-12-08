@@ -125,7 +125,7 @@
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "jsdom": "^27.2.0",
-    "knip": "^5.70.2",
+    "knip": "^5.72.0",
     "lefthook": "^2.0.4",
     "postcss": "^8.4.40",
     "prettier": "^3.6.2",
