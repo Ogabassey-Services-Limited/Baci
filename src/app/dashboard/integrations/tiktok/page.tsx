@@ -2,6 +2,7 @@
 
 import { AlertCircle, ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { FeedUrlSection } from '@/components/dashboard/integrations/feed-url-section';
 import { TrackingPixelSection } from '@/components/dashboard/integrations/tracking-pixel-section';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -14,12 +15,85 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 
-export default function TikTokIntegrationPage() {
-  const { merchant, updateMerchant } = useMerchant();
+interface FeatureSettings {
+  tiktok_pixel_id: string | null;
+  tiktok_access_token: string | null;
+}
 
-  if (!merchant) {
+export default function TikTokIntegrationPage() {
+  const { merchant } = useMerchant();
+  const { toast } = useToast();
+  const [settings, setSettings] = useState<FeatureSettings | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Fetch current settings from the correct table
+  useEffect(() => {
+    async function fetchSettings() {
+      try {
+        const response = await fetch('/api/merchant/features');
+        if (response.ok) {
+          const data = await response.json();
+          setSettings({
+            tiktok_pixel_id: data.tiktok_pixel_id,
+            tiktok_access_token: data.tiktok_access_token,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch feature settings:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    if (merchant) {
+      fetchSettings();
+    }
+  }, [merchant]);
+
+  // Save to the correct table via features API
+  const handleSave = useCallback(
+    async (pixelId: string, token: string) => {
+      try {
+        const response = await fetch('/api/merchant/features', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tiktok_pixel_id: pixelId || null,
+            tiktok_access_token: token || null,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save settings');
+        }
+
+        const data = await response.json();
+        setSettings({
+          tiktok_pixel_id: data.tiktok_pixel_id,
+          tiktok_access_token: data.tiktok_access_token,
+        });
+
+        toast({
+          title: 'Settings saved',
+          description: 'Your TikTok tracking settings have been updated.',
+        });
+      } catch (error) {
+        console.error('Failed to save settings:', error);
+        toast({
+          variant: 'destructive',
+          title: 'Save failed',
+          description: 'Could not save your settings. Please try again.',
+        });
+        throw error;
+      }
+    },
+    [toast]
+  );
+
+  if (!merchant || isLoading) {
     return <div>Loading...</div>;
   }
 
@@ -134,16 +208,11 @@ export default function TikTokIntegrationPage() {
 
       <TrackingPixelSection
         platform="TikTok"
-        pixelId={merchant.tiktok_pixel_id || ''}
-        accessToken={merchant.tiktok_access_token || ''}
+        pixelId={settings?.tiktok_pixel_id || ''}
+        accessToken={settings?.tiktok_access_token || ''}
         pixelLabel="Pixel ID"
         tokenLabel="Access Token"
-        onSave={async (pixelId, token) => {
-          await updateMerchant({
-            tiktok_pixel_id: pixelId,
-            tiktok_access_token: token,
-          });
-        }}
+        onSave={handleSave}
       />
     </div>
   );
