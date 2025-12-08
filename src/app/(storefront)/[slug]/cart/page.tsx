@@ -7,9 +7,9 @@ import { getCachedMerchant } from '@/lib/cached-data';
 export default async function CartPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const { slug } = params;
+  const { slug } = await params;
   const merchant = await getCachedMerchant(slug);
 
   if (!merchant) {

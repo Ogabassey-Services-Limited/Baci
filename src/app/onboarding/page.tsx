@@ -8,17 +8,18 @@ import OnboardingClient from '@/components/onboarding-client';
 export default function OnboardingPage() {
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
-      {/* Dynamic Background Elements (Matched to Login Page) */}
-      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
-      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
+      {/* Dynamic Background Elements (Matched to Login Page) - Optimized */}
+      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-50 pointer-events-none" />
 
       {/* Animated Orbs */}
+      {/* Animated Orbs - Optimized with gradients instead of heavy blur filters */}
       <div
-        className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/30 rounded-full blur-3xl animate-pulse"
+        className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[radial-gradient(circle,_var(--theme-primary)_0%,_transparent_70%)] opacity-20 animate-pulse pointer-events-none"
         style={{ animationDuration: '4s' }}
       />
       <div
-        className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-accent/30 rounded-full blur-3xl animate-pulse"
+        className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[radial-gradient(circle,_var(--theme-accent)_0%,_transparent_70%)] opacity-20 animate-pulse pointer-events-none"
         style={{ animationDuration: '6s' }}
       />
 
