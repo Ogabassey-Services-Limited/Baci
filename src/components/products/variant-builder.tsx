@@ -1,6 +1,6 @@
 'use client';
 
-import { removeBackground } from '@imgly/background-removal';
+// @imgly/background-removal dynamically imported at use to avoid 2MB ONNX bundle
 import { Image as ImageIcon, Loader2, Plus, Wand2, X } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -323,6 +323,7 @@ export function VariantBuilder({
       });
 
       // 1. Remove Background
+      const { removeBackground } = await import('@imgly/background-removal');
       const blob = await removeBackground(variantToEnhance.primary_image);
       const noBgUrl = URL.createObjectURL(blob);
 
@@ -361,10 +362,10 @@ export function VariantBuilder({
       const updated = variants.map((v) =>
         v.attributes.color === color
           ? {
-              ...v,
-              primary_image: enhancedPhotoDataUri,
-              images: [enhancedPhotoDataUri],
-            }
+            ...v,
+            primary_image: enhancedPhotoDataUri,
+            images: [enhancedPhotoDataUri],
+          }
           : v
       );
       setVariants(updated);
@@ -578,8 +579,8 @@ export function VariantBuilder({
                         value={
                           variantWithSpec?.price_override != null
                             ? new Intl.NumberFormat('en-US').format(
-                                variantWithSpec.price_override
-                              )
+                              variantWithSpec.price_override
+                            )
                             : ''
                         }
                         onChange={(e) => {
