@@ -426,9 +426,9 @@ const OrderCard = ({
                 <Box className="w-3 h-3" /> Item Details
               </h5>
               <div className="space-y-2">
-                {order.items?.map((item, idx) => (
+                {order.items?.map((item) => (
                   <div
-                    key={idx}
+                    key={item.id || item.name}
                     className="flex justify-between items-center text-sm p-2 hover:bg-muted/20 rounded"
                   >
                     <div className="flex gap-3 items-center overflow-hidden">

@@ -8,6 +8,37 @@ import {
   shouldApplyLimitedDataUse,
 } from '@/lib/ad-tracking-cookies';
 
+// Type definitions for ad tracking pixels on window
+interface WindowWithAdPixels {
+  fbq?: (
+    action: string,
+    event: string,
+    params?: Record<string, unknown>,
+    options?: { eventID: string }
+  ) => void;
+  ttq?: {
+    track: (event: string, params: Record<string, unknown>) => void;
+  };
+  gtag?: (
+    command: string,
+    event: string,
+    params: Record<string, unknown>
+  ) => void;
+  snaptr?: (
+    action: string,
+    event: string,
+    params: Record<string, unknown>
+  ) => void;
+}
+
+// Cast window to include ad tracking properties
+const getWindow = (): WindowWithAdPixels | undefined => {
+  if (typeof window !== 'undefined') {
+    return window as unknown as WindowWithAdPixels;
+  }
+  return undefined;
+};
+
 /**
  * Hook for managing ad tracking data with event deduplication support
  *
@@ -90,19 +121,18 @@ export function useAdTracking() {
       const eventId = generatePurchaseEventId();
 
       // Fire Facebook Pixel if available
-      if (typeof window !== 'undefined' && (window as any).fbq) {
-        (window as any).fbq(
-          'track',
-          'Purchase',
-          {
-            value,
-            currency,
-            content_ids: contentIds,
-            content_type: 'product',
-          },
-          { eventID: eventId }
-        );
-      }
+      const win = getWindow();
+      win?.fbq?.(
+        'track',
+        'Purchase',
+        {
+          value,
+          currency,
+          content_ids: contentIds,
+          content_type: 'product',
+        },
+        { eventID: eventId }
+      );
 
       return eventId;
     },
@@ -118,14 +148,13 @@ export function useAdTracking() {
       const eventId = generatePurchaseEventId();
 
       // Fire TikTok Pixel if available
-      if (typeof window !== 'undefined' && (window as any).ttq) {
-        (window as any).ttq.track('CompletePayment', {
-          value,
-          currency,
-          contents: contentIds?.map((id) => ({ content_id: id })),
-          event_id: eventId,
-        });
-      }
+      const win = getWindow();
+      win?.ttq?.track('CompletePayment', {
+        value,
+        currency,
+        contents: contentIds?.map((id) => ({ content_id: id })),
+        event_id: eventId,
+      });
 
       return eventId;
     },
@@ -143,51 +172,44 @@ export function useAdTracking() {
       contentIds?: string[]
     ): AdTrackingData => {
       const eventId = generatePurchaseEventId();
+      const win = getWindow();
 
       // Fire Facebook Pixel
-      if (typeof window !== 'undefined' && (window as any).fbq) {
-        (window as any).fbq(
-          'track',
-          'Purchase',
-          {
-            value,
-            currency,
-            content_ids: contentIds,
-            content_type: 'product',
-          },
-          { eventID: eventId }
-        );
-      }
+      win?.fbq?.(
+        'track',
+        'Purchase',
+        {
+          value,
+          currency,
+          content_ids: contentIds,
+          content_type: 'product',
+        },
+        { eventID: eventId }
+      );
 
       // Fire TikTok Pixel
-      if (typeof window !== 'undefined' && (window as any).ttq) {
-        (window as any).ttq.track('CompletePayment', {
-          value,
-          currency,
-          contents: contentIds?.map((id) => ({ content_id: id })),
-          event_id: eventId,
-        });
-      }
+      win?.ttq?.track('CompletePayment', {
+        value,
+        currency,
+        contents: contentIds?.map((id) => ({ content_id: id })),
+        event_id: eventId,
+      });
 
       // Fire Google Analytics
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'purchase', {
-          transaction_id: eventId,
-          value,
-          currency,
-          items: contentIds?.map((id) => ({ item_id: id })),
-        });
-      }
+      win?.gtag?.('event', 'purchase', {
+        transaction_id: eventId,
+        value,
+        currency,
+        items: contentIds?.map((id) => ({ item_id: id })),
+      });
 
       // Fire Snapchat Pixel
-      if (typeof window !== 'undefined' && (window as any).snaptr) {
-        (window as any).snaptr('track', 'PURCHASE', {
-          price: value,
-          currency,
-          transaction_id: eventId,
-          item_ids: contentIds,
-        });
-      }
+      win?.snaptr?.('track', 'PURCHASE', {
+        price: value,
+        currency,
+        transaction_id: eventId,
+        item_ids: contentIds,
+      });
 
       return getTrackingForOrder(eventId);
     },
