@@ -134,15 +134,15 @@ export default function TikTokIntegrationPage() {
 
       <TrackingPixelSection
         platform="TikTok"
-        pixelId={(merchant as any).tiktok_pixel_id || ''}
-        accessToken={(merchant as any).tiktok_access_token || ''}
+        pixelId={merchant.tiktok_pixel_id || ''}
+        accessToken={merchant.tiktok_access_token || ''}
         pixelLabel="Pixel ID"
         tokenLabel="Access Token"
         onSave={async (pixelId, token) => {
           await updateMerchant({
             tiktok_pixel_id: pixelId,
             tiktok_access_token: token,
-          } as any);
+          });
         }}
       />
     </div>

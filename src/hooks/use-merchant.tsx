@@ -79,6 +79,16 @@ export interface MerchantData {
   stripe_subscription_id?: string;
   // Ad tracking settings
   offline_conversions_enabled?: boolean;
+  // Analytics & Tracking Pixels
+  facebook_pixel_id?: string;
+  facebook_capi_token?: string;
+  google_analytics_id?: string;
+  ga4_api_secret?: string;
+  tiktok_pixel_id?: string;
+  tiktok_access_token?: string;
+  snapchat_pixel_id?: string;
+  snapchat_capi_token?: string;
+  twitter_pixel_id?: string;
 }
 
 export type StaffRole =
@@ -406,7 +416,7 @@ export const MerchantProvider = ({
     } finally {
       setLoading(false);
     }
-  }, [slug, authLoading, user, initialMerchant]);
+  }, [slug, authLoading, user, initialMerchant, supabase.from]);
 
   useEffect(() => {
     loadData();

@@ -124,18 +124,20 @@ export async function POST(request: Request) {
     // ---------------------------------------------------------
     // VERCEL INTEGRATION
     // ---------------------------------------------------------
-    let vercelResponse;
+    let vercelResponse: Awaited<ReturnType<typeof vercel.addDomain>>;
     try {
       // Add domain to Vercel Project
       vercelResponse = await vercel.addDomain(domain);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Vercel Add Domain Error:', error);
       // If domain is owned by another account, Vercel might return 409
       // We should pass this error to the user
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       return NextResponse.json(
         {
           error:
-            error.message ||
+            errorMessage ||
             'Failed to add domain to Vercel. It might be in use by another account.',
         },
         { status: 409 }
@@ -152,7 +154,7 @@ export async function POST(request: Request) {
 
     if (vercelResponse.verification) {
       const txtChallenge = vercelResponse.verification.find(
-        (v: any) => v.type === 'TXT'
+        (v) => v.type === 'TXT'
       );
       if (txtChallenge) {
         verificationToken = txtChallenge.value;
@@ -194,7 +196,7 @@ export async function POST(request: Request) {
     }
 
     // Prepare response with verification instructions
-    let verificationInstructions = {
+    const verificationInstructions = {
       type: 'A',
       name: '@',
       value: '76.76.21.21',
@@ -210,11 +212,10 @@ export async function POST(request: Request) {
       verification: verificationInstructions,
       vercel: vercelResponse, // Return raw Vercel response for debugging
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error adding domain:', error);
-    return NextResponse.json(
-      { error: error?.message || 'Internal server error', stack: error?.stack },
-      { status: 500 }
-    );
+    const errorMessage =
+      error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

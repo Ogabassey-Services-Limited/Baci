@@ -79,12 +79,11 @@ export type VercelVerifyResponse = {
   }[];
 };
 
-// biome-ignore lint/suspicious/useAwait: These functions return promises from fetchVercel which handles async
 export const vercel = {
   /**
    * Add a domain to the Vercel project
    */
-  addDomain: async (domain: string): Promise<VercelDomainResponse> => {
+  addDomain: (domain: string): Promise<VercelDomainResponse> => {
     const config = getConfig();
     return fetchVercel(`/v10/projects/${config.projectId}/domains`, {
       method: 'POST',
@@ -95,7 +94,7 @@ export const vercel = {
   /**
    * Verify a domain
    */
-  verifyDomain: async (domain: string): Promise<VercelVerifyResponse> => {
+  verifyDomain: (domain: string): Promise<VercelVerifyResponse> => {
     const config = getConfig();
     return fetchVercel(
       `/v9/projects/${config.projectId}/domains/${domain}/verify`,
@@ -106,7 +105,7 @@ export const vercel = {
   /**
    * Remove a domain from the Vercel project
    */
-  removeDomain: async (domain: string) => {
+  removeDomain: (domain: string) => {
     const config = getConfig();
     return fetchVercel(`/v9/projects/${config.projectId}/domains/${domain}`, {
       method: 'DELETE',
@@ -116,7 +115,7 @@ export const vercel = {
   /**
    * Get domain configuration (checks for misconfiguration)
    */
-  getDomainConfig: async (domain: string) => {
+  getDomainConfig: (domain: string) => {
     return fetchVercel(`/v6/domains/${domain}/config`);
   },
 };

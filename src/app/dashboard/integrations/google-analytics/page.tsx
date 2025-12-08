@@ -35,15 +35,15 @@ export default function GoogleAnalyticsPage() {
 
       <TrackingPixelSection
         platform="Google Analytics 4"
-        pixelId={(merchant as any).google_analytics_id || ''}
-        accessToken={(merchant as any).ga4_api_secret || ''}
+        pixelId={merchant.google_analytics_id || ''}
+        accessToken={merchant.ga4_api_secret || ''}
         pixelLabel="Measurement ID (G-XXXXXXXXXX)"
         tokenLabel="API Secret (Optional)"
         onSave={async (pixelId, token) => {
           await updateMerchant({
             google_analytics_id: pixelId,
             ga4_api_secret: token,
-          } as any);
+          });
         }}
         description="Connect your store to GA4 to track visitors, events, and ecommerce data."
       >

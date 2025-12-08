@@ -97,16 +97,18 @@ export async function POST(
     }
 
     // Call Vercel Verify API
-    let verifyResult;
+    let verifyResult: Awaited<ReturnType<typeof vercel.verifyDomain>>;
     try {
       verifyResult = await vercel.verifyDomain(domain);
-    } catch (vercelError: any) {
+    } catch (vercelError: unknown) {
       console.error('Vercel verification error:', vercelError);
+      const errorMessage =
+        vercelError instanceof Error ? vercelError.message : 'Unknown error';
       return NextResponse.json(
         {
           success: false,
           error:
-            vercelError.message ||
+            errorMessage ||
             'Failed to connect to verification service. Please try again.',
         },
         { status: 500 }
@@ -145,7 +147,7 @@ export async function POST(
       // If Vercel returned new verification challenges, update stored token
       if (verifyResult.verification) {
         const txtChallenge = verifyResult.verification.find(
-          (v: any) => v.type === 'TXT'
+          (v) => v.type === 'TXT'
         );
         if (
           txtChallenge &&

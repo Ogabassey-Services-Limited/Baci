@@ -7,7 +7,7 @@ import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import { Button } from '@/components/ui/button';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { useMerchant } from '@/hooks/use-merchant';
-import { getTemplate, type TemplateComponents } from '@/templates/registry';
+import { getTemplate } from '@/templates/registry';
 
 const DynamicPuckStorefront = dynamic(
   () =>
@@ -24,8 +24,11 @@ const DynamicPuckStorefront = dynamic(
 export function StorefrontWrapper() {
   const { merchant, loading } = useMerchant();
   const [showError, setShowError] = useState(false);
-  const [TemplateHome, setTemplateHome] =
-    useState<React.ComponentType<any> | null>(null);
+  const [TemplateHome, setTemplateHome] = useState<React.ComponentType<{
+    storeSlug?: string;
+    merchant?: unknown;
+    isPreview?: boolean;
+  }> | null>(null);
   const [templateLoading, setTemplateLoading] = useState(true);
 
   // Load template components based on merchant's template_id

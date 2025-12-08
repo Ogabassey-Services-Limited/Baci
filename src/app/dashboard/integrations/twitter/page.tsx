@@ -33,12 +33,12 @@ export default function TwitterIntegrationPage() {
 
       <TrackingPixelSection
         platform="Twitter (X)"
-        pixelId={(merchant as any).twitter_pixel_id || ''}
+        pixelId={merchant.twitter_pixel_id || ''}
         pixelLabel="Pixel ID"
-        onSave={async (pixelId, _token) => {
+        onSave={async (pixelId) => {
           await updateMerchant({
             twitter_pixel_id: pixelId,
-          } as any);
+          });
         }}
         description="The X Pixel allows you to track conversions and optimize your ad campaigns."
       >

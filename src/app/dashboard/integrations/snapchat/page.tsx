@@ -33,15 +33,15 @@ export default function SnapchatIntegrationPage() {
 
       <TrackingPixelSection
         platform="Snapchat"
-        pixelId={(merchant as any).snapchat_pixel_id || ''}
-        accessToken={(merchant as any).snapchat_capi_token || ''}
+        pixelId={merchant.snapchat_pixel_id || ''}
+        accessToken={merchant.snapchat_capi_token || ''}
         pixelLabel="Snap Pixel ID"
         tokenLabel="Conversion API Token (Optional)"
         onSave={async (pixelId, token) => {
           await updateMerchant({
             snapchat_pixel_id: pixelId,
             snapchat_capi_token: token,
-          } as any);
+          });
         }}
         description="The Snap Pixel helps you measure the cross-device impact of your campaigns."
       >

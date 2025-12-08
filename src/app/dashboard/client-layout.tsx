@@ -5,6 +5,7 @@ import {
   ChevronDown,
   FileText,
   Gift,
+  Globe,
   LayoutDashboard,
   LayoutTemplate,
   Loader2,
@@ -22,7 +23,6 @@ import {
   User,
   Users,
   Wallet,
-  Globe,
 } from 'lucide-react';
 import type { Route } from 'next';
 import Link from 'next/link';
@@ -57,7 +57,6 @@ import { useToast } from '@/hooks/use-toast';
 import { COUNTRIES, getCountryByCode } from '@/lib/countries';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
-import { getDashboardMetrics } from './actions';
 
 // The original layout is now a client component to prevent hydration errors.
 
@@ -180,11 +179,15 @@ export default function DashboardClientLayout({
   const { merchant, loading: merchantLoading, updateMerchant } = useMerchant();
   const { user, loading: authLoading, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { toast } = useToast();
+  useToast(); // Keep toast available for potential future use
 
   // Track if we've already attempted a redirect to prevent loops
   const [hasAttemptedAuthCheck, setHasAttemptedAuthCheck] = useState(false);
 
+  // Orders count for sidebar badge - fetched lazily to not block initial render
+  const [ordersCount, setOrdersCount] = useState(0);
+
+  // Auth redirect effect
   useEffect(() => {
     // Wait for both auth and merchant loading to finish before making decisions
     if (authLoading || merchantLoading) {
@@ -210,15 +213,57 @@ export default function DashboardClientLayout({
 
     // If there IS a user but NO merchant record OR incomplete profile,
     // the blocking UI is handled outside this effect (see below)
-  }, [
-    user,
-    merchant,
-    authLoading,
-    merchantLoading,
-    router,
-    toast,
-    hasAttemptedAuthCheck,
-  ]);
+  }, [user, authLoading, merchantLoading, router, hasAttemptedAuthCheck]);
+
+  // Auto-collapse sidebar on main content interaction
+  useEffect(() => {
+    const mainContent = document.getElementById('main-content');
+    if (!mainContent) return;
+
+    const handleInteraction = (event: Event) => {
+      // Only auto-collapse on desktop and if sidebar is expanded
+      if (window.innerWidth >= 768 && !isCollapsed) {
+        if (event.type === 'click') {
+          setIsCollapsed(true);
+        } else if (event.type === 'scroll') {
+          const target = event.target as HTMLElement;
+          // Calculate 5% of the scrollable height
+          const threshold = (target.scrollHeight - target.clientHeight) * 0.05;
+
+          // If scrolled more than 5% and threshold is valid (not 0)
+          if (threshold > 0 && target.scrollTop > threshold) {
+            setIsCollapsed(true);
+          }
+        }
+      }
+    };
+
+    // Collapse on click or scroll (with threshold)
+    mainContent.addEventListener('click', handleInteraction);
+    mainContent.addEventListener('scroll', handleInteraction);
+
+    return () => {
+      mainContent.removeEventListener('click', handleInteraction);
+      mainContent.removeEventListener('scroll', handleInteraction);
+    };
+  }, [isCollapsed]);
+
+  // Orders count fetch effect
+  useEffect(() => {
+    // Only fetch if merchant exists and we're on dashboard
+    // This is a lightweight call just for the badge count
+    if (merchant?.id && ordersCount === 0) {
+      // Use a simpler query just for count instead of full metrics
+      import('@/lib/supabase/client').then(({ createClient }) => {
+        const supabase = createClient();
+        supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .eq('merchant_id', merchant.id)
+          .then(({ count }) => setOrdersCount(count || 0));
+      });
+    }
+  }, [merchant?.id, ordersCount]);
 
   // If we are not loading but have no merchant, show the blocking UI here (outside useEffect)
   if (
@@ -267,58 +312,6 @@ export default function DashboardClientLayout({
       </div>
     );
   }
-
-  // Auto-collapse sidebar on main content interaction
-  useEffect(() => {
-    const mainContent = document.getElementById('main-content');
-    if (!mainContent) return;
-
-    const handleInteraction = (event: Event) => {
-      // Only auto-collapse on desktop and if sidebar is expanded
-      if (window.innerWidth >= 768 && !isCollapsed) {
-        if (event.type === 'click') {
-          setIsCollapsed(true);
-        } else if (event.type === 'scroll') {
-          const target = event.target as HTMLElement;
-          // Calculate 5% of the scrollable height
-          const threshold = (target.scrollHeight - target.clientHeight) * 0.05;
-
-          // If scrolled more than 5% and threshold is valid (not 0)
-          if (threshold > 0 && target.scrollTop > threshold) {
-            setIsCollapsed(true);
-          }
-        }
-      }
-    };
-
-    // Collapse on click or scroll (with threshold)
-    mainContent.addEventListener('click', handleInteraction);
-    mainContent.addEventListener('scroll', handleInteraction);
-
-    return () => {
-      mainContent.removeEventListener('click', handleInteraction);
-      mainContent.removeEventListener('scroll', handleInteraction);
-    };
-  }, [isCollapsed]);
-
-  // Orders count for sidebar badge - fetched lazily to not block initial render
-  const [ordersCount, setOrdersCount] = useState(0);
-
-  useEffect(() => {
-    // Only fetch if merchant exists and we're on dashboard
-    // This is a lightweight call just for the badge count
-    if (merchant?.id && ordersCount === 0) {
-      // Use a simpler query just for count instead of full metrics
-      import('@/lib/supabase/client').then(({ createClient }) => {
-        const supabase = createClient();
-        supabase
-          .from('orders')
-          .select('id', { count: 'exact', head: true })
-          .eq('merchant_id', merchant.id)
-          .then(({ count }) => setOrdersCount(count || 0));
-      });
-    }
-  }, [merchant?.id, ordersCount]);
 
   const selectedCountry = merchant?.country
     ? getCountryByCode(merchant.country)
