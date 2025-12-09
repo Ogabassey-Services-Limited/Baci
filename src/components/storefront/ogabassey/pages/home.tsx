@@ -1,6 +1,6 @@
 'use client';
 
-// @ts-nocheck - Template preview
+// Template preview
 import type React from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { BannerCarousel } from '../components/BannerCarousel';

@@ -1,4 +1,5 @@
-// Migrated from temp-source/components/Footer.tsx
+import type { MerchantData } from '@/hooks/use-merchant';
+import { normalizeSocialUrl } from '@/lib/social';
 import {
   Apple,
   Facebook,
@@ -16,7 +17,40 @@ import type React from 'react';
 
 import { Logo } from './Logo';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  merchant?: MerchantData;
+  storeSlug?: string;
+}
+
+export const Footer: React.FC<FooterProps> = ({ merchant }) => {
+  const businessName = merchant?.business_name || 'Ogabassey';
+  const socialLinks = merchant?.social_media || {};
+  const contactEmail = merchant?.email || 'support@ogabassey.com';
+  const contactPhone = merchant?.phone || '+234 814 697 8921';
+  const contactAddress = merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos';
+
+  // Helper to render social link if it exists
+  const renderSocialLink = (
+    input: string | undefined,
+    label: string,
+    platform: 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'linkedin',
+    Icon: React.ElementType
+  ) => {
+    const url = normalizeSocialUrl(input, platform);
+    if (!url) return null;
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-gray-400 hover:text-white transition-colors"
+        aria-label={label}
+      >
+        <Icon size={20} />
+      </a>
+    );
+  };
+
   return (
     <footer className="bg-[#1a1a1a] text-white pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans border-t border-gray-800">
       {/* Pattern Overlay - Same as Navbar */}
@@ -42,60 +76,37 @@ export const Footer: React.FC = () => {
               Making Smartphones Accessible and Affordable
             </p>
             <div className="flex items-center gap-4 flex-wrap">
-              <a
-                href="https://instagram.com/ogabasseyy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="Instagram"
-              >
-                <Instagram size={20} />
-              </a>
-              <a
-                href="https://facebook.com/ogabasseyy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="Facebook"
-              >
-                <Facebook size={20} />
-              </a>
-              <a
-                href="https://tiktok.com/@ogabasseyy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="TikTok"
-              >
-                <Music size={20} />
-              </a>
-              <a
-                href="https://twitter.com/ogabasseyy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="Twitter"
-              >
-                <Twitter size={20} />
-              </a>
-              <a
-                href="https://youtube.com/@ogabasseyy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="YouTube"
-              >
-                <Youtube size={20} />
-              </a>
-              <a
-                href="https://ng.linkedin.com/company/ogabasseyy?trk=public_post_feed-actor-name"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="LinkedIn"
-              >
-                <Linkedin size={20} />
-              </a>
+              {renderSocialLink(
+                socialLinks.instagram,
+                'Instagram',
+                'instagram',
+                Instagram
+              )}
+              {renderSocialLink(
+                socialLinks.facebook,
+                'Facebook',
+                'facebook',
+                Facebook
+              )}
+              {renderSocialLink(socialLinks.tiktok, 'TikTok', 'tiktok', Music)}
+              {renderSocialLink(
+                socialLinks.twitter,
+                'Twitter',
+                'twitter',
+                Twitter
+              )}
+              {renderSocialLink(
+                socialLinks.youtube,
+                'YouTube',
+                'youtube',
+                Youtube
+              )}
+              {renderSocialLink(
+                socialLinks.linkedin,
+                'LinkedIn',
+                'linkedin',
+                Linkedin
+              )}
             </div>
           </div>
 
@@ -175,19 +186,19 @@ export const Footer: React.FC = () => {
             <ul className="space-y-3 text-xs text-gray-400">
               <li className="flex items-start gap-2">
                 <MapPin className="shrink-0 text-red-600" size={16} />
-                <span>2 Olaide Tomori St, Ikeja, Lagos</span>
+                <span>{contactAddress}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="shrink-0 text-red-600" size={16} />
-                <span>+234 814 697 8921</span>
+                <span>{contactPhone}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="shrink-0 text-red-600" size={16} />
                 <a
-                  href="mailto:support@ogabassey.com"
+                  href={`mailto:${contactEmail}`}
                   className="hover:text-white transition-colors"
                 >
-                  support@ogabassey.com
+                  {contactEmail}
                 </a>
               </li>
             </ul>

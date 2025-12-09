@@ -2,9 +2,11 @@
 
 // Migrated from temp-source/components/Hero.tsx
 import { Gamepad2, Play } from 'lucide-react';
+import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { AdUnit } from './AdUnit';
+import { UtilityModal } from './UtilityModal';
 
 type SlideType = 'image' | 'video' | 'ad';
 
@@ -107,6 +109,9 @@ export const Hero: React.FC = () => {
   const [currentIphoneSlide, setCurrentIphoneSlide] = useState(0);
   const _videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
 
+  const [showUtilityModal, setShowUtilityModal] = useState(false);
+  const [utilityTab, setUtilityTab] = useState('airtime');
+
   // Auto-rotate Mobile slides
   useEffect(() => {
     const timer = setInterval(() => {
@@ -162,11 +167,12 @@ export const Hero: React.FC = () => {
                       >
                         {slide.subtitle}
                       </p>
-                      <button
-                        className={`mt-3 text-[10px] font-bold px-4 py-2 rounded-full shadow-sm transition-all border ${slide.textColor === 'text-white' ? 'bg-white/20 hover:bg-white/30 border-white/30 text-white' : 'bg-black/5 hover:bg-black/10 border-black/10 text-gray-900'}`}
+                      <Link
+                        href="/products"
+                        className={`mt-3 text-[10px] font-bold px-4 py-2 rounded-full shadow-sm transition-all border inline-block ${slide.textColor === 'text-white' ? 'bg-white/20 hover:bg-white/30 border-white/30 text-white' : 'bg-black/5 hover:bg-black/10 border-black/10 text-gray-900'}`}
                       >
                         Shop Now
-                      </button>
+                      </Link>
                     </div>
                   </div>
                   <div className="absolute inset-0 z-0">
@@ -234,15 +240,14 @@ export const Hero: React.FC = () => {
                 <div
                   key={idx}
                   onClick={() => setCurrentSlide(idx)}
-                  className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${
-                    isActive
-                      ? isWhiteText
-                        ? 'w-5 bg-white'
-                        : 'w-5 bg-gray-900'
-                      : isWhiteText
-                        ? 'w-1.5 bg-white/40'
-                        : 'w-1.5 bg-gray-900/20'
-                  }`}
+                  className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${isActive
+                    ? isWhiteText
+                      ? 'w-5 bg-white'
+                      : 'w-5 bg-gray-900'
+                    : isWhiteText
+                      ? 'w-1.5 bg-white/40'
+                      : 'w-1.5 bg-gray-900/20'
+                    }`}
                 />
               );
             })}
@@ -260,18 +265,16 @@ export const Hero: React.FC = () => {
               >
                 {/* Gradient Overlay for Readability */}
                 <div
-                  className={`absolute inset-0 z-10 bg-gradient-to-r ${
-                    slide.theme === 'dark'
-                      ? 'from-black/90 via-black/40 to-transparent'
-                      : 'from-[#e4e4e6] via-[#e4e4e6]/60 to-transparent'
-                  }`}
+                  className={`absolute inset-0 z-10 bg-gradient-to-r ${slide.theme === 'dark'
+                    ? 'from-black/90 via-black/40 to-transparent'
+                    : 'from-[#e4e4e6] via-[#e4e4e6]/60 to-transparent'
+                    }`}
                 />
 
                 {/* Content */}
                 <div
-                  className={`relative z-20 flex flex-col justify-center h-full px-12 lg:px-20 ${
-                    slide.theme === 'dark' ? 'text-white' : 'text-gray-900'
-                  }`}
+                  className={`relative z-20 flex flex-col justify-center h-full px-12 lg:px-20 ${slide.theme === 'dark' ? 'text-white' : 'text-gray-900'
+                    }`}
                 >
                   <div className="max-w-lg space-y-4 transform translate-x-0 transition-transform duration-700">
                     <h1 className="text-6xl lg:text-8xl font-bold tracking-tighter leading-none">
@@ -291,9 +294,12 @@ export const Hero: React.FC = () => {
                       </p>
                     </div>
 
-                    <button className="mt-8 bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-full font-bold text-lg shadow-lg hover:shadow-red-500/30 transition-all active:scale-95">
+                    <Link
+                      href="/products"
+                      className="mt-8 bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-full font-bold text-lg shadow-lg hover:shadow-red-500/30 transition-all active:scale-95 inline-block"
+                    >
                       Shop Now
-                    </button>
+                    </Link>
                   </div>
                 </div>
 
@@ -317,11 +323,10 @@ export const Hero: React.FC = () => {
                     e.stopPropagation();
                     setCurrentIphoneSlide(idx);
                   }}
-                  className={`h-2 rounded-full transition-all duration-300 backdrop-blur-sm ${
-                    idx === currentIphoneSlide
-                      ? 'w-10 bg-red-600'
-                      : 'w-3 bg-gray-400/50 hover:bg-gray-400 hover:w-5'
-                  }`}
+                  className={`h-2 rounded-full transition-all duration-300 backdrop-blur-sm ${idx === currentIphoneSlide
+                    ? 'w-10 bg-red-600'
+                    : 'w-3 bg-gray-400/50 hover:bg-gray-400 hover:w-5'
+                    }`}
                   aria-label={`Go to slide ${idx + 1}`}
                 />
               ))}
@@ -355,9 +360,12 @@ export const Hero: React.FC = () => {
                 </div>
 
                 <div className="pb-1">
-                  <span className="inline-block px-4 py-1.5 border border-white/30 rounded-full text-white text-[10px] font-bold hover:bg-white hover:text-black transition-colors">
+                  <Link
+                    href="/products"
+                    className="inline-block px-4 py-1.5 border border-white/30 rounded-full text-white text-[10px] font-bold hover:bg-white hover:text-black transition-colors"
+                  >
                     View Specs
-                  </span>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -406,7 +414,13 @@ export const Hero: React.FC = () => {
 
           {/* Icons */}
           <div className="flex justify-center gap-8 md:gap-12 flex-wrap">
-            <div className="flex flex-col items-center gap-2 group cursor-pointer">
+            <div
+              onClick={() => {
+                setUtilityTab('airtime');
+                setShowUtilityModal(true);
+              }}
+              className="flex flex-col items-center gap-2 group cursor-pointer"
+            >
               <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
                 <svg
                   width="20"
@@ -423,7 +437,13 @@ export const Hero: React.FC = () => {
               </div>
               <span className="text-xs font-medium text-gray-700">Airtime</span>
             </div>
-            <div className="flex flex-col items-center gap-2 group cursor-pointer">
+            <div
+              onClick={() => {
+                setUtilityTab('data');
+                setShowUtilityModal(true);
+              }}
+              className="flex flex-col items-center gap-2 group cursor-pointer"
+            >
               <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
                 <svg
                   width="20"
@@ -443,7 +463,13 @@ export const Hero: React.FC = () => {
               </div>
               <span className="text-xs font-medium text-gray-700">Data</span>
             </div>
-            <div className="flex flex-col items-center gap-2 group cursor-pointer">
+            <div
+              onClick={() => {
+                setUtilityTab('tv');
+                setShowUtilityModal(true);
+              }}
+              className="flex flex-col items-center gap-2 group cursor-pointer"
+            >
               <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
                 <svg
                   width="20"
@@ -461,7 +487,13 @@ export const Hero: React.FC = () => {
               </div>
               <span className="text-xs font-medium text-gray-700">Tv</span>
             </div>
-            <div className="flex flex-col items-center gap-2 group cursor-pointer">
+            <div
+              onClick={() => {
+                setUtilityTab('power');
+                setShowUtilityModal(true);
+              }}
+              className="flex flex-col items-center gap-2 group cursor-pointer"
+            >
               <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
                 <svg
                   width="20"
@@ -478,7 +510,13 @@ export const Hero: React.FC = () => {
               </div>
               <span className="text-xs font-medium text-gray-700">Power</span>
             </div>
-            <div className="flex flex-col items-center gap-2 group cursor-pointer">
+            <div
+              onClick={() => {
+                setUtilityTab('betting');
+                setShowUtilityModal(true);
+              }}
+              className="flex flex-col items-center gap-2 group cursor-pointer"
+            >
               <div className="w-12 h-12 rounded-full bg-gray-50 text-gray-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-all duration-300">
                 <Gamepad2 size={20} />
               </div>
@@ -494,6 +532,12 @@ export const Hero: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <UtilityModal
+        isOpen={showUtilityModal}
+        onClose={() => setShowUtilityModal(false)}
+        initialTab={utilityTab as any}
+      />
     </div>
   );
 };

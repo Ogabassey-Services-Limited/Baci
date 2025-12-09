@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import { Heart, Home, ShoppingCart, User, Wallet } from 'lucide-react';
 import Link from 'next/link';

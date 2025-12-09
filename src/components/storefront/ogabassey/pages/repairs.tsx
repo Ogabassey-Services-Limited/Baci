@@ -1,4 +1,4 @@
-// @ts-nocheck - Template preview
+// Template preview
 'use client';
 
 import {
@@ -93,7 +93,7 @@ export function OgabasseyV2Repairs({ storeSlug }: OgabasseyV2RepairsProps) {
                 Book a Repair
               </button>
               <Link
-                href={swapLink}
+                href={swapLink as any}
                 className="bg-white/10 text-white border border-white/20 font-bold py-3.5 px-8 rounded-xl hover:bg-white/20 transition-colors active:scale-95 backdrop-blur-sm"
               >
                 Trade-in Instead

@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import { ChevronRight, Filter, LayoutGrid, List, X } from 'lucide-react';
 import Link from 'next/link';

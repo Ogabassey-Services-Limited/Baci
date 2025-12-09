@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import {
   ArrowRight,
@@ -29,13 +29,15 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 // import { useNotification } from '../contexts/NotificationContext'; // TODO: Migrate NotificationContext
 // import { Logo } from './Logo'; // Replaced with prop
-import { products } from '../data/products';
-import type { Product } from '../types';
+// import { products } from '../data/products';
+// import type { Product } from '../types';
 import { Logo } from './logo';
 // import { SourceRequestModal } from './SourceRequestModal'; // TODO: Migrate
 import { MobileMenu } from './mobile-menu';
+import type { Product } from '@/lib/products';
 
 interface NavbarProps {
   logo?: string;
@@ -57,6 +59,8 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   showBell = true,
 }) => {
   const { totalItems } = useCart();
+  const merchantContext = useMerchantSafe();
+  const merchant = merchantContext?.merchant;
   // const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
   // Temporary notification state until NotificationContext is migrated
   const notifications: {
@@ -71,6 +75,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   const markAsRead = (_id: string) => { };
   const markAllAsRead = () => { };
   const [query, setQuery] = useState('');
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -89,6 +94,29 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   // Scroll visibility logic
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+
+  // Fetch products for search
+  useEffect(() => {
+    async function fetchProducts() {
+      if (!merchant?.id) return;
+
+      try {
+        const response = await fetch(
+          `/api/storefront/products?merchant_id=${merchant.id}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.products) {
+            setProducts(data.products);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch products for search:', error);
+      }
+    }
+
+    fetchProducts();
+  }, [merchant?.id]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -112,20 +140,20 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
   // Search Logic
   useEffect(() => {
-    if (query.trim()) {
+    if (query.trim() && products.length > 0) {
       const lowerQuery = query.toLowerCase();
       const results = products.filter(
         (p) =>
           p.name.toLowerCase().includes(lowerQuery) ||
-          p.category.toLowerCase().includes(lowerQuery) ||
-          p.description.toLowerCase().includes(lowerQuery)
+          (p.category && p.category.toLowerCase().includes(lowerQuery)) ||
+          (p.description && p.description.toLowerCase().includes(lowerQuery))
       );
       setSearchResults(results);
       setShowDropdown(true);
     } else {
       setShowDropdown(false);
     }
-  }, [query]);
+  }, [query, products]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -483,7 +511,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                     {searchResults.map((product) => (
                       <Link
                         key={product.id}
-                        href={`/product/${product.id}` as any}
+                        href={`/products/${product.slug || product.id}` as any}
                         onClick={() => {
                           setShowDropdown(false);
                           setQuery('');
@@ -502,7 +530,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                             {product.name}
                           </div>
                           <div className="text-red-600 text-xs font-bold">
-                            {product.price}
+                            ₦{product.price.toLocaleString()}
                           </div>
                         </div>
                         <div className="text-gray-300 group-hover:text-red-600 transition-colors">

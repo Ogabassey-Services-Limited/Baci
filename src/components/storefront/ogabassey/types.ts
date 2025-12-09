@@ -27,6 +27,7 @@ export interface Banner {
 
 export interface Product {
   id: number | string;
+  slug?: string;
   name: string;
   price: string;
   rawPrice?: number;
@@ -34,14 +35,15 @@ export interface Product {
   description: string;
   rating: number;
   category: string;
+  categorySlug?: string;
   condition:
-    | 'New'
-    | 'Used'
-    | 'Open Box'
-    | 'new'
-    | 'used'
-    | 'open_box'
-    | 'refurbished';
+  | 'New'
+  | 'Used'
+  | 'Open Box'
+  | 'new'
+  | 'used'
+  | 'open_box'
+  | 'refurbished';
   // Detailed specs for filtering
   brand?: string;
   storage?: string | string[];

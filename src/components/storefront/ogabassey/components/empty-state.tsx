@@ -1,4 +1,4 @@
-// @ts-nocheck - Template preview component with dynamic routes
+// Template preview component with dynamic routes
 'use client';
 
 import Link from 'next/link';
@@ -6,13 +6,13 @@ import type React from 'react';
 
 interface EmptyStateProps {
   variant?:
-    | 'cart'
-    | 'saved'
-    | 'search'
-    | 'generic'
-    | 'wallet'
-    | 'orders'
-    | 'history';
+  | 'cart'
+  | 'saved'
+  | 'search'
+  | 'generic'
+  | 'wallet'
+  | 'orders'
+  | 'history';
   title: string;
   description: string;
   actionLabel?: string;
@@ -350,7 +350,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       {actionLabel &&
         (actionLink ? (
           <Link
-            href={actionLink}
+            href={actionLink as any}
             className="bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-lg hover:shadow-red-200 transform hover:-translate-y-0.5 active:scale-95"
           >
             {actionLabel}

@@ -11,7 +11,17 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 
-export const OgabasseyV2PrivacyPolicy: React.FC = () => {
+// Define props
+interface PrivacyProps {
+  merchant?: any;
+}
+
+export const OgabasseyV2PrivacyPolicy: React.FC<PrivacyProps> = ({ merchant }) => {
+  const businessName = merchant?.business_name || 'Ogabassey Limited';
+  const email = merchant?.email || 'support@ogabassey.com';
+  const address = merchant?.address || 'Lagos, Nigeria';
+  const customContent = merchant?.pages?.privacy;
+
   const sections = [
     {
       title: 'Information We Collect',
@@ -31,17 +41,18 @@ export const OgabasseyV2PrivacyPolicy: React.FC = () => {
             <li>
               <strong>Payment Information:</strong> We do not store your credit
               card details. All transactions are processed securely through our
-              payment partners (e.g., Paystack, Flutterwave).
+              payment partners.
             </li>
             <li>
               <strong>Usage Data:</strong> Information about how you use our
               website, such as products viewed, search queries, and device
-              information (IP address, browser type).
+              information.
             </li>
           </ul>
         </>
       ),
     },
+    // ... (Keep other sections generic or slightly adjusted)
     {
       title: 'How We Use Your Information',
       icon: Eye,
@@ -76,9 +87,7 @@ export const OgabasseyV2PrivacyPolicy: React.FC = () => {
           We implement a variety of security measures to maintain the safety of
           your personal information. Your personal data is contained behind
           secured networks and is only accessible by a limited number of persons
-          who have special access rights to such systems, and are required to
-          keep the information confidential. All sensitive/credit information
-          you supply is encrypted via Secure Socket Layer (SSL) technology.
+          who have special access rights to such systems.
         </p>
       ),
     },
@@ -89,13 +98,7 @@ export const OgabasseyV2PrivacyPolicy: React.FC = () => {
         <p>
           We do not sell, trade, or otherwise transfer to outside parties your
           Personally Identifiable Information unless we provide users with
-          advance notice. This does not include website hosting partners and
-          other parties who assist us in operating our website, conducting our
-          business, or serving our users, so long as those parties agree to keep
-          this information confidential. We may also release information when
-          it&apos;s release is appropriate to comply with the law, enforce our
-          site policies, or protect ours or others&apos; rights, property or
-          safety.
+          advance notice.
         </p>
       ),
     },
@@ -108,11 +111,7 @@ export const OgabasseyV2PrivacyPolicy: React.FC = () => {
           service provider transfers to your computer&apos;s hard drive through
           your Web browser (if you allow) that enables the site&apos;s or
           service provider&apos;s systems to recognize your browser and capture
-          and remember certain information. For instance, we use cookies to help
-          us remember and process the items in your shopping cart. They are also
-          used to help us understand your preferences based on previous or
-          current site activity, which enables us to provide you with improved
-          services.
+          and remember certain information.
         </p>
       ),
     },
@@ -131,46 +130,50 @@ export const OgabasseyV2PrivacyPolicy: React.FC = () => {
             Privacy Policy
           </h1>
           <p className="text-gray-400 text-sm md:text-base max-w-2xl mx-auto">
-            Last Updated: May 20, 2024
+            Protecting your data and trust.
           </p>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 md:px-6 -mt-10 relative z-20">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 md:p-12 space-y-12">
-          <div className="prose max-w-none text-gray-600">
-            <p className="lead text-lg">
-              At <strong>Ogabassey Limited</strong>, accessible from
-              ogabassey.com, one of our main priorities is the privacy of our
-              visitors. This Privacy Policy document contains types of
-              information that is collected and recorded by Ogabassey and how we
-              use it.
-            </p>
-            <p>
-              If you have additional questions or require more information about
-              our Privacy Policy, do not hesitate to contact us.
-            </p>
-          </div>
 
-          <div className="space-y-10">
-            {sections.map((section) => (
-              <div key={section.title} className="flex gap-4 md:gap-6">
-                <div className="shrink-0">
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center border border-red-100">
-                    <section.icon size={20} />
-                  </div>
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-3">
-                    {section.title}
-                  </h2>
-                  <div className="text-gray-600 text-sm md:text-base leading-relaxed">
-                    {section.content}
-                  </div>
-                </div>
+          {customContent ? (
+            <div className="prose max-w-none text-gray-600">
+              <div dangerouslySetInnerHTML={{ __html: customContent }} />
+            </div>
+          ) : (
+            <>
+              <div className="prose max-w-none text-gray-600">
+                <p className="lead text-lg">
+                  At <strong>{businessName}</strong>, one of our main priorities is the privacy of our
+                  visitors. This Privacy Policy document contains types of
+                  information that is collected and recorded by us and how we
+                  use it.
+                </p>
               </div>
-            ))}
-          </div>
+
+              <div className="space-y-10">
+                {sections.map((section) => (
+                  <div key={section.title} className="flex gap-4 md:gap-6">
+                    <div className="shrink-0">
+                      <div className="w-10 h-10 md:w-12 md:h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center border border-red-100">
+                        <section.icon size={20} />
+                      </div>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 mb-3">
+                        {section.title}
+                      </h2>
+                      <div className="text-gray-600 text-sm md:text-base leading-relaxed">
+                        {section.content}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="bg-gray-50 rounded-2xl p-8 border border-gray-100 mt-8">
             <h3 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -178,20 +181,18 @@ export const OgabasseyV2PrivacyPolicy: React.FC = () => {
               Contact Us regarding Privacy
             </h3>
             <p className="text-gray-600 text-sm mb-4">
-              If you have any questions about this Privacy Policy, the practices
-              of this site, or your dealings with this site, please contact us
-              at:
+              If you have any questions about this Privacy Policy, please contact us at:
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <a
-                href="mailto:support@ogabassey.com"
+                href={`mailto:${email}`}
                 className="text-red-600 font-bold hover:underline"
               >
-                support@ogabassey.com
+                {email}
               </a>
               <span className="hidden sm:inline text-gray-300">|</span>
               <span className="text-gray-700 font-medium">
-                2 Olaide Tomori St, Ikeja, Lagos
+                {address}
               </span>
             </div>
           </div>

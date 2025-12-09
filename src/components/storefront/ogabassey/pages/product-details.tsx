@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import {
   ArrowRightLeft,
@@ -188,7 +188,7 @@ export const OgabasseyV2ProductDetails: React.FC<
     } else {
       normalizedStorage =
         productFound.category === 'Phones' ||
-        productFound.category === 'Laptops'
+          productFound.category === 'Laptops'
           ? normalizedStorage
           : [];
     }
@@ -279,11 +279,11 @@ export const OgabasseyV2ProductDetails: React.FC<
       const colorMatch =
         !productData.colors.length ||
         item.variantAttributes?.color ===
-          productData.colors[selectedColor!].name;
+        productData.colors[selectedColor!].name;
       const storageMatch =
         !productData.storage.length ||
         item.variantAttributes?.storage ===
-          productData.storage[selectedStorage!];
+        productData.storage[selectedStorage!];
 
       return colorMatch && storageMatch;
     });
@@ -485,11 +485,10 @@ export const OgabasseyV2ProductDetails: React.FC<
                 className="w-full h-full object-cover transition-all duration-500"
               />
               <div
-                className={`absolute top-4 left-4 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
-                  productData.condition === 'New'
+                className={`absolute top-4 left-4 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${productData.condition === 'New'
                     ? 'bg-emerald-500'
                     : 'bg-amber-500'
-                }`}
+                  }`}
               >
                 {productData.condition}
               </div>
@@ -648,13 +647,12 @@ export const OgabasseyV2ProductDetails: React.FC<
                       <button
                         key={idx}
                         onClick={() => handleColorSelection(idx)}
-                        className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 outline-none active:scale-95 ${
-                          isPrimary
+                        className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 outline-none active:scale-95 ${isPrimary
                             ? 'border-[3px] border-red-600 scale-110 shadow-lg'
                             : isSecondary
                               ? 'border-[3px] border-blue-500 scale-105 shadow-md'
                               : 'border border-gray-200 md:hover:border-gray-400 md:hover:scale-105 shadow-sm'
-                        }`}
+                          }`}
                         aria-label={`Select color ${color.name}`}
                         title={color.name}
                       >

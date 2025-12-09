@@ -49,6 +49,7 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
 
     return {
       id: p.id,
+      slug: p.slug,
       name: p.name,
       price: formattedPrice,
       rawPrice: p.price, // Already in Naira
@@ -56,6 +57,7 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
       description: p.description,
       rating: p.rating ?? 4.5,
       category: p.category || 'General',
+      categorySlug: p.category_slug,
       condition: mapCondition(p.condition),
       brand: p.brand,
       colors: p.colors,
@@ -403,6 +405,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                         e.preventDefault();
                         toggleSaved(product as any);
                       }}
+                      storeSlug={storeSlug}
                     />
                   ) : (
                     <>
@@ -417,6 +420,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                             e.preventDefault();
                             toggleSaved(product as any);
                           }}
+                          storeSlug={storeSlug}
                         />
                       </div>
                       <div className="hidden md:block">
@@ -429,6 +433,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                             e.preventDefault();
                             toggleSaved(product as any);
                           }}
+                          storeSlug={storeSlug}
                         />
                       </div>
                     </>
@@ -437,9 +442,8 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                   {/* Ad insertion */}
                   {(index + 1 === 4 || index + 1 === 8) && (
                     <div
-                      className={`col-span-2 ${
-                        viewMode === 'grid' ? 'lg:col-span-4' : 'w-full'
-                      } flex items-center justify-center my-2 md:my-4`}
+                      className={`col-span-2 ${viewMode === 'grid' ? 'lg:col-span-4' : 'w-full'
+                        } flex items-center justify-center my-2 md:my-4`}
                     >
                       <AdUnit placementKey="PRODUCT_GRID_IN_FEED" />
                     </div>
