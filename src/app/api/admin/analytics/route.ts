@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getCachedPlatformAnalytics } from '@/lib/cached-data';
 import { createClient } from '@/lib/supabase/server';
 
 import type { DailyGmvData, PlatformAnalytics } from '@/types/analytics';
@@ -118,33 +119,38 @@ export async function GET(request: NextRequest) {
         .gte('date', startDateStr),
     ]);
 
-    // Process daily summary for current period
-    const dailyData = dailySummaryResult.data || [];
-    const totalGmv = dailyData.reduce(
-      (sum, d) => sum + (Number(d.platform_gmv) || 0),
-      0
+    // REFACTORED: Use Cached RPC for heavy aggregation (5 min cache)
+    const summaryData = await getCachedPlatformAnalytics(
+      startDateStr,
+      new Date().toISOString().split('T')[0]
     );
-    const totalOrders = dailyData.reduce(
-      (sum, d) => sum + (Number(d.total_orders) || 0),
-      0
-    );
-    const activeMerchants =
-      dailyData.length > 0
-        ? Math.max(...dailyData.map((d) => Number(d.active_merchants) || 0))
-        : 0;
-    const avgGmvPerMerchant =
-      activeMerchants > 0 ? totalGmv / activeMerchants : 0;
 
-    // Calculate GMV change from previous period
-    const previousData = previousDailySummaryResult.data || [];
-    const previousGmv = previousData.reduce(
-      (sum, d) => sum + (Number(d.platform_gmv) || 0),
-      0
+    if (!summaryData) {
+      throw new Error('Failed to fetch platform analytics summary');
+    }
+
+    // Previous period for GMV change calculation
+    const prevSummaryData = await getCachedPlatformAnalytics(
+      previousStartDateStr,
+      startDateStr
     );
+
+    if (!prevSummaryData) {
+      throw new Error('Failed to fetch previous platform analytics summary');
+    }
+
+    const currentStats = summaryData as any; // Typed via RPC return
+    const prevStats = prevSummaryData as any;
+
+    const totalGmv = Number(currentStats.totalGmv) || 0;
+    const previousGmv = Number(prevStats.totalGmv) || 0;
     const gmvChange =
       previousGmv > 0 ? ((totalGmv - previousGmv) / previousGmv) * 100 : 0;
 
-    // Process merchant health breakdown
+    // Process daily summary for cleanup (still needed for charts if not in RPC)
+    const dailyData = dailySummaryResult.data || [];
+
+    // Process merchant health breakdown (still needed as not in RPC yet)
     const healthData = merchantHealthResult.data || [];
     const merchantHealth = {
       healthy: healthData.filter((h) => h.health_status === 'healthy').length,
@@ -182,32 +188,21 @@ export async function GET(request: NextRequest) {
       merchants: Number(d.active_merchants) || 0,
     }));
 
-    // Process platform revenue from fees
-    const revenueData = platformRevenueResult.data || [];
-    const platformRevenue = revenueData.reduce(
-      (sum, d) => sum + (Number(d.platform_fees) || 0),
-      0
-    );
-    const processorFees = revenueData.reduce(
-      (sum, d) => sum + (Number(d.processor_fees) || 0),
-      0
-    );
-    const netToMerchants = revenueData.reduce(
-      (sum, d) => sum + (Number(d.net_to_merchants) || 0),
-      0
-    );
-
+    // Use RPC values for summary
     const response: PlatformAnalyticsResponse = {
       summary: {
         totalGmv,
         gmvChange,
-        activeMerchants,
+        activeMerchants: Number(currentStats.activeMerchants) || 0,
         totalMerchants: totalMerchantsResult.count || 0,
-        totalOrders,
-        avgGmvPerMerchant,
-        platformRevenue,
-        processorFees,
-        netToMerchants,
+        totalOrders: Number(currentStats.totalOrders) || 0,
+        avgGmvPerMerchant:
+          Number(currentStats.activeMerchants) > 0
+            ? totalGmv / Number(currentStats.activeMerchants)
+            : 0,
+        platformRevenue: Number(currentStats.platformRevenue) || 0,
+        processorFees: Number(currentStats.processorFees) || 0,
+        netToMerchants: Number(currentStats.netToMerchants) || 0,
       },
       merchantHealth,
       growth: {

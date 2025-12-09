@@ -17,6 +17,7 @@ function mapProduct(p: Record<string, unknown>) {
     imageLarge: (p.images as { url: string }[])?.[0]?.url || '',
     imageHint: p.image_hint,
     category: p.category || 'General',
+    category_slug: (p.product_categories as any)?.[0]?.categories?.slug,
     brand: p.brand,
     status: p.status || 'active',
     has_variants: p.has_variants,
@@ -40,7 +41,14 @@ function createCachedProductsFetcher(merchantId: string) {
 
       const { data: products, error } = await supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          product_categories (
+            categories (
+              slug
+            )
+          )
+        `)
         .eq('merchant_id', merchantId)
         .eq('status', 'active')
         .order('created_at', { ascending: false });

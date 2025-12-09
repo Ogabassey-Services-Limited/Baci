@@ -26,6 +26,21 @@ export const getSupabaseAnonKey = (): string => {
   return key;
 };
 
+export const getSupabaseServiceRoleKey = (): string => {
+  if (typeof window !== 'undefined') {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY cannot be accessed on the client'
+    );
+  }
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!key) {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY is not defined in your environment variables.'
+    );
+  }
+  return key;
+};
+
 // Optional environment variables with defaults and warnings
 export const getKorapaySecretKey = (): string | undefined => {
   const key = process.env.KORAPAY_SECRET_KEY;

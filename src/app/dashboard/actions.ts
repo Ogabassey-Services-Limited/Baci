@@ -1,6 +1,7 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import { getCachedDashboardStats } from '@/lib/cached-data';
 import { createClient } from '@/lib/supabase/server';
 
 export interface DashboardMetrics {
@@ -46,16 +47,9 @@ export async function getDashboardMetrics(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // OPTIMIZED: Use database RPC function instead of fetching all orders
-    const { data: stats, error } = await supabase.rpc(
-      'get_sales_dashboard_stats',
-      { p_merchant_id: merchantId }
-    );
-
-    if (error) {
-      console.error('Error fetching dashboard metrics (RPC):', error);
-      throw error;
-    }
+    // OPTIMIZED: Use cached RPC function
+    // This uses stable caching (1 min) to prevent DB hammering on refresh
+    const stats = await getCachedDashboardStats(merchantId);
 
     // If RPC returns null/empty (shouldn't happen with our SQL logic but safe to handle)
     if (!stats) {
