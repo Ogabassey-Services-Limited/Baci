@@ -90,6 +90,7 @@ export interface Product {
   fulfillmentFields?: { name: string }[];
   fulfillment_details?: { key: string; value: string }[];
   category?: string;
+  category_slug?: string;
   color?: string;
 
   // New fields

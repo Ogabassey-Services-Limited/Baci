@@ -1,6 +1,6 @@
 import type { Metadata, ResolvingMetadata } from 'next';
 import { headers } from 'next/headers';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import {
@@ -15,6 +15,7 @@ import {
   generateAggregateRating,
   generateBreadcrumbSchema,
   generateProductSchema,
+  getProductUrl,
 } from '@/lib/seo-utils';
 import ProductDetailClient from './product-detail-client';
 
@@ -99,6 +100,12 @@ async function getProductCached(
           slug: string;
         } | null
       )?.name || undefined,
+    category_slug:
+      (
+        cachedProduct.product_categories?.[0]?.categories as unknown as {
+          slug: string;
+        } | null
+      )?.slug || undefined,
     // Variants
     has_variants: (cachedProduct.product_variants?.length ?? 0) > 0,
     variants:
@@ -142,18 +149,34 @@ export async function generateMetadata(
   // For subdomains (merchant.usebaci.com) and custom domains (merchant.com),
   // the merchant identity is in the domain itself, not the path
   const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+
+  // If we have a category slug, REDIRECT to the pretty URL (SEO Best Practice)
+  // This answers: "should the /products/ link still exist?" -> No, it redirects.
+  if (product.category_slug) {
+    const cleanSlug = product.slug || product.id;
+    // Resolve stored slug (localhost/preview logic vs production subdomain logic)
+    const targetPath = isLocalhost
+      ? `/${slug}/${product.category_slug}/${cleanSlug}`
+      : `/${product.category_slug}/${cleanSlug}`;
+
+    permanentRedirect(targetPath as any);
+  }
+
   const urlPrefix = isLocalhost ? `/${slug}` : '';
 
   // Construct canonical URL:
   // 1. Use explicit canonical from product data if available
-  // 2. OR build the base path and strip noisy params using constructCanonicalUrl
+  // 2. OR build the base path using getProductUrl (which handles categories)
   let canonicalUrl = product.canonical_url;
 
   if (!canonicalUrl) {
-    const basePath = `${baseUrl}${urlPrefix}/products/${product.slug || product.id}`;
-    // For product pages, we generally want to strip ALL query params to consolidate authority
-    // unless specific params change the content significantly (e.g. variant=123)
-    // passing ['variant'] to allowedParams if your variants have unique URLs
+    // Generate the correct path (e.g. /category/product or /products/product)
+    const productPath = getProductUrl(product);
+
+    // Construct full URL
+    const basePath = `${baseUrl}${urlPrefix}${productPath}`;
+
+    // Clean params for canonical
     canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
       'variant',
     ]);

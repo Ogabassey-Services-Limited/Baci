@@ -7,6 +7,7 @@ import {
   generateAboutPageJsonLd,
   type MerchantAboutPage,
 } from '@/types/about-page';
+import { StorefrontPageWrapper } from '../../storefront-page-wrapper';
 import { AboutPageClient } from './about-page-client';
 
 interface PageProps {
@@ -96,10 +97,16 @@ export default async function AboutPage({ params }: PageProps) {
           __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
         }}
       />
-      <AboutPageClient
+      <StorefrontPageWrapper
+        pageName="About"
         merchant={merchant}
-        aboutPage={aboutPage}
-        legacyContent={legacyAboutContent}
+        fallback={
+          <AboutPageClient
+            merchant={merchant}
+            aboutPage={aboutPage}
+            legacyContent={legacyAboutContent}
+          />
+        }
       />
     </>
   );

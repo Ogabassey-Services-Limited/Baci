@@ -57,7 +57,14 @@ const getProduct = cache(
 
     let query = supabase
       .from('products')
-      .select('*')
+      .select(`
+        *,
+        product_categories (
+          categories (
+            slug
+          )
+        )
+      `)
       .eq('merchant_id', merchant.id);
 
     if (isUuid) {
@@ -78,9 +85,18 @@ const getProduct = cache(
     // Verify category matches (optional - for strictness)
     // If category doesn't match, we could redirect to the correct URL
     // For now, we'll just serve the product but use the correct canonical URL
-    const productCategorySlug = product.category
-      ? generateSlug(product.category)
-      : null;
+    // Verify category matches (optional - for strictness)
+    // We prefer the DB category slug if available, otherwise fallback to generated
+    const dbCategorySlug = (product as any).product_categories?.[0]?.categories
+      ?.slug;
+
+    // Attach to product object for seo-utils
+    (product as any).category_slug = dbCategorySlug;
+
+    const productCategorySlug =
+      dbCategorySlug ||
+      (product.category ? generateSlug(product.category) : null);
+
     const categoryMismatch =
       productCategorySlug && productCategorySlug !== categorySlug;
 

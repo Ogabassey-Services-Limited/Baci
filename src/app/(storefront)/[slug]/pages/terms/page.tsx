@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
+import { StorefrontPageWrapper } from '../../storefront-page-wrapper';
 import { TermsPageClient } from './terms-page-client';
 
 interface PageProps {
@@ -102,7 +103,16 @@ export default async function TermsPage({ params }: PageProps) {
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(termsSchema) }}
       />
-      <TermsPageClient merchant={merchant} content={merchant.pages?.terms} />
+      <StorefrontPageWrapper
+        pageName="Terms"
+        merchant={merchant}
+        fallback={
+          <TermsPageClient
+            merchant={merchant}
+            content={merchant.pages?.terms}
+          />
+        }
+      />
     </>
   );
 }

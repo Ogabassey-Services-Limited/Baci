@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { StorefrontFooter as Footer } from '@/components/storefront/footer';
 import { StorefrontHeader as Header } from '@/components/storefront/header';
 import { NewTemplateCartPage } from '@/components/storefront/new-template';
+import { CartPage as OgabasseyCartPage } from '@/components/storefront/ogabassey/pages/cart-page';
 import { getCachedMerchant } from '@/lib/cached-data';
 
 export default async function CartPage({
@@ -22,6 +23,14 @@ export default async function CartPage({
     'new-template'
   ) {
     return <NewTemplateCartPage />;
+  }
+
+  // Ogabassey Template
+  if (
+    (merchant as unknown as { template_id?: string }).template_id ===
+    'ogabassey'
+  ) {
+    return <OgabasseyCartPage />;
   }
 
   // Fallback to default cart or error if not implemented for other templates

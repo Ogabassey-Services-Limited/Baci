@@ -66,11 +66,15 @@ export function generateProductSlug(
  */
 export function buildProductUrl(
   productSlug: string,
-  category?: string | null
+  category?: string | null,
+  categorySlug?: string | null
 ): Route {
-  if (category) {
-    const categorySlug = generateSlug(category);
+  if (categorySlug) {
     return `/${categorySlug}/${productSlug}` as Route;
+  }
+  if (category) {
+    const slug = generateSlug(category);
+    return `/${slug}/${productSlug}` as Route;
   }
   return `/products/${productSlug}` as Route;
 }
@@ -83,6 +87,8 @@ export function getProductUrl(product: {
   slug?: string;
   name: string;
   category?: string | null;
+  category_slug?: string;
+  categorySlug?: string;
   condition?: 'new' | 'used' | string;
   condition_detail?: string;
   id: string;
@@ -97,7 +103,11 @@ export function getProductUrl(product: {
     ) ||
     product.id;
 
-  return buildProductUrl(productSlug, product.category);
+  return buildProductUrl(
+    productSlug,
+    product.category,
+    product.category_slug || product.categorySlug
+  );
 }
 
 /**

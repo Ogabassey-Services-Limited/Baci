@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { StorefrontFooter as Footer } from '@/components/storefront/footer';
 import { StorefrontHeader as Header } from '@/components/storefront/header';
 import { NewTemplateCheckoutPage } from '@/components/storefront/new-template';
+import { CheckoutPage as OgabasseyCheckoutPage } from '@/components/storefront/ogabassey/pages/checkout-page';
 import { getCachedMerchant } from '@/lib/cached-data';
 
 export default async function CheckoutPage({
@@ -22,6 +23,14 @@ export default async function CheckoutPage({
     'new-template'
   ) {
     return <NewTemplateCheckoutPage />;
+  }
+
+  // Ogabassey Template
+  if (
+    (merchant as unknown as { template_id?: string }).template_id ===
+    'ogabassey'
+  ) {
+    return <OgabasseyCheckoutPage />;
   }
 
   // Fallback

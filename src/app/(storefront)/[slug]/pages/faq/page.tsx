@@ -5,6 +5,7 @@ import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { generateFAQSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
+import { StorefrontPageWrapper } from '../../storefront-page-wrapper';
 import { FAQPageClient } from './faq-page-client';
 
 interface PageProps {
@@ -91,10 +92,18 @@ export default async function FAQPage({ params }: PageProps) {
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(faqSchema) }}
       />
-      <FAQPageClient
+      <StorefrontPageWrapper
+        pageName="Help"
         merchant={merchant}
-        faqItems={faqItems}
-        legacyContent={!merchant.faq_items ? merchant.pages?.faq : undefined}
+        fallback={
+          <FAQPageClient
+            merchant={merchant}
+            faqItems={faqItems}
+            legacyContent={
+              !merchant.faq_items ? merchant.pages?.faq : undefined
+            }
+          />
+        }
       />
     </>
   );

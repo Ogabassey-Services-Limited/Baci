@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
+import { normalizeSocialUrl } from '@/lib/social';
 import { createClient } from '@/lib/supabase/server';
+import { StorefrontPageWrapper } from '../../storefront-page-wrapper';
 import { ContactPageClient } from './contact-page-client';
 
 interface PageProps {
@@ -86,6 +88,24 @@ export default async function ContactPage({ params }: PageProps) {
       ...(merchant.logo_url && { logo: merchant.logo_url }),
       ...(merchant.email && { email: merchant.email }),
       ...(merchant.phone && { telephone: merchant.phone }),
+
+      // Add social links if available
+      ...(merchant.social_media && {
+        sameAs: Object.entries(merchant.social_media)
+          .map(([platform, handle]) =>
+            normalizeSocialUrl(
+              handle as string,
+              platform as
+                | 'instagram'
+                | 'facebook'
+                | 'tiktok'
+                | 'twitter'
+                | 'youtube'
+                | 'linkedin'
+            )
+          )
+          .filter((url): url is string => !!url),
+      }),
       contactPoint: {
         '@type': 'ContactPoint',
         contactType: 'customer service',
@@ -105,9 +125,15 @@ export default async function ContactPage({ params }: PageProps) {
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
       />
-      <ContactPageClient
+      <StorefrontPageWrapper
+        pageName="Contact"
         merchant={merchant}
-        legacyContent={merchant.pages?.contact}
+        fallback={
+          <ContactPageClient
+            merchant={merchant}
+            legacyContent={merchant.pages?.contact}
+          />
+        }
       />
     </>
   );
