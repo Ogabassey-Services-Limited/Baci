@@ -54,10 +54,6 @@ export async function submitOnboarding(
     otherBusinessType,
     logoUrl: logoDataUri,
     brandColors: brandColorsString,
-    // KYC fields
-    nin,
-    bvn,
-    cacNumber,
   } = validationResult.data;
 
   const brandColors: BrandColors | null = brandColorsString
@@ -204,12 +200,6 @@ export async function submitOnboarding(
         accent: brandColors.accent,
       },
       slug: baseSlug,
-      // KYC data (optional, self-declared)
-      ...(nin && { nin }),
-      ...(bvn && { bvn }),
-      ...(cacNumber && { cac_number: cacNumber }),
-      // Set kyc_status to pending if any KYC field is provided
-      ...((nin || bvn || cacNumber) && { kyc_status: 'pending' }),
     };
 
     logger.info({
