@@ -56,6 +56,7 @@ interface CustomerAuthContextType {
   // Auth actions
   sendOtp: (email: string) => Promise<{ success: boolean; error?: string }>;
   verifyOtp: (code: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   // Customer data actions
   refreshCustomer: () => Promise<void>;
@@ -193,6 +194,46 @@ export function CustomerAuthProvider({
     }
   }, []);
 
+  // Sign in with Google OAuth
+  const signInWithGoogle = useCallback(async (): Promise<{
+    success: boolean;
+    error?: string;
+  }> => {
+    try {
+      // Use the current browser origin to support custom domains (e.g., ogabassey.com)
+      // This automatically handles: localhost, subdomains (*.usebaci.com), and custom domains
+      const redirectUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/account`
+          : '/account';
+
+      const response = await fetch('/api/storefront/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchantSlug, redirectUrl }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.error || 'Failed to initiate Google sign-in',
+        };
+      }
+
+      // Redirect to Google OAuth URL
+      if (data.url) {
+        window.location.href = data.url;
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      return { success: false, error: 'Network error. Please try again.' };
+    }
+  }, [merchantSlug]);
+
   // Refresh customer data
   const refreshCustomer = useCallback(async () => {
     if (!user) return;
@@ -242,6 +283,7 @@ export function CustomerAuthProvider({
         otpState,
         sendOtp,
         verifyOtp,
+        signInWithGoogle,
         logout,
         refreshCustomer,
         updateCustomer,

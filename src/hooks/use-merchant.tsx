@@ -20,6 +20,8 @@ export interface MerchantData {
   user_id: string;
   business_name: string;
   business_type: string;
+  email?: string;
+  phone?: string;
   logo_url?: string;
   brand_colors?: {
     primary: string;

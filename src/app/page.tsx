@@ -284,7 +284,10 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
         </section>
 
         {/* How It Works Section */}
-        <section id="how-it-works" className="py-24 bg-white dark:bg-slate-950 [content-visibility:auto] contain-intrinsic-size-[1px_800px]">
+        <section
+          id="how-it-works"
+          className="py-24 bg-white dark:bg-slate-950 [content-visibility:auto] contain-intrinsic-size-[1px_800px]"
+        >
           <div
             className="container"
             style={{
@@ -397,7 +400,10 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
         </section>
 
         {/* FAQs Section */}
-        <section id="faqs" className="py-24 bg-slate-50 dark:bg-slate-900/50 [content-visibility:auto] contain-intrinsic-size-[1px_1000px]">
+        <section
+          id="faqs"
+          className="py-24 bg-slate-50 dark:bg-slate-900/50 [content-visibility:auto] contain-intrinsic-size-[1px_1000px]"
+        >
           <div
             className="container"
             style={{
