@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useCart } from '@/components/storefront/ogabassey/context/cart-context';
+import { useCart } from '@/hooks/use-cart';
 import { CheckCircle, Package, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';

@@ -25,7 +25,10 @@ export function MissingImagesView() {
 
     const handleImageSuccess = (url: string) => {
         if (selectedProduct) {
-            updateProduct(selectedProduct, { image: url });
+            const product = getProduct(selectedProduct);
+            if (product) {
+                updateProduct({ ...product, image: url });
+            }
             setSelectedProduct(null);
         }
     };

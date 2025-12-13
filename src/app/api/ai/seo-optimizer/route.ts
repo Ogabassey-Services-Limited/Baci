@@ -394,7 +394,7 @@ export async function GET(_request: NextRequest) {
     // Get all active products
     const { data: products } = await supabase
       .from('products')
-      .select('id, name, meta_title, meta_description, keywords')
+      .select('id, name, description, meta_title, meta_description, keywords')
       .eq('merchant_id', merchant.id)
       .eq('status', 'active');
 

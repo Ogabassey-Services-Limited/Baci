@@ -289,12 +289,13 @@ async function sendOrderConfirmationEmail(
   payload: CreditDirectWebhookPayload
 ) {
   // Import email sending function
-  const { sendEmail } = await import('@/lib/email');
+  const { sendEmail } = await import('@/lib/zeptomail');
 
   await sendEmail({
     to: order.customer_email,
+    toName: order.customer_name,
     subject: `Order Confirmed - Thank you for your purchase!`,
-    html: `
+    htmlContent: `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <h1 style="color: #333;">Order Confirmed!</h1>
         <p>Hi ${payload.checkoutCustomer.firstName || order.customer_name || 'there'},</p>

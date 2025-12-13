@@ -222,7 +222,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         reviewCount: serverProduct.reviews || 0,
         description: serverProduct.description || 'No description available.',
         // Map specifications to detailedSpecs (UI key)
-        detailedSpecs: (serverProduct.specifications as any) || (serverProduct as any).detailedSpecs || [
+        detailedSpecs: (serverProduct as any).specifications || (serverProduct as any).detailedSpecs || [
           {
             category: 'General',
             items: [

@@ -44,6 +44,38 @@ import type { Order, ShippingStatus } from '../actions';
 import { SourceIcon, StatusBadge } from '../client-page';
 import ConfirmInsuranceDialog from './confirm-insurance-dialog';
 
+// Type definitions
+interface OrderDetailsClientPageProps {
+  initialOrder: Order;
+}
+
+interface OrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  product?: {
+    image?: string;
+    fulfillmentFields?: string[];
+  };
+  hasAssurance?: boolean;
+}
+
+// Helper function
+function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    minimumFractionDigits: 0,
+  }).format(amount);
+}
+
+// Placeholder FulfillmentDialog - replace with actual import when available
+function FulfillmentDialog({ isOpen, onClose, orderItems, onConfirm }: any) {
+  if (!isOpen) return null;
+  return null; // Placeholder - actual dialog should be imported
+}
+
 export default function OrderDetailsClientPage({
   initialOrder,
 }: OrderDetailsClientPageProps) {
@@ -174,7 +206,27 @@ export default function OrderDetailsClientPage({
     }
   };
 
-  // ... getSecondaryAction ...
+  const getSecondaryAction = () => {
+    switch (order.shippingStatus) {
+      case 'Pending':
+      case 'Processing':
+        return {
+          text: 'Cancel Order',
+          action: () => handleUpdateStatus('Cancelled' as ShippingStatus),
+          icon: XCircle,
+          variant: 'destructive' as const,
+        };
+      case 'Delivered':
+        return {
+          text: 'Process Refund',
+          action: () => handleUpdateStatus('Returned' as ShippingStatus),
+          icon: Undo2,
+          variant: 'outline' as const,
+        };
+      default:
+        return null;
+    }
+  };
 
   const primaryAction = getPrimaryAction();
   const secondaryAction = getSecondaryAction();
