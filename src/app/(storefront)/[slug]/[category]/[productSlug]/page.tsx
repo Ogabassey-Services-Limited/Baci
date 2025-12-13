@@ -403,7 +403,7 @@ function toOgabasseyProduct(
       product.imageLarge || product.image,
     ],
     description: product.description,
-    ...(product.rating !== undefined && { rating: product.rating }),
+    rating: product.rating,
     category: product.category || 'General',
     categorySlug: product.category_slug,
     condition: (product.condition || 'new') as OgabasseyProduct['condition'],
@@ -641,13 +641,13 @@ export async function generateMetadata({
       images: product.images?.length
         ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
         : [
-            {
-              url: product.imageLarge || product.image,
-              width: 800,
-              height: 600,
-              alt: product.name,
-            },
-          ],
+          {
+            url: product.imageLarge || product.image,
+            width: 800,
+            height: 600,
+            alt: product.name,
+          },
+        ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,
