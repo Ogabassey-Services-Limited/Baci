@@ -15,6 +15,8 @@ import {
   Search,
   Send,
   Trash2,
+  RefreshCw,
+  Image as ImageIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -23,6 +25,7 @@ import { CSVBulkImportDialog } from '@/components/products/csv-bulk-import-dialo
 import { FileUpload } from '@/components/products/file-upload';
 import { GoogleSheetImportDialog } from '@/components/products/google-sheet-import-dialog';
 import { ProcessingView } from '@/components/products/processing-view';
+import { MissingImagesView } from '@/components/products/missing-images-view';
 import { ProductCatalog } from '@/components/products/product-catalog';
 import { ReviewChanges } from '@/components/products/review-changes';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -39,10 +42,12 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { ProductProvider, useProductContext } from '@/contexts/product-context';
+import { useAuth } from '@/contexts/auth-context';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { getCountryByCode } from '@/lib/countries';
@@ -106,8 +111,36 @@ function ProductsPageContent() {
     openAddProductDialog,
     closeAddProductDialog,
     editingProduct,
+    aiResponse,
   } = useProductContext();
-  const { merchant } = useMerchant();
+  const { merchant, updateMerchant } = useMerchant();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [pendingSheetUrl, setPendingSheetUrl] = useState<string | null>(null);
+
+  const handleSyncGoogleSheet = async () => {
+    if (!merchant?.google_product_sheet_url) return;
+
+    setIsSyncing(true);
+    try {
+      const { fetchGoogleSheet } = await import('@/app/dashboard/products/actions');
+      const csvContent = await fetchGoogleSheet(merchant.google_product_sheet_url);
+
+      await startAiProcessing(csvContent, 'Google Sheet Sync', 'csv');
+      toast({
+        title: 'Sync Started',
+        description: 'Analyzing changes from your connected sheet...',
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Sync Failed',
+        description: 'Could not fetch the connected sheet.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const [isGoogleSheetImportOpen, setIsGoogleSheetImportOpen] = useState(false);
   const [isCSVBulkImportOpen, setIsCSVBulkImportOpen] = useState(false);
@@ -149,87 +182,56 @@ function ProductsPageContent() {
   ) => {
     setWorkflowStep('processing');
     try {
-      // Create AI job instead of calling processPriceList directly
-      const response = await fetch('/api/ai-jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'price_list_processing',
-          input: {
-            currentProducts: products,
-            priceListData: data,
-            vendor: vendor,
-            fileType: fileType,
-          },
-        }),
-      });
+      const { parseCSVDirectly, processPriceList } = await import('@/app/dashboard/products/actions');
 
-      if (!response.ok) {
-        throw new Error('Failed to create AI job');
+      // Log input data for debugging
+      const lines = data.split('\n').filter(l => l.trim());
+      console.log(`[CSV Import] Total lines in file: ${lines.length}`);
+      console.log(`[CSV Import] First 3 lines:`, lines.slice(0, 3));
+      console.log(`[CSV Import] Existing products in DB: ${products.length}`);
+
+      // Step 1: Always try direct CSV parsing first (fast, no limits)
+      console.log('[CSV Import] Starting direct CSV parsing...');
+      const startTime = performance.now();
+      const directResult = await parseCSVDirectly(products, data);
+      const parseTime = performance.now() - startTime;
+      console.log(`[CSV Import] Direct parsing completed in ${parseTime.toFixed(0)}ms`);
+      console.log(`[CSV Import] Result: ${directResult.changes?.length || 0} changes, Summary: ${directResult.summary}`);
+
+      // Step 2: Only fallback to AI if there's a structural parsing error AND file is small
+      const hasStructuralError =
+        !directResult ||
+        directResult.summary?.includes('Could not find') ||  // Header parsing failed
+        directResult.summary?.includes('No data rows');      // Empty file
+
+      let response;
+
+      if (hasStructuralError) {
+        // If file is large (> 50 lines), do NOT fallback to AI as it will hit token limits.
+        // Instead, show the specific parsing error so user can fix headers.
+        if (lines.length > 50) {
+          console.log('[CSV Import] Large file failed parsing. Aborting to show error.');
+          throw new Error(directResult.summary);
+        }
+
+        // Only fallback to AI for structural/format issues on SMALL files
+        console.log('[CSV Import] Structural parsing error on small file. Falling back to AI...');
+        response = await processPriceList(products, data, vendor, fileType);
+      } else {
+        // Direct parsing worked - use it even if 0 changes (means no updates needed)
+        console.log(`[CSV Import] ✅ Direct parsing succeeded: ${directResult.changes.length} products found.`);
+        response = directResult;
       }
 
-      const { job } = await response.json();
+      setAiResponse(response);
+      setWorkflowStep('review');
+      setSearchTerm('');
 
-      let pollInterval: NodeJS.Timeout | null = null;
-      let timeoutId: NodeJS.Timeout | null = null;
-      let isPollingActive = true; // Local flag to track if we're still polling
-
-      const cleanup = () => {
-        isPollingActive = false;
-        if (pollInterval) clearInterval(pollInterval);
-        if (timeoutId) clearTimeout(timeoutId);
-        pollInterval = null;
-        timeoutId = null;
-      };
-
-      // Poll for job completion
-      pollInterval = setInterval(async () => {
-        if (!isPollingActive) return; // Guard against stale interval executions
-
-        try {
-          const jobResponse = await fetch(`/api/ai-jobs/${job.id}`);
-          const { job: updatedJob } = await jobResponse.json();
-
-          if (updatedJob.status === 'completed') {
-            cleanup();
-            setAiResponse(updatedJob.output);
-            setWorkflowStep('review');
-
-            setSearchTerm('');
-          } else if (updatedJob.status === 'failed') {
-            cleanup();
-            console.error('AI processing failed:', updatedJob.error);
-            toast({
-              title: 'AI Processing Failed',
-              description: updatedJob.error || 'An error occurred',
-              variant: 'destructive',
-            });
-            setWorkflowStep('view');
-          }
-        } catch (pollError) {
-          console.error('Poll error:', pollError);
-          // Don't cleanup on poll error - might be transient
-        }
-      }, 2000); // Poll every 2 seconds
-
-      // Timeout after 60 seconds
-      timeoutId = setTimeout(() => {
-        if (isPollingActive) {
-          cleanup();
-          toast({
-            title: 'Processing Timeout',
-            description:
-              'The AI is taking longer than expected. Please check back later.',
-            variant: 'destructive',
-          });
-          setWorkflowStep('view');
-        }
-      }, 60000);
     } catch (error) {
-      console.error('AI processing failed', error);
+      console.error('[CSV Import] Processing failed:', error);
       toast({
-        title: 'Error',
-        description: 'Failed to start AI processing',
+        title: 'Processing Failed',
+        description: error instanceof Error ? error.message : 'Failed to analyze products',
         variant: 'destructive',
       });
       setWorkflowStep('view');
@@ -314,8 +316,36 @@ function ProductsPageContent() {
         return <FileUpload />;
       case 'processing':
         return <ProcessingView />;
+      case 'studio':
+        return (
+          <>
+            <div className="flex items-center gap-2 mb-6">
+              <Button variant="ghost" onClick={() => setWorkflowStep('view')}>
+                ← Back to List
+              </Button>
+            </div>
+            <MissingImagesView />
+          </>
+        );
       case 'review':
-        return <ReviewChanges />;
+        return (
+          <ReviewChanges
+            onComplete={async () => {
+              if (pendingSheetUrl) {
+                try {
+                  await updateMerchant(
+                    { google_product_sheet_url: pendingSheetUrl },
+                    { skipReload: true }
+                  );
+                  setPendingSheetUrl(null);
+                } catch (error) {
+                  console.error('Failed to save sheet URL after import:', error);
+                }
+              }
+            }}
+          />
+        );
+      case 'view':
       default:
         return (
           <ProductCatalog
@@ -357,9 +387,14 @@ function ProductsPageContent() {
       <GoogleSheetImportDialog
         open={isGoogleSheetImportOpen}
         onOpenChange={setIsGoogleSheetImportOpen}
-        onImport={(data) =>
-          startAiProcessing(data, 'Google Sheet Import', 'csv')
-        }
+        initialUrl={merchant?.google_product_sheet_url}
+        onImport={async (data, url, saveUrl) => {
+          startAiProcessing(data, 'Google Sheet Import', 'csv');
+          if (saveUrl && url !== merchant?.google_product_sheet_url) {
+            // Defer saving URL until import is successful
+            setPendingSheetUrl(url);
+          }
+        }}
       />
 
       <CSVBulkImportDialog
@@ -394,7 +429,7 @@ function ProductsPageContent() {
               >
                 <Send className="h-3.5 w-3.5" />
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                  Bulk CSV Import
+                  Upload CSV
                 </span>
               </Button>
               <Button
@@ -403,21 +438,75 @@ function ProductsPageContent() {
                 className="h-9 gap-1"
                 onClick={() => setWorkflowStep('upload')}
               >
-                <File className="h-3.5 w-3.5" />
+                <ImageIcon className="h-3.5 w-3.5" />
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                  Import Price List
+                  Upload Image
                 </span>
               </Button>
+              {merchant?.google_product_sheet_url ? (
+                <div className="flex items-center">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 rounded-r-none border-r-0"
+                    onClick={handleSyncGoogleSheet}
+                    disabled={isSyncing || isLoading}
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                    <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                      Sync Sheet
+                    </span>
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 px-2 text-blue-600 border-blue-200 hover:bg-blue-50 rounded-l-none border-l-0"
+                        disabled={isSyncing || isLoading}
+                      >
+                        <ChevronDown className="h-3.5 w-3.5" />
+                        <span className="sr-only">Options</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          try {
+                            await updateMerchant({ google_product_sheet_url: null as any });
+                            toast({ title: "Sheet Disconnected", description: "You can now connect a different sheet." });
+                          } catch (error) {
+                            toast({ title: "Error", description: "Failed to disconnect sheet.", variant: "destructive" });
+                          }
+                        }}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Disconnect Sheet
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 gap-1"
+                  onClick={handleGoogleSheetImport}
+                >
+                  <GoogleSheetIcon />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    Import from Google Sheet
+                  </span>
+                </Button>
+              )}
               <Button
-                size="sm"
                 variant="outline"
-                className="h-9 gap-1"
-                onClick={handleGoogleSheetImport}
+                className="gap-2 border-dashed border-primary/50 bg-primary/5 hover:bg-primary/10 text-primary"
+                onClick={() => setWorkflowStep('studio')}
               >
-                <GoogleSheetIcon />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                  Import from Google Sheet
-                </span>
+                <ImageIcon className="h-4 w-4" />
+                Fix Images
               </Button>
               <Button
                 size="sm"

@@ -8,6 +8,7 @@ import {
   type StaffAccess,
   useMerchant,
 } from '@/hooks/use-merchant';
+import { ProductProvider } from '@/contexts/product-context';
 import DashboardClientLayout from './client-layout';
 
 // New component to handle fetching merchant and applying theme
@@ -37,9 +38,11 @@ export function DashboardProviders({
         initialMerchant={initialMerchant}
         initialStaffAccess={initialStaffAccess}
       >
-        <DashboardClientLayout>
-          <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
-        </DashboardClientLayout>
+        <ProductProvider>
+          <DashboardClientLayout>
+            <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
+          </DashboardClientLayout>
+        </ProductProvider>
       </MerchantProvider>
     </AuthProvider>
   );

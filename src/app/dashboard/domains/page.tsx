@@ -594,21 +594,21 @@ export default function DomainsPage() {
         <TabsList className="bg-slate-100/80 dark:bg-slate-800/50 p-1">
           <TabsTrigger
             value="overview"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm"
           >
             <Globe className="w-4 h-4 mr-2" />
             My Domains
           </TabsTrigger>
           <TabsTrigger
             value="search"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm"
           >
             <Search className="w-4 h-4 mr-2" />
             Search & Buy
           </TabsTrigger>
           <TabsTrigger
             value="custom"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm"
           >
             <Plus className="w-4 h-4 mr-2" />
             Connect Existing Domain
@@ -711,23 +711,21 @@ export default function DomainsPage() {
               {domains.map((domain) => (
                 <Card
                   key={domain.id}
-                  className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg border-2 ${
-                    domain.status === 'active'
-                      ? 'border-green-200 dark:border-green-800 hover:border-green-300'
-                      : domain.status === 'failed'
-                        ? 'border-red-200 dark:border-red-800'
-                        : 'border-amber-200 dark:border-amber-800'
-                  }`}
+                  className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg border-2 ${domain.status === 'active'
+                    ? 'border-green-200 dark:border-green-800 hover:border-green-300'
+                    : domain.status === 'failed'
+                      ? 'border-red-200 dark:border-red-800'
+                      : 'border-amber-200 dark:border-amber-800'
+                    }`}
                 >
                   {/* Status indicator bar at top */}
                   <div
-                    className={`absolute top-0 left-0 right-0 h-1 ${
-                      domain.status === 'active'
-                        ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-                        : domain.status === 'failed'
-                          ? 'bg-gradient-to-r from-red-400 to-rose-500'
-                          : 'bg-gradient-to-r from-amber-400 to-yellow-500'
-                    }`}
+                    className={`absolute top-0 left-0 right-0 h-1 ${domain.status === 'active'
+                      ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                      : domain.status === 'failed'
+                        ? 'bg-gradient-to-r from-red-400 to-rose-500'
+                        : 'bg-gradient-to-r from-amber-400 to-yellow-500'
+                      }`}
                   />
 
                   <CardHeader className="pb-3">
@@ -735,22 +733,20 @@ export default function DomainsPage() {
                       <div className="flex items-start gap-4">
                         {/* Domain Icon with status-based styling */}
                         <div
-                          className={`flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center shadow-sm ${
-                            domain.status === 'active'
-                              ? 'bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20'
-                              : domain.status === 'failed'
-                                ? 'bg-gradient-to-br from-red-100 to-rose-50 dark:from-red-900/30 dark:to-rose-900/20'
-                                : 'bg-gradient-to-br from-amber-100 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20'
-                          }`}
+                          className={`flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center shadow-sm ${domain.status === 'active'
+                            ? 'bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20'
+                            : domain.status === 'failed'
+                              ? 'bg-gradient-to-br from-red-100 to-rose-50 dark:from-red-900/30 dark:to-rose-900/20'
+                              : 'bg-gradient-to-br from-amber-100 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20'
+                            }`}
                         >
                           <Globe
-                            className={`w-7 h-7 ${
-                              domain.status === 'active'
-                                ? 'text-green-600 dark:text-green-400'
-                                : domain.status === 'failed'
-                                  ? 'text-red-600 dark:text-red-400'
-                                  : 'text-amber-600 dark:text-amber-400'
-                            }`}
+                            className={`w-7 h-7 ${domain.status === 'active'
+                              ? 'text-green-600 dark:text-green-400'
+                              : domain.status === 'failed'
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-amber-600 dark:text-amber-400'
+                              }`}
                           />
                         </div>
 
@@ -811,23 +807,21 @@ export default function DomainsPage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* SSL Status Card */}
                       <div
-                        className={`p-4 rounded-lg border ${
-                          domain.ssl_status === 'active'
-                            ? 'bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800'
-                            : domain.ssl_status === 'failed'
-                              ? 'bg-red-50/50 border-red-200 dark:bg-red-900/10 dark:border-red-800'
-                              : 'bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800'
-                        }`}
+                        className={`p-4 rounded-lg border ${domain.ssl_status === 'active'
+                          ? 'bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800'
+                          : domain.ssl_status === 'failed'
+                            ? 'bg-red-50/50 border-red-200 dark:bg-red-900/10 dark:border-red-800'
+                            : 'bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800'
+                          }`}
                       >
                         <div className="flex items-center gap-3">
                           <div
-                            className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              domain.ssl_status === 'active'
-                                ? 'bg-green-100 dark:bg-green-900/30'
-                                : domain.ssl_status === 'failed'
-                                  ? 'bg-red-100 dark:bg-red-900/30'
-                                  : 'bg-amber-100 dark:bg-amber-900/30'
-                            }`}
+                            className={`w-10 h-10 rounded-full flex items-center justify-center ${domain.ssl_status === 'active'
+                              ? 'bg-green-100 dark:bg-green-900/30'
+                              : domain.ssl_status === 'failed'
+                                ? 'bg-red-100 dark:bg-red-900/30'
+                                : 'bg-amber-100 dark:bg-amber-900/30'
+                              }`}
                           >
                             {domain.ssl_status === 'active' ? (
                               <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -842,13 +836,12 @@ export default function DomainsPage() {
                               SSL Certificate
                             </p>
                             <p
-                              className={`font-semibold ${
-                                domain.ssl_status === 'active'
-                                  ? 'text-green-700 dark:text-green-400'
-                                  : domain.ssl_status === 'failed'
-                                    ? 'text-red-700 dark:text-red-400'
-                                    : 'text-amber-700 dark:text-amber-400'
-                              }`}
+                              className={`font-semibold ${domain.ssl_status === 'active'
+                                ? 'text-green-700 dark:text-green-400'
+                                : domain.ssl_status === 'failed'
+                                  ? 'text-red-700 dark:text-red-400'
+                                  : 'text-amber-700 dark:text-amber-400'
+                                }`}
                             >
                               {domain.ssl_status === 'active'
                                 ? '🔒 Secured'
@@ -880,8 +873,8 @@ export default function DomainsPage() {
                             <p className="font-semibold text-slate-700 dark:text-slate-300">
                               {domain.purchase_info?.expires_at
                                 ? new Date(
-                                    domain.purchase_info.expires_at
-                                  ).toLocaleDateString()
+                                  domain.purchase_info.expires_at
+                                ).toLocaleDateString()
                                 : domain.domain_type === 'subdomain'
                                   ? '🆓 Free Subdomain'
                                   : domain.domain_type === 'custom'
@@ -1061,79 +1054,79 @@ export default function DomainsPage() {
                             {domain.verification_token?.startsWith(
                               'vc-domain-verify='
                             ) && (
-                              <div className="space-y-3">
-                                <h5 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
-                                  <span className="bg-destructive text-destructive-foreground px-2 py-0.5 rounded text-[10px]">
-                                    Required
-                                  </span>
-                                  Ownership Verification
-                                </h5>
-                                <Alert
-                                  variant="destructive"
-                                  className="border-red-200 bg-red-50/50"
-                                >
-                                  <AlertCircle className="h-4 w-4" />
-                                  <AlertDescription className="text-red-900 text-sm">
-                                    <strong>Additional Step Required:</strong>{' '}
-                                    This domain was previously used on another
-                                    Vercel project. You must add this TXT record
-                                    to prove ownership.
-                                  </AlertDescription>
-                                </Alert>
-                                <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
-                                  <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                    <span className="text-xs font-semibold uppercase text-muted-foreground">
-                                      Type
+                                <div className="space-y-3">
+                                  <h5 className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-2">
+                                    <span className="bg-destructive text-destructive-foreground px-2 py-0.5 rounded text-[10px]">
+                                      Required
                                     </span>
-                                    <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">
-                                      TXT
-                                    </code>
-                                    <div />
-                                  </div>
-                                  <div className="h-[1px] bg-border/50" />
-                                  <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                    <span className="text-xs font-semibold uppercase text-muted-foreground">
-                                      Name
-                                    </span>
-                                    <code className="text-sm font-mono bg-background px-2 py-1 rounded border">
-                                      _vercel
-                                    </code>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() =>
-                                        copyToClipboard('_vercel', 'Host Name')
-                                      }
-                                    >
-                                      <Copy className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                  <div className="h-[1px] bg-border/50" />
-                                  <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
-                                    <span className="text-xs font-semibold uppercase text-muted-foreground">
-                                      Value
-                                    </span>
-                                    <code className="text-xs font-mono bg-background px-2 py-1.5 rounded border break-all">
-                                      {domain.verification_token}
-                                    </code>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() =>
-                                        copyToClipboard(
-                                          domain.verification_token || '',
-                                          'TXT Value'
-                                        )
-                                      }
-                                    >
-                                      <Copy className="h-4 w-4" />
-                                    </Button>
+                                    Ownership Verification
+                                  </h5>
+                                  <Alert
+                                    variant="destructive"
+                                    className="border-red-200 bg-red-50/50"
+                                  >
+                                    <AlertCircle className="h-4 w-4" />
+                                    <AlertDescription className="text-red-900 text-sm">
+                                      <strong>Additional Step Required:</strong>{' '}
+                                      This domain was previously used on another
+                                      Vercel project. You must add this TXT record
+                                      to prove ownership.
+                                    </AlertDescription>
+                                  </Alert>
+                                  <div className="p-4 bg-muted/50 rounded-lg border space-y-3">
+                                    <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
+                                      <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                        Type
+                                      </span>
+                                      <code className="text-sm font-mono bg-background px-2 py-1 rounded border w-fit">
+                                        TXT
+                                      </code>
+                                      <div />
+                                    </div>
+                                    <div className="h-[1px] bg-border/50" />
+                                    <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
+                                      <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                        Name
+                                      </span>
+                                      <code className="text-sm font-mono bg-background px-2 py-1 rounded border">
+                                        _vercel
+                                      </code>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() =>
+                                          copyToClipboard('_vercel', 'Host Name')
+                                        }
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                    <div className="h-[1px] bg-border/50" />
+                                    <div className="grid grid-cols-[60px_1fr_40px] gap-2 items-center">
+                                      <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                        Value
+                                      </span>
+                                      <code className="text-xs font-mono bg-background px-2 py-1.5 rounded border break-all">
+                                        {domain.verification_token}
+                                      </code>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() =>
+                                          copyToClipboard(
+                                            domain.verification_token || '',
+                                            'TXT Value'
+                                          )
+                                        }
+                                      >
+                                        <Copy className="h-4 w-4" />
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
                           </div>
 
                           <div className="flex flex-col gap-3">
@@ -1179,14 +1172,14 @@ export default function DomainsPage() {
                                     /4)
                                     {autoRetryDomains[domain.domain]
                                       .nextRetryAt && (
-                                      <>
-                                        {' '}
-                                        • Next check at{' '}
-                                        {autoRetryDomains[
-                                          domain.domain
-                                        ].nextRetryAt?.toLocaleTimeString()}
-                                      </>
-                                    )}
+                                        <>
+                                          {' '}
+                                          • Next check at{' '}
+                                          {autoRetryDomains[
+                                            domain.domain
+                                          ].nextRetryAt?.toLocaleTimeString()}
+                                        </>
+                                      )}
                                   </span>
                                   <Button
                                     variant="ghost"
@@ -1255,9 +1248,9 @@ export default function DomainsPage() {
                       )}
 
                     {domain.status === 'active' && domain.verified_at && (
-                      <Alert className="border-green-200 bg-green-50">
-                        <Check className="h-4 w-4 text-green-600" />
-                        <AlertDescription className="text-green-800">
+                      <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
+                        <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <AlertDescription className="text-green-800 dark:text-green-300">
                           Domain verified on{' '}
                           {new Date(domain.verified_at).toLocaleDateString()}
                         </AlertDescription>
@@ -1326,11 +1319,10 @@ export default function DomainsPage() {
                       {domainSearchResults.map((result) => (
                         <div
                           key={result.domain}
-                          className={`flex items-center justify-between p-4 rounded-lg border ${
-                            result.available
-                              ? 'border-green-200 bg-green-50/50'
-                              : 'border-gray-200 bg-gray-50/50 opacity-60'
-                          }`}
+                          className={`flex items-center justify-between p-4 rounded-lg border ${result.available
+                            ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800'
+                            : 'border-gray-200 bg-gray-50/50 dark:bg-slate-900/10 dark:border-slate-800 opacity-60'
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             <Globe className="w-5 h-5 text-muted-foreground" />

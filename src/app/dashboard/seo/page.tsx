@@ -76,19 +76,19 @@ interface SEOOptimization {
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  let color = 'bg-red-100 text-red-800';
-  if (score >= 80) color = 'bg-green-100 text-green-800';
-  else if (score >= 60) color = 'bg-yellow-100 text-yellow-800';
-  else if (score >= 40) color = 'bg-orange-100 text-orange-800';
+  let color = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+  if (score >= 80) color = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+  else if (score >= 60) color = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+  else if (score >= 40) color = 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
 
   return <Badge className={color}>{score}%</Badge>;
 }
 
 function StatusIcon({ hasValue }: { hasValue: boolean }) {
   return hasValue ? (
-    <CheckCircle2 className="h-4 w-4 text-green-500" />
+    <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
   ) : (
-    <XCircle className="h-4 w-4 text-red-500" />
+    <XCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
   );
 }
 
@@ -249,7 +249,7 @@ export default function SEOOptimizerPage() {
               <CheckCircle2 className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {summary.fullyOptimized}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -262,10 +262,10 @@ export default function SEOOptimizerPage() {
               <CardTitle className="text-sm font-medium">
                 Missing Titles
               </CardTitle>
-              <FileText className="h-4 w-4 text-orange-500" />
+              <FileText className="h-4 w-4 text-orange-500 dark:text-orange-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                 {summary.missingTitle}
               </div>
             </CardContent>
@@ -275,10 +275,10 @@ export default function SEOOptimizerPage() {
               <CardTitle className="text-sm font-medium">
                 Missing Descriptions
               </CardTitle>
-              <FileText className="h-4 w-4 text-orange-500" />
+              <FileText className="h-4 w-4 text-orange-500 dark:text-orange-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                 {summary.missingDescription}
               </div>
             </CardContent>
@@ -288,10 +288,10 @@ export default function SEOOptimizerPage() {
               <CardTitle className="text-sm font-medium">
                 Missing Keywords
               </CardTitle>
-              <Tag className="h-4 w-4 text-orange-500" />
+              <Tag className="h-4 w-4 text-orange-500 dark:text-orange-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                 {summary.missingKeywords}
               </div>
             </CardContent>
@@ -364,7 +364,7 @@ export default function SEOOptimizerPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-sm font-medium text-green-600">
+                    <div className="text-sm font-medium text-green-600 dark:text-green-400">
                       Optimized
                     </div>
                     <div className="p-3 bg-green-50 rounded space-y-2">
@@ -506,7 +506,7 @@ export default function SEOOptimizerPage() {
                         )}
                       </div>
                     ) : (
-                      <span className="text-green-600 text-sm">All good!</span>
+                      <span className="text-green-600 dark:text-green-400 text-sm">All good!</span>
                     )}
                   </TableCell>
                 </TableRow>

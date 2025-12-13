@@ -68,6 +68,7 @@ import { useToast } from '@/hooks/use-toast';
 import { COUNTRIES } from '@/lib/countries';
 import { logger } from '@/lib/logger';
 import { uploadImage } from '@/lib/storage';
+import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type { BrandColors } from '@/types';
 import { FaviconUpload } from './favicon-upload';
@@ -148,6 +149,8 @@ export default function SettingsPage() {
     'idle'
   );
   const [riderPhone, setRiderPhone] = useState('');
+  const [blogEnabled, setBlogEnabled] = useState(false);
+  const [featuresLoading, setFeaturesLoading] = useState(true);
   /* Analytics moved to Integrations pages */
 
   // Ref to track pending autosave timeout for debouncing
@@ -238,6 +241,92 @@ export default function SettingsPage() {
       /* Analytics hydration moved */
     }
   }, [merchant, form]);
+
+  // Fetch feature settings
+  useEffect(() => {
+    async function fetchFeatures() {
+      if (!merchant?.id) return;
+
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('merchant_feature_settings')
+          .select('blog_enabled')
+          .eq('merchant_id', merchant.id)
+          .single();
+
+        if (!error && data) {
+          setBlogEnabled(data.blog_enabled ?? false);
+        }
+      } catch (error) {
+        logger.error({
+          error: error as Error,
+          message: 'Failed to fetch features',
+        });
+      } finally {
+        setFeaturesLoading(false);
+      }
+    }
+
+    fetchFeatures();
+  }, [merchant?.id]);
+
+  const handleBlogToggle = async (enabled: boolean) => {
+    if (!merchant?.id) return;
+
+    // Optimistic update
+    setBlogEnabled(enabled);
+
+    try {
+      const supabase = createClient();
+
+      // Check if row exists first
+      const { data: existing } = await supabase
+        .from('merchant_feature_settings')
+        .select('id')
+        .eq('merchant_id', merchant.id)
+        .single();
+
+      let error;
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('merchant_feature_settings')
+          .update({ blog_enabled: enabled })
+          .eq('merchant_id', merchant.id);
+        error = updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('merchant_feature_settings')
+          .insert({
+            merchant_id: merchant.id,
+            blog_enabled: enabled,
+          });
+        error = insertError;
+      }
+
+      if (error) throw error;
+
+      toast({
+        title: enabled ? 'Blog Enabled' : 'Blog Disabled',
+        description: enabled
+          ? 'Your blog is now public. Add posts to populate it.'
+          : 'Your blog is now hidden from the storefront.',
+      });
+    } catch (error) {
+      // Revert on error
+      setBlogEnabled(!enabled);
+      logger.error({
+        error: error as Error,
+        message: 'Failed to update blog setting',
+      });
+      toast({
+        title: 'Update Failed',
+        description: 'Could not update blog settings.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleHeroSlideChange = (
     index: number,
@@ -517,6 +606,42 @@ export default function SettingsPage() {
                     Upload a logo to generate brand colors.
                   </p>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="glass">
+            <CardHeader>
+              <CardTitle>Store Features</CardTitle>
+              <CardDescription>
+                Enable or disable specific features for your storefront.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between space-x-2">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <Label
+                      htmlFor="blog-toggle"
+                      className="text-base font-medium"
+                    >
+                      Blogging System
+                    </Label>
+                    <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">
+                      New
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Enable a SEO-friendly blog for your store. URLs will be
+                    available at /blog.
+                  </p>
+                </div>
+                <Switch
+                  id="blog-toggle"
+                  checked={blogEnabled}
+                  onCheckedChange={handleBlogToggle}
+                  disabled={featuresLoading}
+                />
               </div>
             </CardContent>
           </Card>

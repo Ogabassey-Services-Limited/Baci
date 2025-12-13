@@ -45,7 +45,7 @@ export async function getDashboardMetrics(
 ): Promise<DashboardMetrics> {
   try {
     const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const _supabase = createClient(cookieStore);
 
     // OPTIMIZED: Use cached RPC function
     // This uses stable caching (1 min) to prevent DB hammering on refresh
