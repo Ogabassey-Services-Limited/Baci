@@ -37,6 +37,7 @@ export interface MerchantData {
     faq?: string;
     legal?: string;
   };
+  google_product_sheet_url?: string;
   slug?: string;
   custom_domain?: string;
   published_config?: Record<string, unknown> | null;
@@ -192,10 +193,7 @@ export const MerchantProvider = ({
         }
 
         // Mock data for Ogabassey demo
-        if (
-          slug === 'gadget-custom-template-ogabassey' ||
-          slug === 'gadget-default-template'
-        ) {
+        if (slug === 'gadget-default-template') {
           merchantData = {
             id: 'demo-ogabassey',
             user_id: 'demo-user',
@@ -228,7 +226,7 @@ export const MerchantProvider = ({
             logo_url:
               'https://ogabassey.com/wp-content/uploads/2023/06/Ogabassey-Logo-1.png',
             brand_colors: {
-              primary: '#3B82F6',
+              primary: '#DC2626',
               background: '#0F172A',
               accent: '#22D3EE',
             },

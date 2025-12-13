@@ -3,7 +3,6 @@
 import { ThemeProvider } from 'next-themes';
 import { CartProvider } from '@/hooks/use-cart';
 import { AuthProvider } from './auth-context';
-import { ProductProvider } from './product-context';
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -14,9 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
     >
       <AuthProvider>
-        <ProductProvider>
-          <CartProvider>{children}</CartProvider>
-        </ProductProvider>
+        <CartProvider>{children}</CartProvider>
       </AuthProvider>
     </ThemeProvider>
   );

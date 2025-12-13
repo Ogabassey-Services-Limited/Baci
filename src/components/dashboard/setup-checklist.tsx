@@ -4,6 +4,7 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
+  ChevronRight,
   Circle,
   CreditCard,
   FileText,
@@ -29,6 +30,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -61,6 +70,76 @@ interface SetupChecklistProps {
   dismissible?: boolean;
 }
 
+// Mobile Widget for compact view
+function SetupChecklistMobileWidget({
+  readiness,
+  onClick,
+}: {
+  readiness: StoreReadiness;
+  onClick: () => void;
+}) {
+  if (readiness.isReady && readiness.isPublished) return null;
+
+  return (
+    <div
+      onClick={onClick}
+      onKeyDown={(e) => e.key === 'Enter' && onClick()}
+      tabIndex={0}
+      role="button"
+      className="md:hidden w-full bg-gradient-to-br from-primary/10 to-transparent border border-primary/10 rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-all touch-manipulation cursor-pointer select-none"
+    >
+      <div className="flex items-center gap-4">
+        {/* Progress Ring */}
+        <div className="relative h-12 w-12 shrink-0">
+          <svg
+            className="h-full w-full -rotate-90 text-background"
+            viewBox="0 0 36 36"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <title>Progress Ring</title>
+            <path
+              className="text-muted/20"
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+            />
+            <path
+              className={cn(
+                'transition-all duration-1000 ease-out',
+                readiness.isReady ? 'text-green-500' : 'text-primary'
+              )}
+              strokeDasharray={`${readiness.overallProgress}, 100`}
+              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+            />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold">
+            {readiness.overallProgress}%
+          </div>
+        </div>
+
+        <div className="flex flex-col">
+          <span className="font-semibold text-sm">
+            {readiness.isReady ? 'Ready to Launch' : 'Finish Setup'}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {readiness.isReady
+              ? 'Tap to publish your store'
+              : `${readiness.completedRequired}/${readiness.totalRequired} required steps done`}
+          </span>
+        </div>
+      </div>
+
+      <div className="h-8 w-8 rounded-full bg-background/50 flex items-center justify-center">
+        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      </div>
+    </div>
+  );
+}
+
 export function SetupChecklist({
   onPublish,
   compact = false,
@@ -72,6 +151,7 @@ export function SetupChecklist({
   const [publishing, setPublishing] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   // Handle completion highlighting - must be before any early returns
   useEffect(() => {
@@ -134,6 +214,7 @@ export function SetupChecklist({
         });
         setReadiness((prev) => (prev ? { ...prev, isPublished: true } : null));
         onPublish?.();
+        setIsSheetOpen(false);
       } else {
         throw new Error('Failed to publish');
       }
@@ -162,160 +243,238 @@ export function SetupChecklist({
 
   if (!readiness) return null;
 
-  // If store is published and all required items are done, show minimal state
+  // If store is published and all required items are done, return null or minimal state
   if (readiness.isPublished && readiness.isReady && dismissible && dismissed) {
     return null;
   }
 
-  // Filter items based on view mode
+  // Group items
   const incompleteItems = readiness.items.filter((item) => !item.completed);
   const displayItems = showAll
     ? readiness.items
     : compact
       ? incompleteItems.slice(0, 3)
       : incompleteItems;
-
-  // Group items by priority
   const requiredIncomplete = incompleteItems.filter(
     (item) => item.priority === 'required'
   );
-  const _recommendedIncomplete = incompleteItems.filter(
-    (item) => item.priority === 'recommended'
-  );
 
-  return (
-    <Card
-      className={cn(
-        'relative overflow-hidden',
-        compact && 'border-0 shadow-none bg-transparent',
-        !readiness.isReady && 'border-amber-200 bg-amber-50/30'
+  // Main Card Content (refactored for reuse in Drawer)
+  const ChecklistContent = () => (
+    <CardContent className={cn(compact && 'px-0 pb-0', 'p-0 sm:p-6 sm:pt-0')}>
+      {/* Required items warning */}
+      {!readiness.isReady && requiredIncomplete.length > 0 && (
+        <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-sm">
+          <div className="flex items-center gap-2 font-medium">
+            <AlertCircle className="h-4 w-4" />
+            {requiredIncomplete.length} required{' '}
+            {requiredIncomplete.length === 1 ? 'item' : 'items'} remaining
+          </div>
+          <p className="mt-1 text-red-600 dark:text-red-400">
+            Complete these to publish your store and start accepting orders.
+          </p>
+        </div>
       )}
-    >
-      {/* Dismiss button */}
-      {dismissible && (
+
+      {/* Checklist items */}
+      <div className="space-y-2">
+        {displayItems.map((item, index) => (
+          <SetupItemRow
+            key={item.id}
+            item={item}
+            isNext={index === 0 && !item.completed && !compact && showAll}
+          />
+        ))}
+      </div>
+
+      {/* Show more/less toggle */}
+      {incompleteItems.length > 3 && (
         <button
           type="button"
-          onClick={() => setDismissed(true)}
-          className="absolute top-4 right-4 p-1 rounded-full hover:bg-muted transition-colors"
+          onClick={() => setShowAll(!showAll)}
+          className="mt-4 text-sm text-primary hover:underline flex items-center gap-1"
         >
-          <X className="h-4 w-4 text-muted-foreground" />
+          {showAll
+            ? 'Show less'
+            : `Show ${incompleteItems.length - 3} more items`}
+          <ArrowRight
+            className={cn(
+              'h-3 w-3 transition-transform',
+              showAll && 'rotate-90'
+            )}
+          />
         </button>
       )}
 
-      <CardHeader className={cn(compact && 'px-0 pt-0')}>
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1">
-            <CardTitle className="flex items-center gap-2">
-              {readiness.isPublished ? (
-                <>
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  Store is Live
-                </>
-              ) : readiness.isReady ? (
-                <>
-                  <Rocket className="h-5 w-5 text-primary" />
-                  Ready to Launch
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="h-5 w-5 text-amber-600" />
-                  Complete Your Store Setup
-                </>
-              )}
-            </CardTitle>
-            <CardDescription className="mt-1">
-              {readiness.isPublished
-                ? `${readiness.overallProgress}% complete - Keep improving your store`
-                : readiness.isReady
-                  ? 'All required items complete. Publish your store to start selling!'
-                  : `${readiness.completedRequired}/${readiness.totalRequired} required items complete`}
-            </CardDescription>
-          </div>
-
-          {/* Publish button */}
-          {!readiness.isPublished && readiness.isReady && (
-            <Button
-              onClick={handlePublish}
-              disabled={publishing}
-              className="shrink-0"
-            >
-              {publishing ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-              ) : (
-                <Rocket className="h-4 w-4 mr-2" />
-              )}
-              Publish Store
-            </Button>
-          )}
+      {/* All done state */}
+      {incompleteItems.length === 0 && (
+        <div className="py-8 text-center">
+          <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-3" />
+          <p className="font-medium text-lg">All set up!</p>
+          <p className="text-muted-foreground text-sm">
+            Your store is fully configured and ready for customers.
+          </p>
         </div>
+      )}
+    </CardContent>
+  );
 
-        {/* Progress bar */}
-        <div className="mt-4 space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Setup Progress</span>
-            <span className="font-medium">{readiness.overallProgress}%</span>
-          </div>
-          <Progress value={readiness.overallProgress} className="h-2" />
+  // Drawer Header (for mobile)
+  const DrawerHeader = () => (
+    <div className="flex flex-col gap-4 mb-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            {readiness.isPublished ? (
+              <>
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                Store is Live
+              </>
+            ) : readiness.isReady ? (
+              <>
+                <Rocket className="h-5 w-5 text-primary" />
+                Ready to Launch
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                Store Setup
+              </>
+            )}
+          </h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            {readiness.isPublished
+              ? `${readiness.overallProgress}% complete`
+              : `${readiness.completedRequired}/${readiness.totalRequired} required steps`}
+          </p>
         </div>
-      </CardHeader>
-
-      <CardContent className={cn(compact && 'px-0 pb-0')}>
-        {/* Required items warning */}
-        {!readiness.isReady && requiredIncomplete.length > 0 && (
-          <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200 text-sm">
-            <div className="flex items-center gap-2 font-medium">
-              <AlertCircle className="h-4 w-4" />
-              {requiredIncomplete.length} required{' '}
-              {requiredIncomplete.length === 1 ? 'item' : 'items'} remaining
-            </div>
-            <p className="mt-1 text-red-600 dark:text-red-400">
-              Complete these to publish your store and start accepting orders.
-            </p>
-          </div>
+        {!readiness.isPublished && readiness.isReady && (
+          <Button
+            onClick={handlePublish}
+            disabled={publishing}
+            size="sm"
+            className="shrink-0"
+          >
+            {publishing ? (
+              <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+            ) : (
+              <Rocket className="h-3 w-3 mr-2" />
+            )}
+            Publish
+          </Button>
         )}
+      </div>
+      <Progress value={readiness.overallProgress} className="h-2" />
+    </div>
+  );
 
-        {/* Checklist items */}
-        <div className="space-y-2">
-          {displayItems.map((item, index) => (
-            <SetupItemRow
-              key={item.id}
-              item={item}
-              isNext={index === 0 && !item.completed && !compact && showAll}
-            />
-          ))}
-        </div>
+  return (
+    <>
+      {/* Mobile: Compact Widget + Drawer */}
+      <div className="block md:hidden">
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetTrigger asChild>
+            <div>
+              <SetupChecklistMobileWidget
+                readiness={readiness}
+                onClick={() => setIsSheetOpen(true)}
+              />
+            </div>
+          </SheetTrigger>
+          <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl pt-6">
+            <SheetHeader className="mb-4 text-left">
+              <SheetTitle>Complete Setup</SheetTitle>
+              <SheetDescription>
+                Finish these steps to get your store ready for customers.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="h-full overflow-y-auto pb-20 no-scrollbar">
+              <DrawerHeader />
+              <ChecklistContent />
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
 
-        {/* Show more/less toggle */}
-        {incompleteItems.length > 3 && (
+      {/* Desktop: Full Card */}
+      <Card
+        className={cn(
+          'relative overflow-hidden hidden md:block',
+          compact && 'border-0 shadow-none bg-transparent',
+          !readiness.isReady && 'border-amber-200 bg-amber-50/30'
+        )}
+      >
+        {/* Dismiss button */}
+        {dismissible && (
           <button
             type="button"
-            onClick={() => setShowAll(!showAll)}
-            className="mt-4 text-sm text-primary hover:underline flex items-center gap-1"
+            onClick={() => setDismissed(true)}
+            className="absolute top-4 right-4 p-1 rounded-full hover:bg-muted transition-colors"
           >
-            {showAll
-              ? 'Show less'
-              : `Show ${incompleteItems.length - 3} more items`}
-            <ArrowRight
-              className={cn(
-                'h-3 w-3 transition-transform',
-                showAll && 'rotate-90'
-              )}
-            />
+            <X className="h-4 w-4 text-muted-foreground" />
           </button>
         )}
 
-        {/* All done state */}
-        {incompleteItems.length === 0 && (
-          <div className="py-8 text-center">
-            <CheckCircle2 className="h-12 w-12 text-green-600 mx-auto mb-3" />
-            <p className="font-medium text-lg">All set up!</p>
-            <p className="text-muted-foreground text-sm">
-              Your store is fully configured and ready for customers.
-            </p>
+        <CardHeader className={cn(compact && 'px-0 pt-0')}>
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="flex-1">
+              <CardTitle className="flex items-center gap-2">
+                {readiness.isPublished ? (
+                  <>
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    Store is Live
+                  </>
+                ) : readiness.isReady ? (
+                  <>
+                    <Rocket className="h-5 w-5 text-primary" />
+                    Ready to Launch
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="h-5 w-5 text-amber-600" />
+                    Complete Your Store Setup
+                  </>
+                )}
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {readiness.isPublished
+                  ? `${readiness.overallProgress}% complete - Keep improving your store`
+                  : readiness.isReady
+                    ? 'All required items complete. Publish your store to start selling!'
+                    : `${readiness.completedRequired}/${readiness.totalRequired} required items complete`}
+              </CardDescription>
+            </div>
+
+            {/* Publish button */}
+            {!readiness.isPublished && readiness.isReady && (
+              <Button
+                onClick={handlePublish}
+                disabled={publishing}
+                className="shrink-0"
+              >
+                {publishing ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                ) : (
+                  <Rocket className="h-4 w-4 mr-2" />
+                )}
+                Publish Store
+              </Button>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          {/* Progress bar */}
+          <div className="mt-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Setup Progress</span>
+              <span className="font-medium">{readiness.overallProgress}%</span>
+            </div>
+            <Progress value={readiness.overallProgress} className="h-2" />
+          </div>
+        </CardHeader>
+
+        <ChecklistContent />
+      </Card>
+    </>
   );
 }
 

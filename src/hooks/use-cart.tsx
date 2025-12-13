@@ -122,7 +122,24 @@ const getCartFromStorage = (): CartItem[] => {
   if (typeof window === 'undefined') return [];
   try {
     const item = window.localStorage.getItem(CART_STORAGE_KEY);
-    return item ? JSON.parse(item) : [];
+    const parsed = item ? JSON.parse(item) : [];
+
+    // Validate items structure to prevent NaN prices and ghost items
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((i: any) => {
+        // Must have valid ID and Name
+        if (!i.id || !i.name) return false;
+        return true;
+      })
+      .map((i: any) => ({
+        ...i,
+        // Ensure price is a number
+        price: typeof i.price === 'number' ? i.price : Number(i.price) || 0,
+        quantity:
+          typeof i.quantity === 'number' ? i.quantity : Number(i.quantity) || 1,
+      }));
   } catch (error) {
     logger.error({
       message: 'Failed to read cart from localStorage',
@@ -209,6 +226,84 @@ export const CartProvider = ({
     setMerchantSlugState(getMerchantSlugFromStorage());
     setIsHydrated(true);
   }, []);
+
+  // Background validation: Remove ghost products and update stale prices
+  useEffect(() => {
+    if (!isHydrated || cart.length === 0) return;
+
+    const validateCart = async () => {
+      try {
+        const cartItems = cart.map((item) => ({
+          id: item.id,
+          price: item.price,
+        }));
+
+        const response = await fetch('/api/cart/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cartItems }),
+        });
+
+        if (!response.ok) {
+          logger.warn({
+            message: 'Cart validation failed',
+            status: response.status,
+          });
+          return;
+        }
+
+        const { invalidProductIds, priceChanges } = (await response.json()) as {
+          invalidProductIds: string[];
+          priceChanges: { id: string; oldPrice: number; newPrice: number }[];
+        };
+
+        // Remove invalid products (ghost products)
+        if (invalidProductIds.length > 0) {
+          setCart((prev) => {
+            const filtered = prev.filter(
+              (item) => !invalidProductIds.includes(item.id)
+            );
+            if (filtered.length !== prev.length) {
+              logger.info({
+                message: 'Removed ghost products from cart',
+                count: prev.length - filtered.length,
+                removedIds: invalidProductIds,
+              });
+            }
+            return filtered;
+          });
+        }
+
+        // Update stale prices
+        if (priceChanges.length > 0) {
+          setCart((prev) =>
+            prev.map((item) => {
+              const priceChange = priceChanges.find((pc) => pc.id === item.id);
+              if (priceChange) {
+                logger.info({
+                  message: 'Updated stale price in cart',
+                  productId: item.id,
+                  oldPrice: priceChange.oldPrice,
+                  newPrice: priceChange.newPrice,
+                });
+                return { ...item, price: priceChange.newPrice };
+              }
+              return item;
+            })
+          );
+        }
+      } catch (error) {
+        logger.error({
+          message: 'Cart validation error',
+          error: error as Error,
+        });
+      }
+    };
+
+    // Run validation after a short delay to not block initial render
+    const timer = setTimeout(validateCart, 500);
+    return () => clearTimeout(timer);
+  }, [isHydrated, cart.length, cart.map]); // Only run once after hydration, not on every cart change
 
   // Persist to localStorage
   useEffect(() => {

@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/card';
 import { asRoute } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
+import { type BlogPostData, getTemplate } from '@/templates/registry';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -29,17 +31,18 @@ const getMerchantAndPosts = cache(
     const limit = 12;
     const offset = (page - 1) * limit;
 
-    // Get merchant
+    // Get merchant with template_id
     const { data: merchant } = await supabase
       .from('merchants')
-      .select('id, business_name, slug, logo_url')
+      .select('id, business_name, slug, logo_url, template_id')
       .eq('slug', merchantSlug)
       .single();
 
     if (!merchant) return null;
 
-    // Check if blog is enabled
-    const { data: features } = await supabase
+    // Check if blog is enabled (use service client to bypass RLS)
+    const adminSupabase = createServiceClient();
+    const { data: features } = await adminSupabase
       .from('merchant_feature_settings')
       .select('blog_enabled')
       .eq('merchant_id', merchant.id)
@@ -127,6 +130,47 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
 
   const { merchant, posts, categories, totalPages } = data;
 
+  // Check if merchant has a template with a custom Blog component
+  const templateId = merchant.template_id;
+  if (templateId && templateId !== 'default' && templateId !== 'puck') {
+    const template = getTemplate(templateId);
+    if (template) {
+      try {
+        const components = await template.getComponents();
+        if (components.Blog) {
+          const BlogComponent = components.Blog;
+          // Map posts to BlogPostData format
+          const blogPosts: BlogPostData[] = posts.map((p) => ({
+            id: p.id,
+            title: p.title,
+            slug: p.slug,
+            excerpt: p.excerpt || '',
+            category: p.category || '',
+            author_name: p.author_name || merchant.business_name,
+            published_at: p.published_at,
+            featured_image_url: p.featured_image_url || '',
+            reading_time_minutes: p.reading_time_minutes || 3,
+          }));
+
+          return (
+            <BlogComponent
+              storeSlug={slug}
+              posts={blogPosts}
+              categories={categories}
+            />
+          );
+        }
+      } catch (error) {
+        console.error(
+          `Failed to load Blog component for template ${templateId}:`,
+          error
+        );
+        // Fall through to default blog
+      }
+    }
+  }
+
+  // Default blog UI (generic styling)
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}

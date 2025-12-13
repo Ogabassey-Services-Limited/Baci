@@ -220,7 +220,8 @@ export function AddressAutocomplete({
           'pr-10 transition-all duration-200',
           className
         )}
-        autoComplete="off"
+        autoComplete="new-password"
+        data-lpignore="true"
       />
 
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -294,7 +295,15 @@ export function AddressAutocomplete({
 
             <div className="px-4 py-2 border-t bg-muted/30 flex justify-end sticky bottom-0 backdrop-blur-md">
               <span className="text-xs text-muted-foreground opacity-60">
-                Powered by Google
+                Powered by{' '}
+                <span className="font-medium">
+                  <span className="text-[#4285F4]">G</span>
+                  <span className="text-[#EA4335]">o</span>
+                  <span className="text-[#FBBC05]">o</span>
+                  <span className="text-[#4285F4]">g</span>
+                  <span className="text-[#34A853]">l</span>
+                  <span className="text-[#EA4335]">e</span>
+                </span>
               </span>
             </div>
           </motion.div>

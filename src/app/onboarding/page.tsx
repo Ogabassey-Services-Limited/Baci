@@ -1,54 +1,31 @@
-'use client';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import OnboardingPageContent from './onboarding-page-content';
 
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-import { OnboardingBackground } from '@/components/onboarding/floating-benefits';
-import OnboardingClient from '@/components/onboarding-client';
+export default async function OnboardingPage() {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
 
-export default function OnboardingPage() {
-  return (
-    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
-      {/* Dynamic Background Elements (Matched to Login Page) - Optimized */}
-      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background pointer-events-none" />
-      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))] opacity-50 pointer-events-none" />
+  // Check for existing session
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-      {/* Animated Orbs */}
-      {/* Animated Orbs - Optimized with gradients instead of heavy blur filters */}
-      <div
-        className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-[radial-gradient(circle,_var(--theme-primary)_0%,_transparent_70%)] opacity-20 animate-pulse pointer-events-none"
-        style={{ animationDuration: '4s' }}
-      />
-      <div
-        className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-[radial-gradient(circle,_var(--theme-accent)_0%,_transparent_70%)] opacity-20 animate-pulse pointer-events-none"
-        style={{ animationDuration: '6s' }}
-      />
+  if (user) {
+    // Check if user already has a merchant account
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('id, business_name')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-      {/* Floating Benefits - The "Extra" Layer */}
-      <OnboardingBackground />
+    if (merchant && merchant.business_name) {
+      // Redirect to dashboard if merchant exists AND is fully set up
+      redirect('/dashboard');
+    }
+  }
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-        className="relative z-10 w-full"
-      >
-        <OnboardingClient />
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="text-center text-sm text-muted-foreground mt-6"
-        >
-          Already have an account?{' '}
-          <Link
-            href="/login"
-            className="text-primary font-medium hover:underline underline-offset-4 transition-colors"
-          >
-            Log in
-          </Link>
-        </motion.p>
-      </motion.div>
-    </div>
-  );
+  return <OnboardingPageContent />;
 }
+

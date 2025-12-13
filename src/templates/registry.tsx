@@ -83,6 +83,32 @@ export interface TemplateComponents {
   Repairs?: ComponentType<TemplatePageProps>;
   Swap?: ComponentType<TemplatePageProps>;
   Help?: ComponentType<TemplatePageProps>;
+  /** Blog listing page (optional, uses default if not provided) */
+  Blog?: ComponentType<TemplateBlogPageProps>;
+}
+
+/**
+ * Props for blog page components
+ */
+export interface TemplateBlogPageProps extends TemplatePageProps {
+  posts?: BlogPostData[];
+  categories?: string[];
+}
+
+/**
+ * Blog post data structure for template components
+ */
+export interface BlogPostData {
+  id: string | number;
+  title: string;
+  excerpt: string;
+  category: string;
+  author_name: string;
+  published_at: string;
+  featured_image_url: string;
+  reading_time_minutes: number;
+  slug: string;
+  featured?: boolean;
 }
 
 /**
@@ -519,6 +545,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
       const { OgabasseyV2Repairs } = await import('@/components/storefront/ogabassey/pages/repairs');
       const { OgabasseyV2Swap } = await import('@/components/storefront/ogabassey/pages/swap');
       const { OgabasseyV2HelpSupport } = await import('@/components/storefront/ogabassey/pages/help-support');
+      const { OgabasseyV2Blog } = await import('@/components/storefront/ogabassey/pages/blog');
 
       // Wrapper component that uses the layout for Home
       const OgabasseyHome: React.ComponentType<TemplatePageProps> = (props) => {
@@ -550,6 +577,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
         Swap: createWrappedPage(OgabasseyV2Swap),
         Help: createWrappedPage(OgabasseyV2HelpSupport),
         Contact: createWrappedPage(OgabasseyV2HelpSupport),
+        Blog: createWrappedPage(OgabasseyV2Blog),
       };
     },
     mockData: {

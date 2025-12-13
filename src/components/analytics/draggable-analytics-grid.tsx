@@ -1712,10 +1712,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'At Risk'
                         )?.avg_clv
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'At Risk'
-                              )?.avg_clv || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'At Risk'
+                            )?.avg_clv || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1758,10 +1758,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'Champions'
                         )?.avg_order_value
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'Champions'
-                              )?.avg_order_value || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'Champions'
+                            )?.avg_order_value || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -1774,10 +1774,10 @@ export function DraggableAnalyticsGrid({
                           (s) => s.segment === 'Champions'
                         )?.avg_clv
                           ? formatCurrency(
-                              data.segmentSummary.segments.find(
-                                (s) => s.segment === 'Champions'
-                              )?.avg_clv || 0
-                            )
+                            data.segmentSummary.segments.find(
+                              (s) => s.segment === 'Champions'
+                            )?.avg_clv || 0
+                          )
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
