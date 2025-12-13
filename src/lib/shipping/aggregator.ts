@@ -148,7 +148,7 @@ function selectFeaturedQuotes(rankedQuotes: RankedQuote[]): ShippingQuote[] {
 // =============================================================================
 
 export class QuoteAggregator {
-  constructor(private registry: ShippingProviderRegistry) { }
+  constructor(private registry: ShippingProviderRegistry) {}
 
   /**
    * Get aggregated quotes from all enabled providers

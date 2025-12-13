@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { getMerchantForUser } from '@/lib/merchant-server';
 import { getCategories } from '@/lib/products-server';
 import { createClient } from '@/lib/supabase/server';
-import { getMerchantForUser } from '@/lib/merchant-server';
 import CategoriesClientPage from './client-page';
 
 export const metadata: Metadata = {

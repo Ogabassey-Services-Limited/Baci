@@ -44,9 +44,6 @@ export async function getDashboardMetrics(
   merchantId: string
 ): Promise<DashboardMetrics> {
   try {
-    const cookieStore = await cookies();
-    const _supabase = createClient(cookieStore);
-
     // OPTIMIZED: Use cached RPC function
     // This uses stable caching (1 min) to prevent DB hammering on refresh
     const stats = await getCachedDashboardStats(merchantId);

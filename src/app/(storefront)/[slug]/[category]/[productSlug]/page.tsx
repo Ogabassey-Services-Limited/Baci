@@ -403,7 +403,7 @@ function toOgabasseyProduct(
       product.imageLarge || product.image,
     ],
     description: product.description,
-    rating: product.rating ?? undefined,
+    ...(product.rating !== undefined && { rating: product.rating }),
     category: product.category || 'General',
     categorySlug: product.category_slug,
     condition: (product.condition || 'new') as OgabasseyProduct['condition'],
@@ -566,8 +566,8 @@ const getProduct = cache(
       product_categories?: Array<{ categories?: { slug?: string } }>;
     }
     const productWithCats = product as unknown as ProductWithCategories;
-    const dbCategorySlug = productWithCats.product_categories?.[0]?.categories
-      ?.slug;
+    const dbCategorySlug =
+      productWithCats.product_categories?.[0]?.categories?.slug;
 
     // Create extended product with category_slug to avoid mutation
     const productWithCategorySlug: Product = {
@@ -641,13 +641,13 @@ export async function generateMetadata({
       images: product.images?.length
         ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
         : [
-          {
-            url: product.imageLarge || product.image,
-            width: 800,
-            height: 600,
-            alt: product.name,
-          },
-        ],
+            {
+              url: product.imageLarge || product.image,
+              width: 800,
+              height: 600,
+              alt: product.name,
+            },
+          ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,

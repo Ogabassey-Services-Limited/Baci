@@ -5,7 +5,6 @@ import {
   ArrowRight,
   ArrowUp,
   CreditCard,
-  ChevronDown,
   DollarSign,
   Globe,
   Loader2,
@@ -20,7 +19,7 @@ import { useEffect, useState } from 'react';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
-import { ChartConfig } from '@/components/ui/chart';
+import type { ChartConfig } from '@/components/ui/chart';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,8 +87,9 @@ export default function DashboardClientPage({
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
-  const [heroMetric, setHeroMetric] = useState<'revenue' | 'orders' | 'visitors'>('revenue');
-  const [timePeriod, setTimePeriod] = useState('This Week');
+  // TODO: These will be used for metric selector dropdown
+  // const [heroMetric, setHeroMetric] = useState<'revenue' | 'orders' | 'visitors'>('revenue');
+  // const [timePeriod, setTimePeriod] = useState('This Week');
   const [dashboardData, setDashboardData] = useState<DashboardMetrics>(
     initialMetrics || {
       revenue: { value: 0, change: 0 },
@@ -238,7 +238,10 @@ export default function DashboardClientPage({
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-semibold">
-                    Hi, <span className="capitalize bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-400 bg-clip-text text-transparent">{merchant?.business_name?.split(' ')[0] || 'Merchant'}</span>
+                    Hi,{' '}
+                    <span className="capitalize bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-400 bg-clip-text text-transparent">
+                      {merchant?.business_name?.split(' ')[0] || 'Merchant'}
+                    </span>
                   </h2>
                   {merchant?.is_published && (
                     <span className="text-[10px] font-medium bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">
@@ -267,7 +270,11 @@ export default function DashboardClientPage({
               className="h-8 text-xs rounded-full border-muted-foreground/30"
               asChild
             >
-              <a href={merchant?.slug ? `/${merchant.slug}` : '#'} target="_blank" rel="noopener noreferrer">
+              <a
+                href={merchant?.slug ? `/${merchant.slug}` : '#'}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Globe className="h-3 w-3 mr-1.5" />
                 Visit store
               </a>
@@ -278,7 +285,9 @@ export default function DashboardClientPage({
               className="h-8 text-xs rounded-full border-muted-foreground/30"
               onClick={() => {
                 navigator.clipboard.writeText(
-                  merchant?.slug ? `${window.location.origin}/${merchant.slug}` : ''
+                  merchant?.slug
+                    ? `${window.location.origin}/${merchant.slug}`
+                    : ''
                 );
               }}
             >
@@ -330,7 +339,11 @@ export default function DashboardClientPage({
               </div>
               <div className="space-y-2 flex-1">
                 <h3 className="text-xl font-semibold">
-                  Good morning, <span className="capitalize">{merchant?.slug || merchant?.business_name || 'Merchant'}</span>!
+                  Good morning,{' '}
+                  <span className="capitalize">
+                    {merchant?.slug || merchant?.business_name || 'Merchant'}
+                  </span>
+                  !
                 </h3>
                 <p className="text-muted-foreground leading-relaxed">
                   {dashboardData.revenue.change > 0 ? (
@@ -375,17 +388,36 @@ export default function DashboardClientPage({
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-medium truncate">
-                Good morning, <span className="capitalize">{merchant?.business_name?.split(' ')[0] || 'Merchant'}</span>
+                Good morning,{' '}
+                <span className="capitalize">
+                  {merchant?.business_name?.split(' ')[0] || 'Merchant'}
+                </span>
               </h3>
               <p className="text-xs text-muted-foreground truncate">
                 {dashboardData.revenue.change >= 0 ? (
-                  <>Revenue is up <span className="text-green-600 font-medium">+{dashboardData.revenue.change}%</span> vs last month</>
+                  <>
+                    Revenue is up{' '}
+                    <span className="text-green-600 font-medium">
+                      +{dashboardData.revenue.change}%
+                    </span>{' '}
+                    vs last month
+                  </>
                 ) : (
-                  <>Revenue is down <span className="text-red-500 font-medium">{dashboardData.revenue.change}%</span> vs last month</>
+                  <>
+                    Revenue is down{' '}
+                    <span className="text-red-500 font-medium">
+                      {dashboardData.revenue.change}%
+                    </span>{' '}
+                    vs last month
+                  </>
                 )}
               </p>
             </div>
-            <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 -mr-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8 shrink-0 -mr-1"
+            >
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
@@ -399,36 +431,56 @@ export default function DashboardClientPage({
           <div className="bg-blue-50/80 dark:bg-blue-950/20 rounded-xl border border-blue-100 dark:border-blue-900 p-2 text-center flex flex-col justify-center h-20">
             <div className="flex items-center justify-center gap-1 mb-1 opacity-90">
               <ShoppingBag className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-              <span className="text-[10px] text-blue-700 dark:text-blue-300 font-medium">Orders</span>
+              <span className="text-[10px] text-blue-700 dark:text-blue-300 font-medium">
+                Orders
+              </span>
             </div>
-            <div className="text-base font-bold text-blue-900 dark:text-blue-100 leading-none">{dashboardData.orders.value}</div>
+            <div className="text-base font-bold text-blue-900 dark:text-blue-100 leading-none">
+              {dashboardData.orders.value}
+            </div>
           </div>
 
           {/* Visits - Slate/Sky (Clean) */}
           <div className="bg-slate-50/80 dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-800 p-2 text-center flex flex-col justify-center h-20">
             <div className="flex items-center justify-center gap-1 mb-1 opacity-90">
               <Globe className="h-3 w-3 text-slate-600 dark:text-slate-400" />
-              <span className="text-[10px] text-slate-700 dark:text-slate-300 font-medium">Visits</span>
+              <span className="text-[10px] text-slate-700 dark:text-slate-300 font-medium">
+                Visits
+              </span>
             </div>
-            <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-none">{dashboardData.activeNow.value}</div>
+            <div className="text-base font-bold text-slate-900 dark:text-slate-100 leading-none">
+              {dashboardData.activeNow.value}
+            </div>
           </div>
 
           {/* AOV - Amber (Accent Yellow) */}
           <div className="bg-amber-50/80 dark:bg-amber-950/20 rounded-xl border border-amber-100 dark:border-amber-900 p-2 text-center flex flex-col justify-center h-20">
             <div className="flex items-center justify-center gap-1 mb-1 opacity-90">
               <Activity className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium whitespace-nowrap">Avg. Order</span>
+              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-medium whitespace-nowrap">
+                Avg. Order
+              </span>
             </div>
-            <div className="text-sm font-bold text-amber-900 dark:text-amber-100 leading-none">{formatPrice(dashboardData.aov, merchant?.country || null).split('.')[0]}</div>
+            <div className="text-sm font-bold text-amber-900 dark:text-amber-100 leading-none">
+              {
+                formatPrice(dashboardData.aov, merchant?.country || null).split(
+                  '.'
+                )[0]
+              }
+            </div>
           </div>
 
           {/* Customers - Sky/Blue (Secondary Blue) */}
           <div className="bg-sky-50/80 dark:bg-sky-950/20 rounded-xl border border-sky-100 dark:border-sky-900 p-2 text-center flex flex-col justify-center h-20">
             <div className="flex items-center justify-center gap-1 mb-1 opacity-90">
               <Users className="h-3 w-3 text-sky-600 dark:text-sky-400" />
-              <span className="text-[10px] text-sky-700 dark:text-sky-300 font-medium">New</span>
+              <span className="text-[10px] text-sky-700 dark:text-sky-300 font-medium">
+                New
+              </span>
             </div>
-            <div className="text-base font-bold text-sky-900 dark:text-sky-100 leading-none">{dashboardData.customers.value}</div>
+            <div className="text-base font-bold text-sky-900 dark:text-sky-100 leading-none">
+              {dashboardData.customers.value}
+            </div>
           </div>
         </div>
 
@@ -443,7 +495,9 @@ export default function DashboardClientPage({
             >
               <a href="/dashboard/products/new">
                 <Package className="h-5 w-5 text-primary" />
-                <span className="text-[10px] text-muted-foreground">Add Product</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Add Product
+                </span>
               </a>
             </Button>
             <Button
@@ -453,7 +507,9 @@ export default function DashboardClientPage({
             >
               <a href="/dashboard/orders">
                 <ShoppingBag className="h-5 w-5 text-primary" />
-                <span className="text-[10px] text-muted-foreground">View Orders</span>
+                <span className="text-[10px] text-muted-foreground">
+                  View Orders
+                </span>
               </a>
             </Button>
             <Button
@@ -463,7 +519,9 @@ export default function DashboardClientPage({
             >
               <a href="/dashboard/customers">
                 <Users className="h-5 w-5 text-primary" />
-                <span className="text-[10px] text-muted-foreground">Customers</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Customers
+                </span>
               </a>
             </Button>
             <Button
@@ -473,7 +531,9 @@ export default function DashboardClientPage({
             >
               <a href="/dashboard/analytics">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                <span className="text-[10px] text-muted-foreground">Insights</span>
+                <span className="text-[10px] text-muted-foreground">
+                  Insights
+                </span>
               </a>
             </Button>
           </div>
@@ -504,7 +564,7 @@ export default function DashboardClientPage({
               <RevenueSparkline data={monthlyChartData} config={chartConfig} />
             </div>
           </BentoCard>
-        </div >
+        </div>
 
         <div
           className="min-w-[85vw] md:min-w-0 snap-center col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
@@ -611,8 +671,7 @@ export default function DashboardClientPage({
             </div>
           </BentoCard>
         </div>
-
-      </div >
+      </div>
 
       {/* Detailed Charts & Lists - Standard Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -690,6 +749,6 @@ export default function DashboardClientPage({
           </BentoCard>
         </div>
       </div>
-    </div >
+    </div>
   );
 }

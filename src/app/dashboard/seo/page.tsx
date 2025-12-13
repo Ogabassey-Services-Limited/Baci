@@ -77,9 +77,15 @@ interface SEOOptimization {
 
 function ScoreBadge({ score }: { score: number }) {
   let color = 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-  if (score >= 80) color = 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-  else if (score >= 60) color = 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-  else if (score >= 40) color = 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
+  if (score >= 80)
+    color =
+      'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+  else if (score >= 60)
+    color =
+      'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+  else if (score >= 40)
+    color =
+      'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
 
   return <Badge className={color}>{score}%</Badge>;
 }
@@ -506,7 +512,9 @@ export default function SEOOptimizerPage() {
                         )}
                       </div>
                     ) : (
-                      <span className="text-green-600 dark:text-green-400 text-sm">All good!</span>
+                      <span className="text-green-600 dark:text-green-400 text-sm">
+                        All good!
+                      </span>
                     )}
                   </TableCell>
                 </TableRow>

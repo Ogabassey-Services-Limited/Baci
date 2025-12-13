@@ -68,8 +68,8 @@ const getCategoryData = cache(
     // Check key variations if direct match fails (e.g. 'smartphones' vs 'phones')
     const fallbackConfig = !defaultConfig
       ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-        normalizedSlug.includes(key)
-      )?.[1]
+          normalizedSlug.includes(key)
+        )?.[1]
       : null;
 
     const effectiveConfig = defaultConfig || fallbackConfig;
@@ -181,8 +181,8 @@ export async function generateMetadata({
       siteName: merchant.business_name,
       ...(products.length > 0 &&
         products[0].image && {
-        images: [{ url: products[0].image, alt: categoryData.name }],
-      }),
+          images: [{ url: products[0].image, alt: categoryData.name }],
+        }),
     },
     twitter: {
       card: 'summary_large_image',

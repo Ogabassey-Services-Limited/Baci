@@ -292,7 +292,11 @@ export default function CustomerLoginPage() {
                     </>
                   ) : (
                     <>
-                      <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-labelledby="google-logo-title">
+                      <svg
+                        className="mr-2 h-4 w-4"
+                        viewBox="0 0 24 24"
+                        aria-labelledby="google-logo-title"
+                      >
                         <title id="google-logo-title">Google</title>
                         <path
                           fill="#4285F4"

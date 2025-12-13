@@ -2,7 +2,12 @@
 
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { geminiFlash, gemini25FlashImage, sanitizePromptInput, withRetry } from '@/ai/provider';
+import {
+  gemini25FlashImage,
+  geminiFlash,
+  sanitizePromptInput,
+  withRetry,
+} from '@/ai/provider';
 import type { Product } from '@/lib/products';
 
 // Zod schema for the AI response
@@ -14,7 +19,10 @@ const ChangeDetailsSchema = z.object({
   stock: z.number().optional(),
   brand: z.string().optional(),
   image: z.string().optional().describe('URL of the product image'),
-  attributes: z.record(z.string(), z.string()).optional().describe('Key-value pairs of product attributes (e.g., RAM, Storage)'),
+  attributes: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe('Key-value pairs of product attributes (e.g., RAM, Storage)'),
 });
 
 const ChangeSchema = z.object({
@@ -182,9 +190,13 @@ export async function parseCSVDirectly(
   currentProducts: Product[],
   csvData: string
 ): Promise<AIResponse> {
-  const lines = csvData.split('\n').filter(line => line.trim());
+  const lines = csvData.split('\n').filter((line) => line.trim());
   if (lines.length < 2) {
-    return { changes: [], summary: 'No data rows found in CSV. Please ensure the file is not empty.' };
+    return {
+      changes: [],
+      summary:
+        'No data rows found in CSV. Please ensure the file is not empty.',
+    };
   }
 
   // Scan first 10 rows to find the header row
@@ -198,8 +210,22 @@ export async function parseCSVDirectly(
   for (let i = 0; i < Math.min(lines.length, 10); i++) {
     const row = parseCSVRow(lines[i].toLowerCase());
 
-    const nIdx = row.findIndex(h => h.includes('name') || h.includes('prod') || h.includes('item') || h.includes('title') || h.includes('model'));
-    const pIdx = row.findIndex(h => h.includes('price') || h.includes('cost') || h.includes('amount') || h.includes('naira') || h.includes('ngn'));
+    const nIdx = row.findIndex(
+      (h) =>
+        h.includes('name') ||
+        h.includes('prod') ||
+        h.includes('item') ||
+        h.includes('title') ||
+        h.includes('model')
+    );
+    const pIdx = row.findIndex(
+      (h) =>
+        h.includes('price') ||
+        h.includes('cost') ||
+        h.includes('amount') ||
+        h.includes('naira') ||
+        h.includes('ngn')
+    );
 
     if (nIdx !== -1 && pIdx !== -1) {
       headerRowIdx = i;
@@ -207,9 +233,27 @@ export async function parseCSVDirectly(
       priceIdx = pIdx;
 
       // Look for other optional columns in this valid header row
-      skuIdx = row.findIndex(h => h.includes('sku') || h.includes('code') || h.includes('id') || h.includes('ref'));
-      stockIdx = row.findIndex(h => h.includes('stock') || h.includes('qty') || h.includes('quantity') || h.includes('count'));
-      imageIdx = row.findIndex(h => h.includes('image') || h.includes('photo') || h.includes('url') || h.includes('img')); // Find image index
+      skuIdx = row.findIndex(
+        (h) =>
+          h.includes('sku') ||
+          h.includes('code') ||
+          h.includes('id') ||
+          h.includes('ref')
+      );
+      stockIdx = row.findIndex(
+        (h) =>
+          h.includes('stock') ||
+          h.includes('qty') ||
+          h.includes('quantity') ||
+          h.includes('count')
+      );
+      imageIdx = row.findIndex(
+        (h) =>
+          h.includes('image') ||
+          h.includes('photo') ||
+          h.includes('url') ||
+          h.includes('img')
+      ); // Find image index
 
       break;
     }
@@ -218,7 +262,8 @@ export async function parseCSVDirectly(
   if (headerRowIdx === -1) {
     return {
       changes: [],
-      summary: 'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").'
+      summary:
+        'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").',
     };
   }
 
@@ -255,7 +300,9 @@ export async function parseCSVDirectly(
 
     const normalizedName = normalizeName(rawName);
     const price = parsePrice(rawPrice);
-    const stock = rawStock ? parseInt(rawStock.replace(/[^0-9]/g, ''), 10) : undefined;
+    const stock = rawStock
+      ? Number.parseInt(rawStock.replace(/[^0-9]/g, ''), 10)
+      : undefined;
 
     if (isNaN(price)) {
       skippedCount++;
@@ -265,7 +312,9 @@ export async function parseCSVDirectly(
     processedNames.add(normalizedName);
 
     // Try to match by SKU first, then by name
-    let existingProduct = rawSku ? existingBySku.get(rawSku.toLowerCase()) : undefined;
+    let existingProduct = rawSku
+      ? existingBySku.get(rawSku.toLowerCase())
+      : undefined;
     if (!existingProduct) {
       existingProduct = existingByName.get(normalizedName);
     }
@@ -326,9 +375,9 @@ export async function parseCSVDirectly(
     }
   }
 
-  const newCount = changes.filter(c => c.type === 'new').length;
-  const updateCount = changes.filter(c => c.type === 'update').length;
-  const removeCount = changes.filter(c => c.type === 'remove').length;
+  const newCount = changes.filter((c) => c.type === 'new').length;
+  const updateCount = changes.filter((c) => c.type === 'update').length;
+  const removeCount = changes.filter((c) => c.type === 'remove').length;
 
   return {
     changes,
@@ -362,7 +411,7 @@ function normalizeName(name: string): string {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, '') // Remove special chars
-    .replace(/\s+/g, ' ')        // Normalize whitespace
+    .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
 }
 
@@ -371,7 +420,7 @@ function parsePrice(priceStr: string): number {
   const cleaned = priceStr
     .replace(/[₦$€£¥,\s]/g, '') // Remove currency symbols and commas
     .replace(/\.(?=.*\.)/g, ''); // Keep only last decimal point
-  return parseFloat(cleaned) || 0;
+  return Number.parseFloat(cleaned) || 0;
 }
 
 export async function fetchGoogleSheet(url: string): Promise<string> {

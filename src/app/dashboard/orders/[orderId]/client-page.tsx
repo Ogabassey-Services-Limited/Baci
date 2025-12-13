@@ -38,8 +38,6 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
-import { getCountryByCode } from '@/lib/countries';
-import { products } from '@/lib/products';
 import type { Order, ShippingStatus } from '../actions';
 import { SourceIcon, StatusBadge } from '../client-page';
 import ConfirmInsuranceDialog from './confirm-insurance-dialog';
@@ -71,6 +69,7 @@ function formatCurrency(amount: number): string {
 }
 
 // Placeholder FulfillmentDialog - replace with actual import when available
+// biome-ignore lint/suspicious/noExplicitAny: Placeholder component for future implementation
 function FulfillmentDialog({ isOpen, onClose, orderItems, onConfirm }: any) {
   if (!isOpen) return null;
   return null; // Placeholder - actual dialog should be imported
@@ -82,7 +81,8 @@ export default function OrderDetailsClientPage({
   const { toast } = useToast();
   const [order, setOrder] = useState<Order>(initialOrder);
   const [isFulfillmentDialogOpen, setIsFulfillmentDialogOpen] = useState(false);
-  const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] = useState(false);
+  const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] =
+    useState(false);
   const { merchant } = useMerchant();
 
   if (!order) {
@@ -92,19 +92,19 @@ export default function OrderDetailsClientPage({
   // --- MOCK ITEMS HANDLING ---
   // If items exist on the order (from our updated fetcher), use them.
   // Otherwise fall back to mock for safety in dev if DB is inconsistent.
+  // biome-ignore lint/suspicious/noExplicitAny: Order items have dynamic structure from API
   const orderItems = (order as any).items || (order as any).order_items || [];
 
   // Safe display map
-  const displayItems: OrderItem[] = orderItems.length > 0
-    ? orderItems
-    : [];
+  const displayItems: OrderItem[] = orderItems.length > 0 ? orderItems : [];
 
   const doesOrderRequireFulfillment = () => {
     // Check for fulfillment fields OR assurance
     // Assurance items implicitly require fulfillment (device details)
     return displayItems.some(
       (item: any) =>
-        (item.product?.fulfillmentFields && item.product.fulfillmentFields.length > 0) ||
+        (item.product?.fulfillmentFields &&
+          item.product.fulfillmentFields.length > 0) ||
         item.hasAssurance // New check
     );
   };
@@ -121,11 +121,11 @@ export default function OrderDetailsClientPage({
     // "handleUpdateStatus" updated local state and showed toast.
     // If I want to persist, I should call an API or server action.
     // The previous implementation seemed to be UI-mock or incomplete.
-    // I will keep existing logic for non-confirm actions for safety, 
+    // I will keep existing logic for non-confirm actions for safety,
     // but for Confirm, I go through my new API.
 
     // Legacy/Existing logic for other statuses:
-    let newPaymentStatus = order.paymentStatus;
+    const newPaymentStatus = order.paymentStatus;
     setOrder((prev) => ({
       ...prev,
       shippingStatus: newStatus,
@@ -152,19 +152,22 @@ export default function OrderDetailsClientPage({
         title: 'Order Confirmed',
         description: result.insurance?.success
           ? `Policy Active: ${result.insurance.results[0].policyNumber}`
-          : 'Order processed successfully.'
+          : 'Order processed successfully.',
       });
 
       // Update local state
-      setOrder(prev => ({ ...prev, shippingStatus: 'Processing', paymentStatus: 'Paid' }));
+      setOrder((prev) => ({
+        ...prev,
+        shippingStatus: 'Processing',
+        paymentStatus: 'Paid',
+      }));
       setIsConfirmationDialogOpen(false);
-
     } catch (error: any) {
       console.error(error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message
+        description: error.message,
       });
     }
   };
@@ -366,7 +369,7 @@ export default function OrderDetailsClientPage({
                     className="flex items-center gap-4 mb-4 last:mb-0"
                   >
                     <Image
-                      src={item.product?.image || products[0].image}
+                      src={item.product?.image || '/images/placeholder-product.png'}
                       alt={item.name || 'Product'}
                       width={64}
                       height={64}

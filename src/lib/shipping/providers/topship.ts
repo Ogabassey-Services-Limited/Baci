@@ -203,12 +203,14 @@ export class TopshipProvider extends BaseShippingProvider {
     let states: TopshipState[] = [];
     if (Array.isArray(result)) {
       // Direct array response from Topship API
-      states = result.map((s: { name: string; code: string; countryCode: string }) => ({
-        id: 0,
-        name: s.name,
-        code: s.code,
-        countryCode: s.countryCode,
-      }));
+      states = result.map(
+        (s: { name: string; code: string; countryCode: string }) => ({
+          id: 0,
+          name: s.name,
+          code: s.code,
+          countryCode: s.countryCode,
+        })
+      );
     } else if (result.status && result.data) {
       // Wrapped response format
       states = result.data;
@@ -250,12 +252,17 @@ export class TopshipProvider extends BaseShippingProvider {
     let cities: TopshipCity[] = [];
     if (Array.isArray(result)) {
       // Direct array response - map to our format
-      cities = result.map((c: { name?: string; cityName?: string; stateCode?: string }, idx: number) => ({
-        id: idx,
-        name: c.name || c.cityName || '',
-        stateId: 0,
-        stateName: stateCode,
-      }));
+      cities = result.map(
+        (
+          c: { name?: string; cityName?: string; stateCode?: string },
+          idx: number
+        ) => ({
+          id: idx,
+          name: c.name || c.cityName || '',
+          stateId: 0,
+          stateName: stateCode,
+        })
+      );
     } else if (result.status && result.data) {
       // Wrapped response format
       cities = result.data;
@@ -406,15 +413,23 @@ export class TopshipProvider extends BaseShippingProvider {
       // Handle both array response and wrapped response
       let rates: TopshipRate[] = [];
       if (Array.isArray(result)) {
-        rates = result.map((r: { mode?: string; cost?: number; duration?: string; currency?: string; pricingTier?: string }) => ({
-          serviceType: r.mode || 'Standard',
-          pricingTier: r.pricingTier || 'Budget',
-          cost: r.cost || 0,
-          vat: 0,
-          total: r.cost || 0,
-          currency: r.currency || 'NGN',
-          deliveryEta: r.duration,
-        }));
+        rates = result.map(
+          (r: {
+            mode?: string;
+            cost?: number;
+            duration?: string;
+            currency?: string;
+            pricingTier?: string;
+          }) => ({
+            serviceType: r.mode || 'Standard',
+            pricingTier: r.pricingTier || 'Budget',
+            cost: r.cost || 0,
+            vat: 0,
+            total: r.cost || 0,
+            currency: r.currency || 'NGN',
+            deliveryEta: r.duration,
+          })
+        );
       } else if (result.status && result.data) {
         rates = result.data;
       }
@@ -466,7 +481,6 @@ export class TopshipProvider extends BaseShippingProvider {
       };
     });
   }
-
 
   // ==========================================================================
   // BOOK SHIPMENT

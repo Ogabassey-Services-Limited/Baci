@@ -208,13 +208,13 @@ export async function generateMetadata(
         url: img.url,
         alt: img.alt,
       })) || [
-          {
-            url: product.imageLarge || product.image,
-            width: 800,
-            height: 600,
-            alt: product.name,
-          },
-        ],
+        {
+          url: product.imageLarge || product.image,
+          width: 800,
+          height: 600,
+          alt: product.name,
+        },
+      ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,

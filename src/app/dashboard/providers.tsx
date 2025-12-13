@@ -2,13 +2,13 @@
 
 import AppBody from '@/components/app-body';
 import { AuthProvider } from '@/contexts/auth-context';
+import { ProductProvider } from '@/contexts/product-context';
 import {
   type MerchantData,
   MerchantProvider,
   type StaffAccess,
   useMerchant,
 } from '@/hooks/use-merchant';
-import { ProductProvider } from '@/contexts/product-context';
 import DashboardClientLayout from './client-layout';
 
 // New component to handle fetching merchant and applying theme

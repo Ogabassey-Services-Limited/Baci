@@ -93,7 +93,7 @@ export default function InsurancePolicyPage() {
       pk: publicKey,
       pid: [
         policy?.itemsInsured?.product_id ||
-        process.env.NEXT_PUBLIC_MYCOVER_GADGET_PRODUCT_ID,
+          process.env.NEXT_PUBLIC_MYCOVER_GADGET_PRODUCT_ID,
       ],
       policy_number: policy?.policyNumber, // Pass policy number if supported/required to pre-fill
       email: policy?.customer_email, // Pre-fill email

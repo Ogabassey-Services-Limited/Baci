@@ -7,16 +7,16 @@ import {
   DollarSign,
   Edit,
   File,
+  Image as ImageIcon,
   Infinity as InfinityIcon,
   ListFilter,
   // Loader2,
   Package,
   PlusCircle,
+  RefreshCw,
   Search,
   Send,
   Trash2,
-  RefreshCw,
-  Image as ImageIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -24,8 +24,8 @@ import AddProductForm from '@/app/dashboard/products/add/add-product-form';
 import { CSVBulkImportDialog } from '@/components/products/csv-bulk-import-dialog';
 import { FileUpload } from '@/components/products/file-upload';
 import { GoogleSheetImportDialog } from '@/components/products/google-sheet-import-dialog';
-import { ProcessingView } from '@/components/products/processing-view';
 import { MissingImagesView } from '@/components/products/missing-images-view';
+import { ProcessingView } from '@/components/products/processing-view';
 import { ProductCatalog } from '@/components/products/product-catalog';
 import { ReviewChanges } from '@/components/products/review-changes';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -46,8 +46,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
-import { ProductProvider, useProductContext } from '@/contexts/product-context';
 import { useAuth } from '@/contexts/auth-context';
+import { ProductProvider, useProductContext } from '@/contexts/product-context';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { getCountryByCode } from '@/lib/countries';
@@ -122,8 +122,12 @@ function ProductsPageContent() {
 
     setIsSyncing(true);
     try {
-      const { fetchGoogleSheet } = await import('@/app/dashboard/products/actions');
-      const csvContent = await fetchGoogleSheet(merchant.google_product_sheet_url);
+      const { fetchGoogleSheet } = await import(
+        '@/app/dashboard/products/actions'
+      );
+      const csvContent = await fetchGoogleSheet(
+        merchant.google_product_sheet_url
+      );
 
       await startAiProcessing(csvContent, 'Google Sheet Sync', 'csv');
       toast({
@@ -135,7 +139,7 @@ function ProductsPageContent() {
       toast({
         title: 'Sync Failed',
         description: 'Could not fetch the connected sheet.',
-        variant: 'destructive'
+        variant: 'destructive',
       });
     } finally {
       setIsSyncing(false);
@@ -182,10 +186,12 @@ function ProductsPageContent() {
   ) => {
     setWorkflowStep('processing');
     try {
-      const { parseCSVDirectly, processPriceList } = await import('@/app/dashboard/products/actions');
+      const { parseCSVDirectly, processPriceList } = await import(
+        '@/app/dashboard/products/actions'
+      );
 
       // Log input data for debugging
-      const lines = data.split('\n').filter(l => l.trim());
+      const lines = data.split('\n').filter((l) => l.trim());
       console.log(`[CSV Import] Total lines in file: ${lines.length}`);
       console.log(`[CSV Import] First 3 lines:`, lines.slice(0, 3));
       console.log(`[CSV Import] Existing products in DB: ${products.length}`);
@@ -195,14 +201,18 @@ function ProductsPageContent() {
       const startTime = performance.now();
       const directResult = await parseCSVDirectly(products, data);
       const parseTime = performance.now() - startTime;
-      console.log(`[CSV Import] Direct parsing completed in ${parseTime.toFixed(0)}ms`);
-      console.log(`[CSV Import] Result: ${directResult.changes?.length || 0} changes, Summary: ${directResult.summary}`);
+      console.log(
+        `[CSV Import] Direct parsing completed in ${parseTime.toFixed(0)}ms`
+      );
+      console.log(
+        `[CSV Import] Result: ${directResult.changes?.length || 0} changes, Summary: ${directResult.summary}`
+      );
 
       // Step 2: Only fallback to AI if there's a structural parsing error AND file is small
       const hasStructuralError =
         !directResult ||
-        directResult.summary?.includes('Could not find') ||  // Header parsing failed
-        directResult.summary?.includes('No data rows');      // Empty file
+        directResult.summary?.includes('Could not find') || // Header parsing failed
+        directResult.summary?.includes('No data rows'); // Empty file
 
       let response;
 
@@ -210,28 +220,34 @@ function ProductsPageContent() {
         // If file is large (> 50 lines), do NOT fallback to AI as it will hit token limits.
         // Instead, show the specific parsing error so user can fix headers.
         if (lines.length > 50) {
-          console.log('[CSV Import] Large file failed parsing. Aborting to show error.');
+          console.log(
+            '[CSV Import] Large file failed parsing. Aborting to show error.'
+          );
           throw new Error(directResult.summary);
         }
 
         // Only fallback to AI for structural/format issues on SMALL files
-        console.log('[CSV Import] Structural parsing error on small file. Falling back to AI...');
+        console.log(
+          '[CSV Import] Structural parsing error on small file. Falling back to AI...'
+        );
         response = await processPriceList(products, data, vendor, fileType);
       } else {
         // Direct parsing worked - use it even if 0 changes (means no updates needed)
-        console.log(`[CSV Import] ✅ Direct parsing succeeded: ${directResult.changes.length} products found.`);
+        console.log(
+          `[CSV Import] ✅ Direct parsing succeeded: ${directResult.changes.length} products found.`
+        );
         response = directResult;
       }
 
       setAiResponse(response);
       setWorkflowStep('review');
       setSearchTerm('');
-
     } catch (error) {
       console.error('[CSV Import] Processing failed:', error);
       toast({
         title: 'Processing Failed',
-        description: error instanceof Error ? error.message : 'Failed to analyze products',
+        description:
+          error instanceof Error ? error.message : 'Failed to analyze products',
         variant: 'destructive',
       });
       setWorkflowStep('view');
@@ -339,7 +355,10 @@ function ProductsPageContent() {
                   );
                   setPendingSheetUrl(null);
                 } catch (error) {
-                  console.error('Failed to save sheet URL after import:', error);
+                  console.error(
+                    'Failed to save sheet URL after import:',
+                    error
+                  );
                 }
               }
             }}
@@ -452,7 +471,9 @@ function ProductsPageContent() {
                     onClick={handleSyncGoogleSheet}
                     disabled={isSyncing || isLoading}
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`}
+                    />
                     <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
                       Sync Sheet
                     </span>
@@ -473,10 +494,20 @@ function ProductsPageContent() {
                       <DropdownMenuItem
                         onClick={async () => {
                           try {
-                            await updateMerchant({ google_product_sheet_url: null as any });
-                            toast({ title: "Sheet Disconnected", description: "You can now connect a different sheet." });
+                            await updateMerchant({
+                              google_product_sheet_url: null as any,
+                            });
+                            toast({
+                              title: 'Sheet Disconnected',
+                              description:
+                                'You can now connect a different sheet.',
+                            });
                           } catch (error) {
-                            toast({ title: "Error", description: "Failed to disconnect sheet.", variant: "destructive" });
+                            toast({
+                              title: 'Error',
+                              description: 'Failed to disconnect sheet.',
+                              variant: 'destructive',
+                            });
                           }
                         }}
                         className="text-red-600 focus:text-red-600"
