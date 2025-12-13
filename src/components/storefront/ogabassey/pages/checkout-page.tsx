@@ -1206,7 +1206,6 @@ export const CheckoutPage: React.FC = () => {
                           {/* Invoice - Hidden for now */}
                           {/* Pay For Me - Hidden for now */}
                         </div>
-                      )}
                         {/* Pay For Me Details - Hidden for now */}
                       </div>
                     )}
