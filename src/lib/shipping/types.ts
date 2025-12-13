@@ -64,6 +64,7 @@ export interface ShippingQuote {
   carrierName: string; // Actual carrier: DHL, FedEx, GIG Logistics
   displayName: string; // Customer-facing name: "Express Delivery"
   estimatedDays: number;
+  deliveryRange?: string; // Human-readable range (e.g. "3-5 days")
   minDays?: number;
   maxDays?: number;
   price: number; // Naira (normalized, includes insurance)
@@ -169,18 +170,18 @@ export type NormalizedShipmentStatus =
   | 'returned';
 
 export const SHIPMENT_STATUS_LABELS: Record<NormalizedShipmentStatus, string> =
-  {
-    pending: 'Pending',
-    booked: 'Booked',
-    pickup_scheduled: 'Pickup Scheduled',
-    picked_up: 'Picked Up',
-    in_transit: 'In Transit',
-    out_for_delivery: 'Out for Delivery',
-    delivered: 'Delivered',
-    cancelled: 'Cancelled',
-    failed: 'Failed',
-    returned: 'Returned',
-  };
+{
+  pending: 'Pending',
+  booked: 'Booked',
+  pickup_scheduled: 'Pickup Scheduled',
+  picked_up: 'Picked Up',
+  in_transit: 'In Transit',
+  out_for_delivery: 'Out for Delivery',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+  failed: 'Failed',
+  returned: 'Returned',
+};
 
 // =============================================================================
 // CANCELLATION TYPES

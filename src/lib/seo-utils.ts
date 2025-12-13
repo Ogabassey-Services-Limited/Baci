@@ -233,6 +233,276 @@ export function generateProductSchema(
     };
   }
 
+  // Detailed specifications for AI/Crawlers (additionalProperty)
+  // This enables rich snippets and voice assistants to answer spec queries
+  const additionalProperties = [];
+
+  // Extract from product_key_specs (GSM Arena-level specs)
+  const keySpecs = (product as any).product_key_specs;
+  if (keySpecs && !Array.isArray(keySpecs)) {
+    // Network specs - critical for "does X have 5G" queries
+    if (keySpecs.network_technology)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Network Technology',
+        value: escapeHtml(keySpecs.network_technology),
+      });
+    if (keySpecs.is_5g !== null && keySpecs.is_5g !== undefined)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: '5G Support',
+        value: keySpecs.is_5g ? 'Yes' : 'No',
+      });
+    if (keySpecs.has_nfc !== null && keySpecs.has_nfc !== undefined)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'NFC',
+        value: keySpecs.has_nfc ? 'Yes' : 'No',
+      });
+
+    // Body/Build specs
+    if (keySpecs.dimensions_mm)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Dimensions',
+        value: escapeHtml(keySpecs.dimensions_mm),
+      });
+    if (keySpecs.weight_g)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Weight',
+        value: `${keySpecs.weight_g}g`,
+      });
+    if (keySpecs.build_materials)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Build',
+        value: escapeHtml(keySpecs.build_materials),
+      });
+    if (keySpecs.ip_rating)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'IP Rating',
+        value: escapeHtml(keySpecs.ip_rating),
+      });
+    if (keySpecs.sim_type)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'SIM Type',
+        value: escapeHtml(keySpecs.sim_type),
+      });
+
+    // Display specs
+    if (keySpecs.display_type)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Display Type',
+        value: escapeHtml(keySpecs.display_type),
+      });
+    if (keySpecs.screen_size_inches)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Screen Size',
+        value: `${keySpecs.screen_size_inches} inches`,
+      });
+    if (keySpecs.display_resolution)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Display Resolution',
+        value: escapeHtml(keySpecs.display_resolution),
+      });
+    if (keySpecs.refresh_rate_hz)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Refresh Rate',
+        value: `${keySpecs.refresh_rate_hz}Hz`,
+      });
+    if (keySpecs.display_ppi)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Pixel Density',
+        value: `${keySpecs.display_ppi} ppi`,
+      });
+    if (keySpecs.display_peak_brightness)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Peak Brightness',
+        value: `${keySpecs.display_peak_brightness} nits`,
+      });
+
+    // Platform/Performance specs
+    if (keySpecs.android_version)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Operating System',
+        value: `Android ${keySpecs.android_version}`,
+      });
+    if (keySpecs.chipset)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Chipset',
+        value: escapeHtml(keySpecs.chipset),
+      });
+    if (keySpecs.cpu_cores)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'CPU',
+        value: escapeHtml(keySpecs.cpu_cores),
+      });
+    if (keySpecs.gpu)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'GPU',
+        value: escapeHtml(keySpecs.gpu),
+      });
+
+    // Memory specs
+    if (keySpecs.ram_gb)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'RAM',
+        value: `${keySpecs.ram_gb}GB`,
+      });
+    if (keySpecs.storage_gb)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Internal Storage',
+        value: `${keySpecs.storage_gb}GB`,
+      });
+    if (keySpecs.has_card_slot && keySpecs.card_slot_type)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Card Slot',
+        value: escapeHtml(keySpecs.card_slot_type),
+      });
+
+    // Camera specs - critical for camera-focused queries
+    if (keySpecs.main_camera_mp) {
+      const cameraType = keySpecs.has_quad_camera
+        ? 'Quad'
+        : keySpecs.has_triple_camera
+          ? 'Triple'
+          : keySpecs.has_dual_camera
+            ? 'Dual'
+            : 'Single';
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Main Camera',
+        value: `${cameraType} ${keySpecs.main_camera_mp}MP`,
+      });
+    }
+    if (keySpecs.front_camera_mp)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Selfie Camera',
+        value: `${keySpecs.front_camera_mp}MP`,
+      });
+    if (keySpecs.rear_camera_video)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Video Recording',
+        value: escapeHtml(keySpecs.rear_camera_video),
+      });
+
+    // Sound specs
+    if (
+      keySpecs.has_stereo_speakers !== null &&
+      keySpecs.has_stereo_speakers !== undefined
+    ) {
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Speakers',
+        value: keySpecs.has_stereo_speakers ? 'Stereo' : 'Mono',
+      });
+    }
+    if (
+      keySpecs.has_headphone_jack !== null &&
+      keySpecs.has_headphone_jack !== undefined
+    ) {
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: '3.5mm Headphone Jack',
+        value: keySpecs.has_headphone_jack ? 'Yes' : 'No',
+      });
+    }
+
+    // Connectivity specs
+    if (keySpecs.wifi_bands)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'WiFi',
+        value: escapeHtml(keySpecs.wifi_bands),
+      });
+    if (keySpecs.bluetooth_version)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Bluetooth',
+        value: escapeHtml(keySpecs.bluetooth_version),
+      });
+    if (keySpecs.usb_type)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'USB',
+        value:
+          escapeHtml(keySpecs.usb_type) +
+          (keySpecs.has_usb_otg ? ' (OTG)' : ''),
+      });
+    if (keySpecs.has_fm_radio)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'FM Radio',
+        value: 'Yes',
+      });
+
+    // Features
+    if (keySpecs.fingerprint_type)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Fingerprint Sensor',
+        value: escapeHtml(keySpecs.fingerprint_type),
+      });
+
+    // Battery specs - important for battery life queries
+    if (keySpecs.battery_mah)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Battery Capacity',
+        value: `${keySpecs.battery_mah}mAh`,
+      });
+    if (keySpecs.charging_watt)
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Fast Charging',
+        value: `${keySpecs.charging_watt}W`,
+      });
+    if (keySpecs.has_wireless_charging && keySpecs.wireless_charging_watt) {
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Wireless Charging',
+        value: `${keySpecs.wireless_charging_watt}W`,
+      });
+    }
+  }
+
+  // Also include legacy specifications format if present
+  if (product.specifications && Array.isArray(product.specifications)) {
+    for (const category of product.specifications) {
+      if (category.items && Array.isArray(category.items)) {
+        for (const item of category.items) {
+          additionalProperties.push({
+            '@type': 'PropertyValue',
+            name: escapeHtml(item.label),
+            value: escapeHtml(item.value),
+          });
+        }
+      }
+    }
+  }
+
+  if (additionalProperties.length > 0) {
+    schema.additionalProperty = additionalProperties;
+  }
+
   // Dimensions
   if (product.dimensions) {
     const dimUnit = DIMENSION_UNIT_CODES[product.dimensions.unit] || 'CMT';
@@ -376,6 +646,18 @@ export interface LocalBusinessData {
   openingHours?: string[]; // e.g., ["Mo-Fr 09:00-17:00", "Sa 10:00-14:00"]
   priceRange?: string; // e.g., "$$" or "₦₦"
   socialMedia?: Record<string, string>;
+  rating?: {
+    ratingValue: number;
+    reviewCount: number;
+  };
+  reviews?: Review[];
+}
+
+export interface Review {
+  author: string;
+  datePublished: string;
+  reviewBody: string;
+  reviewRating: number;
 }
 
 export function generateLocalBusinessSchema(
@@ -445,6 +727,41 @@ export function generateLocalBusinessSchema(
     schema.sameAs = Object.values(business.socialMedia)
       .filter(Boolean)
       .map((url) => escapeHtml(url));
+  }
+
+  // Add AggregateRating if provided
+  if (business.rating) {
+    schema.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: business.rating.ratingValue,
+      reviewCount: business.rating.reviewCount,
+      bestRating: '5',
+      worstRating: '1',
+    };
+  }
+
+  // Add Reviews if provided
+  if (business.reviews && business.reviews.length > 0) {
+    // Sort reviews: 5 stars, then 4 stars, etc. (Descending order)
+    const sortedReviews = [...business.reviews].sort(
+      (a, b) => b.reviewRating - a.reviewRating
+    );
+
+    schema.review = sortedReviews.map((review) => ({
+      '@type': 'Review',
+      author: {
+        '@type': 'Person',
+        name: escapeHtml(review.author),
+      },
+      datePublished: escapeHtml(review.datePublished),
+      reviewBody: escapeHtml(review.reviewBody),
+      reviewRating: {
+        '@type': 'Rating',
+        ratingValue: review.reviewRating,
+        bestRating: '5',
+        worstRating: '1',
+      },
+    }));
   }
 
   return schema;
@@ -711,6 +1028,57 @@ export function generateWebSiteSchema(
       },
       'query-input': 'required name=search_term_string',
     };
+  }
+
+  return schema;
+}
+
+/**
+ * Generates Service schema for utility services (Airtime, Data, Showmax, etc.)
+ * @see https://schema.org/Service
+ */
+export interface ServiceData {
+  name: string;
+  description: string;
+  providerName: string;
+  providerUrl: string;
+  serviceType: string;
+  areaServed?: string;
+  logo?: string;
+  offers?: {
+    price: string | number;
+    priceCurrency: string;
+  }[];
+}
+
+export function generateServiceSchema(
+  data: ServiceData
+): Record<string, unknown> {
+  const schema: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: escapeHtml(data.name),
+    description: escapeHtml(data.description),
+    provider: {
+      '@type': 'LocalBusiness',
+      name: escapeHtml(data.providerName),
+      url: escapeHtml(data.providerUrl),
+      image: data.logo ? escapeHtml(data.logo) : undefined,
+    },
+    serviceType: escapeHtml(data.serviceType),
+    areaServed: {
+      '@type': 'Country',
+      name: data.areaServed ? escapeHtml(data.areaServed) : 'Nigeria',
+    },
+  };
+
+  if (data.offers && data.offers.length > 0) {
+    schema.offers = data.offers.map((offer) => ({
+      '@type': 'Offer',
+      price: offer.price,
+      priceCurrency: offer.priceCurrency,
+      availability: 'https://schema.org/InStock',
+    }));
   }
 
   return schema;

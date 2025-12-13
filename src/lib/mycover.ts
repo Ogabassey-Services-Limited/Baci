@@ -19,6 +19,38 @@ interface ItemDetail {
   image?: string;
 }
 
+interface PurchaseGadgetParams {
+  // Customer details
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number: string;
+  address: string;
+  gender: 'Male' | 'Female';
+  date_of_birth: string; // YYYY-MM-DD
+  occupation: string;
+  title: string;
+
+  // Device details
+  model_number: string;
+  device_type: 'Phone' | 'Laptop' | 'Others';
+  device_make: string;
+  device_model: string;
+  device_color: string;
+  imei_one: string;
+  imei_two?: string;
+  date_of_purchase: string; // YYYY-MM-DD
+  device_value: number;
+  device_serial_number: string;
+
+  // Images
+  id_image_url: string; // Required by API (can be placeholder via negotiation)
+  device_about_image_url: string;
+
+  // Product ID from MyCover
+  product_id: string;
+}
+
 interface PurchaseGITParams {
   // Customer details
   first_name: string;
@@ -34,12 +66,12 @@ interface PurchaseGITParams {
   // Shipment details
   shipping_date: string; // ISO date string
   vehicle_type:
-    | 'Truck'
-    | 'Car'
-    | 'Bus'
-    | 'Motorcycle'
-    | 'Tricycle'
-    | 'Air Plane';
+  | 'Truck'
+  | 'Car'
+  | 'Bus'
+  | 'Motorcycle'
+  | 'Tricycle'
+  | 'Air Plane';
   vehicle_plate_number?: string;
 
   // Coverage
@@ -144,6 +176,31 @@ export class MyCoverClient {
   }
 
   /**
+   * Purchase Gadget Insurance (Device Protection)
+   * Provider: Sovereign Trust Insurance (STI)
+   */
+  async purchaseGadgetInsurance(
+    params: PurchaseGadgetParams
+  ): Promise<MyCoverPolicy> {
+    // API requires 'imei_number' but typed as 'imei_one' in our interface for consistency
+    // We map it here to match the API expectation
+    const payload = {
+      ...params,
+      imei_number: params.imei_one, // Map imei_one to imei_number
+    };
+
+    const response = await this.request<MyCoverResponse<{ policy: MyCoverPolicy }>>(
+      '/products/sti/buy-gadget-cover',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    );
+    // Note: Gadget API returns { policy: {...} } nested inside data
+    return response.data.policy;
+  }
+
+  /**
    * Get a policy by ID
    */
   async getPolicy(policyId: string): Promise<MyCoverPolicy> {
@@ -189,6 +246,20 @@ export class MyCoverClient {
       '/wallet/recent-transactions'
     );
     return response.data;
+  }
+
+  /**
+   * Get claims for this distributor
+   */
+  async getClaims(): Promise<unknown[]> {
+    const response = await this.request<MyCoverResponse<unknown[]>>('/claims');
+    // API returns { data: { claims: [], total_count: 0 } } or sometimes just []
+    // We normalize to array
+    const data = response.data as any;
+    if (data && Array.isArray(data.claims)) {
+      return data.claims;
+    }
+    return Array.isArray(data) ? data : [];
   }
 }
 
@@ -244,6 +315,7 @@ export type {
   MyCoverConfig,
   ItemDetail,
   PurchaseGITParams,
+  PurchaseGadgetParams,
   MyCoverPolicy,
   MyCoverResponse,
   WalletBalance,

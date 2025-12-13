@@ -32,37 +32,50 @@ export async function checkPasswordBreach(password: string): Promise<{
     const prefix = hashHex.slice(0, 5);
     const suffix = hashHex.slice(5);
 
-    // Query the HIBP API with just the prefix
-    const response = await fetch(
-      `https://api.pwnedpasswords.com/range/${prefix}`,
-      {
-        headers: {
-          'Add-Padding': 'true', // Adds padding to prevent response length attacks
-        },
+    // Setup abort controller for 3s timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    try {
+      // Query the HIBP API with just the prefix
+      const response = await fetch(
+        `https://api.pwnedpasswords.com/range/${prefix}`,
+        {
+          headers: {
+            'Add-Padding': 'true',
+          },
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        // Silently fail if API is down/rate limited
+        return { isBreached: false };
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`HIBP API returned ${response.status}`);
-    }
+      const text = await response.text();
 
-    const text = await response.text();
-
-    // Parse response - format is "SUFFIX:COUNT" per line
-    const lines = text.split('\n');
-    for (const line of lines) {
-      const [hashSuffix, countStr] = line.split(':');
-      if (hashSuffix.trim() === suffix) {
-        const count = Number.parseInt(countStr.trim(), 10);
-        return { isBreached: true, count };
+      // Parse response - format is "SUFFIX:COUNT" per line
+      const lines = text.split('\n');
+      for (const line of lines) {
+        const [hashSuffix, countStr] = line.split(':');
+        if (hashSuffix.trim() === suffix) {
+          const count = Number.parseInt(countStr.trim(), 10);
+          return { isBreached: true, count };
+        }
       }
-    }
 
-    return { isBreached: false };
+      return { isBreached: false };
+    } catch (fetchError) {
+      // Network error or timeout - fail open
+      clearTimeout(timeoutId);
+      return { isBreached: false };
+    }
   } catch (error) {
+    // Crypto or other runtime errors
     console.error('Password breach check failed:', error);
-    // Fail open - if the check fails, allow the password
-    // This prevents blocking users if HIBP is down
     return { isBreached: false, error: 'Unable to verify password security' };
   }
 }

@@ -74,6 +74,7 @@ export interface ProductVariant {
 
 export interface Product {
   id: string;
+  merchant_id?: string;
   name: string;
   description: string;
   status: 'draft' | 'active' | 'archived'; // Updated from published/draft/archived
@@ -129,6 +130,11 @@ export interface Product {
   material?: string;
   size_attribute?: string;
   specs?: string;
+  specifications?: {
+    category: string;
+    items: { label: string; value: string }[];
+  }[]; // JSONB structured specs
+  product_key_specs?: Record<string, any>; // JSONB for key specs (screen_size, ram, etc.)
   warranty?: string;
 
   // SEO

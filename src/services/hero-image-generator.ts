@@ -216,7 +216,8 @@ export async function generateHeroImageBatch(
  */
 export async function assignHeroImagesToMerchant(
   merchantId: string,
-  category: string
+  category: string,
+  autoGenerate: boolean = true
 ): Promise<{ success: boolean; imageIds?: string[]; error?: string }> {
   try {
     const cookieStore = await cookies();
@@ -233,6 +234,15 @@ export async function assignHeroImagesToMerchant(
       .limit(3);
 
     if (fetchError || !images || images.length === 0) {
+      if (!autoGenerate) {
+        logger.info({
+          message: 'No hero images available, skipping generation (autoGenerate=false)',
+          category,
+        });
+        // Return success but with no images (will use placeholders)
+        return { success: true, imageIds: [] };
+      }
+
       logger.warn({
         message: 'No hero images available, generating new batch',
         category,

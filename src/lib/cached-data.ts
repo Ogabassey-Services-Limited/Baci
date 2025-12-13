@@ -74,10 +74,10 @@ export const getCachedMerchant = unstable_cache(
 
     return data;
   },
-  ['merchant'],
+  ['merchant-by-slug'],
   {
     revalidate: CACHE_DURATIONS.storefront,
-    tags: ['merchant'],
+    tags: ['merchants'],
   }
 );
 
@@ -236,7 +236,12 @@ export const getCachedProduct = unstable_cache(
         quantity,
         track_quantity,
         images,
+        quantity,
+        track_quantity,
+        images,
         created_at,
+        product_key_specs,
+        specifications,
         product_variants (
           id,
           name,

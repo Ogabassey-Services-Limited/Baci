@@ -138,6 +138,24 @@ export class TopshipProvider extends BaseShippingProvider {
   private locationsCacheExpiry = 0;
   private readonly LOCATIONS_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
+  // Rate cache
+  private rateCache: Map<string, { rates: TopshipRate[]; expiry: number }> =
+    new Map();
+  private readonly RATE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  private generateRateCacheKey(request: QuoteRequest): string {
+    return JSON.stringify({
+      sCity: request.sender?.city,
+      sCountry: request.sender?.countryCode,
+      rCity: request.receiver.city,
+      rCountry: request.receiver.countryCode,
+      weight: request.items.reduce(
+        (sum, item) => sum + item.weight * item.quantity,
+        0
+      ),
+    });
+  }
+
   // ==========================================================================
   // LOCATIONS API
   // ==========================================================================
@@ -180,13 +198,28 @@ export class TopshipProvider extends BaseShippingProvider {
     }
 
     const result = await response.json();
-    if (result.status && result.data) {
-      this.statesCache = result.data;
-      this.locationsCacheExpiry = Date.now() + this.LOCATIONS_CACHE_TTL;
-      return result.data;
+
+    // Handle both array response and wrapped response formats
+    let states: TopshipState[] = [];
+    if (Array.isArray(result)) {
+      // Direct array response from Topship API
+      states = result.map((s: { name: string; code: string; countryCode: string }) => ({
+        id: 0,
+        name: s.name,
+        code: s.code,
+        countryCode: s.countryCode,
+      }));
+    } else if (result.status && result.data) {
+      // Wrapped response format
+      states = result.data;
     }
 
-    return [];
+    if (states.length > 0) {
+      this.statesCache = states;
+      this.locationsCacheExpiry = Date.now() + this.LOCATIONS_CACHE_TTL;
+    }
+
+    return states;
   }
 
   async getCities(stateCode: string): Promise<TopshipCity[]> {
@@ -195,8 +228,9 @@ export class TopshipProvider extends BaseShippingProvider {
       return this.citiesCache.get(stateCode) ?? [];
     }
 
+    // Topship API requires countryCode for cities
     const response = await this.safeFetch(
-      `${TOPSHIP_BASE_URL}/get-cities?stateCode=${stateCode}`,
+      `${TOPSHIP_BASE_URL}/get-cities?stateCode=${stateCode}&countryCode=NG`,
       {
         headers: this.getHeaders(),
       }
@@ -211,12 +245,27 @@ export class TopshipProvider extends BaseShippingProvider {
     }
 
     const result = await response.json();
-    if (result.status && result.data) {
-      this.citiesCache.set(stateCode, result.data);
-      return result.data;
+
+    // Handle both array response and wrapped response formats
+    let cities: TopshipCity[] = [];
+    if (Array.isArray(result)) {
+      // Direct array response - map to our format
+      cities = result.map((c: { name?: string; cityName?: string; stateCode?: string }, idx: number) => ({
+        id: idx,
+        name: c.name || c.cityName || '',
+        stateId: 0,
+        stateName: stateCode,
+      }));
+    } else if (result.status && result.data) {
+      // Wrapped response format
+      cities = result.data;
     }
 
-    return [];
+    if (cities.length > 0) {
+      this.citiesCache.set(stateCode, cities);
+    }
+
+    return cities;
   }
 
   // ==========================================================================
@@ -305,62 +354,41 @@ export class TopshipProvider extends BaseShippingProvider {
 
   async getQuotes(request: QuoteRequest): Promise<ShippingQuote[]> {
     try {
-      const items: TopshipQuoteItem[] = request.items.map((item) => ({
-        category: this.mapCategory(item.category),
-        description: item.name,
-        weight: item.weight,
-        quantity: item.quantity,
-        value: item.value,
-      }));
+      // Calculate total weight
+      const totalWeight = request.items.reduce(
+        (sum, item) => sum + item.weight * item.quantity,
+        0
+      );
 
-      const senderAddress: TopshipAddress = request.sender
-        ? {
-            name: request.sender.name,
-            email: request.sender.email,
-            phone: request.sender.phone,
-            addressLine1: request.sender.address,
-            city: request.sender.city,
-            state: request.sender.state,
-            country: request.sender.country,
-            countryCode: request.sender.countryCode,
-            postalCode: request.sender.postalCode,
-          }
-        : {
-            name: 'Sender',
-            phone: '+234000000000',
-            addressLine1: 'Lagos',
-            city: 'Lagos',
-            state: 'Lagos',
-            country: 'Nigeria',
-            countryCode: 'NG',
-          };
+      // Check cache
+      const cacheKey = this.generateRateCacheKey(request);
+      const cached = this.rateCache.get(cacheKey);
+      if (cached && Date.now() < cached.expiry) {
+        // Return cached rates mapped to ShippingQuote
+        return this.mapRatesToQuotes(cached.rates);
+      }
 
-      const receiverAddress: TopshipAddress = {
-        name: request.receiver.name,
-        email: request.receiver.email,
-        phone: request.receiver.phone,
-        addressLine1: request.receiver.address,
-        city: request.receiver.city,
-        state: request.receiver.state,
-        country: request.receiver.country,
-        countryCode: request.receiver.countryCode,
-        postalCode: request.receiver.postalCode,
+      // Topship API requires GET with shipmentDetail query parameter
+      const shipmentDetail = {
+        senderDetails: {
+          cityName: request.sender?.city || 'Lagos',
+          countryCode: request.sender?.countryCode || 'NG',
+        },
+        receiverDetails: {
+          cityName: request.receiver.city,
+          countryCode: request.receiver.countryCode || 'NG',
+        },
+        totalWeight: totalWeight || 1,
       };
 
-      const payload = {
-        shipmentRoute:
-          request.shipmentType === 'international' ? 'export' : 'domestic',
-        senderDetails: senderAddress,
-        receiverDetails: receiverAddress,
-        items,
-      };
+      const queryParam = encodeURIComponent(JSON.stringify(shipmentDetail));
 
       const response = await this.safeFetch(
-        `${TOPSHIP_BASE_URL}/get-shipment-rate`,
+        `${TOPSHIP_BASE_URL}/get-shipment-rate?shipmentDetail=${queryParam}`,
         {
-          method: 'POST',
+          method: 'GET',
           headers: this.getHeaders(),
-          body: JSON.stringify(payload),
+          timeout: 8000, // 8 seconds timeout (fail fast)
         }
       );
 
@@ -373,39 +401,36 @@ export class TopshipProvider extends BaseShippingProvider {
         return [];
       }
 
-      const result: TopshipQuoteResponse = await response.json();
+      const result = await response.json();
 
-      if (!result.status || !result.data || result.data.length === 0) {
-        this.log('warn', 'No Topship quotes returned', {
-          message: result.message,
-        });
+      // Handle both array response and wrapped response
+      let rates: TopshipRate[] = [];
+      if (Array.isArray(result)) {
+        rates = result.map((r: { mode?: string; cost?: number; duration?: string; currency?: string; pricingTier?: string }) => ({
+          serviceType: r.mode || 'Standard',
+          pricingTier: r.pricingTier || 'Budget',
+          cost: r.cost || 0,
+          vat: 0,
+          total: r.cost || 0,
+          currency: r.currency || 'NGN',
+          deliveryEta: r.duration,
+        }));
+      } else if (result.status && result.data) {
+        rates = result.data;
+      }
+
+      if (rates.length === 0) {
+        this.log('warn', 'No Topship quotes returned');
         return [];
       }
 
-      return result.data.map((rate) => {
-        const deliveryEta = this.parseDeliveryEta(rate.deliveryEta);
-        const carrierName = this.getCarrierDisplayName(
-          rate.pricingTier,
-          rate.carrierName
-        );
-
-        return {
-          id: this.generateQuoteId(),
-          provider: 'TOPSHIP' as const,
-          serviceTier: rate.pricingTier,
-          carrierName,
-          displayName: `${carrierName} - ${rate.serviceType}`,
-          estimatedDays: deliveryEta.estimatedDays,
-          minDays: deliveryEta.minDays,
-          maxDays: deliveryEta.maxDays,
-          price: this.koboToNaira(rate.total),
-          currency: 'NGN',
-          pickupIncluded: true,
-          insuranceIncluded: true,
-          providerRateId: `${rate.pricingTier}_${rate.serviceType}`,
-          expiresAt: this.getQuoteExpiry(1),
-        };
+      // Cache the raw rates
+      this.rateCache.set(cacheKey, {
+        rates,
+        expiry: Date.now() + this.RATE_CACHE_TTL,
       });
+
+      return this.mapRatesToQuotes(rates);
     } catch (error) {
       this.log('error', 'Failed to get Topship quotes', {
         error: String(error),
@@ -413,6 +438,35 @@ export class TopshipProvider extends BaseShippingProvider {
       return [];
     }
   }
+
+  private mapRatesToQuotes(rates: TopshipRate[]): ShippingQuote[] {
+    return rates.map((rate) => {
+      const deliveryEta = this.parseDeliveryEta(rate.deliveryEta);
+      const carrierName = this.getCarrierDisplayName(
+        rate.pricingTier,
+        rate.carrierName
+      );
+
+      return {
+        id: this.generateQuoteId(),
+        provider: 'TOPSHIP' as const,
+        serviceTier: rate.pricingTier,
+        carrierName,
+        displayName: `${carrierName} - ${rate.serviceType}`,
+        estimatedDays: deliveryEta.estimatedDays,
+        deliveryRange: rate.deliveryEta, // Pass raw string
+        minDays: deliveryEta.minDays,
+        maxDays: deliveryEta.maxDays,
+        price: this.koboToNaira(rate.total),
+        currency: 'NGN',
+        pickupIncluded: true,
+        insuranceIncluded: true,
+        providerRateId: `${rate.pricingTier}_${rate.serviceType}`,
+        expiresAt: this.getQuoteExpiry(1),
+      };
+    });
+  }
+
 
   // ==========================================================================
   // BOOK SHIPMENT
