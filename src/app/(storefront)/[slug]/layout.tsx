@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
 import type React from 'react';
+import { MerchantSlugSync } from '@/components/storefront/merchant-slug-sync';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { CartProvider } from '@/hooks/use-cart';
 import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
-import { MerchantSlugSync } from '@/components/storefront/merchant-slug-sync';
 import { getCachedMerchant } from '@/lib/cached-data';
 
 // Valid slug pattern: alphanumeric and hyphens, no file extensions

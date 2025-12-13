@@ -38,12 +38,13 @@ export async function POST(request: NextRequest) {
     const validFormatIds: string[] = [];
     const invalidFormatIds: string[] = [];
 
-    // Use Service Client (Admin) to bypass RLS. 
+    // Use Service Client (Admin) to bypass RLS.
     // This ensures we can validate products even if the user is a guest.
     const supabase = createServiceClient();
 
     // UUID v4 regex pattern
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const uuidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     for (const id of idsToValidate) {
       const strId = String(id);
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Fetch only valid-formatted IDs
+    // biome-ignore lint/suspicious/noExplicitAny: Supabase returns dynamic rows
     let products: any[] = [];
     if (validFormatIds.length > 0) {
       const { data, error } = await supabase
@@ -81,7 +83,13 @@ export async function POST(request: NextRequest) {
     // 3. Map for lookup (normalize keys to string to be safe)
     const productMap = new Map(products.map((p) => [String(p.id), p]));
 
-    const validProducts: { id: string; price: number; stock: number; manage_stock: boolean; name: string }[] = [];
+    const validProducts: {
+      id: string;
+      price: number;
+      stock: number;
+      manage_stock: boolean;
+      name: string;
+    }[] = [];
     const invalidProductIds: string[] = [...invalidFormatIds]; // Start with known junk
     const priceChanges: { id: string; oldPrice: number; newPrice: number }[] =
       [];
@@ -104,7 +112,7 @@ export async function POST(request: NextRequest) {
           // Found but not active -> Invalid
           if (!invalidProductIds.includes(strId)) invalidProductIds.push(strId);
         } else {
-          // Not found. 
+          // Not found.
           // If it was a valid UUID and not found, it's invalid.
           // If it was INVALID credentials (skipped DB check), we KEEP it (fail open) to support mock/legacy IDs.
           const isUuid = uuidRegex.test(strId);

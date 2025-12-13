@@ -25,11 +25,11 @@ interface Order {
   total: number;
   payment_status: 'unpaid' | 'paid' | 'refunded';
   shipping_status:
-  | 'pending'
-  | 'processing'
-  | 'shipped'
-  | 'delivered'
-  | 'cancelled';
+    | 'pending'
+    | 'processing'
+    | 'shipped'
+    | 'delivered'
+    | 'cancelled';
   items: OrderItem[];
   shipping_address?: {
     address: string;

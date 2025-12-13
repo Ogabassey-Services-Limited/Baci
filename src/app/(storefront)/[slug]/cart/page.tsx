@@ -1,4 +1,4 @@
-import { permanentRedirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 
 export default async function CartPage({
   params,
@@ -6,5 +6,5 @@ export default async function CartPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  permanentRedirect(`/${slug}/checkout`);
+  redirect(`/${slug}/checkout`);
 }

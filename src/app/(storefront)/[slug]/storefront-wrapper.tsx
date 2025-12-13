@@ -28,6 +28,11 @@ export function StorefrontWrapper() {
     useState<React.ComponentType<TemplatePageProps> | null>(null);
   const [templateLoading, setTemplateLoading] = useState(true);
 
+  // Define callback before conditional returns to satisfy React hooks rules
+  const handleNoConfig = useCallback(() => {
+    setShowError(true);
+  }, []);
+
   // Load template components based on merchant's template_id
   useEffect(() => {
     const loadTemplate = async () => {
@@ -117,10 +122,6 @@ export function StorefrontWrapper() {
   }
 
   // Fall back to Puck storefront
-  const handleNoConfig = useCallback(() => {
-    setShowError(true);
-  }, []);
-
   return (
     <>
       <AnalyticsProvider />

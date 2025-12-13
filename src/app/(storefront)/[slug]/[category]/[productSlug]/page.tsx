@@ -24,6 +24,68 @@ import ProductDetailClient from '../../products/[productSlug]/product-detail-cli
 // Enable ISR with 5 minute revalidation
 export const revalidate = 300;
 
+/** KeySpecs interface for product_key_specs */
+interface KeySpecs {
+  screen_size_inches?: number;
+  refresh_rate_hz?: number;
+  chipset?: string;
+  ram_gb?: number;
+  storage_gb?: number;
+  main_camera_mp?: number;
+  battery_mah?: number;
+  charging_watt?: number;
+  is_5g?: boolean;
+  android_version?: string;
+  network_technology?: string;
+  sim_type?: string;
+  has_nfc?: boolean;
+  wifi_bands?: string;
+  bluetooth_version?: string;
+  usb_type?: string;
+  has_usb_otg?: boolean;
+  positioning?: string;
+  has_fm_radio?: boolean;
+  dimensions_mm?: string;
+  weight_g?: number;
+  build_materials?: string;
+  ip_rating?: string;
+  display_type?: string;
+  display_resolution?: string;
+  display_ppi?: number;
+  display_protection?: string;
+  display_peak_brightness?: number;
+  front_camera_mp?: number;
+  front_camera_features?: string;
+  front_camera_video?: string;
+  rear_camera_features?: string;
+  rear_camera_video?: string;
+  has_dual_camera?: boolean;
+  has_triple_camera?: boolean;
+  has_quad_camera?: boolean;
+  has_stereo_speakers?: boolean;
+  has_headphone_jack?: boolean;
+  fingerprint_type?: string;
+  sensors?: string;
+  battery_removable?: boolean;
+  has_wireless_charging?: boolean;
+  wireless_charging_watt?: number;
+  has_reverse_charging?: boolean;
+  cpu_cores?: string;
+  gpu?: string;
+  has_card_slot?: boolean;
+  card_slot_type?: string;
+  available_colors?: string;
+  model_numbers?: string;
+  announced_date?: string;
+  release_date?: string;
+  [key: string]: string | number | boolean | undefined;
+}
+
+/** Product with key specs for type safety */
+interface ProductWithKeySpecs {
+  product_key_specs?: KeySpecs;
+}
+
 /**
  * Converts server-side Product to Ogabassey template format
  */
@@ -39,7 +101,8 @@ function toOgabasseyProduct(
   });
 
   // Transform product_key_specs into detailedSpecs format
-  const keySpecs = (product as any).product_key_specs;
+  const productWithSpecs = product as unknown as ProductWithKeySpecs;
+  const keySpecs = productWithSpecs.product_key_specs;
   let detailedSpecs: {
     category: string;
     items: { label: string; value: string }[];
@@ -77,285 +140,254 @@ function toOgabasseyProduct(
 
     specs = specsArray;
 
-    // Build detailedSpecs with comprehensive GSM Arena-level categories
-    detailedSpecs = [
-      // NETWORK
+    // Configuration for spec categories
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic spec configuration requires flexible typing
+    interface SpecField {
+      key: string;
+      label: string;
+      dynamicLabel?: (specs: KeySpecs) => string;
+      // biome-ignore lint/suspicious/noExplicitAny: Value types vary per field
+      transform?: (value: any, allSpecs: KeySpecs) => string;
+      condition?: (specs: KeySpecs) => boolean;
+    }
+
+    interface SpecCategory {
+      category: string;
+      fields: SpecField[];
+    }
+
+    const specCategories: SpecCategory[] = [
       {
         category: 'Network',
-        items: [
-          ...(keySpecs.network_technology
-            ? [{ label: 'Technology', value: keySpecs.network_technology }]
-            : []),
-          ...(keySpecs.is_5g !== null && keySpecs.is_5g !== undefined
-            ? [{ label: '5G Support', value: keySpecs.is_5g ? 'Yes' : 'No' }]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          { key: 'network_technology', label: 'Technology' },
+          {
+            key: 'is_5g',
+            label: '5G Support',
+            transform: (v: boolean) => (v ? 'Yes' : 'No'),
+          },
+        ],
       },
-      // BODY
       {
         category: 'Body',
-        items: [
-          ...(keySpecs.dimensions_mm
-            ? [{ label: 'Dimensions', value: keySpecs.dimensions_mm }]
-            : []),
-          ...(keySpecs.weight_g
-            ? [{ label: 'Weight', value: `${keySpecs.weight_g}g` }]
-            : []),
-          ...(keySpecs.build_materials
-            ? [{ label: 'Build', value: keySpecs.build_materials }]
-            : []),
-          ...(keySpecs.sim_type
-            ? [{ label: 'SIM', value: keySpecs.sim_type }]
-            : []),
-          ...(keySpecs.ip_rating
-            ? [{ label: 'Protection', value: keySpecs.ip_rating }]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          { key: 'dimensions_mm', label: 'Dimensions' },
+          {
+            key: 'weight_g',
+            label: 'Weight',
+            transform: (v: number) => `${v}g`,
+          },
+          { key: 'build_materials', label: 'Build' },
+          { key: 'sim_type', label: 'SIM' },
+          { key: 'ip_rating', label: 'Protection' },
+        ],
       },
-      // DISPLAY
       {
         category: 'Display',
-        items: [
-          ...(keySpecs.display_type
-            ? [{ label: 'Type', value: keySpecs.display_type }]
-            : []),
-          ...(keySpecs.screen_size_inches
-            ? [
-                {
-                  label: 'Size',
-                  value: `${keySpecs.screen_size_inches} inches`,
-                },
-              ]
-            : []),
-          ...(keySpecs.display_resolution
-            ? [{ label: 'Resolution', value: keySpecs.display_resolution }]
-            : []),
-          ...(keySpecs.refresh_rate_hz
-            ? [
-                {
-                  label: 'Refresh Rate',
-                  value: `${keySpecs.refresh_rate_hz}Hz`,
-                },
-              ]
-            : []),
-          ...(keySpecs.display_ppi
-            ? [{ label: 'Pixel Density', value: `${keySpecs.display_ppi} ppi` }]
-            : []),
-          ...(keySpecs.display_peak_brightness
-            ? [
-                {
-                  label: 'Peak Brightness',
-                  value: `${keySpecs.display_peak_brightness} nits`,
-                },
-              ]
-            : []),
-          ...(keySpecs.display_protection
-            ? [{ label: 'Protection', value: keySpecs.display_protection }]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          { key: 'display_type', label: 'Type' },
+          {
+            key: 'screen_size_inches',
+            label: 'Size',
+            transform: (v: number) => `${v} inches`,
+          },
+          { key: 'display_resolution', label: 'Resolution' },
+          {
+            key: 'refresh_rate_hz',
+            label: 'Refresh Rate',
+            transform: (v: number) => `${v}Hz`,
+          },
+          {
+            key: 'display_ppi',
+            label: 'Pixel Density',
+            transform: (v: number) => `${v} ppi`,
+          },
+          {
+            key: 'display_peak_brightness',
+            label: 'Peak Brightness',
+            transform: (v: number) => `${v} nits`,
+          },
+          { key: 'display_protection', label: 'Protection' },
+        ],
       },
-      // PLATFORM
       {
         category: 'Platform',
-        items: [
-          ...(keySpecs.android_version
-            ? [{ label: 'OS', value: `Android ${keySpecs.android_version}` }]
-            : []),
-          ...(keySpecs.chipset
-            ? [{ label: 'Chipset', value: keySpecs.chipset }]
-            : []),
-          ...(keySpecs.cpu_cores
-            ? [{ label: 'CPU', value: keySpecs.cpu_cores }]
-            : []),
-          ...(keySpecs.gpu ? [{ label: 'GPU', value: keySpecs.gpu }] : []),
-        ].filter(Boolean),
+        fields: [
+          {
+            key: 'android_version',
+            label: 'OS',
+            transform: (v: string) => `Android ${v}`,
+          },
+          { key: 'chipset', label: 'Chipset' },
+          { key: 'cpu_cores', label: 'CPU' },
+          { key: 'gpu', label: 'GPU' },
+        ],
       },
-      // MEMORY
       {
         category: 'Memory',
-        items: [
-          ...(keySpecs.has_card_slot !== null &&
-          keySpecs.has_card_slot !== undefined
-            ? [
-                {
-                  label: 'Card Slot',
-                  value: keySpecs.has_card_slot
-                    ? keySpecs.card_slot_type || 'Yes'
-                    : 'No',
-                },
-              ]
-            : []),
-          ...(keySpecs.storage_gb
-            ? [{ label: 'Internal Storage', value: `${keySpecs.storage_gb}GB` }]
-            : []),
-          ...(keySpecs.ram_gb
-            ? [{ label: 'RAM', value: `${keySpecs.ram_gb}GB` }]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          {
+            key: 'has_card_slot',
+            label: 'Card Slot',
+            transform: (_: string | number | boolean, allSpecs: KeySpecs) =>
+              allSpecs.has_card_slot ? allSpecs.card_slot_type || 'Yes' : 'No',
+          },
+          {
+            key: 'storage_gb',
+            label: 'Internal Storage',
+            transform: (v: number) => `${v}GB`,
+          },
+          {
+            key: 'ram_gb',
+            label: 'RAM',
+            transform: (v: number) => `${v}GB`,
+          },
+        ],
       },
-      // MAIN CAMERA
       {
         category: 'Main Camera',
-        items: [
-          ...(keySpecs.main_camera_mp
-            ? [
-                {
-                  label: keySpecs.has_quad_camera
-                    ? 'Quad Camera'
-                    : keySpecs.has_triple_camera
-                      ? 'Triple Camera'
-                      : keySpecs.has_dual_camera
-                        ? 'Dual Camera'
-                        : 'Single Camera',
-                  value: `${keySpecs.main_camera_mp}MP`,
-                },
-              ]
-            : []),
-          ...(keySpecs.rear_camera_features
-            ? [{ label: 'Features', value: keySpecs.rear_camera_features }]
-            : []),
-          ...(keySpecs.rear_camera_video
-            ? [{ label: 'Video', value: keySpecs.rear_camera_video }]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          {
+            key: 'main_camera_mp',
+            label: 'Camera',
+            dynamicLabel: (allSpecs: KeySpecs) =>
+              allSpecs.has_quad_camera
+                ? 'Quad Camera'
+                : allSpecs.has_triple_camera
+                  ? 'Triple Camera'
+                  : allSpecs.has_dual_camera
+                    ? 'Dual Camera'
+                    : 'Single Camera',
+            transform: (v: number) => `${v}MP`,
+          },
+          { key: 'rear_camera_features', label: 'Features' },
+          { key: 'rear_camera_video', label: 'Video' },
+        ],
       },
-      // SELFIE CAMERA
       {
         category: 'Selfie Camera',
-        items: [
-          ...(keySpecs.front_camera_mp
-            ? [{ label: 'Resolution', value: `${keySpecs.front_camera_mp}MP` }]
-            : []),
-          ...(keySpecs.front_camera_features
-            ? [{ label: 'Features', value: keySpecs.front_camera_features }]
-            : []),
-          ...(keySpecs.front_camera_video
-            ? [{ label: 'Video', value: keySpecs.front_camera_video }]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          {
+            key: 'front_camera_mp',
+            label: 'Resolution',
+            transform: (v: number) => `${v}MP`,
+          },
+          { key: 'front_camera_features', label: 'Features' },
+          { key: 'front_camera_video', label: 'Video' },
+        ],
       },
-      // SOUND
       {
         category: 'Sound',
-        items: [
-          ...(keySpecs.has_stereo_speakers !== null &&
-          keySpecs.has_stereo_speakers !== undefined
-            ? [
-                {
-                  label: 'Loudspeaker',
-                  value: keySpecs.has_stereo_speakers
-                    ? 'Yes, with stereo speakers'
-                    : 'Yes (mono)',
-                },
-              ]
-            : []),
-          ...(keySpecs.has_headphone_jack !== null &&
-          keySpecs.has_headphone_jack !== undefined
-            ? [
-                {
-                  label: '3.5mm Jack',
-                  value: keySpecs.has_headphone_jack ? 'Yes' : 'No',
-                },
-              ]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          {
+            key: 'has_stereo_speakers',
+            label: 'Loudspeaker',
+            transform: (v: boolean) =>
+              v ? 'Yes, with stereo speakers' : 'Yes (mono)',
+          },
+          {
+            key: 'has_headphone_jack',
+            label: '3.5mm Jack',
+            transform: (v: boolean) => (v ? 'Yes' : 'No'),
+          },
+        ],
       },
-      // CONNECTIVITY
       {
         category: 'Connectivity',
-        items: [
-          ...(keySpecs.wifi_bands
-            ? [{ label: 'WLAN', value: keySpecs.wifi_bands }]
-            : []),
-          ...(keySpecs.bluetooth_version
-            ? [{ label: 'Bluetooth', value: keySpecs.bluetooth_version }]
-            : []),
-          ...(keySpecs.positioning
-            ? [{ label: 'Positioning', value: keySpecs.positioning }]
-            : []),
-          ...(keySpecs.has_nfc !== null && keySpecs.has_nfc !== undefined
-            ? [{ label: 'NFC', value: keySpecs.has_nfc ? 'Yes' : 'No' }]
-            : []),
-          ...(keySpecs.has_fm_radio !== null &&
-          keySpecs.has_fm_radio !== undefined
-            ? [
-                {
-                  label: 'Radio',
-                  value: keySpecs.has_fm_radio ? 'FM Radio' : 'No',
-                },
-              ]
-            : []),
-          ...(keySpecs.usb_type
-            ? [
-                {
-                  label: 'USB',
-                  value:
-                    keySpecs.usb_type + (keySpecs.has_usb_otg ? ', OTG' : ''),
-                },
-              ]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          { key: 'wifi_bands', label: 'WLAN' },
+          { key: 'bluetooth_version', label: 'Bluetooth' },
+          { key: 'positioning', label: 'Positioning' },
+          {
+            key: 'has_nfc',
+            label: 'NFC',
+            transform: (v: boolean) => (v ? 'Yes' : 'No'),
+          },
+          {
+            key: 'has_fm_radio',
+            label: 'Radio',
+            transform: (v: boolean) => (v ? 'FM Radio' : 'No'),
+          },
+          {
+            key: 'usb_type',
+            label: 'USB',
+            transform: (v: string | number | boolean, allSpecs: KeySpecs) =>
+              String(v) + (allSpecs.has_usb_otg ? ', OTG' : ''),
+          },
+        ],
       },
-      // FEATURES
       {
         category: 'Features',
-        items: [
-          ...(keySpecs.fingerprint_type
-            ? [{ label: 'Fingerprint', value: keySpecs.fingerprint_type }]
-            : []),
-          ...(keySpecs.sensors
-            ? [{ label: 'Sensors', value: keySpecs.sensors }]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          { key: 'fingerprint_type', label: 'Fingerprint' },
+          { key: 'sensors', label: 'Sensors' },
+        ],
       },
-      // BATTERY
       {
         category: 'Battery',
-        items: [
-          ...(keySpecs.battery_mah
-            ? [
-                {
-                  label: 'Capacity',
-                  value: `${keySpecs.battery_mah}mAh${keySpecs.battery_removable ? ' (removable)' : ''}`,
-                },
-              ]
-            : []),
-          ...(keySpecs.charging_watt
-            ? [{ label: 'Wired Charging', value: `${keySpecs.charging_watt}W` }]
-            : []),
-          ...(keySpecs.has_wireless_charging && keySpecs.wireless_charging_watt
-            ? [
-                {
-                  label: 'Wireless Charging',
-                  value: `${keySpecs.wireless_charging_watt}W`,
-                },
-              ]
-            : []),
-          ...(keySpecs.has_reverse_charging !== null &&
-          keySpecs.has_reverse_charging !== undefined &&
-          keySpecs.has_reverse_charging
-            ? [{ label: 'Reverse Charging', value: 'Yes' }]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          {
+            key: 'battery_mah',
+            label: 'Capacity',
+            transform: (v: string | number | boolean, allSpecs: KeySpecs) =>
+              `${v}mAh${allSpecs.battery_removable ? ' (removable)' : ''}`,
+          },
+          {
+            key: 'charging_watt',
+            label: 'Wired Charging',
+            transform: (v: number) => `${v}W`,
+          },
+          {
+            key: 'wireless_charging_watt',
+            label: 'Wireless Charging',
+            transform: (v: number) => `${v}W`,
+            condition: (allSpecs: KeySpecs) => !!allSpecs.has_wireless_charging,
+          },
+          {
+            key: 'has_reverse_charging',
+            label: 'Reverse Charging',
+            transform: () => 'Yes',
+            condition: (allSpecs: KeySpecs) => !!allSpecs.has_reverse_charging,
+          },
+        ],
       },
-      // MISC
       {
         category: 'Misc',
-        items: [
-          ...(keySpecs.available_colors
-            ? [{ label: 'Colors', value: keySpecs.available_colors }]
-            : []),
-          ...(keySpecs.model_numbers
-            ? [{ label: 'Models', value: keySpecs.model_numbers }]
-            : []),
-        ].filter(Boolean),
+        fields: [
+          { key: 'available_colors', label: 'Colors' },
+          { key: 'model_numbers', label: 'Models' },
+        ],
       },
-    ].filter((cat) => cat.items.length > 0);
+    ];
+
+    // Build the specs
+    detailedSpecs = specCategories
+      .map(({ category, fields }) => ({
+        category,
+        items: fields
+          .filter(
+            ({ key, condition }) =>
+              keySpecs[key] !== null &&
+              keySpecs[key] !== undefined &&
+              (!condition || condition(keySpecs))
+          )
+          .map((field) => ({
+            label: field.dynamicLabel
+              ? field.dynamicLabel(keySpecs)
+              : field.label,
+            value: field.transform
+              ? field.transform(keySpecs[field.key]!, keySpecs)
+              : keySpecs[field.key]!.toString(),
+          })),
+      }))
+      .filter((cat) => cat.items.length > 0);
   }
 
   // Fallback to old specifications format if no product_key_specs
   if (detailedSpecs.length === 0 && product.specifications) {
+    // biome-ignore lint/suspicious/noExplicitAny: Legacy specifications format is untyped
     detailedSpecs = (product.specifications as any) || [];
+    // biome-ignore lint/suspicious/noExplicitAny: Legacy specifications format is untyped
     specs = (product.specifications as any)?.[0]?.items || [];
   }
 
@@ -371,7 +403,7 @@ function toOgabasseyProduct(
       product.imageLarge || product.image,
     ],
     description: product.description,
-    rating: product.rating || 4.5,
+    rating: product.rating ?? undefined,
     category: product.category || 'General',
     categorySlug: product.category_slug,
     condition: (product.condition || 'new') as OgabasseyProduct['condition'],
@@ -530,11 +562,18 @@ const getProduct = cache(
     // For now, we'll just serve the product but use the correct canonical URL
     // Verify category matches (optional - for strictness)
     // We prefer the DB category slug if available, otherwise fallback to generated
-    const dbCategorySlug = (product as any).product_categories?.[0]?.categories
+    interface ProductWithCategories {
+      product_categories?: Array<{ categories?: { slug?: string } }>;
+    }
+    const productWithCats = product as unknown as ProductWithCategories;
+    const dbCategorySlug = productWithCats.product_categories?.[0]?.categories
       ?.slug;
 
-    // Attach to product object for seo-utils
-    (product as any).category_slug = dbCategorySlug;
+    // Create extended product with category_slug to avoid mutation
+    const productWithCategorySlug: Product = {
+      ...product,
+      category_slug: dbCategorySlug,
+    } as Product;
 
     const productCategorySlug =
       dbCategorySlug ||
@@ -551,11 +590,11 @@ const getProduct = cache(
         .eq('product_id', product.id);
 
       if (variants) {
-        product.variants = variants;
+        productWithCategorySlug.variants = variants;
       }
     }
 
-    return { product: product as Product, categoryMismatch, merchant };
+    return { product: productWithCategorySlug, categoryMismatch, merchant };
   }
 );
 
@@ -602,13 +641,13 @@ export async function generateMetadata({
       images: product.images?.length
         ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
         : [
-            {
-              url: product.imageLarge || product.image,
-              width: 800,
-              height: 600,
-              alt: product.name,
-            },
-          ],
+          {
+            url: product.imageLarge || product.image,
+            width: 800,
+            height: 600,
+            alt: product.name,
+          },
+        ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,

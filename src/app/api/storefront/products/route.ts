@@ -18,7 +18,9 @@ function mapProduct(p: Record<string, unknown>) {
     imageLarge: (p.images as { url: string }[])?.[0]?.url || '',
     imageHint: p.image_hint,
     category: p.category || 'General',
-    category_slug: (p.product_categories as { categories: { slug: string } }[])?.[0]?.categories?.slug,
+    category_slug: (
+      p.product_categories as { categories: { slug: string } }[]
+    )?.[0]?.categories?.slug,
     brand: p.brand,
     status: p.status || 'active',
     has_variants: p.has_variants,
@@ -59,7 +61,8 @@ function createCachedProductsFetcher(
   if (filters.min_price) cacheKeyParts.push(`min-${filters.min_price}`);
   if (filters.max_price) cacheKeyParts.push(`max-${filters.max_price}`);
   if (filters.sort) cacheKeyParts.push(`sort-${filters.sort}`);
-  if (filters.q) cacheKeyParts.push(`q-${filters.q.slice(0, 100).toLowerCase().trim()}`);
+  if (filters.q)
+    cacheKeyParts.push(`q-${filters.q.slice(0, 100).toLowerCase().trim()}`);
 
   return unstable_cache(
     async () => {
@@ -164,7 +167,10 @@ export async function GET(request: NextRequest) {
     const parsed = querySchema.safeParse(Object.fromEntries(searchParams));
 
     if (!parsed.success) {
-      return NextResponse.json({ error: 'Invalid parameters', details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid parameters', details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
 
     const {
@@ -176,7 +182,7 @@ export async function GET(request: NextRequest) {
       min_price,
       max_price,
       sort,
-      q
+      q,
     } = parsed.data;
 
     if (!merchantId) {

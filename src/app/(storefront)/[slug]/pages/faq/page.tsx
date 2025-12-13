@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { generateFAQSchema } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
-import { StorefrontPageWrapper } from '../../storefront-page-wrapper';
 import { FAQPageClient } from './faq-page-client';
 
 interface PageProps {

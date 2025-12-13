@@ -5,14 +5,13 @@ import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 
 import { getCachedMerchant } from '@/lib/cached-data';
+import { getPlaceDetailsServer } from '@/lib/google-places';
 import {
   generateLocalBusinessSchema,
   generateServiceSchema,
   generateWebSiteSchema,
   type LocalBusinessData,
-  type Review,
 } from '@/lib/seo-utils';
-import { getPlaceDetailsServer } from '@/lib/google-places';
 import { StorefrontWrapper } from './storefront-wrapper';
 
 // Valid slug pattern: alphanumeric and hyphens, no file extensions
@@ -165,7 +164,10 @@ export default async function StorefrontPage({
   // Use cached merchant data for better performance
   console.log('[StorefrontPage] Fetching cached merchant...');
   const merchant = await getCachedMerchant(slug);
-  console.log('[StorefrontPage] Merchant result:', merchant ? merchant.id : 'null');
+  console.log(
+    '[StorefrontPage] Merchant result:',
+    merchant ? merchant.id : 'null'
+  );
 
   if (!merchant) {
     notFound();
@@ -176,7 +178,10 @@ export default async function StorefrontPage({
   let placeDetails = null;
   const OGABASSEY_PLACE_ID = 'ChIJychoUsKNOxARHWCwVgvx670';
 
-  if (merchant.slug === 'ogabassey' || merchant.slug === 'gadget-universe-demo') {
+  if (
+    merchant.slug === 'ogabassey' ||
+    merchant.slug === 'gadget-universe-demo'
+  ) {
     try {
       console.log('[StorefrontPage] Fetching Google Place details...');
       placeDetails = await getPlaceDetailsServer(OGABASSEY_PLACE_ID);
@@ -248,6 +253,7 @@ export default async function StorefrontPage({
 
       if (placeDetails.reviews && Array.isArray(placeDetails.reviews)) {
         // Map Google reviews to our Schema format
+        // biome-ignore lint/suspicious/noExplicitAny: Google Places API returns untyped review objects
         businessData.reviews = placeDetails.reviews.map((review: any) => ({
           author: review.authorAttribution?.displayName || 'Google User',
           datePublished: review.publishTime || new Date().toISOString(),

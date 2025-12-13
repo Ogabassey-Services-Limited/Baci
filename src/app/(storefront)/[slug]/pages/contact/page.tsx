@@ -92,6 +92,7 @@ export default async function ContactPage({ params }: PageProps) {
       // Add social links if available
       ...(merchant.social_media && {
         sameAs: Object.entries(merchant.social_media)
+          .filter(([_, handle]) => typeof handle === 'string')
           .map(([platform, handle]) =>
             normalizeSocialUrl(
               handle as string,

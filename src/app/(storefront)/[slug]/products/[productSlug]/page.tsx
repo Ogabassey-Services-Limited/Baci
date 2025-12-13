@@ -118,7 +118,9 @@ async function getProductCached(
         price_override: v.price_modifier,
       })) || [],
     // Specs for SEO Schema
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
     specifications: cachedProduct.specifications as any,
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database
     product_key_specs: cachedProduct.product_key_specs as any,
   };
 
@@ -162,6 +164,7 @@ export async function generateMetadata(
       ? `/${slug}/${product.category_slug}/${cleanSlug}`
       : `/${product.category_slug}/${cleanSlug}`;
 
+    // biome-ignore lint/suspicious/noExplicitAny: Dynamic route path requires type assertion
     permanentRedirect(targetPath as any);
   }
 
@@ -205,13 +208,13 @@ export async function generateMetadata(
         url: img.url,
         alt: img.alt,
       })) || [
-        {
-          url: product.imageLarge || product.image,
-          width: 800,
-          height: 600,
-          alt: product.name,
-        },
-      ],
+          {
+            url: product.imageLarge || product.image,
+            width: 800,
+            height: 600,
+            alt: product.name,
+          },
+        ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,

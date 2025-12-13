@@ -12,13 +12,6 @@ import { createClient } from '@/lib/supabase/server';
  * - merchantId: string (required)
  */
 
-interface RecentPurchase {
-  id: string;
-  city: string;
-  timeAgo: string;
-  productName?: string;
-}
-
 // Nigerian cities for anonymized display
 const NIGERIAN_CITIES = [
   'Lagos',
@@ -91,6 +84,7 @@ export async function GET(request: NextRequest) {
 
     if (statsError) throw statsError;
 
+    // biome-ignore lint/suspicious/noExplicitAny: Supabase RPC returns dynamic structure
     const proofStats = stats as any;
 
     return NextResponse.json({

@@ -8,6 +8,7 @@ import { getTemplate, type TemplateComponents } from '@/templates/registry';
 interface StorefrontPageWrapperProps {
   pageName: keyof TemplateComponents;
   fallback?: ReactNode;
+  // biome-ignore lint/suspicious/noExplicitAny: Merchant data structure varies
   merchant?: any; // We accept merchant prop for initial data
 }
 
@@ -26,6 +27,7 @@ export function StorefrontPageWrapper({
   const merchant = initialMerchant || hookMerchant;
   const loading = !initialMerchant && hookLoading;
 
+  // biome-ignore lint/suspicious/noExplicitAny: Template components have varying prop types
   const [TemplateComponent, setTemplateComponent] =
     useState<React.ComponentType<any> | null>(null);
   const [componentLoading, setComponentLoading] = useState(true);

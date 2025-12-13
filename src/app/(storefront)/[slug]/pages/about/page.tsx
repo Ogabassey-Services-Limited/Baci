@@ -1,13 +1,13 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import {
   generateAboutPageJsonLd,
   type MerchantAboutPage,
 } from '@/types/about-page';
-import { StorefrontPageWrapper } from '../../storefront-page-wrapper';
 import { AboutPageClient } from './about-page-client';
 
 interface PageProps {

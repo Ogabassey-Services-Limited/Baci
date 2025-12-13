@@ -299,11 +299,10 @@ export async function middleware(request: NextRequest) {
 
     // Protected routes: redirect to login if no user
     if (isProtectedRoute && !user) {
-      const sanitizedPathname = pathname.replace(/[\r\n]/g, '');
       /*
       console.log(
         'Middleware: No user found for protected route',
-        sanitizedPathname
+        pathname.replace(/[\r\n]/g, '')
       );
       */
       const url = request.nextUrl.clone();
