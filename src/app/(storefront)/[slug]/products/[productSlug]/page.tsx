@@ -117,6 +117,9 @@ async function getProductCached(
         stock_quantity: v.stock ?? 0,
         price_override: v.price_modifier,
       })) || [],
+    // Specs for SEO Schema
+    specifications: cachedProduct.specifications as any,
+    product_key_specs: cachedProduct.product_key_specs as any,
   };
 
   return product;

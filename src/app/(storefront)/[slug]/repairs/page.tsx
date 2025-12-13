@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { OgabasseyV2Repairs } from '@/components/storefront/ogabassey/pages/repairs';
 import { getCachedMerchant } from '@/lib/cached-data';
-import { StorefrontPageWrapper } from '../storefront-page-wrapper';
 
 export default async function RepairsPage({
   params,

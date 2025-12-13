@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { OgabasseyImeiChecker } from '@/components/storefront/ogabassey/pages/imei-checker';
 import { getCachedMerchant } from '@/lib/cached-data';
-import { StorefrontPageWrapper } from '../storefront-page-wrapper';
 
 export default async function ImeiCheckPage({
   params,

@@ -3,13 +3,16 @@ import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
+
 import { getCachedMerchant } from '@/lib/cached-data';
 import {
   generateLocalBusinessSchema,
+  generateServiceSchema,
   generateWebSiteSchema,
   type LocalBusinessData,
+  type Review,
 } from '@/lib/seo-utils';
+import { getPlaceDetailsServer } from '@/lib/google-places';
 import { StorefrontWrapper } from './storefront-wrapper';
 
 // Valid slug pattern: alphanumeric and hyphens, no file extensions
@@ -101,6 +104,17 @@ export async function generateMetadata({
   return {
     title: title,
     description: description,
+    keywords: [
+      'Showmax Subscription',
+      'Buy Showmax Online',
+      'Cheap Airtime',
+      'Buy Data Bundle',
+      'Pay Electricity Bill',
+      'Utility Payment',
+      merchant.business_name,
+      'Online Shopping',
+      'Nigeria',
+    ],
     alternates: {
       canonical: baseUrl,
     },
@@ -140,17 +154,35 @@ export default async function StorefrontPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  console.log('[StorefrontPage] Loading slug:', slug);
 
   // Validate slug format to prevent database queries for static assets
   if (!isValidMerchantSlug(slug)) {
+    console.log('[StorefrontPage] Invalid slug:', slug);
     notFound();
   }
 
   // Use cached merchant data for better performance
+  console.log('[StorefrontPage] Fetching cached merchant...');
   const merchant = await getCachedMerchant(slug);
+  console.log('[StorefrontPage] Merchant result:', merchant ? merchant.id : 'null');
 
   if (!merchant) {
     notFound();
+  }
+
+  // Fetch Google Place Details (Reviews & Ratings) for SEO
+  // TODO: Move Place ID to merchant config in DB
+  let placeDetails = null;
+  const OGABASSEY_PLACE_ID = 'ChIJychoUsKNOxARHWCwVgvx670';
+
+  if (merchant.slug === 'ogabassey' || merchant.slug === 'gadget-universe-demo') {
+    try {
+      console.log('[StorefrontPage] Fetching Google Place details...');
+      placeDetails = await getPlaceDetailsServer(OGABASSEY_PLACE_ID);
+    } catch (err) {
+      console.error('[StorefrontPage] Failed to fetch place details:', err);
+    }
   }
 
   // Check if store is published - show "coming soon" page if not
@@ -162,13 +194,15 @@ export default async function StorefrontPage({
 
   let localBusinessSchema = null;
   let webSiteSchema = null;
+  let baseUrl = '';
+
   // ... rest of the component
 
   if (merchant) {
     const headersList = await headers();
     const host = headersList.get('host') || `${slug}.localhost:3000`;
     const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-    const baseUrl = `${protocol}://${host}`;
+    baseUrl = `${protocol}://${host}`;
     const description =
       merchant.site_description ||
       merchant.site_tagline ||
@@ -203,6 +237,26 @@ export default async function StorefrontPage({
         Object.keys(socialMediaUrls).length > 0 ? socialMediaUrls : undefined,
     };
 
+    // Inject Google Ratings & Reviews if available
+    if (placeDetails) {
+      if (placeDetails.rating) {
+        businessData.rating = {
+          ratingValue: placeDetails.rating,
+          reviewCount: placeDetails.userRatingCount || 0,
+        };
+      }
+
+      if (placeDetails.reviews && Array.isArray(placeDetails.reviews)) {
+        // Map Google reviews to our Schema format
+        businessData.reviews = placeDetails.reviews.map((review: any) => ({
+          author: review.authorAttribution?.displayName || 'Google User',
+          datePublished: review.publishTime || new Date().toISOString(),
+          reviewBody: review.text?.text || '',
+          reviewRating: review.rating || 5,
+        }));
+      }
+    }
+
     localBusinessSchema = generateLocalBusinessSchema(businessData);
 
     // Generate WebSite schema with search action
@@ -227,6 +281,7 @@ export default async function StorefrontPage({
         />
       )}
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
       {webSiteSchema && (
         <script
           type="application/ld+json"
@@ -234,14 +289,70 @@ export default async function StorefrontPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteSchema) }}
         />
       )}
-      <MerchantProvider
-        slug={slug}
-        initialMerchant={merchant as unknown as MerchantData}
-      >
-        <Suspense fallback={<StorefrontPageSkeleton />}>
-          <StorefrontWrapper />
-        </Suspense>
-      </MerchantProvider>
+
+      {/* Service Schemas for Utilities (Showmax, Airtime, Data) */}
+      {merchant && (
+        <>
+          <script
+            type="application/ld+json"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: Static trusted schema
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(
+                generateServiceSchema({
+                  name: 'Showmax Subscription Payment',
+                  description:
+                    'Pay for your Showmax subscription online instantly. Fast, secure, and reliable payment service.',
+                  providerName: merchant.business_name,
+                  providerUrl: baseUrl,
+                  serviceType: 'Streaming Subscription Payment',
+                  logo: merchant.logo_url || undefined,
+                  offers: [
+                    { price: '1200', priceCurrency: 'NGN' },
+                    { price: '2500', priceCurrency: 'NGN' },
+                  ],
+                })
+              ),
+            }}
+          />
+          <script
+            type="application/ld+json"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: Static trusted schema
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(
+                generateServiceSchema({
+                  name: 'Instant Airtime Top-up',
+                  description:
+                    'Buy airtime for MTN, Airtel, Glo, and 9mobile instantly. Fast and secure recharge.',
+                  providerName: merchant.business_name,
+                  providerUrl: baseUrl,
+                  serviceType: 'Mobile Phone Top-up',
+                  logo: merchant.logo_url || undefined,
+                })
+              ),
+            }}
+          />
+          <script
+            type="application/ld+json"
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: Static trusted schema
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify(
+                generateServiceSchema({
+                  name: 'Cheap Data Bundles',
+                  description:
+                    'Buy affordable data bundles for all networks (MTN, Airtel, Glo, 9mobile). Instant activation.',
+                  providerName: merchant.business_name,
+                  providerUrl: baseUrl,
+                  serviceType: 'Internet Data Services',
+                  logo: merchant.logo_url || undefined,
+                })
+              ),
+            }}
+          />
+        </>
+      )}
+      <Suspense fallback={<StorefrontPageSkeleton />}>
+        <StorefrontWrapper />
+      </Suspense>
     </>
   );
 }

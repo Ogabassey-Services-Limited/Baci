@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import { Button } from '@/components/ui/button';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
@@ -117,10 +117,14 @@ export function StorefrontWrapper() {
   }
 
   // Fall back to Puck storefront
+  const handleNoConfig = useCallback(() => {
+    setShowError(true);
+  }, []);
+
   return (
     <>
       <AnalyticsProvider />
-      <DynamicPuckStorefront onNoConfig={() => setShowError(true)} />
+      <DynamicPuckStorefront onNoConfig={handleNoConfig} />
     </>
   );
 }
