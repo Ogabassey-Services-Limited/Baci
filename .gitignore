@@ -53,3 +53,35 @@ src_backup_*.tar.gz
 knip-results.json
 .gemini/bin/
 extract_bag.py
+
+# Temporary data and image directories
+apple_downloaded_images/
+gaming_branded_images/
+gaming_raw_images/
+hp_downloaded_images/
+orphaned_images_full/
+
+# Temporary export/data files
+*.tar.gz
+*_result.txt
+*_result.json
+*_matches.json
+*_wishlist.json
+*_export.txt
+test_sheet*.csv
+user_provided_sheet.csv
+hp_*.xml
+hp_*.json
+migration_map.json
+final_migration*.json
+unmatched_*.json
+timestamp_matches.json
+supabase-updates.json
+vps_*.txt
+vps_*.sh
+files_to_tar.txt
+correct_source.png
+baci_product_names.txt
+
+# Disabled middleware
+middleware.ts.disabled
