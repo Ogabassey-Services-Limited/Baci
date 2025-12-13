@@ -188,8 +188,9 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     console.error('Fetch error:', error);
+    // Don't expose error details to client to prevent information leakage
     return new Response(
-      JSON.stringify({ error: 'Fetch failed', details: String(error) }),
+      JSON.stringify({ error: 'Email delivery failed. Please try again.' }),
       {
         status: 500,
         headers: { 'Content-Type': 'application/json' },

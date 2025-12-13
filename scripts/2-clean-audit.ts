@@ -21,8 +21,8 @@ import * as path from 'node:path';
 const INPUT_FILE = path.join(import.meta.dirname, 'data', 'posts-raw.json');
 const OUTPUT_FILE = path.join(import.meta.dirname, 'data', 'posts-clean.json');
 
-// Domain rewrite
-const OLD_DOMAIN = 'blog.ogabassey.com';
+// Domain rewrite (escaped for regex use)
+const OLD_DOMAIN = 'blog\\.ogabassey\\.com';
 const NEW_PATH = 'ogabassey.com/blog';
 
 // Malware signature patterns (2025 best practices)
@@ -111,21 +111,22 @@ function scanForMalware(content: string): string[] {
     }
 
     // Check for suspicious iframes (not YouTube/Vimeo)
+    // Use regex with word boundaries to prevent subdomain spoofing
     const iframeMatches = content.match(/<iframe[^>]*src=["']([^"']+)["'][^>]*>/gi);
     if (iframeMatches) {
+        const allowedHosts = /^https?:\/\/(?:www\.)?(youtube\.com|vimeo\.com|youtu\.be)\//i;
         for (const iframe of iframeMatches) {
-            if (
-                !iframe.includes('youtube.com') &&
-                !iframe.includes('vimeo.com') &&
-                !iframe.includes('youtu.be')
-            ) {
+            const srcMatch = iframe.match(/src=["']([^"']+)["']/i);
+            const src = srcMatch?.[1] || '';
+            if (!allowedHosts.test(src)) {
                 flags.push(`Suspicious iframe: ${iframe.substring(0, 100)}`);
             }
         }
     }
 
     // Check for inline scripts with suspicious content
-    const scriptMatches = content.match(/<script[^>]*>[\s\S]*?<\/script>/gi);
+    // Handle script tags with optional whitespace before >
+    const scriptMatches = content.match(/<script[^>]*>[\s\S]*?<\/script\s*>/gi);
     if (scriptMatches) {
         for (const script of scriptMatches) {
             if (
@@ -281,10 +282,16 @@ async function cleanAndAudit(): Promise<void> {
         // 8. Basic quality check (can be enhanced with AI later)
         if (cleanStatus === 'KEEP') {
             // Flag posts with very little actual content vs. HTML
+            // Use iterative replacement to fully strip nested/malformed tags
+            let textOnly = cleanContent;
+            let prevLength: number;
+            do {
+                prevLength = textOnly.length;
+                textOnly = textOnly.replace(/<[^>]*>/g, '');
+            } while (textOnly.length !== prevLength);
             const htmlRatio =
                 cleanContent.length > 0
-                    ? (cleanContent.length - cleanContent.replace(/<[^>]*>/g, '').length) /
-                    cleanContent.length
+                    ? (cleanContent.length - textOnly.length) / cleanContent.length
                     : 0;
 
             if (htmlRatio > 0.7) {

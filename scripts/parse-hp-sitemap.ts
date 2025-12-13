@@ -36,10 +36,16 @@ for (const block of urlBlocks) {
     });
 
     // Filter for best quality images (widen.net with w=573 or higher)
-    const bestImages = images.filter(img =>
-        img.includes('hp.widen.net') &&
-        (img.includes('w=573') || img.includes('w=800') || img.includes('w=1500') || img.includes('w=1659'))
-    );
+    // Use URL parsing to validate the host properly
+    const bestImages = images.filter(img => {
+        try {
+            const url = new URL(img);
+            return url.hostname === 'hp.widen.net' &&
+                (img.includes('w=573') || img.includes('w=800') || img.includes('w=1500') || img.includes('w=1659'));
+        } catch {
+            return false;
+        }
+    });
 
     if (bestImages.length > 0) {
         products.push({

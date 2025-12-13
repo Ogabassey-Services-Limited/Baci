@@ -9,8 +9,8 @@ if (!fs.existsSync(downloadDir)) {
     fs.mkdirSync(downloadDir);
 }
 
-// Clean filenames (remove trailing *)
-const cleanFiles = unmatchedFiles.map((f: string) => f.replace('*', ''));
+// Clean filenames (remove all trailing *)
+const cleanFiles = unmatchedFiles.map((f: string) => f.replace(/\*$/g, ''));
 
 console.log(`🚀 Preparing to download ${cleanFiles.length} files...`);
 

@@ -218,7 +218,17 @@ async function importPosts(): Promise<void> {
             title: post.title,
             slug: generateSlug(post.slug) || generateSlug(post.title),
             content: post.content,
-            excerpt: post.excerpt || post.content.substring(0, 200).replace(/<[^>]*>/g, ''),
+            excerpt: (() => {
+                if (post.excerpt) return post.excerpt;
+                // Iteratively strip HTML tags to handle nested/malformed tags
+                let text = post.content.substring(0, 200);
+                let prevLength: number;
+                do {
+                    prevLength = text.length;
+                    text = text.replace(/<[^>]*>/g, '');
+                } while (text.length !== prevLength);
+                return text;
+            })(),
             featured_image_url: featuredImageUrl,
             status: 'draft', // Import as draft for safety
             author_name: 'Ogabassey', // Default author

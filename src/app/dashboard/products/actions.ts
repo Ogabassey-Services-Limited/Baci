@@ -455,6 +455,11 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
       // Base ID extraction for published sheets is complex, so we just modify the URL suffix
       const baseUrl = url.split('/pub')[0];
       exportUrl = `${baseUrl}/pub?output=csv`;
+      // Re-validate the constructed URL to prevent SSRF
+      const exportParsedUrl = new URL(exportUrl);
+      if (!allowedHosts.includes(exportParsedUrl.hostname)) {
+        throw new Error('Invalid URL. Only Google Sheets URLs are allowed.');
+      }
     } else {
       // Standard Sheet: Extract Spreadsheet ID and construct export URL
       // Regex to capture the ID between /d/ and /

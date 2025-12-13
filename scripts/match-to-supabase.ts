@@ -67,7 +67,7 @@ async function matchToSupabase() {
             console.log(`✅ "${match.productName}" -> "${supaProduct.name}" (score: ${searchResult[0].score?.toFixed(3)})`);
 
             finalMatches.push({
-                oldFile: match.file.replace('*', ''),
+                oldFile: match.file.replace(/\*$/g, ''),
                 oldProductName: match.productName,
                 supabaseId: supaProduct.id,
                 supabaseName: supaProduct.name,
