@@ -1,13 +1,14 @@
 /**
  * Shipping Locations API
  * Get available Nigerian locations for shipping
- * Uses static fallback for state/city data since provider APIs don't filter correctly.
+ * Fetches from Topship API for accurate coverage, with static fallback.
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
+import { topshipProvider } from '@/lib/shipping/providers/topship';
 
-// Static list of Nigerian states (2025)
-const NIGERIAN_STATES = [
+// Static fallback list of Nigerian states (2025)
+const NIGERIAN_STATES_FALLBACK = [
   'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue',
   'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu',
   'FCT - Abuja', 'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina',
@@ -15,8 +16,8 @@ const NIGERIAN_STATES = [
   'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
 ];
 
-// Comprehensive cities by state (state capitals and major cities)
-const NIGERIAN_CITIES_BY_STATE: Record<string, string[]> = {
+// Fallback cities by state (state capitals and major cities)
+const NIGERIAN_CITIES_FALLBACK: Record<string, string[]> = {
   'Abia': ['Aba', 'Umuahia', 'Ohafia', 'Arochukwu'],
   'Adamawa': ['Yola', 'Mubi', 'Jimeta', 'Numan'],
   'Akwa Ibom': ['Uyo', 'Eket', 'Ikot Ekpene', 'Oron', 'Abak'],
@@ -56,6 +57,11 @@ const NIGERIAN_CITIES_BY_STATE: Record<string, string[]> = {
   'Zamfara': ['Gusau', 'Kaura Namoda', 'Talata Mafara', 'Anka'],
 };
 
+// Cache for Topship data
+let topshipStatesCache: { states: string[]; stateCodeMap: Record<string, string>; expiry: number } | null = null;
+let topshipCitiesCache: Map<string, { cities: string[]; expiry: number }> = new Map();
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
 // =============================================================================
 // GET /api/shipping/locations - Get Nigerian locations
 // =============================================================================
@@ -66,18 +72,65 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const search = searchParams.get('search');
 
+    // Try to get states from Topship, fall back to static list
+    let states: string[] = NIGERIAN_STATES_FALLBACK;
+    let stateCodeMap: Record<string, string> = {};
+
+    // Check cache for Topship states
+    if (topshipStatesCache && Date.now() < topshipStatesCache.expiry) {
+      states = topshipStatesCache.states;
+      stateCodeMap = topshipStatesCache.stateCodeMap;
+    } else {
+      // Try fetching from Topship
+      try {
+        const topshipStates = await topshipProvider.getStates('NG');
+        if (topshipStates.length > 0) {
+          states = topshipStates.map(s => s.name);
+          stateCodeMap = Object.fromEntries(topshipStates.map(s => [s.name.toLowerCase(), s.code]));
+          topshipStatesCache = { states, stateCodeMap, expiry: Date.now() + CACHE_TTL };
+        }
+      } catch (error) {
+        console.warn('[Locations API] Failed to fetch Topship states, using fallback:', error);
+      }
+    }
+
     // Build locations response
     let locations: { state: string; city: string; stationName?: string }[] = [];
 
     // If filtering by state, return cities for that state
     if (state) {
       // Find the matching state (case-insensitive)
-      const matchedState = NIGERIAN_STATES.find(
+      const matchedState = states.find(
         (s) => s.toLowerCase() === state.toLowerCase()
       );
 
       if (matchedState) {
-        const cities = NIGERIAN_CITIES_BY_STATE[matchedState] || [matchedState];
+        let cities: string[] = [];
+
+        // Try to get cities from Topship
+        const stateCode = stateCodeMap[matchedState.toLowerCase()];
+
+        // Check cache first
+        const cachedCities = topshipCitiesCache.get(matchedState.toLowerCase());
+        if (cachedCities && Date.now() < cachedCities.expiry) {
+          cities = cachedCities.cities;
+        } else if (stateCode) {
+          try {
+            const topshipCities = await topshipProvider.getCities(stateCode);
+            if (topshipCities.length > 0) {
+              cities = topshipCities.map(c => c.name);
+              topshipCitiesCache.set(matchedState.toLowerCase(), { cities, expiry: Date.now() + CACHE_TTL });
+            }
+          } catch (error) {
+            console.warn('[Locations API] Failed to fetch Topship cities for', matchedState, error);
+          }
+        }
+
+        // Fall back to static list if Topship fails
+        if (cities.length === 0) {
+          cities = NIGERIAN_CITIES_FALLBACK[matchedState] || [matchedState];
+        }
+
         locations = cities.map((city) => ({
           state: matchedState,
           city,
@@ -98,9 +151,9 @@ export async function GET(request: NextRequest) {
             l.state.toLowerCase().includes(searchLower)
         );
       } else {
-        // Search across all states and cities
-        for (const [stateName, cities] of Object.entries(NIGERIAN_CITIES_BY_STATE)) {
-          for (const city of cities) {
+        // Search across all states and cities (using fallback for search since it's expensive to fetch all)
+        for (const [stateName, stateCities] of Object.entries(NIGERIAN_CITIES_FALLBACK)) {
+          for (const city of stateCities) {
             if (
               city.toLowerCase().includes(searchLower) ||
               stateName.toLowerCase().includes(searchLower)
@@ -115,14 +168,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       locations: locations.slice(0, 100),
       totalCount: locations.length,
-      states: NIGERIAN_STATES,
+      states,
     });
   } catch (error) {
     console.error('Error getting locations:', error);
     return NextResponse.json({
       locations: [],
       totalCount: 0,
-      states: NIGERIAN_STATES,
+      states: NIGERIAN_STATES_FALLBACK,
     });
   }
 }

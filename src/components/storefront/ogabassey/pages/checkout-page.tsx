@@ -13,6 +13,7 @@ import {
   MapPin,
   ChevronDown,
   Check,
+  Smartphone,
 } from 'lucide-react';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
 import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, PaymentTrustBadges } from '../components/PaymentLogos';
@@ -204,15 +205,15 @@ export const CheckoutPage: React.FC = () => {
     }
   };
 
-  // Trigger quote fetch when Door Delivery is selected and we have an address
+  // Trigger quote fetch when Door Delivery is selected and we have BOTH state AND city
   useEffect(() => {
     if (deliveryMethod === 'door') {
       if (isNewAddressMode) {
-        // Only fetch if State and City are selected. 
-        // We use a fallback for street address to allow early price calculation before full address is typed.
+        // STRICT: Only fetch if BOTH State AND City are explicitly selected
+        // Do NOT use fallbacks - wait for proper location input
         if (newAddressState && newAddressCity) {
           fetchShippingQuotes(
-            newAddressStreet || newAddressCity, // Fallback to City if Street is empty to satisfy API
+            newAddressStreet || `${newAddressCity}, ${newAddressState}`, // Use city+state as fallback address for API
             newAddressState,
             newAddressCity,
             customerPhone,
@@ -266,6 +267,7 @@ export const CheckoutPage: React.FC = () => {
   // Payment State
   const [paymentTab, setPaymentTab] = useState<'full' | 'installments'>('full');
   const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'korapay' | 'credpal' | 'credit_direct' | 'invoice' | 'payforme' | ''>('');
+
   const [payWithWallet, _setPayWithWallet] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -363,28 +365,40 @@ export const CheckoutPage: React.FC = () => {
 
     const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
-    // Construct address string properly
+    // Construct address string properly based on delivery method
     let finalAddress = 'Address not provided';
     let finalCity = '';
     let finalState = '';
 
-    if (isNewAddressMode) {
-      if (!newAddressStreet || !newAddressCity || !newAddressState) {
-        alert('Please enter your full address (Street, City, State).');
-        setIsProcessing(false);
-        return;
+    // Only require full address for door delivery
+    if (deliveryMethod === 'door') {
+      if (isNewAddressMode) {
+        if (!newAddressStreet || !newAddressCity || !newAddressState) {
+          alert('Please enter your full address (Street, City, State).');
+          setIsProcessing(false);
+          return;
+        }
+        finalAddress = `${newAddressStreet}, ${newAddressCity}, ${newAddressState}`;
+        finalCity = newAddressCity;
+        finalState = newAddressState;
+      } else {
+        finalAddress = selectedAddress?.address || 'Address not provided';
+        // Try to parse city/state from saved string if possible
+        const parts = finalAddress.split(',');
+        if (parts.length >= 2) {
+          finalState = parts[parts.length - 1]?.trim() || '';
+          finalCity = parts[parts.length - 2]?.trim() || '';
+        }
       }
-      finalAddress = `${newAddressStreet}, ${newAddressCity}, ${newAddressState}`;
-      finalCity = newAddressCity;
-      finalState = newAddressState;
-    } else {
-      finalAddress = selectedAddress?.address || 'Address not provided';
-      // Try to parse city/state from saved string if possible, otherwise leave empty
-      const parts = finalAddress.split(',');
-      if (parts.length >= 2) {
-        finalState = parts[parts.length - 1]?.trim() || '';
-        finalCity = parts[parts.length - 2]?.trim() || '';
-      }
+    } else if (deliveryMethod === 'pickup') {
+      finalAddress = 'Pickup at Store';
+      finalCity = 'Lagos';
+      finalState = 'Lagos';
+    } else if (deliveryMethod === 'airport') {
+      // For airport, use the city/state from address if available, otherwise use defaults
+      finalAddress = newAddressStreet || `Airport ${airportType === 'pickup' ? 'Pickup' : 'Delivery'}`;
+      finalCity = newAddressCity || 'Airport';
+      finalState = newAddressState || 'Nigeria';
     }
 
     const shippingAddressData = {
@@ -452,7 +466,13 @@ export const CheckoutPage: React.FC = () => {
 
       if (!orderResponse.ok) {
         const errorData = await orderResponse.json();
-        throw new Error(errorData.error || 'Failed to create order');
+        console.error('Order creation failed:', {
+          status: orderResponse.status,
+          error: errorData.error,
+          details: errorData.details,
+          fullResponse: errorData
+        });
+        throw new Error(errorData.details || errorData.error || 'Failed to create order');
       }
 
       const { order } = await orderResponse.json();
@@ -471,6 +491,7 @@ export const CheckoutPage: React.FC = () => {
             customer_email: customerEmail,
             customer_name: `${firstName} ${lastName}`.trim(),
             gateway: paymentMethod, // Explicitly specify gateway
+
           }),
         });
 
@@ -482,9 +503,8 @@ export const CheckoutPage: React.FC = () => {
         const paymentResult = await paymentResponse.json();
 
         if (paymentResult.success && paymentResult.authorization_url) {
-          // Clear cart before redirect
-          clearCart();
-          // Redirect to payment gateway
+          // NOTE: Don't clear cart here - it causes a flash of empty state
+          // Cart will be cleared on the payment callback page after successful payment
           window.location.href = paymentResult.authorization_url;
           return;
         } else {
@@ -747,7 +767,7 @@ export const CheckoutPage: React.FC = () => {
             </div>
 
             {/* Step 2: Delivery Method */}
-            <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'delivery' ? 'border-red-600 ring-1 ring-red-100' : 'border-gray-100'} overflow-hidden transition-all duration-300`}>
+            <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'delivery' ? 'border-red-600 ring-1 ring-red-100' : 'border-gray-100'} transition-all duration-300`}>
               <button
                 type="button"
                 onClick={() => completedSteps.contact && setCurrentStep('delivery')}
@@ -767,266 +787,247 @@ export const CheckoutPage: React.FC = () => {
               </button>
 
               <div className={`grid transition-all duration-300 ease-in-out ${currentStep === 'delivery' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-                <div className="overflow-hidden">
+                <div className={currentStep === 'delivery' ? 'overflow-visible' : 'overflow-hidden'}>
                   <div className="p-6 pt-0 space-y-4">
-                    {/* Delivery Tabs */}
-                    <div className="flex p-1 bg-gray-100 rounded-xl mb-4">
-                      {(['door', 'pickup', 'airport'] as const).map((method) => {
-                        // Filter out Airport if not eligible
-                        if (method === 'airport') {
-                          const AIRPORT_STATES = [
-                            'Abuja', 'FCT', 'Federal Capital Territory', 'FCT - Abuja',
-                            'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue',
-                            'Borno', 'Cross River', 'Delta', 'Edo', 'Enugu', 'Gombe',
-                            'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi',
-                            'Kwara', 'Niger', 'Ondo', 'Oyo', 'Plateau', 'Rivers',
-                            'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
-                          ];
-                          const currentState = isNewAddressMode ? newAddressState : addresses.find(a => a.id === selectedAddressId)?.address.split(',').pop()?.trim();
-                          const isEligible = currentState && AIRPORT_STATES.some(s => s.toLowerCase() === currentState.toLowerCase()) && currentState.toLowerCase() !== 'lagos';
-                          if (!isEligible) return null;
-                        }
+                    {/* STEP 1: Address Input FIRST */}
+                    <div className="space-y-4">
+                      {/* Saved Addresses (for logged in users) */}
+                      {user && addresses.length > 0 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
+                              Where should we deliver?
+                            </label>
+                            <button
+                              onClick={() => setIsNewAddressMode(!isNewAddressMode)}
+                              className="text-xs font-bold text-red-600 hover:underline"
+                            >
+                              {isNewAddressMode ? 'Select Saved Address' : '+ New Address'}
+                            </button>
+                          </div>
+                          {!isNewAddressMode && addresses.map((addr) => (
+                            <label
+                              key={addr.id}
+                              className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all ${selectedAddressId === addr.id
+                                ? 'border-red-600 bg-red-50/50'
+                                : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                            >
+                              <input
+                                type="radio"
+                                name="address"
+                                checked={selectedAddressId === addr.id}
+                                onChange={() => {
+                                  setSelectedAddressId(addr.id);
+                                  setIsNewAddressMode(false);
+                                  // Extract state from saved address for eligibility checks
+                                  const parts = addr.address.split(',').map(s => s.trim());
+                                  if (parts.length >= 2) {
+                                    setNewAddressState(parts[parts.length - 1] || '');
+                                    setNewAddressCity(parts[parts.length - 2] || '');
+                                  }
+                                }}
+                                className="mt-1 w-4 h-4 text-red-600 focus:ring-red-500 border-gray-300"
+                              />
+                              <div className="ml-3">
+                                <p className="font-bold text-gray-900 text-sm">
+                                  {addr.label || 'Saved Address'}
+                                </p>
+                                <p className="text-gray-600 text-sm mt-0.5">
+                                  {addr.address}
+                                </p>
+                                <p className="text-gray-500 text-xs mt-1">
+                                  {addr.phone}
+                                </p>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
 
-                        return (
-                          <button
-                            key={method}
-                            onClick={() => setDeliveryMethod(method)}
-                            className={`flex-1 py-2.5 px-3 rounded-lg text-sm font-bold transition-all ${deliveryMethod === method
-                              ? 'bg-white text-gray-900 shadow-sm'
-                              : 'text-gray-500 hover:text-gray-900'
-                              }`}
-                          >
-                            {method === 'door'
-                              ? 'Door Delivery'
-                              : method === 'pickup'
-                                ? 'Pickup'
-                                : 'Airport'}
-                          </button>
-                        );
-                      })}
+                      {/* New Address Form */}
+                      {(isNewAddressMode || !user || addresses.length === 0) && (
+                        <div className="space-y-4" style={{ overflow: 'visible' }}>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide">
+                            {user && addresses.length > 0 ? 'Enter New Address' : 'Delivery Address'}
+                          </label>
+                          <AddressAutocomplete
+                            value={newAddressStreet}
+                            onChange={(val) => {
+                              const newVal = typeof val === 'string' ? val : val.target.value;
+                              setNewAddressStreet(newVal);
+
+                              // Reset state/city if address is cleared or changed significantly
+                              if (!newVal || newVal.length < 10) {
+                                setNewAddressState('');
+                                setNewAddressCity('');
+                                setShippingQuotes([]);
+                                setSelectedQuoteId('');
+                                setDeliveryMethod('door'); // Reset to default
+                              }
+                            }}
+                            onSelect={(place: any) => {
+                              setNewAddressStreet(place.formattedAddress);
+                              if (place.state) {
+                                setNewAddressState(place.state);
+                              }
+                              if (place.city) {
+                                setNewAddressCity(place.city);
+                              }
+                            }}
+                            placeholder="Start typing your address..."
+                            country="NG"
+                            className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
+                          />
+                          {newAddressState && newAddressCity && (
+                            <p className="text-xs text-green-600 flex items-center gap-1">
+                              <Check size={12} /> Detected: {newAddressCity}, {newAddressState}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Pickup Info */}
-                    {deliveryMethod === 'pickup' && (
-                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-start gap-4 animate-in fade-in">
-                        <div className="bg-white p-2 rounded-lg border border-gray-200">
-                          <Building2 size={24} className="text-gray-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-gray-900 text-sm">Main Office Pickup</h4>
-                          <p className="text-sm text-gray-600 mt-1">
-                            Available for pickup at our Ikeja Store. Usually ready within 2 hours.
-                          </p>
-                          <div className="mt-2 text-xs font-mono bg-white inline-block px-2 py-1 rounded border border-gray-200 text-gray-500">
-                            Pickup closes at 6 PM
+                    {/* STEP 2: Delivery Method Cards - ONLY show AFTER address is detected */}
+                    {((newAddressState && newAddressCity) || (!isNewAddressMode && selectedAddressId)) && (
+                      <>
+                        <div className="mt-6 pt-4 border-t border-gray-100">
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
+                            How would you like to receive your order?
+                          </label>
+                          <div className="flex gap-3 overflow-x-auto pb-1">
+                            {(['door', 'pickup', 'airport'] as const).map((method) => {
+                              // Filter out Pickup if not in Lagos (store is in Lagos)
+                              if (method === 'pickup') {
+                                const currentState = newAddressState;
+                                const isLagos = currentState && currentState.toLowerCase() === 'lagos';
+                                if (!isLagos) return null;
+                              }
+
+                              // Filter out Airport if not eligible (non-Lagos states only)
+                              if (method === 'airport') {
+                                const AIRPORT_STATES = [
+                                  'Abuja', 'FCT', 'Federal Capital Territory', 'FCT - Abuja',
+                                  'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue',
+                                  'Borno', 'Cross River', 'Delta', 'Edo', 'Enugu', 'Gombe',
+                                  'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi',
+                                  'Kwara', 'Niger', 'Ondo', 'Oyo', 'Plateau', 'Rivers',
+                                  'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
+                                ];
+                                const currentState = newAddressState;
+                                const isEligible = currentState && AIRPORT_STATES.some(s => s.toLowerCase() === currentState.toLowerCase()) && currentState.toLowerCase() !== 'lagos';
+                                if (!isEligible) return null;
+                              }
+
+                              const Icon = method === 'door' ? Truck : method === 'pickup' ? Building2 : Plane;
+                              const label = method === 'door' ? 'Door Delivery' : method === 'pickup' ? 'Pickup' : 'Airport';
+                              const subtitle = method === 'door' ? 'To your address' : method === 'pickup' ? 'Collect at store' : 'Via air cargo';
+
+                              return (
+                                <button
+                                  key={method}
+                                  onClick={() => setDeliveryMethod(method)}
+                                  className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] ${deliveryMethod === method
+                                    ? 'border-red-600 bg-red-50 text-red-700'
+                                    : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                >
+                                  <Icon className={`w-6 h-6 ${deliveryMethod === method ? 'text-red-600' : 'text-gray-400'}`} />
+                                  <span className="text-xs sm:text-sm font-bold">{label}</span>
+                                  <span className="text-[10px] text-gray-400">{subtitle}</span>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
-                      </div>
-                    )}
 
-                    {/* Airport Options */}
-                    {deliveryMethod === 'airport' && (
-                      <div className="space-y-3 animate-in fade-in">
-                        <div className="flex items-start gap-3">
-                          <Plane size={20} className="text-gray-500 mt-0.5" />
-                          <p className="text-sm text-gray-600">
-                            Delivery to your nearest airport. Choose delivery to your location or pickup at the airport.
-                          </p>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <label
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'delivery'
-                              ? 'border-red-600 bg-red-50'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                              }`}
-                          >
-                            <input
-                              type="radio"
-                              name="airportType"
-                              value="delivery"
-                              checked={airportType === 'delivery'}
-                              onChange={() => setAirportType('delivery')}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-red-600' : 'border-gray-400'
-                              }`}>
-                              {airportType === 'delivery' && (
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                              )}
+                        {/* STEP 3: Delivery Method Details */}
+                        {/* Pickup Info */}
+                        {deliveryMethod === 'pickup' && (
+                          <div className="mt-4 bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-start gap-4 animate-in fade-in">
+                            <div className="bg-white p-2 rounded-lg border border-gray-200">
+                              <Building2 size={24} className="text-gray-600" />
                             </div>
-                            <div className="flex-1">
-                              <p className="font-bold text-gray-900 text-sm">Airport Delivery</p>
-                              <p className="text-xs text-gray-500 mt-0.5">Delivered to your address</p>
+                            <div>
+                              <h4 className="font-bold text-gray-900 text-sm">Main Office Pickup</h4>
+                              <p className="text-sm text-gray-600 mt-1">
+                                Available for pickup at our Ikeja Store. Usually ready within 2 hours.
+                              </p>
+                              <div className="mt-2 text-xs font-mono bg-white inline-block px-2 py-1 rounded border border-gray-200 text-gray-500">
+                                Pickup closes at 6 PM
+                              </div>
                             </div>
-                            <span className="font-bold text-gray-900">₦25,000</span>
-                          </label>
-                          <label
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'pickup'
-                              ? 'border-red-600 bg-red-50'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                              }`}
-                          >
-                            <input
-                              type="radio"
-                              name="airportType"
-                              value="pickup"
-                              checked={airportType === 'pickup'}
-                              onChange={() => setAirportType('pickup')}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-red-600' : 'border-gray-400'
-                              }`}>
-                              {airportType === 'pickup' && (
-                                <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-bold text-gray-900 text-sm">Airport Pickup</p>
-                              <p className="text-xs text-gray-500 mt-0.5">Collect at the airport</p>
-                            </div>
-                            <span className="font-bold text-gray-900">₦20,000</span>
-                          </label>
-                        </div>
-                      </div>
-                    )}
+                          </div>
+                        )}
 
-                    {/* Door Delivery Logic */}
-                    {deliveryMethod === 'door' && (
-                      <div className="space-y-4 animate-in fade-in">
-                        {/* Saved Addresses */}
-                        {user && addresses.length > 0 && (
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                              <label className="text-xs font-bold text-gray-700 uppercase tracking-wide">
-                                Saved Addresses
-                              </label>
-                              <button
-                                onClick={() => setIsNewAddressMode(!isNewAddressMode)}
-                                className="text-xs font-bold text-red-600 hover:underline"
-                              >
-                                {isNewAddressMode ? 'Cancel & Select Saved' : '+ Add New Address'}
-                              </button>
+                        {/* Airport Options */}
+                        {deliveryMethod === 'airport' && (
+                          <div className="mt-4 space-y-3 animate-in fade-in">
+                            <div className="flex items-start gap-3">
+                              <Plane size={20} className="text-gray-500 mt-0.5" />
+                              <p className="text-sm text-gray-600">
+                                Delivery to your nearest airport. Choose delivery to your location or pickup at the airport.
+                              </p>
                             </div>
-                            {!isNewAddressMode && addresses.map((addr) => (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <label
-                                key={addr.id}
-                                className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all ${selectedAddressId === addr.id
-                                  ? 'border-red-600 bg-red-50/50'
-                                  : 'border-gray-200 hover:border-gray-300'
+                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'delivery'
+                                  ? 'border-red-600 bg-red-50'
+                                  : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                                   }`}
                               >
                                 <input
                                   type="radio"
-                                  name="address"
-                                  checked={selectedAddressId === addr.id}
-                                  onChange={() => {
-                                    setSelectedAddressId(addr.id);
-                                    setIsNewAddressMode(false);
-                                  }}
-                                  className="mt-1 w-4 h-4 text-red-600 focus:ring-red-500 border-gray-300"
+                                  name="airportType"
+                                  value="delivery"
+                                  checked={airportType === 'delivery'}
+                                  onChange={() => setAirportType('delivery')}
+                                  className="sr-only"
                                 />
-                                <div className="ml-3">
-                                  <p className="font-bold text-gray-900 text-sm">
-                                    {addr.label || 'Saved Address'}
-                                  </p>
-                                  <p className="text-gray-600 text-sm mt-0.5">
-                                    {addr.address}
-                                  </p>
-                                  <p className="text-gray-500 text-xs mt-1">
-                                    {addr.phone}
-                                  </p>
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-red-600' : 'border-gray-400'
+                                  }`}>
+                                  {airportType === 'delivery' && (
+                                    <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                                  )}
                                 </div>
+                                <div className="flex-1">
+                                  <p className="font-bold text-gray-900 text-sm">Airport Delivery</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">Delivered to your address</p>
+                                </div>
+                                <span className="font-bold text-gray-900">₦25,000</span>
                               </label>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* New Address Form */}
-                        {(isNewAddressMode || !user || addresses.length === 0) && (
-                          <div className="space-y-4 pt-2">
-                            {/* Street Address First */}
-                            <div>
-                              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
-                                Street Address *
+                              <label
+                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'pickup'
+                                  ? 'border-red-600 bg-red-50'
+                                  : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                                  }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name="airportType"
+                                  value="pickup"
+                                  checked={airportType === 'pickup'}
+                                  onChange={() => setAirportType('pickup')}
+                                  className="sr-only"
+                                />
+                                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-red-600' : 'border-gray-400'
+                                  }`}>
+                                  {airportType === 'pickup' && (
+                                    <div className="w-2.5 h-2.5 rounded-full bg-red-600" />
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-bold text-gray-900 text-sm">Airport Pickup</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">Collect at the airport</p>
+                                </div>
+                                <span className="font-bold text-gray-900">₦20,000</span>
                               </label>
-                              <AddressAutocomplete
-                                value={newAddressStreet}
-                                onChange={(val) => {
-                                  if (typeof val === 'string') {
-                                    setNewAddressStreet(val);
-                                  } else {
-                                    setNewAddressStreet(val.target.value);
-                                  }
-                                }}
-                                onSelect={(place: any) => {
-                                  setNewAddressStreet(place.formattedAddress);
-                                  // Auto-fill state/city if available
-                                  if (place.state && !newAddressState) {
-                                    setNewAddressState(place.state);
-                                  }
-                                  if (place.city && !newAddressCity) {
-                                    setNewAddressCity(place.city);
-                                  }
-                                }}
-                                placeholder="Start typing your address..."
-                                country="NG"
-                                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm text-gray-900 placeholder:text-gray-400"
-                              />
-                            </div>
-                            {/* State and City */}
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
-                                  State *
-                                </label>
-                                <div className="relative">
-                                  <select
-                                    value={newAddressState}
-                                    onChange={(e) => {
-                                      setNewAddressState(e.target.value);
-                                      setNewAddressCity('');
-                                    }}
-                                    autoComplete="new-password"
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm text-gray-900 appearance-none"
-                                  >
-                                    <option value="">Select State</option>
-                                    {shippingStates.map((state) => (
-                                      <option key={state} value={state}>
-                                        {state}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-                                </div>
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5">
-                                  City *
-                                </label>
-                                <div className="relative">
-                                  <select
-                                    value={newAddressCity}
-                                    onChange={(e) => setNewAddressCity(e.target.value)}
-                                    disabled={!newAddressState}
-                                    autoComplete="new-password"
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm text-gray-900 appearance-none disabled:opacity-50"
-                                  >
-                                    <option value="">Select City</option>
-                                    {shippingCities.map((city) => (
-                                      <option key={city} value={city}>
-                                        {city}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-                                </div>
-                              </div>
                             </div>
                           </div>
                         )}
 
-                        {/* Quote Selector with SMART LOADER */}
-                        {((newAddressState && newAddressCity) || (!isNewAddressMode && selectedAddressId)) && (
+                        {/* Door Delivery - Quote Selector */}
+                        {deliveryMethod === 'door' && (
                           <div className="mt-6 border-t border-gray-100 pt-4">
                             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-3">
                               Select Delivery Option
@@ -1070,21 +1071,40 @@ export const CheckoutPage: React.FC = () => {
                                 ))}
                               </div>
                             ) : (
-                              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-                                <div className="p-2 bg-amber-100 rounded-full text-amber-600 flex-shrink-0">
-                                  <Truck size={16} />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (newAddressState && newAddressCity) {
+                                    fetchShippingQuotes(
+                                      newAddressStreet || `${newAddressCity}, ${newAddressState}`,
+                                      newAddressState,
+                                      newAddressCity,
+                                      customerPhone,
+                                      firstName,
+                                      lastName,
+                                      customerEmail
+                                    );
+                                  }
+                                }}
+                                className="w-full bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-dashed border-amber-300 rounded-xl p-5 flex flex-col items-center gap-3 hover:border-amber-400 hover:shadow-md transition-all group cursor-pointer"
+                              >
+                                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+                                  <Truck size={24} />
                                 </div>
-                                <div>
-                                  <h4 className="text-sm font-bold text-gray-900">Custom Delivery Quote</h4>
-                                  <p className="text-xs text-amber-800 mt-1">
-                                    We couldn't fetch instant rates for this exact location. We will calculate the fee and contact you after you place the order.
+                                <div className="text-center">
+                                  <h4 className="text-sm font-bold text-gray-900">🚚 Oops! Rates took a detour</h4>
+                                  <p className="text-xs text-amber-700 mt-1">
+                                    Our delivery partners are a bit slow today. Tap here to try again!
                                   </p>
                                 </div>
-                              </div>
+                                <span className="text-xs font-bold text-amber-600 bg-amber-100 px-3 py-1 rounded-full group-hover:bg-amber-200 transition-colors">
+                                  ↻ Refresh Rates
+                                </span>
+                              </button>
                             )}
                           </div>
                         )}
-                      </div>
+                      </>
                     )}
 
                     <div className="pt-2">
@@ -1314,9 +1334,9 @@ export const CheckoutPage: React.FC = () => {
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-sm text-gray-900">CredPal</span>
-                                <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full font-medium">Popular</span>
+                                <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">Salary earners only</span>
                               </div>
-                              <span className="text-xs text-gray-500 block mt-0.5">Pay in 3-12 monthly installments</span>
+                              <span className="text-xs text-gray-500 block mt-0.5">Pay in 3-6 monthly installments</span>
                             </div>
                             <CredPalLogo className="w-6 h-6" />
                           </label>
@@ -1342,9 +1362,9 @@ export const CheckoutPage: React.FC = () => {
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
                                 <span className="font-bold text-sm text-gray-900">Credit Direct</span>
-                                <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium">BNPL</span>
+                                <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium">Salary & Business owners</span>
                               </div>
-                              <span className="text-xs text-gray-500 block mt-0.5">Split payment into easy monthly installments</span>
+                              <span className="text-xs text-gray-500 block mt-0.5">Pay in 3-6 monthly installments</span>
                             </div>
                             <CreditDirectLogo className="w-6 h-6" />
                           </label>

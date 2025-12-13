@@ -148,15 +148,15 @@ export async function POST(request: NextRequest) {
 
     const gatewaySettings: GatewaySettings = featureSettings
       ? {
-          paystack_enabled: featureSettings.paystack_enabled ?? true,
-          korapay_enabled: featureSettings.korapay_enabled ?? true,
-          preferred_local_gateway:
-            (featureSettings.preferred_local_gateway as PaymentGateway) ||
-            'paystack',
-          preferred_international_gateway:
-            (featureSettings.preferred_international_gateway as PaymentGateway) ||
-            'korapay',
-        }
+        paystack_enabled: featureSettings.paystack_enabled ?? true,
+        korapay_enabled: featureSettings.korapay_enabled ?? true,
+        preferred_local_gateway:
+          (featureSettings.preferred_local_gateway as PaymentGateway) ||
+          'paystack',
+        preferred_international_gateway:
+          (featureSettings.preferred_international_gateway as PaymentGateway) ||
+          'korapay',
+      }
       : DEFAULT_GATEWAY_SETTINGS;
 
     // Generate unique reference
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
     // Get root domain for redirect
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const redirectUrl = `${protocol}://${merchant.slug}.${rootDomain}/payment/success?reference=${reference}`;
+    const redirectUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/success?reference=${reference}`;
 
     // Select gateway based on currency and merchant settings
     const hasPaystackSubaccount = !!merchant.paystack_subaccount_code;
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
         subaccount: merchant.paystack_subaccount_code as string,
         transaction_charge: fees.platformFee, // Platform fee in kobo
         bearer: 'account', // Main account (platform) bears Paystack fees
-        channels: ['card', 'bank', 'ussd', 'bank_transfer'],
+        channels: body.channels || ['card', 'bank', 'ussd', 'bank_transfer', 'mobile_money', 'qr'],
         metadata: {
           merchant_id,
           order_id,

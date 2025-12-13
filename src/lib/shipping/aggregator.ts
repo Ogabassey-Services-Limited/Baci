@@ -24,23 +24,13 @@ const QUOTE_TTL_SECONDS =
 // FALLBACK QUOTE
 // =============================================================================
 
-function createFallbackQuote(): ShippingQuote {
-  return {
-    id: crypto.randomUUID(),
-    provider: 'GIGL', // We'll mark this as fallback in the UI
-    serviceTier: 'Standard',
-    carrierName: 'Standard Delivery',
-    displayName: 'Standard Delivery',
-    estimatedDays: 5,
-    minDays: 3,
-    maxDays: 7,
-    price: DEFAULT_SHIPPING_FEE,
-    currency: 'NGN',
-    pickupIncluded: false,
-    insuranceIncluded: true,
-    expiresAt: new Date(Date.now() + QUOTE_TTL_SECONDS * 1000),
-  };
-}
+// REMOVED: Fallback quote with hardcoded ₦1,500
+// Instead, return empty quotes to trigger the "Refresh Rates" UI in checkout
+// function createFallbackQuote(): ShippingQuote { ... }
+
+// =============================================================================
+// QUOTE RANKING
+// =============================================================================
 
 // =============================================================================
 // QUOTE RANKING
@@ -158,7 +148,7 @@ function selectFeaturedQuotes(rankedQuotes: RankedQuote[]): ShippingQuote[] {
 // =============================================================================
 
 export class QuoteAggregator {
-  constructor(private registry: ShippingProviderRegistry) {}
+  constructor(private registry: ShippingProviderRegistry) { }
 
   /**
    * Get aggregated quotes from all enabled providers
@@ -226,19 +216,19 @@ export class QuoteAggregator {
 
   /**
    * Create a fallback response when no providers are available
+   * Returns EMPTY quotes to trigger the "Refresh Rates" UI in checkout
    */
   private createFallbackResponse(
     sessionId: string,
     warnings?: string[]
   ): QuoteResponse {
-    const fallbackQuote = createFallbackQuote();
     return {
       quotes: {
-        featured: [fallbackQuote],
-        all: [fallbackQuote],
+        featured: [],
+        all: [],
       },
       sessionId,
-      expiresAt: fallbackQuote.expiresAt.toISOString(),
+      expiresAt: new Date(Date.now() + QUOTE_TTL_SECONDS * 1000).toISOString(),
       warnings,
     };
   }

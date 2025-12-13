@@ -15,6 +15,7 @@ import {
   sanitizeSearchQuery,
 } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 
 // GIGL-specific shipment creation logic is now in its own function
@@ -189,8 +190,8 @@ export async function GET(request: NextRequest) {
 // POST /api/orders - Create new order from storefront
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Use service role client for order creation to bypass RLS (storefront guests can't insert orders)
+    const supabase = createServiceClient();
     const body = await request.json();
 
     // Capture IP and User Agent for enhanced ad tracking (improves Event Match Quality)
