@@ -2,28 +2,27 @@
 
 import { CheckCircle2, Edit2, MapPin, Plus, Trash2 } from 'lucide-react';
 import type React from 'react';
+import { EmptyState } from '../components/empty-state';
 
-export const OgabasseyV2AddressBook: React.FC = () => {
-  const addresses = [
-    {
-      id: 1,
-      label: 'Home',
-      address: '2 Olaide Tomori St, Ikeja',
-      city: 'Lagos',
-      state: 'Lagos',
-      phone: '+234 814 697 8921',
-      isDefault: true,
-    },
-    {
-      id: 2,
-      label: 'Office',
-      address: 'Tech Hub, 45 Admiralty Way, Lekki Phase 1',
-      city: 'Lagos',
-      state: 'Lagos',
-      phone: '+234 800 123 4567',
-      isDefault: false,
-    },
-  ];
+// We'll define a local interface that matches the expected shape, or import if available
+import { type SavedAddress } from '@/contexts/customer-auth-context';
+
+
+export interface AddressBookProps {
+  addresses: SavedAddress[];
+  onAdd: () => void;
+  onEdit: (address: SavedAddress) => void;
+  onDelete: (id: string) => void;
+  onSetDefault: (id: string) => void;
+}
+
+export const OgabasseyV2AddressBook: React.FC<AddressBookProps> = ({
+  addresses,
+  onAdd,
+  onEdit,
+  onDelete,
+  onSetDefault,
+}) => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
@@ -35,64 +34,78 @@ export const OgabasseyV2AddressBook: React.FC = () => {
           </h1>
           <button
             type="button"
+            onClick={onAdd}
             className="bg-red-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-red-700 transition-colors flex items-center gap-2 shadow-sm active:scale-95"
           >
             <Plus size={16} /> Add New
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {addresses.map((addr) => (
-            <div
-              key={addr.id}
-              className={`bg-white p-6 rounded-2xl border ${addr.isDefault ? 'border-red-200 ring-1 ring-red-50' : 'border-gray-100'} shadow-sm relative group`}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-900">{addr.label}</span>
-                  {addr.isDefault && (
-                    <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-100 flex items-center gap-1">
-                      <CheckCircle2 size={10} /> Default
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    type="button"
-                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  {!addr.isDefault && (
+        {addresses.length === 0 ? (
+          <EmptyState
+            variant="address"
+            title="No Addresses Found"
+            description="You haven't added any shipping addresses yet."
+            actionLabel="Add New Address"
+            onAction={onAdd}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {addresses.map((addr) => (
+              <div
+                key={addr.id}
+                className={`bg-white p-6 rounded-2xl border ${addr.is_default ? 'border-red-200 ring-1 ring-red-50' : 'border-gray-100'} shadow-sm relative group`}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-gray-900">{addr.label}</span>
+                    {addr.is_default && (
+                      <span className="bg-green-50 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-green-100 flex items-center gap-1">
+                        <CheckCircle2 size={10} /> Default
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       type="button"
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      onClick={() => onEdit(addr)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                     >
-                      <Trash2 size={16} />
+                      <Edit2 size={16} />
                     </button>
-                  )}
+                    {!addr.is_default && (
+                      <button
+                        type="button"
+                        onClick={() => onDelete(addr.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-1 text-sm text-gray-600 mb-4">
-                <p>{addr.address}</p>
-                <p>
-                  {addr.city}, {addr.state}
-                </p>
-                <p className="pt-2 font-medium text-gray-900">{addr.phone}</p>
-              </div>
+                <div className="space-y-1 text-sm text-gray-600 mb-4">
+                  <p>{addr.address}</p>
+                  <p>
+                    {addr.city}, {addr.state}
+                  </p>
+                  <p className="pt-2 font-medium text-gray-900">{addr.phone}</p>
+                </div>
 
-              {!addr.isDefault && (
-                <button
-                  type="button"
-                  className="text-xs font-bold text-gray-400 hover:text-red-600 transition-colors"
-                >
-                  Set as Default
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
+                {!addr.is_default && (
+                  <button
+                    type="button"
+                    onClick={() => onSetDefault(addr.id)}
+                    className="text-xs font-bold text-gray-400 hover:text-red-600 transition-colors"
+                  >
+                    Set as Default
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

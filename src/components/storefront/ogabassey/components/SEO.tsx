@@ -16,6 +16,7 @@ interface SEOProps {
   brand?: string;
   rating?: number;
   reviewCount?: number;
+  specifications?: { category: string; items: { label: string; value: string }[] }[];
 }
 
 export const SEO: React.FC<SEOProps> = ({
@@ -30,6 +31,7 @@ export const SEO: React.FC<SEOProps> = ({
   brand,
   rating,
   reviewCount,
+  specifications,
 }) => {
   useEffect(() => {
     // 1. Update Title
@@ -75,7 +77,7 @@ export const SEO: React.FC<SEOProps> = ({
     if (image) setMeta('twitter:image', image);
 
     // 6. JSON-LD Structured Data (Rich Snippets)
-    let schemaData = null;
+    let schemaData: Record<string, unknown> | null = null;
 
     if (type === 'product') {
       schemaData = {
@@ -110,6 +112,24 @@ export const SEO: React.FC<SEOProps> = ({
           },
         };
       }
+
+      if (specifications && Array.isArray(specifications)) {
+        const additionalProperty: { '@type': string; name: string; value: string }[] = [];
+        specifications.forEach(category => {
+          if (category.items) {
+            category.items.forEach(item => {
+              additionalProperty.push({
+                '@type': 'PropertyValue',
+                name: item.label,
+                value: item.value,
+              });
+            });
+          }
+        });
+        if (additionalProperty.length > 0) {
+          schemaData.additionalProperty = additionalProperty;
+        }
+      }
     }
 
     // Inject JSON-LD
@@ -139,6 +159,7 @@ export const SEO: React.FC<SEOProps> = ({
     brand,
     rating,
     reviewCount,
+    specifications,
   ]);
 
   return null;

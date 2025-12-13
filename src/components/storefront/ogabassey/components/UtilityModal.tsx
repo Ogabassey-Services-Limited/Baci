@@ -213,6 +213,22 @@ export const UtilityModal = ({
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-5">
 
+                            {/* Phone Number Input */}
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-gray-700">Phone Number/ID</label>
+                                <div className="relative">
+                                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    <input
+                                        type="tel"
+                                        value={phoneNumber}
+                                        onChange={(e) => setPhoneNumber(e.target.value)}
+                                        placeholder="Enter phone number"
+                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
                             {/* Provider Selection */}
                             {(activeTab === 'airtime' || activeTab === 'data') && (
                                 <div className="grid grid-cols-4 gap-3">
@@ -237,22 +253,6 @@ export const UtilityModal = ({
                                     ))}
                                 </div>
                             )}
-
-                            {/* Phone Number Input */}
-                            <div className="space-y-1.5">
-                                <label className="text-sm font-medium text-gray-700">Phone Number/ID</label>
-                                <div className="relative">
-                                    <Smartphone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                    <input
-                                        type="tel"
-                                        value={phoneNumber}
-                                        onChange={(e) => setPhoneNumber(e.target.value)}
-                                        placeholder="Enter phone number"
-                                        className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all"
-                                        required
-                                    />
-                                </div>
-                            </div>
 
                             {/* Amount Input */}
                             <div className="space-y-1.5">

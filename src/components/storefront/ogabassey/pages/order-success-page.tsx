@@ -9,11 +9,21 @@ import {
   ShoppingBag,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { InvoiceModal } from '../components/InvoiceModal';
 import { useV2Order } from '../providers/v2-order-context';
+
+// Hook to extract store slug from pathname
+function useStoreSlug() {
+  const pathname = usePathname();
+  const pathSegments = pathname?.split('/').filter(Boolean) || [];
+  const knownRoutes = ['account', 'cart', 'checkout', 'products', 'wishlist', 'wallet', 'repairs', 'imei-check', 'pages', 'orders'];
+  const firstSegment = pathSegments[0] || '';
+  return knownRoutes.includes(firstSegment) ? '' : firstSegment;
+}
+
 
 const GoogleIcon = ({ className }: { className?: string }) => (
   <svg
@@ -45,6 +55,9 @@ export const OrderSuccessPage: React.FC = () => {
   const { getOrder } = useV2Order();
   const searchParams = useSearchParams();
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
+
+  const storeSlug = useStoreSlug();
+  const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
 
   const orderId = searchParams.get('orderId');
   const successType = searchParams.get('type') || 'standard'; // standard, invoice, payforme
@@ -171,13 +184,13 @@ export const OrderSuccessPage: React.FC = () => {
 
         <div className="flex flex-col-reverse md:flex-row gap-3 justify-center">
           <Link
-            href="/"
+            href={getUrl('/') as any}
             className="flex-1 py-3.5 px-6 rounded-xl font-bold text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors"
           >
             Continue Shopping
           </Link>
           <button
-            onClick={() => router.push('/orders')}
+            onClick={() => router.push(getUrl('/account/orders') as any)}
             className="flex-1 bg-red-600 text-white font-bold py-3.5 px-6 rounded-xl hover:bg-red-700 transition-all shadow-lg hover:shadow-red-200 active:scale-[0.98] flex items-center justify-center gap-2"
           >
             See Order Details <ArrowRight size={18} />

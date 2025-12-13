@@ -4,6 +4,7 @@ import { Loader2, Star, X } from 'lucide-react';
 import Image from 'next/image';
 import type React from 'react';
 import { useState } from 'react';
+import { EmptyState } from '../components/empty-state';
 
 interface Product {
   id: string;
@@ -114,11 +115,10 @@ const RatingModal: React.FC<RatingModalProps> = ({
             >
               <Star
                 size={32}
-                className={`transition-colors duration-200 ${
-                  (hoverRating || rating) >= star
-                    ? 'fill-yellow-400 text-yellow-400 drop-shadow-sm'
-                    : 'text-gray-200 fill-gray-50'
-                }`}
+                className={`transition-colors duration-200 ${(hoverRating || rating) >= star
+                  ? 'fill-yellow-400 text-yellow-400 drop-shadow-sm'
+                  : 'text-gray-200 fill-gray-50'
+                  }`}
                 strokeWidth={1.5}
               />
             </button>
@@ -261,15 +261,12 @@ export const OgabasseyV2Reviews: React.FC = () => {
                 </div>
               ))
             ) : (
-              <div className="text-center py-12 bg-white rounded-2xl border border-gray-50">
-                <Star className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                <h3 className="text-lg font-bold text-gray-900 mb-1">
-                  No pending reviews
-                </h3>
-                <p className="text-gray-500 text-sm">
-                  You have reviewed all your purchases.
-                </p>
-              </div>
+              <EmptyState
+                variant="reviews"
+                title="No Pending Reviews"
+                description="You have reviewed all your purchases."
+                compact
+              />
             )}
           </div>
         ) : (
@@ -320,15 +317,12 @@ export const OgabasseyV2Reviews: React.FC = () => {
                 </div>
               ))
             ) : (
-              <div className="text-center py-12 bg-white rounded-2xl border border-gray-50">
-                <Star className="w-12 h-12 text-gray-200 mx-auto mb-3" />
-                <h3 className="text-lg font-bold text-gray-900 mb-1">
-                  No review history
-                </h3>
-                <p className="text-gray-500 text-sm">
-                  Your past reviews will appear here.
-                </p>
-              </div>
+              <EmptyState
+                variant="history"
+                title="No Review History"
+                description="Your past reviews will appear here."
+                compact
+              />
             )}
           </div>
         )}

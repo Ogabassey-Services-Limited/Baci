@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useCart } from '@/hooks/use-cart';
-import { EmptyState } from '../components/EmptyState';
+import { EmptyState } from '../components/empty-state';
 import { useV2Saved } from '../providers/v2-saved-context';
 
 export const SavedPage: React.FC = () => {

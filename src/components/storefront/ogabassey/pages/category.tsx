@@ -86,7 +86,10 @@ export const OgabasseyV2CategoryPage: React.FC<
         }
       }
       if (p.ram) options.ram.add(p.ram);
-      if (p.colors) p.colors.forEach((c) => options.colors.add(c));
+      if (p.colors) p.colors.forEach((c) => {
+        const colorName = typeof c === 'string' ? c : c.name;
+        options.colors.add(colorName);
+      });
       if (p.simType) options.simType.add(p.simType);
       if (p.displayType) options.displayType.add(p.displayType);
       if (p.displaySize) options.displaySize.add(p.displaySize);
@@ -153,7 +156,10 @@ export const OgabasseyV2CategoryPage: React.FC<
 
       // Colors: If product has ANY of the selected colors
       if (filters.colors.length > 0) {
-        if (!p.colors || !p.colors.some((c) => filters.colors.includes(c)))
+        if (!p.colors || !p.colors.some((c) => {
+          const colorName = typeof c === 'string' ? c : c.name;
+          return filters.colors.includes(colorName);
+        }))
           return false;
       }
 
@@ -317,12 +323,12 @@ export const OgabasseyV2CategoryPage: React.FC<
                       {/* Ad insertion logic */}
                       {viewMode === 'grid' && (index === 5 || index === 11) && (
                         <div className="col-span-2 md:col-span-3 my-4">
-                          <AdUnit placementKey="PRODUCT_GRID_IN_FEED" />
+                          <AdUnit placementKey="PRODUCT_GRID_MPU" />
                         </div>
                       )}
                       {viewMode === 'list' && (index === 3 || index === 7) && (
                         <div className="w-full my-4">
-                          <AdUnit placementKey="PRODUCT_GRID_IN_FEED" />
+                          <AdUnit placementKey="PRODUCT_GRID_MPU" />
                         </div>
                       )}
                     </React.Fragment>

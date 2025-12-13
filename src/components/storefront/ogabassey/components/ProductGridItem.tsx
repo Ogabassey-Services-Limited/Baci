@@ -13,28 +13,7 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { Product } from '../types';
-
-/**
- * Generate product URL based on routing context.
- * Priority:
- * 1. Subdomain + Category: /[category]/[product]
- * 2. Subdomain + No Category: /products/[product]
- * 3. Path + Category: /[store]/[category]/[product]
- * 4. Path + No Category: /[store]/products/[product]
- */
-function getProductUrl(productSlug: string | number, categorySlug?: string, storeSlug?: string): string {
-  const isSubdomain = typeof window !== 'undefined' &&
-    window.location.hostname.endsWith(process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com') &&
-    window.location.hostname !== (process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com');
-
-  const baseProductPath = categorySlug ? `/${categorySlug}/${productSlug}` : `/products/${productSlug}`;
-
-  if (isSubdomain) {
-    return baseProductPath;
-  }
-
-  return storeSlug ? `/${storeSlug}${baseProductPath}` : baseProductPath;
-}
+import { getProductUrl } from '@/lib/seo-utils';
 
 interface ProductGridItemProps {
   product: Product;
@@ -100,7 +79,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative">
       <Link
-        href={getProductUrl(product.slug || product.id, product.categorySlug, storeSlug) as any}
+        href={getProductUrl({ ...product, id: String(product.id) }) as any}
         className="absolute inset-0 z-0"
       />
 
@@ -160,7 +139,9 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         {product.colors && product.colors.length > 0 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center -space-x-1.5 z-20 pointer-events-auto">
             {product.colors.slice(0, 4).map((color, idx) => {
-              const hexColor = color.startsWith('#') ? color : '#cccccc';
+              const hexColor = typeof color === 'string'
+                ? (color.startsWith('#') ? color : '#cccccc')
+                : color.value;
               const isSelected = idx === activeColorIndex;
               return (
                 <button
@@ -171,8 +152,8 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
                     : 'w-3.5 h-3.5 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
                     }`}
                   style={{ backgroundColor: hexColor }}
-                  title={color}
-                  aria-label={`Select color ${color}`}
+                  title={typeof color === 'string' ? color : color.name}
+                  aria-label={`Select color ${typeof color === 'string' ? color : color.name}`}
                 />
               );
             })}
@@ -246,15 +227,12 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           )}
         </h3>
 
-        {/* Description: 
-            - Grid Mode (Mobile): Hidden
-            - List Mode (Mobile): Visible
-            - Desktop: Always Visible
-        */}
+        {/* Short Teaser - Single line */}
         <p
-          className={`text-gray-500 text-xs mb-3 line-clamp-2 leading-relaxed ${viewMode === 'list' ? 'block' : 'hidden md:block'}`}
+          className={`text-gray-400 text-[11px] mb-2 line-clamp-1 ${viewMode === 'list' ? 'block' : 'hidden md:block'}`}
         >
-          {product.description}
+          {product.description?.slice(0, 60)}{product.description && product.description.length > 60 ? '...' : ''}
+          <span className="text-red-500 font-medium ml-1">View specs →</span>
         </p>
 
         {/* Price & Details */}

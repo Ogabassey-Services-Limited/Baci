@@ -5,6 +5,7 @@ import type React from 'react';
 import { CartProvider } from '@/hooks/use-cart';
 
 import { ChatWidget } from './components/ChatWidget';
+import { CartSidebar } from './components/CartSidebar';
 import { Footer } from './components/Footer';
 import { MobileFooter } from './components/MobileFooter';
 import { OfflineNotice } from './components/OfflineNotice';
@@ -42,7 +43,8 @@ export function OgabasseyLayout({
                 />
                 <main className="flex-1">{children}</main>
                 <Footer merchant={merchant} />
-                <MobileFooter />
+                <MobileFooter storeSlug={merchant?.slug || 'ogabassey'} />
+                <CartSidebar />
                 <ChatWidget />
                 <PopupSystem />
                 <OfflineNotice />

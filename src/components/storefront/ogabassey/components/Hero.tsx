@@ -277,9 +277,9 @@ export const Hero: React.FC = () => {
                     }`}
                 >
                   <div className="max-w-lg space-y-4 transform translate-x-0 transition-transform duration-700">
-                    <h1 className="text-6xl lg:text-8xl font-bold tracking-tighter leading-none">
+                    <h2 className="text-6xl lg:text-8xl font-bold tracking-tighter leading-none">
                       {slide.title}
-                    </h1>
+                    </h2>
                     <p className="text-4xl lg:text-5xl font-light opacity-90 tracking-tight">
                       {slide.subtitle}
                     </p>

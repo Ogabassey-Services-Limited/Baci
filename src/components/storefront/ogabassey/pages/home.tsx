@@ -18,6 +18,9 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = () => {
 
   return (
     <>
+      <h1 className="sr-only">
+        Ogabassey - Buy Affordable New & UK Used Smartphones in Nigeria
+      </h1>
       <Hero />
 
       {/* Horizontal Carousel Banner */}

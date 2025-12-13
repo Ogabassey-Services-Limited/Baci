@@ -33,26 +33,35 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
   const pathname = usePathname();
   const { theme, toggleTheme } = useV2Theme();
 
+  // Extract store slug from pathname (first segment that's not a known page route)
+  // e.g., "/ogabassey/cart" -> "ogabassey", "/cart" -> ""
+  const pathSegments = pathname?.split('/').filter(Boolean) || [];
+  const knownRoutes = ['account', 'cart', 'checkout', 'products', 'wishlist', 'wallet', 'repairs', 'imei-check', 'pages'];
+  const firstSegment = pathSegments[0] || '';
+  const storeSlug = knownRoutes.includes(firstSegment) ? '' : firstSegment;
+
   if (!isOpen) return null;
 
   const handleNavigate = (path: string) => {
-    router.push(path as any);
+    // Prepend store slug if we're in path-based routing mode
+    const fullPath = storeSlug ? `/${storeSlug}${path}` : path;
+    router.push(fullPath as any);
     onClose();
   };
 
   const menuItems = [
-    { label: 'Profile', icon: User, path: '/profile' },
+    { label: 'Profile', icon: User, path: '/account' },
     { label: 'Member Status', icon: Crown, path: '/member-status' },
-    { label: 'Orders', icon: ShoppingBag, path: '/orders' },
-    { label: 'Saved Items', icon: Heart, path: '/saved' },
+    { label: 'Orders', icon: ShoppingBag, path: '/account/orders' },
+    { label: 'Saved Items', icon: Heart, path: '/wishlist' },
     { label: 'IMEI Checker', icon: ScanBarcode, path: '/imei-check' },
     { label: 'Wallet', icon: Wallet, path: '/wallet' },
     { label: 'Receipts', icon: FileText, path: '/receipts' },
-    { label: 'Address Book', icon: MapPin, path: '/addresses' },
+    { label: 'Address Book', icon: MapPin, path: '/account/addresses' },
     { label: 'Repairs', icon: Wrench, path: '/repairs' },
     { label: 'Swap / Trade-in', icon: RefreshCw, path: '/swap' },
     { label: 'My Reviews', icon: Star, path: '/reviews' },
-    { label: 'Help & Support', icon: HelpCircle, path: '/help' },
+    { label: 'Help & Support', icon: HelpCircle, path: '/pages/faq' },
   ];
 
   return (

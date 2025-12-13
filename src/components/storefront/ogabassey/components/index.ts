@@ -5,7 +5,7 @@ export * from './BlogSnippet';
 export * from './CartSidebar';
 export * from './CategoryFiltersSidebar';
 export * from './ChatWidget';
-export * from './EmptyState';
+export * from './empty-state';
 export * from './FloatingParticles';
 export * from './Footer';
 export * from './GiftModal';

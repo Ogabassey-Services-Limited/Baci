@@ -12,7 +12,10 @@ interface EmptyStateProps {
   | 'generic'
   | 'wallet'
   | 'orders'
-  | 'history';
+  | 'history'
+  | 'reviews'
+  | 'address'
+  | 'notifications';
   title: string;
   description: string;
   actionLabel?: string;
@@ -296,6 +299,103 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
           strokeLinecap="round"
         />
         <circle cx="40" cy="160" r="5" fill="#EF4444" />
+      </svg>
+    ),
+    reviews: (
+      <svg
+        width="200"
+        height="200"
+        viewBox="0 0 200 200"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-full h-full"
+      >
+        <circle cx="100" cy="100" r="90" fill="#F9FAFB" />
+        <path
+          d="M100 60L112 85H140L118 102L126 128L100 112L74 128L82 102L60 85H88L100 60Z"
+          stroke="#E5E7EB"
+          strokeWidth="4"
+          strokeLinejoin="round"
+          fill="white"
+        />
+        <path
+          d="M140 130L150 120M150 120L160 110M150 120L140 110M150 120L160 130"
+          stroke="#EF4444"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <circle cx="100" cy="100" r="5" fill="#E5E7EB" />
+        <path
+          d="M70 150Q100 160 130 150"
+          stroke="#EF4444"
+          strokeWidth="2"
+          strokeLinecap="round"
+          opacity="0.5"
+        />
+      </svg>
+    ),
+    address: (
+      <svg
+        width="200"
+        height="200"
+        viewBox="0 0 200 200"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-full h-full"
+      >
+        <circle cx="100" cy="100" r="90" fill="#F9FAFB" />
+        <path
+          d="M100 150C100 150 135 115 135 85C135 65.67 119.33 50 100 50C80.67 50 65 65.67 65 85C65 115 100 150 100 150Z"
+          fill="white"
+          stroke="#E5E7EB"
+          strokeWidth="4"
+          strokeLinejoin="round"
+        />
+        <circle cx="100" cy="85" r="12" fill="#F3F4F6" />
+        <path
+          d="M70 160H130"
+          stroke="#E5E7EB"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M130 65L145 50M140 75L155 60"
+          stroke="#EF4444"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+    notifications: (
+      <svg
+        width="200"
+        height="200"
+        viewBox="0 0 200 200"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-full h-full"
+      >
+        <circle cx="100" cy="100" r="90" fill="#F9FAFB" />
+        <path
+          d="M100 50V40M100 150C100 155.523 95.523 160 90 160H110C104.477 160 100 155.523 100 150ZM65 130V90C65 70.67 80.67 55 100 55C119.33 55 135 70.67 135 90V130L145 140H55L65 130Z"
+          fill="white"
+          stroke="#E5E7EB"
+          strokeWidth="4"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M140 70L155 55"
+          stroke="#EF4444"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <path
+          d="M60 70L45 55"
+          stroke="#EF4444"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <circle cx="150" cy="60" r="4" fill="#FECACA" />
       </svg>
     ),
     generic: (

@@ -11,13 +11,31 @@ export const PopupSystem: React.FC = () => {
   const adTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Logic:
-  // 1. Show Newsletter after 4 seconds
+  // 1. Show Newsletter after 4 seconds (only if not dismissed in last 7 days)
   // 2. When newsletter is closed, start timer for Ad (5 mins requested, set to 10s for demo)
 
+  const NEWSLETTER_STORAGE_KEY = 'ogabassey-newsletter-dismissed';
+  const NEWSLETTER_EXPIRY_DAYS = 7; // Re-show after 7 days
+
   useEffect(() => {
+    // Check if already dismissed within expiry period
+    try {
+      const dismissedAt = localStorage.getItem(NEWSLETTER_STORAGE_KEY);
+      if (dismissedAt) {
+        const dismissedDate = new Date(dismissedAt);
+        const now = new Date();
+        const daysSinceDismissed = (now.getTime() - dismissedDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceDismissed < NEWSLETTER_EXPIRY_DAYS) {
+          // Don't show - dismissed recently
+          return;
+        }
+      }
+    } catch {
+      // localStorage not available, proceed with showing
+    }
+
     // Initial delay for newsletter
     const timer = setTimeout(() => {
-      // Check if already subscribed in localStorage if this was a real app
       setShowNewsletter(true);
     }, 4000);
     return () => clearTimeout(timer);
@@ -34,6 +52,13 @@ export const PopupSystem: React.FC = () => {
 
   const handleCloseNewsletter = () => {
     setShowNewsletter(false);
+
+    // Save dismissal to localStorage
+    try {
+      localStorage.setItem(NEWSLETTER_STORAGE_KEY, new Date().toISOString());
+    } catch {
+      // Ignore if localStorage unavailable
+    }
 
     // Start timer for Ad Popup
     // NOTE: For demonstration, this is set to 10 seconds (10000ms).

@@ -13,28 +13,8 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { Product } from '../types';
+import { getProductUrl } from '@/lib/seo-utils';
 
-/**
- * Generate product URL based on routing context.
- * Priority:
- * 1. Subdomain + Category: /[category]/[product]
- * 2. Subdomain + No Category: /products/[product]
- * 3. Path + Category: /[store]/[category]/[product]
- * 4. Path + No Category: /[store]/products/[product]
- */
-function getProductUrl(productSlug: string | number, categorySlug?: string, storeSlug?: string): string {
-  const isSubdomain = typeof window !== 'undefined' &&
-    window.location.hostname.endsWith(process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com') &&
-    window.location.hostname !== (process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com');
-
-  const baseProductPath = categorySlug ? `/${categorySlug}/${productSlug}` : `/products/${productSlug}`;
-
-  if (isSubdomain) {
-    return baseProductPath;
-  }
-
-  return storeSlug ? `/${storeSlug}${baseProductPath}` : baseProductPath;
-}
 
 interface ProductListItemProps {
   product: Product;
@@ -94,9 +74,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative">
       <Link
-        href={getProductUrl(product.slug || product.id, product.categorySlug, storeSlug) as any}
+        href={getProductUrl({ ...product, id: String(product.id) }) as any}
         className="absolute inset-0 z-0"
       />
+
 
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
@@ -150,9 +131,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         {/* Colors Swatches - Bottom Middle - Interactive */}
         {product.colors && product.colors.length > 0 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center -space-x-1.5 z-20 pointer-events-auto">
-            {product.colors.slice(0, 3).map((color, idx) => {
-              // Determine display color (map names to hex if needed, or use raw hex)
-              const hexColor = color.startsWith('#') ? color : '#cccccc';
+            {product.colors.slice(0, 4).map((color, idx) => {
+              const hexColor = typeof color === 'string'
+                ? (color.startsWith('#') ? color : '#cccccc')
+                : color.value;
               const isSelected = idx === activeColorIndex;
               return (
                 <button
@@ -163,7 +145,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
                     : 'w-3 h-3 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
                     }`}
                   style={{ backgroundColor: hexColor }}
-                  title={color}
+                  title={typeof color === 'string' ? color : color.name}
                 />
               );
             })}
@@ -241,6 +223,6 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div >
   );
 };

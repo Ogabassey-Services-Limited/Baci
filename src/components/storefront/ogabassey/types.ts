@@ -27,6 +27,7 @@ export interface Banner {
 
 export interface Product {
   id: number | string;
+  merchantId?: string; // For scoped searches (comparison)
   slug?: string;
   name: string;
   price: string;
@@ -48,15 +49,18 @@ export interface Product {
   brand?: string;
   storage?: string | string[];
   ram?: string;
-  colors?: string[];
+  colors?: string[] | { name: string; value: string }[];
   simType?: string;
   displayType?: string;
   displaySize?: string;
   // New fields for Interactive Grid
   images?: string[];
   spec?: string;
+  specs?: { label: string; value: string }[];
+  detailedSpecs?: { category: string; items: { label: string; value: string }[] }[];
   reviews?: number;
   stock?: number;
+  videoUrl?: string; // YouTube URL for unboxing/review
 }
 
 import type { CartItem } from '@/hooks/use-cart';

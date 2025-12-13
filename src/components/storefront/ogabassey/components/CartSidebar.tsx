@@ -12,12 +12,17 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { type CartItem, useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { analytics } from '@/lib/analytics';
 import { AdUnit } from './AdUnit';
-import { EmptyState } from './EmptyState';
+// import { ActionTooltip } from './Tooltip';
+import { EmptyState } from './empty-state';
+import Image from 'next/image';
 import { NegotiationModal } from './NegotiationModal';
 
 // Helper type to manage modal state more cleanly
@@ -44,6 +49,39 @@ export const CartSidebar: React.FC = () => {
 
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
+
+  // Get merchant context for slug
+  const merchantContext = useMerchantSafe();
+  const merchant = merchantContext?.merchant;
+  const storeSlug = merchant?.slug || '';
+
+  const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
+  const router = useRouter();
+
+  /* eslint-enable @typescript-eslint/no-unused-vars */
+
+  // Track ViewCart event when sidebar opens
+  useEffect(() => {
+    if (isCartOpen && cart.length > 0) {
+      // Map cart items to Product structure expected by analytics
+      const analyticsProducts = cart.map((item) => ({
+        product: {
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          category: item.category,
+          brand: item.brand,
+        } as any, // Cast to avoid full Product type mismatch if needed
+        quantity: item.quantity,
+      }));
+
+      analytics.viewCart(analyticsProducts, 'NGN', {
+        merchantId: merchant?.id || '',
+        // If we had user data context, we would pass it here
+        // userData: { email: user?.email, ... }
+      });
+    }
+  }, [isCartOpen, cart]);
 
   if (!isCartOpen) return null;
 
@@ -92,9 +130,9 @@ export const CartSidebar: React.FC = () => {
           onClick={() => setIsCartOpen(false)}
         />
 
-        {/* Sidebar Panel - SWIPES FROM LEFT */}
-        <div className="absolute inset-y-0 left-0 max-w-full flex">
-          <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col h-full animate-in slide-in-from-left duration-300">
+        {/* Sidebar Panel - SWIPES FROM RIGHT */}
+        <div className="absolute inset-y-0 right-0 max-w-full flex">
+          <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-300">
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
               <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -143,13 +181,28 @@ export const CartSidebar: React.FC = () => {
                       >
                         <Link
                           href={`/product/${item.id}` as any}
-                          className="w-24 h-24 bg-gray-50 rounded-lg border border-gray-100 p-2 flex-shrink-0 self-start mt-1 block"
+                          className="relative w-24 h-24 bg-gray-50 rounded-lg border border-gray-100 p-2 flex-shrink-0 self-start mt-1 block group/image"
                         >
                           <img
-                            src={item.image}
+                            src={item.image || '/placeholder.png'}
                             alt={item.name}
                             className="w-full h-full object-contain mix-blend-multiply"
+                            onError={(e) => {
+                              e.currentTarget.onerror = null;
+                              e.currentTarget.src = '/placeholder.png';
+                            }}
                           />
+                          {/* Condition Badge - Bottom Center Overlay */}
+                          {item.condition && (
+                            <span
+                              className={`absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] font-bold px-2 py-0.5 rounded-full border shadow-sm uppercase tracking-wider whitespace-nowrap z-10 ${item.condition?.toLowerCase() === 'new'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                                : 'bg-amber-100 text-amber-800 border-amber-200'
+                                }`}
+                            >
+                              {item.condition}
+                            </span>
+                          )}
                         </Link>
                         <div className="flex-1 flex flex-col justify-between min-h-[100px]">
                           <div>
@@ -168,18 +221,9 @@ export const CartSidebar: React.FC = () => {
                               </button>
                             </div>
 
-                            {/* Item Details: Condition & Color */}
+                            {/* Item Details: Color & Storage */}
                             <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                              {/* Condition Badge */}
-                              <span
-                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
-                                  item.condition?.toLowerCase() === 'new'
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                    : 'bg-amber-50 text-amber-700 border-amber-100'
-                                }`}
-                              >
-                                {item.condition}
-                              </span>
+                              {/* Removed Condition from here, moved to image overlay */}
 
                               {/* Color & Storage */}
                               <div className="text-xs text-gray-500 flex items-center gap-1">
@@ -371,12 +415,29 @@ export const CartSidebar: React.FC = () => {
                   Negotiate Total Amount
                 </button>
 
-                <button className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-200 group">
-                  Proceed to Checkout
-                  <ArrowRight
-                    size={20}
-                    className="group-hover:translate-x-1 transition-transform"
-                  />
+                <button
+                  onClick={() => {
+                    setIsCheckoutLoading(true);
+                    router.push(`/${storeSlug}/checkout`);
+                    // We don't close the sidebar immediately so the user sees the loading state.
+                    // The sidebar will naturally disappear or close when the new route loads/unmounts.
+                    // Or we can set a timeout to close it if navigation is fast?
+                    // Better: Keep it open with spinner.
+                  }}
+                  disabled={isCheckoutLoading}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-red-200 group disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {isCheckoutLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      Proceed to Checkout
+                      <ArrowRight
+                        size={20}
+                        className="group-hover:translate-x-1 transition-transform"
+                      />
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => setIsCartOpen(false)}

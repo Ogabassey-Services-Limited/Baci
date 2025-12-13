@@ -59,7 +59,7 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({ category }) => {
   };
 
   return (
-    <section className="mt-16 mb-8">
+    <aside aria-label="Related Articles" className="mt-16 mb-8">
       <div className="flex items-center gap-2 mb-6">
         <BookOpen className="text-red-600" size={20} />
         <h3 className="text-xl font-bold text-gray-900">From the Blog</h3>
@@ -107,6 +107,6 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({ category }) => {
           </div>
         </div>
       </div>
-    </section>
+    </aside>
   );
 };

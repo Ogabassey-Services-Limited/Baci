@@ -13,9 +13,20 @@ import {
   XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type React from 'react';
 import { useState } from 'react';
-import { EmptyState } from './empty-state';
+import { EmptyState } from '../components/empty-state';
+
+// Hook to extract store slug from pathname
+function useStoreSlug() {
+  const pathname = usePathname();
+  const pathSegments = pathname?.split('/').filter(Boolean) || [];
+  const knownRoutes = ['account', 'cart', 'checkout', 'products', 'wishlist', 'wallet', 'repairs', 'imei-check', 'pages', 'orders'];
+  const firstSegment = pathSegments[0] || '';
+  return knownRoutes.includes(firstSegment) ? '' : firstSegment;
+}
+
 
 // Inlined mock orders to avoid dependencies
 const ORDERS = [
@@ -41,6 +52,9 @@ const ORDERS = [
 ];
 
 export const OgabasseyV2OrderDetails: React.FC = () => {
+  const storeSlug = useStoreSlug();
+  const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
+
   // const navigate = useNavigate();
   // const { addToCart } = useCart();
   const [order] = useState<(typeof ORDERS)[0] | null>(ORDERS[0]); // Mock selecting the first order
@@ -57,7 +71,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
           title="Order Not Found"
           description="We couldn't find the order you are looking for."
           actionLabel="Back to Orders"
-          actionLink="/orders"
+          actionLink={getUrl('/account/orders')}
           variant="generic"
         />
       </div>
@@ -110,7 +124,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
         {/* Breadcrumb / Back */}
         <div className="flex items-center gap-4 mb-6">
           <Link
-            href="/orders"
+            href={getUrl('/account/orders') as any}
             className="p-2 hover:bg-white rounded-full transition-colors text-gray-500 hover:text-gray-900 border border-transparent hover:border-gray-200"
           >
             <ChevronLeft size={20} />
