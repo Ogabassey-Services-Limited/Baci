@@ -116,7 +116,8 @@ export async function purchaseOrderInsurance(
       const policy = await myCover.purchaseGadgetInsurance({
         // Customer Info
         first_name: typedOrder.customer_name.split(' ')[0],
-        last_name: typedOrder.customer_name.split(' ').slice(1).join(' ') || '.',
+        last_name:
+          typedOrder.customer_name.split(' ').slice(1).join(' ') || '.',
         email: typedOrder.customer_email,
         phone_number: typedOrder.customer_phone,
         address: typedOrder.shipping_address?.address || 'Lagos, Nigeria', // Fallback
@@ -232,11 +233,11 @@ export async function syncClaimsStatus() {
           // Map MyCover status (e.g., 'Approved', 'Paid', 'Pending') to our local ENUM
           // Real API returns 'claim_status' e.g., 'Repair estimate submitted', 'Paid', etc.
           const remoteStatus = String(
-            claim.claim_status ||
-            claim.status ||
-            'pending'
+            claim.claim_status || claim.status || 'pending'
           ).toLowerCase();
-          const paymentStatus = String(claim.payment_status || '').toLowerCase(); // sometimes 'paid'
+          const paymentStatus = String(
+            claim.payment_status || ''
+          ).toLowerCase(); // sometimes 'paid'
 
           let newClaimStatus = 'pending';
 

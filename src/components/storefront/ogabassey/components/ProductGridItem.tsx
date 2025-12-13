@@ -208,7 +208,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
               <Star
                 key={i}
                 size={12}
-                className={`${i < Math.floor(product.rating) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
+                className={`${i < Math.floor(product.rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
               />
             ))}
             <span className="text-[10px] text-gray-400 ml-1">

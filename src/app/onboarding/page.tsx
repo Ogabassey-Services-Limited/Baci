@@ -20,7 +20,7 @@ export default async function OnboardingPage() {
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (merchant && merchant.business_name) {
+    if (merchant?.business_name) {
       // Redirect to dashboard if merchant exists AND is fully set up
       redirect('/dashboard');
     }
@@ -28,4 +28,3 @@ export default async function OnboardingPage() {
 
   return <OnboardingPageContent />;
 }
-

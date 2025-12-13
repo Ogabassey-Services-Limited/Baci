@@ -244,7 +244,7 @@ async function seed() {
             storage: specs.Storage?.match(/\d+GB|\d+TB/i)?.[0] || specs.Storage,
             storageType: specs.Storage?.toLowerCase().includes('ssd') ? 'SSD' : specs.Storage?.toLowerCase().includes('hdd') ? 'HDD' : 'SSD',
             display: specs.Display,
-            displaySize: specs.Display?.match(/\d+(\.\d+)?["'']/)?.[0] || '14"',
+            displaySize: specs.Display?.match(/\d+(\.\d+)?["']/)?.[0] || '14"',
             resolution: specs.Display?.includes('4K') ? '3840x2160' : specs.Display?.includes('QHD') ? '2560x1440' : '1920x1080',
             graphics: specs.Graphics || 'Intel Integrated',
             graphicsType: (specs.Graphics?.toLowerCase().includes('nvidia') || specs.Graphics?.toLowerCase().includes('radeon') || specs.Graphics?.toLowerCase().includes('quadro') || specs.Graphics?.toLowerCase().includes('gtx') || specs.Graphics?.toLowerCase().includes('rtx')) ? 'dedicated' : 'integrated',

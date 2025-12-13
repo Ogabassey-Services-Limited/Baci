@@ -16,7 +16,7 @@ import { mapToDeliveryTier, TIER_DISPLAY_NAMES } from './types';
 // CONFIGURATION
 // =============================================================================
 
-const DEFAULT_SHIPPING_FEE = Number(process.env.DEFAULT_SHIPPING_FEE) || 1500;
+const _DEFAULT_SHIPPING_FEE = Number(process.env.DEFAULT_SHIPPING_FEE) || 1500;
 const QUOTE_TTL_SECONDS =
   Number(process.env.SHIPPING_QUOTE_TTL_SECONDS) || 3600;
 

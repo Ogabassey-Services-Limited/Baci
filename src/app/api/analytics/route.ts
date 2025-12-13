@@ -92,12 +92,18 @@ export async function GET(request: Request) {
 
     if (summaryError) {
       console.error('Error fetching analytics summary:', summaryError);
+      return NextResponse.json(
+        { error: 'Failed to fetch analytics data' },
+        { status: 500 }
+      );
     }
     if (topProductsError) {
       console.error('Error fetching top products:', topProductsError);
+      // Non-critical - continue with empty array
     }
     if (salesByChannelError) {
       console.error('Error fetching sales by channel:', salesByChannelError);
+      // Non-critical - continue with empty array
     }
 
     // Extract values from RPC response with defaults
@@ -131,6 +137,7 @@ export async function GET(request: Request) {
 
     // Simplified chart - we'll generate placeholder structure
     // In production, you could create an RPC for detailed chart data
+    // TODO: Implement proper chart data RPC
     if (daysDiff > 60) {
       // Monthly buckets
       for (let i = 5; i >= 0; i--) {
@@ -187,9 +194,12 @@ export async function GET(request: Request) {
         ? ((averageOrderValue - previousAov) / previousAov) * 100
         : 0;
 
-    // Gross Margin (placeholder - would need cost data)
-    const grossMargin = 40;
-    const grossMarginChange = 2;
+    // Gross Margin (placeholder - would need cost data from products)
+    // TODO: Implement when product cost data is available
+    const PLACEHOLDER_GROSS_MARGIN = 40;
+    const PLACEHOLDER_GROSS_MARGIN_CHANGE = 2;
+    const grossMargin = PLACEHOLDER_GROSS_MARGIN;
+    const grossMarginChange = PLACEHOLDER_GROSS_MARGIN_CHANGE;
 
     // Calculate LTV
     const ltv = totalCustomers > 0 ? currentRevenue / totalCustomers : 0;
@@ -203,7 +213,8 @@ export async function GET(request: Request) {
       currentSalesCount > 0
         ? (refundedOrdersCount / currentSalesCount) * 100
         : 0;
-    const refundRateChange = refundRate - 2.5;
+    const previousRefundRate = Number(summary?.previousRefundRate || 0);
+    const refundRateChange = refundRate - previousRefundRate;
 
     const responseData = {
       summary: {
@@ -218,10 +229,12 @@ export async function GET(request: Request) {
       },
       chartData,
       recentSales,
-      topProducts:
-        (topProductsData as unknown as Record<string, unknown>[]) || [],
-      salesByChannel:
-        (salesByChannelData as unknown as Record<string, unknown>[]) || [],
+      topProducts: (Array.isArray(topProductsData)
+        ? topProductsData
+        : []) as Record<string, unknown>[],
+      salesByChannel: (Array.isArray(salesByChannelData)
+        ? salesByChannelData
+        : []) as Record<string, unknown>[],
     };
 
     // Cache the response for 5 minutes (300 seconds)

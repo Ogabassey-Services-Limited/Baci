@@ -50,7 +50,6 @@ const POSTMETA_INSERT_REGEX = /INSERT INTO `wpgo_postmeta` VALUES\s*(.+);/;
 // Parse a MySQL values row - handles escaped quotes and commas
 function parseValues(valuesStr: string): string[][] {
     const rows: string[][] = [];
-    let current = '';
     let inQuote = false;
     let escaped = false;
     let depth = 0;

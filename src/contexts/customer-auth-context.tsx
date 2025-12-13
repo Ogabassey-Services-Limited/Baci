@@ -224,6 +224,26 @@ export function CustomerAuthProvider({
 
       // Redirect to Google OAuth URL
       if (data.url) {
+        // Validate that the URL is a Google OAuth URL
+        try {
+          const url = new URL(data.url);
+          const validHosts = ['accounts.google.com', 'www.google.com'];
+          const isGoogleDomain =
+            validHosts.some((h) => url.hostname === h) ||
+            url.hostname.endsWith('.google.com');
+
+          if (!isGoogleDomain) {
+            return {
+              success: false,
+              error: 'Invalid OAuth provider URL',
+            };
+          }
+        } catch {
+          return {
+            success: false,
+            error: 'Invalid OAuth URL format',
+          };
+        }
         window.location.href = data.url;
       }
 

@@ -268,7 +268,7 @@ export default function Step2_Branding() {
       const { removeBackground } = await import('@imgly/background-removal');
 
       const blob = await removeBackground(logoToProcess, {
-        progress: (key: string, current: number, total: number) => {
+        progress: (_key: string, current: number, total: number) => {
           // 'fetch' phase is the download (key.includes('model') or similar)
           // We just calculate overall percent for simplicity
           const percent = Math.round((current / total) * 100);

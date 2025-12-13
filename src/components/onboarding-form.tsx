@@ -25,10 +25,14 @@ import {
   trackMerchantSignupStarted,
 } from '@/components/analytics/platform-analytics-provider';
 import { Logo } from '@/components/logo';
+// Steps - Static import for instant transition (Better INP/UX)
+import Step1_BusinessDetails from '@/components/onboarding/steps/step1-business-details';
+import Step2_Branding from '@/components/onboarding/steps/step2-branding';
+import Step3_Account from '@/components/onboarding/steps/step3-account';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { BagLoader } from '@/components/ui/bag-loader';
 import { useToast } from '@/hooks/use-toast';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -38,15 +42,9 @@ import {
 } from '@/schemas/onboarding';
 import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
 import type { BrandColors } from '@/types';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-
-// Steps - Static import for instant transition (Better INP/UX)
-import Step1_BusinessDetails from '@/components/onboarding/steps/step1-business-details';
-import Step2_Branding from '@/components/onboarding/steps/step2-branding';
-import Step3_Account from '@/components/onboarding/steps/step3-account';
-
 // Dynamically import heavy interactive components for preview
 import { OnboardingPuckPreview } from './onboarding-puck-preview';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 const OnboardingTemplateEditor = dynamic(
   () =>
@@ -413,7 +411,9 @@ export default function OnboardingForm() {
       const passwordsMatch = formPassword === formConfirmPassword;
       const noPasswordErrors = !errors.password && !errors.confirmPassword;
 
-      return hasValidEmail && hasStrongPassword && passwordsMatch && noPasswordErrors;
+      return (
+        hasValidEmail && hasStrongPassword && passwordsMatch && noPasswordErrors
+      );
     }
     return false;
   }, [
@@ -431,8 +431,6 @@ export default function OnboardingForm() {
     errors.password,
     errors.confirmPassword,
   ]);
-
-
 
   if (isRedirecting) {
     return (

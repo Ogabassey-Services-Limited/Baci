@@ -6,8 +6,10 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 
-const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
-const NEW_PLACES_API_URL = 'https://places.googleapis.com/v1/places:autocomplete';
+const GOOGLE_API_KEY =
+  process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+const NEW_PLACES_API_URL =
+  'https://places.googleapis.com/v1/places:autocomplete';
 
 // Simple retry wrapper for fetch
 async function fetchWithRetry(
@@ -37,7 +39,9 @@ async function fetchWithRetry(
 export async function GET(request: NextRequest) {
   try {
     if (!GOOGLE_API_KEY) {
-      console.error('[Places API] GOOGLE_MAPS_API_KEY or GOOGLE_PLACES_API_KEY not configured');
+      console.error(
+        '[Places API] GOOGLE_MAPS_API_KEY or GOOGLE_PLACES_API_KEY not configured'
+      );
       return NextResponse.json(
         { error: 'Google Places API not configured' },
         { status: 500 }

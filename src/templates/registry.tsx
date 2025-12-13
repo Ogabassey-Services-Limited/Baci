@@ -557,8 +557,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
       };
 
       // Wrapper factory for pages
-      const createWrappedPage = (Component: React.ComponentType<any>) => {
-        return (props: TemplatePageProps) => (
+      const createWrappedPage = <P extends TemplatePageProps>(Component: React.ComponentType<P>) => {
+        return (props: P) => (
           <OgabasseyLayout merchant={props.merchant}>
             <Component {...props} />
           </OgabasseyLayout>

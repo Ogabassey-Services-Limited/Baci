@@ -238,145 +238,118 @@ export function generateProductSchema(
   const additionalProperties = [];
 
   // Extract from product_key_specs (GSM Arena-level specs)
-  const keySpecs = (product as any).product_key_specs;
+  const keySpecs = product.product_key_specs;
+
   if (keySpecs && !Array.isArray(keySpecs)) {
-    // Network specs - critical for "does X have 5G" queries
-    if (keySpecs.network_technology)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Network Technology',
-        value: escapeHtml(keySpecs.network_technology),
-      });
-    if (keySpecs.is_5g !== null && keySpecs.is_5g !== undefined)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: '5G Support',
-        value: keySpecs.is_5g ? 'Yes' : 'No',
-      });
-    if (keySpecs.has_nfc !== null && keySpecs.has_nfc !== undefined)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'NFC',
-        value: keySpecs.has_nfc ? 'Yes' : 'No',
-      });
+    interface SpecMapping {
+      key: string;
+      name: string;
+      format?: (v: string | number | boolean | undefined) => string;
+      check?: (v: string | number | boolean | undefined) => boolean;
+    }
 
-    // Body/Build specs
-    if (keySpecs.dimensions_mm)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Dimensions',
-        value: escapeHtml(keySpecs.dimensions_mm),
-      });
-    if (keySpecs.weight_g)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Weight',
-        value: `${keySpecs.weight_g}g`,
-      });
-    if (keySpecs.build_materials)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Build',
-        value: escapeHtml(keySpecs.build_materials),
-      });
-    if (keySpecs.ip_rating)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'IP Rating',
-        value: escapeHtml(keySpecs.ip_rating),
-      });
-    if (keySpecs.sim_type)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'SIM Type',
-        value: escapeHtml(keySpecs.sim_type),
-      });
+    const SPEC_MAPPINGS: SpecMapping[] = [
+      // Network
+      { key: 'network_technology', name: 'Network Technology' },
+      { key: 'is_5g', name: '5G Support', format: (v) => (v ? 'Yes' : 'No') },
+      { key: 'has_nfc', name: 'NFC', format: (v) => (v ? 'Yes' : 'No') },
 
-    // Display specs
-    if (keySpecs.display_type)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Display Type',
-        value: escapeHtml(keySpecs.display_type),
-      });
-    if (keySpecs.screen_size_inches)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
+      // Body
+      { key: 'dimensions_mm', name: 'Dimensions' },
+      { key: 'weight_g', name: 'Weight', format: (v) => `${v}g` },
+      { key: 'build_materials', name: 'Build' },
+      { key: 'ip_rating', name: 'IP Rating' },
+      { key: 'sim_type', name: 'SIM Type' },
+
+      // Display
+      { key: 'display_type', name: 'Display Type' },
+      {
+        key: 'screen_size_inches',
         name: 'Screen Size',
-        value: `${keySpecs.screen_size_inches} inches`,
-      });
-    if (keySpecs.display_resolution)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Display Resolution',
-        value: escapeHtml(keySpecs.display_resolution),
-      });
-    if (keySpecs.refresh_rate_hz)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Refresh Rate',
-        value: `${keySpecs.refresh_rate_hz}Hz`,
-      });
-    if (keySpecs.display_ppi)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Pixel Density',
-        value: `${keySpecs.display_ppi} ppi`,
-      });
-    if (keySpecs.display_peak_brightness)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
+        format: (v) => `${v} inches`,
+      },
+      { key: 'display_resolution', name: 'Display Resolution' },
+      { key: 'refresh_rate_hz', name: 'Refresh Rate', format: (v) => `${v}Hz` },
+      { key: 'display_ppi', name: 'Pixel Density', format: (v) => `${v} ppi` },
+      {
+        key: 'display_peak_brightness',
         name: 'Peak Brightness',
-        value: `${keySpecs.display_peak_brightness} nits`,
-      });
+        format: (v) => `${v} nits`,
+      },
 
-    // Platform/Performance specs
-    if (keySpecs.android_version)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
+      // Platform
+      {
+        key: 'android_version',
         name: 'Operating System',
-        value: `Android ${keySpecs.android_version}`,
-      });
-    if (keySpecs.chipset)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Chipset',
-        value: escapeHtml(keySpecs.chipset),
-      });
-    if (keySpecs.cpu_cores)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'CPU',
-        value: escapeHtml(keySpecs.cpu_cores),
-      });
-    if (keySpecs.gpu)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'GPU',
-        value: escapeHtml(keySpecs.gpu),
-      });
+        format: (v) => `Android ${v}`,
+      },
+      { key: 'chipset', name: 'Chipset' },
+      { key: 'cpu_cores', name: 'CPU' },
+      { key: 'gpu', name: 'GPU' },
 
-    // Memory specs
-    if (keySpecs.ram_gb)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'RAM',
-        value: `${keySpecs.ram_gb}GB`,
-      });
-    if (keySpecs.storage_gb)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Internal Storage',
-        value: `${keySpecs.storage_gb}GB`,
-      });
-    if (keySpecs.has_card_slot && keySpecs.card_slot_type)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
+      // Memory
+      { key: 'ram_gb', name: 'RAM', format: (v) => `${v}GB` },
+      { key: 'storage_gb', name: 'Internal Storage', format: (v) => `${v}GB` },
+      {
+        key: 'card_slot_type',
         name: 'Card Slot',
-        value: escapeHtml(keySpecs.card_slot_type),
-      });
+        check: () => keySpecs.has_card_slot,
+      },
 
-    // Camera specs - critical for camera-focused queries
+      // Camera
+      {
+        key: 'front_camera_mp',
+        name: 'Selfie Camera',
+        format: (v) => `${v}MP`,
+      },
+      { key: 'rear_camera_video', name: 'Video Recording' },
+
+      // Sound
+      {
+        key: 'has_stereo_speakers',
+        name: 'Speakers',
+        format: (v) => (v ? 'Stereo' : 'Mono'),
+      },
+      {
+        key: 'has_headphone_jack',
+        name: '3.5mm Headphone Jack',
+        format: (v) => (v ? 'Yes' : 'No'),
+      },
+
+      // Connectivity
+      { key: 'wifi_bands', name: 'WiFi' },
+      { key: 'bluetooth_version', name: 'Bluetooth' },
+      {
+        key: 'usb_type',
+        name: 'USB',
+        format: (v) => v + (keySpecs.has_usb_otg ? ' (OTG)' : ''),
+      },
+      {
+        key: 'has_fm_radio',
+        name: 'FM Radio',
+        format: () => 'Yes',
+        check: (v) => !!v,
+      },
+
+      // Features
+      { key: 'fingerprint_type', name: 'Fingerprint Sensor' },
+
+      // Battery
+      {
+        key: 'battery_mah',
+        name: 'Battery Capacity',
+        format: (v) => `${v}mAh`,
+      },
+      { key: 'charging_watt', name: 'Fast Charging', format: (v) => `${v}W` },
+      {
+        key: 'wireless_charging_watt',
+        name: 'Wireless Charging',
+        format: (v) => `${v}W`,
+        check: () => keySpecs.has_wireless_charging,
+      },
+    ];
+
+    // Handle Main Camera logic separately (too complex for generic map)
     if (keySpecs.main_camera_mp) {
       const cameraType = keySpecs.has_quad_camera
         ? 'Quad'
@@ -391,96 +364,23 @@ export function generateProductSchema(
         value: `${cameraType} ${keySpecs.main_camera_mp}MP`,
       });
     }
-    if (keySpecs.front_camera_mp)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Selfie Camera',
-        value: `${keySpecs.front_camera_mp}MP`,
-      });
-    if (keySpecs.rear_camera_video)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Video Recording',
-        value: escapeHtml(keySpecs.rear_camera_video),
-      });
 
-    // Sound specs
-    if (
-      keySpecs.has_stereo_speakers !== null &&
-      keySpecs.has_stereo_speakers !== undefined
-    ) {
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Speakers',
-        value: keySpecs.has_stereo_speakers ? 'Stereo' : 'Mono',
-      });
-    }
-    if (
-      keySpecs.has_headphone_jack !== null &&
-      keySpecs.has_headphone_jack !== undefined
-    ) {
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: '3.5mm Headphone Jack',
-        value: keySpecs.has_headphone_jack ? 'Yes' : 'No',
-      });
-    }
+    // Process configuration-driven specs
+    for (const mapping of SPEC_MAPPINGS) {
+      const value = keySpecs[mapping.key];
+      const shouldInclude = mapping.check
+        ? mapping.check(value)
+        : value !== null && value !== undefined;
 
-    // Connectivity specs
-    if (keySpecs.wifi_bands)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'WiFi',
-        value: escapeHtml(keySpecs.wifi_bands),
-      });
-    if (keySpecs.bluetooth_version)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Bluetooth',
-        value: escapeHtml(keySpecs.bluetooth_version),
-      });
-    if (keySpecs.usb_type)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'USB',
-        value:
-          escapeHtml(keySpecs.usb_type) +
-          (keySpecs.has_usb_otg ? ' (OTG)' : ''),
-      });
-    if (keySpecs.has_fm_radio)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'FM Radio',
-        value: 'Yes',
-      });
-
-    // Features
-    if (keySpecs.fingerprint_type)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Fingerprint Sensor',
-        value: escapeHtml(keySpecs.fingerprint_type),
-      });
-
-    // Battery specs - important for battery life queries
-    if (keySpecs.battery_mah)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Battery Capacity',
-        value: `${keySpecs.battery_mah}mAh`,
-      });
-    if (keySpecs.charging_watt)
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Fast Charging',
-        value: `${keySpecs.charging_watt}W`,
-      });
-    if (keySpecs.has_wireless_charging && keySpecs.wireless_charging_watt) {
-      additionalProperties.push({
-        '@type': 'PropertyValue',
-        name: 'Wireless Charging',
-        value: `${keySpecs.wireless_charging_watt}W`,
-      });
+      if (shouldInclude) {
+        additionalProperties.push({
+          '@type': 'PropertyValue',
+          name: mapping.name,
+          value: mapping.format
+            ? escapeHtml(mapping.format(value))
+            : escapeHtml(String(value)),
+        });
+      }
     }
   }
 

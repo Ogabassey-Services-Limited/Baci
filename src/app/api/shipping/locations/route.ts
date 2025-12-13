@@ -9,57 +9,136 @@ import { topshipProvider } from '@/lib/shipping/providers/topship';
 
 // Static fallback list of Nigerian states (2025)
 const NIGERIAN_STATES_FALLBACK = [
-  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue',
-  'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu',
-  'FCT - Abuja', 'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina',
-  'Kebbi', 'Kogi', 'Kwara', 'Lagos', 'Nasarawa', 'Niger', 'Ogun', 'Ondo',
-  'Osun', 'Oyo', 'Plateau', 'Rivers', 'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
+  'Abia',
+  'Adamawa',
+  'Akwa Ibom',
+  'Anambra',
+  'Bauchi',
+  'Bayelsa',
+  'Benue',
+  'Borno',
+  'Cross River',
+  'Delta',
+  'Ebonyi',
+  'Edo',
+  'Ekiti',
+  'Enugu',
+  'FCT - Abuja',
+  'Gombe',
+  'Imo',
+  'Jigawa',
+  'Kaduna',
+  'Kano',
+  'Katsina',
+  'Kebbi',
+  'Kogi',
+  'Kwara',
+  'Lagos',
+  'Nasarawa',
+  'Niger',
+  'Ogun',
+  'Ondo',
+  'Osun',
+  'Oyo',
+  'Plateau',
+  'Rivers',
+  'Sokoto',
+  'Taraba',
+  'Yobe',
+  'Zamfara',
 ];
 
 // Fallback cities by state (state capitals and major cities)
 const NIGERIAN_CITIES_FALLBACK: Record<string, string[]> = {
-  'Abia': ['Aba', 'Umuahia', 'Ohafia', 'Arochukwu'],
-  'Adamawa': ['Yola', 'Mubi', 'Jimeta', 'Numan'],
+  Abia: ['Aba', 'Umuahia', 'Ohafia', 'Arochukwu'],
+  Adamawa: ['Yola', 'Mubi', 'Jimeta', 'Numan'],
   'Akwa Ibom': ['Uyo', 'Eket', 'Ikot Ekpene', 'Oron', 'Abak'],
-  'Anambra': ['Awka', 'Onitsha', 'Nnewi', 'Ekwulobia', 'Obosi'],
-  'Bauchi': ['Bauchi', 'Azare', 'Misau', 'Jama\'are'],
-  'Bayelsa': ['Yenagoa', 'Ogbia', 'Brass', 'Sagbama'],
-  'Benue': ['Makurdi', 'Gboko', 'Otukpo', 'Katsina-Ala'],
-  'Borno': ['Maiduguri', 'Biu', 'Damboa', 'Bama'],
+  Anambra: ['Awka', 'Onitsha', 'Nnewi', 'Ekwulobia', 'Obosi'],
+  Bauchi: ['Bauchi', 'Azare', 'Misau', "Jama'are"],
+  Bayelsa: ['Yenagoa', 'Ogbia', 'Brass', 'Sagbama'],
+  Benue: ['Makurdi', 'Gboko', 'Otukpo', 'Katsina-Ala'],
+  Borno: ['Maiduguri', 'Biu', 'Damboa', 'Bama'],
   'Cross River': ['Calabar', 'Ogoja', 'Ikom', 'Obudu'],
-  'Delta': ['Asaba', 'Warri', 'Sapele', 'Ughelli', 'Agbor', 'Effurun'],
-  'Ebonyi': ['Abakaliki', 'Afikpo', 'Onueke'],
-  'Edo': ['Benin City', 'Auchi', 'Ekpoma', 'Uromi', 'Irrua'],
-  'Ekiti': ['Ado Ekiti', 'Ikere Ekiti', 'Ikole Ekiti', 'Oye Ekiti'],
-  'Enugu': ['Enugu', 'Nsukka', 'Agbani', 'Udi'],
-  'FCT - Abuja': ['Garki', 'Wuse', 'Maitama', 'Asokoro', 'Gwarinpa', 'Kubwa', 'Lugbe', 'Nyanya', 'Karu', 'Jabi', 'Utako', 'Gudu', 'Central Area', 'Durumi', 'Apo'],
-  'Gombe': ['Gombe', 'Kumo', 'Billiri', 'Kaltungo'],
-  'Imo': ['Owerri', 'Orlu', 'Okigwe', 'Mbaise'],
-  'Jigawa': ['Dutse', 'Hadejia', 'Gumel', 'Kazaure'],
-  'Kaduna': ['Kaduna', 'Zaria', 'Kafanchan', 'Kagoro', 'Saminaka'],
-  'Kano': ['Kano', 'Fagge', 'Nassarawa', 'Wudil', 'Kumbotso'],
-  'Katsina': ['Katsina', 'Daura', 'Funtua', 'Malumfashi'],
-  'Kebbi': ['Birnin Kebbi', 'Argungu', 'Yauri', 'Zuru'],
-  'Kogi': ['Lokoja', 'Okene', 'Idah', 'Kabba', 'Anyigba'],
-  'Kwara': ['Ilorin', 'Offa', 'Jebba', 'Omu-Aran'],
-  'Lagos': ['Ikeja', 'Victoria Island', 'Lekki', 'Ikoyi', 'Surulere', 'Yaba', 'Apapa', 'Oshodi', 'Mushin', 'Agege', 'Ajah', 'Ikorodu', 'Festac', 'Isolo', 'Maryland', 'Ogba', 'Gbagada', 'Ogudu', 'Magodo', 'Berger', 'Ojota', 'Ketu', 'Mile 2', 'Badagry', 'Epe'],
-  'Nasarawa': ['Lafia', 'Keffi', 'Akwanga', 'Nasarawa'],
-  'Niger': ['Minna', 'Bida', 'Suleja', 'Kontagora'],
-  'Ogun': ['Abeokuta', 'Ijebu Ode', 'Sagamu', 'Ota', 'Ilaro', 'Sango'],
-  'Ondo': ['Akure', 'Ondo', 'Owo', 'Ikare', 'Ore'],
-  'Osun': ['Oshogbo', 'Ile-Ife', 'Ilesa', 'Ede', 'Iwo'],
-  'Oyo': ['Ibadan', 'Ogbomoso', 'Oyo', 'Iseyin', 'Saki'],
-  'Plateau': ['Jos', 'Bukuru', 'Pankshin', 'Shendam'],
-  'Rivers': ['Port Harcourt', 'Obio-Akpor', 'Bonny', 'Eleme', 'Okrika', 'Degema'],
-  'Sokoto': ['Sokoto', 'Tambuwal', 'Wurno', 'Gwadabawa'],
-  'Taraba': ['Jalingo', 'Wukari', 'Takum', 'Bali'],
-  'Yobe': ['Damaturu', 'Potiskum', 'Gashua', 'Nguru'],
-  'Zamfara': ['Gusau', 'Kaura Namoda', 'Talata Mafara', 'Anka'],
+  Delta: ['Asaba', 'Warri', 'Sapele', 'Ughelli', 'Agbor', 'Effurun'],
+  Ebonyi: ['Abakaliki', 'Afikpo', 'Onueke'],
+  Edo: ['Benin City', 'Auchi', 'Ekpoma', 'Uromi', 'Irrua'],
+  Ekiti: ['Ado Ekiti', 'Ikere Ekiti', 'Ikole Ekiti', 'Oye Ekiti'],
+  Enugu: ['Enugu', 'Nsukka', 'Agbani', 'Udi'],
+  'FCT - Abuja': [
+    'Garki',
+    'Wuse',
+    'Maitama',
+    'Asokoro',
+    'Gwarinpa',
+    'Kubwa',
+    'Lugbe',
+    'Nyanya',
+    'Karu',
+    'Jabi',
+    'Utako',
+    'Gudu',
+    'Central Area',
+    'Durumi',
+    'Apo',
+  ],
+  Gombe: ['Gombe', 'Kumo', 'Billiri', 'Kaltungo'],
+  Imo: ['Owerri', 'Orlu', 'Okigwe', 'Mbaise'],
+  Jigawa: ['Dutse', 'Hadejia', 'Gumel', 'Kazaure'],
+  Kaduna: ['Kaduna', 'Zaria', 'Kafanchan', 'Kagoro', 'Saminaka'],
+  Kano: ['Kano', 'Fagge', 'Nassarawa', 'Wudil', 'Kumbotso'],
+  Katsina: ['Katsina', 'Daura', 'Funtua', 'Malumfashi'],
+  Kebbi: ['Birnin Kebbi', 'Argungu', 'Yauri', 'Zuru'],
+  Kogi: ['Lokoja', 'Okene', 'Idah', 'Kabba', 'Anyigba'],
+  Kwara: ['Ilorin', 'Offa', 'Jebba', 'Omu-Aran'],
+  Lagos: [
+    'Ikeja',
+    'Victoria Island',
+    'Lekki',
+    'Ikoyi',
+    'Surulere',
+    'Yaba',
+    'Apapa',
+    'Oshodi',
+    'Mushin',
+    'Agege',
+    'Ajah',
+    'Ikorodu',
+    'Festac',
+    'Isolo',
+    'Maryland',
+    'Ogba',
+    'Gbagada',
+    'Ogudu',
+    'Magodo',
+    'Berger',
+    'Ojota',
+    'Ketu',
+    'Mile 2',
+    'Badagry',
+    'Epe',
+  ],
+  Nasarawa: ['Lafia', 'Keffi', 'Akwanga', 'Nasarawa'],
+  Niger: ['Minna', 'Bida', 'Suleja', 'Kontagora'],
+  Ogun: ['Abeokuta', 'Ijebu Ode', 'Sagamu', 'Ota', 'Ilaro', 'Sango'],
+  Ondo: ['Akure', 'Ondo', 'Owo', 'Ikare', 'Ore'],
+  Osun: ['Oshogbo', 'Ile-Ife', 'Ilesa', 'Ede', 'Iwo'],
+  Oyo: ['Ibadan', 'Ogbomoso', 'Oyo', 'Iseyin', 'Saki'],
+  Plateau: ['Jos', 'Bukuru', 'Pankshin', 'Shendam'],
+  Rivers: ['Port Harcourt', 'Obio-Akpor', 'Bonny', 'Eleme', 'Okrika', 'Degema'],
+  Sokoto: ['Sokoto', 'Tambuwal', 'Wurno', 'Gwadabawa'],
+  Taraba: ['Jalingo', 'Wukari', 'Takum', 'Bali'],
+  Yobe: ['Damaturu', 'Potiskum', 'Gashua', 'Nguru'],
+  Zamfara: ['Gusau', 'Kaura Namoda', 'Talata Mafara', 'Anka'],
 };
 
 // Cache for Topship data
-let topshipStatesCache: { states: string[]; stateCodeMap: Record<string, string>; expiry: number } | null = null;
-let topshipCitiesCache: Map<string, { cities: string[]; expiry: number }> = new Map();
+let topshipStatesCache: {
+  states: string[];
+  stateCodeMap: Record<string, string>;
+  expiry: number;
+} | null = null;
+const topshipCitiesCache: Map<string, { cities: string[]; expiry: number }> =
+  new Map();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 // =============================================================================
@@ -85,12 +164,21 @@ export async function GET(request: NextRequest) {
       try {
         const topshipStates = await topshipProvider.getStates('NG');
         if (topshipStates.length > 0) {
-          states = topshipStates.map(s => s.name);
-          stateCodeMap = Object.fromEntries(topshipStates.map(s => [s.name.toLowerCase(), s.code]));
-          topshipStatesCache = { states, stateCodeMap, expiry: Date.now() + CACHE_TTL };
+          states = topshipStates.map((s) => s.name);
+          stateCodeMap = Object.fromEntries(
+            topshipStates.map((s) => [s.name.toLowerCase(), s.code])
+          );
+          topshipStatesCache = {
+            states,
+            stateCodeMap,
+            expiry: Date.now() + CACHE_TTL,
+          };
         }
       } catch (error) {
-        console.warn('[Locations API] Failed to fetch Topship states, using fallback:', error);
+        console.warn(
+          '[Locations API] Failed to fetch Topship states, using fallback:',
+          error
+        );
       }
     }
 
@@ -118,11 +206,18 @@ export async function GET(request: NextRequest) {
           try {
             const topshipCities = await topshipProvider.getCities(stateCode);
             if (topshipCities.length > 0) {
-              cities = topshipCities.map(c => c.name);
-              topshipCitiesCache.set(matchedState.toLowerCase(), { cities, expiry: Date.now() + CACHE_TTL });
+              cities = topshipCities.map((c) => c.name);
+              topshipCitiesCache.set(matchedState.toLowerCase(), {
+                cities,
+                expiry: Date.now() + CACHE_TTL,
+              });
             }
           } catch (error) {
-            console.warn('[Locations API] Failed to fetch Topship cities for', matchedState, error);
+            console.warn(
+              '[Locations API] Failed to fetch Topship cities for',
+              matchedState,
+              error
+            );
           }
         }
 
@@ -152,7 +247,9 @@ export async function GET(request: NextRequest) {
         );
       } else {
         // Search across all states and cities (using fallback for search since it's expensive to fetch all)
-        for (const [stateName, stateCities] of Object.entries(NIGERIAN_CITIES_FALLBACK)) {
+        for (const [stateName, stateCities] of Object.entries(
+          NIGERIAN_CITIES_FALLBACK
+        )) {
           for (const city of stateCities) {
             if (
               city.toLowerCase().includes(searchLower) ||

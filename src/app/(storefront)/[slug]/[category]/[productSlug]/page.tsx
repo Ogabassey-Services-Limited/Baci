@@ -141,7 +141,6 @@ function toOgabasseyProduct(
     specs = specsArray;
 
     // Configuration for spec categories
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic spec configuration requires flexible typing
     interface SpecField {
       key: string;
       label: string;
@@ -371,14 +370,17 @@ function toOgabasseyProduct(
               keySpecs[key] !== undefined &&
               (!condition || condition(keySpecs))
           )
-          .map((field) => ({
-            label: field.dynamicLabel
-              ? field.dynamicLabel(keySpecs)
-              : field.label,
-            value: field.transform
-              ? field.transform(keySpecs[field.key]!, keySpecs)
-              : keySpecs[field.key]!.toString(),
-          })),
+          .map((field) => {
+            const value = keySpecs[field.key];
+            return {
+              label: field.dynamicLabel
+                ? field.dynamicLabel(keySpecs)
+                : field.label,
+              value: field.transform
+                ? field.transform(value, keySpecs)
+                : String(value),
+            };
+          }),
       }))
       .filter((cat) => cat.items.length > 0);
   }
@@ -641,13 +643,13 @@ export async function generateMetadata({
       images: product.images?.length
         ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
         : [
-          {
-            url: product.imageLarge || product.image,
-            width: 800,
-            height: 600,
-            alt: product.name,
-          },
-        ],
+            {
+              url: product.imageLarge || product.image,
+              width: 800,
+              height: 600,
+              alt: product.name,
+            },
+          ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,

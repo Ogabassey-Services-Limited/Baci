@@ -72,7 +72,7 @@ export async function getPlaceDetails(
     );
 
     return data.details || null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -82,10 +82,13 @@ export async function getPlaceDetails(
  * This avoids calling our own API route which might fail during build.
  */
 export async function getPlaceDetailsServer(placeId: string) {
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+  const apiKey =
+    process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey || !placeId) return null;
 
-  const resourceName = placeId.startsWith('places/') ? placeId : `places/${placeId}`;
+  const resourceName = placeId.startsWith('places/')
+    ? placeId
+    : `places/${placeId}`;
   const fields = ['reviews', 'rating', 'userRatingCount'].join(',');
   const url = `https://places.googleapis.com/v1/${resourceName}`;
 

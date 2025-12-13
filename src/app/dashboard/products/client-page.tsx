@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
+import type { AIResponse } from '@/app/dashboard/products/actions';
 import AddProductForm from '@/app/dashboard/products/add/add-product-form';
 import { CSVBulkImportDialog } from '@/components/products/csv-bulk-import-dialog';
 import { FileUpload } from '@/components/products/file-upload';
@@ -46,7 +47,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
-import { useAuth } from '@/contexts/auth-context';
 import { ProductProvider, useProductContext } from '@/contexts/product-context';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
@@ -111,7 +111,6 @@ function ProductsPageContent() {
     openAddProductDialog,
     closeAddProductDialog,
     editingProduct,
-    aiResponse,
   } = useProductContext();
   const { merchant, updateMerchant } = useMerchant();
   const [isSyncing, setIsSyncing] = useState(false);
@@ -214,7 +213,7 @@ function ProductsPageContent() {
         directResult.summary?.includes('Could not find') || // Header parsing failed
         directResult.summary?.includes('No data rows'); // Empty file
 
-      let response;
+      let response: AIResponse;
 
       if (hasStructuralError) {
         // If file is large (> 50 lines), do NOT fallback to AI as it will hit token limits.
@@ -364,7 +363,6 @@ function ProductsPageContent() {
             }}
           />
         );
-      case 'view':
       default:
         return (
           <ProductCatalog
@@ -407,7 +405,7 @@ function ProductsPageContent() {
         open={isGoogleSheetImportOpen}
         onOpenChange={setIsGoogleSheetImportOpen}
         initialUrl={merchant?.google_product_sheet_url}
-        onImport={async (data, url, saveUrl) => {
+        onImport={(data, url, saveUrl) => {
           startAiProcessing(data, 'Google Sheet Import', 'csv');
           if (saveUrl && url !== merchant?.google_product_sheet_url) {
             // Defer saving URL until import is successful
@@ -495,14 +493,14 @@ function ProductsPageContent() {
                         onClick={async () => {
                           try {
                             await updateMerchant({
-                              google_product_sheet_url: null as any,
+                              google_product_sheet_url: undefined,
                             });
                             toast({
                               title: 'Sheet Disconnected',
                               description:
                                 'You can now connect a different sheet.',
                             });
-                          } catch (error) {
+                          } catch {
                             toast({
                               title: 'Error',
                               description: 'Failed to disconnect sheet.',

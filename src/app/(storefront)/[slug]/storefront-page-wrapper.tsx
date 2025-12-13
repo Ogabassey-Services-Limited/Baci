@@ -28,8 +28,9 @@ export function StorefrontPageWrapper({
   const loading = !initialMerchant && hookLoading;
 
   // biome-ignore lint/suspicious/noExplicitAny: Template components have varying prop types
+  type AnyComponentType = React.ComponentType<any>;
   const [TemplateComponent, setTemplateComponent] =
-    useState<React.ComponentType<any> | null>(null);
+    useState<AnyComponentType | null>(null);
   const [componentLoading, setComponentLoading] = useState(true);
 
   useEffect(() => {

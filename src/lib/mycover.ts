@@ -66,12 +66,12 @@ interface PurchaseGITParams {
   // Shipment details
   shipping_date: string; // ISO date string
   vehicle_type:
-  | 'Truck'
-  | 'Car'
-  | 'Bus'
-  | 'Motorcycle'
-  | 'Tricycle'
-  | 'Air Plane';
+    | 'Truck'
+    | 'Car'
+    | 'Bus'
+    | 'Motorcycle'
+    | 'Tricycle'
+    | 'Air Plane';
   vehicle_plate_number?: string;
 
   // Coverage
@@ -189,13 +189,12 @@ export class MyCoverClient {
       imei_number: params.imei_one, // Map imei_one to imei_number
     };
 
-    const response = await this.request<MyCoverResponse<{ policy: MyCoverPolicy }>>(
-      '/products/sti/buy-gadget-cover',
-      {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      }
-    );
+    const response = await this.request<
+      MyCoverResponse<{ policy: MyCoverPolicy }>
+    >('/products/sti/buy-gadget-cover', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
     // Note: Gadget API returns { policy: {...} } nested inside data
     return response.data.policy;
   }
@@ -255,6 +254,7 @@ export class MyCoverClient {
     const response = await this.request<MyCoverResponse<unknown[]>>('/claims');
     // API returns { data: { claims: [], total_count: 0 } } or sometimes just []
     // We normalize to array
+    // biome-ignore lint/suspicious/noExplicitAny: MyCover API response structure varies
     const data = response.data as any;
     if (data && Array.isArray(data.claims)) {
       return data.claims;

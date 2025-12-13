@@ -66,16 +66,18 @@ export function FileUpload() {
     <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-muted/20 rounded-lg border-2 border-dashed">
       <h2 className="text-2xl font-bold mb-4">Upload Price List</h2>
       <p className="text-muted-foreground mb-8 max-w-md">
-        Upload a picture of your price list, or a CSV/PDF file. The customized AI will analyze the image to identify products and prices.
+        Upload a picture of your price list, or a CSV/PDF file. The customized
+        AI will analyze the image to identify products and prices.
       </p>
 
       <div className="w-full max-w-sm space-y-4 mb-8">
         <div
           {...getRootProps()}
-          className={`p-10 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDragActive
+          className={`p-10 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+            isDragActive
               ? 'border-primary bg-primary/10'
               : 'border-border hover:border-primary/50'
-            }`}
+          }`}
         >
           <input {...getInputProps()} />
           <div className="flex flex-col items-center justify-center gap-4">

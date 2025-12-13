@@ -217,6 +217,13 @@ export async function getProducts(
   let outOfStockCount = 0;
   let categoryCount = 0;
 
+  // Define RPC response type
+  interface MerchantInventoryStats {
+    inventoryValue: number;
+    outOfStockCount: number;
+    categoryCount: number;
+  }
+
   try {
     const { data: rpcStats, error: rpcError } = await supabase.rpc(
       'get_merchant_inventory_stats',
@@ -224,9 +231,10 @@ export async function getProducts(
     );
 
     if (!rpcError && rpcStats) {
-      inventoryValue = Number(rpcStats.inventoryValue || 0);
-      outOfStockCount = Number(rpcStats.outOfStockCount || 0);
-      categoryCount = Number(rpcStats.categoryCount || 0);
+      const stats = rpcStats as unknown as MerchantInventoryStats;
+      inventoryValue = Number(stats.inventoryValue || 0);
+      outOfStockCount = Number(stats.outOfStockCount || 0);
+      categoryCount = Number(stats.categoryCount || 0);
     }
   } catch (statsErr) {
     console.error('Error fetching inventory stats:', statsErr);

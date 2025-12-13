@@ -186,10 +186,10 @@ Instructions:
  * Parses CSV programmatically without AI, matches against existing products by name.
  * Much faster and handles unlimited rows.
  */
-export async function parseCSVDirectly(
+export function parseCSVDirectly(
   currentProducts: Product[],
   csvData: string
-): Promise<AIResponse> {
+): AIResponse {
   const lines = csvData.split('\n').filter((line) => line.trim());
   if (lines.length < 2) {
     return {
@@ -304,7 +304,7 @@ export async function parseCSVDirectly(
       ? Number.parseInt(rawStock.replace(/[^0-9]/g, ''), 10)
       : undefined;
 
-    if (isNaN(price)) {
+    if (Number.isNaN(price)) {
       skippedCount++;
       continue;
     }
@@ -377,7 +377,6 @@ export async function parseCSVDirectly(
 
   const newCount = changes.filter((c) => c.type === 'new').length;
   const updateCount = changes.filter((c) => c.type === 'update').length;
-  const removeCount = changes.filter((c) => c.type === 'remove').length;
 
   return {
     changes,

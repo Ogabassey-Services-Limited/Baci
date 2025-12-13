@@ -2,6 +2,7 @@ import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { fetchGoogleSheet } from '@/app/dashboard/products/actions';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -13,8 +14,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-
-import { Checkbox } from '@/components/ui/checkbox';
 
 interface GoogleSheetImportDialogProps {
   open: boolean;
@@ -92,11 +91,18 @@ export function GoogleSheetImportDialog({
             />
 
             <div className="text-xs text-muted-foreground space-y-2 mt-2 bg-muted/50 p-3 rounded-md border">
-              <p className="font-medium text-foreground">Permissions Required (Desktop Only):</p>
+              <p className="font-medium text-foreground">
+                Permissions Required (Desktop Only):
+              </p>
               <ol className="list-decimal pl-4 space-y-1">
                 <li>Go to your Google Sheet (on a computer)</li>
-                <li>Click <strong>File &gt; Share &gt; Publish to web</strong></li>
-                <li>Important: Change from "Web page" to <strong>Comma-separated values (.csv)</strong></li>
+                <li>
+                  Click <strong>File &gt; Share &gt; Publish to web</strong>
+                </li>
+                <li>
+                  Important: Change from "Web page" to{' '}
+                  <strong>Comma-separated values (.csv)</strong>
+                </li>
                 <li>Click Publish, copy that link, and paste it above</li>
               </ol>
               <p className="text-amber-600 dark:text-amber-400 mt-2">

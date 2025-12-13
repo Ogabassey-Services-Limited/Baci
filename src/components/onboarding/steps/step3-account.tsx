@@ -53,6 +53,7 @@ export default function Step3_Account({
   const isPasswordStrong = passwordStrength >= 3;
 
   // Re-validate confirmPassword when password changes (proper cross-field validation)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: password triggers re-validation of confirmPassword match
   useEffect(() => {
     if (confirmPassword) {
       // Debounce to avoid excessive validation calls
@@ -94,8 +95,8 @@ export default function Step3_Account({
           <AlertTitle>Logged In</AlertTitle>
           <AlertDescription className="space-y-3">
             <p>
-              You are logged in as <strong>{user.email}</strong>. Click "Finish Setup"
-              below to save your store.
+              You are logged in as <strong>{user.email}</strong>. Click "Finish
+              Setup" below to save your store.
             </p>
             <Button
               variant="link"

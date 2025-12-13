@@ -14,7 +14,12 @@ import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/lib/products';
 import { useAuth } from './auth-context'; // Import the useAuth hook
 
-export type WorkflowStep = 'view' | 'upload' | 'processing' | 'review' | 'studio';
+export type WorkflowStep =
+  | 'view'
+  | 'upload'
+  | 'processing'
+  | 'review'
+  | 'studio';
 
 interface PaginationInfo {
   page: number;
@@ -130,12 +135,14 @@ export const ProductProvider: React.FC<{
 
       // Prevent rapid re-fetching (throttle to 1s)
       const now = Date.now();
+      // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
       const lastFetch = (fetchProducts as any).lastFetch || 0;
       if (now - lastFetch < 1000) {
         console.log('Throttling product fetch');
         return;
       }
       // Store timestamp on the function object (or use a ref in real implementation, but this works for quick patch)
+      // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
       (fetchProducts as any).lastFetch = now;
 
       // Prevent duplicate fetches with same parameters

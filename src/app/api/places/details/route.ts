@@ -6,7 +6,8 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
 
-const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+const GOOGLE_API_KEY =
+  process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
 const NEW_PLACES_API_BASE = 'https://places.googleapis.com/v1';
 
 // Simple retry wrapper for fetch
@@ -37,7 +38,9 @@ async function fetchWithRetry(
 export async function GET(request: NextRequest) {
   try {
     if (!GOOGLE_API_KEY) {
-      console.error('[Places API] GOOGLE_MAPS_API_KEY or GOOGLE_PLACES_API_KEY not configured');
+      console.error(
+        '[Places API] GOOGLE_MAPS_API_KEY or GOOGLE_PLACES_API_KEY not configured'
+      );
       return NextResponse.json(
         { error: 'Google Places API not configured' },
         { status: 500 }
@@ -60,16 +63,26 @@ export async function GET(request: NextRequest) {
       : `places/${placeId}`;
 
     // Fields we need for address parsing
-    const fields = ['addressComponents', 'formattedAddress', 'location', 'reviews', 'rating', 'userRatingCount'].join(',');
+    const fields = [
+      'addressComponents',
+      'formattedAddress',
+      'location',
+      'reviews',
+      'rating',
+      'userRatingCount',
+    ].join(',');
 
-    const response = await fetchWithRetry(`${NEW_PLACES_API_BASE}/${resourceName}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': GOOGLE_API_KEY,
-        'X-Goog-FieldMask': fields,
-      },
-    });
+    const response = await fetchWithRetry(
+      `${NEW_PLACES_API_BASE}/${resourceName}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': GOOGLE_API_KEY,
+          'X-Goog-FieldMask': fields,
+        },
+      }
+    );
 
     if (!response.ok) {
       const errorText = await response.text();

@@ -8,7 +8,9 @@ const step1BaseSchema = z.object({
   businessName: z
     .string()
     .min(2, { message: 'Business name must be at least 2 characters.' }),
-  businessType: z.string().min(1, { message: 'Please select a business type.' }),
+  businessType: z
+    .string()
+    .min(1, { message: 'Please select a business type.' }),
   otherBusinessType: z.string().optional(),
 });
 
@@ -60,12 +62,14 @@ const step3BaseSchema = z.object({
  * - Password is checked against common/breached passwords
  * Note: The form component handles the "password required" logic for non-logged-in users
  */
-export const step3Schema = step3BaseSchema.superRefine((data, ctx) => {
+// Reusable password validation helper
+const validatePassword = (
+  data: { password?: string; confirmPassword?: string },
+  ctx: z.RefinementCtx
+) => {
   const { password, confirmPassword } = data;
 
-  // Only validate password if provided (form handles required logic)
   if (password && password.length > 0) {
-    // 1. Length Check
     if (password.length < 8) {
       ctx.addIssue({
         code: 'custom',
@@ -74,17 +78,16 @@ export const step3Schema = step3BaseSchema.superRefine((data, ctx) => {
       });
     }
 
-    // 2. Strength Check (Independent)
     const strength = checkPasswordStrength(password);
     if (strength < 2) {
       ctx.addIssue({
         code: 'custom',
         path: ['password'],
-        message: 'Password is too weak. Add more characters or mix letters, numbers, and symbols.',
+        message:
+          'Password is too weak. Add more characters or mix letters, numbers, and symbols.',
       });
     }
 
-    // 3. Equality Check (Independent - always check if password exists)
     if (!confirmPassword) {
       ctx.addIssue({
         code: 'custom',
@@ -99,15 +102,19 @@ export const step3Schema = step3BaseSchema.superRefine((data, ctx) => {
       });
     }
 
-    // 4. Common Password Check
     if (isCommonPassword(password)) {
       ctx.addIssue({
         code: 'custom',
         path: ['password'],
-        message: 'This password is too common. Please choose a more unique password.',
+        message:
+          'This password is too common. Please choose a more unique password.',
       });
     }
   }
+};
+
+export const step3Schema = step3BaseSchema.superRefine((data, ctx) => {
+  validatePassword(data, ctx);
 });
 
 /**
@@ -125,59 +132,14 @@ export const onboardingSchema = step1BaseSchema
     ) {
       ctx.addIssue({
         code: 'custom',
-        message: "If you select 'Other', please specify your business type.",
+        message:
+          "If you select 'Other', please specify your business type with at least 2 characters.",
         path: ['otherBusinessType'],
       });
     }
 
     // Refinement from step3Schema (Password Validation)
-    // We replicate the full logic here because .merge() drops refinements
-    const { password, confirmPassword } = data;
-
-    if (password && password.length > 0) {
-      // 1. Check minimum length
-      if (password.length < 8) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['password'],
-          message: 'Password must be at least 8 characters.',
-        });
-      }
-
-      // 2. Check strength (Independent)
-      const strength = checkPasswordStrength(password);
-      if (strength < 2) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['password'],
-          message: 'Password is too weak. Add more characters or mix letters, numbers, and symbols.',
-        });
-      }
-
-      // 3. Check matching (Independent)
-      if (!confirmPassword) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['confirmPassword'],
-          message: 'Please confirm your password.',
-        });
-      } else if (password !== confirmPassword) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['confirmPassword'],
-          message: 'Passwords do not match.',
-        });
-      }
-
-      // 4. Common password check
-      if (isCommonPassword(password)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['password'],
-          message: 'This password is too common. Please choose a more unique password.',
-        });
-      }
-    }
+    validatePassword(data, ctx);
   });
 
 export type OnboardingFormValues = z.infer<typeof onboardingSchema>;

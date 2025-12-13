@@ -72,9 +72,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           {/* Badge */}
           {product.condition && (
             <div
-              className={`absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 ${
-                product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
-              }`}
+              className={`absolute top-3 left-3 text-white text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 ${product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
+                }`}
             >
               {product.condition}
             </div>
@@ -84,11 +83,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <div className="absolute top-3 right-3 z-20 flex flex-col gap-2">
             <button
               onClick={toggleLike}
-              className={`h-8 w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${
-                isLiked
-                  ? 'bg-white border-red-100 text-red-600'
-                  : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-red-600 md:hover:bg-white'
-              }`}
+              className={`h-8 w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
+                ? 'bg-white border-red-100 text-red-600'
+                : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-red-600 md:hover:bg-white'
+                }`}
               title="Add to Wishlist"
             >
               <Heart
@@ -100,11 +98,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
             <button
               onClick={toggleCompare}
-              className={`h-8 w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${
-                isComparing
-                  ? 'bg-red-50 border-red-100 text-red-600'
-                  : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-blue-600 md:hover:bg-white'
-              }`}
+              className={`h-8 w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-90 ${isComparing
+                ? 'bg-red-50 border-red-100 text-red-600'
+                : 'bg-white/80 backdrop-blur-sm border-transparent text-gray-400 md:hover:text-blue-600 md:hover:bg-white'
+                }`}
               title="Compare"
             >
               <ArrowRightLeft size={16} strokeWidth={2} />
@@ -133,17 +130,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Content */}
         <div className="flex flex-col flex-1 pointer-events-none px-1 pt-1">
+
           {/* Ratings */}
           <div className="flex items-center gap-1 mb-1.5">
             {[...Array(5)].map((_, i) => (
               <Star
                 key={i}
                 size={12}
-                className={`${i < Math.floor(product.rating) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
+                className={`${i < Math.floor(product.rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
               />
             ))}
             <span className="text-[10px] text-gray-400 ml-1">
-              ({product.rating})
+              ({product.rating ?? 0})
             </span>
           </div>
 
@@ -184,9 +182,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           className="w-full h-full object-cover md:group-hover:scale-110 transition-transform duration-500"
         />
         <div
-          className={`absolute top-2 left-2 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide z-10 ${
-            product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
-          }`}
+          className={`absolute top-2 left-2 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide z-10 ${product.condition === 'New' ? 'bg-emerald-500' : 'bg-amber-500'
+            }`}
         >
           {product.condition}
         </div>
@@ -206,11 +203,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <Star
                 key={i}
                 size={12}
-                className={`${i < Math.floor(product.rating) ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-100 text-gray-300'}`}
+                className={`${i < Math.floor(product.rating ?? 0) ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-100 text-gray-300'}`}
               />
             ))}
             <span className="text-xs text-gray-500 ml-1">
-              ({product.rating})
+              ({product.rating ?? 0})
             </span>
           </div>
         </div>
@@ -228,11 +225,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {/* Compare Button (List View) */}
             <button
               onClick={toggleCompare}
-              className={`p-2 rounded-lg transition-all duration-200 border ${
-                isComparing
-                  ? 'bg-red-50 border-red-100 text-red-600'
-                  : 'bg-white border-gray-200 text-gray-400 md:hover:border-red-200 md:hover:text-blue-600'
-              }`}
+              className={`p-2 rounded-lg transition-all duration-200 border ${isComparing
+                ? 'bg-red-50 border-red-100 text-red-600'
+                : 'bg-white border-gray-200 text-gray-400 md:hover:border-red-200 md:hover:text-blue-600'
+                }`}
               title="Compare"
             >
               <ArrowRightLeft size={18} strokeWidth={2} />
@@ -256,11 +252,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Wishlist Button - Absolute Top Right of Card in List View */}
       <button
         onClick={toggleLike}
-        className={`absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-200 pointer-events-auto active:scale-90 ${
-          isLiked
-            ? 'bg-red-50 text-red-600'
-            : 'bg-white/80 backdrop-blur-sm text-gray-400 md:hover:bg-red-50 md:hover:text-red-600'
-        }`}
+        className={`absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-200 pointer-events-auto active:scale-90 ${isLiked
+          ? 'bg-red-50 text-red-600'
+          : 'bg-white/80 backdrop-blur-sm text-gray-400 md:hover:bg-red-50 md:hover:text-red-600'
+          }`}
       >
         <Heart
           size={18}

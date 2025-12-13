@@ -402,7 +402,8 @@ export async function GET(_request: NextRequest) {
     const analysis = (products || []).map((product) => {
       // Determine effective content (what Google actually sees)
       const effectiveTitle = product.meta_title || product.name || '';
-      const effectiveDescription = product.meta_description || product.description || '';
+      const effectiveDescription =
+        product.meta_description || product.description || '';
 
       const hasCustomTitle = !!product.meta_title;
       const hasCustomDescription = !!product.meta_description;
@@ -448,8 +449,8 @@ export async function GET(_request: NextRequest) {
     const avgScore =
       totalProducts > 0
         ? Math.round(
-          analysis.reduce((sum, a) => sum + a.seoScore, 0) / totalProducts
-        )
+            analysis.reduce((sum, a) => sum + a.seoScore, 0) / totalProducts
+          )
         : 0;
     const missingTitle = analysis.filter((a) => !a.hasTitle).length;
     const missingDescription = analysis.filter((a) => !a.hasDescription).length;

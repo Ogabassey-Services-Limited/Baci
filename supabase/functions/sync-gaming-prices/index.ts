@@ -11,7 +11,6 @@ const FROM_EMAIL = 'notifications@usebaci.com';
 const FROM_NAME = 'Baci Notifications';
 const ADMIN_EMAIL = 'admin@ogabassey.com'; // Configure this
 
-// biome-ignore lint/correctness/noUnusedFunctionParameters: Request required by serve signature
 serve(async (_req) => {
   try {
     const supabaseClient = createClient(
@@ -144,12 +143,12 @@ async function sendNotification(newProducts: any[], priceChanges: any[]) {
     htmlBody += `<h3>💰 ${priceChanges.length} Price Updates</h3>
         <ul>
             ${priceChanges
-        .slice(0, 50)
-        .map(
-          (p) =>
-            `<li><b>${p.name}</b>: ₦${p.oldPrice?.toLocaleString()} ➡️ ₦${p.newPrice.toLocaleString()}</li>`
-        )
-        .join('')}
+              .slice(0, 50)
+              .map(
+                (p) =>
+                  `<li><b>${p.name}</b>: ₦${p.oldPrice?.toLocaleString()} ➡️ ₦${p.newPrice.toLocaleString()}</li>`
+              )
+              .join('')}
             ${priceChanges.length > 50 ? `<li>...and ${priceChanges.length - 50} more</li>` : ''}
         </ul>`;
   }

@@ -120,27 +120,28 @@ export async function GET(request: NextRequest) {
     ]);
 
     // REFACTORED: Use Cached RPC for heavy aggregation (5 min cache)
-    const summaryData = await getCachedPlatformAnalytics(
-      startDateStr,
-      new Date().toISOString().split('T')[0]
-    );
+    const endDateStr = new Date().toISOString().split('T')[0];
+    const [summaryData, prevSummaryData] = await Promise.all([
+      getCachedPlatformAnalytics(startDateStr, endDateStr),
+      getCachedPlatformAnalytics(previousStartDateStr, startDateStr),
+    ]);
 
-    if (!summaryData) {
+    if (!summaryData || !prevSummaryData) {
       throw new Error('Failed to fetch platform analytics summary');
     }
 
-    // Previous period for GMV change calculation
-    const prevSummaryData = await getCachedPlatformAnalytics(
-      previousStartDateStr,
-      startDateStr
-    );
-
-    if (!prevSummaryData) {
-      throw new Error('Failed to fetch previous platform analytics summary');
+    interface PlatformAnalyticsSummary {
+      totalGmv: number;
+      activeMerchants: number;
+      totalOrders: number;
+      platformRevenue: number;
+      processorFees: number;
+      netToMerchants: number;
+      [key: string]: unknown;
     }
 
-    const currentStats = summaryData as any; // Typed via RPC return
-    const prevStats = prevSummaryData as any;
+    const currentStats = summaryData as PlatformAnalyticsSummary;
+    const prevStats = prevSummaryData as PlatformAnalyticsSummary;
 
     const totalGmv = Number(currentStats.totalGmv) || 0;
     const previousGmv = Number(prevStats.totalGmv) || 0;

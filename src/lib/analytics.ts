@@ -184,6 +184,7 @@ export const analytics = {
     currency: string = 'USD',
     additionalData?: {
       merchantId: string;
+      // biome-ignore lint/suspicious/noExplicitAny: userData is intentionally flexible for analytics payloads
       userData?: any;
     }
   ) => {

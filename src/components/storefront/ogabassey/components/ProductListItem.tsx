@@ -188,7 +188,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
                 <Star
                   key={i}
                   size={12}
-                  className={`${i < Math.floor(product.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                  className={`${i < Math.floor(product.rating ?? 0) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
                 />
               ))}
             </div>

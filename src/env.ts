@@ -26,6 +26,12 @@ export const getSupabaseAnonKey = (): string => {
   return key;
 };
 
+/**
+ * Get the Supabase service role key (server-side only).
+ * This key grants admin-level access and must never be exposed to the client.
+ * @throws {Error} If accessed on the client or if the key is not defined
+ * @returns {string} The Supabase service role key
+ */
 export const getSupabaseServiceRoleKey = (): string => {
   if (typeof window !== 'undefined') {
     throw new Error(

@@ -69,7 +69,7 @@ export async function GET() {
         nin,
         bvn,
         cac_number,
-        kyc_status
+        cac_number
       `)
       .eq('user_id', user.id)
       .single();

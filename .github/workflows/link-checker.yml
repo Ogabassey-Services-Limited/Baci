@@ -73,7 +73,7 @@ jobs:
             --exclude 'business-api\.tiktok\.com'
             --exclude 'places\.googleapis\.com/v1'
             --exclude 'kuda-openapi\.kuda\.com'
-            --exclude 'merchant\.creditdirect\.ng'
+            --exclude 'creditdirect\.ng'
             --exclude 'dashboard\.\$\{rootDomain\}'
             --exclude '^https://dashboard/'
             --exclude 'transparenttextures\.com'

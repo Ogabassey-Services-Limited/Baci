@@ -9,8 +9,9 @@ export default async function KycSettingsPage() {
     redirect('/login');
   }
 
-  // Cast merchant to any to avoid potential type issues if KYC fields are missing in the shared type
+  // Cast merchant to access KYC fields which may be missing in shared type
   // effectively relying on the select('*') in getMerchantForUser to return all DB columns
+  // biome-ignore lint/suspicious/noExplicitAny: KYC fields may be missing in shared MerchantData type
   const m = merchant as any;
 
   const initialData = {

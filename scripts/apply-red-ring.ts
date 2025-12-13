@@ -1,6 +1,5 @@
 import sharp from 'sharp';
-import fs from 'fs';
-import { removeBackground } from '@imgly/background-removal-node';
+
 // Note: standard package is @imgly/background-removal, but looking at package.json it says "^1.7.0". 
 // Usually for node it might require specific config or just work. 
 // Let's try standard import first. If it fails, I'll fallback or check docs/types.

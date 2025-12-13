@@ -36,13 +36,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-// Allowed image MIME types
-const ALLOWED_MIME_TYPES = new Set([
-    'image/jpeg',
-    'image/png',
-    'image/gif',
-    'image/webp',
-]);
+
 
 // Magic bytes for image validation
 const MAGIC_BYTES: Record<string, number[]> = {
@@ -122,7 +116,7 @@ async function uploadImage(
         const newFilename = `blog-import/${postSlug}/${uuid}${ext}`;
 
         // Upload to Supabase Storage
-        const { data, error } = await supabase.storage
+        const { error } = await supabase.storage
             .from('media')
             .upload(newFilename, buffer, {
                 contentType: `image/${ext.replace('.', '')}`,

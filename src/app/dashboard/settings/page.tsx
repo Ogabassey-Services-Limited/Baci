@@ -287,7 +287,7 @@ export default function SettingsPage() {
         .eq('merchant_id', merchant.id)
         .single();
 
-      let error;
+      let error: { message: string } | null = null;
 
       if (existing) {
         const { error: updateError } = await supabase

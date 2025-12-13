@@ -1,9 +1,10 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 
-const ZEPTOMAIL_TOKEN = Deno.env.get("ZEPTOMAIL_TOKEN") || "";
-const SEND_EMAIL_HOOK_SECRET = Deno.env.get("SEND_EMAIL_HOOK_SECRET") || "";
-const LOGO_URL = "https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/platform/baci-logo.png";
+const ZEPTOMAIL_TOKEN = Deno.env.get('ZEPTOMAIL_TOKEN') || '';
+const SEND_EMAIL_HOOK_SECRET = Deno.env.get('SEND_EMAIL_HOOK_SECRET') || '';
+const LOGO_URL =
+  'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/platform/baci-logo.png';
 
 interface EmailPayload {
   user: {
@@ -19,52 +20,58 @@ interface EmailPayload {
   };
 }
 
-const EMAIL_CONFIG: Record<string, { subject: string; heading: string; body: string; buttonText: string }> = {
+const EMAIL_CONFIG: Record<
+  string,
+  { subject: string; heading: string; body: string; buttonText: string }
+> = {
   signup: {
-    subject: "Confirm your Baci account",
-    heading: "Verify your email address",
-    body: "Thanks for starting your journey with Baci! Please confirm your email address to activate your account.",
-    buttonText: "Confirm Email"
+    subject: 'Confirm your Baci account',
+    heading: 'Verify your email address',
+    body: 'Thanks for starting your journey with Baci! Please confirm your email address to activate your account.',
+    buttonText: 'Confirm Email',
   },
   signup_confirmation: {
-    subject: "Confirm your Baci account",
-    heading: "Verify your email address",
-    body: "Thanks for starting your journey with Baci! Please confirm your email address to activate your account.",
-    buttonText: "Confirm Email"
+    subject: 'Confirm your Baci account',
+    heading: 'Verify your email address',
+    body: 'Thanks for starting your journey with Baci! Please confirm your email address to activate your account.',
+    buttonText: 'Confirm Email',
   },
   invite: {
     subject: "You've been invited to Baci",
     heading: "You've been invited!",
-    body: "You have been invited to join Baci. Click the button below to set up your account and get started.",
-    buttonText: "Accept Invitation"
+    body: 'You have been invited to join Baci. Click the button below to set up your account and get started.',
+    buttonText: 'Accept Invitation',
   },
   magiclink: {
-    subject: "Log in to Baci",
-    heading: "Your Login Link",
-    body: "Click the button below to log in to your Baci account. This link will expire in 24 hours.",
-    buttonText: "Log In Now"
+    subject: 'Log in to Baci',
+    heading: 'Your Login Link',
+    body: 'Click the button below to log in to your Baci account. This link will expire in 24 hours.',
+    buttonText: 'Log In Now',
   },
   recovery: {
-    subject: "Reset your Baci password",
-    heading: "Reset Your Password",
-    body: "We received a request to reset your password. Click the button below to choose a new one.",
-    buttonText: "Reset Password"
+    subject: 'Reset your Baci password',
+    heading: 'Reset Your Password',
+    body: 'We received a request to reset your password. Click the button below to choose a new one.',
+    buttonText: 'Reset Password',
   },
   email_change: {
-    subject: "Confirm your new email address",
-    heading: "Confirm Email Change",
-    body: "Please confirm the update of your email address by clicking the button below.",
-    buttonText: "Confirm New Email"
+    subject: 'Confirm your new email address',
+    heading: 'Confirm Email Change',
+    body: 'Please confirm the update of your email address by clicking the button below.',
+    buttonText: 'Confirm New Email',
   },
   reauthentication: {
-    subject: "Security verification required",
-    heading: "Security Verification",
-    body: "A sensitive action was requested on your account. Please verify your identity to proceed.",
-    buttonText: "Verify Identity"
-  }
+    subject: 'Security verification required',
+    heading: 'Security Verification',
+    body: 'A sensitive action was requested on your account. Please verify your identity to proceed.',
+    buttonText: 'Verify Identity',
+  },
 };
 
-function generateEmailHtml(config: typeof EMAIL_CONFIG[string], confirmationUrl: string): string {
+function generateEmailHtml(
+  config: (typeof EMAIL_CONFIG)[string],
+  confirmationUrl: string
+): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -109,12 +116,17 @@ function generateEmailHtml(config: typeof EMAIL_CONFIG[string], confirmationUrl:
 }
 
 Deno.serve(async (req) => {
-  if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405 });
+  if (req.method !== 'POST') {
+    return new Response('Method not allowed', { status: 405 });
   }
 
   // Debug
-  console.log("Token length:", ZEPTOMAIL_TOKEN.length, "Secret length:", SEND_EMAIL_HOOK_SECRET.length);
+  console.log(
+    'Token length:',
+    ZEPTOMAIL_TOKEN.length,
+    'Secret length:',
+    SEND_EMAIL_HOOK_SECRET.length
+  );
 
   const payload = await req.text();
   const headers = Object.fromEntries(req.headers);
@@ -125,10 +137,10 @@ Deno.serve(async (req) => {
     const wh = new Webhook(SEND_EMAIL_HOOK_SECRET);
     data = wh.verify(payload, headers) as EmailPayload;
   } catch (error) {
-    console.error("Webhook verification failed:", error);
-    return new Response(JSON.stringify({ error: "Invalid signature" }), {
+    console.error('Webhook verification failed:', error);
+    return new Response(JSON.stringify({ error: 'Invalid signature' }), {
       status: 401,
-      headers: { "Content-Type": "application/json" }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 
@@ -138,44 +150,50 @@ Deno.serve(async (req) => {
   const confirmationUrl = `${email_data.site_url}/auth/confirm?token_hash=${email_data.token_hash}&type=${emailType}`;
   const htmlBody = generateEmailHtml(config, confirmationUrl);
 
-  console.log("Sending email to:", user.email, "Type:", emailType);
+  console.log('Sending email to:', user.email, 'Type:', emailType);
 
   // Send via ZeptoMail
   try {
-    const response = await fetch("https://api.zeptomail.com/v1.1/email", {
-      method: "POST",
+    const response = await fetch('https://api.zeptomail.com/v1.1/email', {
+      method: 'POST',
       headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Zoho-enczapikey ${ZEPTOMAIL_TOKEN}`,
       },
       body: JSON.stringify({
-        from: { address: "noreply@usebaci.com", name: "Baci" },
+        from: { address: 'noreply@usebaci.com', name: 'Baci' },
         to: [{ email_address: { address: user.email } }],
         subject: config.subject,
-        htmlbody: htmlBody
-      })
+        htmlbody: htmlBody,
+      }),
     });
 
     const responseText = await response.text();
-    console.log("ZeptoMail response:", response.status, responseText);
+    console.log('ZeptoMail response:', response.status, responseText);
 
     if (!response.ok) {
-      return new Response(JSON.stringify({ error: "ZeptoMail failed", details: responseText }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" }
-      });
+      return new Response(
+        JSON.stringify({ error: 'ZeptoMail failed', details: responseText }),
+        {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
-      headers: { "Content-Type": "application/json" }
+      headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error("Fetch error:", error);
-    return new Response(JSON.stringify({ error: "Fetch failed", details: String(error) }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" }
-    });
+    console.error('Fetch error:', error);
+    return new Response(
+      JSON.stringify({ error: 'Fetch failed', details: String(error) }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 });

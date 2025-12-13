@@ -81,11 +81,9 @@ function SetupChecklistMobileWidget({
   if (readiness.isReady && readiness.isPublished) return null;
 
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
-      tabIndex={0}
-      role="button"
       className="md:hidden w-full bg-gradient-to-br from-primary/10 to-transparent border border-primary/10 rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-all touch-manipulation cursor-pointer select-none"
     >
       <div className="flex items-center gap-4">
@@ -136,7 +134,7 @@ function SetupChecklistMobileWidget({
       <div className="h-8 w-8 rounded-full bg-background/50 flex items-center justify-center">
         <ChevronRight className="h-4 w-4 text-muted-foreground" />
       </div>
-    </div>
+    </button>
   );
 }
 

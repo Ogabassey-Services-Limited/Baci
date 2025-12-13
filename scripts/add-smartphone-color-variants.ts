@@ -66,7 +66,7 @@ const COLOR_HEX: Record<string, string> = {
     'Neon Gold': '#FFD700',
     'Magic Skin Blue': '#0066CC',
     'Stardust Gray': '#808080',
-    'Moonlight Silver': '#C0C0C0',
+
     'Uyuni Salt White': '#F5F5F5',
     'Iceland Basaltic Dark': '#2F4F4F',
     'Sahara Sand Brown': '#C19A6B',

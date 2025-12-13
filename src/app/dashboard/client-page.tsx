@@ -20,12 +20,6 @@ import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
 import type { ChartConfig } from '@/components/ui/chart';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
@@ -646,28 +640,28 @@ export default function DashboardClientPage({
             <div className="h-[60px] mt-4 flex items-end justify-between gap-1">
               {monthlyChartData.length > 0
                 ? monthlyChartData.map((data, _i) => {
-                  const maxRevenue = Math.max(
-                    ...monthlyChartData.map((d) => d.revenue)
-                  );
-                  const height =
-                    maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
-                  return (
-                    <div
-                      key={data.month}
-                      className="w-full bg-primary/30 rounded-t-sm transition-all"
-                      style={{ height: `${height}%` }}
-                      title={`${data.month}: ${formatPrice(data.revenue, merchant?.country || null)}`}
-                    />
-                  );
-                })
+                    const maxRevenue = Math.max(
+                      ...monthlyChartData.map((d) => d.revenue)
+                    );
+                    const height =
+                      maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
+                    return (
+                      <div
+                        key={data.month}
+                        className="w-full bg-primary/30 rounded-t-sm transition-all"
+                        style={{ height: `${height}%` }}
+                        title={`${data.month}: ${formatPrice(data.revenue, merchant?.country || null)}`}
+                      />
+                    );
+                  })
                 : [40, 25, 60, 30, 70, 45].map((h, i) => (
-                  <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: List is static
-                    key={i}
-                    className="w-full bg-primary/20 rounded-t-sm"
-                    style={{ height: `${h}%` }}
-                  />
-                ))}
+                    <div
+                      // biome-ignore lint/suspicious/noArrayIndexKey: List is static
+                      key={i}
+                      className="w-full bg-primary/20 rounded-t-sm"
+                      style={{ height: `${h}%` }}
+                    />
+                  ))}
             </div>
           </BentoCard>
         </div>

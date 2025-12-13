@@ -1,14 +1,6 @@
 'use client';
 
-import {
-  ArrowRight,
-  Check,
-  ChevronsUpDown,
-  HelpCircle,
-  Lock,
-  Sparkles,
-  Trash2
-} from 'lucide-react';
+import { Lock, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { Change } from '@/app/dashboard/products/actions';
 import { enrichProductsBatch } from '@/app/dashboard/products/generation-actions';
@@ -26,13 +18,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   Table,
   TableBody,
   TableCell,
@@ -42,9 +27,9 @@ import {
 } from '@/components/ui/table';
 import { useProductContext } from '@/contexts/product-context';
 import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, getCurrencySymbol } from '@/lib/currency';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
 
 export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
   const { aiResponse, setWorkflowStep, applyChanges } = useProductContext();
@@ -53,7 +38,9 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
 
   // Local state for editable changes
   const [localChanges, setLocalChanges] = useState<Change[]>([]);
-  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
+    new Set()
+  );
 
   // AI Generation State
   const [isGenerating, setIsGenerating] = useState(false);
@@ -101,7 +88,11 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
     });
   };
 
-  const handleEdit = (index: number, field: keyof Change['details'], value: string | number) => {
+  const handleEdit = (
+    index: number,
+    field: keyof Change['details'],
+    value: string | number
+  ) => {
     setLocalChanges((prev) => {
       const updated = [...prev];
       updated[index] = {
@@ -115,14 +106,16 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
     });
   };
 
-  const isPro = merchant?.plan_tier === 'pro' || merchant?.plan_tier === 'business';
+  const isPro =
+    merchant?.plan_tier === 'pro' || merchant?.plan_tier === 'business';
 
   const handleGenerateDescriptions = async () => {
     if (!isPro) {
       toast({
-        title: "Pro Feature Locked",
-        description: "Upgrade to Pro to auto-generate SEO descriptions for thousands of products!",
-        variant: "destructive" // Or a custom 'premium' variant if you have one
+        title: 'Pro Feature Locked',
+        description:
+          'Upgrade to Pro to auto-generate SEO descriptions for thousands of products!',
+        variant: 'destructive', // Or a custom 'premium' variant if you have one
       });
       return;
     }
@@ -130,10 +123,13 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
     // Identify targets: New products with empty descriptions OR missing SKUs OR no attributes
     const targets = localChanges
       .map((c, i) => ({ ...c, originalIndex: i }))
-      .filter(c => c.type === 'new'); // Process ALL new products to enrich them (attributes/SKU even if description exists)
+      .filter((c) => c.type === 'new'); // Process ALL new products to enrich them (attributes/SKU even if description exists)
 
     if (targets.length === 0) {
-      toast({ title: "Nothing to generate", description: "All new products already have descriptions." });
+      toast({
+        title: 'Nothing to generate',
+        description: 'All new products already have descriptions.',
+      });
       return;
     }
 
@@ -147,12 +143,15 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
     try {
       for (let i = 0; i < totalBatches; i++) {
         if (stopGenerationRef.current) {
-          toast({ title: "Generation Stopped", description: `Stopped after ${i * BATCH_SIZE} products.` });
+          toast({
+            title: 'Generation Stopped',
+            description: `Stopped after ${i * BATCH_SIZE} products.`,
+          });
           break;
         }
 
         const batch = targets.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
-        const names = batch.map(c => c.details.name);
+        const names = batch.map((c) => c.details.name);
 
         // Call Server Action
         const results = await enrichProductsBatch(names);
@@ -160,17 +159,21 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
         // Update State
         setLocalChanges((prev) => {
           const next = [...prev];
-          results.forEach(res => {
-            const target = batch.find(b => b.details.name === res.productName);
+          results.forEach((res) => {
+            const target = batch.find(
+              (b) => b.details.name === res.productName
+            );
             if (target) {
               next[target.originalIndex] = {
                 ...next[target.originalIndex],
                 details: {
                   ...next[target.originalIndex].details,
-                  description: res.description || next[target.originalIndex].details.description, // Only overwrite if new description exists
+                  description:
+                    res.description ||
+                    next[target.originalIndex].details.description, // Only overwrite if new description exists
                   sku: next[target.originalIndex].details.sku || res.sku, // Only set SKU if missing
-                  attributes: res.attributes // Save attributes
-                }
+                  attributes: res.attributes, // Save attributes
+                },
               };
             }
           });
@@ -182,11 +185,18 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
       }
 
       if (!stopGenerationRef.current) {
-        toast({ title: "Generation Complete", description: `Generated descriptions for ${targets.length} products.` });
+        toast({
+          title: 'Generation Complete',
+          description: `Generated descriptions for ${targets.length} products.`,
+        });
       }
     } catch (error) {
       console.error(error);
-      toast({ title: "Generation Failed", description: "Something went wrong.", variant: "destructive" });
+      toast({
+        title: 'Generation Failed',
+        description: 'Something went wrong.',
+        variant: 'destructive',
+      });
     } finally {
       setIsGenerating(false);
       setTimeout(() => setShowGenModal(false), 1000);
@@ -199,7 +209,9 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
   };
 
   const handleApply = async () => {
-    const changesToApply = localChanges.filter((_, i) => selectedIndices.has(i));
+    const changesToApply = localChanges.filter((_, i) =>
+      selectedIndices.has(i)
+    );
     await applyChanges(changesToApply);
     if (onComplete) onComplete();
   };
@@ -213,19 +225,31 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
           <p className="text-sm text-muted-foreground">{aiResponse.summary}</p>
         </div>
         <div className="flex gap-2 items-center">
-          <Button variant="ghost" size="sm" onClick={() => setWorkflowStep('view')}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setWorkflowStep('view')}
+          >
             Cancel
           </Button>
           <Button
-            variant={isPro ? "default" : "secondary"}
+            variant={isPro ? 'default' : 'secondary'}
             size="sm"
-            className={cn("gap-2", !isPro && "opacity-80")}
+            className={cn('gap-2', !isPro && 'opacity-80')}
             onClick={handleGenerateDescriptions}
           >
-            {isPro ? <Sparkles className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+            {isPro ? (
+              <Sparkles className="w-4 h-4" />
+            ) : (
+              <Lock className="w-4 h-4" />
+            )}
             Auto-Enrich
           </Button>
-          <Button size="sm" onClick={handleApply} disabled={selectedIndices.size === 0}>
+          <Button
+            size="sm"
+            onClick={handleApply}
+            disabled={selectedIndices.size === 0}
+          >
             Import & Publish
           </Button>
         </div>
@@ -238,7 +262,10 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
             <TableRow>
               <TableHead className="w-[50px]">
                 <Checkbox
-                  checked={selectedIndices.size === localChanges.length && localChanges.length > 0}
+                  checked={
+                    selectedIndices.size === localChanges.length &&
+                    localChanges.length > 0
+                  }
                   onCheckedChange={handleSelectAll}
                 />
               </TableHead>
@@ -253,19 +280,41 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
             {localChanges.map((change, index) => {
               const isSelected = selectedIndices.has(index);
               return (
-                <TableRow key={index} className={cn(!isSelected && "opacity-50 grayscale bg-muted/50 dark:bg-muted/20")}>
+                <TableRow
+                  // biome-ignore lint/suspicious/noArrayIndexKey: Changes don't have stable IDs
+                  key={index}
+                  className={cn(
+                    !isSelected &&
+                      'opacity-50 grayscale bg-muted/50 dark:bg-muted/20'
+                  )}
+                >
                   <TableCell>
-                    <Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(index)} />
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelection(index)}
+                    />
                   </TableCell>
                   <TableCell>
-                    {change.type === 'new' && <Badge className="bg-green-500 hover:bg-green-600">New</Badge>}
-                    {change.type === 'update' && <Badge variant="secondary" className="text-blue-500">Update</Badge>}
-                    {change.type === 'remove' && <Badge variant="destructive">Remove</Badge>}
+                    {change.type === 'new' && (
+                      <Badge className="bg-green-500 hover:bg-green-600">
+                        New
+                      </Badge>
+                    )}
+                    {change.type === 'update' && (
+                      <Badge variant="secondary" className="text-blue-500">
+                        Update
+                      </Badge>
+                    )}
+                    {change.type === 'remove' && (
+                      <Badge variant="destructive">Remove</Badge>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Input
                       value={change.details.name}
-                      onChange={(e) => handleEdit(index, 'name', e.target.value)}
+                      onChange={(e) =>
+                        handleEdit(index, 'name', e.target.value)
+                      }
                       className="h-8"
                     />
                   </TableCell>
@@ -276,19 +325,21 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                       </span>
                       <Input
                         type="text"
-                        value={(change.newPrice ?? change.details.price).toLocaleString('en-US', {
+                        value={(
+                          change.newPrice ?? change.details.price
+                        ).toLocaleString('en-US', {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}
                         onChange={(e) => {
                           // Strip formatting to get raw number
                           const rawVal = e.target.value.replace(/[^0-9.]/g, '');
-                          const val = parseFloat(rawVal);
+                          const val = Number.parseFloat(rawVal);
 
-                          if (isNaN(val)) return; // Handle empty/invalid better in real app, but safe for now
+                          if (Number.isNaN(val)) return; // Handle empty/invalid better in real app, but safe for now
 
                           if (change.type === 'update') {
-                            setLocalChanges(prev => {
+                            setLocalChanges((prev) => {
                               const next = [...prev];
                               next[index].newPrice = val;
                               return next;
@@ -298,13 +349,18 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                           }
                         }}
                         className={cn(
-                          "h-8 pl-7",
-                          change.type === 'update' && "border-green-500 text-green-700 dark:text-green-400"
+                          'h-8 pl-7',
+                          change.type === 'update' &&
+                            'border-green-500 text-green-700 dark:text-green-400'
                         )}
                       />
                       {change.type === 'update' && (
                         <span className="text-xs text-muted-foreground line-through pl-1">
-                          Stats: {formatCurrency(change.details.price, merchant?.country)}
+                          Stats:{' '}
+                          {formatCurrency(
+                            change.details.price,
+                            merchant?.country
+                          )}
                         </span>
                       )}
                     </div>
@@ -313,8 +369,14 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                     <Input
                       value={change.details.description || ''}
                       placeholder="No description..."
-                      onChange={(e) => handleEdit(index, 'description', e.target.value)}
-                      className={cn("h-8", !change.details.description && "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/30")}
+                      onChange={(e) =>
+                        handleEdit(index, 'description', e.target.value)
+                      }
+                      className={cn(
+                        'h-8',
+                        !change.details.description &&
+                          'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/30'
+                      )}
                     />
                   </TableCell>
                   <TableCell>
@@ -322,21 +384,35 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
                       <Input
                         value={change.details.sku || ''}
                         placeholder="SKU"
-                        onChange={(e) => handleEdit(index, 'sku', e.target.value)}
+                        onChange={(e) =>
+                          handleEdit(index, 'sku', e.target.value)
+                        }
                         className="h-7 text-xs mb-1"
                       />
-                      {change.details.attributes && Object.keys(change.details.attributes).length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {Object.entries(change.details.attributes).slice(0, 3).map(([k, v]) => (
-                            <Badge key={k} variant="outline" className="text-[10px] px-1 py-0 h-4">
-                              {v}
-                            </Badge>
-                          ))}
-                          {Object.keys(change.details.attributes).length > 3 && (
-                            <span className="text-[10px] text-muted-foreground">+{Object.keys(change.details.attributes).length - 3}</span>
-                          )}
-                        </div>
-                      )}
+                      {change.details.attributes &&
+                        Object.keys(change.details.attributes).length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(change.details.attributes)
+                              .slice(0, 3)
+                              .map(([k, v]) => (
+                                <Badge
+                                  key={k}
+                                  variant="outline"
+                                  className="text-[10px] px-1 py-0 h-4"
+                                >
+                                  {v}
+                                </Badge>
+                              ))}
+                            {Object.keys(change.details.attributes).length >
+                              3 && (
+                              <span className="text-[10px] text-muted-foreground">
+                                +
+                                {Object.keys(change.details.attributes).length -
+                                  3}
+                              </span>
+                            )}
+                          </div>
+                        )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -356,13 +432,16 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
       </div>
 
       {/* Generation Modal */}
-      <Dialog open={showGenModal} onOpenChange={(open) => {
-        if (!open && isGenerating) {
-          // If closing via properties/escape while processing, treat as stop
-          handleStopGeneration();
-        }
-        setShowGenModal(open);
-      }}>
+      <Dialog
+        open={showGenModal}
+        onOpenChange={(open) => {
+          if (!open && isGenerating) {
+            // If closing via properties/escape while processing, treat as stop
+            handleStopGeneration();
+          }
+          setShowGenModal(open);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Researching Products...</DialogTitle>
@@ -379,7 +458,11 @@ export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
             <p className="text-xs text-muted-foreground text-center animate-pulse">
               Powered by Gemini 1.5 Flash
             </p>
-            <Button variant="destructive" className="w-full" onClick={handleStopGeneration}>
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={handleStopGeneration}
+            >
               Stop Generation
             </Button>
           </div>

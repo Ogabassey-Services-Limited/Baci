@@ -1,14 +1,16 @@
 import { logger } from '@/lib/logger';
 
 const ZEPTOMAIL_TOKEN = process.env.ZEPTOMAIL_TOKEN;
-const API_URL = "https://api.zeptomail.com/v1.1/email";
-const SENDER_EMAIL = "noreply@usebaci.com";
-const SENDER_NAME = "Baci";
+const API_URL = 'https://api.zeptomail.com/v1.1/email';
+const SENDER_EMAIL = 'noreply@usebaci.com';
+const SENDER_NAME = 'Baci';
 
 export async function sendWelcomeEmail(to: string, name: string) {
   if (!ZEPTOMAIL_TOKEN) {
-    logger.warn({ message: "ZEPTOMAIL_TOKEN not found, skipping welcome email" });
-    return { success: false, error: "Missing configuration" };
+    logger.warn({
+      message: 'ZEPTOMAIL_TOKEN not found, skipping welcome email',
+    });
+    return { success: false, error: 'Missing configuration' };
   }
 
   // Clean token if it has prefix in env
@@ -41,29 +43,29 @@ export async function sendWelcomeEmail(to: string, name: string) {
 
   try {
     const response = await fetch(API_URL, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "Authorization": `Zoho-enczapikey ${token}`
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Zoho-enczapikey ${token}`,
       },
       body: JSON.stringify({
         from: { address: SENDER_EMAIL, name: SENDER_NAME },
         to: [{ email_address: { address: to, name } }],
-        subject: "Welcome to Baci - Your store is ready!",
-        htmlbody: htmlBody
-      })
+        subject: 'Welcome to Baci - Your store is ready!',
+        htmlbody: htmlBody,
+      }),
     });
 
     if (!response.ok) {
       const text = await response.text();
-      logger.error({ message: "Failed to send welcome email", error: text });
+      logger.error({ message: 'Failed to send welcome email', error: text });
       return { success: false, error: text };
     }
 
     return { success: true };
   } catch (error) {
-    logger.error({ message: "Exception sending welcome email", error });
+    logger.error({ message: 'Exception sending welcome email', error });
     return { success: false, error: String(error) };
   }
 }

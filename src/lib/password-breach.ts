@@ -68,7 +68,7 @@ export async function checkPasswordBreach(password: string): Promise<{
       }
 
       return { isBreached: false };
-    } catch (fetchError) {
+    } catch {
       // Network error or timeout - fail open
       clearTimeout(timeoutId);
       return { isBreached: false };

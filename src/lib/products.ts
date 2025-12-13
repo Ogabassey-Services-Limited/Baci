@@ -134,6 +134,7 @@ export interface Product {
     category: string;
     items: { label: string; value: string }[];
   }[]; // JSONB structured specs
+  // biome-ignore lint/suspicious/noExplicitAny: JSONB specs have dynamic structure
   product_key_specs?: Record<string, any>; // JSONB for key specs (screen_size, ram, etc.)
   warranty?: string;
 

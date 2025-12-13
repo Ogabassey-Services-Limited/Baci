@@ -236,7 +236,8 @@ export async function assignHeroImagesToMerchant(
     if (fetchError || !images || images.length === 0) {
       if (!autoGenerate) {
         logger.info({
-          message: 'No hero images available, skipping generation (autoGenerate=false)',
+          message:
+            'No hero images available, skipping generation (autoGenerate=false)',
           category,
         });
         // Return success but with no images (will use placeholders)

@@ -36,7 +36,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
-import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import type { Order, ShippingStatus } from '../actions';
 import { SourceIcon, StatusBadge } from '../client-page';
@@ -69,8 +68,14 @@ function formatCurrency(amount: number): string {
 }
 
 // Placeholder FulfillmentDialog - replace with actual import when available
-// biome-ignore lint/suspicious/noExplicitAny: Placeholder component for future implementation
-function FulfillmentDialog({ isOpen, onClose, orderItems, onConfirm }: any) {
+function FulfillmentDialog({
+  isOpen,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  orderItems: OrderItem[];
+  onConfirm: (data: unknown) => void;
+}) {
   if (!isOpen) return null;
   return null; // Placeholder - actual dialog should be imported
 }
@@ -83,7 +88,6 @@ export default function OrderDetailsClientPage({
   const [isFulfillmentDialogOpen, setIsFulfillmentDialogOpen] = useState(false);
   const [isConfirmationDialogOpen, setIsConfirmationDialogOpen] =
     useState(false);
-  const { merchant } = useMerchant();
 
   if (!order) {
     return null;
@@ -102,14 +106,14 @@ export default function OrderDetailsClientPage({
     // Check for fulfillment fields OR assurance
     // Assurance items implicitly require fulfillment (device details)
     return displayItems.some(
-      (item: any) =>
+      (item: OrderItem) =>
         (item.product?.fulfillmentFields &&
           item.product.fulfillmentFields.length > 0) ||
         item.hasAssurance // New check
     );
   };
 
-  const handleUpdateStatus = async (newStatus: ShippingStatus) => {
+  const handleUpdateStatus = (newStatus: ShippingStatus) => {
     // If confirming ('Processing'), check if we need the new dialog
     if (newStatus === 'Processing' && order.shippingStatus === 'Pending') {
       setIsConfirmationDialogOpen(true);
@@ -136,7 +140,7 @@ export default function OrderDetailsClientPage({
     });
   };
 
-  const handleConfirmationSubmit = async (data: any) => {
+  const handleConfirmationSubmit = async (data: Record<string, unknown>) => {
     try {
       const response = await fetch(`/api/orders/${order.id}/confirm`, {
         method: 'POST',
@@ -162,19 +166,20 @@ export default function OrderDetailsClientPage({
         paymentStatus: 'Paid',
       }));
       setIsConfirmationDialogOpen(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error.message,
+        description:
+          error instanceof Error ? error.message : 'An error occurred',
       });
     }
   };
 
-  // Legacy mock handler - keep for backward compat if needed
-  const handleFulfillmentConfirm = async (fulfillmentData: any) => {
-    // ...
+  // Legacy mock handler - kept for backward compat if needed
+  const handleFulfillmentConfirm = async (_fulfillmentData: unknown) => {
+    // Placeholder for fulfillment confirmation logic
   };
 
   // ... formatCurrency ...
@@ -369,7 +374,9 @@ export default function OrderDetailsClientPage({
                     className="flex items-center gap-4 mb-4 last:mb-0"
                   >
                     <Image
-                      src={item.product?.image || '/images/placeholder-product.png'}
+                      src={
+                        item.product?.image || '/images/placeholder-product.png'
+                      }
                       alt={item.name || 'Product'}
                       width={64}
                       height={64}

@@ -73,7 +73,8 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
       return false;
     }
     // Rating Filter
-    if (product.rating < minRating) {
+    const rating = product.rating ?? 0;
+    if (rating < minRating) {
       return false;
     }
     // Price Filter

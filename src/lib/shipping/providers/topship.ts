@@ -38,18 +38,6 @@ interface TopshipQuoteItem {
   value: number;
 }
 
-interface TopshipAddress {
-  name: string;
-  email?: string;
-  phone: string;
-  addressLine1: string;
-  city: string;
-  state: string;
-  country: string;
-  countryCode: string;
-  postalCode?: string;
-}
-
 interface TopshipRate {
   serviceType: string;
   pricingTier: string;
@@ -61,12 +49,6 @@ interface TopshipRate {
   deliveryEta?: string;
   carrierName?: string;
   carrierLogo?: string;
-}
-
-interface TopshipQuoteResponse {
-  status: boolean;
-  message: string;
-  data: TopshipRate[];
 }
 
 interface TopshipShipmentResponse {

@@ -1112,10 +1112,10 @@ export const builderConfig: Config<
               style={
                 backgroundImage
                   ? {
-                    backgroundImage: `url(${backgroundImage})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                  }
+                      backgroundImage: `url(${backgroundImage})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }
                   : {}
               }
               aria-label="Hero Banner"
@@ -2257,9 +2257,9 @@ export const builderConfig: Config<
             // Convert options from textarea string to array
             options: field.options
               ? (field.options as string)
-                .split('\n')
-                .map((opt: string) => opt.trim())
-                .filter(Boolean)
+                  .split('\n')
+                  .map((opt: string) => opt.trim())
+                  .filter(Boolean)
               : undefined,
           })
         );
@@ -2917,7 +2917,7 @@ export const builderConfig: Config<
                   className={cn(
                     'space-y-6',
                     layout === 'stacked' &&
-                    'grid md:grid-cols-2 gap-6 space-y-0'
+                      'grid md:grid-cols-2 gap-6 space-y-0'
                   )}
                 >
                   {contactInfo?.map(
@@ -3421,7 +3421,7 @@ export const builderConfig: Config<
                       className={cn(
                         'flex items-center',
                         style === 'cards' &&
-                        'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
+                          'flex-col text-center p-4 md:p-6 rounded-lg border bg-card',
                         style === 'minimal' && 'gap-3',
                         style === 'icons-only' && 'flex-col text-center'
                       )}
@@ -3432,7 +3432,7 @@ export const builderConfig: Config<
                           style === 'cards' && 'mb-4 w-16 h-16 bg-primary/10',
                           style === 'minimal' && 'w-12 h-12 bg-primary/10',
                           style === 'icons-only' &&
-                          'mb-2 w-12 h-12 bg-primary/10'
+                            'mb-2 w-12 h-12 bg-primary/10'
                         )}
                         style={{
                           color: 'var(--store-primary)',

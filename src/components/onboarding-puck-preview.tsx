@@ -2,16 +2,8 @@
 
 import type { Data } from '@measured/puck';
 import { Render } from '@measured/puck';
-import { Loader2, Pencil, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import {
-  Component,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { Loader2, Pencil } from 'lucide-react';
+import { Component, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
 import {
@@ -270,7 +262,6 @@ export function OnboardingPuckPreview({
   onEdit,
   data: externalData,
 }: OnboardingPuckPreviewProps) {
-  const previewRef = useRef<HTMLDivElement>(null);
   const [internalPuckData, setInternalPuckData] = useState<Data | null>(null);
   const puckData = externalData || internalPuckData;
   const [isLoading, setIsLoading] = useState(false);
@@ -311,7 +302,7 @@ export function OnboardingPuckPreview({
     return () => {
       isMounted = false;
     };
-  }, [businessName, businessType]); // Logo changes are handled by patchedPuckData memo, no need to regenerate full template
+  }, [businessName, businessType, logoDataUri]); // Regenerate on any input change
 
   /* Expanded State */
   const [isExpanded, setIsExpanded] = useState(false);
@@ -344,24 +335,6 @@ export function OnboardingPuckPreview({
     );
   }
 
-  const PreviewContent = () => (
-    <div
-      ref={previewRef}
-      className={cn(
-        'bg-background shadow-lg transition-transform origin-top-left',
-        isExpanded ? 'w-full h-full' : 'w-[125%] scale-[0.8] -translate-x-1 -translate-y-1 rounded-md'
-      )}
-      style={{
-        backgroundColor: 'var(--theme-background)',
-        ...themeStyles,
-      }}
-    >
-      <PreviewErrorBoundary>
-        <Render config={builderConfig} data={patchedPuckData} />
-      </PreviewErrorBoundary>
-    </div>
-  );
-
   // Full Screen Modal for Expanded View
   if (isExpanded) {
     return (
@@ -382,7 +355,22 @@ export function OnboardingPuckPreview({
               onClick={() => setIsExpanded(false)}
               className="hover:bg-destructive/10 hover:text-destructive"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="lucide lucide-x"
+                aria-hidden="true"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
               <span className="sr-only">Close Preview</span>
             </Button>
           </div>
@@ -418,7 +406,24 @@ export function OnboardingPuckPreview({
           className="shadow-sm border border-white/10 bg-background/80 backdrop-blur-md hover:bg-background h-8 text-xs gap-2"
           onClick={() => setIsExpanded(true)}
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-maximize-2"><polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" x2="14" y1="3" y2="10" /><line x1="3" x2="10" y1="21" y2="14" /></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="lucide lucide-maximize-2"
+            aria-hidden="true"
+          >
+            <polyline points="15 3 21 3 21 9" />
+            <polyline points="9 21 3 21 3 15" />
+            <line x1="21" x2="14" y1="3" y2="10" />
+            <line x1="3" x2="10" y1="21" y2="14" />
+          </svg>
           Expand
         </Button>
       </div>

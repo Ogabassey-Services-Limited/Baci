@@ -127,19 +127,25 @@ const getCartFromStorage = (): CartItem[] => {
     // Validate items structure to prevent NaN prices and ghost items
     if (!Array.isArray(parsed)) return [];
 
-    return parsed
-      .filter((i: any) => {
-        // Must have valid ID and Name
-        if (!i.id || !i.name) return false;
-        return true;
-      })
-      .map((i: any) => ({
-        ...i,
-        // Ensure price is a number
-        price: typeof i.price === 'number' ? i.price : Number(i.price) || 0,
-        quantity:
-          typeof i.quantity === 'number' ? i.quantity : Number(i.quantity) || 1,
-      }));
+    return (
+      parsed
+        // biome-ignore lint/suspicious/noExplicitAny: Parsing unknown JSON structure from localStorage
+        .filter((i: any) => {
+          // Must have valid ID and Name
+          if (!i.id || !i.name) return false;
+          return true;
+        })
+        // biome-ignore lint/suspicious/noExplicitAny: Parsing unknown JSON structure from localStorage
+        .map((i: any) => ({
+          ...i,
+          // Ensure price is a number
+          price: typeof i.price === 'number' ? i.price : Number(i.price) || 0,
+          quantity:
+            typeof i.quantity === 'number'
+              ? i.quantity
+              : Number(i.quantity) || 1,
+        }))
+    );
   } catch (error) {
     logger.error({
       message: 'Failed to read cart from localStorage',
