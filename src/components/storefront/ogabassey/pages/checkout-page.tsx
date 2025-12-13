@@ -1201,110 +1201,13 @@ export const CheckoutPage: React.FC = () => {
                             <PaystackLogo className="w-6 h-6" />
                           </label>
 
-                          {/* Korapay */}
-                          <label
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'korapay'
-                              ? 'border-red-600 bg-red-50'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                              }`}
-                          >
-                            <input
-                              type="radio"
-                              name="payment"
-                              value="korapay"
-                              checked={paymentMethod === 'korapay'}
-                              onChange={() => setPaymentMethod('korapay')}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'korapay' ? 'border-red-600' : 'border-gray-400'}`}>
-                              {paymentMethod === 'korapay' && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
-                            </div>
-                            <div className="flex-1">
-                              <span className="font-bold text-sm text-gray-900 block">Korapay</span>
-                              <span className="text-xs text-gray-500 block mt-0.5">Card, Bank Transfer, Mobile Money</span>
-                            </div>
-                            <KorapayLogo className="w-6 h-6" />
-                          </label>
-
-                          {/* Invoice / Pay Later */}
-                          <label
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'invoice'
-                              ? 'border-red-600 bg-red-50'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                              }`}
-                          >
-                            <input
-                              type="radio"
-                              name="payment"
-                              value="invoice"
-                              checked={paymentMethod === 'invoice'}
-                              onChange={() => setPaymentMethod('invoice')}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'invoice' ? 'border-red-600' : 'border-gray-400'}`}>
-                              {paymentMethod === 'invoice' && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
-                            </div>
-                            <div className="flex-1">
-                              <span className="font-bold text-sm text-gray-900 block">Invoice</span>
-                              <span className="text-xs text-gray-500 block mt-0.5">Generate invoice to pay later</span>
-                            </div>
-                            <FileText size={20} className="text-gray-400" />
-                          </label>
-
-                          {/* Pay For Me */}
-                          <label
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'payforme'
-                              ? 'border-red-600 bg-red-50'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                              }`}
-                          >
-                            <input
-                              type="radio"
-                              name="payment"
-                              value="payforme"
-                              checked={paymentMethod === 'payforme'}
-                              onChange={() => setPaymentMethod('payforme')}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'payforme' ? 'border-red-600' : 'border-gray-400'}`}>
-                              {paymentMethod === 'payforme' && <div className="w-2.5 h-2.5 rounded-full bg-red-600" />}
-                            </div>
-                            <div className="flex-1">
-                              <span className="font-bold text-sm text-gray-900 block">Pay For Me</span>
-                              <span className="text-xs text-gray-500 block mt-0.5">Send payment link to someone</span>
-                            </div>
-                            <Share2 size={20} className="text-gray-400" />
-                          </label>
+                          {/* TODO: Re-enable these payment options in next push */}
+                          {/* Korapay - Hidden for now */}
+                          {/* Invoice - Hidden for now */}
+                          {/* Pay For Me - Hidden for now */}
                         </div>
-
-                        {/* Pay For Me Details */}
-                        {paymentMethod === 'payforme' && (
-                          <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100 animate-in slide-in-from-top-2">
-                            <h3 className="text-sm font-bold text-gray-900 mb-3">Who is paying?</h3>
-                            <div className="space-y-3">
-                              <div>
-                                <label className="block text-xs font-bold text-gray-600 mb-1">Payer's Name</label>
-                                <input
-                                  type="text"
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
-                                  value={payForMeDetails.name}
-                                  onChange={(e) => setPayForMeDetails({ ...payForMeDetails, name: e.target.value })}
-                                  placeholder="e.g. Daddy"
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-gray-600 mb-1">Payer's Phone / Email</label>
-                                <input
-                                  type="text"
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900"
-                                  value={payForMeDetails.contact}
-                                  onChange={(e) => setPayForMeDetails({ ...payForMeDetails, contact: e.target.value })}
-                                  placeholder="+234..."
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                      )}
+                        {/* Pay For Me Details - Hidden for now */}
                       </div>
                     )}
 
