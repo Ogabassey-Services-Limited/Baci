@@ -81,6 +81,8 @@ jobs:
             --exclude 'ssl-product-images\.www8-hp\.com'
             --exclude 'adis\.ws'
             --exclude 'api\.zeptomail\.com'
+            --exclude 'store\.storeimages\.cdn-apple\.com'
+            --exclude 'korapay\.com'
             --exclude 'api\.mycover\.ai'
           # Fail action if broken links are found
           fail: true
