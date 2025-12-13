@@ -325,25 +325,25 @@ export async function POST(request: NextRequest) {
       // Enhanced with server-captured IP/User Agent for better Event Match Quality
       ad_tracking: ad_tracking
         ? {
-            ...ad_tracking,
-            // Server-side captured data for better EMQ
-            userIp: clientIp || ad_tracking.userIp,
-            userAgent: clientUserAgent || ad_tracking.userAgent,
-            // Server-detected privacy compliance (overrides client if more restrictive)
-            limitedDataUse:
-              geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
-            // Store geo info for analytics
+          ...ad_tracking,
+          // Server-side captured data for better EMQ
+          userIp: clientIp || ad_tracking.userIp,
+          userAgent: clientUserAgent || ad_tracking.userAgent,
+          // Server-detected privacy compliance (overrides client if more restrictive)
+          limitedDataUse:
+            geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
+          // Store geo info for analytics
+          geoCountry: geoPrivacy.country,
+          geoRegion: geoPrivacy.region,
+        }
+        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
+          ? {
+            userIp: clientIp,
+            userAgent: clientUserAgent,
+            limitedDataUse: geoPrivacy.shouldApplyLDU,
             geoCountry: geoPrivacy.country,
             geoRegion: geoPrivacy.region,
           }
-        : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
-          ? {
-              userIp: clientIp,
-              userAgent: clientUserAgent,
-              limitedDataUse: geoPrivacy.shouldApplyLDU,
-              geoCountry: geoPrivacy.country,
-              geoRegion: geoPrivacy.region,
-            }
           : null,
     };
 
@@ -400,12 +400,14 @@ export async function POST(request: NextRequest) {
 
     // Insert order items into the new normalized table
     if (order) {
-      const orderItems = items.map((item: OrderItem) => ({
+      const orderItems = items.map((item: OrderItem & { has_assurance?: boolean; assurance_fee?: number }) => ({
         order_id: order.id,
         product_id: item.product_id || item.productId || item.id, // Handle various potential input formats
         name: item.name || item.productName || 'Unknown Product',
         quantity: item.quantity || 1,
         price: item.price || 0,
+        has_assurance: item.has_assurance || false,
+        assurance_fee: item.assurance_fee || 0,
       }));
 
       const { error: itemsError } = await supabase

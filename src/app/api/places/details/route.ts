@@ -1,17 +1,43 @@
 /**
- * Google Place Details API Route
- * Server-side proxy to keep API key secure
+ * Google Place Details API Route (New API - places.googleapis.com)
+ * Server-side proxy to keep API key secure.
+ * Uses retry logic to handle transient network errors like ECONNRESET.
  */
 
 import { type NextRequest, NextResponse } from 'next/server';
 
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-const PLACES_API_BASE = 'https://places.googleapis.com/v1';
+const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+const NEW_PLACES_API_BASE = 'https://places.googleapis.com/v1';
+
+// Simple retry wrapper for fetch
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries = 2,
+  delay = 500
+): Promise<Response> {
+  try {
+    return await fetch(url, options);
+  } catch (error: unknown) {
+    const isRetryable =
+      error instanceof Error &&
+      (error.message.includes('ECONNRESET') ||
+        error.message.includes('fetch failed') ||
+        error.message.includes('socket'));
+
+    if (isRetryable && retries > 0) {
+      console.warn(`[Places API] Fetch failed, retrying... (${retries} left)`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      return fetchWithRetry(url, options, retries - 1, delay * 2);
+    }
+    throw error;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
-    if (!GOOGLE_MAPS_API_KEY) {
-      console.error('GOOGLE_MAPS_API_KEY not configured');
+    if (!GOOGLE_API_KEY) {
+      console.error('[Places API] GOOGLE_MAPS_API_KEY or GOOGLE_PLACES_API_KEY not configured');
       return NextResponse.json(
         { error: 'Google Places API not configured' },
         { status: 500 }
@@ -34,22 +60,20 @@ export async function GET(request: NextRequest) {
       : `places/${placeId}`;
 
     // Fields we need for address parsing
-    const fields = ['addressComponents', 'formattedAddress', 'location'].join(
-      ','
-    );
+    const fields = ['addressComponents', 'formattedAddress', 'location', 'reviews', 'rating', 'userRatingCount'].join(',');
 
-    const response = await fetch(`${PLACES_API_BASE}/${resourceName}`, {
+    const response = await fetchWithRetry(`${NEW_PLACES_API_BASE}/${resourceName}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
+        'X-Goog-Api-Key': GOOGLE_API_KEY,
         'X-Goog-FieldMask': fields,
       },
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Google Place Details API error:', errorText);
+      console.error('[Places API] Details error:', response.status, errorText);
       return NextResponse.json(
         { error: 'Failed to fetch place details', details: errorText },
         { status: response.status }
@@ -58,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
 
-    // Parse address components
+    // Parse address components (New API format uses `longText`)
     interface AddressComponent {
       types: string[];
       longText?: string;
@@ -83,7 +107,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ details });
   } catch (error) {
-    console.error('Place details error:', error);
+    console.error('[Places API] Details error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

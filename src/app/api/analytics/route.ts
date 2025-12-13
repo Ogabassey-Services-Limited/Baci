@@ -22,8 +22,8 @@ export async function GET(request: Request) {
 
     // Calculate duration to determine previous period
     const duration = currentPeriodEnd.getTime() - currentPeriodStart.getTime();
-    const previousPeriodEnd = new Date(currentPeriodStart.getTime());
-    const previousPeriodStart = new Date(
+    const _previousPeriodEnd = new Date(currentPeriodStart.getTime());
+    const _previousPeriodStart = new Date(
       currentPeriodStart.getTime() - duration
     );
 
@@ -127,7 +127,7 @@ export async function GET(request: Request) {
     // Calculate chart data (simplified - just show daily/monthly buckets)
     // Note: For complex chart data, consider a separate RPC
     const daysDiff = Math.ceil(duration / (1000 * 60 * 60 * 24));
-    const chartData: Array<Record<string, unknown>> = [];
+    const chartData: Record<string, unknown>[] = [];
 
     // Simplified chart - we'll generate placeholder structure
     // In production, you could create an RPC for detailed chart data
@@ -219,9 +219,9 @@ export async function GET(request: Request) {
       chartData,
       recentSales,
       topProducts:
-        (topProductsData as unknown as Array<Record<string, unknown>>) || [],
+        (topProductsData as unknown as Record<string, unknown>[]) || [],
       salesByChannel:
-        (salesByChannelData as unknown as Array<Record<string, unknown>>) || [],
+        (salesByChannelData as unknown as Record<string, unknown>[]) || [],
     };
 
     // Cache the response for 5 minutes (300 seconds)

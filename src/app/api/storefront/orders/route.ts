@@ -76,7 +76,9 @@ export async function GET(request: Request) {
           id,
           name,
           quantity,
-          price
+          quantity,
+          price,
+          has_assurance
         )
       `)
       .eq('customer_id', customer.id)

@@ -43,11 +43,11 @@ const NIGERIAN_CITIES = [
   'Akure',
 ];
 
-function getRandomCity(): string {
+function _getRandomCity(): string {
   return NIGERIAN_CITIES[Math.floor(Math.random() * NIGERIAN_CITIES.length)];
 }
 
-function formatTimeAgo(date: Date): string {
+function _formatTimeAgo(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);

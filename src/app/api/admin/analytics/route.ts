@@ -66,12 +66,12 @@ export async function GET(request: NextRequest) {
     // Fetch all data in parallel
     const [
       dailySummaryResult,
-      previousDailySummaryResult,
+      _previousDailySummaryResult,
       merchantHealthResult,
       growthResult,
       topMerchantsResult,
       totalMerchantsResult,
-      platformRevenueResult,
+      _platformRevenueResult,
     ] = await Promise.all([
       // Current period daily summary
       supabase
