@@ -186,10 +186,11 @@ Instructions:
  * Parses CSV programmatically without AI, matches against existing products by name.
  * Much faster and handles unlimited rows.
  */
-export function parseCSVDirectly(
+// biome-ignore lint/suspicious/useAwait: Server Actions must be async functions
+export async function parseCSVDirectly(
   currentProducts: Product[],
   csvData: string
-): AIResponse {
+): Promise<AIResponse> {
   const lines = csvData.split('\n').filter((line) => line.trim());
   if (lines.length < 2) {
     return {

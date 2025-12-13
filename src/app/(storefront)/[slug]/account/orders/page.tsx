@@ -1,3 +1,5 @@
+'use client';
+
 import { AlertCircle, ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
