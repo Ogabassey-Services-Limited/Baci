@@ -1,7 +1,6 @@
 'use server';
 
 import type { User } from '@supabase/supabase-js';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
@@ -26,21 +25,13 @@ export async function submitOnboarding(
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // FIX: Admin client for database inserts (Bypasses RLS)
-  const adminSupabase = createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    }
-  );
+  // Admin client for database inserts (Bypasses RLS)
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const adminSupabase = createAdminClient();
 
   let user: User | null = null;
   const rawFormData = Object.fromEntries(formData.entries());
-  logger.info({ message: 'submitOnboarding started', rawFormData });
+  logger.info({ message: 'submitOnboarding started' });
 
   // Validation
   const validationResult = await onboardingSchema.safeParseAsync(rawFormData);
@@ -62,7 +53,14 @@ export async function submitOnboarding(
     brandColors: brandColorsString,
   } = validationResult.data;
 
-  const brandColors = brandColorsString ? JSON.parse(brandColorsString) : null;
+  let brandColors: BrandColors | null = null;
+  if (brandColorsString) {
+    try {
+      brandColors = JSON.parse(brandColorsString);
+    } catch (e) {
+      logger.error({ message: 'Failed to parse brand colors', error: e });
+    }
+  }
 
   try {
     // PRE-CHECK: Only block if email has a COMPLETED merchant (with business_name set)
@@ -104,7 +102,9 @@ export async function submitOnboarding(
 
         if (signUpData.session) {
           user = signUpData.user;
-          sendWelcomeEmail(email, businessName || 'Valued Merchant').catch(err => console.error(err));
+          sendWelcomeEmail(email, businessName || 'Valued Merchant').catch(err =>
+            logger.error({ message: 'Failed to send welcome email', email, error: err })
+          );
         } else {
           throw new Error('Please disable "Confirm Email" in Supabase settings.');
         }
@@ -135,7 +135,9 @@ export async function submitOnboarding(
 
         if (signUpData.session) {
           user = signUpData.user;
-          sendWelcomeEmail(email, businessName || 'Valued Merchant').catch(err => console.error(err));
+          sendWelcomeEmail(email, businessName || 'Valued Merchant').catch(err =>
+            logger.error({ message: 'Failed to send welcome email', email, error: err })
+          );
         } else {
           throw new Error('Please disable "Confirm Email" in Supabase settings.');
         }
@@ -210,7 +212,7 @@ export async function submitOnboarding(
     if (!merchant) throw new Error('Failed to create merchant record.');
 
     // Create Domain
-    await adminSupabase.from('domains').insert({
+    const { error: domainError } = await adminSupabase.from('domains').insert({
       merchant_id: merchant.id,
       domain: `${merchant.slug}.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}`,
       tld: `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com'}`,
@@ -219,10 +221,20 @@ export async function submitOnboarding(
       is_primary: true
     });
 
+    if (domainError) {
+      throw new Error(`Failed to create domain: ${domainError.message}`);
+    }
+
     // Generate Template (simplified for brevity, import remains same)
     try {
       const { generateInitialTemplate } = await import('@/lib/initial-template-generator');
-      const config = await generateInitialTemplate({ businessName, businessType: finalBusinessType, brandColors, merchant });
+      // Ensure brandColors is never null by providing defaults
+      const safeBrandColors = brandColors || {
+        primary: '#000000',
+        background: '#ffffff',
+        accent: '#F59E0B' // Default amber/yellow accent
+      };
+      const config = await generateInitialTemplate({ businessName, businessType: finalBusinessType, brandColors: safeBrandColors, merchant });
       await adminSupabase.from('page_configs').insert({
         merchant_id: merchant.id,
         page_slug: 'home',
@@ -231,14 +243,18 @@ export async function submitOnboarding(
         published_config: config,
         is_published: true
       });
-    } catch (e) { console.error('Template gen failed', e); }
+    } catch (e) {
+      logger.error({ message: 'Template generation failed', merchantId: merchant.id, error: e });
+    }
 
     // Assign Hero Images
     try {
       const { assignHeroImagesToMerchant } = await import('@/services/hero-image-generator');
       // Pass false to skip synchronous generation - instant feedback for user
       await assignHeroImagesToMerchant(merchant.id, finalBusinessType.toLowerCase(), false);
-    } catch (e) { console.error('Hero images failed', e); }
+    } catch (e) {
+      logger.error({ message: 'Hero image assignment failed', merchantId: merchant.id, error: e });
+    }
 
     return { success: true, message: 'Store created!', businessName, merchantId: merchant.id };
 
