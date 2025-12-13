@@ -118,7 +118,7 @@ export const getCachedMerchantById = unstable_cache(
   ['merchant-by-id'],
   {
     revalidate: CACHE_DURATIONS.storefront,
-    tags: ['merchant'],
+    tags: ['merchants'],
   }
 );
 
@@ -233,9 +233,6 @@ export const getCachedProduct = unstable_cache(
         currency,
         status,
         is_featured,
-        quantity,
-        track_quantity,
-        images,
         quantity,
         track_quantity,
         images,

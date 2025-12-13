@@ -1,6 +1,12 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+
+const googleAuthSchema = z.object({
+  merchantSlug: z.string().min(1, 'Merchant slug is required'),
+  redirectUrl: z.string().url().optional(),
+});
 
 /**
  * Customer OAuth Authentication - Google Sign-In
@@ -12,14 +18,16 @@ import { createClient } from '@/lib/supabase/server';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { merchantSlug, redirectUrl } = body;
 
-    if (!merchantSlug) {
+    const validation = googleAuthSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Merchant slug is required' },
+        { error: 'Invalid request', details: validation.error.flatten() },
         { status: 400 }
       );
     }
+
+    const { merchantSlug, redirectUrl } = validation.data;
 
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
@@ -51,8 +59,6 @@ export async function POST(request: Request) {
           access_type: 'offline',
           prompt: 'consent',
         },
-        // Store merchant context in user metadata for post-auth processing
-        // Note: This is passed via the state parameter internally by Supabase
       },
     });
 

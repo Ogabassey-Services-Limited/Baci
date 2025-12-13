@@ -2,6 +2,7 @@ import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 
@@ -17,7 +18,7 @@ function mapProduct(p: Record<string, unknown>) {
     imageLarge: (p.images as { url: string }[])?.[0]?.url || '',
     imageHint: p.image_hint,
     category: p.category || 'General',
-    category_slug: (p.product_categories as any)?.[0]?.categories?.slug,
+    category_slug: (p.product_categories as { categories: { slug: string } }[])?.[0]?.categories?.slug,
     brand: p.brand,
     status: p.status || 'active',
     has_variants: p.has_variants,
@@ -30,32 +31,35 @@ function mapProduct(p: Record<string, unknown>) {
   };
 }
 
-// Factory function that creates a cached function for each merchant
-// This ensures each merchant gets their own cache entry
-interface ProductFilters {
-  categorySlug?: string;
-  brandSlug?: string;
-  condition?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  sort?: string;
-  searchQuery?: string;
-}
+// Zod schema for query parameters
+const querySchema = z.object({
+  merchant_id: z.string().uuid().optional(),
+  category: z.string().optional(),
+  brand: z.string().optional(),
+  condition: z.enum(['new', 'used', 'refurbished', 'all']).optional(),
+  min_price: z.coerce.number().nonnegative().optional(),
+  max_price: z.coerce.number().nonnegative().optional(),
+  sort: z.enum(['newest', 'price-asc', 'price-desc']).default('newest'),
+  q: z.string().max(100).optional(),
+  ids: z.string().optional(),
+});
+
+type ProductFilters = z.infer<typeof querySchema>;
 
 // Factory function that creates a cached function for each merchant + filters combination
 function createCachedProductsFetcher(
   merchantId: string,
-  filters: ProductFilters = {}
+  filters: ProductFilters = { sort: 'newest' }
 ) {
   // Create a cache key based on merchant and all active filters
   const cacheKeyParts = ['storefront-products', merchantId];
-  if (filters.categorySlug) cacheKeyParts.push(`cat-${filters.categorySlug}`);
-  if (filters.brandSlug) cacheKeyParts.push(`brand-${filters.brandSlug}`);
+  if (filters.category) cacheKeyParts.push(`cat-${filters.category}`);
+  if (filters.brand) cacheKeyParts.push(`brand-${filters.brand}`);
   if (filters.condition) cacheKeyParts.push(`cond-${filters.condition}`);
-  if (filters.minPrice) cacheKeyParts.push(`min-${filters.minPrice}`);
-  if (filters.maxPrice) cacheKeyParts.push(`max-${filters.maxPrice}`);
+  if (filters.min_price) cacheKeyParts.push(`min-${filters.min_price}`);
+  if (filters.max_price) cacheKeyParts.push(`max-${filters.max_price}`);
   if (filters.sort) cacheKeyParts.push(`sort-${filters.sort}`);
-  if (filters.searchQuery) cacheKeyParts.push(`q-${filters.searchQuery}`);
+  if (filters.q) cacheKeyParts.push(`q-${filters.q.slice(0, 100).toLowerCase().trim()}`);
 
   return unstable_cache(
     async () => {
@@ -74,56 +78,39 @@ function createCachedProductsFetcher(
             )
           )
         `)
-        // brands (
-        //   slug
-        // )
         .eq('merchant_id', merchantId)
         .eq('status', 'active');
 
       // Apply Filters
-      if (filters.categorySlug && filters.categorySlug !== 'all') {
+      if (filters.category && filters.category !== 'all') {
         // Filter by category slug via the junction table
         query = query.eq(
           'product_categories.categories.slug',
-          filters.categorySlug
+          filters.category
         );
       }
 
-      if (filters.brandSlug && filters.brandSlug !== 'all') {
-        // Assuming brand is stored as text name or we join brands table.
-        // Since we created a brands table, let's try to join it, or fallback to text match if using legacy brand column.
-        // For now, let's assume the 'brand' column in products is the text name,
-        // OR we filter by the joined brand slug if we have a relation.
-        // Given the recent brands table creation, we should link products to brands.
-        // But for immediate compatibility, let's filter via the 'brands' relation if it exists, or the 'brand' text column.
-
-        // Simplified approach: query the brands table for the name matching the slug first?
-        // No, let's use the relation. Logic:
-        // query = query.eq('brands.slug', filters.brandSlug)
-        // But products might just have 'brand' column as text.
-        // A safer bet without migration data is to NOT assume relation yet if products table wasn't updated to use brand_id.
-        // Let's check products columns... 'brand' text column exists.
-        // So for now, we filter by the brand column (text).
-        // CAUTION: The slug might not match the Name exactly (e.g. "Apple" vs "apple").
-        // Best to rely on the brands table we just made.
-        // Let's try to join brands.
-        // query = query.eq('brands.slug', filters.brandSlug);
+      if (filters.brand && filters.brand !== 'all') {
+        // TODO: Implement brand filtering once products.brand_id relation is established
+        // For now, skip brand filtering to avoid incorrect results
+        // console.warn('Brand filtering not yet implemented');
       }
 
       if (filters.condition && filters.condition !== 'all') {
         query = query.eq('condition', filters.condition);
       }
 
-      if (filters.minPrice !== undefined) {
-        query = query.gte('price', filters.minPrice);
+      if (filters.min_price !== undefined) {
+        query = query.gte('price', filters.min_price);
       }
 
-      if (filters.maxPrice !== undefined) {
-        query = query.lte('price', filters.maxPrice);
+      if (filters.max_price !== undefined) {
+        query = query.lte('price', filters.max_price);
       }
 
-      if (filters.searchQuery) {
-        query = query.ilike('name', `%${filters.searchQuery}%`);
+      if (filters.q) {
+        const sanitizedQuery = filters.q.slice(0, 100);
+        query = query.ilike('name', `%${sanitizedQuery}%`);
       }
 
       // Apply Sort
@@ -173,19 +160,24 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
   try {
-    const merchantId = searchParams.get('merchant_id');
-    // Parse filter parameters from URL
-    const categorySlug = searchParams.get('category');
-    const brandSlug = searchParams.get('brand');
-    const condition = searchParams.get('condition');
-    const minPrice = searchParams.get('min_price')
-      ? Number(searchParams.get('min_price'))
-      : undefined;
-    const maxPrice = searchParams.get('max_price')
-      ? Number(searchParams.get('max_price'))
-      : undefined;
-    const sort = searchParams.get('sort') || 'newest';
-    const ids = searchParams.get('ids'); // Comma-separated list of product IDs
+    // Validate parameters
+    const parsed = querySchema.safeParse(Object.fromEntries(searchParams));
+
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Invalid parameters', details: parsed.error.flatten() }, { status: 400 });
+    }
+
+    const {
+      merchant_id: merchantId,
+      ids,
+      category,
+      brand,
+      condition,
+      min_price,
+      max_price,
+      sort,
+      q
+    } = parsed.data;
 
     if (!merchantId) {
       return NextResponse.json(
@@ -220,17 +212,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const q = searchParams.get('q');
-
     // Otherwise, return all active products (cached)
     const filters = {
-      categorySlug: categorySlug || undefined,
-      brandSlug: brandSlug || undefined,
+      category: category || undefined,
+      brand: brand || undefined,
       condition: condition || undefined,
-      minPrice,
-      maxPrice,
+      min_price,
+      max_price,
       sort,
-      searchQuery: q || undefined,
+      q: q || undefined,
     };
 
     const getCachedProducts = createCachedProductsFetcher(merchantId, filters);
