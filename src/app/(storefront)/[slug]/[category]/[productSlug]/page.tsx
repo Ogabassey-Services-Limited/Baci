@@ -403,7 +403,7 @@ function toOgabasseyProduct(
       product.imageLarge || product.image,
     ],
     description: product.description,
-    rating: product.rating,
+    rating: product.rating ?? 0,
     category: product.category || 'General',
     categorySlug: product.category_slug,
     condition: (product.condition || 'new') as OgabasseyProduct['condition'],
