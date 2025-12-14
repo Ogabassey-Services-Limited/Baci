@@ -16,7 +16,27 @@ import { applyCacheHeaders } from './cache';
 export function generateCSP(routeType: RouteType, nonce?: string): string {
     const baseDirectives = {
         'default-src': "'self'",
-        'img-src': "'self' blob: data: https:",
+        // Restricted image sources based on next.config.ts remotePatterns
+        'img-src': [
+            "'self'",
+            'blob:',
+            'data:',
+            'https://*.supabase.co',
+            'https://api.dicebear.com',
+            'https://images.unsplash.com',
+            'https://plus.unsplash.com',
+            'https://loremflickr.com',
+            'https://picsum.photos',
+            'https://placehold.co',
+            'https://avatars.githubusercontent.com',
+            'https://cloudflare-ipfs.com',
+            'https://d1csarkz8obe9u.cloudfront.net',
+            'https://ogabassey.com',
+            'https://*.googleusercontent.com',
+            'https://www.gstatic.com',
+            'https://store.storeimages.cdn-apple.com',
+            'https://commondatastorage.googleapis.com',
+        ].join(' '),
         'font-src': "'self' data: https://fonts.gstatic.com",
         'object-src': "'none'",
         'base-uri': "'self'",
@@ -29,7 +49,9 @@ export function generateCSP(routeType: RouteType, nonce?: string): string {
             ...baseDirectives,
             // strict-dynamic allows nonced scripts to load additional scripts dynamically (CSP Level 3)
             'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://vercel.live https://va.vercel-scripts.com`,
-            'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
+            // Note: 'unsafe-inline' is still needed for many React UI libraries that use style attributes,
+            // but we add the nonce to allow nonced <style> blocks.
+            'style-src': `'self' 'unsafe-inline' 'nonce-${nonce}' https://fonts.googleapis.com`,
             'connect-src':
                 "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
             'frame-src': "'self' https://checkout.korapay.com",
@@ -90,8 +112,31 @@ function captureAdClickIds(request: NextRequest, response: NextResponse): void {
 }
 
 /**
- * Apply security headers, CSP, and cache headers to the response
+ * Apply security headers, CSP, and cache headers to the response-
  */
+export function applySecurityHeaders(
+    response: NextResponse,
+    pathname: string,
+    userAgent: string,
+    routeType: 'admin' | 'auth',
+    nonce: string
+): NextResponse;
+export function applySecurityHeaders(
+    response: NextResponse,
+    pathname: string,
+    userAgent: string,
+    routeType: 'storefront',
+    nonce: undefined,
+    request: NextRequest
+): NextResponse;
+export function applySecurityHeaders(
+    response: NextResponse,
+    pathname: string,
+    userAgent: string,
+    routeType: 'api',
+    nonce?: undefined,
+    request?: NextRequest
+): NextResponse;
 export function applySecurityHeaders(
     response: NextResponse,
     pathname: string,

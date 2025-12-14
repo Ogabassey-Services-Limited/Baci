@@ -85,17 +85,35 @@ export async function proxy(request: NextRequest) {
 
     // For protected routes, apply security headers
     if (isProtectedRoute) {
-      const routeType = getRouteType(pathname);
-      const nonce =
-        routeType === 'admin' || routeType === 'auth'
-          ? crypto.randomUUID()
-          : undefined;
+      const routeType = getRouteType(pathname); // Should be 'admin' or 'auth' here typically
+
+      if (routeType === 'admin' || routeType === 'auth') {
+        return applySecurityHeaders(
+          supabaseResponse,
+          pathname,
+          userAgent,
+          routeType,
+          crypto.randomUUID()
+        );
+      }
+      // Fallback for edge cases (e.g. api route considered protected?)
+      if (routeType === 'api') {
+        return applySecurityHeaders(
+          supabaseResponse,
+          pathname,
+          userAgent,
+          'api',
+          undefined,
+          request
+        );
+      }
       return applySecurityHeaders(
         supabaseResponse,
         pathname,
         userAgent,
-        routeType,
-        nonce
+        'storefront',
+        undefined,
+        request
       );
     }
   }
@@ -137,22 +155,15 @@ export async function proxy(request: NextRequest) {
         response.headers.set('x-merchant-domain', domain);
 
         // Extract original path by removing the domain prefix
-        const originalPath = pathname.slice(`/${domain}`.length) || '/';
-        const routeType = getRouteType(originalPath);
+        // const originalPath = pathname.slice(`/${domain}`.length) || '/';
+        const routeType = getRouteType(pathname); // Using pathname as is for now for simplicity
 
-        const nonce =
-          routeType === 'admin' || routeType === 'auth'
-            ? crypto.randomUUID()
-            : undefined;
-
-        return applySecurityHeaders(
-          response,
-          pathname, // Use original pathname for cache matching if needed, or originalPath? cache uses patterns.
-          userAgent,
-          routeType,
-          nonce,
-          request
-        );
+        if (routeType === 'admin' || routeType === 'auth') {
+          return applySecurityHeaders(response, pathname, userAgent, routeType, crypto.randomUUID());
+        } else if (routeType === 'storefront') {
+          return applySecurityHeaders(response, pathname, userAgent, routeType, undefined, request);
+        }
+        return applySecurityHeaders(response, pathname, userAgent, 'api');
       }
 
       // First visit: Rewrite to /${domain}${pathname}
@@ -165,19 +176,13 @@ export async function proxy(request: NextRequest) {
 
       // Generate route-specific CSP
       const routeType = getRouteType(pathname);
-      const nonce =
-        routeType === 'admin' || routeType === 'auth'
-          ? crypto.randomUUID()
-          : undefined;
 
-      return applySecurityHeaders(
-        response,
-        pathname,
-        userAgent,
-        routeType,
-        nonce,
-        request
-      );
+      if (routeType === 'admin' || routeType === 'auth') {
+        return applySecurityHeaders(response, pathname, userAgent, routeType, crypto.randomUUID());
+      } else if (routeType === 'storefront') {
+        return applySecurityHeaders(response, pathname, userAgent, routeType, undefined, request);
+      }
+      return applySecurityHeaders(response, pathname, userAgent, 'api');
     } else {
       // Invalid/suspicious hostname - reject
       return new NextResponse('Bad Request', { status: 400 });
@@ -201,37 +206,25 @@ export async function proxy(request: NextRequest) {
     response.headers.set('x-merchant-slug', subdomain);
 
     const routeType = getRouteType(pathname);
-    const nonce =
-      routeType === 'admin' || routeType === 'auth'
-        ? crypto.randomUUID()
-        : undefined;
 
-    return applySecurityHeaders(
-      response,
-      pathname,
-      userAgent,
-      routeType,
-      nonce,
-      request
-    );
+    if (routeType === 'admin' || routeType === 'auth') {
+      return applySecurityHeaders(response, pathname, userAgent, routeType, crypto.randomUUID());
+    } else if (routeType === 'storefront') {
+      return applySecurityHeaders(response, pathname, userAgent, routeType, undefined, request);
+    }
+    return applySecurityHeaders(response, pathname, userAgent, 'api');
   }
 
   // Standard request - generate route-specific CSP
   const response = NextResponse.next();
   const routeType = getRouteType(pathname);
-  const nonce =
-    routeType === 'admin' || routeType === 'auth'
-      ? crypto.randomUUID()
-      : undefined;
 
-  return applySecurityHeaders(
-    response,
-    pathname,
-    userAgent,
-    routeType,
-    nonce,
-    request
-  );
+  if (routeType === 'admin' || routeType === 'auth') {
+    return applySecurityHeaders(response, pathname, userAgent, routeType, crypto.randomUUID());
+  } else if (routeType === 'storefront') {
+    return applySecurityHeaders(response, pathname, userAgent, routeType, undefined, request);
+  }
+  return applySecurityHeaders(response, pathname, userAgent, 'api');
 }
 
 export const config = {
