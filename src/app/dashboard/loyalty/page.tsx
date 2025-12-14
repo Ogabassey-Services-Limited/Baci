@@ -1,17 +1,6 @@
 'use client';
 
-import {
-  Award,
-  Coins,
-  Crown,
-  Gift,
-  // Loader2,
-  Search,
-  Settings,
-  TrendingUp,
-  // Star,
-  Users,
-} from 'lucide-react';
+import { Award, Gift } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -26,15 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { formatCurrency } from '@/lib/currency';
 
 interface LoyaltySettings {
@@ -89,8 +70,8 @@ export default function LoyaltyProgramPage() {
   >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTier, setSelectedTier] = useState<string | null>(null);
+  const [searchTerm, _setSearchTerm] = useState('');
+  const [_selectedTier, _setSelectedTier] = useState<string | null>(null);
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -146,13 +127,13 @@ export default function LoyaltyProgramPage() {
     }
   }
 
-  const totalCustomers = Object.values(tierDistribution).reduce(
+  const _totalCustomers = Object.values(tierDistribution).reduce(
     (a, b) => a + b,
     0
   );
-  const totalPoints = customers.reduce((sum, c) => sum + c.points_balance, 0);
+  const _totalPoints = customers.reduce((sum, c) => sum + c.points_balance, 0);
 
-  const filteredCustomers = customers.filter((c) => {
+  const _filteredCustomers = customers.filter((c) => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (

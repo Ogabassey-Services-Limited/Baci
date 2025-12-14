@@ -280,7 +280,7 @@ const OrderCard = ({
           {/* Main Click Area */}
           <div
             className="flex-1 min-w-0"
-          /* Removed generic onClick to prevent conflict with Name Link.
+            /* Removed generic onClick to prevent conflict with Name Link.
            Only expanding on row click if not clicking interactive elements.
            But simpler to let user click Chevron or non-interactive areas. */
           >
@@ -308,12 +308,13 @@ const OrderCard = ({
 
               {/* Urgency / Time Badge */}
               <div
-                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ml-2 ${isUrgent
-                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                  : isWarning
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                    : 'bg-muted text-muted-foreground'
-                  }`}
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ml-2 ${
+                  isUrgent
+                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                    : isWarning
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                      : 'bg-muted text-muted-foreground'
+                }`}
               >
                 {isActionable && (isUrgent || isWarning) && (
                   <span className="font-semibold mr-1">{contextLabel}</span>
@@ -460,17 +461,23 @@ const OrderCard = ({
               </h5>
               <div className="bg-background rounded-lg border p-4 text-sm space-y-3">
                 <div className="flex justify-between border-b pb-2">
-                  <span className="text-foreground/70 font-medium">Shipping Status</span>
+                  <span className="text-foreground/70 font-medium">
+                    Shipping Status
+                  </span>
                   <StatusBadge status={order.shippingStatus} type="shipping" />
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-foreground/70 font-medium">Provider</span>
+                  <span className="text-foreground/70 font-medium">
+                    Provider
+                  </span>
                   <span className="font-medium">
                     {order.shipping_provider || 'Not assigned'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-foreground/70 font-medium">Tracking #</span>
+                  <span className="text-foreground/70 font-medium">
+                    Tracking #
+                  </span>
                   <span className="font-mono bg-muted px-2 py-0.5 rounded text-xs">
                     {order.tracking_number || 'PENDING'}
                   </span>
