@@ -15,12 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatCurrency } from '@/lib/currency';
 
 interface LoyaltySettings {
@@ -69,14 +64,12 @@ const tierColors: Record<string, string> = {
 
 export default function LoyaltyProgramPage() {
   const [settings, setSettings] = useState<LoyaltySettings | null>(null);
-  const [customers, setCustomers] = useState<CustomerLoyalty[]>([]);
-  const [tierDistribution, setTierDistribution] = useState<
+  const [_customers, setCustomers] = useState<CustomerLoyalty[]>([]);
+  const [_tierDistribution, setTierDistribution] = useState<
     Record<string, number>
   >({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [searchTerm, _setSearchTerm] = useState('');
-  const [_selectedTier, _setSelectedTier] = useState<string | null>(null);
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -131,21 +124,6 @@ export default function LoyaltyProgramPage() {
       setSaving(false);
     }
   }
-
-  const _totalCustomers = Object.values(tierDistribution).reduce(
-    (a, b) => a + b,
-    0
-  );
-  const _totalPoints = customers.reduce((sum, c) => sum + c.points_balance, 0);
-
-  const _filteredCustomers = customers.filter((c) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      c.customers?.name?.toLowerCase().includes(search) ||
-      c.customers?.email?.toLowerCase().includes(search)
-    );
-  });
 
   if (loading) {
     return (

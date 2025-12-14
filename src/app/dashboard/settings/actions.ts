@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import { z } from 'zod';
 import { processFavicon } from '@/lib/favicon-processor';
 import { createClient } from '@/lib/supabase/server';
 
@@ -41,14 +42,36 @@ export async function uploadFavicon(formData: FormData, merchantId: string) {
   }
 }
 
-type KycData = {
-  nin: string | null;
-  bvn: string | null;
-  cac_number: string | null;
-};
+// Zod schema for KYC validation - NIN and BVN are 11-digit numbers in Nigeria
+const kycSchema = z
+  .object({
+    nin: z
+      .string()
+      .regex(/^\d{11}$/, 'NIN must be 11 digits')
+      .nullable(),
+    bvn: z
+      .string()
+      .regex(/^\d{11}$/, 'BVN must be 11 digits')
+      .nullable(),
+    cac_number: z
+      .string()
+      .regex(
+        /^(RC|BN)\s?\d{6,8}$/i,
+        'CAC must be in format RC/BN followed by 6-8 digits'
+      )
+      .nullable(),
+  })
+  .refine((data) => data.nin || data.bvn || data.cac_number, {
+    message: 'At least one KYC field must be provided',
+  });
+
+type KycData = z.infer<typeof kycSchema>;
 
 export async function submitKyc(data: KycData) {
   try {
+    // Validate input with Zod schema
+    const validatedData = kycSchema.parse(data);
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -62,22 +85,22 @@ export async function submitKyc(data: KycData) {
     }
 
     // Get merchant ID owned by user
-    const { data: merchant } = await supabase
+    const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id')
       .eq('user_id', user.id)
       .single();
 
-    if (!merchant) {
+    if (merchantError || !merchant) {
       throw new Error('Merchant not found');
     }
 
     const { error } = await supabase
       .from('merchants')
       .update({
-        nin: data.nin,
-        bvn: data.bvn,
-        cac_number: data.cac_number,
+        nin: validatedData.nin,
+        bvn: validatedData.bvn,
+        cac_number: validatedData.cac_number,
         kyc_status: 'pending',
       })
       .eq('id', merchant.id);

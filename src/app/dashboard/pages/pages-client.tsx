@@ -116,9 +116,10 @@ export default function PagesClient() {
         merchant.feature_settings.pages_completed as Record<string, boolean>
       );
     }
-  }, [merchant, form]);
+  }, [merchant, form.reset]);
 
   const handleStatusChange = async (pageName: string, checked: boolean) => {
+    const previousStatus = completedPages[pageName];
     const newStatus = { ...completedPages, [pageName]: checked };
     setCompletedPages(newStatus);
 
@@ -133,8 +134,8 @@ export default function PagesClient() {
         { skipReload: true }
       );
     } catch (_error) {
-      // Revert on error
-      setCompletedPages({ ...completedPages });
+      // Revert on error using functional update to avoid stale closure
+      setCompletedPages((prev) => ({ ...prev, [pageName]: previousStatus }));
       toast({
         title: 'Error',
         description: 'Failed to update page status.',
