@@ -18,7 +18,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function checkMerchantState() {
     const email = 'basseybjjohn@gmail.com';
-    console.log(`Looking up user: ${email}`);
+    console.log("Looking up user:", email);
 
     // 1. Get User
     const { data: { users }, error: userError } = await supabase.auth.admin.listUsers();
@@ -57,7 +57,7 @@ async function checkMerchantState() {
     console.log('--- Domains Table ---');
     if (domains && domains.length > 0) {
         domains.forEach(d => {
-            console.log(`Domain: ${d.domain} (Type: ${d.domain_type}, Primary: ${d.is_primary})`);
+            console.log("Domain:", d.domain, "(Type: " + d.domain_type + ", Primary: " + d.is_primary + ")");
         });
     } else {
         console.log('No domains found.');
@@ -73,7 +73,7 @@ async function checkMerchantState() {
     console.log('--- Page Configs ---');
     if (configs && configs.length > 0) {
         configs.forEach(c => {
-            console.log(`Page: ${c.page_name}`);
+            console.log("Page:", c.page_name);
             // Deep check config for "New Fashion" string
             const configStr = JSON.stringify(c.draft_config);
             if (configStr.includes('New Fashion') || configStr.includes('new-fashion')) {

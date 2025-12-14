@@ -24,7 +24,7 @@ async function testModels() {
     ];
 
     for (const modelName of modelsToTest) {
-        console.log(`\n📍 Testing: ${modelName}`);
+        console.log("\n📍 Testing:", modelName);
         console.log('─'.repeat(50));
 
         try {
@@ -36,8 +36,8 @@ async function testModels() {
             const duration = Date.now() - start;
 
             console.log('✅ SUCCESS!');
-            console.log(`   Response: "${result.text}"`);
-            console.log(`   Latency: ${duration}ms`);
+            console.log("   Response: \"" + result.text + "\"");
+            console.log("   Latency:", duration, "ms");
         } catch (error: any) {
             console.log('❌ FAILED');
 
@@ -46,7 +46,7 @@ async function testModels() {
             } else if (error.message.includes('404')) {
                 console.log('   Reason: Model not found');
             } else {
-                console.log(`   Reason: ${error.message.split('\n')[0]}`);
+                console.log("   Reason:", error.message.split('\n')[0]);
             }
         }
     }

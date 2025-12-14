@@ -11,3 +11,12 @@ https://fdn2.gsmarena.com/
 
 # API docs requiring authentication
 https://www.namecheap.com/support/api/
+
+# Auth-walled API endpoints
+https://api.zeptomail.com/v1.1/email
+
+# Flaky external assets (Favicons/CDNs)
+https://creditdirect.ng/favicon.ico
+https://korapay.com/favicon.ico
+https://credpal.com/favicon.ico
+https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is

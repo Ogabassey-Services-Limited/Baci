@@ -525,14 +525,14 @@ async function seedLenovoLaptops() {
     const gamingCategoryId = gamingCat?.id;
 
     // Seed Products
-    console.log(`🌱 Seeding ${LENOVO_LAPTOPS.length} Lenovo Laptops...\n`);
+    console.log("🌱 Seeding", LENOVO_LAPTOPS.length, "Lenovo Laptops...\n");
 
     let created = 0;
     let skipped = 0;
 
     for (const product of LENOVO_LAPTOPS) {
         if (product.soldOut) {
-            console.log(`   ⏩ Skipping SOLD OUT: ${product.name}`);
+            console.log("   ⏩ Skipping SOLD OUT:", product.name);
             skipped++;
             continue;
         }
@@ -542,7 +542,7 @@ async function seedLenovoLaptops() {
         // Check if exists
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log(`   ⏩ Skipping existing: ${product.name}`);
+            console.log("   ⏩ Skipping existing:", product.name);
             skipped++;
             continue;
         }
@@ -580,8 +580,8 @@ async function seedLenovoLaptops() {
             metadata.graphicsVram = product.specs.graphicsVram;
         }
 
-        console.log(`   ✨ Creating: ${product.name}`);
-        console.log(`      SKU: ${product.sku} | Cost: ₦${product.cost_price.toLocaleString()} | Sell: ₦${sellingPrice.toLocaleString()}`);
+        console.log("   ✨ Creating:", product.name);
+        console.log("      SKU: " + product.sku + " | Cost: ₦" + product.cost_price.toLocaleString() + " | Sell: ₦" + sellingPrice.toLocaleString());
 
         const { data: newProd, error } = await supabase.from('products').insert({
             name: `${product.name} (New)`,
@@ -601,7 +601,7 @@ async function seedLenovoLaptops() {
         }).select().single();
 
         if (error) {
-            console.error(`   ❌ Failed: ${product.name}`, error.message);
+            console.error("   ❌ Failed:", product.name, error.message);
         } else {
             // Link to Lenovo category
             if (categoryId) {
@@ -617,7 +617,7 @@ async function seedLenovoLaptops() {
     }
 
     console.log(`\n🏁 Lenovo Laptops Seeding Complete!`);
-    console.log(`   Created: ${created} | Skipped: ${skipped}`);
+    console.log("   Created:", created, "| Skipped:", skipped);
 }
 
 seedLenovoLaptops();

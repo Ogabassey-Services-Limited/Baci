@@ -55,6 +55,10 @@ async function captureScreenshot(browser, templateId) {
   const page = await browser.newPage();
   await page.setViewport(VIEWPORT);
 
+  if (!VALID_TEMPLATE_ID.test(templateId)) {
+    throw new Error(`Invalid template ID: ${templateId}`);
+  }
+
   const url = `${BASE_URL}/template-preview/${templateId}`;
   console.log(`📸 Capturing: ${templateId}`);
   console.log(`   URL: ${url}`);

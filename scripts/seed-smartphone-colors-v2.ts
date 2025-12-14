@@ -299,11 +299,11 @@ async function run() {
         const colors = getColorsForModel(product.name, brand);
 
         if (colors.length === 0) {
-            console.log(`⚠️  Skipped [Unknown Model]: ${product.name} (${brand})`);
+            console.log("⚠️  Skipped [Unknown Model]:", product.name, "(" + brand + ")");
             continue;
         }
 
-        console.log(`📦 ${product.name} -> [${colors.join(', ')}]`);
+        console.log("📦", product.name, "-> [", colors.join(', '), "]");
 
         for (const color of colors) {
             const sku = `${product.slug}-${color.toLowerCase().replace(/\s+/g, '-')}`;
@@ -330,7 +330,7 @@ async function run() {
         processed++;
     }
 
-    console.log(`\n🎉 Done! Processed ${processed} phones. Added ${variants} variants.`);
+    console.log("\n🎉 Done! Processed", processed, "phones. Added", variants, "variants.");
 }
 
 run().catch(console.error);

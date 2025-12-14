@@ -446,7 +446,7 @@ async function seedMSIAsusGaming() {
     }
 
     // Seed Products
-    console.log(`🌱 Seeding ${GAMING_LAPTOPS.length} MSI & Asus Gaming Laptops...\n`);
+    console.log("🌱 Seeding", GAMING_LAPTOPS.length, "MSI & Asus Gaming Laptops...\n");
 
     let created = 0;
     let skipped = 0;
@@ -457,7 +457,7 @@ async function seedMSIAsusGaming() {
         // Check if exists
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log(`   ⏩ Skipping existing: ${product.name}`);
+            console.log("   ⏩ Skipping existing:", product.name);
             skipped++;
             continue;
         }
@@ -492,8 +492,8 @@ async function seedMSIAsusGaming() {
             features: product.specs.features,
         };
 
-        console.log(`   ✨ Creating: ${product.name}`);
-        console.log(`      SKU: ${product.sku} | Cost: ₦${product.cost_price.toLocaleString()} | Sell: ₦${sellingPrice.toLocaleString()}`);
+        console.log("   ✨ Creating:", product.name);
+        console.log("      SKU:", product.sku, "| Cost: ₦" + product.cost_price.toLocaleString(), "| Sell: ₦" + sellingPrice.toLocaleString());
 
         const { data: newProd, error } = await supabase.from('products').insert({
             name: `${product.name} Gaming Laptop (New)`,
@@ -524,13 +524,13 @@ async function seedMSIAsusGaming() {
             if (gamingCategoryId) {
                 await supabase.from('product_categories').insert({ product_id: newProd.id, category_id: gamingCategoryId });
             }
-            console.log(`   ✅ Created & Linked to ${product.specs.brand} + Gaming`);
+            console.log("   ✅ Created & Linked to", product.specs.brand, "+ Gaming");
             created++;
         }
     }
 
     console.log(`\n🏁 MSI & Asus Gaming Laptops Seeding Complete!`);
-    console.log(`   Created: ${created} | Skipped: ${skipped}`);
+    console.log("   Created:", created, "| Skipped:", skipped);
 }
 
 seedMSIAsusGaming();

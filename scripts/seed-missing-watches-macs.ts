@@ -332,13 +332,13 @@ async function seedMissingProducts() {
         }
     }
 
-    console.log(`\n   Watches Created: ${watchCreated} | Skipped: ${watchSkipped}\n`);
+    console.log("\n   Watches Created:", watchCreated, "| Skipped:", watchSkipped, "\n");
 
     // Part 2: Add Missing MacBooks
     if (!macbookCat) {
         console.log("⚠️ MacBook category not found, skipping MacBooks");
     } else {
-        console.log(`📊 Part 2: Adding ${MISSING_MACBOOKS.length} Missing MacBooks...\n`);
+        console.log("📊 Part 2: Adding", MISSING_MACBOOKS.length, "Missing MacBooks...\n");
 
         let macCreated = 0;
         let macSkipped = 0;
@@ -353,7 +353,7 @@ async function seedMissingProducts() {
             // Check if exists
             const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
             if (existing) {
-                console.log(`   ⏩ Skipping existing: ${fullName}`);
+                console.log("   ⏩ Skipping existing:", fullName);
                 macSkipped++;
                 continue;
             }
@@ -362,8 +362,8 @@ async function seedMissingProducts() {
             const price = Math.round(p.costPrice * 1.15 / 100) * 100;
             const description = generateMacDescription(p, specs, price);
 
-            console.log(`   ✨ Creating: ${fullName}`);
-            console.log(`      Cost: ₦${p.costPrice.toLocaleString()} → Price: ₦${price.toLocaleString()}`);
+            console.log("   ✨ Creating:", fullName);
+            console.log("      Cost: ₦" + p.costPrice.toLocaleString() + " → Price: ₦" + price.toLocaleString());
 
             const { data: newProd, error } = await supabase.from('products').insert({
                 name: fullName,
@@ -389,7 +389,7 @@ async function seedMissingProducts() {
             }
         }
 
-        console.log(`\n   MacBooks Created: ${macCreated} | Skipped: ${macSkipped}`);
+        console.log("\n   MacBooks Created:", macCreated, "| Skipped:", macSkipped);
     }
 
     console.log(`\n🏁 Seeding Complete!`);

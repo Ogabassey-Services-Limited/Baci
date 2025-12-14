@@ -16,7 +16,7 @@ async function testLiveModel() {
     console.log('--- Testing gemini-2.5-flash-live for Image Generation ---\n');
 
     const modelName = 'gemini-2.5-flash-native-audio-preview-09-2025';
-    console.log(`Model: ${modelName}\n`);
+    console.log("Model:", modelName, "\n");
 
     try {
         const result = await generateText({
@@ -25,13 +25,13 @@ async function testLiveModel() {
         });
 
         console.log('✅ Request successful!');
-        console.log(`Text: ${result.text?.substring(0, 100)}`);
-        console.log(`Files: ${result.files?.length || 0}`);
+        console.log("Text:", result.text?.substring(0, 100));
+        console.log("Files:", result.files?.length || 0);
 
         if (result.files && result.files.length > 0) {
             console.log('\n🎨 Images generated:');
             result.files.forEach((file, i) => {
-                console.log(`  ${i + 1}. ${file.mediaType}`);
+                console.log(" ", i + 1 + ".", file.mediaType);
             });
         } else {
             console.log('\n⚠️ No images in response - this is a text/audio model, not image generation');

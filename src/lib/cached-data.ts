@@ -119,9 +119,9 @@ export const getCachedMerchant = unstable_cache(
     }
 
     if (!data) {
-      console.warn(`No merchant data found for slug "${slug}"`);
+      console.warn("No merchant data found for slug", slug);
     } else {
-      console.log(`Successfully fetched merchant: ${slug} (${data.id})`);
+      console.log("Successfully fetched merchant:", slug, `(${data.id})`);
     }
 
     // Fetch primary domain
@@ -153,23 +153,30 @@ export const getCachedMerchant = unstable_cache(
  * Looks up the domain in the domains table and fetches the associated merchant
  * Uses 60 second cache with tags for invalidation
  */
+/**
+ * Retrieves a merchant using their custom domain.
+ * Normalizes the domain to lowercase before lookup.
+ * @param domain The custom domain (e.g., "store.com").
+ * @returns The merchant object with `custom_domain` property, or null if not found.
+ */
 export const getCachedMerchantByDomain = unstable_cache(
   async (domain: string): Promise<CachedMerchant | null> => {
+    const normalizedDomain = domain.toLowerCase();
     const supabase = getPublicSupabaseClient();
 
     // First, find the merchant_id from the domains table
     const { data: domainData, error: domainError } = await supabase
       .from('domains')
       .select('merchant_id, domain')
-      .eq('domain', domain)
+      .eq('domain', normalizedDomain)
       .eq('status', 'active')
       .single();
 
     if (domainError || !domainData) {
-      console.error(
-        `Error fetching domain "${domain}":`,
-        domainError ? JSON.stringify(domainError, null, 2) : 'No data found'
-      );
+      console.error('Error fetching domain', {
+        domain: normalizedDomain,
+        error: domainError ?? 'No data found',
+      });
       return null;
     }
 
@@ -202,21 +209,25 @@ export const getCachedMerchantByDomain = unstable_cache(
       .single();
 
     if (error) {
-      console.error(
-        `Error fetching merchant for domain "${domain}":`,
-        JSON.stringify(error, null, 2)
-      );
+      console.error('Error fetching merchant for domain', {
+        domain: normalizedDomain,
+        error: error,
+      });
       return null;
     }
 
     if (!data) {
-      console.warn(`No merchant data found for domain "${domain}"`);
+      console.warn('No merchant data found for domain', {
+        domain: normalizedDomain,
+      });
       return null;
     }
 
-    console.log(
-      `Successfully fetched merchant by domain: ${domain} -> ${data.slug} (${data.id})`
-    );
+    console.log('Successfully fetched merchant by domain', {
+      domain: normalizedDomain,
+      slug: data.slug,
+      merchantId: data.id,
+    });
 
     // Return with the custom_domain set
     return { ...data, custom_domain: domainData.domain };

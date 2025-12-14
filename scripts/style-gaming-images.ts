@@ -13,7 +13,7 @@ async function styleImages() {
 
     for (const file of files) {
         try {
-            console.log(`Processing ${file}...`);
+            console.log("Processing", file, "...");
             const image = await Jimp.read(path.join(RAW_DIR, file));
 
             // 1. Resize to uniform height (e.g. 800px)
@@ -23,10 +23,10 @@ async function styleImages() {
             // Save as PNG
             const outName = file.replace(/\.(jpg|jpeg|png)$/i, '.png');
             await image.write(path.join(OUT_DIR, outName));
-            console.log(`   Saved ${outName}`);
+            console.log("   Saved", outName);
 
         } catch (e: any) {
-            console.error(`   Failed ${file}:`, e.message);
+            console.error("   Failed", file, ":", e.message);
         }
     }
 }

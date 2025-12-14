@@ -249,7 +249,7 @@ async function seedVivoProducts() {
     const categoryId = vivoCat?.id;
 
     // C. Seed Products
-    console.log(`🌱 Seeding ${PRODUCTS_TO_SEED.length} vivo products...\n`);
+    console.log("🌱 Seeding", PRODUCTS_TO_SEED.length, "vivo products...\n");
 
     let created = 0;
     let skipped = 0;
@@ -268,7 +268,7 @@ async function seedVivoProducts() {
         // Check if exists
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log(`   ⏩ Skipping existing: ${fullName}`);
+            console.log("   ⏩ Skipping existing:", fullName);
             skipped++;
             continue;
         }
@@ -283,8 +283,8 @@ async function seedVivoProducts() {
 
         const description = generateDescription(p.model, fullName, p.sell, specs, metadata);
 
-        console.log(`   ✨ Creating: ${fullName}`);
-        console.log(`      Cost: ₦${p.cost.toLocaleString()} | Sell: ₦${p.sell.toLocaleString()}`);
+        console.log("   ✨ Creating:", fullName);
+        console.log("      Cost: ₦" + p.cost.toLocaleString(), "| Sell: ₦" + p.sell.toLocaleString());
 
         const { data: newProd, error } = await supabase.from('products').insert({
             name: fullName,
@@ -313,7 +313,7 @@ async function seedVivoProducts() {
     }
 
     console.log(`\n🏁 vivo Seeding Complete!`);
-    console.log(`   Created: ${created} | Skipped: ${skipped}`);
+    console.log("   Created:", created, "| Skipped:", skipped);
 }
 
 seedVivoProducts();

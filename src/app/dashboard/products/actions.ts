@@ -436,10 +436,10 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
       );
     }
 
-    // SSRF Protection: Only allow Google Sheets domains
+    // SSRF Protection: Only allow allowed Google domains
     const allowedHosts = ['docs.google.com', 'sheets.google.com'];
     if (!allowedHosts.includes(parsedUrl.hostname)) {
-      throw new Error('Invalid URL. Only Google Sheets URLs are allowed.');
+      throw new Error('Invalid URL. Only Google Sheets domains are allowed.');
     }
 
     // Ensure HTTPS protocol
@@ -447,24 +447,35 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
       throw new Error('Invalid URL. Only HTTPS URLs are allowed.');
     }
 
-    // Check for "Published to Web" URL (e.g., .../d/e/.../pubhtml)
-    const isPublishedUrl = url.includes('/d/e/');
-    let exportUrl: string;
+    // Construct the export URL safely
+    const exportUrlObj = new URL(parsedUrl.toString());
 
-    if (isPublishedUrl) {
-      // Convert pubhtml or other endings to pub?output=csv
-      // Base ID extraction for published sheets is complex, so we just modify the URL suffix
-      const baseUrl = url.split('/pub')[0];
-      exportUrl = `${baseUrl}/pub?output=csv`;
-      // Re-validate the constructed URL to prevent SSRF
-      const exportParsedUrl = new URL(exportUrl);
-      if (!allowedHosts.includes(exportParsedUrl.hostname)) {
-        throw new Error('Invalid URL. Only Google Sheets URLs are allowed.');
+    // Case 1: "Published to Web" URL (e.g. /d/e/.../pubhtml)
+    if (parsedUrl.pathname.includes('/d/e/')) {
+      // We need to replace the ending (like /pubhtml) with /pub?output=csv
+      // Safer way: strip everything after the /d/e/{ID}/ part and append /pub
+      const pathParts = parsedUrl.pathname.split('/');
+      // pathParts usually ["", "spreadsheets", "d", "e", "ID", "pubhtml"] or similar
+      // We want to keep up to the ID.
+      const idIndex = pathParts.indexOf('e') + 1; // "IDs" are after "e"
+
+      if (idIndex > 0 && idIndex < pathParts.length) {
+        // Reconstruct path: /spreadsheets/d/e/{ID}/pub
+        const newPath = `${pathParts.slice(0, idIndex + 1).join('/')}/pub`;
+        exportUrlObj.pathname = newPath;
+        exportUrlObj.search = '?output=csv';
+      } else {
+        // Fallback to simple replacement if structure is unexpected but hostname valid
+        exportUrlObj.pathname = exportUrlObj.pathname.replace(
+          /\/pubhtml$/,
+          '/pub'
+        );
+        exportUrlObj.searchParams.set('output', 'csv');
       }
     } else {
-      // Standard Sheet: Extract Spreadsheet ID and construct export URL
-      // Regex to capture the ID between /d/ and /
-      const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      // Case 2: Standard Sheet URL (e.g. /d/{ID}/edit)
+      // Extract numeric/alpha ID
+      const match = parsedUrl.pathname.match(/\/d\/([a-zA-Z0-9-_]+)/);
 
       if (!match || !match[1]) {
         throw new Error(
@@ -474,15 +485,24 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
 
       const spreadsheetId = match[1];
 
-      // Validate spreadsheet ID format (alphanumeric, hyphens, underscores only)
-      if (!/^[a-zA-Z0-9-_]+$/.test(spreadsheetId)) {
-        throw new Error('Invalid spreadsheet ID format.');
-      }
-
-      exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+      // Rebuild completely from scratch to ensure no other tainted parts remain
+      exportUrlObj.hostname = 'docs.google.com';
+      exportUrlObj.pathname = `/spreadsheets/d/${spreadsheetId}/export`;
+      exportUrlObj.search = '?format=csv';
     }
 
-    const response = await fetch(exportUrl);
+    // Final check for safety before fetch
+    if (!allowedHosts.includes(exportUrlObj.hostname)) {
+      throw new Error('Safety Check Failed: Invalid Hostname');
+    }
+
+    const response = await fetch(exportUrlObj.toString(), {
+      method: 'GET',
+      // prevent looking up internal addresses if possible (though fetch doesn't have explicit blocklist)
+      headers: {
+        Accept: 'text/csv',
+      },
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch Google Sheet: ${response.statusText}`);

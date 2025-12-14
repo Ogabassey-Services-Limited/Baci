@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { exec } from 'child_process';
+import { execSafe } from './lib/exec-safe';
 import path from 'path';
 
 dotenv.config({ path: '.env.local' });
@@ -36,7 +36,7 @@ async function deploy() {
         // 2. Upload to VPS
         console.log(`📤 Uploading: ${match.ourProductName}`);
         try {
-            await execPromise(`scp "${localPath}" ${VPS_USER}@${VPS_IP}:${CDN_PATH}/${remoteFilename}`);
+            await execSafe('scp', [localPath, `${VPS_USER}@${VPS_IP}:${CDN_PATH}/${remoteFilename}`]);
             console.log(`   ✅ Uploaded to CDN: ${remoteFilename}`);
         } catch (err) {
             console.error(`   ❌ Upload failed: ${err}`);
@@ -63,15 +63,6 @@ async function deploy() {
     }
 
     console.log(`\n🎉 Deployment Complete!`);
-}
-
-function execPromise(cmd: string) {
-    return new Promise((resolve, reject) => {
-        exec(cmd, (error, stdout, stderr) => {
-            if (error) reject(error);
-            else resolve(stdout);
-        });
-    });
 }
 
 deploy();

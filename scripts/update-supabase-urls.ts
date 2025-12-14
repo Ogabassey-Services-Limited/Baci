@@ -13,7 +13,7 @@ const matches = JSON.parse(fs.readFileSync('migration_map.json', 'utf-8'));
 const CDN_BASE = 'https://cdn.ogabassey.com/products';
 
 async function updateDb() {
-    console.log(`🚀 Updating DB for ${matches.length} products...`);
+    console.log('🚀 Updating DB for', matches.length, 'products...');
 
     for (const match of matches) {
         const ext = match.oldFile.split('.').pop();
@@ -30,7 +30,7 @@ async function updateDb() {
         if (error) {
             console.error(`❌ Failed to update ${match.supabaseSlug}:`, error);
         } else {
-            console.log(`✅ Updated ${match.supabaseSlug} -> ${newUrl}`);
+            console.log('✅ Updated', match.supabaseSlug, '->', newUrl);
         }
     }
 }

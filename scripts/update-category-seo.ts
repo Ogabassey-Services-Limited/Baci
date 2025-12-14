@@ -279,14 +279,14 @@ async function updateCategorySEO() {
         const seoData = CATEGORY_SEO[cat.slug];
 
         if (!seoData) {
-            console.log(`   ⏩ No SEO data defined for: ${cat.name} (${cat.slug})`);
+            console.log("   ⏩ No SEO data defined for:", cat.name, "(" + cat.slug + ")");
             missing++;
             continue;
         }
 
         // Check if already has SEO fields
         if (cat.seo_heading && cat.seo_description && cat.description) {
-            console.log(`   ✅ Already has SEO: ${cat.name}`);
+            console.log("   ✅ Already has SEO:", cat.name);
             skipped++;
             continue;
         }
@@ -299,9 +299,9 @@ async function updateCategorySEO() {
         }).eq('id', cat.id);
 
         if (error) {
-            console.error(`   ❌ Failed to update ${cat.name}:`, error.message);
+            console.error("   ❌ Failed to update", cat.name, ":", error.message);
         } else {
-            console.log(`   🔄 Updated SEO: ${cat.name}`);
+            console.log("   🔄 Updated SEO:", cat.name);
             updated++;
         }
     }

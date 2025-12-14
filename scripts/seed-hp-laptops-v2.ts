@@ -1153,7 +1153,7 @@ async function seedHPConsumerLaptops() {
     const categoryId = hpCat?.id;
 
     // Seed Products
-    console.log(`🌱 Seeding ${HP_CONSUMER_LAPTOPS.length} HP Consumer Laptops...\n`);
+    console.log("🌱 Seeding", HP_CONSUMER_LAPTOPS.length, "HP Consumer Laptops...\n");
 
     let created = 0;
     let skipped = 0;
@@ -1162,7 +1162,7 @@ async function seedHPConsumerLaptops() {
     for (const product of HP_CONSUMER_LAPTOPS) {
         // Skip sold out items
         if (product.soldOut) {
-            console.log(`   ⏩ Skipping SOLD OUT: ${product.name}`);
+            console.log("   ⏩ Skipping SOLD OUT:", product.name);
             soldOut++;
             continue;
         }
@@ -1172,7 +1172,7 @@ async function seedHPConsumerLaptops() {
         // Check if exists
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log(`   ⏩ Skipping existing: ${product.name}`);
+            console.log("   ⏩ Skipping existing:", product.name);
             skipped++;
             continue;
         }
@@ -1209,8 +1209,8 @@ async function seedHPConsumerLaptops() {
             metadata.graphicsVram = product.specs.graphicsVram;
         }
 
-        console.log(`   ✨ Creating: ${product.name}`);
-        console.log(`      SKU: ${product.sku} | Cost: ₦${product.cost_price.toLocaleString()} | Sell: ₦${sellingPrice.toLocaleString()}`);
+        console.log("   ✨ Creating:", product.name);
+        console.log("      SKU: " + product.sku + " | Cost: ₦" + product.cost_price.toLocaleString() + " | Sell: ₦" + sellingPrice.toLocaleString());
 
         const { data: newProd, error } = await supabase.from('products').insert({
             name: `${product.name} (New)`,
@@ -1230,7 +1230,7 @@ async function seedHPConsumerLaptops() {
         }).select().single();
 
         if (error) {
-            console.error(`   ❌ Failed: ${product.name}`, error.message);
+            console.error("   ❌ Failed:", product.name, error.message);
         } else {
             if (categoryId) {
                 await supabase.from('product_categories').insert({ product_id: newProd.id, category_id: categoryId });
@@ -1241,7 +1241,7 @@ async function seedHPConsumerLaptops() {
     }
 
     console.log(`\n🏁 HP Consumer Laptops Seeding Complete!`);
-    console.log(`   Created: ${created} | Skipped: ${skipped} | Sold Out: ${soldOut}`);
+    console.log("   Created:", created, "| Skipped:", skipped, "| Sold Out:", soldOut);
 }
 
 seedHPConsumerLaptops();

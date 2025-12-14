@@ -63,7 +63,7 @@ export function StorefrontWrapper() {
         setTemplateHome(() => components.Home);
         setTemplateLoading(false);
       } catch (error) {
-        console.error(`Failed to load template "${templateId}":`, error);
+        console.error("Failed to load template", templateId, ":", error);
         setTemplateHome(null);
         setTemplateLoading(false);
       }

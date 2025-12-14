@@ -256,12 +256,12 @@ async function seedOppo() {
         if (error) {
             console.error(`❌ Failed ${finalName}:`, error.message);
         } else {
-            console.log(`✅ Upserted ${finalName}`);
+            console.log("✅ Upserted", finalName);
             count++;
         }
     }
 
-    console.log(`🎉 Complete. Imported ${count} products.`);
+    console.log("🎉 Complete. Imported", count, "products.");
 }
 
 seedOppo().catch(console.error);

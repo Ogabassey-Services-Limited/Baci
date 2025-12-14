@@ -17,7 +17,7 @@ async function probe() {
         const data = await res.json();
         if (data.data && data.data.policies && data.data.policies.length > 0) {
             policyId = data.data.policies[0].id;
-            console.log(`   ✅ Found Policy ID: ${policyId}`);
+            console.log("   ✅ Found Policy ID:", policyId);
         } else {
             console.log('   ❌ No policies found to test with.');
         }
@@ -45,22 +45,22 @@ async function probe() {
 
     for (const ep of PROBE_LIST) {
         try {
-            console.log(`\n👉 Testing ${ep.method} ${ep.url}...`);
+            console.log("\n👉 Testing", ep.method, ep.url, "...");
             const res = await fetch(`${BASE_URL}${ep.url}`, {
                 method: ep.method,
                 headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({})
             });
 
-            console.log(`   Status: ${res.status}`);
+            console.log("   Status:", res.status);
 
             if (res.status !== 404) {
                 const txt = await res.text();
                 console.log(`   🔎 INTERESTING! Not a 404!`);
-                console.log(`   Response: ${txt.slice(0, 300)}`);
+                console.log("   Response:", txt.slice(0, 300));
             }
         } catch (e: any) {
-            console.log(`   ⚠️ Network Error on ${ep.url}: ${e.message}`);
+            console.log("   ⚠️ Network Error on", ep.url, ":", e.message);
         }
     }
 }

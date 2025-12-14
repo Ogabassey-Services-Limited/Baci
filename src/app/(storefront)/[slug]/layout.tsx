@@ -9,74 +9,12 @@ import {
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 
-// Valid slug pattern: alphanumeric and hyphens, no file extensions
-const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+// Valid slug/domain patterns and reserved paths are now imported from @/lib/validation
 
-// Valid domain pattern: basic domain format (e.g., ogabassey.com)
-const VALID_DOMAIN_REGEX = /^[a-z0-9][a-z0-9-]*\.[a-z]{2,}$/;
-
-// Reserved paths that should NOT be treated as merchant slugs
-const RESERVED_PATHS = new Set([
-  'cart',
-  'checkout',
-  'api',
-  'auth',
-  'login',
-  'logout',
-  'dashboard',
-  'admin',
-  'builder',
-  'onboarding',
-  'preview',
-  'about',
-  'contact',
-  'blog',
-  'pricing',
-  'terms',
-  'privacy',
-  'features',
-  'demo',
-  'developers',
-  'track',
-  'invite',
-  'reset-password',
-  'template-preview',
-  'orders',
-  'saved',
-  'addresses',
-  'reviews',
-  'help',
-  'wallet',
-  'repairs',
-  'swap',
-]);
-
-/**
- * Check if the identifier looks like a domain (contains a dot)
- */
-function isDomainIdentifier(identifier: string): boolean {
-  return (
-    identifier.includes('.') &&
-    VALID_DOMAIN_REGEX.test(identifier.toLowerCase())
-  );
-}
-
-function isValidMerchantSlug(slug: string): boolean {
-  return (
-    typeof slug === 'string' &&
-    !!slug.trim() &&
-    !slug.includes('.') && // No file extensions
-    !RESERVED_PATHS.has(slug.toLowerCase()) && // Not a reserved path
-    VALID_SLUG_REGEX.test(slug.toLowerCase())
-  );
-}
-
-/**
- * Validate that the identifier is either a valid slug or a valid domain
- */
-function isValidMerchantIdentifier(identifier: string): boolean {
-  return isValidMerchantSlug(identifier) || isDomainIdentifier(identifier);
-}
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 
 export default async function StorefrontLayout({
   children,
@@ -93,13 +31,15 @@ export default async function StorefrontLayout({
   }
 
   // Use appropriate lookup method based on identifier type
-  let merchant: Awaited<ReturnType<typeof getCachedMerchant>> = null;
+  type MerchantResult = Awaited<ReturnType<typeof getCachedMerchant>>;
+  let merchant: MerchantResult;
+
   if (isDomainIdentifier(slug)) {
-    // Custom domain access (e.g., ogabassey.com)
-    merchant = await getCachedMerchantByDomain(slug);
+    // Custom domain access (e.g., ogabassey.com) - normalize to lowercase
+    merchant = await getCachedMerchantByDomain(slug.toLowerCase());
   } else {
-    // Standard slug access (e.g., ogabassey)
-    merchant = await getCachedMerchant(slug);
+    // Standard slug access (e.g., ogabassey) - normalize to lowercase
+    merchant = await getCachedMerchant(slug.toLowerCase());
   }
 
   if (!merchant) {

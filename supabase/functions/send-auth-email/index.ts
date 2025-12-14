@@ -68,10 +68,26 @@ const EMAIL_CONFIG: Record<
   },
 };
 
+function escapeHtml(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function generateEmailHtml(
   config: (typeof EMAIL_CONFIG)[string],
   confirmationUrl: string
 ): string {
+  const safeHeading = escapeHtml(config.heading);
+  const safeBody = escapeHtml(config.body);
+  const safeButtonText = escapeHtml(config.buttonText);
+  // URL should be encoded, not just HTML escaped, but basic HTML escaping protects the attribute
+  const safeUrl = escapeHtml(confirmationUrl);
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -90,12 +106,12 @@ function generateEmailHtml(
           </tr>
           <tr>
             <td style="padding: 40px 32px; color: #334155;">
-              <h1 style="margin: 0 0 16px; font-size: 24px; color: #0f172a;">${config.heading}</h1>
-              <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6;">${config.body}</p>
+              <h1 style="margin: 0 0 16px; font-size: 24px; color: #0f172a;">${safeHeading}</h1>
+              <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6;">${safeBody}</p>
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td align="center" style="padding: 16px 0 32px;">
-                    <a href="${confirmationUrl}" style="display: inline-block; background-color: #fbbf24; color: #1e1e1e; font-weight: 600; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-size: 16px;">${config.buttonText}</a>
+                    <a href="${safeUrl}" style="display: inline-block; background-color: #fbbf24; color: #1e1e1e; font-weight: 600; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-size: 16px;">${safeButtonText}</a>
                   </td>
                 </tr>
               </table>

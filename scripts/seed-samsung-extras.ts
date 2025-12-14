@@ -525,7 +525,7 @@ async function seedSamsungExtras() {
     let totalSkipped = 0;
 
     // === Part 1: Audio Products ===
-    console.log(`📊 Part 1: Adding ${AUDIO_PRODUCTS.length} Samsung Audio Products...\n`);
+    console.log("📊 Part 1: Adding", AUDIO_PRODUCTS.length, "Samsung Audio Products...\n");
 
     for (const p of AUDIO_PRODUCTS) {
         const specs = AUDIO_SPECS[p.specs];
@@ -536,7 +536,7 @@ async function seedSamsungExtras() {
 
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log(`   ⏩ Skipping existing: ${fullName}`);
+            console.log("   ⏩ Skipping existing:", fullName);
             totalSkipped++;
             continue;
         }
@@ -544,7 +544,7 @@ async function seedSamsungExtras() {
         const description = generateAudioDescription(p, specs);
         const isUsed = p.condition === 'Premium Used';
 
-        console.log(`   ✨ Creating: ${fullName} — ₦${p.price.toLocaleString()}`);
+        console.log("   ✨ Creating:", fullName, "— ₦" + p.price.toLocaleString());
 
         const { data: newProd, error } = await supabase.from('products').insert({
             name: fullName,
@@ -570,7 +570,7 @@ async function seedSamsungExtras() {
     }
 
     // === Part 2: Tablet Products ===
-    console.log(`\n📊 Part 2: Adding ${TABLET_PRODUCTS.length} Samsung Tablet Products...\n`);
+    console.log("\n📊 Part 2: Adding", TABLET_PRODUCTS.length, "Samsung Tablet Products...\n");
 
     for (const p of TABLET_PRODUCTS) {
         const specs = TABLET_SPECS[p.specs];
@@ -581,7 +581,7 @@ async function seedSamsungExtras() {
 
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log(`   ⏩ Skipping existing: ${fullName}`);
+            console.log("   ⏩ Skipping existing:", fullName);
             totalSkipped++;
             continue;
         }
@@ -589,7 +589,7 @@ async function seedSamsungExtras() {
         const description = generateTabletDescription(p, specs);
         const isUsed = p.condition === 'Premium Used';
 
-        console.log(`   ✨ Creating: ${fullName} — ₦${p.price.toLocaleString()}`);
+        console.log("   ✨ Creating:", fullName, "— ₦" + p.price.toLocaleString());
 
         const { data: newProd, error } = await supabase.from('products').insert({
             name: fullName,
@@ -615,7 +615,7 @@ async function seedSamsungExtras() {
     }
 
     // === Part 3: Watch Products ===
-    console.log(`\n📊 Part 3: Adding ${WATCH_PRODUCTS.length} Samsung Watch Products...\n`);
+    console.log("\n📊 Part 3: Adding", WATCH_PRODUCTS.length, "Samsung Watch Products...\n");
 
     for (const p of WATCH_PRODUCTS) {
         const specs = WATCH_SPECS[p.specs];
@@ -626,7 +626,7 @@ async function seedSamsungExtras() {
 
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log(`   ⏩ Skipping existing: ${fullName}`);
+            console.log("   ⏩ Skipping existing:", fullName);
             totalSkipped++;
             continue;
         }
@@ -634,7 +634,7 @@ async function seedSamsungExtras() {
         const description = generateWatchDescription(p, specs);
         const isUsed = p.condition === 'Premium Used';
 
-        console.log(`   ✨ Creating: ${fullName} — ₦${p.price.toLocaleString()}`);
+        console.log("   ✨ Creating:", fullName, "— ₦" + p.price.toLocaleString());
 
         const { data: newProd, error } = await supabase.from('products').insert({
             name: fullName,
@@ -660,12 +660,12 @@ async function seedSamsungExtras() {
     }
 
     console.log(`\n🏁 Seeding Complete!`);
-    console.log(`   ✅ Created: ${totalCreated}`);
-    console.log(`   ⏩ Skipped: ${totalSkipped}`);
-    console.log(`\n   📊 Breakdown:`);
-    console.log(`   - Audio: ${AUDIO_PRODUCTS.length} products`);
-    console.log(`   - Tablets: ${TABLET_PRODUCTS.length} products`);
-    console.log(`   - Watches: ${WATCH_PRODUCTS.length} products`);
+    console.log("   ✅ Created:", totalCreated);
+    console.log("   ⏩ Skipped:", totalSkipped);
+    console.log("\n   📊 Breakdown:");
+    console.log("   - Audio:", AUDIO_PRODUCTS.length, "products");
+    console.log("   - Tablets:", TABLET_PRODUCTS.length, "products");
+    console.log("   - Watches:", WATCH_PRODUCTS.length, "products");
 }
 
 seedSamsungExtras();

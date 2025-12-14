@@ -19,7 +19,7 @@ async function deployDbUpdate() {
         .select('id, name')
         .or('brand.ilike.Apple,name.ilike.%Apple%,name.ilike.%iPhone%,name.ilike.%MacBook%,name.ilike.%iPad%,name.ilike.%Watch%');
 
-    console.log(`Found ${appleProducts?.length || 0} Apple products in DB.`);
+    console.log("Found", appleProducts?.length || 0, "Apple products in DB.");
 
     const appleFiles = fs.readdirSync(appleDir).filter(f => f.startsWith('branded_') && f.endsWith('.png'));
 
@@ -74,7 +74,7 @@ async function deployDbUpdate() {
         }
 
         if (bestMatch && maxScore >= 15) {
-            console.log(`✅ MATCH: ${file} -> ${bestMatch.name}`);
+            console.log("✅ MATCH:", file, "->", bestMatch.name);
             const publicUrl = `${CDN_BASE_URL}/${bestMatch.id}.png`;
 
             // Only update 'images', NOT 'image'
@@ -83,8 +83,8 @@ async function deployDbUpdate() {
                 .update({ images: [publicUrl] })
                 .eq('id', bestMatch.id);
 
-            if (error) console.error(`Failed ${bestMatch.id}:`, error.message);
-            else console.log(`   Updated: ${publicUrl}`);
+            if (error) console.error("Failed", bestMatch.id, ":", error.message);
+            else console.log("   Updated:", publicUrl);
         }
     }
     console.log('Done.');

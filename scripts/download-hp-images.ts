@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { exec } from 'child_process';
+import { execSafe } from './lib/exec-safe';
 import path from 'path';
 
 const matches = JSON.parse(fs.readFileSync('hp_matched_images.json', 'utf-8'));
@@ -23,12 +23,12 @@ async function downloadAndBrand() {
 
         try {
             // Download
-            await execPromise(`curl -s "${imageUrl}" -o "${outputPath}"`);
+            await execSafe('curl', ['-s', imageUrl, '-o', outputPath]);
             console.log(`   ✅ Downloaded to ${outputPath}`);
 
             // Apply branding
             const brandedPath = path.join(outputDir, `branded_${filename}`);
-            await execPromise(`npx tsx scripts/apply-red-ring.ts "${outputPath}" "${brandedPath}"`);
+            await execSafe('npx', ['tsx', 'scripts/apply-red-ring.ts', outputPath, brandedPath]);
             console.log(`   ✅ Branded: ${brandedPath}`);
 
         } catch (err) {
@@ -37,15 +37,6 @@ async function downloadAndBrand() {
     }
 
     console.log(`\n✅ Done! Downloaded and branded ${matches.length} images.`);
-}
-
-function execPromise(cmd: string) {
-    return new Promise((resolve, reject) => {
-        exec(cmd, (error, stdout, stderr) => {
-            if (error) reject(error);
-            else resolve(stdout);
-        });
-    });
 }
 
 downloadAndBrand();

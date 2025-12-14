@@ -14,6 +14,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect } from 'react';
+import DOMPurify from 'isomorphic-dompurify';
 
 const stats = [
   { label: 'Happy Customers', value: '50k+', icon: Smile },
@@ -128,7 +129,7 @@ export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
               Driven by Technology.
             </h2>
             <div className="space-y-6 text-gray-600 leading-relaxed">
-              <div dangerouslySetInnerHTML={{ __html: story }} />
+              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(story) }} />
 
               <ul className="space-y-3 pt-2">
                 {[
