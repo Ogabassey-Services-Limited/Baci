@@ -125,14 +125,26 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
 
   if (input.id) {
     // Update existing
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('discount_codes')
       .update(discountCodeData)
       .eq('id', input.id)
-      .eq('merchant_id', merchant.id); // Ensure ownership
+      .eq('merchant_id', merchant.id) // Ensure ownership
+      .select()
+      .single();
 
     if (error) {
+      if (error.code === 'PGRST116') {
+        throw new Error('Discount code not found');
+      }
+      if (error.code === '23505') {
+        throw new Error('Discount code already exists');
+      }
       throw new Error(error.message);
+    }
+
+    if (!data) {
+      throw new Error('Discount code not found');
     }
   } else {
     // Create new
@@ -175,14 +187,23 @@ export async function deleteDiscountCode(id: string) {
     throw new Error('Merchant not found');
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('discount_codes')
     .delete()
     .eq('id', id)
-    .eq('merchant_id', merchant.id); // Double check ownership
+    .eq('merchant_id', merchant.id) // Double check ownership
+    .select()
+    .single();
 
   if (error) {
+    if (error.code === 'PGRST116') {
+      throw new Error('Discount code not found');
+    }
     throw new Error(error.message);
+  }
+
+  if (!data) {
+    throw new Error('Discount code not found');
   }
 
   revalidatePath('/dashboard/marketing/discount-codes');

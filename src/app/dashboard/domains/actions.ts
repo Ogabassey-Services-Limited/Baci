@@ -4,8 +4,17 @@ import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 
-export async function setPrimaryDomain(domain: string) {
+type SetPrimaryDomainResult =
+  | { success: true }
+  | { success: false; error: string };
+
+export async function setPrimaryDomain(domain: string): Promise<SetPrimaryDomainResult> {
   try {
+    // Input validation
+    if (!domain || typeof domain !== 'string' || !domain.trim()) {
+      return { success: false, error: 'Invalid domain provided' };
+    }
+
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -19,11 +28,16 @@ export async function setPrimaryDomain(domain: string) {
     }
 
     // Get merchant ID
-    const { data: merchant } = await supabase
+    const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id')
       .eq('user_id', user.id)
       .single();
+
+    if (merchantError) {
+      console.error('Failed to retrieve merchant:', merchantError);
+      throw new Error('Failed to retrieve merchant');
+    }
 
     if (!merchant) {
       throw new Error('Merchant not found');

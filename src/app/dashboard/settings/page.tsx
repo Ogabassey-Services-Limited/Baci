@@ -29,11 +29,15 @@ export default async function SettingsPage() {
   // Fetch feature settings server-side
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
-  const { data: featureSettings } = await supabase
+  const { data: featureSettings, error: featureError } = await supabase
     .from('merchant_feature_settings')
     .select('blog_enabled')
     .eq('merchant_id', merchant.id)
-    .single();
+    .maybeSingle();
+
+  if (featureError) {
+    console.error('Failed to fetch feature settings:', featureError);
+  }
 
   const blogEnabled = featureSettings?.blog_enabled ?? false;
 
@@ -97,11 +101,10 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Support & Legal - Placeholder for correct hierarchy */}
+        {/* Support & Legal */}
         <div className="mt-8 pt-8 border-t">
           <h2 className="text-lg font-semibold mb-4">Support & Legal</h2>
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Add content here if needed, or remove completely if not in design */}
+          <div className="grid gap-4">
             <div className="p-4 rounded-lg bg-muted/50">
               <h3 className="font-medium mb-1">We value your privacy</h3>
               <p className="text-sm text-muted-foreground">

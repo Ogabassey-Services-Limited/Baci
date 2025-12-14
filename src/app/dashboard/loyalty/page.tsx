@@ -15,7 +15,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 import { formatCurrency } from '@/lib/currency';
 
 interface LoyaltySettings {
@@ -173,11 +178,11 @@ export default function LoyaltyProgramPage() {
         </div>
       </div>
 
-      {/* Stats Overview */}
-      <div className="grid gap-4 md:grid-cols-4">{/* ... */}</div>
-
-      <Tabs defaultValue="members" className="space-y-4">
-        {/* ... */}
+      <Tabs defaultValue="settings" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="rewards">Rewards</TabsTrigger>
+        </TabsList>
         <TabsContent value="settings" className="space-y-4">
           {settings && (
             <>
