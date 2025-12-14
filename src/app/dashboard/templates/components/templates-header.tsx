@@ -44,11 +44,9 @@ export function TemplatesHeader({
           <Button
             variant={showAll ? 'secondary' : 'default'}
             onClick={toggleFilter}
-            aria-pressed={!showAll}
+            aria-pressed={showAll}
             aria-label={
-              showAll
-                ? 'Show only recommended templates'
-                : 'Show all templates'
+              showAll ? 'Show only recommended templates' : 'Show all templates'
             }
           >
             {showAll ? 'Show Recommended Only' : 'Show All Templates'}

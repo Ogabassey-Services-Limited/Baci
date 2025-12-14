@@ -17,11 +17,6 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
-// We could import StaffMember from actions or types
-// Doing a loose type definition here or importing from existing types is fine
-// But actions.ts returns DB rows which might slightly differ if we used join?
-// Actually actions.ts returns `select * from staff_members`
-import type { StaffMember } from '@/app/api/staff/route';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -71,7 +66,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
-import type { StaffRole } from '@/types/staff';
+import type { StaffMember, StaffRole } from '@/types/staff';
 import {
   inviteStaffMember,
   removeStaffMember,

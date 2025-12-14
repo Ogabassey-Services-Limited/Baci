@@ -24,7 +24,7 @@ export interface StaffMember {
   status: 'pending' | 'active' | 'suspended' | 'removed';
   invited_at: string;
   accepted_at: string | null;
-  last_login_at: string | null;
+  last_login_at?: string | null;
   created_at?: string;
 }
 

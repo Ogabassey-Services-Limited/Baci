@@ -36,6 +36,8 @@ export function ApplyTemplateButton({
         description: 'Your store is now using this new template.',
       });
 
+      // Brief delay to ensure toast is visible before navigation
+      await new Promise((resolve) => setTimeout(resolve, 500));
       router.push('/dashboard/settings');
     } catch (error) {
       console.error('Template apply error:', error);
