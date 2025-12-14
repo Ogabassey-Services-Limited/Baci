@@ -1,4 +1,4 @@
-// @ts-nocheck - Template preview
+// Template preview
 'use client';
 
 import { ArrowUpRight, CreditCard, History, Plus, Wallet } from 'lucide-react';

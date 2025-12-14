@@ -5,7 +5,6 @@ import './globals.css';
 import { Analytics } from '@vercel/analytics/next';
 import { SpeedInsights } from '@vercel/speed-insights/next';
 import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter';
-import { CsrfInitializer } from '@/components/csrf-initializer';
 import { Toaster } from '@/components/ui/toaster';
 import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
 import { Providers } from '@/contexts/providers';
@@ -172,6 +171,7 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           nonce={nonce}
+          suppressHydrationWarning
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(organizationSchema),
@@ -181,6 +181,7 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           nonce={nonce}
+          suppressHydrationWarning
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
         />
@@ -188,6 +189,7 @@ export default async function RootLayout({
         <script
           type="application/ld+json"
           nonce={nonce}
+          suppressHydrationWarning
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(softwareApplicationSchema),
@@ -202,7 +204,6 @@ export default async function RootLayout({
         >
           Skip to main content
         </a>
-        <CsrfInitializer />
         <Providers>
           {children}
           <Toaster />

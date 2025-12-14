@@ -1,6 +1,10 @@
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import {
+  getSupabaseAnonKey,
+  getSupabaseServiceRoleKey,
+  getSupabaseUrl,
+} from '@/env';
 
 /**
  * Create a Supabase client for cached queries.
@@ -48,6 +52,7 @@ export const getCachedMerchant = unstable_cache(
         social_media,
         brand_colors,
         slug,
+        business_address,
         payout_currency,
         is_published,
         template_id,
@@ -69,10 +74,10 @@ export const getCachedMerchant = unstable_cache(
 
     return data;
   },
-  ['merchant'],
+  ['merchant-by-slug'],
   {
     revalidate: CACHE_DURATIONS.storefront,
-    tags: ['merchant'],
+    tags: ['merchants'],
   }
 );
 
@@ -97,7 +102,8 @@ export const getCachedMerchantById = unstable_cache(
         email,
         social_media,
         brand_colors,
-        slug
+        slug,
+        business_address
       `)
       .eq('id', merchantId)
       .single();
@@ -112,7 +118,7 @@ export const getCachedMerchantById = unstable_cache(
   ['merchant-by-id'],
   {
     revalidate: CACHE_DURATIONS.storefront,
-    tags: ['merchant'],
+    tags: ['merchants'],
   }
 );
 
@@ -209,7 +215,13 @@ export const getCachedProduct = unstable_cache(
   async (merchantId: string, productSlug: string) => {
     const supabase = getPublicSupabaseClient();
 
-    const { data, error } = await supabase
+    // Check if the input LOOKS like a UUID (simple regex)
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        productSlug
+      );
+
+    let query = supabase
       .from('products')
       .select(`
         id,
@@ -225,6 +237,8 @@ export const getCachedProduct = unstable_cache(
         track_quantity,
         images,
         created_at,
+        product_key_specs,
+        specifications,
         product_variants (
           id,
           name,
@@ -242,9 +256,15 @@ export const getCachedProduct = unstable_cache(
         )
       `)
       .eq('merchant_id', merchantId)
-      .eq('slug', productSlug)
-      .eq('status', 'active')
-      .single();
+      .eq('status', 'active');
+
+    if (isUuid) {
+      query = query.eq('id', productSlug);
+    } else {
+      query = query.eq('slug', productSlug);
+    }
+
+    const { data, error } = await query.single();
 
     if (error) {
       console.error('Error fetching product:', error);
@@ -462,5 +482,73 @@ export const getCachedProductRatingStats = unstable_cache(
   {
     revalidate: CACHE_DURATIONS.products,
     tags: ['reviews'],
+  }
+);
+
+/**
+ * Create a Supabase client with Service Role key for secure operations.
+ * SERVER-SIDE ONLY. Never use on client.
+ */
+function getServiceSupabaseClient() {
+  const url = getSupabaseUrl();
+  const key = getSupabaseServiceRoleKey(); // Throws if on client or missing
+
+  return createSupabaseClient(url, key);
+}
+
+/**
+ * Cached dashboard stats (Revenue, Orders, etc.)
+ * Uses 1 minute cache since dashboard is high-traffic but needs relative freshness
+ */
+export const getCachedDashboardStats = unstable_cache(
+  async (merchantId: string) => {
+    const supabase = getServiceSupabaseClient();
+
+    const { data: stats, error } = await supabase.rpc(
+      'get_sales_dashboard_stats',
+      { p_merchant_id: merchantId }
+    );
+
+    if (error) {
+      console.error('Error fetching cached dashboard stats:', error);
+      return null;
+    }
+
+    return stats;
+  },
+  ['dashboard-stats'],
+  {
+    revalidate: 60, // 1 minute
+    tags: ['dashboard'],
+  }
+);
+
+/**
+ * Cached platform analytics (Admin)
+ * Uses 5 minute cache as this is heavy 10-year aggregation
+ */
+export const getCachedPlatformAnalytics = unstable_cache(
+  async (startDate: string, endDate: string) => {
+    const supabase = getServiceSupabaseClient();
+
+    const { data: summaryData, error: summaryError } = await supabase.rpc(
+      'get_platform_analytics_summary',
+      {
+        p_start_date: startDate,
+        p_end_date: endDate,
+      }
+    );
+
+    if (summaryError) {
+      console.error('Error fetching cached platform analytics:', summaryError);
+      return null;
+    }
+
+    return summaryData;
+  },
+  ['platform-analytics'],
+  {
+    revalidate: 300, // 5 minutes
+    tags: ['analytics'],
   }
 );

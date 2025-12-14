@@ -6,7 +6,8 @@
 
 import { QuoteAggregator } from './aggregator';
 import { ShippingProviderRegistry } from './providers/base';
-import { GiglProvider } from './providers/gigl';
+// GIGL disabled until API credentials are configured
+// import { GiglProvider } from './providers/gigl';
 
 import { TopshipProvider } from './providers/topship';
 import type {
@@ -28,7 +29,8 @@ import type {
 const registry = new ShippingProviderRegistry();
 
 // Register providers
-registry.register(new GiglProvider());
+// GIGL disabled until API credentials are configured
+// registry.register(new GiglProvider());
 registry.register(new TopshipProvider());
 
 // Create aggregator

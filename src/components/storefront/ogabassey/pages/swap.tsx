@@ -1,4 +1,4 @@
-// @ts-nocheck - Template preview
+// Template preview
 'use client';
 
 import {

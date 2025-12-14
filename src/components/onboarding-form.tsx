@@ -25,6 +25,11 @@ import {
   trackMerchantSignupStarted,
 } from '@/components/analytics/platform-analytics-provider';
 import { Logo } from '@/components/logo';
+// Steps - Static import for instant transition (Better INP/UX)
+import Step1_BusinessDetails from '@/components/onboarding/steps/step1-business-details';
+import Step2_Branding from '@/components/onboarding/steps/step2-branding';
+import Step3_Account from '@/components/onboarding/steps/step3-account';
+import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -34,51 +39,12 @@ import { cn } from '@/lib/utils';
 import {
   type OnboardingFormValues,
   onboardingSchema,
-  step3Schema,
 } from '@/schemas/onboarding';
 import { useOnboardingUIStore } from '@/store/onboarding-ui-store';
 import type { BrandColors } from '@/types';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-
-// Dynamically import steps
-const Step1_BusinessDetails = dynamic(
-  () => import('@/components/onboarding/steps/step1-business-details'),
-  {
-    loading: () => (
-      <div className="h-[300px] animate-pulse bg-muted/10 rounded-lg" />
-    ),
-  }
-);
-
-const Step2_Branding = dynamic(
-  () => import('@/components/onboarding/steps/step2-branding'),
-  {
-    loading: () => (
-      <div className="h-[500px] animate-pulse bg-muted/10 rounded-lg" />
-    ),
-  }
-);
-
-const Step3_Account = dynamic(
-  () => import('@/components/onboarding/steps/step3-account'),
-  {
-    loading: () => (
-      <div className="h-[300px] animate-pulse bg-muted/10 rounded-lg" />
-    ),
-  }
-);
-
 // Dynamically import heavy interactive components for preview
-const OnboardingPuckPreview = dynamic(
-  () =>
-    import('./onboarding-puck-preview').then(
-      (mod) => mod.OnboardingPuckPreview
-    ),
-  {
-    ssr: false, // Puck is client-side only
-    loading: () => <Skeleton className="h-full w-full min-h-[500px]" />,
-  }
-);
+import { OnboardingPuckPreview } from './onboarding-puck-preview';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 const OnboardingTemplateEditor = dynamic(
   () =>
@@ -127,6 +93,8 @@ function OnboardingNavigation({
   onPrev,
   isLoading,
   isStepValid,
+  user,
+  isSubmitting,
 }: {
   currentStep: number;
   totalSteps: number;
@@ -134,6 +102,8 @@ function OnboardingNavigation({
   onPrev: () => void;
   isLoading: boolean;
   isStepValid: boolean;
+  user?: User | null;
+  isSubmitting?: boolean;
 }) {
   const isLastStep = currentStep === totalSteps;
 
@@ -157,10 +127,20 @@ function OnboardingNavigation({
           disabled={isLoading || !isStepValid}
           id="submit-button"
         >
-          {isLoading && (
-            <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
-          )}{' '}
-          Create My Store
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 motion-safe:animate-spin" />
+              {isSubmitting
+                ? user
+                  ? 'Saving...'
+                  : 'Creating Store...'
+                : 'Loading...'}
+            </>
+          ) : user ? (
+            'Finish Setup'
+          ) : (
+            'Create My Store'
+          )}
         </Button>
       ) : (
         <Button type="button" onClick={onNext} disabled={isLoading}>
@@ -248,8 +228,11 @@ export default function OnboardingForm() {
   }, [searchParams, form, toast]);
 
   // Handle successful submission
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
   useEffect(() => {
     if (submissionState.success) {
+      setIsRedirecting(true); // Immediate UI update
       localStorage.removeItem('onboardingForm');
       toast({
         title: 'Store Created!',
@@ -269,7 +252,7 @@ export default function OnboardingForm() {
       // No need to re-check client-side which can have cookie timing issues
       setTimeout(() => {
         window.location.href = '/dashboard';
-      }, 1500);
+      }, 3000); // 3s delay for animation cycle and DB propagation
     } else if (submissionState.message) {
       const fieldErrors = submissionState.errors?.fieldErrors;
       if (fieldErrors) {
@@ -411,18 +394,8 @@ export default function OnboardingForm() {
 
   const showPreview = step === 2 && !!brandColors;
 
-  const isStep3Valid = useMemo(() => {
-    if (step !== 3) return true;
-    if (user) return true;
-    const validationData = {
-      email: formEmail,
-      password: formPassword,
-      confirmPassword: formConfirmPassword,
-    };
-    const result = step3Schema.safeParse(validationData);
-    return result.success;
-  }, [formEmail, formPassword, formConfirmPassword, step, user]);
-
+  // 2025 Best Practice: Use form errors from zodResolver as single source of truth
+  // No duplicate schema validation needed
   const isCurrentStepValid = useMemo(() => {
     if (step === 1)
       return (
@@ -431,38 +404,76 @@ export default function OnboardingForm() {
         !errors.otherBusinessType
       );
     if (step === 2) return !errors.logoUrl && !errors.brandColors;
-    if (step === 3) return isStep3Valid;
+    if (step === 3) {
+      // For step 3, check: email valid, password strong enough (8+ chars), passwords match
+      const hasValidEmail = !!formEmail && !errors.email;
+      const hasStrongPassword = !!formPassword && formPassword.length >= 8;
+      const passwordsMatch = formPassword === formConfirmPassword;
+      const noPasswordErrors = !errors.password && !errors.confirmPassword;
+
+      return (
+        hasValidEmail && hasStrongPassword && passwordsMatch && noPasswordErrors
+      );
+    }
     return false;
   }, [
     step,
     errors,
-    isStep3Valid,
+    formEmail,
+    formPassword,
+    formConfirmPassword,
     errors.businessName,
     errors.businessType,
     errors.otherBusinessType,
     errors.logoUrl,
     errors.brandColors,
+    errors.email,
+    errors.password,
+    errors.confirmPassword,
   ]);
+
+  if (isRedirecting) {
+    return (
+      <div className="flex h-screen w-full flex-col items-center justify-center space-y-4 bg-muted/10">
+        <div className="relative h-20 w-20">
+          <div className="relative flex h-full w-full items-center justify-center">
+            <BagLoader size={80} />
+          </div>
+        </div>
+        <div className="space-y-2 text-center">
+          <h2 className="text-2xl font-bold tracking-tight">
+            Preparing Dashboard
+          </h2>
+          <p className="text-muted-foreground">
+            Setting up your new store environment...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       className={cn(
-        'transition-all duration-500 ease-in-out w-full',
-        showPreview
-          ? 'max-w-[90rem] px-4 md:px-8 h-auto lg:h-[calc(100vh-1rem)] flex flex-col lg:flex-row items-center justify-center'
-          : 'max-w-2xl mx-auto px-4 py-8'
+        'transition-all duration-500 ease-in-out w-full min-h-screen flex items-center justify-center p-4',
+        showPreview ? 'max-w-[1600px] mx-auto' : 'max-w-2xl mx-auto'
       )}
     >
       <div
-        className={cn('flex flex-col lg:flex-row gap-8 items-center w-full')}
+        className={cn(
+          'w-full transition-all duration-500',
+          showPreview
+            ? 'grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center'
+            : 'flex justify-center'
+        )}
       >
-        {/* Main Card */}
+        {/* Main Form Card - Left Square */}
         <div
           className={cn(
-            'relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl transition-all duration-500',
+            'relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl transition-all duration-500 w-full z-20',
             showPreview
-              ? 'w-full lg:w-1/2 xl:w-[45%] lg:h-[550px] lg:overflow-hidden'
-              : 'w-full'
+              ? 'lg:aspect-square max-w-[650px] mx-auto flex flex-col' // Square on desktop only
+              : 'max-w-2xl'
           )}
         >
           {/* Glass Shine Effect */}
@@ -470,24 +481,27 @@ export default function OnboardingForm() {
 
           <div
             className={cn(
-              'relative transition-all duration-500',
-              showPreview
-                ? 'p-6 h-full flex flex-col justify-center scale-[0.85] origin-center'
-                : 'p-8'
+              'relative transition-all duration-500 flex flex-col h-full',
+              showPreview ? 'p-5 md:p-6 lg:p-8 lg:justify-center' : 'p-6 md:p-8'
             )}
           >
-            <div className="flex flex-col items-center text-center mb-6 mt-4">
+            <div className="flex flex-col items-center text-center mb-4 md:mb-6 mt-2 md:mt-4">
               <Link
                 href="/"
-                className="mb-4 transition-transform hover:scale-105"
+                className="mb-3 md:mb-4 transition-transform hover:scale-105"
               >
                 <Logo />
               </Link>
             </div>
 
-            <div className="space-y-4">
+            <div
+              className={cn(
+                'space-y-4 w-full mx-auto',
+                showPreview ? 'max-w-full' : 'max-w-lg'
+              )}
+            >
               <header>
-                <h2 className="text-2xl font-bold text-center font-headline">
+                <h2 className="text-xl md:text-2xl font-bold text-center font-headline">
                   Welcome to Baci
                 </h2>
                 <p className="text-muted-foreground text-center">
@@ -537,16 +551,30 @@ export default function OnboardingForm() {
                     onPrev={handlePrev}
                     isLoading={isPending || isSubmitting}
                     isStepValid={isCurrentStepValid}
+                    // Pass user and isSubmitting to OnboardingNavigation for button text logic
+                    user={user}
+                    isSubmitting={isSubmitting}
                   />
+
+                  {/* Already have account - Inside the form card */}
+                  <p className="text-center text-sm text-muted-foreground pt-2">
+                    Already have an account?{' '}
+                    <Link
+                      href="/login"
+                      className="text-primary font-medium hover:underline underline-offset-4 transition-colors"
+                    >
+                      Log in
+                    </Link>
+                  </p>
                 </form>
               </FormProvider>
             </div>
           </div>
         </div>
 
-        {/* Live Preview Panel - Desktop Only */}
+        {/* Live Preview Panel - Right Square (Desktop Only) */}
         {showPreview && (
-          <div className="hidden lg:block w-full lg:w-1/2 xl:w-[55%] h-[600px] animate-in fade-in slide-in-from-right duration-700 delay-100">
+          <div className="hidden lg:block w-full max-w-[650px] mx-auto aspect-square animate-in slide-in-from-left duration-500 h-full z-10">
             {isEditorOpen && templateData ? (
               <OnboardingTemplateEditor
                 initialData={templateData}

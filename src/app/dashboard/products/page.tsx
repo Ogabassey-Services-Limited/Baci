@@ -12,6 +12,9 @@ export const metadata = {
   description: 'Manage your product catalog',
 };
 
+// Allow AI processing to run for up to 5 minutes
+export const maxDuration = 300;
+
 export default async function ProductsPage({
   searchParams,
 }: {

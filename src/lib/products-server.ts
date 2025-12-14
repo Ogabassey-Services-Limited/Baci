@@ -212,29 +212,33 @@ export async function getProducts(
       };
     }) || [];
 
-  // Calculate stats
-  // We can optimize this later to not run on every page load if needed (using separate query or caching)
-  const { data: allStats } = await supabase
-    .from('products')
-    .select('price, stock_quantity, status, category')
-    .eq('merchant_id', merchantId);
-
+  // OPTIMIZED: Use database RPC instead of fetching all products
   let inventoryValue = 0;
   let outOfStockCount = 0;
   let categoryCount = 0;
 
-  if (allStats) {
-    inventoryValue = allStats.reduce((acc, curr) => {
-      if (curr.stock_quantity > 0) {
-        return acc + Number(curr.price) * curr.stock_quantity;
-      }
-      return acc;
-    }, 0);
-    outOfStockCount = allStats.filter((p) => p.stock_quantity === 0).length;
-    const uniqueCategories = new Set(
-      allStats.map((p) => p.category).filter(Boolean)
+  // Define RPC response type
+  interface MerchantInventoryStats {
+    inventoryValue: number;
+    outOfStockCount: number;
+    categoryCount: number;
+  }
+
+  try {
+    const { data: rpcStats, error: rpcError } = await supabase.rpc(
+      'get_merchant_inventory_stats',
+      { p_merchant_id: merchantId }
     );
-    categoryCount = uniqueCategories.size;
+
+    if (!rpcError && rpcStats) {
+      const stats = rpcStats as unknown as MerchantInventoryStats;
+      inventoryValue = Number(stats.inventoryValue || 0);
+      outOfStockCount = Number(stats.outOfStockCount || 0);
+      categoryCount = Number(stats.categoryCount || 0);
+    }
+  } catch (statsErr) {
+    console.error('Error fetching inventory stats:', statsErr);
+    // Continue with zeros - stats are not critical
   }
 
   return {

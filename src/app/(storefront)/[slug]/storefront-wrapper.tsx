@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import { Button } from '@/components/ui/button';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
@@ -27,6 +27,11 @@ export function StorefrontWrapper() {
   const [TemplateHome, setTemplateHome] =
     useState<React.ComponentType<TemplatePageProps> | null>(null);
   const [templateLoading, setTemplateLoading] = useState(true);
+
+  // Define callback before conditional returns to satisfy React hooks rules
+  const handleNoConfig = useCallback(() => {
+    setShowError(true);
+  }, []);
 
   // Load template components based on merchant's template_id
   useEffect(() => {
@@ -120,7 +125,7 @@ export function StorefrontWrapper() {
   return (
     <>
       <AnalyticsProvider />
-      <DynamicPuckStorefront onNoConfig={() => setShowError(true)} />
+      <DynamicPuckStorefront onNoConfig={handleNoConfig} />
     </>
   );
 }

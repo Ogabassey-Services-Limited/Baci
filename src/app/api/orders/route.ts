@@ -15,6 +15,7 @@ import {
   sanitizeSearchQuery,
 } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 
 // GIGL-specific shipment creation logic is now in its own function
@@ -189,8 +190,8 @@ export async function GET(request: NextRequest) {
 // POST /api/orders - Create new order from storefront
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    // Use service role client for order creation to bypass RLS (storefront guests can't insert orders)
+    const supabase = createServiceClient();
     const body = await request.json();
 
     // Capture IP and User Agent for enhanced ad tracking (improves Event Match Quality)
@@ -400,13 +401,19 @@ export async function POST(request: NextRequest) {
 
     // Insert order items into the new normalized table
     if (order) {
-      const orderItems = items.map((item: OrderItem) => ({
-        order_id: order.id,
-        product_id: item.product_id || item.productId || item.id, // Handle various potential input formats
-        name: item.name || item.productName || 'Unknown Product',
-        quantity: item.quantity || 1,
-        price: item.price || 0,
-      }));
+      const orderItems = items.map(
+        (
+          item: OrderItem & { has_assurance?: boolean; assurance_fee?: number }
+        ) => ({
+          order_id: order.id,
+          product_id: item.product_id || item.productId || item.id, // Handle various potential input formats
+          name: item.name || item.productName || 'Unknown Product',
+          quantity: item.quantity || 1,
+          price: item.price || 0,
+          has_assurance: item.has_assurance || false,
+          assurance_fee: item.assurance_fee || 0,
+        })
+      );
 
       const { error: itemsError } = await supabase
         .from('order_items')

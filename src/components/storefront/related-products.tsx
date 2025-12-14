@@ -168,65 +168,67 @@ export function RelatedProducts({
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             onScroll={(e) => setScrollPosition(e.currentTarget.scrollLeft)}
           >
-            {relatedProducts.map((p) => (
-              <ThemedCard
-                key={p.id}
-                className="flex-shrink-0 w-[200px] sm:w-[260px] overflow-hidden hover:shadow-lg transition-shadow snap-start"
-                accentPosition="top"
-              >
-                <Link href={getProductUrl(p)} className="block relative">
-                  <Image
-                    src={p.imageLarge || p.image}
-                    alt={p.name}
-                    data-ai-hint={p.imageHint}
-                    width={260}
-                    height={260}
-                    className="object-cover w-full aspect-square"
-                  />
-                  {p.compare_at_price && p.compare_at_price > p.price && (
-                    <span className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
-                      SALE
-                    </span>
-                  )}
-                </Link>
-                <CardContent className="p-3">
-                  <Link href={getProductUrl(p)}>
-                    <h3 className="font-medium text-sm line-clamp-2 hover:text-[var(--store-primary)] transition-colors">
-                      {p.name}
-                    </h3>
+            {relatedProducts
+              .filter((p) => p.imageLarge || p.image)
+              .map((p) => (
+                <ThemedCard
+                  key={p.id}
+                  className="flex-shrink-0 w-[200px] sm:w-[260px] overflow-hidden hover:shadow-lg transition-shadow snap-start"
+                  accentPosition="top"
+                >
+                  <Link href={getProductUrl(p)} className="block relative">
+                    <Image
+                      src={p.imageLarge || p.image || '/placeholder.svg'}
+                      alt={p.name}
+                      data-ai-hint={p.imageHint}
+                      width={260}
+                      height={260}
+                      className="object-cover w-full aspect-square"
+                    />
+                    {p.compare_at_price && p.compare_at_price > p.price && (
+                      <span className="absolute top-2 left-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-sm">
+                        SALE
+                      </span>
+                    )}
                   </Link>
-                  {p.category && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {p.category}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between mt-2">
-                    <div>
-                      <p
-                        className="font-bold text-sm"
-                        style={{ color: 'var(--store-primary)' }}
-                      >
-                        {formatCurrency(p.price)}
+                  <CardContent className="p-3">
+                    <Link href={getProductUrl(p)}>
+                      <h3 className="font-medium text-sm line-clamp-2 hover:text-[var(--store-primary)] transition-colors">
+                        {p.name}
+                      </h3>
+                    </Link>
+                    {p.category && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {p.category}
                       </p>
-                      {p.compare_at_price && p.compare_at_price > p.price && (
-                        <p className="text-xs text-muted-foreground line-through">
-                          {formatCurrency(p.compare_at_price)}
+                    )}
+                    <div className="flex items-center justify-between mt-2">
+                      <div>
+                        <p
+                          className="font-bold text-sm"
+                          style={{ color: 'var(--store-primary)' }}
+                        >
+                          {formatCurrency(p.price)}
                         </p>
-                      )}
+                        {p.compare_at_price && p.compare_at_price > p.price && (
+                          <p className="text-xs text-muted-foreground line-through">
+                            {formatCurrency(p.compare_at_price)}
+                          </p>
+                        )}
+                      </div>
+                      <ThemedButton
+                        colorRole="primary"
+                        size="sm"
+                        className="text-xs px-2 py-1 h-7"
+                        onClick={() => handleAddToCart(p)}
+                        disabled={p.manage_stock && p.stock === 0}
+                      >
+                        Add
+                      </ThemedButton>
                     </div>
-                    <ThemedButton
-                      colorRole="primary"
-                      size="sm"
-                      className="text-xs px-2 py-1 h-7"
-                      onClick={() => handleAddToCart(p)}
-                      disabled={p.manage_stock && p.stock === 0}
-                    >
-                      Add
-                    </ThemedButton>
-                  </div>
-                </CardContent>
-              </ThemedCard>
-            ))}
+                  </CardContent>
+                </ThemedCard>
+              ))}
           </div>
         )}
       </div>

@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import {
   ArrowRight,
@@ -26,16 +26,15 @@ import {
   X,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
-// import { useNotification } from '../contexts/NotificationContext'; // TODO: Migrate NotificationContext
-// import { Logo } from './Logo'; // Replaced with prop
-import { products } from '../data/products';
-import type { Product } from '../types';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { SearchAutocomplete } from '@/components/storefront/search-autocomplete';
 import { Logo } from './logo';
-// import { SourceRequestModal } from './SourceRequestModal'; // TODO: Migrate
 import { MobileMenu } from './mobile-menu';
+import { EmptyState } from '../components/empty-state';
 
 interface NavbarProps {
   logo?: string;
@@ -56,7 +55,11 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   showUser = true,
   showBell = true,
 }) => {
-  const { totalItems } = useCart();
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  const { totalItems, setIsCartOpen } = useCart();
+  /* eslint-enable @typescript-eslint/no-unused-vars */
+  const merchantContext = useMerchantSafe();
+  const merchant = merchantContext?.merchant;
   // const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotification();
   // Temporary notification state until NotificationContext is migrated
   const notifications: {
@@ -70,9 +73,8 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   const unreadCount = 0;
   const markAsRead = (_id: string) => { };
   const markAllAsRead = () => { };
-  const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Product[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Notification UI State
@@ -81,65 +83,36 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   const [_isSourceModalOpen, setIsSourceModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const searchRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const categoryRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
 
-  // Scroll visibility logic
-  const [isVisible, setIsVisible] = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
+  // Scroll visibility logic - Simplified to always visible
+  const isVisible = true;
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
+  // Handle product selection from search autocomplete
+  const handleProductSelect = (url: string) => {
+    // Validate URL before navigation
+    const isValidRelativePath =
+      url.startsWith('/') &&
+      !url.startsWith('//') &&
+      !url.includes('\\') &&
+      !/^https?:\/\//i.test(url);
 
-      if (currentScrollY > lastScrollY && currentScrollY > 10) {
-        setIsVisible(false);
-        setShowDropdown(false);
-        setShowCategoryDropdown(false);
-        setShowNotifications(false);
-      } else if (currentScrollY < lastScrollY) {
-        setIsVisible(true);
-      }
-
-      setLastScrollY(currentScrollY);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [lastScrollY]);
-
-  // Search Logic
-  useEffect(() => {
-    if (query.trim()) {
-      const lowerQuery = query.toLowerCase();
-      const results = products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(lowerQuery) ||
-          p.category.toLowerCase().includes(lowerQuery) ||
-          p.description.toLowerCase().includes(lowerQuery)
-      );
-      setSearchResults(results);
-      setShowDropdown(true);
+    if (isValidRelativePath) {
+      router.push(url as any);
     } else {
-      setShowDropdown(false);
+      console.warn('Invalid product URL rejected:', url);
     }
-  }, [query]);
+  };
 
+  // Close dropdowns when clicking outside
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
 
-      const inSearch = searchRef.current?.contains(target);
-      const inDropdown = dropdownRef.current?.contains(target);
       const inCategory = categoryRef.current?.contains(target);
       const inNotifications = notificationRef.current?.contains(target);
-
-      if (!inSearch && !inDropdown) {
-        setShowDropdown(false);
-      }
 
       if (!inCategory) {
         setShowCategoryDropdown(false);
@@ -156,12 +129,14 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
-    setShowDropdown(false);
+    if (!searchQuery.trim()) return;
+    // router.push already handled by SearchAutocomplete onSelect
+    // If manual submit:
+    router.push(`/${storeSlug}/search?q=${encodeURIComponent(searchQuery)}` as any);
   };
 
   const openSourceModal = () => {
-    setShowDropdown(false);
+    // setShowDropdown(false);
     setIsSourceModalOpen(true);
   };
 
@@ -212,50 +187,18 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
               </div>
 
               {/* Search Bar - Full Width Mobile, Center Desktop */}
-              <div
-                className="w-full md:flex-1 md:max-w-2xl md:mx-auto relative"
-                ref={searchRef}
-              >
-                <form onSubmit={handleSearch} className="relative group">
-                  <div className="relative flex items-center bg-white rounded-md overflow-hidden h-11 md:h-12 transition-all duration-300 focus-within:shadow-[0_0_0_2px_#fff,0_0_0_5px_rgba(220,38,38,0.5),0_0_20px_rgba(220,38,38,0.3)] focus-within:scale-[1.01]">
-                    {/* Input */}
-                    <input
-                      type="text"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      onFocus={() => {
-                        if (query.trim()) setShowDropdown(true);
-                      }}
-                      placeholder="Search products, brands and categories"
-                      className="w-full h-full text-gray-800 placeholder-gray-500 bg-transparent outline-none font-normal text-[15px] pl-4"
-                      autoComplete="off"
-                    />
-
-                    {/* Clear Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuery('');
-                        setShowDropdown(false);
-                      }}
-                      className={`p-2 text-gray-400 hover:text-gray-600 ${query ? 'block' : 'hidden'}`}
-                    >
-                      <X size={16} />
-                    </button>
-
-                    {/* Divider */}
-                    <div className="h-6 w-px bg-gray-200 mx-1" />
-
-                    {/* Submit/Search Button (Icon on Right) */}
-                    <button
-                      type="submit"
-                      className="px-4 h-full text-red-600 hover:text-red-700 transition-colors active:scale-95 flex items-center justify-center"
-                    >
-                      <Search size={20} />
-                    </button>
-                  </div>
-                </form>
-              </div>
+              {merchant?.id && (
+                <div className="w-full md:flex-1 md:max-w-2xl md:mx-auto relative">
+                  <SearchAutocomplete
+                    merchantId={merchant.id}
+                    value={searchQuery}
+                    onChange={setSearchQuery}
+                    onSelectProduct={handleProductSelect}
+                    placeholder="Search products, brands and categories"
+                    className="[&_input]:h-11 md:[&_input]:h-12 [&_input]:bg-white [&_input]:rounded-md [&_input]:border-0 [&_input]:text-gray-800 [&_input]:placeholder-gray-500 [&_input]:text-[15px] [&_input]:focus:ring-2 [&_input]:focus:ring-red-500/50"
+                  />
+                </div>
+              )}
 
               {/* Desktop Right Icons */}
               <div className="hidden md:flex items-center gap-5 shrink-0 text-white/80">
@@ -293,12 +236,12 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                       </div>
                       <div className="max-h-[300px] overflow-y-auto">
                         {unreadCount === 0 ? (
-                          <div className="p-8 text-center text-gray-500 flex flex-col items-center">
-                            <BellOff size={24} className="mb-2 opacity-50" />
-                            <p className="text-xs font-medium">
-                              No recent notifications
-                            </p>
-                          </div>
+                          <EmptyState
+                            variant="notifications"
+                            title="No Notifications"
+                            description="You have no unread notifications at this time."
+                            compact
+                          />
                         ) : (
                           notifications
                             .filter((n) => !n.read)
@@ -344,7 +287,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                       </div>
                       <div className="p-2 border-t border-gray-100 bg-gray-50 text-center">
                         <Link
-                          href="/notifications"
+                          href={`/${storeSlug}/account` as any}
                           onClick={() => setShowNotifications(false)}
                           className="text-[10px] font-bold text-gray-600 hover:text-gray-900 block py-1"
                         >
@@ -356,7 +299,11 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 </div>
 
                 <Link
-                  href="/cart"
+                  href={`/${storeSlug}/cart` as any}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setIsCartOpen(true);
+                  }}
                   className="relative hover:text-white transition-colors"
                 >
                   <ShoppingCart size={22} />
@@ -367,7 +314,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   </span>
                 </Link>
                 <Link
-                  href="/profile"
+                  href={`/${storeSlug}/account` as any}
                   className="hover:text-white transition-colors"
                 >
                   <User size={22} />
@@ -432,7 +379,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* IMEI Checker */}
               <Link
-                href="/imei-check"
+                href={`/${storeSlug}/imei-check` as any}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1"
               >
                 <ScanBarcode size={18} />
@@ -443,7 +390,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* Repairs */}
               <Link
-                href="/repairs"
+                href={`/${storeSlug}/repairs` as any}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1"
               >
                 <Wrench size={18} />
@@ -454,7 +401,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* Wallet */}
               <Link
-                href="/wallet"
+                href={`/${storeSlug}/wallet` as any}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1"
               >
                 <Wallet size={18} />
@@ -463,79 +410,6 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
             </div>
           </div>
         </div>
-
-        {/* FULL WIDTH DROPDOWN */}
-        {showDropdown && query && (
-          <div
-            ref={dropdownRef}
-            className="absolute top-full left-0 w-full bg-white border-b border-gray-100 z-50 animate-in fade-in slide-in-from-top-1 duration-200 shadow-none pb-2"
-          >
-            <div className="max-w-[1400px] mx-auto px-4 md:px-6">
-              {searchResults.length > 0 ? (
-                <div className="py-2">
-                  <div className="py-2 text-xs font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center border-b border-gray-50 mb-2">
-                    <span>Products</span>
-                    <span className="text-[10px] bg-gray-100 px-1.5 py-0.5 rounded">
-                      {searchResults.length} found
-                    </span>
-                  </div>
-                  <div className="max-h-[60vh] overflow-y-auto">
-                    {searchResults.map((product) => (
-                      <Link
-                        key={product.id}
-                        href={`/product/${product.id}` as any}
-                        onClick={() => {
-                          setShowDropdown(false);
-                          setQuery('');
-                        }}
-                        className="flex items-center gap-3 px-2 py-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 rounded-lg group"
-                      >
-                        <div className="w-10 h-10 shrink-0 bg-gray-50 rounded-lg flex items-center justify-center p-1 border border-gray-100 group-hover:border-gray-200 transition-colors">
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-full h-full object-contain mix-blend-multiply"
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="font-bold text-gray-900 text-sm truncate group-hover:text-red-600 transition-colors">
-                            {product.name}
-                          </div>
-                          <div className="text-red-600 text-xs font-bold">
-                            {product.price}
-                          </div>
-                        </div>
-                        <div className="text-gray-300 group-hover:text-red-600 transition-colors">
-                          <ArrowRight size={16} />
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="p-6 text-center">
-                  <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Search className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <p className="text-gray-900 font-bold mb-1">
-                    No results for "{query}"
-                  </p>
-                  <p className="text-gray-500 text-xs mb-5 max-w-[240px] mx-auto">
-                    We couldn't find what you're looking for in our inventory.
-                  </p>
-
-                  <button
-                    onClick={openSourceModal}
-                    className="w-full max-w-sm mx-auto bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-xl text-sm transition-all shadow-lg hover:shadow-red-200 active:scale-[0.98] flex items-center justify-center gap-2"
-                  >
-                    Source it for me
-                    <ArrowRight size={16} />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </header>
 
       <MobileMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />

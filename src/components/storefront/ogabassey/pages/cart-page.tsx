@@ -17,7 +17,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type CartItem, useCart } from '@/hooks/use-cart';
 import { AdUnit } from '../components/AdUnit';
-import { EmptyState } from '../components/EmptyState';
+import { EmptyState } from '../components/empty-state';
 import { NegotiationModal } from '../components/NegotiationModal';
 
 interface NegotiationState {
@@ -37,6 +37,7 @@ export const CartPage: React.FC = () => {
     applyCartWideNegotiation,
     toggleAssurance,
     cartTotal,
+    merchantSlug,
   } = useCart();
 
   const [negotiationState, setNegotiationState] =
@@ -118,7 +119,7 @@ export const CartPage: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
             {/* Cart Items List */}
             <div className="lg:col-span-8 space-y-4">
-              {cart.map((item) => {
+              {cart.map((item, index) => {
                 const priceToUse =
                   item.negotiatedPrice !== undefined
                     ? item.negotiatedPrice
@@ -128,7 +129,7 @@ export const CartPage: React.FC = () => {
 
                 return (
                   <div
-                    key={item.cartItemId}
+                    key={item.cartItemId || `${item.id}-${index}`}
                     className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden transition-all md:hover:shadow-md active:scale-[0.99] md:active:scale-100 touch-manipulation"
                   >
                     {/* Top Row: Image & Basic Info */}
@@ -139,9 +140,13 @@ export const CartPage: React.FC = () => {
                         className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 flex-shrink-0 flex items-center justify-center"
                       >
                         <img
-                          src={item.image}
+                          src={item.image || '/placeholder.png'}
                           alt={item.name}
                           className="w-full h-full object-contain mix-blend-multiply"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null; // Prevent infinite loop
+                            e.currentTarget.src = '/placeholder.png';
+                          }}
                         />
                       </Link>
 
@@ -156,11 +161,10 @@ export const CartPage: React.FC = () => {
                         {/* Tags */}
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
-                              item.condition?.toLowerCase() === 'new'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                : 'bg-amber-50 text-amber-700 border-amber-100'
-                            }`}
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${item.condition?.toLowerCase() === 'new'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                              : 'bg-amber-50 text-amber-700 border-amber-100'
+                              }`}
                           >
                             {item.condition}
                           </span>
@@ -328,9 +332,60 @@ export const CartPage: React.FC = () => {
 
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between text-gray-600 text-sm">
+                    {/* Calculate base subtotal (Total without assurance) */}
                     <span>Subtotal</span>
-                    <span>₦{cartTotal.toLocaleString()}</span>
+                    <span>
+                      ₦
+                      {(
+                        cartTotal -
+                        cart.reduce((sum, item) => {
+                          if (!item.hasAssurance) return sum;
+                          const price = item.negotiatedPrice ?? item.price;
+                          return (
+                            sum +
+                            price *
+                            item.quantity *
+                            (item.assuranceRate ?? 0.05)
+                          );
+                        }, 0)
+                      ).toLocaleString()}
+                    </span>
                   </div>
+
+                  {/* Ogabassey Assurance Line Item */}
+                  {cart.reduce((sum, item) => {
+                    if (!item.hasAssurance) return sum;
+                    const price = item.negotiatedPrice ?? item.price;
+                    return (
+                      sum + price * item.quantity * (item.assuranceRate ?? 0.05)
+                    );
+                  }, 0) > 0 && (
+                      <div className="flex justify-between text-gray-600 text-sm animate-in fade-in slide-in-from-top-1">
+                        <span className="flex items-center gap-1.5 ">
+                          <ShieldCheck size={14} className="text-red-600" />
+                          Ogabassey Assurance
+                          <span className="text-[10px] bg-red-50 text-red-600 px-1.5 py-0.5 rounded-full font-bold border border-red-100">
+                            +5%
+                          </span>
+                        </span>
+                        <span className="font-medium text-gray-900">
+                          +₦
+                          {cart
+                            .reduce((sum, item) => {
+                              if (!item.hasAssurance) return sum;
+                              const price = item.negotiatedPrice ?? item.price;
+                              return (
+                                sum +
+                                price *
+                                item.quantity *
+                                (item.assuranceRate ?? 0.05)
+                              );
+                            }, 0)
+                            .toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+
                   <div className="flex justify-between text-gray-600 text-sm">
                     <span>Shipping</span>
                     <span className="text-green-600 font-medium">Free</span>
@@ -351,13 +406,16 @@ export const CartPage: React.FC = () => {
                     Negotiate Total
                   </button>
 
-                  <button className="w-full bg-red-600 md:hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg md:hover:shadow-red-200 group active:scale-[0.98] active:shadow-none">
+                  <Link
+                    href={`/${merchantSlug || 'ogabassey'}/checkout` as any}
+                    className="w-full bg-red-600 md:hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg md:hover:shadow-red-200 group active:scale-[0.98] active:shadow-none"
+                  >
                     Proceed to Checkout
                     <ArrowRight
                       size={20}
                       className="md:group-hover:translate-x-1 transition-transform"
                     />
-                  </button>
+                  </Link>
                 </div>
 
                 <div className="mt-6 flex justify-center">

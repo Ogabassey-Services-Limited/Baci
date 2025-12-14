@@ -29,6 +29,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { BagIcon } from '@/components/bag-icon';
+
 import { Logo } from '@/components/logo';
 import { NotificationBanner } from '@/components/notifications/notification-banner';
 import { NotificationCenter } from '@/components/notifications/notification-center';
@@ -179,6 +180,7 @@ export default function DashboardClientLayout({
   const { merchant, loading: merchantLoading, updateMerchant } = useMerchant();
   const { user, loading: authLoading, signOut } = useAuth();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   useToast(); // Keep toast available for potential future use
 
   // Track if we've already attempted a redirect to prevent loops
@@ -212,8 +214,19 @@ export default function DashboardClientLayout({
     }
 
     // If there IS a user but NO merchant record OR incomplete profile,
-    // the blocking UI is handled outside this effect (see below)
-  }, [user, authLoading, merchantLoading, router, hasAttemptedAuthCheck]);
+    // automatically redirect to onboarding instead of showing a blocking screen
+    if (!merchant || !merchant.business_name) {
+      router.push('/onboarding');
+      return;
+    }
+  }, [
+    user,
+    authLoading,
+    merchantLoading,
+    merchant,
+    router,
+    hasAttemptedAuthCheck,
+  ]);
 
   // Auto-collapse sidebar on main content interaction
   useEffect(() => {
@@ -265,54 +278,6 @@ export default function DashboardClientLayout({
     }
   }, [merchant?.id, ordersCount]);
 
-  // If we are not loading but have no merchant, show the blocking UI here (outside useEffect)
-  if (
-    !authLoading &&
-    !merchantLoading &&
-    user &&
-    (!merchant || !merchant.business_name)
-  ) {
-    return (
-      <div className="flex min-h-screen w-full flex-col items-center justify-center gap-6 bg-muted/40 p-4 text-center">
-        <div className="max-w-md space-y-4 rounded-xl border bg-background p-8 shadow-lg">
-          <div className="flex justify-center">
-            <Store className="h-12 w-12 text-primary" />
-          </div>
-          <h1 className="text-2xl font-bold">Store Setup Required</h1>
-          <p className="text-muted-foreground">
-            We couldn't find your store details. You need to complete the
-            onboarding process to access the dashboard.
-          </p>
-          <div className="flex flex-col gap-2">
-            <Button
-              onClick={() => router.push('/onboarding')}
-              className="w-full"
-            >
-              Complete Setup
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                updateMerchant({});
-                window.location.reload();
-              }}
-              className="w-full"
-            >
-              Refresh / Retry
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => signOut()}
-              className="w-full text-muted-foreground"
-            >
-              Sign Out
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   const selectedCountry = merchant?.country
     ? getCountryByCode(merchant.country)
     : null;
@@ -336,8 +301,8 @@ export default function DashboardClientLayout({
 
   const handleSignOut = async () => {
     await signOut();
-    router.refresh(); // Clear Next.js router cache
-    router.push('/login');
+    // Use hard navigation to clear all client-side state/cache and avoid re-fetching protected routes
+    window.location.href = '/login';
   };
 
   const unfilledPagesCount = (() => {
@@ -585,7 +550,7 @@ export default function DashboardClientLayout({
             size="icon"
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={cn(
-              'fixed top-8 z-30 hidden md:flex rounded-full shadow-lg border border-white/20 bg-white/80 backdrop-blur-md transition-all duration-300 hover:scale-110',
+              'fixed top-8 z-30 hidden md:flex rounded-full shadow-lg border border-white/20 bg-white/80 dark:bg-black/40 dark:border-white/10 backdrop-blur-md transition-all duration-300 hover:scale-110',
               isCollapsed ? 'left-[70px]' : 'left-[250px]'
             )}
           >
@@ -600,8 +565,8 @@ export default function DashboardClientLayout({
           </Button>
 
           {/* Mobile Header */}
-          <header className="flex h-16 items-center gap-4 border-b bg-white/50 dark:bg-black/50 backdrop-blur-md px-4 md:hidden sticky top-0 z-20">
-            <Sheet>
+          <header className="flex h-16 items-center gap-4 border-b bg-white/50 dark:bg-black/50 backdrop-blur-md px-4 md:hidden sticky top-0 z-20 transition-all duration-300">
+            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
               <SheetTrigger asChild>
                 <Button
                   variant="ghost"
@@ -759,19 +724,90 @@ export default function DashboardClientLayout({
 
           <main
             id="main-content"
-            className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-8 pt-20 md:pt-24 lg:pt-24 overflow-y-auto overflow-x-hidden min-w-0"
+            className="flex-1 transition-all duration-300 ease-in-out md:pt-20"
           >
             <NotificationBanner />
             <Suspense
               fallback={
-                <div className="flex flex-1 items-center justify-center">
-                  <BagLoader size={48} />
+                <div className="flex h-screen items-center justify-center">
+                  <BagLoader />
                 </div>
               }
             >
               {children}
             </Suspense>
           </main>
+        </div>
+      </div>
+
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-t border-white/20 pb-[env(safe-area-inset-bottom)]">
+        <div className="flex items-center justify-around h-16 px-2">
+          <Link
+            href="/dashboard"
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors',
+              pathname === '/dashboard'
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <LayoutDashboard className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Home</span>
+          </Link>
+          <Link
+            href="/dashboard/orders"
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors relative',
+              pathname === '/dashboard/orders'
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <div className="relative">
+              <ShoppingCart className="h-5 w-5" />
+              {ordersCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-background">
+                  {ordersCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-medium">Orders</span>
+          </Link>
+          <Link
+            href="/dashboard/products"
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors',
+              pathname === '/dashboard/products'
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Package className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Products</span>
+          </Link>
+          <Link
+            href="/dashboard/customers"
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors',
+              pathname === '/dashboard/customers'
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Users className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Customers</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setIsSheetOpen(true)}
+            className={cn(
+              'flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <Menu className="h-5 w-5" />
+            <span className="text-[10px] font-medium">Menu</span>
+          </button>
         </div>
       </div>
     </>

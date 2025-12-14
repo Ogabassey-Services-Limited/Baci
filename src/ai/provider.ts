@@ -16,8 +16,8 @@ const google = createGoogleGenerativeAI({
  */
 
 // Primary models
-export const geminiFlash = google('gemini-2.0-flash'); // Fast, cheap - for simple tasks
-export const geminiPro = google('gemini-2.0-flash'); // Alias for flash (upgrade to gemini-2.0-pro if needed)
+export const geminiFlash = google('gemini-2.0-flash'); // Restored to 2.0 Flash (Fast & Capable)
+export const geminiPro = google('gemini-2.0-flash'); // Alias for flash
 
 // Multimodal model - handles text, image understanding, and image generation
 // Use gemini-2.5-flash-image for image generation (stable release)

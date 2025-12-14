@@ -154,32 +154,35 @@ export async function POST(request: NextRequest) {
     const supabase = createClient(cookieStore);
 
     // Store all quotes (for later reference during booking)
-    for (const quote of response.quotes.all) {
-      await supabase.from('shipping_quotes').upsert(
-        {
-          id: quote.id,
-          session_id: response.sessionId,
-          provider: quote.provider,
-          service_tier: quote.serviceTier,
-          carrier_name: quote.carrierName,
-          price: quote.price,
-          currency: quote.currency,
-          estimated_days: quote.estimatedDays,
-          min_days: quote.minDays,
-          max_days: quote.maxDays,
-          pickup_included: quote.pickupIncluded,
-          insurance_included: quote.insuranceIncluded,
-          is_station_pickup: quote.isStationPickup || false,
-          station_name: quote.stationName,
-          station_address: quote.stationAddress,
-          provider_rate_id: quote.providerRateId,
-          provider_metadata: quote.rawResponse,
-          expires_at: quote.expiresAt.toISOString(),
-          quote_request: quoteRequest,
-        },
-        { onConflict: 'id' }
-      );
-    }
+    // Store all quotes (for later reference during booking)
+    await Promise.all(
+      response.quotes.all.map((quote) =>
+        supabase.from('shipping_quotes').upsert(
+          {
+            id: quote.id,
+            session_id: response.sessionId,
+            provider: quote.provider,
+            service_tier: quote.serviceTier,
+            carrier_name: quote.carrierName,
+            price: quote.price,
+            currency: quote.currency,
+            estimated_days: quote.estimatedDays,
+            min_days: quote.minDays,
+            max_days: quote.maxDays,
+            pickup_included: quote.pickupIncluded,
+            insurance_included: quote.insuranceIncluded,
+            is_station_pickup: quote.isStationPickup || false,
+            station_name: quote.stationName,
+            station_address: quote.stationAddress,
+            provider_rate_id: quote.providerRateId,
+            provider_metadata: quote.rawResponse,
+            expires_at: quote.expiresAt.toISOString(),
+            quote_request: quoteRequest,
+          },
+          { onConflict: 'id' }
+        )
+      )
+    );
 
     return NextResponse.json(response);
   } catch (error) {

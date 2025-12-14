@@ -8,29 +8,28 @@ import { useEffect, useState } from 'react';
 
 import { useCart } from '@/hooks/use-cart';
 
-export const MobileFooter: React.FC = () => {
+interface MobileFooterProps {
+  storeSlug?: string;
+}
+
+export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) => {
   const { cartCount } = useCart();
   const pathname = usePathname();
 
+  // Build store-relative path
+  const basePath = storeSlug ? `/${storeSlug}` : '';
+
   // Improved active state logic to handle sub-pages
   const isActive = (path: string) => {
-    if (path === '/profile') {
-      // Profile is active for profile + subpages not explicitly covered by other icons
-      return [
-        '/profile',
-        '/orders',
-        '/receipts',
-        '/addresses',
-        '/member-status',
-        '/reviews',
-        '/repairs',
-        '/swap',
-        '/notifications',
-        '/security',
-        '/help',
-      ].includes(pathname || '');
+    const fullPath = `${basePath}${path}`;
+    if (path === '/account') {
+      // Account is active for account + subpages
+      return pathname?.startsWith(`${basePath}/account`) || false;
     }
-    return pathname === path;
+    if (path === '/') {
+      return pathname === basePath || pathname === `${basePath}/`;
+    }
+    return pathname === fullPath || pathname?.startsWith(`${fullPath}/`) || false;
   };
 
   const [isVisible, setIsVisible] = useState(true);
@@ -72,7 +71,7 @@ export const MobileFooter: React.FC = () => {
       <div className="flex items-center justify-between px-4 relative z-10">
         {/* Home */}
         <Link
-          href="/"
+          href={`${basePath}/` as any}
           className="flex flex-col items-center justify-center active:scale-90 transition-transform"
         >
           <div
@@ -86,25 +85,25 @@ export const MobileFooter: React.FC = () => {
           </div>
         </Link>
 
-        {/* Saved */}
+        {/* Wishlist/Saved */}
         <Link
-          href="/saved"
+          href={`${basePath}/wishlist` as any}
           className="flex flex-col items-center justify-center active:scale-90 transition-transform"
         >
           <div
-            className={`p-2 transition-colors ${isActive('/saved') ? 'text-white' : 'text-gray-400'}`}
+            className={`p-2 transition-colors ${isActive('/wishlist') ? 'text-white' : 'text-gray-400'}`}
           >
             <Heart
               size={26}
-              fill={isActive('/saved') ? 'currentColor' : 'none'}
-              strokeWidth={isActive('/saved') ? 2.5 : 2}
+              fill={isActive('/wishlist') ? 'currentColor' : 'none'}
+              strokeWidth={isActive('/wishlist') ? 2.5 : 2}
             />
           </div>
         </Link>
 
         {/* Cart */}
         <Link
-          href="/cart"
+          href={`${basePath}/cart` as any}
           className="flex flex-col items-center justify-center relative active:scale-90 transition-transform"
         >
           <div
@@ -125,7 +124,7 @@ export const MobileFooter: React.FC = () => {
 
         {/* Wallet */}
         <Link
-          href="/wallet"
+          href={`${basePath}/wallet` as any}
           className="flex flex-col items-center justify-center active:scale-90 transition-transform"
         >
           <div
@@ -139,18 +138,18 @@ export const MobileFooter: React.FC = () => {
           </div>
         </Link>
 
-        {/* Profile */}
+        {/* Account/Profile */}
         <Link
-          href="/profile"
+          href={`${basePath}/account` as any}
           className="flex flex-col items-center justify-center active:scale-90 transition-transform"
         >
           <div
-            className={`p-2 transition-colors ${isActive('/profile') ? 'text-white' : 'text-gray-400'}`}
+            className={`p-2 transition-colors ${isActive('/account') ? 'text-white' : 'text-gray-400'}`}
           >
             <User
               size={26}
-              fill={isActive('/profile') ? 'currentColor' : 'none'}
-              strokeWidth={isActive('/profile') ? 2.5 : 2}
+              fill={isActive('/account') ? 'currentColor' : 'none'}
+              strokeWidth={isActive('/account') ? 2.5 : 2}
             />
           </div>
         </Link>

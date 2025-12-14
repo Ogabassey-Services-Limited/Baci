@@ -26,6 +26,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
@@ -238,21 +239,43 @@ export default function Step2_Branding() {
     await Promise.all([uploadPromise, extractionPromise]);
   };
 
+  const [progress, setProgress] = useState(0);
+
   const handleRemoveBackground = async () => {
     const logoToProcess = currentLogoDataUri || logoUrl;
     if (!logoToProcess) return;
 
+    // Check for SVG
+    if (
+      logoToProcess.includes('image/svg+xml') ||
+      logoToProcess.toLowerCase().endsWith('.svg')
+    ) {
+      toast({
+        title: 'Background removal skipped',
+        description:
+          'SVGs usually have transparent backgrounds already. This tool works best with PNG/JPG images.',
+      });
+      return;
+    }
+
     setIsUploading(true);
-    toast({
-      title: 'Removing background...',
-      description: 'This happens locally on your device.',
-    });
+    setProgress(0); // Reset progress
+
+    // Toast is nice, but progress bar is better. removing descriptive toast to rely on UI.
 
     try {
       // Dynamic import to avoid loading heavy library until needed
       const { removeBackground } = await import('@imgly/background-removal');
 
-      const blob = await removeBackground(logoToProcess);
+      const blob = await removeBackground(logoToProcess, {
+        progress: (_key: string, current: number, total: number) => {
+          // 'fetch' phase is the download (key.includes('model') or similar)
+          // We just calculate overall percent for simplicity
+          const percent = Math.round((current / total) * 100);
+          setProgress(percent);
+        },
+      });
+
       const url = URL.createObjectURL(blob);
 
       // Convert blob URL to data URI for storage/processing
@@ -271,7 +294,9 @@ export default function Step2_Branding() {
         description: 'Please try a different image.',
         variant: 'destructive',
       });
+    } finally {
       setIsUploading(false);
+      setProgress(0);
     }
   };
 
@@ -377,32 +402,38 @@ export default function Step2_Branding() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Mobile Action Buttons - Preview Store & Choose Template */}
-      <div className="flex gap-3 w-full">
-        <Button
-          type="button"
-          variant="outline"
-          className="flex-1 h-11 text-sm font-medium border-primary/20 hover:border-primary/40 hover:bg-primary/5"
-          onClick={() => setShowMobilePreview(true)}
-        >
-          <Eye className="mr-2 h-4 w-4" />
-          Preview Store
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="flex-1 h-11 text-sm font-medium border-primary/20 hover:border-primary/40 hover:bg-primary/5"
-          onClick={() => setShowTemplateSelector(true)}
-        >
-          <LayoutTemplate className="mr-2 h-4 w-4" />
-          Choose Template
-        </Button>
-      </div>
+      {(currentLogoDataUri || logoUrl) && (
+        <div className="flex gap-3 w-full lg:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 h-11 text-sm font-medium border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+            onClick={() => setShowMobilePreview(true)}
+          >
+            <Eye className="mr-2 h-4 w-4" />
+            Preview Store
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1 h-11 text-sm font-medium border-primary/20 hover:border-primary/40 hover:bg-primary/5"
+            onClick={() => setShowTemplateSelector(true)}
+          >
+            <LayoutTemplate className="mr-2 h-4 w-4" />
+            Choose Template
+          </Button>
+        </div>
+      )}
 
-      <div className={cn('grid gap-8', 'grid-cols-1 lg:grid-cols-2')}>
-        {/* Left Column: Logo Canvas & Palette */}
-        <div className="space-y-6">
+      <div
+        className={cn(
+          'flex flex-col gap-6 lg:grid lg:gap-8 items-start lg:grid-cols-2'
+        )}
+      >
+        {/* Left Column: Logo Canvas & Palette (Order 2 on Mobile) */}
+        <div className="space-y-4 md:space-y-6 w-full order-2 lg:order-1">
           <div className="space-y-3">
             <div className="flex items-center justify-between h-7">
               <FormLabel className="text-lg font-semibold">
@@ -420,7 +451,7 @@ export default function Step2_Branding() {
               {/* Logo Canvas Area */}
               <div
                 className={cn(
-                  'relative aspect-square w-full rounded-xl border border-white/10 overflow-hidden bg-muted/10 flex flex-col items-center justify-center transition-all shadow-inner',
+                  'relative aspect-[3/2] md:aspect-square w-full rounded-xl border border-white/10 overflow-hidden bg-muted/10 flex flex-col items-center justify-center transition-all shadow-inner',
                   currentLogoDataUri || logoUrl
                     ? 'bg-white/5'
                     : 'border-dashed border-muted-foreground/20 hover:bg-muted/20'
@@ -469,14 +500,14 @@ export default function Step2_Branding() {
                 ) : (
                   /* Empty State / Upload Trigger */
                   <div className="relative w-full h-full flex flex-col items-center justify-center cursor-pointer group">
-                    <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-muted/30 flex items-center justify-center mb-2 md:mb-4 group-hover:scale-110 transition-transform duration-300">
                       {isGenerating ? (
-                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <Loader2 className="w-6 h-6 md:w-8 md:h-8 animate-spin text-primary" />
                       ) : (
-                        <Upload className="w-8 h-8 text-muted-foreground/50" />
+                        <Upload className="w-6 h-6 md:w-8 md:h-8 text-muted-foreground/50" />
                       )}
                     </div>
-                    <p className="text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">
+                    <p className="text-xs md:text-sm font-medium text-muted-foreground group-hover:text-primary transition-colors">
                       {isGenerating
                         ? 'Generating Logo...'
                         : 'Click to Upload Image'}
@@ -509,43 +540,54 @@ export default function Step2_Branding() {
                   {isUploading ? 'Processing...' : 'Remove Background'}
                 </Button>
               )}
+
+              {/* Progress Bar for AI Model Download */}
+              {isUploading && progress > 0 && (
+                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Downloading AI Model...</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Right Column: Generator Controls */}
-        <div className="space-y-4 md:space-y-6 mt-0 md:mt-12">
+        {/* Right Column: Generator Controls (Order 1 on Mobile) */}
+        <div className="mx-auto space-y-2 md:space-y-3 w-full order-1 lg:order-2">
           {currentLogoDataUri || logoUrl ? (
             <>
-              <div className="flex items-center gap-2 text-blue-400 h-7">
-                <Wand2 className="w-5 h-5" />
-                <h3 className="font-semibold text-lg text-foreground pt-4">
-                  Refine Logo
+              <div className="flex items-center justify-center gap-2 text-blue-400 mb-2">
+                <Wand2 className="w-4 h-4" />
+                <h3 className="font-semibold text-sm text-foreground">
+                  Customise Colours
                 </h3>
               </div>
 
               {/* Generator Control Card */}
-              <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-4 md:p-5 flex flex-col gap-3 md:gap-4 shadow-sm h-full min-h-0 md:min-h-[200px]">
-                <div className="text-left space-y-2">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Make the Logo pop by removing the background.
+              <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl pt-8 pb-10 px-6 md:p-6 flex flex-col items-center justify-center gap-0 md:gap-3 shadow-sm w-full max-w-full h-auto min-h-[160px] md:min-h-0 md:aspect-auto">
+                <div className="text-center space-y-1 hidden md:block">
+                  <p className="text-sm text-muted-foreground leading-relaxed text-balance">
+                    Customize your brand colors to match your style.
                   </p>
                 </div>
 
                 {brandColors && (
-                  <div className="mt-4 pt-2 border-t border-white/10 animate-in slide-in-from-top-2 fade-in duration-500 space-y-3 -mt-2">
-                    <div className="flex items-center justify-center gap-4 px-2">
+                  <div className="animate-in slide-in-from-top-2 fade-in duration-500 space-y-4 w-full">
+                    <div className="flex items-center justify-center gap-3">
                       {(['primary', 'background', 'accent'] as const).map(
                         (role) => (
                           <div
                             key={role}
-                            className="flex flex-col items-center gap-2 group"
+                            className="flex flex-col items-center gap-1.5 group"
                           >
                             <Popover>
                               <PopoverTrigger asChild>
                                 <button
                                   type="button"
-                                  className="w-12 h-12 rounded-full shadow-sm border-2 border-white/10 ring-2 ring-transparent hover:ring-primary/20 transition-all cursor-pointer relative overflow-hidden"
+                                  className="w-10 h-10 rounded-full shadow-sm border-2 border-white/10 ring-2 ring-transparent hover:ring-primary/20 transition-all cursor-pointer relative overflow-hidden"
                                   aria-label={`Edit ${role} color`}
                                 >
                                   <div
@@ -557,7 +599,7 @@ export default function Step2_Branding() {
                                   <div className="absolute inset-0 flex items-center justify-center">
                                     <Pencil
                                       className={cn(
-                                        'w-4 h-4 drop-shadow-md',
+                                        'w-3.5 h-3.5 drop-shadow-md',
                                         getContrastColor(brandColors[role]) ===
                                           'black'
                                           ? 'text-black'
@@ -576,42 +618,41 @@ export default function Step2_Branding() {
                                 />
                               </PopoverContent>
                             </Popover>
-                            <span className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground">
+                            <span className="text-[9px] uppercase tracking-wider font-medium text-muted-foreground">
                               {role}
                             </span>
                           </div>
                         )
                       )}
                     </div>
-                    <div className="flex gap-2 w-full">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={handleShuffleColors}
-                        disabled={isLoading}
-                        className="flex-1 h-9 text-xs"
-                      >
-                        <Shuffle className="mr-1.5 h-3 w-3" />
-                        Shuffle
-                      </Button>
-                    </div>
                   </div>
                 )}
               </div>
+
+              {/* Shuffle Button - Moved Outside */}
+              <Button
+                type="button"
+                onClick={handleShuffleColors}
+                disabled={isLoading}
+                variant="outline"
+                className="hidden md:flex w-full border-dashed border-2 hover:border-solid hover:bg-muted/50"
+              >
+                <Shuffle className="mr-2 h-4 w-4" />
+                Shuffle Colors
+              </Button>
             </>
           ) : (
             <>
-              <div className="flex items-center gap-2 text-amber-400 h-7">
+              <div className="hidden md:flex items-center gap-2 text-amber-400 h-7">
                 <Sparkles className="w-5 h-5" />
                 <h3 className="font-semibold text-lg text-foreground pt-1">
                   Need a Logo?
                 </h3>
               </div>
 
-              {/* Generator Control Card */}
-              <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl p-4 md:p-5 flex flex-col gap-3 md:gap-4 shadow-sm h-full min-h-0 md:min-h-[200px]">
-                <div className="text-left space-y-4">
+              {/* Generator Control Card - Compact on Mobile */}
+              <div className="bg-transparent md:bg-gradient-to-br md:from-white/5 md:to-white/0 md:dark:from-white/5 md:dark:to-transparent border-0 md:border md:border-white/10 rounded-xl p-0 md:p-5 flex flex-col gap-3 md:gap-4 shadow-none md:shadow-sm h-auto md:h-full md:min-h-[200px]">
+                <div className="text-left space-y-4 hidden md:block">
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     Don't have a logo yet? No problem. Our AI can design a
                     unique, minimalist logo tailored to{' '}
@@ -623,20 +664,31 @@ export default function Step2_Branding() {
                     <li>Professional vector style</li>
                   </ul>
                 </div>
-                <LogoGeneratorModal
-                  isOpen={isGeneratorModalOpen}
-                  onOpenChange={setIsGeneratorModalOpen}
-                  onGenerate={handleGenerateLogo}
-                  isGenerating={isGenerating}
-                >
-                  <Button
-                    type="button"
-                    disabled={isLoading}
-                    className="w-full bg-white text-black hover:bg-gray-200 dark:bg-white dark:text-black font-medium mt-auto border border-primary/10 shadow-sm"
+
+                <div className="w-full">
+                  <div className="flex md:hidden items-center gap-2 mb-2 text-muted-foreground">
+                    <span className="text-xs font-medium uppercase tracking-wider">
+                      Or create one
+                    </span>
+                    <div className="h-px bg-border flex-1" />
+                  </div>
+
+                  <LogoGeneratorModal
+                    isOpen={isGeneratorModalOpen}
+                    onOpenChange={setIsGeneratorModalOpen}
+                    onGenerate={handleGenerateLogo}
+                    isGenerating={isGenerating}
                   >
-                    Generate with AI
-                  </Button>
-                </LogoGeneratorModal>
+                    <Button
+                      type="button"
+                      disabled={isLoading}
+                      className="w-full bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 hover:text-amber-600 border border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20 font-medium mt-auto shadow-sm"
+                    >
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate with AI
+                    </Button>
+                  </LogoGeneratorModal>
+                </div>
               </div>
             </>
           )}

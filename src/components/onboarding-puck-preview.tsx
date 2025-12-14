@@ -2,15 +2,8 @@
 
 import type { Data } from '@measured/puck';
 import { Render } from '@measured/puck';
-import { Loader2, Pencil, Sparkles } from 'lucide-react';
-import {
-  Component,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { Loader2, Pencil } from 'lucide-react';
+import { Component, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
 import {
@@ -269,7 +262,6 @@ export function OnboardingPuckPreview({
   onEdit,
   data: externalData,
 }: OnboardingPuckPreviewProps) {
-  const previewRef = useRef<HTMLDivElement>(null);
   const [internalPuckData, setInternalPuckData] = useState<Data | null>(null);
   const puckData = externalData || internalPuckData;
   const [isLoading, setIsLoading] = useState(false);
@@ -310,7 +302,10 @@ export function OnboardingPuckPreview({
     return () => {
       isMounted = false;
     };
-  }, [businessName, businessType, logoDataUri]); // Removed externalData dependency to avoid reset loops
+  }, [businessName, businessType, logoDataUri]); // Regenerate on any input change
+
+  /* Expanded State */
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Memoize theme styles to avoid manual DOM manipulation
   const themeStyles = useMemo(() => {
@@ -318,16 +313,84 @@ export function OnboardingPuckPreview({
     return getThemeStyles(brandColors);
   }, [brandColors]);
 
-  if (!brandColors || !puckData) {
+  // Patch the logo into puckData immediately when it changes (faster than full regeneration)
+  const patchedPuckData = useMemo(() => {
+    if (!puckData) return null;
+    if (!logoDataUri) return puckData;
+
+    // Clone the data and update Header's logoUrl
+    const patched = JSON.parse(JSON.stringify(puckData)) as Data;
+    const headerIndex = patched.content.findIndex((c) => c.type === 'Header');
+    if (headerIndex !== -1 && patched.content[headerIndex].props) {
+      patched.content[headerIndex].props.logoUrl = logoDataUri;
+    }
+    return patched;
+  }, [puckData, logoDataUri]);
+
+  if (!brandColors || !puckData || !patchedPuckData) {
     return (
-      <div className="p-6 rounded-lg border border-dashed flex items-center justify-center h-full text-muted-foreground">
+      <div className="p-6 rounded-lg border border-dashed flex items-center justify-center h-full text-muted-foreground bg-muted/20">
         Your store preview will appear here once your logo is uploaded.
       </div>
     );
   }
 
+  // Full Screen Modal for Expanded View
+  if (isExpanded) {
+    return (
+      <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
+        <div className="relative w-full h-full max-w-[1600px] bg-background rounded-xl border shadow-2xl overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="h-14 border-b flex items-center justify-between px-6 bg-muted/10">
+            <h3 className="font-semibold text-lg flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              Live Store Preview
+            </h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsExpanded(false)}
+              className="hover:bg-destructive/10 hover:text-destructive"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="lucide lucide-x"
+                aria-hidden="true"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+              <span className="sr-only">Close Preview</span>
+            </Button>
+          </div>
+
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
+            <div className="min-h-full" style={themeStyles}>
+              <PreviewErrorBoundary>
+                <Render config={builderConfig} data={patchedPuckData} />
+              </PreviewErrorBoundary>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Normal "Card" View
   return (
-    <div className="relative p-4 rounded-lg border border-dashed bg-muted/20">
+    <div className="relative w-full h-full rounded-xl border border-white/10 bg-muted/20 overflow-hidden flex flex-col group">
       {/* Loading Overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-[60] flex items-center justify-center bg-background/50 backdrop-blur-sm transition-opacity duration-200">
@@ -335,35 +398,51 @@ export function OnboardingPuckPreview({
         </div>
       )}
 
-      {/* Live Preview Badge */}
-      <div className="absolute top-16 right-6 z-50 bg-amber-500 text-black text-[10px] px-3 py-1.5 rounded-full font-semibold shadow-lg flex items-center gap-2">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-        </span>
-        Live Store Preview
+      {/* Toolbar - Positioned below header */}
+      <div className="absolute top-14 right-4 z-50 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        <Button
+          size="sm"
+          variant="secondary"
+          className="shadow-sm border border-white/10 bg-background/80 backdrop-blur-md hover:bg-background h-8 text-xs gap-2"
+          onClick={() => setIsExpanded(true)}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="lucide lucide-maximize-2"
+            aria-hidden="true"
+          >
+            <polyline points="15 3 21 3 21 9" />
+            <polyline points="9 21 3 21 3 15" />
+            <line x1="21" x2="14" y1="3" y2="10" />
+            <line x1="3" x2="10" y1="21" y2="14" />
+          </svg>
+          Expand
+        </Button>
       </div>
 
-      {/* Edit Button */}
+      {/* Edit Button - Positioned below header */}
       {onEdit && puckData && (
-        <div className="absolute top-16 left-6 z-50">
+        <div className="absolute top-14 left-4 z-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
           <Button
             size="sm"
             variant="secondary"
-            className="shadow-lg border border-white/10 bg-background/80 backdrop-blur-md hover:bg-background pr-4 pl-3"
+            className="shadow-sm border border-white/10 bg-background/80 backdrop-blur-md hover:bg-background h-8 text-xs pr-3 pl-2"
             onClick={(e) => {
               e.stopPropagation();
-              console.log('Edit Template clicked');
               onEdit(puckData);
             }}
           >
             <div className="relative mr-2">
               <Pencil
-                className="w-3.5 h-3.5"
-                style={{ color: brandColors?.primary }}
-              />
-              <Sparkles
-                className="w-2 h-2 absolute -top-1 -right-1.5"
+                className="w-3 h-3"
                 style={{ color: brandColors?.primary }}
               />
             </div>
@@ -372,17 +451,19 @@ export function OnboardingPuckPreview({
         </div>
       )}
 
-      <div
-        ref={previewRef}
-        className="scale-[0.8] origin-top-left w-[125%] -translate-x-1 -translate-y-1 bg-background rounded-md shadow-lg"
-        style={{
-          backgroundColor: 'var(--theme-background)',
-          ...themeStyles,
-        }}
-      >
-        <PreviewErrorBoundary>
-          <Render config={builderConfig} data={puckData} />
-        </PreviewErrorBoundary>
+      {/* Internal Scrollable Area */}
+      <div className="w-full h-full overflow-y-auto overflow-x-hidden p-4">
+        <div
+          className="origin-top-left scale-[0.65] sm:scale-[0.75] md:scale-[0.8] lg:scale-[0.85] w-[153.9%] sm:w-[133.4%] md:w-[125%] lg:w-[117.7%] min-h-[153.9%] sm:min-h-[133.4%] md:min-h-[125%] lg:min-h-[117.7%] rounded-md bg-background shadow-lg"
+          style={{
+            backgroundColor: 'var(--theme-background)',
+            ...themeStyles,
+          }}
+        >
+          <PreviewErrorBoundary>
+            <Render config={builderConfig} data={patchedPuckData} />
+          </PreviewErrorBoundary>
+        </div>
       </div>
     </div>
   );

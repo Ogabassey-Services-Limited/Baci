@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import {
   ArrowRight,
@@ -165,11 +165,10 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                         {/* Tags */}
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
-                              item.condition?.toLowerCase() === 'new'
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${item.condition?.toLowerCase() === 'new'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                                 : 'bg-amber-50 text-amber-700 border-amber-100'
-                            }`}
+                              }`}
                           >
                             {item.condition}
                           </span>

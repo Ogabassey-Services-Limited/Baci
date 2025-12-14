@@ -9,8 +9,8 @@ import {
   Loader2,
   Mail,
 } from 'lucide-react';
-import { useState } from 'react';
-import { useFormContext } from 'react-hook-form';
+import { useEffect, useState } from 'react';
+import { useFormContext, useWatch } from 'react-hook-form';
 import { sendMagicLink } from '@/app/onboarding/actions';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -39,16 +39,30 @@ export default function Step3_Account({
   user,
 }: Step3Props) {
   const form = useFormContext<OnboardingFormValues>();
-  const { control, watch } = form;
+  const { control, trigger } = form;
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [magicLinkSubmitting, setMagicLinkSubmitting] =
     useState<boolean>(false);
   const { toast } = useToast();
 
-  const password = watch('password') || '';
+  // Use useWatch for reliable reactivity
+  const password = useWatch({ control, name: 'password' }) || '';
+  const confirmPassword = useWatch({ control, name: 'confirmPassword' }) || '';
   const passwordStrength = checkPasswordStrength(password);
   const isPasswordStrong = passwordStrength >= 3;
+
+  // Re-validate confirmPassword when password changes (proper cross-field validation)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: password triggers re-validation of confirmPassword match
+  useEffect(() => {
+    if (confirmPassword) {
+      // Debounce to avoid excessive validation calls
+      const timeoutId = setTimeout(() => {
+        trigger('confirmPassword');
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [password, confirmPassword, trigger]);
 
   const handleMagicLinkRequest = async () => {
     const { email } = form.getValues();
@@ -79,9 +93,23 @@ export default function Step3_Account({
         <Alert>
           <CheckCircle className="h-4 w-4" />
           <AlertTitle>Logged In</AlertTitle>
-          <AlertDescription>
-            You are logged in as <strong>{user.email}</strong>. Click "Create My
-            Store" below to continue.
+          <AlertDescription className="space-y-3">
+            <p>
+              You are logged in as <strong>{user.email}</strong>. Click "Finish
+              Setup" below to save your store.
+            </p>
+            <Button
+              variant="link"
+              className="p-0 h-auto text-muted-foreground hover:text-primary underline font-normal"
+              onClick={async () => {
+                const { createClient } = await import('@/lib/supabase/client');
+                const supabase = createClient();
+                await supabase.auth.signOut();
+                window.location.reload();
+              }}
+            >
+              Not you? Log out
+            </Button>
           </AlertDescription>
         </Alert>
       ) : (
@@ -171,7 +199,7 @@ export default function Step3_Account({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10 text-muted-foreground hover:text-foreground"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={
                         showPassword ? 'Hide password' : 'Show password'
@@ -219,7 +247,7 @@ export default function Step3_Account({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 z-10 text-muted-foreground hover:text-foreground"
                         onClick={() =>
                           setShowConfirmPassword(!showConfirmPassword)
                         }

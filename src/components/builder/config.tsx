@@ -520,6 +520,8 @@ function CustomHeader({
               width={160}
               height={48}
               className="h-10 sm:h-12 w-auto max-w-[140px] sm:max-w-[160px] object-contain"
+              priority
+              unoptimized={logoUrl?.startsWith('data:') || false}
             />
           ) : (
             <>

@@ -11,7 +11,17 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 
-export const OgabasseyV2LegalDispute: React.FC = () => {
+// Define props
+interface LegalProps {
+  merchant?: any;
+}
+
+export const OgabasseyV2LegalDispute: React.FC<LegalProps> = ({ merchant }) => {
+  const businessName = merchant?.business_name || 'Ogabassey Limited';
+  const email = merchant?.email || 'support@ogabassey.com';
+  const address = merchant?.address || '2 Olaide Tomori St, Ikeja, Lagos, Nigeria';
+  const customContent = merchant?.pages?.terms;
+
   const sections = [
     {
       title: 'Terms of Service',
@@ -19,7 +29,7 @@ export const OgabasseyV2LegalDispute: React.FC = () => {
       content: (
         <div className="space-y-4">
           <p>
-            By accessing and using the Ogabassey Limited website and services,
+            By accessing and using the {businessName} website and services,
             you agree to comply with and be bound by these terms. If you do not
             agree to these terms, please do not use our services.
           </p>
@@ -58,10 +68,10 @@ export const OgabasseyV2LegalDispute: React.FC = () => {
               <strong>Step 1: Contact Support.</strong> Most issues can be
               resolved by our customer care team. Please email{' '}
               <a
-                href="mailto:support@ogabassey.com"
+                href={`mailto:${email}`}
                 className="text-red-600 font-bold"
               >
-                support@ogabassey.com
+                {email}
               </a>{' '}
               with your Order ID and details of the complaint.
             </li>
@@ -84,7 +94,7 @@ export const OgabasseyV2LegalDispute: React.FC = () => {
       icon: ShieldAlert,
       content: (
         <p>
-          Ogabassey Limited shall not be liable for any indirect, incidental,
+          {businessName} shall not be liable for any indirect, incidental,
           special, consequential, or punitive damages, including without
           limitation, loss of profits, data, use, goodwill, or other intangible
           losses, resulting from your access to or use of or inability to access
@@ -129,33 +139,42 @@ export const OgabasseyV2LegalDispute: React.FC = () => {
 
       <div className="max-w-4xl mx-auto px-4 md:px-6 -mt-10 relative z-20">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 md:p-12 space-y-12">
-          <div className="prose max-w-none text-gray-600">
-            <p className="text-lg">
-              At Ogabassey, we value our relationship with our customers. We
-              have established these legal guidelines to ensure clarity and
-              protection for both parties.
-            </p>
-          </div>
 
-          <div className="space-y-10">
-            {sections.map((section) => (
-              <div key={section.title} className="flex gap-4 md:gap-6">
-                <div className="shrink-0">
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-50 text-gray-700 rounded-xl flex items-center justify-center border border-gray-200">
-                    <section.icon size={20} />
-                  </div>
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-3">
-                    {section.title}
-                  </h2>
-                  <div className="text-gray-600 text-sm md:text-base leading-relaxed">
-                    {section.content}
-                  </div>
-                </div>
+          {customContent ? (
+            <div className="prose max-w-none text-gray-600">
+              <div dangerouslySetInnerHTML={{ __html: customContent }} />
+            </div>
+          ) : (
+            <>
+              <div className="prose max-w-none text-gray-600">
+                <p className="text-lg">
+                  At {businessName}, we value our relationship with our customers. We
+                  have established these legal guidelines to ensure clarity and
+                  protection for both parties.
+                </p>
               </div>
-            ))}
-          </div>
+
+              <div className="space-y-10">
+                {sections.map((section) => (
+                  <div key={section.title} className="flex gap-4 md:gap-6">
+                    <div className="shrink-0">
+                      <div className="w-10 h-10 md:w-12 md:h-12 bg-gray-50 text-gray-700 rounded-xl flex items-center justify-center border border-gray-200">
+                        <section.icon size={20} />
+                      </div>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 mb-3">
+                        {section.title}
+                      </h2>
+                      <div className="text-gray-600 text-sm md:text-base leading-relaxed">
+                        {section.content}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="bg-red-50 rounded-2xl p-8 border border-red-100 mt-8">
             <h3 className="font-bold text-red-900 mb-4 flex items-center gap-2">
@@ -186,14 +205,14 @@ export const OgabasseyV2LegalDispute: React.FC = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 text-sm">
               <a
-                href="mailto:support@ogabassey.com"
+                href={`mailto:${email}`}
                 className="text-red-600 font-bold hover:underline"
               >
-                support@ogabassey.com
+                {email}
               </a>
               <span className="hidden sm:inline text-gray-300">|</span>
               <span className="text-gray-700 font-medium">
-                2 Olaide Tomori St, Ikeja, Lagos, Nigeria
+                {address}
               </span>
             </div>
           </div>

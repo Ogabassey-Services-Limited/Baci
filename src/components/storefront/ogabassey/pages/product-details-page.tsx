@@ -30,11 +30,19 @@ import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import { BlogSnippet } from '../components/BlogSnippet';
 import { NegotiationModal } from '../components/NegotiationModal';
-import { SEO } from '../components/SEO';
+import { ProductComparisonTable } from '../components/ProductComparisonTable';
+import { ProductVideo } from '../components/ProductVideo';
+import { FlyToCartAnimation } from '../components/FlyToCartAnimation'; // Added Animation
 import { products } from '../data/products';
 import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
+
+// Props interface for the component
+interface ProductDetailsPageProps {
+  /** Optional server-fetched product data. If not provided, falls back to mock data lookup. */
+  product?: Product;
+}
 
 // Fallback Mock data if product is not found
 const FALLBACK_PRODUCT = {
@@ -117,26 +125,26 @@ const MOCK_REVIEWS = [
   },
 ];
 
-export const ProductDetailsPage: React.FC = () => {
+export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product: serverProduct }) => {
   const params = useParams();
-  const id = params?.id as string; // Handle potentially undefined or array params
+  const id = serverProduct?.id?.toString() || (params?.id as string); // Use prop id or URL param
   const router = useRouter(); // Use Next.js router
   const {
     addToCart,
     cart,
     updateQuantity,
     removeFromCart,
+    setIsCartOpen,
     applyNegotiatedPrice,
   } = useCart();
   const { toggleSaved, isSaved } = useV2Saved();
   const { compareItems, addToCompare, removeFromCompare, isInCompare } =
     useV2Comparison();
 
-  // Find product from data
-  // Ensure we handle products.find carefully
+  // Find product from data - use server product
   const productFound = useMemo(
-    () => products.find((p) => String(p.id) === id),
-    [id]
+    () => serverProduct,
+    [serverProduct]
   );
 
   const getColorHex = (name: string) => {
@@ -173,6 +181,65 @@ export const ProductDetailsPage: React.FC = () => {
   };
 
   const productData = useMemo(() => {
+    // If we have a server product, use it strictly without merging fallback data
+    if (serverProduct) {
+      // Normalize Colors
+      let normalizedColors: { name: string; value: string }[] = [];
+      if (serverProduct.colors && serverProduct.colors.length > 0) {
+        normalizedColors = serverProduct.colors.map((c: any) => ({
+          name: typeof c === 'string' ? c : c.name || c,
+          value: getColorHex(typeof c === 'string' ? c : c.name || c),
+        }));
+      }
+
+      // Normalize Storage
+      let normalizedStorage: string[] = [];
+      if (serverProduct.storage) {
+        normalizedStorage = Array.isArray(serverProduct.storage)
+          ? serverProduct.storage
+          : [serverProduct.storage];
+      }
+
+      // Normalize Images
+      let normalizedImages: string[] = [];
+      if (serverProduct.images && serverProduct.images.length > 0) {
+        normalizedImages = serverProduct.images;
+      } else if (serverProduct.image) {
+        normalizedImages = [serverProduct.image];
+      } else {
+        // Only use fallback image if absolutely no images exist
+        normalizedImages = [FALLBACK_PRODUCT.image];
+      }
+
+      return {
+        ...serverProduct, // Use everything from server product
+        images: normalizedImages,
+        colors: normalizedColors,
+        storage: normalizedStorage,
+        condition: (serverProduct.condition as any) || 'New',
+        // Ensure defaults for critical UI fields if missing
+        rating: serverProduct.rating || 0,
+        reviewCount: serverProduct.reviews || 0,
+        description: serverProduct.description || 'No description available.',
+        // Map specifications to detailedSpecs (UI key)
+        detailedSpecs: (serverProduct as any).specifications || (serverProduct as any).detailedSpecs || [
+          {
+            category: 'General',
+            items: [
+              { label: 'Brand', value: serverProduct.brand || 'Generic' },
+              { label: 'Condition', value: (serverProduct.condition as any) || 'New' },
+              { label: 'Category', value: serverProduct.category || 'General' },
+            ],
+          },
+        ],
+        specs: (serverProduct as any).specs || [
+          { label: 'Brand', value: serverProduct.brand || 'Generic' },
+          { label: 'Condition', value: serverProduct.condition || 'New' },
+        ],
+      };
+    }
+
+    // Legacy/Mock Fallback logic (only used when no server product)
     const base = productFound
       ? { ...FALLBACK_PRODUCT, ...productFound }
       : FALLBACK_PRODUCT;
@@ -198,7 +265,7 @@ export const ProductDetailsPage: React.FC = () => {
     } else {
       normalizedStorage =
         productFound.category === 'Phones' ||
-        productFound.category === 'Laptops'
+          productFound.category === 'Laptops'
           ? normalizedStorage
           : [];
     }
@@ -219,7 +286,7 @@ export const ProductDetailsPage: React.FC = () => {
       colors: normalizedColors,
       storage: normalizedStorage,
     };
-  }, [productFound, getColorHex]); // Removed getColorHex from dependencies as it's stable
+  }, [productFound, serverProduct, getColorHex]);
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<number | null>(null);
@@ -239,6 +306,18 @@ export const ProductDetailsPage: React.FC = () => {
   // Selection Logic
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
+
+  // Animation State
+  const [animatingParticles, setAnimatingParticles] = useState<DOMRect[]>([]);
+
+  const triggerFlyToCart = (startRect: DOMRect) => {
+    setAnimatingParticles((prev) => [...prev, startRect]);
+  };
+
+  const handleAnimationComplete = () => {
+    setAnimatingParticles((prev) => prev.slice(1));
+  };
+
 
   // Comparison Logic - Compute comparable items
   const comparableProducts = useMemo(() => {
@@ -274,44 +353,100 @@ export const ProductDetailsPage: React.FC = () => {
   const isLiked = isSaved(productData.id);
 
   // Derived state to find if this exact variant is in cart
-  const currentCartItemId =
-    selectedColor !== null && selectedStorage !== null
-      ? `${productData.id}-${productData.colors[selectedColor].name}-${productData.storage[selectedStorage]}`
-      : null;
+  // Must match generateCartItemId format: [productId, color?, storage?].join('-')
+  const currentCartItemId = useMemo(() => {
+    const parts: string[] = [String(productData.id)];
+    if (selectedColor !== null && productData.colors[selectedColor]) {
+      parts.push(productData.colors[selectedColor].name);
+    }
+    if (selectedStorage !== null && productData.storage[selectedStorage]) {
+      parts.push(productData.storage[selectedStorage]);
+    }
+    return parts.join('-');
+  }, [productData.id, productData.colors, productData.storage, selectedColor, selectedStorage]);
 
   const cartItem = currentCartItemId
     ? cart.find((item) => item.cartItemId === currentCartItemId)
     : undefined;
   const quantityInCart = cartItem ? cartItem.quantity : 0;
 
+  // Local state for editable quantity input
+  const [inputValue, setInputValue] = useState('');
+
+  // Sync input value with cart quantity when it changes
+  useEffect(() => {
+    if (quantityInCart > 0) {
+      setInputValue(quantityInCart.toString());
+    } else {
+      setInputValue('');
+    }
+  }, [quantityInCart]);
+
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Allow empty string to let user delete content
+    const val = e.target.value;
+    // Only allow numeric input
+    if (val === '' || /^\d+$/.test(val)) {
+      setInputValue(val);
+    }
+  };
+
+  const handleQuantityBlur = () => {
+    if (!currentCartItemId) return;
+
+    let newQuantity = parseInt(inputValue, 10);
+
+    // If empty or invalid or 0, revert to current cart quantity or 1
+    if (isNaN(newQuantity) || newQuantity < 1) {
+      // Revert to current known good state
+      setInputValue(quantityInCart.toString());
+      return;
+    }
+
+    // Determine simplified max limit (optional, e.g. 99)
+    if (newQuantity > 99) newQuantity = 99;
+
+    // Only call update if value actually changed
+    if (newQuantity !== quantityInCart) {
+      updateQuantity(currentCartItemId, newQuantity);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
+
   const handleColorSelection = (idx: number) => {
+    // Single click: Select/Deselect Primary Color
     if (selectedColor === idx) {
-      if (secondaryColor !== null) {
-        setSelectedColor(secondaryColor);
-        setSecondaryColor(null);
-        setSelectedImage(secondaryColor);
-      } else {
-        setSelectedColor(null);
-      }
+      setSelectedColor(null);
+      setSecondaryColor(null); // Clear secondary if primary is deselected
+      return;
+    }
+
+    // If setting a new primary color
+    setSelectedColor(idx);
+    // If the new primary color is the same as the current secondary, clear secondary
+    if (secondaryColor === idx) {
+      setSecondaryColor(null);
+    }
+    setSelectedImage(idx < productData.images.length ? idx : 0);
+  };
+
+  const handleColorDoubleClick = (idx: number) => {
+    // Double click: Toggle Secondary Color
+    if (selectedColor === null) {
+      // If no primary is selected, double-click does nothing for secondary
       return;
     }
     if (secondaryColor === idx) {
       setSecondaryColor(null);
-      return;
-    }
-    if (selectedColor === null) {
-      setSelectedColor(idx);
-      setSelectedImage(idx);
-      setShowColorToast(true);
-      setTimeout(() => setShowColorToast(false), 5000);
-      return;
-    }
-    if (secondaryColor === null) {
+    } else if (selectedColor !== idx) {
+      // Must be different from primary
       setSecondaryColor(idx);
-      setShowColorToast(false);
-      return;
     }
-    setSecondaryColor(idx);
   };
 
   const getProductForCart = (): Product => {
@@ -427,22 +562,7 @@ export const ProductDetailsPage: React.FC = () => {
 
   return (
     <div className="bg-white pb-32 pt-4 relative">
-      <SEO
-        title={productData.name}
-        description={productData.description}
-        image={productData.images[0]}
-        type="product"
-        price={productData.rawPrice}
-        currency="NGN"
-        availability={
-          productData.condition?.toLowerCase() === 'new'
-            ? 'InStock'
-            : 'PreOrder'
-        }
-        brand={productData.brand}
-        rating={productData.rating}
-        reviewCount={productData.reviewCount}
-      />
+      {/* SEO handled by App Router generateMetadata() - see [category]/[productSlug]/page.tsx */}
 
       {/* Header Ad - Replaced with Banner Carousel */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-8">
@@ -477,11 +597,10 @@ export const ProductDetailsPage: React.FC = () => {
                 className="w-full h-full object-cover transition-all duration-500"
               />
               <div
-                className={`absolute top-4 left-4 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
-                  productData.condition?.toLowerCase() === 'new'
-                    ? 'bg-emerald-500'
-                    : 'bg-amber-500'
-                }`}
+                className={`absolute top-4 left-4 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${productData.condition?.toLowerCase() === 'new'
+                  ? 'bg-emerald-500'
+                  : 'bg-amber-500'
+                  }`}
               >
                 {productData.condition}
               </div>
@@ -640,13 +759,13 @@ export const ProductDetailsPage: React.FC = () => {
                       <button
                         key={idx}
                         onClick={() => handleColorSelection(idx)}
-                        className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 outline-none active:scale-95 ${
-                          isPrimary
-                            ? 'border-[3px] border-red-600 scale-110 shadow-lg'
-                            : isSecondary
-                              ? 'border-[3px] border-blue-500 scale-105 shadow-md'
-                              : 'border border-gray-200 md:hover:border-gray-400 md:hover:scale-105 shadow-sm'
-                        }`}
+                        onDoubleClick={() => handleColorDoubleClick(idx)}
+                        className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 outline-none active:scale-95 ${isPrimary
+                          ? 'border-[3px] border-red-600 scale-110 shadow-lg'
+                          : isSecondary
+                            ? 'border-[3px] border-blue-500 scale-105 shadow-md'
+                            : 'border border-gray-200 md:hover:border-gray-400 md:hover:scale-105 shadow-sm'
+                          }`}
                         aria-label={`Select color ${color.name}`}
                         title={color.name}
                       >
@@ -730,12 +849,19 @@ export const ProductDetailsPage: React.FC = () => {
                     )}
                   </button>
                   <div className="flex-1 flex flex-col items-center justify-center">
-                    <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
+                    <span className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-0.5">
                       Quantity
                     </span>
-                    <span className="text-lg font-bold text-gray-900">
-                      {quantityInCart}
-                    </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={inputValue}
+                      onChange={handleQuantityChange}
+                      onBlur={handleQuantityBlur}
+                      onKeyDown={handleKeyDown}
+                      className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-none p-0 focus:ring-0 focus:border-none"
+                    />
                   </div>
                   <button
                     onClick={handleIncrement}
@@ -828,19 +954,38 @@ export const ProductDetailsPage: React.FC = () => {
             {activeTab === 'description' && (
               <div className="prose max-w-none text-gray-600 animate-in fade-in duration-300">
                 <p className="mb-4">{productData.description}</p>
-                <ul className="list-disc pl-5 space-y-2 mt-4">
-                  <li>Titanium design</li>
-                  <li>A17 Pro chip</li>
-                  <li>Action button</li>
-                  <li>48MP Main camera</li>
-                  <li>USB-C connector</li>
-                </ul>
+
+                {/* Dynamic Product Highlights for SEO & Readability */}
+                <div className="mt-6 mb-6">
+                  <h4 className="font-bold text-gray-900 mb-3">Key Highlights</h4>
+                  <ul className="list-disc pl-5 space-y-2 text-gray-600">
+                    {/* Priority 1: Use explicit highlights/features if available */}
+                    {productData.specs && productData.specs.length > 0 ? (
+                      productData.specs.slice(0, 5).map((spec: any, i: number) => (
+                        <li key={i}>
+                          <span className="font-medium text-gray-900">{spec.label}:</span> {spec.value}
+                        </li>
+                      ))
+                    ) : (
+                      /* Priority 2: Auto-generate from available fields */
+                      <>
+                        {productData.displaySize && <li>{productData.displaySize} Display</li>}
+                        {productData.ram && <li>{productData.ram} RAM</li>}
+                        {productData.storage && productData.storage.length > 0 && (
+                          <li>{productData.storage[0]} Storage</li>
+                        )}
+                        {productData.condition && <li>Condition: {productData.condition as any}</li>}
+                        <li>{productData.brand} Official Warranty</li>
+                      </>
+                    )}
+                  </ul>
+                </div>
               </div>
             )}
 
             {activeTab === 'specs' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-300">
-                {productData.detailedSpecs?.map((section, idx) => (
+                {productData.detailedSpecs?.map((section: any, idx: number) => (
                   <div
                     key={idx}
                     className="bg-gray-50 rounded-2xl p-6 border border-gray-100"
@@ -849,7 +994,7 @@ export const ProductDetailsPage: React.FC = () => {
                       {section.category}
                     </h3>
                     <ul className="space-y-3">
-                      {section.items.map((item, i) => (
+                      {section.items.map((item: any, i: number) => (
                         <li
                           key={i}
                           className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-4 border-b border-gray-200 last:border-0 pb-2 last:pb-0"
@@ -963,361 +1108,240 @@ export const ProductDetailsPage: React.FC = () => {
             )}
 
             {activeTab === 'compare' && (
-              <div className="animate-in fade-in duration-300">
-                <div className="overflow-x-auto pb-4 hide-scrollbar">
-                  <div className="min-w-[800px] grid grid-cols-4 gap-4">
-                    {/* Labels Column */}
-                    <div className="space-y-4 pt-44 border-r border-gray-100 pr-2">
-                      {[
-                        { label: 'Price', key: 'price' },
-                        { label: 'Rating', key: 'rating' },
-                        { label: 'Brand', key: 'brand' },
-                        { label: 'Condition', key: 'condition' },
-                        { label: 'Storage', key: 'storage' },
-                        { label: 'RAM', key: 'ram' },
-                        { label: 'Screen', key: 'displaySize' },
-                        { label: 'Display Type', key: 'displayType' },
-                        { label: 'SIM', key: 'simType' },
-                      ].map((field, i) => (
-                        <div
-                          key={i}
-                          className={`h-12 flex items-center px-4 text-sm font-bold text-gray-500 ${i % 2 !== 0 ? 'bg-gray-50 rounded-lg' : ''}`}
-                        >
-                          {field.label}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Main Product Column */}
-                    <div className="space-y-4 relative bg-red-50/20 -mx-2 px-2 rounded-2xl border border-red-100/50 pb-4">
-                      <div className="absolute top-2 right-2 text-[10px] bg-red-600 text-white px-2 py-0.5 rounded-full font-bold shadow-sm z-10">
-                        Current
-                      </div>
-                      <div className="h-44 flex flex-col items-center justify-end pb-4 pt-4">
-                        <div className="bg-white p-2 rounded-xl shadow-sm mb-2 overflow-hidden border border-red-100 h-24 w-24 flex items-center justify-center">
-                          <img
-                            src={productData.images[0]}
-                            alt={productData.name}
-                            className="h-full w-full object-contain"
-                          />
-                        </div>
-                        <span className="font-bold text-gray-900 text-center text-sm line-clamp-2 px-2 h-10 flex items-center">
-                          {productData.name}
-                        </span>
-                      </div>
-
-                      <div className="h-12 flex items-center justify-center font-bold text-red-600 text-lg">
-                        {productData.price}
-                      </div>
-                      <div className="h-12 flex items-center justify-center bg-white/50 rounded-lg text-sm font-medium">
-                        {productData.rating}/5{' '}
-                        <Star
-                          size={12}
-                          className="ml-1 fill-yellow-400 text-yellow-400"
-                        />
-                      </div>
-                      <div className="h-12 flex items-center justify-center text-sm font-bold text-gray-800">
-                        {productData.brand}
-                      </div>
-                      <div className="h-12 flex items-center justify-center bg-white/50 rounded-lg text-xs font-bold uppercase text-green-600">
-                        {productData.condition}
-                      </div>
-                      <div className="h-12 flex items-center justify-center text-sm">
-                        {productData.storage ? productData.storage[0] : '-'}
-                      </div>
-                      <div className="h-12 flex items-center justify-center bg-white/50 rounded-lg text-sm">
-                        {productData.ram || '-'}
-                      </div>
-                      <div className="h-12 flex items-center justify-center text-sm">
-                        {productData.displaySize || '-'}
-                      </div>
-                      <div className="h-12 flex items-center justify-center bg-white/50 rounded-lg text-xs text-center px-1">
-                        {productData.displayType || '-'}
-                      </div>
-                      <div className="h-12 flex items-center justify-center text-xs text-center px-1">
-                        {productData.simType || '-'}
-                      </div>
-                    </div>
-
-                    {/* Dynamic Competitors */}
-                    {comparableProducts.map((comp: any, idx) => (
-                      <div key={idx} className="space-y-4 relative group">
-                        <div className="h-44 flex flex-col items-center justify-end pb-4 pt-4 opacity-90 hover:opacity-100 transition-opacity">
-                          <div className="p-2 mb-2 rounded-xl overflow-hidden bg-gray-50 border border-gray-200 h-24 w-24 flex items-center justify-center">
-                            <img
-                              src={comp.image}
-                              alt={comp.name}
-                              className="h-full w-full object-contain mix-blend-multiply"
-                            />
-                          </div>
-                          <Link
-                            href={`/product/${comp.id}` as any}
-                            className="font-bold text-gray-500 text-center text-sm line-clamp-2 px-2 hover:text-red-600 transition-colors h-10 flex items-center"
-                          >
-                            {comp.name}
-                          </Link>
-                        </div>
-
-                        <div className="h-12 flex items-center justify-center font-bold text-gray-700">
-                          {comp.price}
-                        </div>
-                        <div className="h-12 flex items-center justify-center bg-gray-50 rounded-lg text-sm text-gray-600">
-                          {comp.rating}/5
-                        </div>
-                        <div className="h-12 flex items-center justify-center text-sm text-gray-600 font-medium">
-                          {comp.brand}
-                        </div>
-                        <div className="h-12 flex items-center justify-center bg-gray-50 rounded-lg text-xs font-bold uppercase text-gray-500">
-                          {comp.condition}
-                        </div>
-                        <div className="h-12 flex items-center justify-center text-sm text-gray-600">
-                          {Array.isArray(comp.storage)
-                            ? comp.storage[0]
-                            : comp.storage || '-'}
-                        </div>
-                        <div className="h-12 flex items-center justify-center bg-gray-50 rounded-lg text-sm text-gray-600">
-                          {comp.ram || '-'}
-                        </div>
-                        <div className="h-12 flex items-center justify-center text-sm text-gray-600">
-                          {comp.displaySize || '-'}
-                        </div>
-                        <div className="h-12 flex items-center justify-center bg-gray-50 rounded-lg text-xs text-gray-600 text-center px-1">
-                          {comp.displayType || '-'}
-                        </div>
-                        <div className="h-12 flex items-center justify-center text-xs text-gray-600 text-center px-1">
-                          {comp.simType || '-'}
-                        </div>
-
-                        {/* Comparison Actions */}
-                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col gap-1">
-                          {isInCompare(comp.id) ? (
-                            <button
-                              onClick={() => removeFromCompare(comp.id)}
-                              className="bg-white text-red-500 p-1 rounded-full shadow-sm border border-gray-200 hover:bg-red-50"
-                              title="Remove from comparison"
-                            >
-                              <X size={14} />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleAddToCompare(comp as any)}
-                              className="bg-white text-blue-500 p-1 rounded-full shadow-sm border border-gray-200 hover:bg-blue-50"
-                              title="Add to comparison list"
-                            >
-                              <Plus size={14} />
-                            </button>
-                          )}
-                        </div>
-                        <div className="flex justify-center mt-4">
-                          <button
-                            onClick={() => addToCart(comp as any, 1)}
-                            className="text-xs font-bold text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-red-100 transition-colors"
-                          >
-                            Add to Cart
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Add More Placeholder if slots empty */}
-                    {comparableProducts.length < 2 && (
-                      <div className="h-full flex flex-col items-center justify-center space-y-4 border-2 border-dashed border-gray-100 rounded-xl bg-gray-50/30">
-                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
-                          <Search size={20} />
-                        </div>
-                        <p className="text-xs text-gray-400 font-medium text-center px-4">
-                          Browse products to add to comparison
-                        </p>
-                        <Link
-                          href={`/category/${productData.category}` as any}
-                          className="text-xs font-bold text-red-600 hover:underline"
-                        >
-                          Browse {productData.category}
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <ProductComparisonTable mainProduct={productData} storeSlug={params?.slug as string} />
             )}
-          </div>
-        </div>
+          </div >
+        </div >
+
+        {productData.videoUrl && (
+          <ProductVideo videoId={productData.videoUrl} title={productData.name} />
+        )}
 
         <BlogSnippet category={productData.category} />
-      </div>
+      </div >
 
       {/* --- FIXED MOBILE BOTTOM BAR --- */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 md:hidden flex gap-3 shadow-[0_-5px_20px_rgba(0,0,0,0.1)]">
+      {/* --- FIXED MOBILE BOTTOM BAR --- */}
+      < div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-3 z-50 md:hidden flex gap-3 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] pb-safe-area" >
         <button
           onClick={() => setIsNegotiationOpen(true)}
-          className="flex-1 bg-gray-100 active:bg-gray-200 md:hover:bg-gray-200 text-gray-900 font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all border border-gray-200 active:scale-[0.98]"
+          className="flex-1 bg-gray-100 active:bg-gray-200 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-2 rounded-xl flex items-center justify-center gap-2 transition-all border border-gray-200 active:scale-[0.98] text-sm"
         >
-          <HandCoins size={20} className="text-red-600" />
+          <HandCoins size={18} className="text-red-600" />
           Negotiate
         </button>
-        {quantityInCart > 0 ? (
-          <button
-            onClick={() => router.push('/cart')}
-            className="flex-1 bg-green-600 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-transform"
-          >
-            View Cart ({quantityInCart})
-          </button>
-        ) : (
-          <button
-            onClick={validateAndAddToCart}
-            className="flex-1 bg-red-600 active:bg-red-700 md:hover:bg-red-700 text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg active:shadow-none active:scale-[0.98]"
-          >
-            <ShoppingCart size={20} />
-            Add to Cart
-          </button>
-        )}
-      </div>
+        {
+          quantityInCart > 0 ? (
+            <div className="flex-1 flex flex-col gap-2">
+              {/* Top Row: Quantity Controls */}
+              <div className="flex items-center justify-between bg-white border-2 border-red-600 rounded-xl px-1 h-10 w-full shrink-0">
+                <button
+                  onClick={handleDecrement}
+                  className="h-full w-10 flex items-center justify-center text-red-600 active:bg-red-50 rounded-lg"
+                >
+                  <Minus size={16} />
+                </button>
+                <span className="font-bold text-gray-900 text-sm">{quantityInCart}</span>
+                <button
+                  onClick={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    triggerFlyToCart(rect);
+                    handleIncrement();
+                  }}
+                  className="h-full w-10 flex items-center justify-center text-red-600 active:bg-red-50 rounded-lg"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+              {/* Bottom Row: View Cart */}
+              <button
+                onClick={() => router.push('/cart')}
+                className="bg-green-600 text-white text-xs font-bold py-1.5 rounded-lg w-full shadow-sm active:scale-[0.98] transition-all"
+              >
+                View Cart
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                // Validate first
+                const missing = [];
+                if (selectedColor === null && productData.colors.length > 0) missing.push('Color');
+                if (selectedStorage === null && productData.storage.length > 0) missing.push('Storage');
+
+                if (missing.length === 0) {
+                  triggerFlyToCart(rect);
+                }
+                validateAndAddToCart();
+              }}
+              className="flex-1 bg-red-600 active:bg-red-700 md:hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg active:shadow-none active:scale-[0.98] text-sm"
+            >
+              <ShoppingCart size={18} />
+              Add to Cart
+            </button>
+          )
+        }
+      </div >
+
+      {/* Animation Portal */}
+      {
+        animatingParticles.map((rect, i) => (
+          <FlyToCartAnimation
+            key={i}
+            startRect={rect}
+            onComplete={handleAnimationComplete}
+            imageSrc={productData.images[0]}
+          />
+        ))
+      }
 
       {/* --- SELECTION REQUIRED MODAL --- */}
-      {isSelectionModalOpen && (
-        <div className="fixed inset-0 z-[80] flex items-end md:items-center justify-center px-0 md:px-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setIsSelectionModalOpen(false)}
-          />
-          <div className="bg-white w-full md:max-w-md md:rounded-2xl rounded-t-2xl shadow-2xl relative z-10 animate-in slide-in-from-bottom-10 duration-300">
-            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-              <h3
-                className={`font-bold text-lg flex items-center gap-2 ${missingFields.length === 0 ? 'text-green-600' : 'text-gray-900'}`}
-              >
-                {missingFields.length === 0 ? (
-                  <>
-                    <Check size={20} /> All Set
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="text-red-600" size={20} />
-                    Select Options
-                  </>
-                )}
-              </h3>
-              <button
-                onClick={() => setIsSelectionModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-full"
-              >
-                <X size={20} className="text-gray-500" />
-              </button>
-            </div>
+      {
+        isSelectionModalOpen && (
+          <div className="fixed inset-0 z-[80] flex items-end md:items-center justify-center px-0 md:px-4">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setIsSelectionModalOpen(false)}
+            />
+            <div className="bg-white w-full md:max-w-md md:rounded-2xl rounded-t-2xl shadow-2xl relative z-10 animate-in slide-in-from-bottom-10 duration-300">
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <h3
+                  className={`font-bold text-lg flex items-center gap-2 ${missingFields.length === 0 ? 'text-green-600' : 'text-gray-900'}`}
+                >
+                  {missingFields.length === 0 ? (
+                    <>
+                      <Check size={20} /> All Set
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="text-red-600" size={20} />
+                      Select Options
+                    </>
+                  )}
+                </h3>
+                <button
+                  onClick={() => setIsSelectionModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full"
+                >
+                  <X size={20} className="text-gray-500" />
+                </button>
+              </div>
 
-            <div className="p-6 space-y-6">
-              <p className="text-sm text-gray-500">
-                {missingFields.length === 0
-                  ? "Perfect! You're ready to go."
-                  : 'Please select the following options to proceed:'}
-              </p>
+              <div className="p-6 space-y-6">
+                <p className="text-sm text-gray-500">
+                  {missingFields.length === 0
+                    ? "Perfect! You're ready to go."
+                    : 'Please select the following options to proceed:'}
+                </p>
 
-              {/* Color Selection in Modal */}
-              {(missingFields.includes('Color') ||
-                missingFields.length === 0) && (
-                <div>
-                  <label className="text-sm font-bold text-gray-900 block mb-3">
-                    Color
-                  </label>
-                  <div className="flex flex-wrap gap-4">
-                    {productData.colors?.map((color, idx) => {
-                      const isSelected = selectedColor === idx;
-                      const isLight = [
-                        '#f2f2f2',
-                        '#ffffff',
-                        '#Bfb7ad',
-                      ].includes(color.value);
+                {/* Color Selection in Modal */}
+                {(missingFields.includes('Color') ||
+                  missingFields.length === 0) && (
+                    <div>
+                      <label className="text-sm font-bold text-gray-900 block mb-3">
+                        Color
+                      </label>
+                      <div className="flex flex-wrap gap-4">
+                        {productData.colors?.map((color, idx) => {
+                          const isSelected = selectedColor === idx;
+                          const isLight = [
+                            '#f2f2f2',
+                            '#ffffff',
+                            '#Bfb7ad',
+                          ].includes(color.value);
 
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            setSelectedColor(idx);
-                            setSelectedImage(idx);
-                            setMissingFields((prev) =>
-                              prev.filter((f) => f !== 'Color')
-                            );
-                          }}
-                          className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 outline-none focus:ring-4 focus:ring-red-100 active:scale-95 ${
-                            isSelected
-                              ? 'border-[3px] border-red-600 scale-110 shadow-lg'
-                              : 'border border-gray-200 md:hover:border-gray-400 md:hover:scale-105 shadow-sm'
-                          }`}
-                        >
-                          <div
-                            className="w-11 h-11 rounded-full border border-black/5 shadow-inner"
-                            style={{ backgroundColor: color.value }}
-                          />
-                          {isSelected && (
-                            <div className="absolute inset-0 flex items-center justify-center z-10">
-                              <Check
-                                size={20}
-                                className={
-                                  isLight ? 'text-gray-900' : 'text-white'
-                                }
-                                strokeWidth={3}
+                          return (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                setSelectedColor(idx);
+                                setSelectedImage(idx);
+                                setMissingFields((prev) =>
+                                  prev.filter((f) => f !== 'Color')
+                                );
+                              }}
+                              className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 outline-none focus:ring-4 focus:ring-red-100 active:scale-95 ${isSelected
+                                ? 'border-[3px] border-red-600 scale-110 shadow-lg'
+                                : 'border border-gray-200 md:hover:border-gray-400 md:hover:scale-105 shadow-sm'
+                                }`}
+                            >
+                              <div
+                                className="w-11 h-11 rounded-full border border-black/5 shadow-inner"
+                                style={{ backgroundColor: color.value }}
                               />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Storage Selection in Modal */}
-              {(missingFields.includes('Storage') ||
-                missingFields.length === 0) && (
-                <div>
-                  <label className="text-sm font-bold text-gray-900 block mb-3">
-                    Storage
-                  </label>
-                  <div className="flex flex-wrap gap-3">
-                    {productData.storage?.map((size, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => {
-                          setSelectedStorage(idx);
-                          setMissingFields((prev) =>
-                            prev.filter((f) => f !== 'Storage')
+                              {isSelected && (
+                                <div className="absolute inset-0 flex items-center justify-center z-10">
+                                  <Check
+                                    size={20}
+                                    className={
+                                      isLight ? 'text-gray-900' : 'text-white'
+                                    }
+                                    strokeWidth={3}
+                                  />
+                                </div>
+                              )}
+                            </button>
                           );
-                        }}
-                        className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all active:scale-95 ${selectedStorage === idx ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-            <div className="p-4 border-t border-gray-100 bg-gray-50 md:rounded-b-2xl">
-              <button
-                onClick={() => {
-                  if (missingFields.length === 0) {
-                    setIsSelectionModalOpen(false);
-                    validateAndAddToCart();
-                  }
-                }}
-                disabled={missingFields.length > 0}
-                className="w-full bg-red-600 disabled:bg-gray-300 disabled:text-gray-500 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg disabled:shadow-none active:scale-[0.98]"
-              >
-                {missingFields.length > 0
-                  ? `Select ${missingFields.length} more option${missingFields.length > 1 ? 's' : ''}`
-                  : 'Add to Cart Now'}
-              </button>
+                {/* Storage Selection in Modal */}
+                {(missingFields.includes('Storage') ||
+                  missingFields.length === 0) && (
+                    <div>
+                      <label className="text-sm font-bold text-gray-900 block mb-3">
+                        Storage
+                      </label>
+                      <div className="flex flex-wrap gap-3">
+                        {productData.storage?.map((size, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => {
+                              setSelectedStorage(idx);
+                              setMissingFields((prev) =>
+                                prev.filter((f) => f !== 'Storage')
+                              );
+                            }}
+                            className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all active:scale-95 ${selectedStorage === idx ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
+                          >
+                            {size}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+              </div>
+
+              <div className="p-4 border-t border-gray-100 bg-gray-50 md:rounded-b-2xl">
+                <button
+                  onClick={() => {
+                    if (missingFields.length === 0) {
+                      setIsSelectionModalOpen(false);
+                      validateAndAddToCart();
+                    }
+                  }}
+                  disabled={missingFields.length > 0}
+                  className="w-full bg-red-600 disabled:bg-gray-300 disabled:text-gray-500 hover:bg-red-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg disabled:shadow-none active:scale-[0.98]"
+                >
+                  {missingFields.length > 0
+                    ? `Select ${missingFields.length} more option${missingFields.length > 1 ? 's' : ''}`
+                    : 'Add to Cart Now'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Negotiation Modal */}
       <NegotiationModal
         isOpen={isNegotiationOpen}
         onClose={() => setIsNegotiationOpen(false)}
         productName={productData.name}
-        currentPrice={productData.rawPrice}
+        currentPrice={productData.rawPrice || 0}
         onSuccess={(price) => {
           setIsNegotiationOpen(false);
           // If options are selected (or not required), add to cart with negotiated price
@@ -1365,6 +1389,6 @@ export const ProductDetailsPage: React.FC = () => {
           }
         }}
       />
-    </div>
+    </div >
   );
 };

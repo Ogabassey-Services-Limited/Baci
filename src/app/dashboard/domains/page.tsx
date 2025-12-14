@@ -594,21 +594,21 @@ export default function DomainsPage() {
         <TabsList className="bg-slate-100/80 dark:bg-slate-800/50 p-1">
           <TabsTrigger
             value="overview"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm"
           >
             <Globe className="w-4 h-4 mr-2" />
             My Domains
           </TabsTrigger>
           <TabsTrigger
             value="search"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm"
           >
             <Search className="w-4 h-4 mr-2" />
             Search & Buy
           </TabsTrigger>
           <TabsTrigger
             value="custom"
-            className="data-[state=active]:bg-white data-[state=active]:shadow-sm"
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm"
           >
             <Plus className="w-4 h-4 mr-2" />
             Connect Existing Domain
@@ -1255,9 +1255,9 @@ export default function DomainsPage() {
                       )}
 
                     {domain.status === 'active' && domain.verified_at && (
-                      <Alert className="border-green-200 bg-green-50">
-                        <Check className="h-4 w-4 text-green-600" />
-                        <AlertDescription className="text-green-800">
+                      <Alert className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
+                        <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        <AlertDescription className="text-green-800 dark:text-green-300">
                           Domain verified on{' '}
                           {new Date(domain.verified_at).toLocaleDateString()}
                         </AlertDescription>
@@ -1328,8 +1328,8 @@ export default function DomainsPage() {
                           key={result.domain}
                           className={`flex items-center justify-between p-4 rounded-lg border ${
                             result.available
-                              ? 'border-green-200 bg-green-50/50'
-                              : 'border-gray-200 bg-gray-50/50 opacity-60'
+                              ? 'border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-800'
+                              : 'border-gray-200 bg-gray-50/50 dark:bg-slate-900/10 dark:border-slate-800 opacity-60'
                           }`}
                         >
                           <div className="flex items-center gap-3">

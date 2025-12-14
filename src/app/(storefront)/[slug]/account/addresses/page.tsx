@@ -1,19 +1,11 @@
 'use client';
 
-import {
-  ArrowLeft,
-  Edit2,
-  Loader2,
-  MapPin,
-  Plus,
-  Star,
-  Trash2,
-} from 'lucide-react';
+import { ArrowLeft, Loader2, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { OgabasseyV2AddressBook } from '@/components/storefront/ogabassey/pages/address-book';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -264,85 +256,13 @@ export default function CustomerAddressesPage() {
           </Button>
         </div>
 
-        {addresses.length === 0 ? (
-          <Card>
-            <CardContent className="p-12 text-center">
-              <MapPin className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-              <h3 className="text-lg font-semibold mb-2">No saved addresses</h3>
-              <p className="text-muted-foreground mb-6">
-                Add an address to speed up checkout
-              </p>
-              <Button onClick={handleAddNew}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Your First Address
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {addresses.map((address) => (
-              <Card
-                key={address.id}
-                className={address.is_default ? 'border-primary' : ''}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-base">
-                        {address.label || 'Address'}
-                      </CardTitle>
-                      {address.is_default && (
-                        <span className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                          <Star className="h-3 w-3 fill-current" />
-                          Default
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleEdit(address)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(address.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-sm space-y-1">
-                    <p className="font-medium">{address.full_name}</p>
-                    <p className="text-muted-foreground">{address.address}</p>
-                    <p className="text-muted-foreground">
-                      {address.city}, {address.state} {address.postal_code}
-                    </p>
-                    <p className="text-muted-foreground">{address.country}</p>
-                    <p className="text-muted-foreground">{address.phone}</p>
-                  </div>
-                  {!address.is_default && (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="mt-2 h-auto p-0"
-                      onClick={() => handleSetDefault(address.id)}
-                    >
-                      Set as default
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+        <OgabasseyV2AddressBook
+          addresses={addresses}
+          onAdd={handleAddNew}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onSetDefault={handleSetDefault}
+        />
       </main>
 
       {/* Add/Edit Dialog */}

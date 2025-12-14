@@ -1,0 +1,1892 @@
+1899|Dell Precision 5540 15.6” FHD Non-Touch|1755111428336.000000|t|t
+1898|DELL G3 15 3579 Gaming Laptop 15.6” FHD|1755111273894.000000|t|t
+1897|Dell XPS 15 9560 15.6” 4K Touchscreen |1755110938567.000000|t|t
+1896|Infinix GT 30 Pro 12Gb 256Gb|1752505735785.000000|t|t
+1895|Infinix Hot 60i 4Gb 128Gb|1752504987929.000000|t|t
+1894|JBL Xtreme 4 |1751526199940.000000|t|t
+1893|Nintendo Switch 2 Console |1751525702719.000000|t|t
+1892|the iphone 11 4gb 128gb|1749906178201.000000|t|t
+1891|poco x7 pro 5g 12gb 512gb|1748956569887.000000|t|t
+1890|poco c71 4gb 128gb|1748956196759.000000|t|t
+1889|poco c71 3gb 64gb|1748956055169.000000|t|t
+1888|test |1748811946042.000000|t|t
+1887|Infinix Note 50 Pro+ 5g 12GB 256GB|1748712139246.000000|t|t
+1886|infinix note 50 pro 8gb 256gb|1748711777149.000000|t|t
+1885|infinix note 50 8gb 256gb|1748711255200.000000|t|t
+1884|hmd skyline 12gb 256gb|1746241659592.000000|t|t
+1883|hmd fusion 12gb 256gb|1746241265265.000000|t|t
+1882|hmd pulse pro 4gb 128gb|1746240990535.000000|t|t
+1881|hmd pulse+ 4gb 128gb|1746240708914.000000|t|t
+1880|hmd aura 4gb 64gb|1746240439520.000000|t|t
+1879|hmd arc|1746239860672.000000|t|t
+1878|nokia 6310|1746239572393.000000|t|t
+1877|nokia 8210 4g|1746239211706.000000|t|t
+1876|nokia 5710 xpressaudio|1746238950174.000000|t|t
+1875|nokia 5310|1746238513806.000000|t|t
+1874|nokia 3210|1746237752017.000000|t|t
+1873|nokia 235 4g|1746237386133.000000|t|t
+1872|nokia 150|1746237152109.000000|t|t
+1871|nokia 110s|1746236930390.000000|t|t
+1870|nokia 105 classic|1746111315049.000000|t|t
+1869|xiaomi redmi a5 4g 4gb 128gb|1746110158468.000000|t|t
+1868|xiaomi redmi a5 4g 3gb 64gb|1746109837283.000000|t|t
+1867|steam us100|1746109089034.000000|t|t
+1866|steam us75|1746109022059.000000|t|t
+1865|steam us50|1746108978581.000000|t|t
+1864|steam us20|1746108934382.000000|t|t
+1863|steam us10|1746090588058.000000|t|t
+1862|xbox game pass core - 3 month subscription |1746090413879.000000|t|t
+1861|xbox red dead redemption|1746090349878.000000|t|t
+1860|xbox-x fc24|1746090224281.000000|t|t
+1859|xbox-x fc25|1746090160462.000000|t|t
+1858|xbox series x f1 2022|1746090102608.000000|t|t
+1857|xbox series x controller |1746089988456.000000|t|t
+1856|xbox series x headset wireless|1746089793757.000000|t|t
+1855|xbox series x console|1746089501843.000000|t|t
+1854|ps5 controller|1746089370882.000000|t|t
+1853|ps4 pro console|1746089190978.000000|t|t
+1852|ps4 controller|1746089097370.000000|t|t
+1851|ps4 console slim|1746088586018.000000|t|t
+1850|ps4 console - fat|1746088500808.000000|t|t
+1849|steam deck - oled 1tb|1746024989757.000000|t|t
+1848|steam deck - oled 512GB|1746024901186.000000|t|t
+1847|steam deck 512GB|1746024825061.000000|t|t
+1846|steam deck 256GB|1746024703357.000000|t|t
+1845|steam deck 64GB|1746024416510.000000|t|t
+1844|spreaker- onyx studio 8|1746024264527.000000|t|t
+1843|speaker - jbl extreme 4|1746024107466.000000|t|t
+1842|shirt round neck large|1746023846909.000000|t|t
+1841|starlink  v2|1746023738264.000000|t|t
+1840|psn €50 gift  card|1746023538870.000000|t|t
+1839|psn card £100 gift card|1746023501768.000000|t|t
+1838|psn card £50 gift card|1746023463059.000000|t|t
+1837|psn card £40 gift card|1746023418915.000000|t|t
+1836|lenovo thinkpad e14 14 inch | i3 | 8GB 512GB|1745965169124.000000|t|t
+1835|lenovo thinkpad t580 14 inch | i5 | 8GB 512GB|1745965008760.000000|t|t
+1834|lenovo thinkbook 14-iml 14 inch | i5 | 12GB 512GB|1745964869169.000000|t|t
+1833|lenovo thinkbook 15-iil 15 inch | i7 | 16GB 512GB|1745964792403.000000|t|t
+1832|lenovo thinkpad e15 15.6 inch | i5 | 16GB 256GB|1745964643024.000000|t|t
+1831|lenovo thinkbook 14s-iwl 14 inch | i5 | 16GB 256GB|1745964530795.000000|t|t
+1830|lenovo thinkbook 14-iml 14 inch | i5 | 20GB 256GB|1745964368893.000000|t|t
+1829|lenovo thinkpad t490 14 inch | i5 | 16GB 512GB|1745964077925.000000|t|t
+1828|lenovo thinkpad t14 14 inch | i5 | 16GB 512GB|1745963950236.000000|t|t
+1827|lenovo thinkpad t14s 14 inch | i7 | 16GB 512GB|1745963740221.000000|t|t
+1826|lenovo thinkpad gen 8 x1 14 inch | i7 | 16GB 1tb|1745910129136.000000|t|t
+1825|lenovo thinkpad gen 7 x1 14 inch | i7 | 16GB 256GB|1745910002896.000000|t|t
+1824|lenovo thinkpad gen 9 x1 14 inch | i7 | 16GB 512GB|1745909724113.000000|t|t
+1823|lenovo thinkpad x1 yoga 14 inch | i7 | 16GB 256GB|1745909548012.000000|t|t
+1822|lenovo thinkpad x1 gen 7 14 inch | i7 | 16GB 512GB|1745909390540.000000|t|t
+1821|psn card £35 gift card|1745842177248.000000|t|t
+1820|psn card £30 gift card|1745842016513.000000|t|t
+1819|psn card £25 gift card|1745841947218.000000|t|t
+1818|psn card £20 gift card|1745841910907.000000|t|t
+1817|psn card £15 gift card|1745841871731.000000|t|t
+1816|psn card £10 gift card|1745841834514.000000|t|t
+1815|psn card $100 gift card|1745841750972.000000|t|t
+1814|psn card $50 gift card|1745841705091.000000|t|t
+1813|psn card $30 gift card|1745841632072.000000|t|t
+1812|psn card $25 gift card|1745841489013.000000|t|t
+1811|psn card $10 gift card|1745841449905.000000|t|t
+1810|atari flashback classics vol. 1|1745841276053.000000|t|t
+1809|google stadia controller|1745841193301.000000|t|t
+1808|hdmi cable|1745841092886.000000|t|t
+1807|headset jbl quantum 100|1745840970672.000000|t|t
+1806|headset jbl quantum 200|1745840841763.000000|t|t
+1805|hoodie shirt - large|1745840725097.000000|t|t
+1804|lenovo go  512GB|1745840507876.000000|t|t
+1803|lenovo- thinkplus smart eyewear mg10|1745840383258.000000|t|t
+1802|nintendo switch 1 2 switch|1745840285260.000000|t|t
+1801|nintendo switch arms|1745840206014.000000|t|t
+1800|nintendo switch assassins creed the ezio|1745840151801.000000|t|t
+1799|nintendo switch astral chain|1745840098590.000000|t|t
+1798|nintendo switch banner saga trilogy|1745840044543.000000|t|t
+1797|nintendo switch ben 10|1745839976884.000000|t|t
+1796|nintendo switch ben 10 power trip|1745839922686.000000|t|t
+1795|nintendo switch binding of isaac-afterbirth|1745839860177.000000|t|t
+1794|nintendo switch child of light|1745839791466.000000|t|t
+1793|nintendo switch ctr|1745839726967.000000|t|t
+1792|nintendo switch dark souls remastered|1745839647663.000000|t|t
+1791|nintendo switch donkeykong country returns hd|1745839496553.000000|t|t
+1790|nintendo switch dragon ball fighterz|1745839433786.000000|t|t
+1789|nintendo switch dragon ball xenoverse 2|1745839364890.000000|t|t
+1788|lenovo ideapad 3 14 inch | i3 | 8GB 256GB|1745823404598.000000|t|t
+1787|lenovo thinkpad x1 gen 9 14 inch | i7 | 16GB 256GB|1745823308879.000000|t|t
+1786|lenovo thinkpad t490s 14 inch | i7 | 16GB 512GB|1745823197568.000000|t|t
+1785|lenovo thinkpad gen 5 x1 14 inch | i5 | 8GB 256GB|1745823020818.000000|t|t
+1784|nintendo switch dragons dawn of new riders|1745693787091.000000|t|t
+1783|nintendo switch farm expert|1745693718992.000000|t|t
+1782|nintendo switch farming simulator 23|1745693654364.000000|t|t
+1781|nintendo switch fast and furious spy racers|1745693583465.000000|t|t
+1780|nintendo switch fc25|1745693485913.000000|t|t
+1779|nintendo switch fc24|1745693413221.000000|t|t
+1778|nintendo switch fire emblem engage|1745692780427.000000|t|t
+1777|nintendo switch fire emblem three house|1745692714086.000000|t|t
+1776|nintendo switch gta trilogy|1745692594493.000000|t|t
+1775|nintendo switch gunvolt striker pack|1745692505423.000000|t|t
+1774|nintendo switch hasbro game night|1745692437187.000000|t|t
+1773|nintendo switch hat in time|1745692335226.000000|t|t
+1772|nintendo switch hotel transylvania|1745692259762.000000|t|t
+1771|nintendo switch joe & mac caveman ninja|1745692143559.000000|t|t
+1770|nintendo switch just dance 2020|1745692087397.000000|t|t
+1769|nintendo switch just dance 2021|1745692028122.000000|t|t
+1768|nintendo switch just dance 2022|1745691899122.000000|t|t
+1767|nintendo switch just dance 2023|1745691837635.000000|t|t
+1766|nintendo switch l a noire|1745691772192.000000|t|t
+1765|nintendo switch l.o.l surprise movie night|1745691712747.000000|t|t
+1764|nintendo switch laytons mystery journey|1745691622954.000000|t|t
+1763|nintendo switch legend of kay|1745691562521.000000|t|t
+1762|nintendo switch legendary fishing|1745691499120.000000|t|t
+1761|nintendo switch lego city undercover|1745691443537.000000|t|t
+1760|nintendo switch lego dc villian|1745691380628.000000|t|t
+1759|nintendo switch lego marvel superheroes 2|1745691317523.000000|t|t
+1758|nintendo switch lego movie|1745691232579.000000|t|t
+1757|nintendo switch lego ninja go|1745691121677.000000|t|t
+1756|nintendo switch lego world|1745691056799.000000|t|t
+1755|nintendo switch little nightmares|1745690992057.000000|t|t
+1754|nintendo switch little nightmares 2|1745690918709.000000|t|t
+1753|nintendo switch luigi mansion 3|1745690849947.000000|t|t
+1752|nintendo switch luigi mansion 2 hd|1745690780018.000000|t|t
+1751|nintendo switch mario vs donkey kong|1745690581403.000000|t|t
+1750|nintendo switch mario & sonic olympic|1745690518428.000000|t|t
+1749|nintendo switch mario kart|1745690453580.000000|t|t
+1748|nintendo switch mario party superstar|1745690384726.000000|t|t
+1747|nintendo switch mario rabids|1745690325683.000000|t|t
+1746|nintendo switch mario tennis|1745690256123.000000|t|t
+1745|nintendo switch metroid|1745690186124.000000|t|t
+1744|nintendo switch minecraft|1745690114804.000000|t|t
+1743|nintendo switch minecraft dungeons|1745690039022.000000|t|t
+1742|nintendo switch mk 11|1745689965684.000000|t|t
+1741|nintendo switch mk 11 aftermath|1745689898666.000000|t|t
+1740|nintendo switch mk 11 ultimate|1745689791635.000000|t|t
+1739|nintendo switch monopoly|1745689660943.000000|t|t
+1738|nintendo switch mortal kombat 1|1745689589772.000000|t|t
+1737|nintendo switch mud runner|1745689520035.000000|t|t
+1736|nintendo switch namco museum - arcade pac|1745689457044.000000|t|t
+1735|nintendo switch namco museum(old)|1745689333269.000000|t|t
+1734|nintendo switch naruto buruto connections|1745689275909.000000|t|t
+1733|nintendo switch naruto road to buruto|1745689213669.000000|t|t
+1732|nintendo switch nba 24|1745689085090.000000|t|t
+1731|nintendo switch nba 25|1745689023890.000000|t|t
+1730|nintendo switch new super mario bros u deluxe|1745688961128.000000|t|t
+1729|nintendo switch nickelodeon kart racer|1745688892446.000000|t|t
+1728|nintendo switch nickelodeon kart racer 2|1745688793690.000000|t|t
+1727|nintendo switch north guard|1745688735365.000000|t|t
+1726|nintendo switch octopath traveler|1745688681330.000000|t|t
+1725|nintendo switch octopath traveler 2|1745688564729.000000|t|t
+1724|nintendo switch one piece pirate warriors|1745688490822.000000|t|t
+1723|nintendo switch oninaki|1745688419637.000000|t|t
+1722|nintendo switch overwatch|1745688357881.000000|t|t
+1721|nintendo switch paw patrol|1745688280261.000000|t|t
+1720|nintendo switch peach ball|1745688203410.000000|t|t
+1719|nintendo switch pokemon - violet|1745688134701.000000|t|t
+1718|nintendo switch pokemon - scarlet|1745688049258.000000|t|t
+1717|nintendo switch pokemon brilliant diamond|1745687895785.000000|t|t
+1716|nintendo switch pokemon legend arceus|1745687834807.000000|t|t
+1715|nintendo switch pokemon shield|1745687781337.000000|t|t
+1714|nintendo switch pokemon shining pearl|1745687726451.000000|t|t
+1713|nintendo switch pokemon sword|1745687665612.000000|t|t
+1712|nintendo switch rayman legend|1745687607997.000000|t|t
+1711|nintendo switch red dead redemption|1745687550678.000000|t|t
+1710|nintendo switch river city melee mach|1745687486140.000000|t|t
+1709|nintendo switch rocket league|1745687421160.000000|t|t
+1708|nintendo switch rogue legacy|1745687359746.000000|t|t
+1707|nintendo switch sifu|1745687301038.000000|t|t
+1706|nintendo switch snipperclips plus|1745687224185.000000|t|t
+1705|nintendo switch sonic frontier|1745687167907.000000|t|t
+1704|nintendo switch sonic force|1745687086137.000000|t|t
+1703|nintendo switch sonic racing|1745687020109.000000|t|t
+1702|nintendo switch south park|1745686927348.000000|t|t
+1701|nintendo switch sports|1745686779382.000000|t|t
+1700|nintendo switch sports party|1745686684310.000000|t|t
+1699|nintendo switch star link battle for atlas|1745686620562.000000|t|t
+1698|nintendo switch street fighter 2 ultra|1745686559584.000000|t|t
+1697|nintendo switch street fighter 30th anniversary|1745686381456.000000|t|t
+1696|nintendo switch super dragon ball heroes|1745686247022.000000|t|t
+1695|nintendo switch super mario bros wonder|1745686189167.000000|t|t
+1694|nintendo switch super mario maker 2|1745686134116.000000|t|t
+1693|nintendo switch super mario odyssey|1745686002196.000000|t|t
+1692|nintendo switch super mario party|1745685941217.000000|t|t
+1691|nintendo switch super monkey ball|1745685869167.000000|t|t
+1690|nintendo switch super smash bros ultimate|1745685816435.000000|t|t
+1689|nintendo switch super street racer|1745685758234.000000|t|t
+1688|nintendo switch tennis world tour|1745685697405.000000|t|t
+1687|nintendo switch tiny barbarian|1745685623107.000000|t|t
+1686|nintendo switch trials rising|1745685563178.000000|t|t
+1685|nintendo switch unibox newbie's adventure|1745685504763.000000|t|t
+1684|nintendo switch wild guns reloaded|1745685405499.000000|t|t
+1683|nintendo switch witcher 3|1745685346930.000000|t|t
+1682|nintendo switch wonder boy|1745685270132.000000|t|t
+1681|nintendo switch wrc generation|1745685198433.000000|t|t
+1680|nintendo switch zelda breath of the wild|1745685127313.000000|t|t
+1679|nintendo switch the legend of zelda: link's awaken|1745685029568.000000|t|t
+1678|nintendo switch zelda tears of the kingdom|1745684945793.000000|t|t
+1677|nintendo e shop 12 month card|1745684859468.000000|t|t
+1676|nintendo e shop 3 month card|1745684823426.000000|t|t
+1675|nintendo e shop $10 card|1745684787080.000000|t|t
+1674|nintendo e shop $20 card|1745684746676.000000|t|t
+1673|nintendo e shop $35 card|1745684709451.000000|t|t
+1672|nintendo e shop $50 card|1745684668689.000000|t|t
+1671|nintendo switch ac adapter|1745684543699.000000|t|t
+1670|nintendo switch console extended|1745684500629.000000|t|t
+1669|nintendo switch console lite|1745684356052.000000|t|t
+1668|nintendo switch joy con|1745683489026.000000|t|t
+1667|nintendo switch oled console|1745683416675.000000|t|t
+1666|nintendo switch pro controller|1745683319200.000000|t|t
+1665|nintendo switch super kit|1745683068025.000000|t|t
+1664|oculus meta quest  3s - 128GB|1745085245865.000000|t|t
+1663|oculus meta quest 3 - 512GB|1745084854002.000000|t|t
+1662|oculus quest 3 - 128GB|1745084674987.000000|t|t
+1661|oculus quest 256GB|1745084480628.000000|t|t
+1660|oculus quest 128GB|1745084340729.000000|t|t
+1659|oculus quest 64GB|1745084236834.000000|t|t
+1658|playseat - gaming seat|1745083739262.000000|t|t
+1657|playseat with wheel holder|1745083660428.000000|t|t
+1656|playstation link- usb adapter|1745083573165.000000|t|t
+1655|playstation vr 2|1745083433695.000000|t|t
+1654|playstation vr 2 sense charger|1745083348354.000000|t|t
+1653|power cable|1745083206844.000000|t|t
+1652|ps4 ace combat 7|1745083154053.000000|t|t
+1651|ps4 aim controller|1745083092384.000000|t|t
+1650|ps4 aladdin and the lion king|1745082997832.000000|t|t
+1649|ps4 american dream|1745082783911.000000|t|t
+1648|ps4 angry birds star wars|1745082576584.000000|t|t
+1647|ps4 anthem|1745082447529.000000|t|t
+1646|ps4 ao tennis|1745082392503.000000|t|t
+1645|ps4 assassin's creed odyssey|1745082328330.000000|t|t
+1644|ps4 assassins creed mirage|1745082257541.000000|t|t
+1643|ps4 assassins creed valhalla|1745082180076.000000|t|t
+1642|ps4 ac origin|1745082118558.000000|t|t
+1641|ps4 assassins creed syndicate|1745081869112.000000|t|t
+1640|ps4 astro bot rescue mission|1745081667562.000000|t|t
+1639|ps4 avengers|1745081550728.000000|t|t
+1638|ps4 babylon's fall|1745081464388.000000|t|t
+1637|ps4 back for blood|1745081336275.000000|t|t
+1636|ps4 batman arkham knight|1745081174928.000000|t|t
+1635|ps4 batman- the enemy within|1745081082868.000000|t|t
+1634|ps4 battle chasers:nightwar|1745081005103.000000|t|t
+1633|ps4 battlefield  2042|1745080929692.000000|t|t
+1632|ps4 battlefield 1|1745080863400.000000|t|t
+1631|ps4 battlefield 5|1745080799516.000000|t|t
+1630|ps4 ben 10|1745080705801.000000|t|t
+1629|ps4 bladestorm nightmare|1745080630690.000000|t|t
+1628|ps4 blood and truth|1745080574611.000000|t|t
+1627|ps4 borderland 3|1745080522860.000000|t|t
+1626|ps4 bound by flame|1745080455483.000000|t|t
+1625|ps4 bravo team|1745080395805.000000|t|t
+1624|ps4 burnout paradise|1745080335502.000000|t|t
+1623|ps4 call of duty cold war|1745080272000.000000|t|t
+1622|ps4 call of duty infinity warfare|1745080200374.000000|t|t
+1621|ps4 call of duty modern warfare|1745080129590.000000|t|t
+1620|ps4 call of duty modern warfare- remastered|1745080063688.000000|t|t
+1619|ps4 call of duty modern warfare 2|1745079999788.000000|t|t
+1618|ps4 call of duty modern warfare 3|1745079942627.000000|t|t
+1617|ps4 call of duty vanguard|1745079874108.000000|t|t
+1616|ps4 call of duty-advance warfare|1745079810426.000000|t|t
+1615|ps4 call of duty-black ops3|1745079741713.000000|t|t
+1614|ps4 call of duty-black ops4|1745079647038.000000|t|t
+1613|ps4 call od duty black ops 6|1745079584105.000000|t|t
+1612|ps4 camera|1745079522749.000000|t|t
+1611|ps4 captain tsubasa|1745079456002.000000|t|t
+1610|ps4 car mechanic simulator|1745079399077.000000|t|t
+1609|ps4 cars 3|1745079330698.000000|t|t
+1608|ps4 charging cable|1745079265104.000000|t|t
+1607|ps4 chivalry|1745079217705.000000|t|t
+1606|ps4 cod ww2|1745079113177.000000|t|t
+1605|ps4 contra rogue corps|1745079034747.000000|t|t
+1604|ps4 control|1745078976546.000000|t|t
+1603|ps4 controller charging station|1745078894052.000000|t|t
+1602|ps4 controller silicon cover|1745078824077.000000|t|t
+1601|ps4 crash 4 its about time|1745078725650.000000|t|t
+1600|ps4 crash team racing|1745078659473.000000|t|t
+1599|ps4 crash trilogy|1745078602357.000000|t|t
+1598|ps4 cyberpunk|1745078546412.000000|t|t
+1597|ps4 dark soul 3|1745078483219.000000|t|t
+1596|ps4 dark souls remastered|1745078426848.000000|t|t
+1595|ps4 dark souls trilogy|1745078357997.000000|t|t
+1594|ps4 darksider 3|1745078294066.000000|t|t
+1593|ps4 days gone|1745078231435.000000|t|t
+1592|ps4 death stranding|1745078173358.000000|t|t
+1591|ps4 destiny 2|1745078107515.000000|t|t
+1590|ps4 detroit become human|1745077937657.000000|t|t
+1589|ps4 devil may cry-definitive edition|1744906905514.000000|t|t
+1588|ps4 dirt 5|1744906836556.000000|t|t
+1587|ps4 doom eternal|1744906771175.000000|t|t
+1586|ps4 dragon ball kakarot|1744906707621.000000|t|t
+1585|ps4 dragon ball xenoverse|1744906630588.000000|t|t
+1584|ps4 dragon ball xenoverse2|1744906167662.000000|t|t
+1583|ps4 dragonball fighter z|1744906052493.000000|t|t
+1582|ps4 dualshock controller|1744905784309.000000|t|t
+1581|ps4 dying light 2|1744905562173.000000|t|t
+1580|ps4 elden ring|1744905486734.000000|t|t
+1579|ps4 elder scrolls-skyrim|1744905421245.000000|t|t
+1578|ps4 f1 2018|1744905321876.000000|t|t
+1577|ps4 f1 2019|1744905241488.000000|t|t
+1576|ps4 f1 2020|1744905175737.000000|t|t
+1575|ps4 f1 2021|1744905114509.000000|t|t
+1574|ps4 f1 2022|1744905000571.000000|t|t
+1573|ps4 f1 2023|1744904928717.000000|t|t
+1572|ps4 f1 2024|1744904857935.000000|t|t
+1571|ps4 far cry 4|1744904780686.000000|t|t
+1570|ps4 far cry 5|1744831111991.000000|t|t
+1569|ps4 farcry 6|1744831044786.000000|t|t
+1568|ps4 farcry new dawn|1744830963225.000000|t|t
+1567|ps4 farcry primal|1744830862888.000000|t|t
+1566|ps4 farpoint|1744830770563.000000|t|t
+1565|ps4 fast and furious|1744554358675.000000|t|t
+1564|ps4 fast and furious spy racers|1744554253085.000000|t|t
+1563|ps4 fc25|1744554069766.000000|t|t
+1562|ps4 fc24|1744553973832.000000|t|t
+1561|ps4 fifa 23|1744553476841.000000|t|t
+1560|ps4 final fantasy vii remake|1744553410695.000000|t|t
+1559|ps4 final fantasy- dissidia nt|1744553342467.000000|t|t
+1558|ps4 final fantasy- zodiac age|1744553272475.000000|t|t
+1557|ps4 fortnite|1744553206564.000000|t|t
+1556|ps4 ghost of tsushima|1744553145616.000000|t|t
+1555|ps4 ghost of tsushima directors cut|1744553076303.000000|t|t
+1554|ps4 ghost recon breakpoint|1744552994815.000000|t|t
+1553|ps4 ghost recon wildland|1744552907000.000000|t|t
+1552|ps4 god of war iii|1744552839001.000000|t|t
+1551|ps4 god of war ragnarok|1744552659927.000000|t|t
+1550|ps4 gran turismo sport|1744552591796.000000|t|t
+1549|ps4 gran turismo sport 7|1744552459103.000000|t|t
+1548|ps4 grid legend|1744552203195.000000|t|t
+1547|ps4 gta trilogy|1744552029899.000000|t|t
+1546|ps4 gta v|1744551922418.000000|t|t
+1545|ps4 guardian of galaxy|1744551795938.000000|t|t
+1544|ps5 hard drive 5tb |1744551571614.000000|t|t
+1543|ps4 heavensward final fantasy xiv|1744551027705.000000|t|t
+1542|ps4 hello neighbour|1744550959600.000000|t|t
+1541|ps4 hired gun|1744550866732.000000|t|t
+1540|ps4 hitman|1744550796643.000000|t|t
+1539|ps4 hitman 2|1744550710461.000000|t|t
+1538|ps4 hitman 3|1744550627584.000000|t|t
+1537|ps4 horizon forbidden west|1744550515861.000000|t|t
+1536|ps4 horizon zero dawn|1744550446561.000000|t|t
+1535|ps4 infamous second son|1744550378967.000000|t|t
+1534|ps4 injustice 2|1744550305029.000000|t|t
+1533|ps4 injustice 2 legendary edition|1744550239191.000000|t|t
+1532|ps4 it takes two|1744550147413.000000|t|t
+1531|ps4 judgement|1744549367481.000000|t|t
+1530|ps4 jumanji|1744549216631.000000|t|t
+1529|ps4 jump force|1744549149982.000000|t|t
+1528|ps4 just cause 3|1744549082691.000000|t|t
+1527|ps4 just cause 4|1744548935168.000000|t|t
+1526|ps4 just dance 2019|1744548803659.000000|t|t
+1525|ps4 just dance 2021|1744548723925.000000|t|t
+1524|ps4 just dance 2022|1744548653148.000000|t|t
+1523|ps4 kingdom hearts 3|1744547792375.000000|t|t
+1522|ps4 knack 1|1744547718678.000000|t|t
+1521|ps4 knack 2|1744547657697.000000|t|t
+1520|ps4 kung fu panda: showdown of legendary legends|1744547573317.000000|t|t
+1519|ps4 la noire|1744547449707.000000|t|t
+1518|ps4 last of us 2|1744547380170.000000|t|t
+1517|ps4 last of us remastered|1744547225511.000000|t|t
+1516|ps4 left alive|1744547143850.000000|t|t
+1515|ps4 lego batman 3|1744547075077.000000|t|t
+1514|ps4 lego city undercover|1744546909745.000000|t|t
+1513|ps4 lego dc super villians|1744546361312.000000|t|t
+1512|ps4 lego harry potter collection|1744546164937.000000|t|t
+1511|ps4 lego hobbits|1744546076217.000000|t|t
+1510|ps4 lego jurassic world|1744545980573.000000|t|t
+1509|ps4 lego marvel's avengers|1744545912882.000000|t|t
+1508|ps4 lego marvel super heroes|1744545701026.000000|t|t
+1507|ps4 lego marvel super heroes 2|1744545520740.000000|t|t
+1506|ps4 lego movie|1744545206944.000000|t|t
+1505|ps4 lego ninjago|1744536732285.000000|t|t
+1504|ps4 lego starwars force awaken|1744536671121.000000|t|t
+1503|ps4 lego the incredibles|1744536603034.000000|t|t
+1502|ps4 lego world|1744535975960.000000|t|t
+1501|ps4 leynos assault suit|1744535913005.000000|t|t
+1500|ps4 /ps5 logitech g29 + astro 10 headset driving w|1744535793730.000000|t|t
+1499|ps4/ps5 logitech g29 driving wheel|1744535517136.000000|t|t
+1498|ps4/ps5 logitech g29 driving wheel gear shifter|1744535437710.000000|t|t
+1497|ps4 lost sphear|1744483069175.000000|t|t
+1496|ps4 mad max|1744483005714.000000|t|t
+1495|ps4 mafia 3|1744482931223.000000|t|t
+1494|ps4 mafia detinitve edition|1744482862393.000000|t|t
+1493|ps4 man of medan|1744482771240.000000|t|t
+1492|ps4 marvel vs capcom|1744482704291.000000|t|t
+1491|ps4 metal gear sold v:phantom pain definitive edit|1744482632283.000000|t|t
+1490|ps4 metro exodus|1744482492817.000000|t|t
+1489|ps4 metro redux|1744482424528.000000|t|t
+1488|ps4 mine craft|1744482352189.000000|t|t
+1487|ps4 mine craft dungeon|1744482273612.000000|t|t
+1486|ps4 mine craft- legend|1744482138088.000000|t|t
+1485|ps4 mortal kombat 11|1744482067818.000000|t|t
+1484|ps4 mortal kombat 11 ultimate|1744481992554.000000|t|t
+1483|ps4 mortal kombat xl|1744481926180.000000|t|t
+1482|ps4 moto gp 21|1744481833349.000000|t|t
+1481|ps4 moto gp 23|1744481753465.000000|t|t
+1480|ps4 motor racer 4|1744481626750.000000|t|t
+1479|ps4 narcos|1744481563613.000000|t|t
+1478|ps4 naruto:shinobi strike|1744481466676.000000|t|t
+1477|ps4 naruto buruto connections|1744481332824.000000|t|t
+1476|ps4 naruto shippuden: ultimate ninja storm 4|1744481141731.000000|t|t
+1475|ps4 nba 23|1744480731689.000000|t|t
+1474|ps4 nba 24|1744480649889.000000|t|t
+1473|ps4 nba 25|1744480581537.000000|t|t
+1472|ps4 need for speed heat|1744480507617.000000|t|t
+1471|ps4 need for speed payback|1744480424696.000000|t|t
+1470|ps4 need for speed rivals|1744480344194.000000|t|t
+1469|ps4 ni no kuni 2 revenant kingdom|1744480245213.000000|t|t
+1468|ps4 nickelodeon  kart racer|1744480178821.000000|t|t
+1467|ps4 nier automata|1744480108893.000000|t|t
+1466|ps4 nioh|1744480021989.000000|t|t
+1465|ps4 nioh 2|1744479947249.000000|t|t
+1464|ps4 one piece odyssey|1744479869752.000000|t|t
+1463|ps4 outer worlds|1744479805054.000000|t|t
+1462|ps4 outriders|1744479730507.000000|t|t
+1461|ps4 outriders worldslayer|1744479667000.000000|t|t
+1460|ps4 overwatch|1744479605273.000000|t|t
+1459|ps4 persona 5 striker|1744479532254.000000|t|t
+1458|ps4 personal 5|1744479438943.000000|t|t
+1457|ps4 pes 21|1744479374489.000000|t|t
+1456|ps4 playerunknown battle ground|1744479307354.000000|t|t
+1455|ps4 prey|1744479235938.000000|t|t
+1454|ps4 prince of persia- the lost crown|1744479167880.000000|t|t
+1453|ps4 project cars 2|1744479100385.000000|t|t
+1452|ps4 project cars 3|1744479039108.000000|t|t
+1451|ps4 putty squad|1744478965236.000000|t|t
+1450|ps4 ratchet and clank|1744478889560.000000|t|t
+1449|ps4 red dead redemption 2|1744478821714.000000|t|t
+1448|ps4 resident evil 2 remake|1744478728369.000000|t|t
+1447|ps4 resident evil 3|1744478653763.000000|t|t
+1446|ps4 resident evil 4|1744478543425.000000|t|t
+1445|ps4 resident evil 4 remake|1744478473994.000000|t|t
+1444|ps4 resident evil 7 biohazard|1744478413125.000000|t|t
+1443|ps4 resident evil village|1744478326500.000000|t|t
+1442|ps4 riders republic|1744478186227.000000|t|t
+1441|ps4 rigs mechanized combat league|1744478115749.000000|t|t
+1440|ps4 road redemption|1744478053490.000000|t|t
+1439|ps4 rocket league|1744477980938.000000|t|t
+1438|ps4 sack boy|1744477909388.000000|t|t
+1437|ps4 saint row|1744477824661.000000|t|t
+1436|ps4 saint row first edition|1744477748813.000000|t|t
+1435|ps4 samurai showdown|1744477679176.000000|t|t
+1434|ps4 scarlet nexus|1744477609781.000000|t|t
+1433|ps4 sekiro|1744477436321.000000|t|t
+1432|ps4 shadow of colossus|1744477365556.000000|t|t
+1431|ps4 shadow of mordor|1744477297329.000000|t|t
+1430|ps4 shadow of war|1744477231847.000000|t|t
+1429|ps4 sherluck holmes-crimes and punishments|1744477161552.000000|t|t
+1428|ps4 shadow of war|1744477086702.000000|t|t
+1427|ps4 sherluck holmes-crimes and punishments|1744477011303.000000|t|t
+1426|ps4 sifu|1744476898024.000000|t|t
+1425|ps4 sleeping dogs|1744476834079.000000|t|t
+1424|ps4 sniper contract|1744476767034.000000|t|t
+1423|ps4 sniper contract 2|1744476672181.000000|t|t
+1422|ps4 sniper elite 5|1744476605628.000000|t|t
+1421|ps4 sniper elite4|1744476533934.000000|t|t
+1420|ps4 sonic force|1744476434397.000000|t|t
+1419|ps4 sonic frontiers|1744476319045.000000|t|t
+1418|ps4 sonic team racing|1744476210986.000000|t|t
+1417|ps4 soul calibor 6|1744476145908.000000|t|t
+1416|ps4 spiderman miles morales|1744476039736.000000|t|t
+1415|ps4 spyro|1744475967102.000000|t|t
+1414|ps4 star wars jedi fallen orders|1744475898119.000000|t|t
+1413|ps4 star wars jedi knight collection|1744475817980.000000|t|t
+1412|ps4 starwars battlefront 2|1744475756806.000000|t|t
+1411|ps4 starwars squadrons|1744475686492.000000|t|t
+1410|ps4 street fighter 6|1744475619695.000000|t|t
+1409|ps4 street fighter anniversary edition|1744475554692.000000|t|t
+1408|ps4 street fighter arcade edition|1744475486202.000000|t|t
+1407|ps4 street fighter champion edition|1744474798587.000000|t|t
+1406|ps4 street fighter v|1744474723109.000000|t|t
+1405|ps4 surge 2|1744474636800.000000|t|t
+1404|ps4 tekken 7|1744474575757.000000|t|t
+1403|ps4 tennis world tour|1744474503007.000000|t|t
+1402|ps4 terminator|1744474447801.000000|t|t
+1401|ps4 the crew|1744474313051.000000|t|t
+1400|ps4 the order 1886|1744474221790.000000|t|t
+1399|ps4 tom clancy siege|1744474134782.000000|t|t
+1398|ps4 tom clancy the division|1744473999743.000000|t|t
+1397|ps4 tom clancy's the division 2|1744473922953.000000|t|t
+1396|ps4 tom clancy-rainbow sixextraction|1744473856537.000000|t|t
+1395|ps4 tomb raider-- shadow of tomb raider|1744473787832.000000|t|t
+1394|ps4 tomb raider--rise of tomb raider|1744473727407.000000|t|t
+1393|ps4 ufc3|1744473636562.000000|t|t
+1392|ps4 ufc4|1744473574175.000000|t|t
+1391|ps4 uncharted 4- a thief end|1744473521558.000000|t|t
+1390|ps4 uncharted collection|1744473456743.000000|t|t
+1389|ps4 uncharted lost legacy|1744473387445.000000|t|t
+1388|ps4 valhalla  hills|1744473322961.000000|t|t
+1387|ps4 watch dogs 2|1744473267563.000000|t|t
+1386|ps4 witcher 3 complete edition|1744473194950.000000|t|t
+1385|ps4 wolfenstein 2|1744473122011.000000|t|t
+1384|ps4 wolfenstein collection|1744473046019.000000|t|t
+1383|ps4 wolfenstein cyberpilot vr|1744472730547.000000|t|t
+1382|ps4 wolfenstein youngblood|1744472608444.000000|t|t
+1381|ps4 world war z|1744472533962.000000|t|t
+1380|ps4 wwe 24|1744472421080.000000|t|t
+1379|ps4 wwe 23|1744472341572.000000|t|t
+1378|ps4 wwe 2k battlegrounds|1744472247350.000000|t|t
+1377|ps4 yakuza 6|1744471747611.000000|t|t
+1376|ps4 yakuza kiwami|1744471255453.000000|t|t
+1375|ps5 alan wake 2|1744471060127.000000|t|t
+1374|ps5 astro bot|1744470879242.000000|t|t
+1373|ps5 assassins creed mirage|1744470664736.000000|t|t
+1372|ps5 assassins creed valhalla|1744470506187.000000|t|t
+1371|ps5 assassins creed valhalla-ragnarok edition|1744470267293.000000|t|t
+1370|ps5 avatar frontiers pandora|1744470051139.000000|t|t
+1369|ps5 assassins creed valhalla-ragnarok edition|1744469873832.000000|t|t
+1368|ps5 avatar frontiers pandora|1744469634337.000000|t|t
+1367|ps5 avengers|1744468954316.000000|t|t
+1366|ps5 babylon's fall|1744468778724.000000|t|t
+1365|ps5 back 4 blood|1744468638145.000000|t|t
+1364|ps5 bag |1744468501597.000000|t|t
+1363|ps5 bag-camo purple|1744468277704.000000|t|t
+1362|ps5 bag slim|1744468149222.000000|t|t
+1361|ps5 bag slim|1744468109095.000000|t|t
+1360|ps5 bag slim|1744467916169.000000|t|t
+1359|ps5 balan wonderwolrd|1744467572720.000000|t|t
+1358|ps5 battlefield  2042|1744467308304.000000|t|t
+1357|ps5 black myth wukong|1744467168673.000000|t|t
+1356|ps5 call of duty black ops 6|1744466952512.000000|t|t
+1355|ps5 call of duty cold war|1744466692782.000000|t|t
+1354|ps5 call of duty modern warfare 2|1744466583764.000000|t|t
+1353|ps5 call of duty modern warfare 3|1744466459198.000000|t|t
+1352|ps5 call of duty vanguard|1744466345236.000000|t|t
+1351|ps5 callisto protocol|1744466202270.000000|t|t
+1350|ps5 camera|1744466069619.000000|t|t
+1349|ps5 chivalry|1744465932990.000000|t|t
+1348|ps5 controller charging station big|1744465789345.000000|t|t
+1347|ps5 cover plate|1744455181887.000000|t|t
+1346|ps5 crash team rumble|1744387333864.000000|t|t
+1345|ps5 cyberpunk|1744387182991.000000|t|t
+1344|ps5 dead space|1744386934178.000000|t|t
+1343|ps5 death stranding directors cut|1744386647123.000000|t|t
+1342|ps5 deathloop|1744386477974.000000|t|t
+1341|ps5 demons souls|1744385729906.000000|t|t
+1340|ps5 devil may cry|1744385415263.000000|t|t
+1339|ps5 diablo 4|1744385255146.000000|t|t
+1338|ps5 dirt 5|1744385150671.000000|t|t
+1337|ps5 dragon ball kakarot|1744385022882.000000|t|t
+1336|ps5 dragon ball sparking zero|1744384941106.000000|t|t
+1335|ps5 dragon age the veilguard|1744384698265.000000|t|t
+1334|ps5 dragon dogma 2|1744384282135.000000|t|t
+1333|ps5 dualsense controller|1744384186440.000000|t|t
+1332|ps5 dualsense edge|1744383869450.000000|t|t
+1331|ps5 dying light 2|1744129133556.000000|t|t
+1330|ps5 earbuds|1744129032578.000000|t|t
+1329|ps5 elden ring-shadow of the erdtree edition|1744128968008.000000|t|t
+1328|ps5 elden ring|1744128505252.000000|t|t
+1327|ps5 evil dead the game|1744128363641.000000|t|t
+1326|ps5 evil inside|1744128117988.000000|t|t
+1325|ps5 evil west|1744127824495.000000|t|t
+1324|ps5 f1 2021|1744127456727.000000|t|t
+1323|ps5 f1 2022|1744126973247.000000|t|t
+1322|ps5 f1 2023|1744126301207.000000|t|t
+1321|ps5 f1 2024|1744126065311.000000|t|t
+1320|ps5 farcry 6|1744123503389.000000|t|t
+1319|ps5 fast and furious spy racers|1744122889940.000000|t|t
+1318|ps5 fat cover plate|1744122744210.000000|t|t
+1317|ps5 fc25|1744122557472.000000|t|t
+1316|ps5 fc24|1744121477399.000000|t|t
+1315|ps5 fifa 23|1744121367129.000000|t|t
+1314|ps5 final fantasy rebirth|1744121151865.000000|t|t
+1313|ps5 final fantasy xvi|1744120999739.000000|t|t
+1312|ps5 forspoken|1744120810929.000000|t|t
+1311|ps5 fortnite|1744120496808.000000|t|t
+1310|ps5 fortnite anime legends|1744120363698.000000|t|t
+1309|ps5 ghost of tsushima directors cut|1744120304324.000000|t|t
+1308|ps5 ghostwire tokyo|1744120185796.000000|t|t
+1307|ps5 god of war ragnarok|1744120097036.000000|t|t
+1306|ps5 godfall|1744119996402.000000|t|t
+1305|ps5 gollium|1744119756458.000000|t|t
+1304|ps5 gotham knights|1744119629667.000000|t|t
+1303|ps5 gran turismo sport 7|1744119541179.000000|t|t
+1302|ps5 greedfall|1744118149162.000000|t|t
+1301|ps5 grid legend|1744102578950.000000|t|t
+1300|play station 5 gta v|1744102349768.000000|t|t
+1299|lenovo- thinkplus smart eyewear mg10|1744044314944.000000|t|t
+1298|lenovo go  512GB|1744044114839.000000|t|t
+1297|headset jbl quantum 200|1744043829830.000000|t|t
+1296|headset jbl quantum 100|1744043759421.000000|t|t
+1295|hdmi cable|1744043572924.000000|t|t
+1294|google stadia controller|1744043452489.000000|t|t
+1293|atari flashback classics vol. 1|1744043316919.000000|t|t
+1292|hp probook 440 g5 14 inch i5 8GB 256GB|1742367029660.000000|t|t
+1291|hp envy m7 17 inch i7 16GB 1tb|1742366939713.000000|t|t
+1290|hp zbook 15u g5 15 inch i7 8GB 256GB|1742366854281.000000|t|t
+1289|hp elitebook 850 g6 15 inch i7 8GB 512GB|1742366729832.000000|t|t
+1288|hp 15-dyoxxx 15 inch i5 4GB 512GB|1742366445348.000000|t|t
+1287|hp 15 15 inch i5 8GB 512GB|1742366367532.000000|t|t
+1286|hp probook 450 g6 15 inch i7 8GB 512GB|1742366291439.000000|t|t
+1285|Hp Probook 450 G5 15 Inch I7 16GB 512GB|1742366209035.000000|t|t
+1284|hp probook 450 g4 15 inch i3 8GB 256GB|1742366135332.000000|t|t
+1283|hp elitebook 830 g8 13.3 inch i7 8GB 256GB|1742366039766.000000|t|t
+1282|hp zbook studio g5 15.6 inch i7 8GB 256GB|1742365933458.000000|t|t
+1281|hp zbook firefly 14 g8 14 inch i5 16GB 1tb|1742280305632.000000|t|t
+1280|hp zbook firefly 14 g8 14 inch i5 16GB 256GB|1742280244527.000000|t|t
+1279|hp probook 450 g7 15.6 inch i7 12GB 512GB|1742280133566.000000|t|t
+1278|hp elitebook 830 g7 13 inch 15-10310u 8GB 512GB|1742280040786.000000|t|t
+1277|hp elitebook 1040 g5 14 inch i5-8250u 16GB 512GB|1742279950220.000000|t|t
+1276|hp elitebook 1040 g6 14 inch i5-8250u 16GB 512GB|1742279840957.000000|t|t
+1275|hp elitebook 1040 g6 14 inch i7-8250u 16GB 512GB|1742279747415.000000|t|t
+1274|hp elitebook 1040 g7 gem cut 14 inch i5 16GB 512GB|1742279626426.000000|t|t
+1273|hp elitebook 1040 g8 gem cut 14 inch i5 16GB 512GB|1742279522281.000000|t|t
+1272|hp elitebook dragonfly x360 13 inch i5 16GB 256GB|1742279399756.000000|t|t
+1271|hp elitebook dragonfly x360 13 inch i5 16GB 512GB|1742279315808.000000|t|t
+1270|hp specter 13-ae0xx 13.3 inch i7 16GB 512GB|1742279243990.000000|t|t
+1269|dell xps 13 9350 13 inch | i5 | 8GB 512GB|1742269097323.000000|t|t
+1268|dell xps 13 9350 13 inch | i7 | 16GB 512GB|1742269020444.000000|t|t
+1267|dell latitude 7280 12.5 inch | i5 | 8GB 256GB|1742268929920.000000|t|t
+1266|dell latitude 7290 12.5 inch | i7 | 8GB 512GB|1742268864597.000000|t|t
+1265|dell latitude 7400 14 inch | i5 | 8GB 512GB|1742268780911.000000|t|t
+1264|dell latitude 7400 14 inch | i7 | 8GB 512GB|1742268717412.000000|t|t
+1263|dell latitude 7400 14 inch | i7 | 16GB 256GB|1742268640789.000000|t|t
+1262|dell latitude 7420 14 inch i5-1145g7 16GB 256GB|1742268548043.000000|t|t
+1261|dell latitude 7420 14 inch | i7 | 16GB 512GB|1742268420036.000000|t|t
+1260|dell latitude 7490 14 inch | i5 | 16GB 512GB|1742268310449.000000|t|t
+1259|dell latitude 7490 14 inch | i5 | 16GB 256GB|1742268234434.000000|t|t
+1258|dell latitude 7490 14 inch | i7 | 8GB 256GB|1742268162400.000000|t|t
+1257|dell latitude 7490 14 inch | i5 | 8GB 256GB|1742268087610.000000|t|t
+1256|dell latitude 7390 13 inch | i5 | 8GB 256GB|1742267975655.000000|t|t
+1255|dell latitude 7370 13 inch | m7 | 8GB 512GB |1742267828108.000000|t|t
+1254|dell latitude 7310 x360 13 inch | i5 | 16GB 256GB|1742267677145.000000|t|t
+1253|dell latitude 7320 13 inch | i7 | 16GB 256GB|1742267566363.000000|t|t
+1252|dell latitude 7310 13 inch | 17 | 16GB 256GB|1742267450762.000000|t|t
+1251|play station 5 guardian of galaxy|1742010900211.000000|t|t
+1250|pulse elite wireless headset white|1742010681803.000000|t|t
+1249|play station 5 wireless headset|1742010445836.000000|t|t
+1248|play station 5 hired gun|1742010015179.000000|t|t
+1247|play station 5 hitman 3|1742009869174.000000|t|t
+1246|play station 5 hitman world of assassination|1742009739899.000000|t|t
+1245|play station 5 hogwarts legacy|1742009656632.000000|t|t
+1244|play station 5 horizon forbidden west|1742009536027.000000|t|t
+1243|play station 5 horizon zero dawn- remastered|1742009347562.000000|t|t
+1242|play station 5 immortals of aveum|1742009209399.000000|t|t
+1241|play station 5 judgment|1742001777392.000000|t|t
+1240|play station 5 just dance 2021|1742001579992.000000|t|t
+1239|play station 5 just dance 2022|1742001459184.000000|t|t
+1238|play station 5 just dance 2023|1742001291751.000000|t|t
+1237|play station 5 just dance 2024|1742001177317.000000|t|t
+1236|play station 5 the last of us 1 remastered|1741952959197.000000|t|t
+1235|play station 5 the last of us part ii remastered|1741952819708.000000|t|t
+1234|play station 5 lies of p|1741952668698.000000|t|t
+1233|play station 5 lost judgment|1741782771106.000000|t|t
+1232|play station 5 madden 23|1741782572877.000000|t|t
+1231|play station 5 madden 24|1741782388685.000000|t|t
+1230|play station 5 man eater|1741782260771.000000|t|t
+1229|play station 5 metro exodus complete edition|1741782082622.000000|t|t
+1228|play station 5 mortal kombat 1|1741781965172.000000|t|t
+1227|play station 5 mortal kombat ultimate|1741781889053.000000|t|t
+1226|play station 5 mortal shell|1741781728431.000000|t|t
+1225|play station 5 moto gp 21|1741781644211.000000|t|t
+1224|play station 5 moto gp 23|1741781517524.000000|t|t
+1223|play station 5 moto gp 24|1741781430752.000000|t|t
+1222|play station 5 mxgp 2020|1741781344375.000000|t|t
+1221|play station 5 naruto buruto connections|1741708222029.000000|t|t
+1220|play station 5 nba 2k23|1741707971471.000000|t|t
+1219|play station 5 nba 2k24|1741707710170.000000|t|t
+1218|play station 5 nba 2k25|1741707450006.000000|t|t
+1217|play station 5 need for speed unbound|1741706891508.000000|t|t
+1216|ps5 nickelodeon  all start brawl|1741706798040.000000|t|t
+1215|play station 5 nickelodeon kart racer|1741706558097.000000|t|t
+1214|play station 5 nioh collection|1741706327315.000000|t|t
+1213|play station 5 one piece odyssey|1741705615932.000000|t|t
+1212|play station 5 outriders|1741705320341.000000|t|t
+1211|play station 5 outriders worldslayer|1741705125826.000000|t|t
+1210|play station 5 overcooked! all you can eat|1741698476731.000000|t|t
+1209|play station 5 pad rubber case|1741697647882.000000|t|t
+1208|play station 5 planet coaster|1741697067111.000000|t|t
+1207|play station 5 portal|1741696903208.000000|t|t
+1206|play station 5 prince of persia- the lost crown|1741696679025.000000|t|t
+1205|play station 5 ratchet and clank rift apart|1741696504546.000000|t|t
+1204|play station 5 media remote|1741696381801.000000|t|t
+1203|ps5 resident evil 4 remake|1741696235831.000000|t|t
+1202|play station 5 resident evil village|1741696086507.000000|t|t
+1201|play station 5 returnal|1741695940447.000000|t|t
+1200|play station 5 ride 4|1741695854183.000000|t|t
+1199|play station 5 ride 5|1741695759758.000000|t|t
+1198|play station 5 riders republic|1741695450841.000000|t|t
+1197|play station 5 rise of ronin|1741695357652.000000|t|t
+1196|play station 5 sack boy|1741695268333.000000|t|t
+1195|play station 5 saint row|1741695159817.000000|t|t
+1194|play station 5 scarlet nexus|1741695046703.000000|t|t
+1193|play station sifu|1741694909814.000000|t|t
+1192|play station 5 silent hill|1741694769796.000000|t|t
+1191|play station 5 silicon cover|1741694555037.000000|t|t
+1190|play station 5 pro console 1tb-europe|1741674189572.000000|t|t
+1189|play station 5 fat console 1tb-europe|1741673385836.000000|t|t
+1188|play station 5 slim console 1tb-europe|1741672898709.000000|t|t
+1187|dell latitude 7300 i7 8GB 512GB 13 inch|1741575108743.000000|t|t
+1186|dell latitude 7460 i7 8GB 512GB 14 inch|1741574983478.000000|t|t
+1185|dell latitude e7270 i5 4GB 256GB 12.5 inch|1741574870089.000000|t|t
+1184|dell latitude 5580 i5 8GB 256GB 13 inch|1741574760178.000000|t|t
+1183|dell latitude 5420 i7 8GB 256GB 14 inch|1741574680499.000000|t|t
+1182|dell latitude 5420 i5 8GB 256GB 14 inch|1741574580767.000000|t|t
+1181|dell latitude 5410 i5 16GB 512GB 14 inch|1741574466972.000000|t|t
+1180|dell latitude 5400 i5 8GB 1tb 14 inch|1741574349210.000000|t|t
+1179|dell latitude 5400 i5 8GB 256GB 14 inch|1741574255582.000000|t|t
+1178|dell latitude 5320 i7 16GB 256GB 13 inch|1741574029592.000000|t|t
+1177|dell latitude 5320 i5 16GB 256GB 13 inch|1741573934051.000000|t|t
+1176|dell latitude 5310 i7 8GB 256GB 13 inch|1741573838130.000000|t|t
+1175|dell latitude 5310 15 8GB 256GB 13 inch|1741573725184.000000|t|t
+1174|dell latitude 5300 15 8GB 256GB 13 inch|1741573603100.000000|t|t
+1173|dell latitude 3520 15 8GB 256GB 15 inch|1741573469751.000000|t|t
+1172|dell latitude 3510 i5 8GB 256GB 15.6 inch|1741573362693.000000|t|t
+1171|dell inspiron 15 3000 i3 8GB 256GB 15 inch|1741573245281.000000|t|t
+1170|dell inspiron 15 5510 i5 | 8GB 256GB | 15 inch|1741573133429.000000|t|t
+1169|dell inspiron 14 5000 i7 | 8GB 256GB | 14 inch |1741572887304.000000|t|t
+1168|dell inspiron 14 5410 i5 | 8GB 256GB | 14 inch|1741572748255.000000|t|t
+1167|dell precision 7540 core i7 | 16GB 512GB | 15 inch|1741572629145.000000|t|t
+1166|dell precision 3470 i5 | 8GB 256GB | 14 inch|1741572437179.000000|t|t
+1165|dell vestro 5481 core i7 | 8GB 256GB | 14 inch|1741572317588.000000|t|t
+1164|dell vestro 5490 core i7 | 12GB 512GB | 14 inch|1741572180091.000000|t|t
+1163|play station 5 slim console 1tb - japan|1741457067850.000000|t|t
+1162|play station 5 slim cover plate - black|1741456796096.000000|t|t
+1161|play station 5 slim cover plate - gold|1741456571753.000000|t|t
+1160|play station 5 slim disc drive|1741456097695.000000|t|t
+1159|playstation link usb dongle|1741455633604.000000|t|t
+1158|ps5 sniper contract 2--ghost warrior|1741455283103.000000|t|t
+1157|ps5 sniper elite 5|1741455143015.000000|t|t
+1156|ps5 snow runner|1741454946961.000000|t|t
+1155|ps5 sonic frontier|1741454803458.000000|t|t
+1154|ps5 sonic origins plus|1741454604851.000000|t|t
+1153|ps5 spiderman 2|1741454475553.000000|t|t
+1152|ps5 spiderman mile morales|1741453992310.000000|t|t
+1151|ps5 spirit of the north|1741453810696.000000|t|t
+1150|ps5 ssd heatsink|1741453681677.000000|t|t
+1149|ps5 starwars outlaws|1741453504418.000000|t|t
+1148|ps5 starwars jedi survivor|1741453357738.000000|t|t
+1147|ps5 starwars jedi fallen order|1741453110150.000000|t|t
+1146|ps5 street fighter 6|1741452883466.000000|t|t
+1145|ps5 suicide squad|1741452536776.000000|t|t
+1144|ps5 tekken 8|1741451372084.000000|t|t
+1143|ps5 tennis-on count|1741450951849.000000|t|t
+1142|ps5 terminator resistance|1741450773025.000000|t|t
+1141|ps5 the pathless|1741450607292.000000|t|t
+1140|ps5 tom clancy six siege|1741450442022.000000|t|t
+1139|ps5 tom clancy-rainbow six extraction|1741450196604.000000|t|t
+1138|ps5 ea sports ufc 5|1741449896986.000000|t|t
+1137|ps5 uncharted legacy of thieves collection|1741449740213.000000|t|t
+1136|ps5 undisputed|1741449123158.000000|t|t
+1135|ps5 warhammer: chaosbane slayer edition|1741448987853.000000|t|t
+1134|ps5 watch dogs legion|1741448825526.000000|t|t
+1133|ps5 werewolf earthblood|1741448707658.000000|t|t
+1132|ps5 witcher 3-complete edition|1741448349471.000000|t|t
+1131|ps5 wo long fallen dynasty|1741448136138.000000|t|t
+1130|ps5 wrc 9|1741447986975.000000|t|t
+1129|ps5 wrc10|1741447885587.000000|t|t
+1128|ps5 wwe 2k23|1741447745554.000000|t|t
+1127|ps5 wwe 2k24|1741447609218.000000|t|t
+1126|msi modern 15 b13m laptop – 15.6”|1740383597695.000000|t|t
+1125|msi wf66 11uj-267 mobile workstation laptop – 15.6|1740383487766.000000|t|t
+1124|msi katana 15 b13vek-1675 gaming laptop – 15.6”|1740383316654.000000|t|t
+1123|msi cyborg 15 a13ve-218 gaming laptop – 15.6”|1740383214775.000000|t|t
+1122|msi thin gf63 12ucx-898 gaming laptop – 15.6”|1740382696495.000000|t|t
+1121|lenovo legion pro 5 16irx9 gaming laptop – 16”|1739316677756.000000|t|t
+1120|lenovo thinkpad t14 gen 4 – 14”|1739316229063.000000|t|t
+1119|lenovo thinkpad x1 nano – 13”|1739316155688.000000|t|t
+1118|lenovo thinkpad 13 yoga gen 2 – 13.3”|1739316103750.000000|t|t
+1117|lenovo thinkpad l14 gen 2 – 14”|1739316026966.000000|t|t
+1116|lenovo thinkbook 13s gen 2 itl – 13.3”|1739315963741.000000|t|t
+1115|lenovo legion 5 16irx9 – 16”|1739226485380.000000|t|t
+1114|lenovo legion pro 5 16”|1739226407928.000000|t|t
+1113|lenovo flex 5 14iau7 – 14”|1739226340365.000000|t|t
+1112|lenovo yoga 5 16iru9 – 16”|1739226275873.000000|t|t
+1111|lenovo flex 5 16iau7 – 16”|1739226212165.000000|t|t
+1110|lenovo flex 7 14iau7 – 14”|1739226098902.000000|t|t
+1109|lenovo flex 5 14iau7 – 14”|1739226031712.000000|t|t
+1108|lenovo 1 15iau7 – 15.6”|1739225958800.000000|t|t
+1107|lenovo ideapad 3 14itl05 – 14”|1739225892119.000000|t|t
+1106|Lenovo Flex 5 14iau7 – 14”|1739225819757.000000|t|t
+1105|lenovo 100e (11.6”)|1739225743075.000000|t|t
+1104|dell alienware aurora r16|1738895524006.000000|t|t
+1103|dell xps 8960 tower|1738895450725.000000|t|t
+1102|dell optiplex 3000 tower|1738895376586.000000|t|t
+1101|dell latitude 5340 2-in-1 – 13.3”|1738895318418.000000|t|t
+1100|dell latitude 5340 – 13.3”|1738895244136.000000|t|t
+1099|dell latitude 7420 – 14”|1738895165556.000000|t|t
+1098|dell alienware x16 – 16”|1738895084005.000000|t|t
+1097|dell alienware m17 r5 – 17.3”|1738895016023.000000|t|t
+1096|dell g16 (g7630) – 16”|1738894954361.000000|t|t
+1095|dell alienware x14 r2 – 14”|1738894876742.000000|t|t
+1094|dell xps 13 9315 2-in-1 – 13.4”|1738894807063.000000|t|t
+1093|dell xps 13 9315 – 13.4”|1738894742983.000000|t|t
+1092|dell xps 13 9340 – 13.4"|1738894687951.000000|t|t
+1091|dell g15 g5530 (7388gry) – 15.6” |1738894623981.000000|t|t
+1090|dell inspiron 16 plus 7640 – 16”|1738894549871.000000|t|t
+1089|dell inspiron 14 7430 2-in-1|1738894492319.000000|t|t
+1088|dell inspiron 14 plus 7420|1738894398542.000000|t|t
+1087|dell inspiron 14 7440 (7304blu) 2-in-1|1738894343825.000000|t|t
+1086|dell inspiron 14 plus|1738894278970.000000|t|t
+1085|dell inspiron 14 7440-5311blu 2-in-1|1738894218808.000000|t|t
+1084|dell inspiron 15 3520-7896lk|1738894144884.000000|t|t
+1083|15.6” dell inspiron 3520 |1738894077650.000000|t|t
+1082|dell inspiron 15 3520|1738894014290.000000|t|t
+1081|dell inspiron 15 3520-5124blk|1738893949121.000000|t|t
+1080|dell inspiron 15 3520 – 15.6"|1738893872480.000000|t|t
+1079|dell inspiron 24 5430-7827wht|1738893789972.000000|t|t
+1078|dell inspiron 14 7440-7304blu 2-in-1 convertible|1738893722577.000000|t|t
+1077|xiaomi redmi note 14 pro+ 5g 12gb 512gb|1738880620776.000000|t|t
+1076|xiaomi redmi note 14 pro+ 5g 8gb 256gb|1738880455960.000000|t|t
+1075|xiaomi redmi note 14 pro 12gb 512gb|1738880069560.000000|t|t
+1074|xiaomi redmi note 14 pro 8gb 256gb|1738879986833.000000|t|t
+1073|xiaomi redmi note 14 8gb 256gb|1738879476813.000000|t|t
+1072|xiaomi redmi note 14 6gb 128gb|1738879246130.000000|t|t
+1071|samsung galaxy s25 ultra 12GB 1tb|1738878863564.000000|t|t
+1070|samsung galaxy s25 ultra 12GB 512GB|1738878691155.000000|t|t
+1069|samsung galaxy s25 ultra 12GB 256GB|1738878490439.000000|t|t
+1068|xiaomi redmi note 14 8gb 128gb|1738877997121.000000|t|t
+1067|xiaomi redmi note 14 6GB 128GB|1738877838757.000000|t|t
+1066|samsung galaxy s25 plus 12GB 512GB|1738877070429.000000|t|t
+1065|samsung galaxy s25 plus 12GB 256GB|1738876895904.000000|t|t
+1064|samsung galaxy s25 12GB 256GB|1738876235853.000000|t|t
+1063|hp color laserjet pro mfp m479fdw|1738857057270.000000|t|t
+1062|hp color laser mfp 179fnw|1738857003585.000000|t|t
+1061|hp color laserjet pro 3203dw|1738856939710.000000|t|t
+1060|hp smart tank 750 all-in-one printer|1738856881699.000000|t|t
+1059|hp laserjet mfp m236sdw|1738856828740.000000|t|t
+1058|hp smart tank 720 all-in-one printer|1738856742843.000000|t|t
+1057|hp smart tank 615 wireless all-in-one printer|1738856692481.000000|t|t
+1056|hp officejet pro 9130 all-in-one printer|1738856628642.000000|t|t
+1055|hp officejet pro 9730 wide format printer|1738856566787.000000|t|t
+1054|hp officejet pro 9123 all-in-one printer|1738856500999.000000|t|t
+1053|hp smart tank 580 all-in-one printer|1738856329308.000000|t|t
+1052|hp smart tank 585 all-in-one printer|1738856267309.000000|t|t
+1051|hp officejet pro 9720 wide format printer|1738856183004.000000|t|t
+1050|hp officejet pro 8123 all-in-one printer|1738856086567.000000|t|t
+1049|hp officejet pro 8123 all-in-one printer|1738839747363.000000|t|t
+1048|hp smart tank 520 all-in-one printer|1738839579010.000000|t|t
+1047|hp m27f fhd monitor|1738839089215.000000|t|t
+1046|hp slim desktop s01-af2003 |1738839018612.000000|t|t
+1045|hp zbook power g10 mobile workstation - 15.6"|1738838952320.000000|t|t
+1044|14” hp elite x360 1040 g10 |1738838893036.000000|t|t
+1043|hp elitebook 840 g9|1738838834021.000000|t|t
+1042|hp elitebook 830 g10|1738838689621.000000|t|t
+1041|hp probook 440 g11|1738838612829.000000|t|t
+1040|hp probook 440 g11|1738838557594.000000|t|t
+1039|hp omen transcend 14-fb0023dx|1738838380281.000000|t|t
+1038|hp omen 16t-wf000|1738838307123.000000|t|t
+1037|hp victus 16-r0085tx|1738838205791.000000|t|t
+1036|hp victus 15-fa1657nr|1738838138828.000000|t|t
+1035|hp victus 15-fa0033dx|1738838072275.000000|t|t
+1034|hp laptop 15s-fq5261nia|1738798416412.000000|t|t
+1033|hp laptop 14s-dq5086nia|1738798323344.000000|t|t
+1032|hp 250 g10 notebook pc|1738798255340.000000|t|t
+1031|hp 15-dy5131wm|1738798183865.000000|t|t
+1030|hp 15-fd0132wm|1738797850716.000000|t|t
+1029|hp laptop 14-ep0063nia|1738797720678.000000|t|t
+1028|hp laptop 15-fd0131ne|1738797503945.000000|t|t
+1027|14-inch hp 14s-dq5104nia 4GB 512GB i3-1215u|1738797426720.000000|t|t
+1026|15.6” hp 250 g9 |1738797349745.000000|t|t
+1025|hp 240 g7|1738797213998.000000|t|t
+1024|hp 14-cf2733wm|1738797121653.000000|t|t
+1023|hp chromebook 11mk g9 education edition|1738796991910.000000|t|t
+1022|hp elitebook x360 1040 g11|1738707301201.000000|t|t
+1021|hp elitebook 640 14 inch g11 notebook pc|1738707160179.000000|t|t
+1020|hp elitebook 640 g11|1738707091675.000000|t|t
+1019|hp elite x360 830 g10|1738707001523.000000|t|t
+1018|hp probook 440 g11|1738706904208.000000|t|t
+1017|hp probook 440 g11|1738706836523.000000|t|t
+1016|hp spectre x360|1738706750469.000000|t|t
+1015|14” hp omnibook x copilot+ pc |1738706660136.000000|t|t
+1014|hp pavilion 16t-af000|1738706556303.000000|t|t
+1013|hp victus 15-fa0033dx|1738706470082.000000|t|t
+1012|hp envy x360 15.6-inch 2-in-1 laptop pc|1738706341922.000000|t|t
+1011|hp pavilion 16t-af000|1738706137687.000000|t|t
+1010|hp laptop 15-dy2172wm|1738705970945.000000|t|t
+1009|hp 15.6-inch laptop pc 15-fd0000|1738705691768.000000|t|t
+1008|hp 15.6-inch 15-fd0000 i7-1355u 8GB 256GB|1738705602169.000000|t|t
+1007|hp pavilion x360 14-inch i5-1235u 8GB 256GB|1738705486498.000000|t|t
+1006|hp 15.6-inch 15-fd0000 i7-1355u 8GB 256GB|1738705352766.000000|t|t
+1005|hp 15.6-inch 15-fd0005 i5-1235u 8GB 512GB|1738705203537.000000|t|t
+1004|hp 15-fd0095wm i5-1235u 8GB 256GB 15.6 inch|1738704939809.000000|t|t
+1003|hp 14-cf2733 intel celeron 4GB 64GB 14 inch|1738704833675.000000|t|t
+241|13” macbook air 2023 8GB 512GB m3|1734628521932.000000|t|t
+242|13” macbook air 2023 16GB 512GB m3|1734628521932.000000|t|t
+244|15” macbook air 2023 8GB 512GB m3|1734628521932.000000|t|t
+243|15” macbook air 2023 8GB 256GB m3|1734628521932.000000|t|t
+255|14” macbook pro 2023 8GB 1tb m3|1734628521932.000000|t|t
+250|13” macbook pro 2022 24GB 1tb m2|1734628521932.000000|t|t
+248|13” macbook pro 2022 8GB 512GB m2|1734628521932.000000|t|t
+249|13” macbook pro 2022 16GB 1tb m2|1734628521932.000000|t|t
+256|14” macbook pro 2023 16GB 1tb m3|1734628521932.000000|t|t
+263|16” macbook pro 2023 48GB 1tb m3 max|1734628521932.000000|t|t
+600|iphone 6s plus 2GB 16GB|1734628521932.000000|t|t
+593|iphone 6 1GB 16GB|1734628521932.000000|t|t
+595|iphone 6 1GB 64GB|1734628521932.000000|t|t
+597|iphone 6s 2GB 16GB|1734628521932.000000|t|t
+599|iphone 6s 2GB 64GB|1734628521932.000000|t|t
+601|iphone 6s plus 2GB 32GB|1734628521932.000000|t|t
+602|iphone 6s plus 2GB 64GB|1734628521932.000000|t|t
+604|iphone 7 2GB 128GB|1734628521932.000000|t|t
+603|iphone 7 2GB 32GB|1734628521932.000000|t|t
+608|iphone 8 2GB 64GB|1734628521932.000000|t|t
+609|iphone 8 plus 3GB 64GB|1734628521932.000000|t|t
+81|iphone 14 pro max 6GB 1tb physical sim|1734628521932.000000|t|t
+78|iphone 14 pro max 6GB 128GB physical sim|1734628521932.000000|t|t
+612|iphone x 3GB 64GB|1734628521932.000000|t|t
+611|iphone se 2020 128GB|1734628521932.000000|t|t
+618|iphone xs 4GB 256GB|1734628521932.000000|t|t
+617|iphone xs 4GB 64GB|1734628521932.000000|t|t
+636|iphone 12 pro 6GB 128GB|1734628521932.000000|t|t
+638|iphone 12 pro 6GB 512GB|1734628521932.000000|t|t
+640|iphone 12 pro max 6GB 256GB|1734628521932.000000|t|t
+637|iphone 12 pro 6GB 256GB|1734628521932.000000|t|t
+77|iphone 14 pro 6GB 1tb physical sim|1734628521932.000000|t|t
+653|iphone 14 6GB 256GB wi-fi only|1734628521932.000000|t|t
+654|iphone 14 plus 6GB 128GB wi-fi only|1734628521932.000000|t|t
+655|iphone 14 plus 6GB 256GB wi-fi only|1734628521932.000000|t|t
+647|iphone 13 pro 6GB 256GB|1734628521932.000000|t|t
+645|iPhone 13 4GB 256GB|1734628521932.000000|t|t
+646|iphone 13 pro 6gb 128gb|1734628521932.000000|t|t
+644|iPhone 13 4GB 128GB|1734628521932.000000|t|t
+170|apple series 9 45mm lte|1734628521932.000000|t|t
+168|apple series 9 41mm lte|1734628521932.000000|t|t
+178|apple magic keyboard  13”  m4|1734628521932.000000|t|t
+179|apple magic mouse 3|1734628521932.000000|t|t
+177|apple magic keyboard 12.9”|1734628521932.000000|t|t
+83|iphone 15 6GB 256GB wi-fi only|1734628521932.000000|t|t
+86|iphone 15 pro 6GB 128GB wifi-only|1734628521932.000000|t|t
+668|iphone 14 pro 6GB 128GB e-sim|1734628521932.000000|t|t
+669|iphone 14 pro 6GB 256GB e-sim|1734628521932.000000|t|t
+661|iphone 14 pro max 6GB 256GB wifi-only|1734628521932.000000|t|t
+664|iphone 14 6GB 128GB esim|1734628521932.000000|t|t
+665|iphone 14 6GB 256GB esim|1734628521932.000000|t|t
+666|iphone 14 plus 6GB 128GB e-sim|1734628521932.000000|t|t
+211|11" ipad pro 4th generation 2022 m2 1tb wifi + cellular|1734628521932.000000|t|t
+212|11" ipad pro 4th generation 2022 m2 2tb wifi + cellular|1734628521932.000000|t|t
+210|11" ipad pro 4th generation 2022 m2 1tb wifi only|1734628521932.000000|t|t
+218|11" ipad pro 5th generation 2024 m4 1tb wifi only|1734628521932.000000|t|t
+219|11" ipad pro 5th generation 2024 m4 1tb wifi + cellular|1734628521932.000000|t|t
+667|iphone 14 plus 6GB 256GB e-sim|1734628521932.000000|t|t
+649|iphone 13 pro max 6GB 128GB|1734628521932.000000|t|t
+651|iphone 13 pro max 6GB512GB .|1734628521932.000000|t|t
+650|iphone 13 pro max 6GB 256GB|1734628521932.000000|t|t
+950|15" macbook pro 2017 16GB 512GB i7 4GB vram touch-bar|1734628521932.000000|t|t
+681|iphone 14 pro 6GB 256GB physical sim|1734628521932.000000|t|t
+3|google pixel 6 pro 12GB 128GB|1734628521932.000000|t|t
+229|12.9" ipad pro 6th generation 2022 m2 2tb wifi only|1734628521932.000000|t|t
+71|iphone 14 6GB 256GB physical sim|1734628521932.000000|t|t
+73|iphone 14 plus 6GB 256GB physical sim|1734628521932.000000|t|t
+670|iphone 14 pro 6GB 512GB e-sim|1734628521932.000000|t|t
+674|iphone 14 pro max 6GB 512GB e-sim|1734628521932.000000|t|t
+633|iphone 12 4GB 64GB|1734628521932.000000|t|t
+235|13" ipad pro 7th generation 2024 m4 1tb wifi + cellular|1734628521932.000000|t|t
+672|iphone 14 pro max 6GB 128GB e-sim|1734628521932.000000|t|t
+675|iphone 14 pro max 6GB 1tb e-sim|1734628521932.000000|t|t
+671|iphone 14 pro 6GB 1tb e-sim|1734628521932.000000|t|t
+677|iphone 14 6GB 256GB physical sim|1734628521932.000000|t|t
+676|iphone 14 6GB 128GB physical sim|1734628521932.000000|t|t
+679|iphone 14 plus 6GB 256GB physical sim|1734628521932.000000|t|t
+678|iphone 14 plus 6GB 128GB physical sim|1734628521932.000000|t|t
+689|iphone 15 6GB 256GB wi-fi only|1734628521932.000000|t|t
+691|iphone 15 plus 6GB 256GB wi-fi only|1734628521932.000000|t|t
+699|iphone 15 6GB 128GB esim|1734628521932.000000|t|t
+682|iphone 14 pro 6GB 512GB physical sim|1734628521932.000000|t|t
+683|iphone 14 pro 6GB 1tb physical sim|1734628521932.000000|t|t
+686|iphone 14 pro max 6GB 512GB physical sim|1734628521932.000000|t|t
+687|iphone 14 pro max 6GB 1tb physical sim|1734628521932.000000|t|t
+708|iphone 15 pro max 8GB 512GB e-sim|1734628521932.000000|t|t
+41|iPhone 13 Pro 6GB 256GB|1734628521932.000000|t|t
+703|iphone 15 pro 8GB 128GB e-sim|1734628521932.000000|t|t
+715|iphone 15 pro 8GB 258GB physical sim|1734628521932.000000|t|t
+126|iphone 16 8GB 128GB esim|1734628521932.000000|t|t
+701|iphone 15 plus 6GB 128GB e-sim|1734628521932.000000|t|t
+705|iphone 15 pro 8GB 512GB e-sim|1734628521932.000000|t|t
+704|iphone 15 pro 8GB 258GB e-sim|1734628521932.000000|t|t
+72|iphone 14 plus 6GB 128GB physical sim|1734628521932.000000|t|t
+70|iphone 14 6GB 128GB physical sim|1734628521932.000000|t|t
+706|iphone 15 pro 8GB 1tb e-sim|1734628521932.000000|t|t
+718|iphone 15 pro max 8GB 258GB physical sim|1734628521932.000000|t|t
+717|iphone 15 pro 8GB 1tb physical sim|1734628521932.000000|t|t
+713|iphone 15 plus 8GB 258GB physical sim|1734628521932.000000|t|t
+712|iphone 15 plus 8GB 128GB physical sim|1734628521932.000000|t|t
+727|iphone 16 pro 8GB 512GB wifi-only|1734628521932.000000|t|t
+710|iphone 15 8GB 128GB physical sim|1734628521932.000000|t|t
+64|iphone 14 pro 6GB 512GB e-sim|1734628521932.000000|t|t
+716|iphone 15 pro 8GB 512GB physical sim|1734628521932.000000|t|t
+719|iphone 15 pro max 8GB 512GB physical sim|1734628521932.000000|t|t
+736|iphone 16 pro 8GB 128GB e-sim|1734628521932.000000|t|t
+722|iphone 16 8GB 258GB wi-fi only|1734628521932.000000|t|t
+729|iphone 16 pro max 8GB 258GB wifi-only|1734628521932.000000|t|t
+728|iphone 16 pro 8GB 1tb wifi-only|1734628521932.000000|t|t
+735|iphone 16 plus 8GB 258GB e-sim|1734628521932.000000|t|t
+724|iphone 16 plus 8GB 258GB wi-fi only|1734628521932.000000|t|t
+65|iphone 14 pro 6GB 1tb e-sim|1734628521932.000000|t|t
+75|iphone 14 pro 6GB 256GB physical sim|1734628521932.000000|t|t
+723|iphone 16 plus 8GB 128GB wi-fi only|1734628521932.000000|t|t
+747|iphone 16 pro 8GB 128GB physical sim|1734628521932.000000|t|t
+726|iphone 16 pro 8GB 258GB wifi-only|1734628521932.000000|t|t
+744|iphone 16 8GB 258GB physical sim|1734628521932.000000|t|t
+745|iphone 16 plus 8GB 128GB physical sim|1734628521932.000000|t|t
+746|iphone 16 plus 8GB 258GB physical sim|1734628521932.000000|t|t
+737|iphone 16 pro 8GB 258GB e-sim|1734628521932.000000|t|t
+738|iphone 16 pro 8GB 512GB e-sim|1734628521932.000000|t|t
+743|iphone 16 8GB 128GB physical sim|1734628521932.000000|t|t
+742|iphone 16 pro max 8GB 1tb e-sim|1734628521932.000000|t|t
+833|apple watch series se 44mm 2022 gps|1734628521932.000000|t|t
+739|iphone 16 pro 8GB 1tb e-sim|1734628521932.000000|t|t
+758|10.9" ipad air 5th generation 2021 64GB wifi + cellular|1734628521932.000000|t|t
+750|iphone 16 pro 8GB 1tb physical sim|1734628521932.000000|t|t
+749|iphone 16 pro 8GB 512GB physical sim|1734628521932.000000|t|t
+748|iphone 16 pro 8GB 258GB physical sim|1734628521932.000000|t|t
+751|iphone 16 pro max 8GB 258GB physical sim|1734628521932.000000|t|t
+754|10.9" ipad air 4th generation 2020 wifi only 64GB|1734628521932.000000|t|t
+765|8.3" ipad mini 6th generation 2021 64GB wifi + cellular|1734628521932.000000|t|t
+759|10.9" ipad air 5th generation 2021 256GB wifi + cellular|1734628521932.000000|t|t
+778|11" ipad pro 2021 3rd gen wifi + cellular 128GB|1734628521932.000000|t|t
+767|8.3" ipad mini 6th generation 2021 256GB wifi + cellular|1734628521932.000000|t|t
+776|ipad 10th gen 2022 256GB wifi only 10.9"|1734628521932.000000|t|t
+623|iphone 11 4gb 64gb|1734628521932.000000|t|t
+770|ipad 9th gen 2021 256GB wifi only|1734628521932.000000|t|t
+793|12.9" ipad pro 2021 m1 256GB 5th generation wifi + cellular|1734628521932.000000|t|t
+786|11" ipad pro 2022 m2 512GB 4th generation wifi only|1734628521932.000000|t|t
+785|11" ipad pro 2022 m2 256GB 4th generation wifi + cellular|1734628521932.000000|t|t
+55|iphone 14 pro max 6GB 256GB wifi-only|1734628521932.000000|t|t
+784|11" ipad pro 2022 m2 256GB 4th generation wifi only|1734628521932.000000|t|t
+791|12.9" ipad pro 2021 m1 128GB 5th generation wifi + cellular|1734628521932.000000|t|t
+802|12.9" ipad pro 2022 m2 512GB 6th generation wifi + cellular|1734628521932.000000|t|t
+801|12.9" ipad pro 2022 m2 512GB 6th generation wifi|1734628521932.000000|t|t
+386|samsung watch 5 44mm|1734628521932.000000|t|t
+56|iphone 14 pro max 6GB 512GB wifi-only|1734628521932.000000|t|t
+800|12.9" ipad pro 2022 m2 256GB 6th generation wifi + cellular|1734628521932.000000|t|t
+788|11" ipad pro 2022 m4 256GB 4th generation wifi + cellular|1734628521932.000000|t|t
+391|samsung watch 6 classic 43mm|1734628521932.000000|t|t
+639|iphone 12 pro max 6GB 128GB|1734628521932.000000|t|t
+787|11" ipad pro 2022 m4 256GB 5th generation wifi only|1734628521932.000000|t|t
+798|12.9" ipad pro 2022 m2 128GB 6th generation wifi + cellular|1734628521932.000000|t|t
+67|iphone 14 pro max 6GB 256GB e-sim|1734628521932.000000|t|t
+401|samsung galaxy buds pro|1734628521932.000000|t|t
+442|redmi watch 2 pro|1734628521932.000000|t|t
+400|samsung galaxy buds live|1734628521932.000000|t|t
+387|samsung watch 5 44mm lte|1734628521932.000000|t|t
+68|iphone 14 pro max 6GB 512GB e-sim|1734628521932.000000|t|t
+54|iphone 14 pro max 6GB 128GB wifi-only|1734628521932.000000|t|t
+804|12.9" ipad pro 2022 m2 1tb 6th generation wifi + cellular|1734628521932.000000|t|t
+811|apple watch series 3 38mm gps|1734628521932.000000|t|t
+52|iphone 14 pro 6GB 512GB wifi-only|1734628521932.000000|t|t
+799|12.9" ipad pro 2022 m2 256GB 6th generation wifi only|1734628521932.000000|t|t
+137|iphone 16 8GB 128GB physical sim|1734628521932.000000|t|t
+76|iphone 14 pro 6GB 512GB physical sim|1734628521932.000000|t|t
+908|13" macbook air 2015 4GB 256GB i5|1734628521932.000000|t|t
+912|13" macbook air 2017 16GB 256GB i5|1734628521932.000000|t|t
+936|15" macbook pro 2016 16GB 512GB 2GB vram i7 touchbar|1734628521932.000000|t|t
+924|13" macbook air 2020 8GB 256GB m1|1734628521932.000000|t|t
+931|13" macbook pro 2016 8GB 256GB i5 touchbar|1734628521932.000000|t|t
+932|13" macbook pro 2016 8GB 512GB i5 touchbar|1734628521932.000000|t|t
+930|13" macbook pro 2015 16GB 256GB i5|1734628521932.000000|t|t
+935|15" macbook pro 2016 16GB 256GB 2GB vram i7 touchbar|1734628521932.000000|t|t
+937|15" macbook pro 2016 16GB 512GB 4GB vram i7 touchbar|1734628521932.000000|t|t
+928|13" macbook pro 2015 8GB 128GB i5|1734628521932.000000|t|t
+933|13" macbook pro 2016 16GB 256GB i5 touchbar|1734628521932.000000|t|t
+975|16" macbook pro 2019 16GB 512GB i9 4GB vram touch-bar|1734628521932.000000|t|t
+948|13" macbook pro 2017 16GB 512GB i7 touch-bar|1734628521932.000000|t|t
+951|15" macbook pro 2017 16GB 1tb i7 4GB vram touch-bar|1734628521932.000000|t|t
+939|13" macbook pro 2017 8GB 256GB i5 non touch-bar|1734628521932.000000|t|t
+934|15" macbook pro 2016 16GB 256GB 2GB vram i5 touchbar|1734628521932.000000|t|t
+954|13" macbook pro 2018 8GB 512GB i5 touch-bar|1734628521932.000000|t|t
+940|13" macbook pro 2017 8GB 512GB i5 non touch-bar|1734628521932.000000|t|t
+958|13" macbook pro 2018 16GB 256GB i7 touch-bar|1734628521932.000000|t|t
+965|13" macbook pro 2019 8GB 512GB i5 touch-bar|1734628521932.000000|t|t
+962|15" macbook pro 2018 16GB 1tb 4GB vram i9 touch-bar|1734628521932.000000|t|t
+963|13" macbook pro 2019 8GB 128GB i5 touch-bar|1734628521932.000000|t|t
+57|iphone 14 pro max 6GB 1tb wifi-only|1734628521932.000000|t|t
+947|13" macbook pro 2017 16GB 256GB i7 touch-bar|1734628521932.000000|t|t
+964|13" macbook pro 2019 8GB 256GB i5 touch-bar|1734628521932.000000|t|t
+961|15" macbook pro 2018 32GB 512GB 4GB vram i9 touch-bar|1734628521932.000000|t|t
+959|13" macbook pro 2018 16GB 1tb i7 touch-bar|1734628521932.000000|t|t
+974|15" macbook pro 2019 32GB 512GB i9 4GB vram touch-bar|1734628521932.000000|t|t
+980|16" macbook pro 2019 64GB 2tb i9 8GB vram touch-bar|1734628521932.000000|t|t
+970|15" macbook pro 2019 16GB 512GB i7 touch-bar|1734628521932.000000|t|t
+977|16" macbook pro 2019 16GB 1tb i9 8GB vram touch-bar|1734628521932.000000|t|t
+981|13" macbook pro 2020 8GB 256GB i5 touch-bar|1734628521932.000000|t|t
+978|16" macbook pro 2019 32GB 1tb  i7 4GB vram touch-bar|1734628521932.000000|t|t
+966|13" macbook pro 2019 8GB 1tb i5 touch-bar|1734628521932.000000|t|t
+967|13" macbook pro 2019 16GB 256GB i7 touch-bar|1734628521932.000000|t|t
+994|14" macbook pro 2021 16GB 512GB m1 pro|1734628521932.000000|t|t
+1002|14" macbook pro 2023 8GB 512GB m3|1734628521932.000000|t|t
+999|13" macbook pro 2022 8GB 512GB m2 touch bar|1734628521932.000000|t|t
+50|iphone 14 pro 6GB 128GB wifi-only|1734628521932.000000|t|t
+496|oppo a16k 2GB 32GB|1734628521932.000000|t|t
+990|13" macbook pro 2020 8GB 512GB m1 touch bar|1734628521932.000000|t|t
+998|13" macbook pro 2022 8GB 256GB m2 touch bar|1734628521932.000000|t|t
+989|13" macbook pro 2020 8GB 256GB m1 touch bar|1734628521932.000000|t|t
+988|13" macbook pro 2020 32GB 2tb i7 touch-bar|1734628521932.000000|t|t
+986|13" macbook pro 2020 16GB 1tb i5 touch-bar|1734628521932.000000|t|t
+236|13” macbook air 2020 8GB 256GB m1|1734628521932.000000|t|t
+246|15” macbook air 2023 8GB 256GB m3|1734628521932.000000|t|t
+909|13" macbook air 2015 8GB 128GB i5|1734628521932.000000|t|t
+38|iPhone 13 4GB 128GB|1734628521932.000000|t|t
+921|13" macbook air 2020 8GB 256GB i3|1734628521932.000000|t|t
+1000|14" macbook pro 2022 16GB 512GB m2 pro|1734628521932.000000|t|t
+1001|16" macbook pro 2022 16GB 1tb m2 pro|1734628521932.000000|t|t
+991|13" macbook pro 2020 16GB 512GB m1 touch bar|1734628521932.000000|t|t
+956|15" macbook pro 2018 16GB 512GB i7 touch-bar|1734628521932.000000|t|t
+955|13" macbook pro 2018 16GB 256GB i5 touch-bar|1734628521932.000000|t|t
+42|iphone 13 pro 6gb 1tb|1734628521932.000000|t|t
+536|nokia t21|1734628521932.000000|t|t
+542|jbl clip 3|1734628521932.000000|t|t
+996|16" macbook pro 2021 16GB 1tb m1 pro|1734628521932.000000|t|t
+553|harman kardon go play|1734628521932.000000|t|t
+110|iphone 15 pro 8GB 512GB physical sim|1734628521932.000000|t|t
+906|11" macbook air 2015 4GB 128GB i5|1734628521932.000000|t|t
+979|16" macbook pro 2019 32GB 1tb i9 8GB vram amd radeon pro 5300m touch-bar|1734628521932.000000|t|t
+997|16" macbook pro 2021 32GB 512GB m1 max|1734628521932.000000|t|t
+549|jbl pulse 5|1734628521932.000000|t|t
+547|jbl charge 5|1734628521932.000000|t|t
+551|harman kardon onyx studio 7|1734628521932.000000|t|t
+993|13" macbook pro 2020 16GB 2tb m1|1734628521932.000000|t|t
+972|15" macbook pro 2019 16GB 1tb i7 touch-bar|1734628521932.000000|t|t
+971|15" macbook pro 2019 16GB 512GB i9 4GB vram touch-bar|1734628521932.000000|t|t
+987|13" macbook pro 2020 32GB 512GB i7 touch-bar|1734628521932.000000|t|t
+253|16” macbook pro 2022 16GB 512GB m2 pro|1734628521932.000000|t|t
+252|14” macbook pro 2022 16GB 1tb m2 pro|1734628521932.000000|t|t
+259|14” macbook pro 2023 36GB 1tb m3 max|1734628521932.000000|t|t
+60|iphone 14 plus 6GB 128GB e-sim|1734628521932.000000|t|t
+983|13" macbook pro 2020 16GB 256GB i5 touch-bar|1734628521932.000000|t|t
+260|16” macbook pro 2023 18GB 512GB m3 pro|1734628521932.000000|t|t
+982|13" macbook pro 2020 8GB 512GB i5 touch-bar|1734628521932.000000|t|t
+968|13" macbook pro 2019 16GB 512GB i5 touch-bar|1734628521932.000000|t|t
+953|13" macbook pro 2018 8GB 512GB i5 touch-bar|1734628521932.000000|t|t
+943|13" macbook pro 2017 8GB 256GB i5 touch-bar|1734628521932.000000|t|t
+945|13" macbook pro 2017 16GB 128GB i5 touch-bar|1734628521932.000000|t|t
+976|16" macbook pro 2019 16GB 512GB i7 4GB vram touch-bar|1734628521932.000000|t|t
+614|iphone x 3GB 256GB|1734628521932.000000|t|t
+695|iphone 15 pro 6GB 1tb wifi-only|1734628521932.000000|t|t
+660|iphone 14 pro max 6GB 128GB wifi-only|1734628521932.000000|t|t
+673|iphone 14 pro max 6GB 256GB e-sim|1734628521932.000000|t|t
+697|iphone 15 pro max 6GB 512GB wifi-only|1734628521932.000000|t|t
+91|iphone 15 pro max 6GB 512GB wifi-only|1734628521932.000000|t|t
+100|iphone 15 pro 8GB 1tb e-sim|1734628521932.000000|t|t
+973|15" macbook pro 2019 32GB 256GB i7 4GB vram touch-bar|1734628521932.000000|t|t
+58|iphone 14 6GB 128GB esim|1734628521932.000000|t|t
+692|iphone 15 pro 6GB 128GB wifi-only|1734628521932.000000|t|t
+84|iphone 15 plus 6GB 128GB wi-fi only|1734628521932.000000|t|t
+941|13" macbook pro 2017 16GB 256GB i7 non touch-bar|1734628521932.000000|t|t
+720|iphone 15 pro max 8GB 1tb physical sim|1734628521932.000000|t|t
+610|iphone se 2020 3GB 64GB|1734628521932.000000|t|t
+124|iphone 16 pro max 8GB 512GB wifi-only|1734628521932.000000|t|t
+146|iphone 16 pro max 8GB 512GB physical sim|1734628521932.000000|t|t
+123|iphone 16 pro max 8GB 258GB wifi-only|1734628521932.000000|t|t
+135|iphone 16 pro max 8GB 512GB e-sim|1734628521932.000000|t|t
+700|iphone 15 6GB 256GB esim|1734628521932.000000|t|t
+690|iphone 15 plus 6GB 128GB wi-fi only|1734628521932.000000|t|t
+605|iphone 7 plus 3GB 32GB|1734628521932.000000|t|t
+182|10.9" ipad air 5th generation 2021 m1 64GB wifi + lte|1734628521932.000000|t|t
+191|13" ipad air 6th generation 2024 m2 256GB wifi + cellular|1734628521932.000000|t|t
+206|11" ipad pro 4th generation 2022 m2 256GB wifi only|1734628521932.000000|t|t
+208|11" ipad pro 4th generation 2022 m2 512GB wifi only|1734628521932.000000|t|t
+659|iphone 14 pro 6GB 1tb wifi-only|1734628521932.000000|t|t
+204|11" ipad pro 4th generation 2022 m2 128GB wifi|1734628521932.000000|t|t
+216|11" ipad pro 5th generation 2024 m4 512GB wifi only|1734628521932.000000|t|t
+223|12.9" ipad pro 5th generation 2021 m1 256GB wifi + cellular|1734628521932.000000|t|t
+200|10.9" ipad 10th generation 2022 64GB wifi|1734628521932.000000|t|t
+779|11" ipad pro 2021 3rd gen wifi + cellular 128GB|1734628521932.000000|t|t
+756|10.9" ipad air 4th generation 2020 wifi only 256GB|1734628521932.000000|t|t
+831|apple watch series se 40mm 2022 gps|1734628521932.000000|t|t
+789|12.9" ipad pro 2018 256GB 3rd generation wifi + cellular|1734628521932.000000|t|t
+781|11" ipad pro 2021 3rd gen wifi + cellular 256GB|1734628521932.000000|t|t
+762|11" ipad air 6th generation 2024 m2 wifi only 256GB|1734628521932.000000|t|t
+944|13" macbook pro 2017 8GB 512GB i5 touch-bar|1734628521932.000000|t|t
+929|13" macbook pro 2015 8GB 256GB i5|1734628521932.000000|t|t
+774|ipad 10th gen 2022 256GB wifi|1734628521932.000000|t|t
+795|12.9" ipad pro 2021 m1 512GB 5th generation wifi + cellular|1734628521932.000000|t|t
+923|13" macbook air 2020 8GB 128GB m1|1734628521932.000000|t|t
+910|13" macbook air 2017 8GB 128GB i5|1734628521932.000000|t|t
+51|iphone 14 pro 6GB 256GB wifi-only|1734628521932.000000|t|t
+907|13" macbook air 2015 4GB 128GB i5|1734628521932.000000|t|t
+45|iphone 13 pro max 6GB 512GB|1734628521932.000000|t|t
+805|12.9" ipad pro 2022 m2 2tb 6th generation wifi + cellular|1734628521932.000000|t|t
+960|15" macbook pro 2018 16GB 512GB 4GB vram i9 touch-bar|1734628521932.000000|t|t
+780|11" ipad pro 2021 3rd gen wifi only 256GB|1734628521932.000000|t|t
+775|ipad 10th gen 2022 256GB wifi + cellular|1734628521932.000000|t|t
+773|ipad 10th gen 2022 64GB wifi + cellular|1734628521932.000000|t|t
+823|apple watch series 6 40mm gps|1734628521932.000000|t|t
+828|apple watch series 7 41mm lte|1734628521932.000000|t|t
+813|apple watch series 3 42mm gps|1734628521932.000000|t|t
+810|apple watch series se 2020 44mm lte|1734628521932.000000|t|t
+807|apple watch series se 2020 40mm gps|1734628521932.000000|t|t
+812|apple watch series 3 38mm lte|1734628521932.000000|t|t
+824|apple watch series 6 40mm lte|1734628521932.000000|t|t
+821|apple watch series 5 44mm gps|1734628521932.000000|t|t
+836|apple watch series 8 41mm lte|1734628521932.000000|t|t
+830|apple watch series 7 45mm lte|1734628521932.000000|t|t
+769|ipad 9th gen 2021 64GB wifi + lte|1734628521932.000000|t|t
+949|13" macbook pro 2017 16GB 1tb i7 touch-bar|1734628521932.000000|t|t
+499|oppo a17k 3GB 64GB|1734628521932.000000|t|t
+176|apple magic keyboard  11”  m4|1734628521932.000000|t|t
+396|samsung watch ultra|1734628521932.000000|t|t
+827|apple watch series 7 41mm gps|1734628521932.000000|t|t
+149|apple airpods pro 2nd gen type c|1734628521932.000000|t|t
+763|13" ipad air 6th generation 2024 m2 wifi only 64GB|1734628521932.000000|t|t
+598|iphone 6s 2GB 32GB|1734628521932.000000|t|t
+385|samsung watch 5 40mm|1734628521932.000000|t|t
+757|10.9" ipad air 5th generation 2021 64GB wifi only|1734628521932.000000|t|t
+792|12.9" ipad pro 2021 m1 128GB 5th generation wifi only|1734628521932.000000|t|t
+794|12.9" ipad pro 2021 m1 512GB 5th generation wifi only|1734628521932.000000|t|t
+721|iphone 16 8GB 128GB wi-fi only|1734628521932.000000|t|t
+714|iphone 15 pro 8GB 128GB physical sim|1734628521932.000000|t|t
+147|iphone 16 pro max 8GB 1tb physical sim|1734628521932.000000|t|t
+151|apple airpod 2|1734628521932.000000|t|t
+388|samsung watch 5 pro 45mm|1734628521932.000000|t|t
+693|iphone 15 pro 6GB 256GB wifi-only|1734628521932.000000|t|t
+548|jbl pulse 4|1734628521932.000000|t|t
+698|iphone 15 pro max 6GB 1tb wifi-only|1734628521932.000000|t|t
+696|iphone 15 pro max 6GB 256GB wifi-only|1734628521932.000000|t|t
+657|iphone 14 pro 6GB 256GB wifi-only|1734628521932.000000|t|t
+552|harman kardon onyx studio 8|1734628521932.000000|t|t
+155|apple airpods max 1|1734628521932.000000|t|t
+148|apple fast charger|1734628521932.000000|t|t
+234|13" ipad pro 7th generation 2024 m4 512GB wifi + cellular|1734628521932.000000|t|t
+141|iphone 16 pro 8GB 128GB physical sim|1734628521932.000000|t|t
+652|iphone 14 6GB 128GB wi-fi only|1734628521932.000000|t|t
+731|iphone 16 pro max 8GB 1tb wifi-only|1734628521932.000000|t|t
+740|iphone 16 pro max 8GB 258GB e-sim|1734628521932.000000|t|t
+561|jbl party box 1000|1734628521932.000000|t|t
+782|11" ipad pro 2022 m2 128GB 4th generation wifi only|1734628521932.000000|t|t
+841|samsung watch 3|1734628521932.000000|t|t
+768|ipad 9th gen 2021 64GB wifi|1734628521932.000000|t|t
+753|iphone 16 pro max 8gb 1tb physical sim|1734628521932.000000|t|t
+607|iphone 7 plus 3GB 256GB|1734628521932.000000|t|t
+118|iphone 16 plus 8GB 258GB wi-fi only|1734628521932.000000|t|t
+628|iphone 11 pro max 4GB 256GB|1734628521932.000000|t|t
+115|iphone 16 8GB 128GB wi-fi only|1734628521932.000000|t|t
+732|iphone 16 8GB 128GB esim|1734628521932.000000|t|t
+594|iphone 6 1GB 32GB|1734628521932.000000|t|t
+755|10.9" ipad air 4th generation 2020 wifi + cellular 64GB|1734628521932.000000|t|t
+629|iphone 11 pro max 512GB|1734628521932.000000|t|t
+142|iphone 16 pro 8GB 258GB physical sim|1734628521932.000000|t|t
+143|iphone 16 pro 8GB 512GB physical sim|1734628521932.000000|t|t
+189|13" ipad air 6th generation 2024 m2 64GB wifi only|1734628521932.000000|t|t
+66|iphone 14 pro max 6GB 128GB e-sim|1734628521932.000000|t|t
+226|12.9" ipad pro 6th generation 2022 m2 256GB wifi + cellular|1734628521932.000000|t|t
+184|10.9" ipad air 5th generation 2021 m1 256GB wifi + lte|1734628521932.000000|t|t
+69|iphone 14 pro max 6GB 1tb e-sim|1734628521932.000000|t|t
+606|iphone 7 plus 3GB 128GB|1734628521932.000000|t|t
+685|iphone 14 pro max 6GB 256GB physical sim|1734628521932.000000|t|t
+777|11" ipad pro 2021 3rd gen wifi only 128GB|1734628521932.000000|t|t
+656|iphone 14 pro 6GB 128GB wifi-only|1734628521932.000000|t|t
+565|sony wh-1000xm5|1734628521932.000000|t|t
+158|apple pencil pro|1734628521932.000000|t|t
+175|apple magic keyboard  11”  m2|1734628521932.000000|t|t
+563|beats solo pro|1734628521932.000000|t|t
+144|iphone 16 pro 8GB 1tb physical sim|1734628521932.000000|t|t
+82|iphone 15 6GB 128GB wi-fi only|1734628521932.000000|t|t
+556|jbl boombox 3|1734628521932.000000|t|t
+557|jbl horizon 2|1734628521932.000000|t|t
+550|jbl xtreme 3|1734628521932.000000|t|t
+122|iphone 16 pro 8GB 1tb wifi-only|1734628521932.000000|t|t
+98|iphone 15 pro 8GB 258GB e-sim|1734628521932.000000|t|t
+554|harman kardon neo|1734628521932.000000|t|t
+105|iphone 15 8GB 258GB physical sim|1734628521932.000000|t|t
+193|13" ipad air 6th generation 2024 m2 512GB wifi + cellular|1734628521932.000000|t|t
+544|jbl flip 5|1734628521932.000000|t|t
+709|iphone 15 pro max 8GB 1tb e-sim|1734628521932.000000|t|t
+711|iphone 15 8GB 258GB physical sim|1734628521932.000000|t|t
+92|iphone 15 pro max 6GB 1tb wifi-only|1734628521932.000000|t|t
+702|iphone 15 plus 6GB 256GB e-sim|1734628521932.000000|t|t
+153|apple airpods 4|1734628521932.000000|t|t
+522|nokia 110|1734628521932.000000|t|t
+707|iphone 15 pro max 8GB 258GB e-sim|1734628521932.000000|t|t
+688|iphone 15 6GB 128GB wi-fi only|1734628521932.000000|t|t
+797|12.9" ipad pro 2022 m2 128GB 6th generation wifi only|1734628521932.000000|t|t
+621|iphone xs max 4GB 256GB|1734628521932.000000|t|t
+632|iphone 12 mini 4GB 256GB|1734628521932.000000|t|t
+134|iphone 16 pro max 8GB 258GB e-sim|1734628521932.000000|t|t
+125|iphone 16 pro max 8GB 1tb wifi-only|1734628521932.000000|t|t
+136|iphone 16 pro max 8GB 1tb e-sim|1734628521932.000000|t|t
+150|apple airpods pro|1734628521932.000000|t|t
+772|ipad 10th gen 2022 64GB wifi|1734628521932.000000|t|t
+641|iphone 12 pro max 6GB 512GB|1734628521932.000000|t|t
+224|12.9" ipad pro 6th generation 2022 m2 128GB wifi + cellular|1734628521932.000000|t|t
+48|iphone 14 plus 6GB 128GB wi-fi only|1734628521932.000000|t|t
+61|iphone 14 plus 6GB 256GB e-sim|1734628521932.000000|t|t
+49|iphone 14 plus 6GB 256GB wi-fi only|1734628521932.000000|t|t
+130|iphone 16 pro 8GB 128GB e-sim|1734628521932.000000|t|t
+133|iphone 16 pro 8GB 1tb e-sim|1734628521932.000000|t|t
+47|iphone 14 6GB 256GB wi-fi only|1734628521932.000000|t|t
+764|8.3" ipad mini 6th generation 2021 64GB wifi|1734628521932.000000|t|t
+132|iphone 16 pro 8GB 512GB e-sim|1734628521932.000000|t|t
+261|16” macbook pro 2023 36GB 512GB m3 pro|1734628521932.000000|t|t
+254|14” macbook pro 2023 8GB 512GB m3|1734628521932.000000|t|t
+245|15” macbook air 2023 16GB 512GB m3|1734628521932.000000|t|t
+771|ipad 9th gen 2021 256GB wifi + cellular|1734628521932.000000|t|t
+238|13” macbook air 2022 8GB 256GB m2|1734628521932.000000|t|t
+766|8.3" ipad mini 6th generation 2021 256GB wifi|1734628521932.000000|t|t
+139|iphone 16 plus 8GB 128GB physical sim|1734628521932.000000|t|t
+140|iphone 16 plus 8GB 258GB physical sim|1734628521932.000000|t|t
+217|11" ipad pro 5th generation 2024 m4 512GB wifi + cellular|1734628521932.000000|t|t
+202|10.9" ipad 10th generation 2022 256GB wifi|1734628521932.000000|t|t
+201|10.9" ipad 10th generation 2022 64GB wifi + cellular|1734628521932.000000|t|t
+392|samsung watch 6 classic 47mm|1734628521932.000000|t|t
+658|iphone 14 pro 6GB 512GB wifi-only|1734628521932.000000|t|t
+183|10.9" ipad air 5th generation 2021 m1 256GB wifi only|1734628521932.000000|t|t
+985|13" macbook pro 2020 16GB 512GB i7 touch-bar|1734628521932.000000|t|t
+180|10.9" ipad air 4th generation 2020 64GB wifi only|1734628521932.000000|t|t
+111|iphone 15 pro 8GB 1tb physical sim|1734628521932.000000|t|t
+984|13" macbook pro 2020 16GB 512GB i5 touch-bar|1734628521932.000000|t|t
+946|13" macbook pro 2017 16GB 256GB i5 touch-bar|1734628521932.000000|t|t
+938|13" macbook pro 2017 8GB 128GB i5 non touch-bar|1734628521932.000000|t|t
+121|iphone 16 pro 8GB 512GB wifi-only|1734628521932.000000|t|t
+942|13" macbook pro 2017 16GB 512GB i7 non touch-bar|1734628521932.000000|t|t
+145|iphone 16 pro max 8GB 258GB physical sim|1734628521932.000000|t|t
+992|13" macbook pro 2020 16GB 1tb m1 touch-bar|1734628521932.000000|t|t
+129|iphone 16 plus 8GB 258GB e-sim|1734628521932.000000|t|t
+441|redmi band 9|1734628521932.000000|t|t
+128|iphone 16 plus 8GB 128GB e-sim|1734628521932.000000|t|t
+262|16” macbook pro 2023 36GB 1tb m3 max|1734628521932.000000|t|t
+258|14” macbook pro 2023 18GB 1tb m3 pro|1734628521932.000000|t|t
+995|16" macbook pro 2021 16GB 512GB m1 pro|1734628521932.000000|t|t
+398|samsung galaxy buds 2|1734628521932.000000|t|t
+120|iphone 16 pro 8GB 258GB wifi-only|1734628521932.000000|t|t
+559|jbl party box 110|1734628521932.000000|t|t
+626|iphone 11 pro 4GB 256GB|1734628521932.000000|t|t
+911|13" macbook air 2017 8GB 256GB i5|1734628521932.000000|t|t
+925|13" macbook air 2020 16GB 512GB m1|1734628521932.000000|t|t
+59|iphone 14 6GB 256GB esim|1734628521932.000000|t|t
+119|iphone 16 pro 8GB 128GB wifi-only|1734628521932.000000|t|t
+922|13" macbook air 2020 16GB 256GB i5|1734628521932.000000|t|t
+169|apple series 9 45mm gps|1734628521932.000000|t|t
+926|13" macbook air 2022 8GB 256GB m2|1734628521932.000000|t|t
+209|11" ipad pro 4th generation 2022 m2 512GB wifi + cellular|1734628521932.000000|t|t
+927|13" macbook air 2022 8GB 512GB m2|1734628521932.000000|t|t
+761|11" ipad air 6th generation 2024 m2 128GB wifi + cellular|1734628521932.000000|t|t
+826|apple watch series 6 44mm lte|1734628521932.000000|t|t
+159|apple watch se 2022 40mm gps|1734628521932.000000|t|t
+53|iphone 14 pro 6GB 1tb wifi-only|1734628521932.000000|t|t
+829|apple watch series 7 45mm gps|1734628521932.000000|t|t
+74|iphone 14 pro 6GB 128GB physical sim|1734628521932.000000|t|t
+534|nokia t10 3GB 32GB|1734628521932.000000|t|t
+839|apple watch series 9 41mm gps|1734628521932.000000|t|t
+837|apple watch series 8 45mm gps|1734628521932.000000|t|t
+835|apple watch series 8 41mm gps|1734628521932.000000|t|t
+840|apple watch series 9 45mm gps|1734628521932.000000|t|t
+818|apple watch series 4 44mm lte|1734628521932.000000|t|t
+822|apple watch series 5 44mm lte|1734628521932.000000|t|t
+820|apple watch series 5 40mm lte|1734628521932.000000|t|t
+546|jbl charge 4|1734628521932.000000|t|t
+454|tecno camon 30s 6GB 128GB|1734628521932.000000|t|t
+558|jbl party box encore essential|1734628521932.000000|t|t
+819|apple watch series 5 40mm gps|1734628521932.000000|t|t
+825|apple watch series 6 44mm gps|1734628521932.000000|t|t
+625|iphone 11 pro 4GB 64GB|1734628521932.000000|t|t
+468|infinix hot 40i 4GB 128GB|1734628521932.000000|t|t
+446|tecno pop 9 4GB 128GB|1734628521932.000000|t|t
+14|google pixel 8 8GB 256GB|1734628521932.000000|t|t
+156|apple airpods max 2|1734628521932.000000|t|t
+469|infinix hot 50i 4gb 128gb|1734628521932.000000|t|t
+505|oppo a58 8GB 128GB|1734628521932.000000|t|t
+237|13” macbook air 2020 8GB 512GB m1|1734628521932.000000|t|t
+560|jbl party box 710|1734628521932.000000|t|t
+445|tecno pop 9 3GB 128GB|1734628521932.000000|t|t
+615|iPhone XR 3GB 64GB|1734628521932.000000|t|t
+555|jbl boombox 2|1734628521932.000000|t|t
+275|samsung a15 5g 4GB 128GB|1734628521932.000000|t|t
+808|apple watch series se 2020 40mm lte|1734628521932.000000|t|t
+294|samsung s20 plus 8GB 256GB|1734628521932.000000|t|t
+24|google pixel 9 pro 16GB 1tb|1734628521932.000000|t|t
+809|apple watch series se 2020 44mm gps|1734628521932.000000|t|t
+308|samsung s22 plus 8GB 256GB|1734628521932.000000|t|t
+648|iphone 13 pro 6GB 512GB|1734628521932.000000|t|t
+663|iphone 14 pro max 6GB 1tb wifi-only|1734628521932.000000|t|t
+857|samsung s20fe 6GB 128GB|1734628521932.000000|t|t
+165|apple series 8 45mm gps|1734628521932.000000|t|t
+37|iphone 12 pro max 6GB 512GB|1734628521932.000000|t|t
+174|apple watch ultra 2 49mm|1734628521932.000000|t|t
+878|samsung s23 ultra 256GB|1734628521932.000000|t|t
+890|samsung note 10+ 256GB|1734628521932.000000|t|t
+832|apple watch series se 40mm 2022 lte|1734628521932.000000|t|t
+166|apple series 8 45mm lte|1734628521932.000000|t|t
+181|10.9" ipad air 5th generation 2021 m1 64GB wifi only|1734628521932.000000|t|t
+760|11" ipad air 6th generation 2024 m2 128GB wifi only|1734628521932.000000|t|t
+634|iphone 12 4GB 128GB|1734628521932.000000|t|t
+895|samsung z flip 3 256GB|1734628521932.000000|t|t
+562|beats studio 3|1734628521932.000000|t|t
+46|iphone 14 6GB 128GB wi-fi only|1734628521932.000000|t|t
+162|apple watch se 2022 44mm gps lte|1734628521932.000000|t|t
+806|12.9" ipad pro 2022 m2 256GB 6th generation wifi only|1734628521932.000000|t|t
+843|samsung s7 edge 32GB|1734628521932.000000|t|t
+251|14” macbook pro 2022 16GB 512GB m2 pro|1734628521932.000000|t|t
+834|apple watch series se 44mm 2022 lte|1734628521932.000000|t|t
+891|samsung note 20 128GB|1734628521932.000000|t|t
+449|tecno spark 30 pro 8GB 128GB|1734628521932.000000|t|t
+892|samsung note 20 256GB|1734628521932.000000|t|t
+161|apple watch se 2022 44mm gps|1734628521932.000000|t|t
+127|iphone 16 8GB 258GB esim|1734628521932.000000|t|t
+783|11" ipad pro 2022 m2 128GB 4th generation wifi + cellular|1734628521932.000000|t|t
+893|samsung note 20 ultra 128GB|1734628521932.000000|t|t
+390|samsung watch 6 44mm|1734628521932.000000|t|t
+257|14” macbook pro 2023 18GB 512GB m3 pro|1734628521932.000000|t|t
+281|samsung a24 lte 4GB 128GB|1734628521932.000000|t|t
+838|apple watch series 8 45mm lte|1734628521932.000000|t|t
+957|13" macbook pro 2018 8GB 256GB i7 touch-bar|1734628521932.000000|t|t
+969|15" macbook pro 2019 16GB 256GB i7 4GB vram touch-bar|1734628521932.000000|t|t
+163|apple series 8 41mm gps|1734628521932.000000|t|t
+167|apple series 9 41mm gps|1734628521932.000000|t|t
+453|tecno camon 30 5g 8GB 512GB|1734628521932.000000|t|t
+288|samsung a55 5g 8GB 256GB|1734628521932.000000|t|t
+157|apple pencil 2|1734628521932.000000|t|t
+524|nokia c30 3GB 32GB|1734628521932.000000|t|t
+164|apple series 8 41mm lte|1734628521932.000000|t|t
+21|google pixel 9 pro 12GB 128GB|1734628521932.000000|t|t
+854|samsung s10+ 8GB 128GB|1734628521932.000000|t|t
+22|google pixel 9 pro 16GB 256GB|1734628521932.000000|t|t
+503|oppo a38 6GB 128GB|1734628521932.000000|t|t
+340|samsung z flip 5 8GB ram 256GB|1734628521932.000000|t|t
+844|samsung s8 4GB 64GB|1734628521932.000000|t|t
+192|13" ipad air 6th generation 2024 m2 512GB wifi only|1734628521932.000000|t|t
+348|samsung z fold 4 12GB ram 256GB|1734628521932.000000|t|t
+902|samsung z fold 4 12GB 256GB|1734628521932.000000|t|t
+353|samsung z fold 5 12GB ram 256GB|1734628521932.000000|t|t
+304|samsung s21 ultra 16GB 512GB|1734628521932.000000|t|t
+358|samsung z fold 6 12GB ram 512GB|1734628521932.000000|t|t
+492|vivo v25 8GB 256GB|1734628521932.000000|t|t
+814|apple watch series 3 42mm lte|1734628521932.000000|t|t
+864|samsung s21+ 256GB|1734628521932.000000|t|t
+816|apple watch series 4 40mm lte|1734628521932.000000|t|t
+29|google pixel 9 pro fold 256GB|1734628521932.000000|t|t
+566|google pixel 3a 4GB 64GB|1734628521932.000000|t|t
+477|infinix gt 20 pro 12gb 256gb|1734628521932.000000|t|t
+328|samsung s24 8GB 256GB dual physical sim|1734628521932.000000|t|t
+326|samsung s24 8GB 128GB|1734628521932.000000|t|t
+323|samsung s23 ultra 12GB 256GB|1734628521932.000000|t|t
+272|samsung a15 lte 4GB 128GB|1734628521932.000000|t|t
+344|samsung z fold 3 12GB ram 256GB|1734628521932.000000|t|t
+417|redmi 14t 12GB 512GB|1734628521932.000000|t|t
+291|samsung s20 8GB 128GB|1734628521932.000000|t|t
+20|google pixel 9 12GB 256GB|1734628521932.000000|t|t
+300|samsung s21 plus 8GB 128GB|1734628521932.000000|t|t
+299|samsung s21 8GB 256GB|1734628521932.000000|t|t
+311|samsung s22 ultra 12GB 256GB|1734628521932.000000|t|t
+312|samsung s22 ultra 12GB 256GB  dual physical sim|1734628521932.000000|t|t
+315|samsung s23 fe 8GB 256GB|1734628521932.000000|t|t
+418|redmi note 13 6GB 128GB|1734628521932.000000|t|t
+538|nokia x20 128GB|1734628521932.000000|t|t
+324|samsung s23 ultra 12GB 512GB|1734628521932.000000|t|t
+421|redmi note 13 8GB 512GB|1734628521932.000000|t|t
+336|samsung z flip 3 8GB 128GB|1734628521932.000000|t|t
+424|redmi note 13 pro+ 5g 8GB 256GB|1734628521932.000000|t|t
+346|samsung z fold 3 12GB ram 256GB dual physical sim|1734628521932.000000|t|t
+356|samsung z fold 6 12GB ram 256GB|1734628521932.000000|t|t
+887|samsung note 9 128GB|1734628521932.000000|t|t
+472|infinix hot 50 pro plus 8gb 128gb|1734628521932.000000|t|t
+885|samsung note 8 6GB 64GB|1734628521932.000000|t|t
+571|google pixel 5 8GB 128GB|1734628521932.000000|t|t
+620|iphone xs max 4GB 64GB|1734628521932.000000|t|t
+368|samsung tab s6 lite 2024 4GB 64GB lte|1734628521932.000000|t|t
+34|iphone 12 pro 6GB 512GB|1734628521932.000000|t|t
+39|iPhone 13 4GB 256GB|1734628521932.000000|t|t
+382|samsung tab s10 plus 12GB 256GB|1734628521932.000000|t|t
+447|tecno spark 30c 4GB 128GB|1734628521932.000000|t|t
+475|infinix note 40 pro 8gb 256gb|1734628521932.000000|t|t
+383|samsung tab s10 ultra 12GB 256GB|1734628521932.000000|t|t
+564|sony wh-1000xm4|1734628521932.000000|t|t
+433|redmi pad pro 5g 6GB 128GB|1734628521932.000000|t|t
+408|redmi 13c 4GB 128GB|1734628521932.000000|t|t
+410|redmi 13c 8GB 256GB|1734628521932.000000|t|t
+474|infinix note 40 8gb 256gb|1734628521932.000000|t|t
+131|iphone 16 pro 8GB 258GB e-sim|1734628521932.000000|t|t
+420|redmi note 13 8GB 256GB|1734628521932.000000|t|t
+425|redmi note 13 pro+ 5g 12GB 512GB|1734628521932.000000|t|t
+436|poco m5 4GB 128GB|1734628521932.000000|t|t
+450|tecno spark 30 pro 8GB 256GB|1734628521932.000000|t|t
+95|iphone 15 plus 6GB 128GB e-sim|1734628521932.000000|t|t
+36|iphone 12 pro max 6GB 256GB|1734628521932.000000|t|t
+457|tecno camon 30 premier 5g 12GB 512GB|1734628521932.000000|t|t
+452|tecno camon 30 12GB 256GB|1734628521932.000000|t|t
+581|google pixel 8 8GB 128GB|1734628521932.000000|t|t
+458|tecno phantom x2 5g 8GB 256GB|1734628521932.000000|t|t
+952|13" macbook pro 2018 8GB 256GB i5 touch-bar|1734628521932.000000|t|t
+680|iphone 14 pro 6GB 128GB physical sim|1734628521932.000000|t|t
+796|12.9" ipad pro 2021 m1 1 tb wifi + cellular|1734628521932.000000|t|t
+297|samsung s21 fe 8GB 256GB|1734628521932.000000|t|t
+464|infinix smart 8 3GB 64GB|1734628521932.000000|t|t
+508|oppo reno8t 8GB 256GB 5g|1734628521932.000000|t|t
+488|vivo y21 4GB 64GB|1734628521932.000000|t|t
+537|nokia x10 128 6GB|1734628521932.000000|t|t
+378|samsung tab s9 plus 5g 12.4" 12GB 256GB|1734628521932.000000|t|t
+567|google pixel 3xl 4GB 128GB|1734628521932.000000|t|t
+207|11" ipad pro 4th generation 2022 m2 256GB wifi + cellular|1734628521932.000000|t|t
+577|google pixel 7 8GB 256GB|1734628521932.000000|t|t
+580|google pixel 7 pro 12GB 512GB|1734628521932.000000|t|t
+591|google pixel  9 pro fold 12GB 256GB|1734628521932.000000|t|t
+752|iphone 16 pro max 8GB 512GB physical sim|1734628521932.000000|t|t
+343|samsung z flip 6 8GB ram 512GB|1734628521932.000000|t|t
+448|tecno spark 30c 6GB 128GB|1734628521932.000000|t|t
+1|google pixel 6 8GB 128GB|1734628521932.000000|t|t
+334|samsung s24 ultra 12GB 512GB dual physical sim|1734628521932.000000|t|t
+535|nokia tab t20 10" 4GB 64GB|1734628521932.000000|t|t
+351|samsung z fold 4 12GB ram 512GB dual physical sim|1734628521932.000000|t|t
+498|oppo a16k 4GB 64GB|1734628521932.000000|t|t
+497|oppo a16k 4GB 64GB|1734628521932.000000|t|t
+613|iphone x 3GB 64GB nfid|1734628521932.000000|t|t
+734|iphone 16 plus 8GB 128GB e-sim|1734628521932.000000|t|t
+510|poco c61 3gb 64gb|1734628521932.000000|t|t
+849|samsung s9+ 4GB 64GB|1734628521932.000000|t|t
+592|google pixel 9 pro fold 12GB 512GB|1734628521932.000000|t|t
+32|iphone 12 pro 6GB 128GB|1734628521932.000000|t|t
+850|samsung s10e 8GB 128GB|1734628521932.000000|t|t
+741|iphone 16 pro max 8GB 512GB e-sim|1734628521932.000000|t|t
+486|vivo y17s 4GB 128GB|1734628521932.000000|t|t
+35|iphone 12 pro max 6GB 128GB|1734628521932.000000|t|t
+541|jbl go 3|1734628521932.000000|t|t
+43|iphone 13 pro max 6GB 128GB|1734628521932.000000|t|t
+4|google pixel 6 pro 12GB 256GB|1734628521932.000000|t|t
+230|12.9" ipad pro 6th generation 2022 m2 2tb wifi + cellular|1734628521932.000000|t|t
+543|jbl clip 4|1734628521932.000000|t|t
+790|12.9" ipad pro 2019 256GB 3rd generation wifi only (premium used|1734628521932.000000|t|t
+545|jbl flip 6|1734628521932.000000|t|t
+894|samsung note 20 ultra 256GB|1734628521932.000000|t|t
+276|samsung a15 5g 6GB 128GB|1734628521932.000000|t|t
+389|samsung watch 6 40mm|1734628521932.000000|t|t
+619|iphone xs max 4GB 64GB nfid|1734628521932.000000|t|t
+858|samsung s20+ 128GB|1734628521932.000000|t|t
+856|samsung s20 12GB 256GB|1734628521932.000000|t|t
+643|iphone 13 mini 4GB 256GB|1734628521932.000000|t|t
+13|google pixel 8 8GB 128GB|1734628521932.000000|t|t
+405|samsung smart tag 2|1734628521932.000000|t|t
+881|samsung s24 plus 12GB 256GB|1734628521932.000000|t|t
+406|redmi a3x 3gb 64gb|1734628521932.000000|t|t
+10|google pixel 7 pro 12GB 512GB|1734628521932.000000|t|t
+888|samsung note 9 512GB|1734628521932.000000|t|t
+404|samsung fit 3|1734628521932.000000|t|t
+896|samsung z flip 4 12GB 128GB|1734628521932.000000|t|t
+627|iphone 11 pro max 4GB 64GB|1734628521932.000000|t|t
+397|samsung galaxy buds fe|1734628521932.000000|t|t
+459|tecno phantom x2 pro 5g 12GB 256GB|1734628521932.000000|t|t
+456|tecno camon 30s pro 8GB 256GB|1734628521932.000000|t|t
+2|google pixel 6 8GB 256GB|1734628521932.000000|t|t
+9|google pixel 7 pro 12GB 256GB|1734628521932.000000|t|t
+451|tecno camon 30 8GB 256GB|1734628521932.000000|t|t
+172|apple series 10 46mm lte|1734628521932.000000|t|t
+730|iphone 16 pro max 8gb 512gb wifi-only|1734628521932.000000|t|t
+616|iPhone XR 3GB 128GB|1734628521932.000000|t|t
+8|google pixel 7 pro 12GB 128GB|1734628521932.000000|t|t
+6|google pixel 7 8GB 128GB|1734628521932.000000|t|t
+16|google pixel 8 pro 12GB 256GB|1734628521932.000000|t|t
+18|google pixel 8 pro 12GB 1tb|1734628521932.000000|t|t
+17|google pixel 8 pro 12GB 512GB|1734628521932.000000|t|t
+12|google pixel 8a 8GB 256GB|1734628521932.000000|t|t
+11|google pixel 8a 8GB 128GB|1734628521932.000000|t|t
+7|google pixel 7 8GB 256GB|1734628521932.000000|t|t
+5|google pixel 7a 6GB 128GB|1734628521932.000000|t|t
+15|google pixel 8 pro 12gb 128gb|1734628521932.000000|t|t
+26|google pixel 9 pro xl 16GB 256GB|1734628521932.000000|t|t
+23|google pixel 9 pro 16GB 512GB|1734628521932.000000|t|t
+25|google pixel 9 pro xl 16GB 128GB|1734628521932.000000|t|t
+33|iphone 12 pro 6GB 256GB|1734628521932.000000|t|t
+27|google pixel 9 pro xl 16GB 512GB|1734628521932.000000|t|t
+28|google pixel 9 pro xl 16GB 1tb|1734628521932.000000|t|t
+31|google pixel 9 pro fold 512GB|1734628521932.000000|t|t
+501|oppo a18 4GB 128GB|1734628521932.000000|t|t
+278|samsung a16 lte 6GB 128GB|1734628521932.000000|t|t
+267|samsung a05s lte 4GB 64GB|1734628521932.000000|t|t
+265|samsung a05 lte 4GB 64GB|1734628521932.000000|t|t
+266|samsung a05 lte 4GB 128GB|1734628521932.000000|t|t
+268|samsung a05s lte 4GB 128GB|1734628521932.000000|t|t
+270|samsung a05 lte 4GB 64GB|1734628521932.000000|t|t
+269|samsung a05s lte 6GB 128GB|1734628521932.000000|t|t
+271|samsung a05 lte 4GB 128GB|1734628521932.000000|t|t
+289|samsung s10 8GB 128GB|1734628521932.000000|t|t
+286|samsung a35 5g 8GB 256GB|1734628521932.000000|t|t
+273|samsung a15 lte 6GB 128GB|1734628521932.000000|t|t
+283|Samsung A25 5g 8GB 256GB|1734628521932.000000|t|t
+274|samsung a15 lte 8GB 256GB|1734628521932.000000|t|t
+285|samsung a35 5g 6GB 128GB|1734628521932.000000|t|t
+296|samsung s21 fe 6GB 128GB|1734628521932.000000|t|t
+293|samsung s20 plus 8GB 128GB|1734628521932.000000|t|t
+292|samsung s20 fe 6GB 128GB|1734628521932.000000|t|t
+290|samsung s10 plus 8GB 128GB|1734628521932.000000|t|t
+506|oppo a78 8GB 256GB|1734628521932.000000|t|t
+309|samsung s22 plus 8GB 512GB|1734628521932.000000|t|t
+318|samsung s23 8GB 512GB|1734628521932.000000|t|t
+317|samsung s23 8GB 256GB|1734628521932.000000|t|t
+316|samsung s23 8GB 128GB|1734628521932.000000|t|t
+303|samsung s21 ultra 12GB 256GB|1734628521932.000000|t|t
+305|samsung s22 8GB 128GB|1734628521932.000000|t|t
+301|samsung s21 plus 8GB 256GB|1734628521932.000000|t|t
+327|samsung s24 8GB 256GB|1734628521932.000000|t|t
+325|samsung s23 ultra 12GB 1tb|1734628521932.000000|t|t
+322|samsung s23 ultra 8GB 256GB|1734628521932.000000|t|t
+321|samsung s23+ 8GB 512GB|1734628521932.000000|t|t
+319|samsung s23+ 8GB 256GB|1734628521932.000000|t|t
+320|samsung s23+ 8GB 256GB dual physical sim|1734628521932.000000|t|t
+338|samsung z flip 4 8GB ram 128GB|1734628521932.000000|t|t
+333|samsung s24 ultra 12GB 512GB|1734628521932.000000|t|t
+335|samsung s24 ultra 12GB 1tb|1734628521932.000000|t|t
+332|samsung s24 ultra 12GB 256GB|1734628521932.000000|t|t
+331|samsung s24+ 12GB 512GB|1734628521932.000000|t|t
+330|samsung s24+ 12GB 256GB dual physical sim|1734628521932.000000|t|t
+329|samsung s24+ 12GB 256GB|1734628521932.000000|t|t
+347|samsung z fold 3 12GB ram 512GB dual physical sim|1734628521932.000000|t|t
+349|samsung z fold 4 12GB ram 256GB dual physical sim|1734628521932.000000|t|t
+341|samsung z flip 5 8GB ram 512GB|1734628521932.000000|t|t
+363|samsung tab a8 10" 4GB 64GB|1734628521932.000000|t|t
+362|samsung tab a8 10" 3GB 32GB|1734628521932.000000|t|t
+350|samsung z fold 4 12GB ram 512GB|1734628521932.000000|t|t
+354|samsung z fold 5 12GB ram 512GB|1734628521932.000000|t|t
+357|samsung z fold 6 12GB ram 256GB dual physical sim|1734628521932.000000|t|t
+359|samsung z fold 6 12GB ram 512GB dual physical sim|1734628521932.000000|t|t
+370|samsung tab s8 plus 5g 8GB 128GB|1734628521932.000000|t|t
+377|samsung tab s9 5g 8GB 256GB|1734628521932.000000|t|t
+364|samsung tab a9 lte 8.7" 4GB 64GB|1734628521932.000000|t|t
+380|samsung tab s9 ultra 5g 12GB 256GB|1734628521932.000000|t|t
+444|tecno pop 9 3GB 64GB|1734628521932.000000|t|t
+375|Samsung Tab S9 Fe Plus 12.4" 5g 12GB 128GB|1734628521932.000000|t|t
+416|redmi 14c 8gb 256gb|1734628521932.000000|t|t
+384|samsung tab s10 ultra 12GB 512GB|1734628521932.000000|t|t
+423|redmi note 13 pro 12GB 512GB|1734628521932.000000|t|t
+422|redmi note 13 pro 8GB 256GB|1734628521932.000000|t|t
+426|redmi pad se 4gb 128gb|1734628521932.000000|t|t
+437|poco m5 6GB 128GB|1734628521932.000000|t|t
+432|redmi pad pro 8GB 256GB|1734628521932.000000|t|t
+431|redmi pad pro 6GB 128GB|1734628521932.000000|t|t
+460|tecno phantom v flip 2 5g 8GB 256GB|1734628521932.000000|t|t
+461|tecno phantom v fold 2 5g 12GB 512GB|1734628521932.000000|t|t
+462|tecno megapad 10 4GB 128GB|1734628521932.000000|t|t
+485|vivo y16 4GB 64GB|1734628521932.000000|t|t
+470|infinix hot 50i 4gb 256gb|1734628521932.000000|t|t
+471|infinix hot 50 8gb 256gb|1734628521932.000000|t|t
+473|infinix hot 50 pro plus 8gb 256gb|1734628521932.000000|t|t
+463|infinix smart 8 2gb 64gb|1734628521932.000000|t|t
+466|infinix smart 9 hd 3gb 64gb|1734628521932.000000|t|t
+481|vivo yo2 2GB 32GB|1734628521932.000000|t|t
+467|infinix smart 9 3gb 128gb|1734628521932.000000|t|t
+484|vivo y15s 2GB 32GB|1734628521932.000000|t|t
+482|vivo y1s 2GB 32GB|1734628521932.000000|t|t
+483|vivo yo2s 3GB 32GB|1734628521932.000000|t|t
+523|nokia c12 2GB 64GB|1734628521932.000000|t|t
+515|realme note 50 3gb 64gb|1734628521932.000000|t|t
+518|realme c61 6gb 128gb|1734628521932.000000|t|t
+495|vivo y35 8GB 128GB|1734628521932.000000|t|t
+519|Realme C61 6GB 256GB|1734628521932.000000|t|t
+489|vivo y22 4GB 64GB|1734628521932.000000|t|t
+493|vivo y27s 8GB 256GB|1734628521932.000000|t|t
+490|vivo y22s 6GB 128GB|1734628521932.000000|t|t
+491|vivo v25e 8GB 128GB|1734628521932.000000|t|t
+494|vivo y33s 3GB 128GB|1734628521932.000000|t|t
+532|nokia g21 4GB 128GB|1734628521932.000000|t|t
+525|nokia c30 3GB 64GB|1734628521932.000000|t|t
+526|nokia c31 2GB 32GB|1734628521932.000000|t|t
+533|nokia g60 6GB 128GB|1734628521932.000000|t|t
+512|poco c75 6gb 128gb|1734628521932.000000|t|t
+513|poco c75 8gb 256gb|1734628521932.000000|t|t
+514|poco x6 pro 5g 12gb 512gb|1734628521932.000000|t|t
+516|realme note 50 4gb 128gb|1734628521932.000000|t|t
+517|realme note 50 4gb 256gb|1734628521932.000000|t|t
+529|nokia g10 4GB 64GB|1734628521932.000000|t|t
+528|nokia g10 2GB 32GB|1734628521932.000000|t|t
+530|nokia g11 plus 3GB 64GB|1734628521932.000000|t|t
+527|nokia c32 4GB 64GB|1734628521932.000000|t|t
+539|nokia x30 8GB 256GB|1734628521932.000000|t|t
+582|google pixel 8 8GB 256GB|1734628521932.000000|t|t
+570|google pixel 5a 6GB 128GB|1734628521932.000000|t|t
+587|google pixel 9 12GB 256GB|1734628521932.000000|t|t
+590|google pixel 9 pro xl 16GB 256GB|1734628521932.000000|t|t
+588|google pixel 9 pro 16GB 128GB|1734628521932.000000|t|t
+589|google pixel 9 pro 16GB 256GB|1734628521932.000000|t|t
+579|google pixel 7 pro 12GB 256GB|1734628521932.000000|t|t
+578|google pixel 7 pro 12GB 128GB|1734628521932.000000|t|t
+586|google pixel 9 12GB 128GB|1734628521932.000000|t|t
+585|google pixel 8 pro 12GB 512GB|1734628521932.000000|t|t
+584|google pixel 8 pro 12GB 256GB|1734628521932.000000|t|t
+439|redmi buds 6 active|1734628521932.000000|t|t
+402|samsung galaxy buds 2 pro|1734628521932.000000|t|t
+733|iphone 16 8gb 258gb esim|1734628521932.000000|t|t
+372|samsung tab s8 ultra 5g w, keyboard|1734628521932.000000|t|t
+540|jbl go 2|1734628521932.000000|t|t
+725|iphone 16 pro 8gb 128gb wifi-only|1734628521932.000000|t|t
+502|oppo a38 4GB 128GB|1734628521932.000000|t|t
+399|samsung galaxy buds 3|1734628521932.000000|t|t
+860|samsung s20 ultra 256GB|1734628521932.000000|t|t
+851|samsung s10e 8GB 256GB|1734628521932.000000|t|t
+846|samsung s8+ 4GB 64GB|1734628521932.000000|t|t
+845|samsung s8 4GB 256GB|1734628521932.000000|t|t
+847|samsung s8+ 4GB 256GB|1734628521932.000000|t|t
+848|samsung s9 4GB 64GB|1734628521932.000000|t|t
+430|redmi pad se 4g 8gb 256gb|1734628521932.000000|t|t
+852|samsung s10 8GB 128GB|1734628521932.000000|t|t
+853|samsung s10 512GB|1734628521932.000000|t|t
+868|samsung s22 256GB|1734628521932.000000|t|t
+867|samsung s22 128GB|1734628521932.000000|t|t
+866|samsung s21 ultra 12GB 256GB|1734628521932.000000|t|t
+863|samsung s21+ 128GB|1734628521932.000000|t|t
+861|samsung s21 128GB|1734628521932.000000|t|t
+870|samsung s22 plus 256GB|1734628521932.000000|t|t
+879|samsung s23 ultra 512GB|1734628521932.000000|t|t
+877|samsung s23 plus 8GB 256GB|1734628521932.000000|t|t
+869|samsung s22 plus 128GB|1734628521932.000000|t|t
+876|samsung s23 plus 8GB 128GB|1734628521932.000000|t|t
+874|samsung s23 8GB 128GB|1734628521932.000000|t|t
+875|samsung s23 8GB 256GB|1734628521932.000000|t|t
+873|samsung s22 ultra 512GB|1734628521932.000000|t|t
+872|samsung s22 ultra 256GB|1734628521932.000000|t|t
+504|oppo a58 6GB 128GB|1734628521932.000000|t|t
+899|samsung z flip 5 512GB|1734628521932.000000|t|t
+882|samsung s24 plus 12GB 512GB|1734628521932.000000|t|t
+883|samsung s24 ultra 256GB|1734628521932.000000|t|t
+884|samsung s24 ultra 512GB|1734628521932.000000|t|t
+886|samsung note 8 6GB 256GB|1734628521932.000000|t|t
+889|samsung note 10 256GB|1734628521932.000000|t|t
+904|samsung z fold 5 12GB 256GB|1734628521932.000000|t|t
+903|samsung z fold 4 12GB 512GB|1734628521932.000000|t|t
+898|samsung z flip 5 256GB|1734628521932.000000|t|t
+905|samsung z fold 5 12GB 512GB|1734628521932.000000|t|t
+403|samsung galaxy buds 3 pro|1734628521932.000000|t|t
+901|samsung z fold 3 12GB 512GB|1734628521932.000000|t|t
+900|samsung z fold 3 12GB 256GB|1734628521932.000000|t|t
+914|13" macboook air 2018 8GB 256GB i5|1734628521932.000000|t|t
+917|13" macboook air 2019 8GB 128GB i5|1734628521932.000000|t|t
+916|13" macboook air 2018 16GB 512GB i5|1734628521932.000000|t|t
+915|13" macboook air 2018 16GB 256GB i5|1734628521932.000000|t|t
+919|13" macboook air 2019 16GB 256GB i5|1734628521932.000000|t|t
+918|13" macboook air 2019 8GB 256GB i5|1734628521932.000000|t|t
+443|tecno pop 8 2GB 64GB|1734628521932.000000|t|t
+429|redmi pad se 4g 4gb 128gb|1734628521932.000000|t|t
+455|tecno camon 30 pro 5g 12GB 512GB|1734628521932.000000|t|t
+920|13" macboook air 2019 16GB 512GB i5|1734628521932.000000|t|t
+19|google pixel 9 12GB 128GB|1734628521932.000000|t|t
+428|redmi pad se 4g 4gb 64gb|1734628521932.000000|t|t
+576|google pixel 7 8GB 128GB|1734628521932.000000|t|t
+583|google pixel 8 pro 12GB 128GB|1734628521932.000000|t|t
+574|google pixel 6 pro 12GB 128GB|1734628521932.000000|t|t
+419|redmi note 13 8GB 128GB|1734628521932.000000|t|t
+596|iphone 6 1GB 128GB|1734628521932.000000|t|t
+101|iphone 15 pro max 8GB 258GB e-sim|1734628521932.000000|t|t
+662|iphone 14 pro max 6GB 512GB wifi-only|1734628521932.000000|t|t
+684|iphone 14 pro max 6GB 128GB physical sim|1734628521932.000000|t|t
+465|infinix smart 8 4GB 64GB|1734628521932.000000|t|t
+280|samsung a16 5g 4GB 128GB|1734628521932.000000|t|t
+487|vivo y17s 6GB 128GB|1734628521932.000000|t|t
+694|iphone 15 pro 6GB 512GB wifi-only|1734628521932.000000|t|t
+337|samsung z flip 3 8GB 256GB|1734628521932.000000|t|t
+897|samsung z flip 4 12GB 256GB|1734628521932.000000|t|t
+624|iphone 11 4GB 128GB|1734628521932.000000|t|t
+339|samsung z flip 4 8GB ram 256GB|1734628521932.000000|t|t
+345|samsung z fold 3 12GB ram 512GB|1734628521932.000000|t|t
+352|samsung z fold 4 12GB ram 1tb|1734628521932.000000|t|t
+393|samsung watch 7 fe|1734628521932.000000|t|t
+355|samsung z fold 5 12GB ram 1tb|1734628521932.000000|t|t
+287|samsung a55 5g 8GB 128GB|1734628521932.000000|t|t
+360|samsung z fold 6 12GB ram 1tb|1734628521932.000000|t|t
+298|samsung s21 8GB 128GB|1734628521932.000000|t|t
+855|samsung s20 12GB 128GB|1734628521932.000000|t|t
+314|samsung s23 fe 8GB 128GB|1734628521932.000000|t|t
+171|apple series 10 42mm gps|1734628521932.000000|t|t
+313|samsung s22 ultra 12GB 512GB|1734628521932.000000|t|t
+310|samsung s22 ultra 8GB 128GB|1734628521932.000000|t|t
+282|samsung a24 lte 6GB 128GB|1734628521932.000000|t|t
+306|samsung s22 8GB 256GB|1734628521932.000000|t|t
+302|samsung s21 ultra 12GB 128GB|1734628521932.000000|t|t
+871|samsung s22 ultra 128GB|1734628521932.000000|t|t
+865|samsung s21 ultra 12GB 128GB|1734628521932.000000|t|t
+880|samsung s24 128GB|1734628521932.000000|t|t
+862|samsung s21 256GB|1734628521932.000000|t|t
+859|samsung s20 ultra 128GB|1734628521932.000000|t|t
+427|redmi pad se 8gb 256gb|1734628521932.000000|t|t
+642|iphone 13 mini 4GB 128GB|1734628521932.000000|t|t
+307|samsung s22 plus 8GB 128GB|1734628521932.000000|t|t
+394|samsung watch 7 40mm bt|1734628521932.000000|t|t
+342|samsung z flip 6 8GB ram 256GB|1734628521932.000000|t|t
+160|apple watch se 2022 40mm gps lte|1734628521932.000000|t|t
+520|nokia 105|1734628521932.000000|t|t
+395|samsung watch 7 44mm bt|1734628521932.000000|t|t
+507|oppo reno8t 8GB 256GB 4g|1734628521932.000000|t|t
+478|infinix zero flip 8gb 512gb|1734628521932.000000|t|t
+152|apple airpods 3|1734628521932.000000|t|t
+376|samsung tab s9 5g 8GB 128GB|1734628521932.000000|t|t
+369|samsung tab s8 5g 8GB 256GB|1734628521932.000000|t|t
+381|samsung tab s9 ultra 5g 12GB 512GB|1734628521932.000000|t|t
+379|samsung tab s9 plus 5g 12.4" 12GB 512GB|1734628521932.000000|t|t
+367|samsung tab a9+ 5g 11" 8GB 128GB|1734628521932.000000|t|t
+361|samsung tab a7 lite 8" 3GB 32GB|1734628521932.000000|t|t
+154|apple airpods 4 anc|1734628521932.000000|t|t
+371|samsung tab s8 ultra 5g 12GB 256GB|1734628521932.000000|t|t
+374|samsung tab s9 fe 10.9" 5g 8GB 256GB|1734628521932.000000|t|t
+138|iphone 16 8GB 258GB physical sim|1734628521932.000000|t|t
+803|12.9" ipad pro 2022 m2 512GB 6th generation wifi + cellular|1734628521932.000000|t|t
+409|redmi 13c 6GB 128GB|1734628521932.000000|t|t
+521|nokia 150|1734628521932.000000|t|t
+434|redmi pad pro 5g 8GB 256GB|1734628521932.000000|t|t
+365|samsung tab a9 lte 8.7" 4GB 128GB|1734628521932.000000|t|t
+568|google pixel 4xl 6GB  128GB|1734628521932.000000|t|t
+569|google pixel 4a 6GB 128GB|1734628521932.000000|t|t
+295|samsung s20 ultra 12GB 128GB|1734628521932.000000|t|t
+531|nokia g21 4GB 64GB|1734628521932.000000|t|t
+407|redmi a3x 4gb 128gb|1734628521932.000000|t|t
+366|samsung tab a9+ 5g 11" 4GB 64GB|1734628521932.000000|t|t
+435|poco m5 4GB 64GB|1734628521932.000000|t|t
+373|samsung tab s9 fe 10.9" 5g 6GB 128GB|1734628521932.000000|t|t
+511|poco c61 4gb 128gb|1734628521932.000000|t|t
+509|oppo reno11 12GB 256GB 5g|1734628521932.000000|t|t
+264|samsung a04e lte 3GB 32GB|1734628521932.000000|t|t
+413|redmi 13 8gb 256gb|1734628521932.000000|t|t
+412|redmi 13 8gb 128gb|1734628521932.000000|t|t
+411|redmi 13 6gb 128gb|1734628521932.000000|t|t
+277|samsung a16 lte 4GB 128GB|1734628521932.000000|t|t
+40|iphone 13 pro 6GB 128GB|1734628521932.000000|t|t
+913|13" macboook air 2018 8GB 128GB i5|1734628521932.000000|t|t
+415|redmi 14c 6gb 128gb|1734628521932.000000|t|t
+414|redmi 14c 4gb 128gb|1734628521932.000000|t|t
+279|samsung a16 lte 8GB 256GB|1734628521932.000000|t|t
+44|iphone 13 pro max 6GB 256GB|1734628521932.000000|t|t
+62|iphone 14 pro 6GB 128GB e-sim|1734628521932.000000|t|t
+63|iphone 14 pro 6GB 256GB e-sim|1734628521932.000000|t|t
+480|infinix xpad 8gb 256gb 4g|1734628521932.000000|t|t
+284|samsung a25 5g 8GB 256GB|1734628521932.000000|t|t
+476|infinix note 40 pro 5g 12gb 256gb|1734628521932.000000|t|t
+572|google pixel 6a 6GB 128GB|1734628521932.000000|t|t
+196|10.2" ipad 9th generation 2021 64GB wifi|1734628521932.000000|t|t
+173|apple watch ultra 49mm|1734628521932.000000|t|t
+198|10.2" ipad 9th generation 2021 256GB wifi only|1734628521932.000000|t|t
+440|redmi buds 6 lite|1734628521932.000000|t|t
+197|10.2" ipad 9th generation 2021 64GB wifi + lte|1734628521932.000000|t|t
+190|13" ipad air 6th generation 2024 m2 256GB wifi only|1734628521932.000000|t|t
+188|11" ipad air 6th generation 2024 m2 256GB wifi + cellular|1734628521932.000000|t|t
+187|11" ipad air 6th generation 2024 m2 256GB wifi only|1734628521932.000000|t|t
+186|11" ipad air 6th generation 2024 m2 128GB wifi + cellular "|1734628521932.000000|t|t
+185|11" ipad air 6th generation 2024 m2 128GB wifi only "|1734628521932.000000|t|t
+500|oppo a18 4GB 64GB|1734628521932.000000|t|t
+116|iphone 16 8GB 258GB wi-fi only|1734628521932.000000|t|t
+117|iphone 16 plus 8GB 128GB wi-fi only|1734628521932.000000|t|t
+635|iphone 12 4GB 256GB|1734628521932.000000|t|t
+112|iphone 15 pro max 8GB 258GB physical sim|1734628521932.000000|t|t
+114|iphone 15 pro max 8GB 1tb physical sim|1734628521932.000000|t|t
+108|iphone 15 pro 8GB 128GB physical sim|1734628521932.000000|t|t
+479|infinix xpad 4gb 128gb 4g|1734628521932.000000|t|t
+94|iphone 15 6GB 256GB esim|1734628521932.000000|t|t
+107|iphone 15 plus 8GB 258GB physical sim|1734628521932.000000|t|t
+106|iphone 15 plus 8GB 128GB physical sim|1734628521932.000000|t|t
+104|iphone 15 8GB 128GB physical sim|1734628521932.000000|t|t
+113|iphone 15 pro max 8GB 512GB physical sim|1734628521932.000000|t|t
+438|redmi buds 6 play|1734628521932.000000|t|t
+103|iphone 15 pro max 8GB 1tb e-sim|1734628521932.000000|t|t
+87|iphone 15 pro 6GB 256GB wifi-only|1734628521932.000000|t|t
+93|iphone 15 6GB 128GB esim|1734628521932.000000|t|t
+630|iphone 12 mini 4GB 64GB|1734628521932.000000|t|t
+205|11" ipad pro 4th generation 2022 m2 128GB wifi + cellular|1734628521932.000000|t|t
+815|apple watch series 4 40mm gps|1734628521932.000000|t|t
+817|apple watch series 4 44mm gps|1734628521932.000000|t|t
+85|iphone 15 plus 6GB 256GB wi-fi only|1734628521932.000000|t|t
+96|iphone 15 plus 6GB 256GB e-sim|1734628521932.000000|t|t
+88|iphone 15 pro 6GB 512GB wifi-only|1734628521932.000000|t|t
+203|10.9" ipad 10th generation 2022 256GB wifi + cellular|1734628521932.000000|t|t
+194|8.3" ipad mini 6th generation 2021 64GB wifi only|1734628521932.000000|t|t
+99|iphone 15 pro 8GB 512GB e-sim|1734628521932.000000|t|t
+89|iphone 15 pro 6GB 1tb wifi-only|1734628521932.000000|t|t
+79|iphone 14 pro max 6GB 256GB physical sim|1734628521932.000000|t|t
+622|iphone xs max 4GB 512GB|1734628521932.000000|t|t
+195|8.3" ipad mini 6th generation 2021 256GB wifi only|1734628521932.000000|t|t
+199|10.2" ipad 9th generation 2021 256GB wifi + cellular|1734628521932.000000|t|t
+214|11" ipad pro 5th generation 2024 m4 256GB wifi only|1734628521932.000000|t|t
+213|11" ipad pro 5th generation 2024 m4 128GB wifi|1734628521932.000000|t|t
+215|11" ipad pro 5th generation 2024 m4 256GB wifi + cellular|1734628521932.000000|t|t
+247|13” macbook pro 2022 8GB 256GB m2|1734628521932.000000|t|t
+80|iphone 14 pro max 6GB 512GB physical sim|1734628521932.000000|t|t
+631|iphone 12 mini 4GB 128GB|1734628521932.000000|t|t
+225|12.9" ipad pro 6th generation 2022 m2 256GB wifi|1734628521932.000000|t|t
+221|12.9" ipad pro 5th generation 2021 m1 128GB wifi + cellular|1734628521932.000000|t|t
+222|12.9" ipad pro 5th generation 2021 m1 256GB wifi only|1734628521932.000000|t|t
+220|12.9" ipad pro 4th generation 2020 256GB wifi only|1734628521932.000000|t|t
+228|12.9" ipad pro 6th generation 2022 m2 512GB wifi + cellular|1734628521932.000000|t|t
+231|13" ipad pro 7th generation 2024 m4 256GB wifi only|1734628521932.000000|t|t
+30|google pixel watch 3|1734628521932.000000|t|t
+227|12.9" ipad pro 6th generation 2022 m2 512GB wifi|1734628521932.000000|t|t
+232|13" ipad pro 7th generation 2024 m4 256GB wifi + cellular|1734628521932.000000|t|t
+233|13" ipad pro 7th generation 2024 m4 512GB wifi only|1734628521932.000000|t|t
+240|13” macbook air 2023 8GB 256GB m3|1734628521932.000000|t|t
+239|13” macbook air 2022 8GB 512GB m2|1734628521932.000000|t|t

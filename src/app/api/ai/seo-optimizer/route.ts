@@ -394,52 +394,51 @@ export async function GET(_request: NextRequest) {
     // Get all active products
     const { data: products } = await supabase
       .from('products')
-      .select('id, name, meta_title, meta_description, keywords')
+      .select('id, name, description, meta_title, meta_description, keywords')
       .eq('merchant_id', merchant.id)
       .eq('status', 'active');
 
     // Analyze each product
     const analysis = (products || []).map((product) => {
-      const hasTitle = !!product.meta_title;
-      const hasDescription = !!product.meta_description;
+      // Determine effective content (what Google actually sees)
+      const effectiveTitle = product.meta_title || product.name || '';
+      const effectiveDescription =
+        product.meta_description || product.description || '';
+
+      const hasCustomTitle = !!product.meta_title;
+      const hasCustomDescription = !!product.meta_description;
       const hasKeywords = product.keywords && product.keywords.length > 0;
 
-      let score = 0;
-      const issues: string[] = [];
+      // reuse the helper function for consistent scoring
+      const qualityAnalysis = analyzeSEO(
+        effectiveTitle,
+        effectiveDescription,
+        product.keywords || [],
+        product.name // Use product name as proxy for focus keyword for basic analysis
+      );
 
-      if (hasTitle) {
-        score += 30;
-        if (product.meta_title.length < 30 || product.meta_title.length > 60) {
-          issues.push('Title length not optimal');
-        }
-      } else {
-        issues.push('Missing meta title');
+      // Add "Info" issues if using defaults, but DON'T penalize score heavily if quality is good
+      const issues = [...qualityAnalysis.issues];
+
+      if (!hasCustomTitle) {
+        // suggestions.push('Consider setting a custom meta title for better control');
       }
 
-      if (hasDescription) {
-        score += 40;
-        if (
-          product.meta_description.length < 120 ||
-          product.meta_description.length > 160
-        ) {
-          issues.push('Description length not optimal');
-        }
-      } else {
-        issues.push('Missing meta description');
+      if (!hasCustomDescription) {
+        // suggestions.push('Consider setting a custom meta description for better control');
       }
 
-      if (hasKeywords) {
-        score += 30;
-      } else {
-        issues.push('Missing keywords');
+      if (!hasKeywords) {
+        // Keyword presence is still important
+        // issues.push('Missing keywords'); // Already handled in analyzeSEO if keywords is empty
       }
 
       return {
         productId: product.id,
         productName: product.name,
-        seoScore: score,
-        hasTitle,
-        hasDescription,
+        seoScore: qualityAnalysis.score,
+        hasTitle: hasCustomTitle, // Keep these for UI indicators (e.g. gray check vs green)
+        hasDescription: hasCustomDescription,
         hasKeywords,
         issues,
       };

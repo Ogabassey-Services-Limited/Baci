@@ -1,110 +1,61 @@
 'use client';
 
-import { ArrowRight, Box, HelpCircle, Tag, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { Lock, Sparkles } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import type { Change } from '@/app/dashboard/products/actions';
+import { enrichProductsBatch } from '@/app/dashboard/products/generation-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useProductContext } from '@/contexts/product-context';
-import { Input } from '../ui/input';
+import { useMerchant } from '@/hooks/use-merchant';
+import { useToast } from '@/hooks/use-toast';
+import { formatCurrency, getCurrencySymbol } from '@/lib/currency';
+import { cn } from '@/lib/utils';
 
-function ChangeCard({
-  change,
-  isSelected,
-  onSelectionChange,
-}: {
-  change: Change;
-  isSelected: boolean;
-  onSelectionChange: (id: string) => void;
-}) {
-  const getIcon = () => {
-    if (change.type === 'update')
-      return <Tag className="w-5 h-5 text-blue-500" />;
-    if (change.type === 'new')
-      return <Box className="w-5 h-5 text-green-500" />;
-    if (change.type === 'remove')
-      return <Trash2 className="w-5 h-5 text-red-500" />;
-    return <HelpCircle className="w-5 h-5" />;
-  };
-
-  return (
-    <Card className="flex items-start gap-4 p-4">
-      <Checkbox
-        checked={isSelected}
-        onCheckedChange={() =>
-          onSelectionChange(
-            change.details.sku || change.productId || change.details.name
-          )
-        }
-        className="mt-1"
-        aria-label={`Select change for ${change.details.name}`}
-      />
-      <div className="flex-shrink-0">{getIcon()}</div>
-      <div className="flex-1 space-y-1">
-        <p className="font-semibold">{change.details.name}</p>
-        {change.type === 'update' && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Price change:</span>
-            <span className="line-through text-red-500">
-              ${change.details.price.toFixed(2)}
-            </span>
-            <ArrowRight className="w-4 h-4" />
-            <span className="font-bold text-green-600">
-              ${change.newPrice?.toFixed(2)}
-            </span>
-          </div>
-        )}
-        {change.type === 'new' && (
-          <div>
-            <Badge variant="secondary">New Product</Badge>
-            <p className="text-sm text-muted-foreground">
-              Price: ${change.details.price.toFixed(2)}
-            </p>
-            {/* Form for missing fields could go here */}
-          </div>
-        )}
-        {change.type === 'remove' && (
-          <div>
-            <Badge variant="destructive">Remove</Badge>
-            <p className="text-sm text-muted-foreground">{change.reason}</p>
-          </div>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-export function ReviewChanges() {
+export function ReviewChanges({ onComplete }: { onComplete?: () => void }) {
   const { aiResponse, setWorkflowStep, applyChanges } = useProductContext();
-  const [selectedChanges, setSelectedChanges] = useState<Set<string>>(
-    () =>
-      new Set(
-        aiResponse?.changes.map(
-          (c) => c.details.sku || c.productId || c.details.name
-        )
-      )
+  const { merchant } = useMerchant();
+  const { toast } = useToast();
+
+  // Local state for editable changes
+  const [localChanges, setLocalChanges] = useState<Change[]>([]);
+  const [selectedIndices, setSelectedIndices] = useState<Set<number>>(
+    new Set()
   );
 
-  const [missingInfo, setMissingInfo] = useState<
-    Record<string, Record<string, string>>
-  >({});
+  // AI Generation State
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [genProgress, setGenProgress] = useState(0);
+  const [showGenModal, setShowGenModal] = useState(false);
+  const stopGenerationRef = useRef(false);
+
+  // Initialize local state when aiResponse loads
+  useEffect(() => {
+    if (aiResponse?.changes) {
+      setLocalChanges(aiResponse.changes);
+      // Default select all
+      setSelectedIndices(new Set(aiResponse.changes.map((_, i) => i)));
+    }
+  }, [aiResponse]);
 
   if (!aiResponse) {
     return (
@@ -120,196 +71,403 @@ export function ReviewChanges() {
     );
   }
 
-  const handleSelectionChange = (id: string) => {
-    setSelectedChanges((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedChanges(
-        new Set(
-          aiResponse.changes.map(
-            (c) => c.details.sku || c.productId || c.details.name
-          )
-        )
-      );
+      setSelectedIndices(new Set(localChanges.map((_, i) => i)));
     } else {
-      setSelectedChanges(new Set());
+      setSelectedIndices(new Set());
     }
   };
 
-  const handleAccept = () => {
-    const changesToApply = aiResponse.changes.filter((c) =>
-      selectedChanges.has(c.details.sku || c.productId || c.details.name)
-    );
-
-    // Potentially enrich changes with manually entered info
-    const finalChanges = changesToApply.map((change) => {
-      if (change.type === 'new' && missingInfo[change.details.name]) {
-        return {
-          ...change,
-          details: {
-            ...change.details,
-            ...missingInfo[change.details.name],
-          },
-        };
-      }
-      return change;
+  const toggleSelection = (index: number) => {
+    setSelectedIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
     });
-
-    applyChanges(finalChanges);
   };
 
-  const handleReject = () => {
-    setWorkflowStep('view');
-  };
-
-  const handleMissingInfoChange = (
-    productName: string,
-    field: string,
-    value: string
+  const handleEdit = (
+    index: number,
+    field: keyof Change['details'],
+    value: string | number
   ) => {
-    setMissingInfo((prev) => ({
-      ...prev,
-      [productName]: {
-        ...prev[productName],
-        [field]: value,
-      },
-    }));
+    setLocalChanges((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        details: {
+          ...updated[index].details,
+          [field]: value,
+        },
+      };
+      return updated;
+    });
   };
 
-  const newProductsWithMissingInfo = aiResponse.changes.filter(
-    (c) =>
-      c.type === 'new' &&
-      aiResponse.missingParameterRequest &&
-      c.details.name === aiResponse.missingParameterRequest.productName
-  );
+  const isPro =
+    merchant?.plan_tier === 'pro' || merchant?.plan_tier === 'business';
+
+  const handleGenerateDescriptions = async () => {
+    if (!isPro) {
+      toast({
+        title: 'Pro Feature Locked',
+        description:
+          'Upgrade to Pro to auto-generate SEO descriptions for thousands of products!',
+        variant: 'destructive', // Or a custom 'premium' variant if you have one
+      });
+      return;
+    }
+
+    // Identify targets: New products with empty descriptions OR missing SKUs OR no attributes
+    const targets = localChanges
+      .map((c, i) => ({ ...c, originalIndex: i }))
+      .filter((c) => c.type === 'new'); // Process ALL new products to enrich them (attributes/SKU even if description exists)
+
+    if (targets.length === 0) {
+      toast({
+        title: 'Nothing to generate',
+        description: 'All new products already have descriptions.',
+      });
+      return;
+    }
+
+    setShowGenModal(true);
+    setIsGenerating(true);
+    setGenProgress(0);
+
+    const BATCH_SIZE = 5;
+    const totalBatches = Math.ceil(targets.length / BATCH_SIZE);
+
+    try {
+      for (let i = 0; i < totalBatches; i++) {
+        if (stopGenerationRef.current) {
+          toast({
+            title: 'Generation Stopped',
+            description: `Stopped after ${i * BATCH_SIZE} products.`,
+          });
+          break;
+        }
+
+        const batch = targets.slice(i * BATCH_SIZE, (i + 1) * BATCH_SIZE);
+        const names = batch.map((c) => c.details.name);
+
+        // Call Server Action
+        const results = await enrichProductsBatch(names);
+
+        // Update State
+        setLocalChanges((prev) => {
+          const next = [...prev];
+          results.forEach((res) => {
+            const target = batch.find(
+              (b) => b.details.name === res.productName
+            );
+            if (target) {
+              next[target.originalIndex] = {
+                ...next[target.originalIndex],
+                details: {
+                  ...next[target.originalIndex].details,
+                  description:
+                    res.description ||
+                    next[target.originalIndex].details.description, // Only overwrite if new description exists
+                  sku: next[target.originalIndex].details.sku || res.sku, // Only set SKU if missing
+                  attributes: res.attributes, // Save attributes
+                },
+              };
+            }
+          });
+          return next;
+        });
+
+        // Update Progress
+        setGenProgress(Math.round(((i + 1) / totalBatches) * 100));
+      }
+
+      if (!stopGenerationRef.current) {
+        toast({
+          title: 'Generation Complete',
+          description: `Generated descriptions for ${targets.length} products.`,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Generation Failed',
+        description: 'Something went wrong.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
+      setTimeout(() => setShowGenModal(false), 1000);
+      stopGenerationRef.current = false; // Reset for next time
+    }
+  };
+
+  const handleStopGeneration = () => {
+    stopGenerationRef.current = true;
+  };
+
+  const handleApply = async () => {
+    const changesToApply = localChanges.filter((_, i) =>
+      selectedIndices.has(i)
+    );
+    await applyChanges(changesToApply);
+    if (onComplete) onComplete();
+  };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b">
-        <h2 className="text-2xl font-bold">Review Suggested Changes</h2>
-        <p className="text-muted-foreground">{aiResponse.summary}</p>
-      </div>
-
-      {aiResponse.clarificationRequest && (
-        <Alert className="m-4">
-          <HelpCircle className="h-4 w-4" />
-          <AlertTitle>AI needs clarification</AlertTitle>
-          <AlertDescription>
-            <p className="mb-2">{aiResponse.clarificationRequest.question}</p>
-            <div className="flex gap-2">
-              {aiResponse.clarificationRequest.options.map((opt) => (
-                <Button key={opt} variant="outline" size="sm">
-                  {opt}
-                </Button>
-              ))}
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {newProductsWithMissingInfo.length > 0 &&
-        aiResponse.missingParameterRequest && (
-          <Card className="m-4">
-            <CardHeader>
-              <CardTitle>Additional Information Required</CardTitle>
-              <CardDescription>
-                The AI needs more details for "
-                {aiResponse.missingParameterRequest.productName}" before it can
-                be added.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {aiResponse.missingParameterRequest.missingFields.map((field) => (
-                <div key={field} className="grid gap-2">
-                  <Label
-                    htmlFor={`${aiResponse.missingParameterRequest?.productName}-${field}`}
-                  >
-                    {field}
-                  </Label>
-                  {field.toLowerCase() === 'condition' ? (
-                    <Select
-                      onValueChange={(value) =>
-                        handleMissingInfoChange(
-                          aiResponse.missingParameterRequest?.productName || '',
-                          field,
-                          value
-                        )
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder={`Select ${field}...`} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Brand New">Brand New</SelectItem>
-                        <SelectItem value="Used">Used</SelectItem>
-                        <SelectItem value="Refurbished">Refurbished</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      id={`${aiResponse.missingParameterRequest?.productName}-${field}`}
-                      placeholder={`Enter ${field}...`}
-                      onChange={(e) =>
-                        handleMissingInfoChange(
-                          aiResponse.missingParameterRequest?.productName || '',
-                          field,
-                          e.target.value
-                        )
-                      }
-                    />
-                  )}
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="flex items-center space-x-2">
-          <Checkbox
-            id="select-all"
-            checked={
-              selectedChanges.size === aiResponse.changes.length &&
-              aiResponse.changes.length > 0
-            }
-            onCheckedChange={handleSelectAll}
-          />
-          <Label htmlFor="select-all">
-            Select All ({selectedChanges.size} / {aiResponse.changes.length})
-          </Label>
+    <div className="flex flex-col h-full bg-background rounded-md border shadow-sm overflow-hidden">
+      {/* Header / Stats */}
+      <div className="p-4 border-b flex items-center justify-between bg-muted/20">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Review Changes</h2>
+          <p className="text-sm text-muted-foreground">{aiResponse.summary}</p>
         </div>
-
-        {aiResponse.changes.map((change, index) => (
-          <ChangeCard
-            // biome-ignore lint/suspicious/noArrayIndexKey: AI changes have no stable ID
-            key={index}
-            change={change}
-            isSelected={selectedChanges.has(
-              change.details.sku || change.productId || change.details.name
+        <div className="flex gap-2 items-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setWorkflowStep('view')}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant={isPro ? 'default' : 'secondary'}
+            size="sm"
+            className={cn('gap-2', !isPro && 'opacity-80')}
+            onClick={handleGenerateDescriptions}
+          >
+            {isPro ? (
+              <Sparkles className="w-4 h-4" />
+            ) : (
+              <Lock className="w-4 h-4" />
             )}
-            onSelectionChange={handleSelectionChange}
-          />
-        ))}
+            Auto-Enrich
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleApply}
+            disabled={selectedIndices.size === 0}
+          >
+            Import & Publish
+          </Button>
+        </div>
       </div>
 
-      <div className="p-4 border-t bg-background flex justify-end gap-4">
-        <Button variant="outline" onClick={handleReject}>
-          Reject All
-        </Button>
-        <Button onClick={handleAccept} disabled={selectedChanges.size === 0}>
-          Accept Selected ({selectedChanges.size})
-        </Button>
+      {/* Editable Grid */}
+      <div className="flex-1 overflow-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[50px]">
+                <Checkbox
+                  checked={
+                    selectedIndices.size === localChanges.length &&
+                    localChanges.length > 0
+                  }
+                  onCheckedChange={handleSelectAll}
+                />
+              </TableHead>
+              <TableHead className="w-[100px]">Type</TableHead>
+              <TableHead className="min-w-[200px]">Product Name</TableHead>
+              <TableHead className="w-[180px]">Price</TableHead>
+              <TableHead className="min-w-[300px]">Description</TableHead>
+              <TableHead className="w-[150px]">SKU / Condition</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {localChanges.map((change, index) => {
+              const isSelected = selectedIndices.has(index);
+              return (
+                <TableRow
+                  // biome-ignore lint/suspicious/noArrayIndexKey: Changes don't have stable IDs
+                  key={index}
+                  className={cn(
+                    !isSelected &&
+                      'opacity-50 grayscale bg-muted/50 dark:bg-muted/20'
+                  )}
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={() => toggleSelection(index)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {change.type === 'new' && (
+                      <Badge className="bg-green-500 hover:bg-green-600">
+                        New
+                      </Badge>
+                    )}
+                    {change.type === 'update' && (
+                      <Badge variant="secondary" className="text-blue-500">
+                        Update
+                      </Badge>
+                    )}
+                    {change.type === 'remove' && (
+                      <Badge variant="destructive">Remove</Badge>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={change.details.name}
+                      onChange={(e) =>
+                        handleEdit(index, 'name', e.target.value)
+                      }
+                      className="h-8"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1 relative">
+                      <span className="absolute left-2 top-2 text-sm text-muted-foreground pointer-events-none">
+                        {getCurrencySymbol(merchant?.country)}
+                      </span>
+                      <Input
+                        type="text"
+                        value={(
+                          change.newPrice ?? change.details.price
+                        ).toLocaleString('en-US', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                        onChange={(e) => {
+                          // Strip formatting to get raw number
+                          const rawVal = e.target.value.replace(/[^0-9.]/g, '');
+                          const val = Number.parseFloat(rawVal);
+
+                          if (Number.isNaN(val)) return; // Handle empty/invalid better in real app, but safe for now
+
+                          if (change.type === 'update') {
+                            setLocalChanges((prev) => {
+                              const next = [...prev];
+                              next[index].newPrice = val;
+                              return next;
+                            });
+                          } else {
+                            handleEdit(index, 'price', val);
+                          }
+                        }}
+                        className={cn(
+                          'h-8 pl-7',
+                          change.type === 'update' &&
+                            'border-green-500 text-green-700 dark:text-green-400'
+                        )}
+                      />
+                      {change.type === 'update' && (
+                        <span className="text-xs text-muted-foreground line-through pl-1">
+                          Stats:{' '}
+                          {formatCurrency(
+                            change.details.price,
+                            merchant?.country
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      value={change.details.description || ''}
+                      placeholder="No description..."
+                      onChange={(e) =>
+                        handleEdit(index, 'description', e.target.value)
+                      }
+                      className={cn(
+                        'h-8',
+                        !change.details.description &&
+                          'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/30'
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-col gap-1">
+                      <Input
+                        value={change.details.sku || ''}
+                        placeholder="SKU"
+                        onChange={(e) =>
+                          handleEdit(index, 'sku', e.target.value)
+                        }
+                        className="h-7 text-xs mb-1"
+                      />
+                      {change.details.attributes &&
+                        Object.keys(change.details.attributes).length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(change.details.attributes)
+                              .slice(0, 3)
+                              .map(([k, v]) => (
+                                <Badge
+                                  key={k}
+                                  variant="outline"
+                                  className="text-[10px] px-1 py-0 h-4"
+                                >
+                                  {v}
+                                </Badge>
+                              ))}
+                            {Object.keys(change.details.attributes).length >
+                              3 && (
+                              <span className="text-[10px] text-muted-foreground">
+                                +
+                                {Object.keys(change.details.attributes).length -
+                                  3}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
       </div>
+
+      {/* Footer Actions */}
+      <div className="p-4 border-t bg-background flex justify-between items-center sm:hidden">
+        {/* Redundant on desktop but useful for mobile where header might be scrolled away */}
+        {/* Keeping empty/minimal for now as requested to move to top, but can leave summary logic here if needed */}
+        <div className="text-xs text-muted-foreground">
+          {selectedIndices.size} items ready (Action at top)
+        </div>
+      </div>
+
+      {/* Generation Modal */}
+      <Dialog
+        open={showGenModal}
+        onOpenChange={(open) => {
+          if (!open && isGenerating) {
+            // If closing via properties/escape while processing, treat as stop
+            handleStopGeneration();
+          }
+          setShowGenModal(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Researching Products...</DialogTitle>
+            <DialogDescription>
+              Our AI is researching and writing descriptions for your products.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6 space-y-4">
+            <div className="flex items-center justify-between text-sm">
+              <span>Analyzing batch...</span>
+              <span>{genProgress}%</span>
+            </div>
+            <Progress value={genProgress} className="h-2" />
+            <p className="text-xs text-muted-foreground text-center animate-pulse">
+              Powered by Gemini 1.5 Flash
+            </p>
+            <Button
+              variant="destructive"
+              className="w-full"
+              onClick={handleStopGeneration}
+            >
+              Stop Generation
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

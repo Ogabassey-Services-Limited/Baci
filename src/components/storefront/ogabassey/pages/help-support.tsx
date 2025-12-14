@@ -14,6 +14,7 @@ import {
   Smartphone,
   Truck,
 } from 'lucide-react';
+import { parseLegacyFAQ, type FAQItem } from '@/types/faq';
 import type React from 'react';
 import { useState } from 'react';
 
@@ -50,15 +51,37 @@ const FAQS: FaqItem[] = [
   },
 ];
 
-export const OgabasseyV2HelpSupport: React.FC = () => {
+// Define props
+interface HelpProps {
+  merchant?: any;
+}
+
+export const OgabasseyV2HelpSupport: React.FC<HelpProps> = ({ merchant }) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const businessName = merchant?.business_name || 'Ogabassey';
+  const email = merchant?.email || 'support@ogabassey.com';
+  const phone = merchant?.phone || '+234 814 697 8921';
+  const address = merchant?.address || 'Lagos, Nigeria';
+
+  // Get FAQs from structured items or legacy content
+  let displayFaqs: FaqItem[] = [];
+
+  if (merchant?.faq_items && merchant.faq_items.length > 0) {
+    displayFaqs = merchant.faq_items;
+  } else if (merchant?.pages?.faq) {
+    displayFaqs = parseLegacyFAQ(merchant.pages.faq);
+  } else {
+    // Default FAQs if no content exists
+    displayFaqs = FAQS;
+  }
 
   const toggleFaq = (index: number) => {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
   };
 
-  const filteredFaqs = FAQS.filter(
+  const filteredFaqs = displayFaqs.filter(
     (faq) =>
       faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
       faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
@@ -84,7 +107,7 @@ export const OgabasseyV2HelpSupport: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="How can we help you today?"
+              placeholder={`How can we help you today, ${businessName} customer?`}
               className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-base"
             />
             <Search
@@ -154,7 +177,7 @@ export const OgabasseyV2HelpSupport: React.FC = () => {
               {filteredFaqs.length > 0 ? (
                 filteredFaqs.map((faq, index) => (
                   <div
-                    key={faq.question}
+                    key={index} // Changed to index as questions might repeat (unlikely but safer)
                     className="bg-white rounded-xl border border-gray-100 overflow-hidden transition-all"
                   >
                     <button
@@ -198,21 +221,21 @@ export const OgabasseyV2HelpSupport: React.FC = () => {
 
                   <div className="space-y-3">
                     <a
-                      href="tel:+2348146978921"
+                      href={`tel:${phone}`}
                       className="flex items-center gap-3 p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-colors border border-white/5"
                     >
                       <Phone size={18} className="text-red-500" />
                       <span className="font-medium text-sm">
-                        +234 814 697 8921
+                        {phone}
                       </span>
                     </a>
                     <a
-                      href="mailto:support@example.com"
+                      href={`mailto:${email}`}
                       className="flex items-center gap-3 p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-colors border border-white/5"
                     >
                       <Mail size={18} className="text-red-500" />
                       <span className="font-medium text-sm">
-                        support@example.com
+                        {email}
                       </span>
                     </a>
                     <button
@@ -237,11 +260,7 @@ export const OgabasseyV2HelpSupport: React.FC = () => {
                     <ExternalLink size={16} className="text-gray-400" />
                   </div>
                   <p>
-                    123 Business Street,
-                    <br />
-                    Victoria Island,
-                    <br />
-                    Lagos, Nigeria.
+                    {address}
                   </p>
                 </div>
                 <a

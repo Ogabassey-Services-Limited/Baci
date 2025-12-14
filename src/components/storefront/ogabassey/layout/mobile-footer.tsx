@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import { Heart, Home, ShoppingCart, User, Wallet } from 'lucide-react';
 import Link from 'next/link';
@@ -12,25 +12,24 @@ export const MobileFooter: React.FC = () => {
   const { totalItems } = useCart();
   const pathname = usePathname();
 
-  // Improved active state logic to handle sub-pages
+  // Extract store slug from pathname (first segment that's not a known page route)
+  const pathSegments = pathname?.split('/').filter(Boolean) || [];
+  const knownRoutes = ['account', 'cart', 'checkout', 'products', 'wishlist', 'wallet', 'repairs', 'imei-check', 'pages', 'saved', 'profile'];
+  const firstSegment = pathSegments[0] || '';
+  const storeSlug = knownRoutes.includes(firstSegment) ? '' : firstSegment;
+
+  // Helper to generate store-relative URLs
+  const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
+
+  // Improved active state logic - check if current path matches (with or without store prefix)
   const isActive = (path: string) => {
-    if (path === '/profile') {
-      // Profile is active for profile + subpages not explicitly covered by other icons
-      return [
-        '/profile',
-        '/orders',
-        '/receipts',
-        '/addresses',
-        '/member-status',
-        '/reviews',
-        '/repairs',
-        '/swap',
-        '/notifications',
-        '/security',
-        '/help',
-      ].includes(pathname || '');
+    const fullPath = getUrl(path);
+    if (path === '/account') {
+      // Account is active for account + subpages not explicitly covered by other icons
+      const accountPaths = ['/account', '/account/orders', '/account/addresses', '/member-status', '/reviews', '/repairs', '/swap', '/notifications', '/security', '/help', '/pages/faq'];
+      return accountPaths.some(p => pathname === getUrl(p) || pathname?.endsWith(p));
     }
-    return pathname === path;
+    return pathname === fullPath;
   };
 
   const [isVisible, setIsVisible] = useState(true);
@@ -72,7 +71,7 @@ export const MobileFooter: React.FC = () => {
       <div className="flex items-center justify-between px-4 relative z-10">
         {/* Home */}
         <Link
-          href="/"
+          href={getUrl('/') as any}
           className="flex flex-col items-center justify-center active:scale-90 transition-transform"
         >
           <div
@@ -88,23 +87,24 @@ export const MobileFooter: React.FC = () => {
 
         {/* Saved */}
         <Link
-          href="/saved"
+          href={getUrl('/wishlist') as any}
           className="flex flex-col items-center justify-center active:scale-90 transition-transform"
         >
           <div
-            className={`p-2 transition-colors ${isActive('/saved') ? 'text-white' : 'text-gray-400'}`}
+            className={`p-2 transition-colors ${isActive('/wishlist') ? 'text-white' : 'text-gray-400'}`}
           >
             <Heart
               size={26}
-              fill={isActive('/saved') ? 'currentColor' : 'none'}
-              strokeWidth={isActive('/saved') ? 2.5 : 2}
+              fill={isActive('/wishlist') ? 'currentColor' : 'none'}
+              strokeWidth={isActive('/wishlist') ? 2.5 : 2}
             />
           </div>
         </Link>
 
         {/* Cart */}
         <Link
-          href="/cart"
+          href={getUrl('/cart') as any}
+          id="mobile-footer-cart-icon"
           className="flex flex-col items-center justify-center relative active:scale-90 transition-transform"
         >
           <div
@@ -125,7 +125,7 @@ export const MobileFooter: React.FC = () => {
 
         {/* Wallet */}
         <Link
-          href="/wallet"
+          href={getUrl('/wallet') as any}
           className="flex flex-col items-center justify-center active:scale-90 transition-transform"
         >
           <div
@@ -141,16 +141,16 @@ export const MobileFooter: React.FC = () => {
 
         {/* Profile */}
         <Link
-          href="/profile"
+          href={getUrl('/account') as any}
           className="flex flex-col items-center justify-center active:scale-90 transition-transform"
         >
           <div
-            className={`p-2 transition-colors ${isActive('/profile') ? 'text-white' : 'text-gray-400'}`}
+            className={`p-2 transition-colors ${isActive('/account') ? 'text-white' : 'text-gray-400'}`}
           >
             <User
               size={26}
-              fill={isActive('/profile') ? 'currentColor' : 'none'}
-              strokeWidth={isActive('/profile') ? 2.5 : 2}
+              fill={isActive('/account') ? 'currentColor' : 'none'}
+              strokeWidth={isActive('/account') ? 2.5 : 2}
             />
           </div>
         </Link>

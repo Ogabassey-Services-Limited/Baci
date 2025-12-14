@@ -65,7 +65,11 @@ export async function GET() {
         tiktok_pixel_id,
         snapchat_pixel_id,
         twitter_pixel_id,
-        is_published
+        is_published,
+        nin,
+        bvn,
+        cac_number,
+        cac_number
       `)
       .eq('user_id', user.id)
       .single();
@@ -98,6 +102,15 @@ export async function GET() {
     // Build checklist items
     const items: SetupItem[] = [
       // === REQUIRED ITEMS ===
+      {
+        id: 'verify_kyc',
+        label: 'Verify your identity (KYC)',
+        description: 'NIN, BVN, or CAC required for payments',
+        completed: !!(merchant.nin || merchant.bvn || merchant.cac_number),
+        href: '/dashboard/settings/kyc',
+        priority: 'required',
+        category: 'payments',
+      },
       {
         id: 'bank_account',
         label: 'Add bank account',

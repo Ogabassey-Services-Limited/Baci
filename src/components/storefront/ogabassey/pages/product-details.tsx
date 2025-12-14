@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import {
   ArrowRightLeft,
@@ -170,10 +170,15 @@ export const OgabasseyV2ProductDetails: React.FC<
     // Normalize Colors
     let normalizedColors = FALLBACK_PRODUCT.colors;
     if (productFound?.colors && productFound.colors.length > 0) {
-      normalizedColors = productFound.colors.map((c) => ({
-        name: c,
-        value: getColorHex(c),
-      }));
+      normalizedColors = productFound.colors.map((c) => {
+        // Handle both string and object color formats
+        const colorName = typeof c === 'string' ? c : c.name;
+        const colorValue = typeof c === 'string' ? getColorHex(c) : c.value;
+        return {
+          name: colorName,
+          value: colorValue,
+        };
+      });
     }
 
     // Normalize Storage
@@ -188,7 +193,7 @@ export const OgabasseyV2ProductDetails: React.FC<
     } else {
       normalizedStorage =
         productFound.category === 'Phones' ||
-        productFound.category === 'Laptops'
+          productFound.category === 'Laptops'
           ? normalizedStorage
           : [];
     }
@@ -279,11 +284,11 @@ export const OgabasseyV2ProductDetails: React.FC<
       const colorMatch =
         !productData.colors.length ||
         item.variantAttributes?.color ===
-          productData.colors[selectedColor!].name;
+        productData.colors[selectedColor!].name;
       const storageMatch =
         !productData.storage.length ||
         item.variantAttributes?.storage ===
-          productData.storage[selectedStorage!];
+        productData.storage[selectedStorage!];
 
       return colorMatch && storageMatch;
     });
@@ -297,6 +302,54 @@ export const OgabasseyV2ProductDetails: React.FC<
   ]);
 
   const quantityInCart = currentCartItem ? currentCartItem.quantity : 0;
+
+  // Local state for editable quantity input
+  const [inputValue, setInputValue] = useState('');
+
+  // Sync input value with cart quantity when it changes
+  useEffect(() => {
+    if (quantityInCart > 0) {
+      setInputValue(quantityInCart.toString());
+    } else {
+      setInputValue('');
+    }
+  }, [quantityInCart]);
+
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Allow empty string to let user delete content
+    const val = e.target.value;
+    // Only allow numeric input
+    if (val === '' || /^\d+$/.test(val)) {
+      setInputValue(val);
+    }
+  };
+
+  const handleQuantityBlur = () => {
+    if (!currentCartItem) return;
+
+    let newQuantity = parseInt(inputValue, 10);
+
+    // If empty or invalid or 0, revert to current cart quantity or 1
+    if (isNaN(newQuantity) || newQuantity < 1) {
+      // Revert to current known good state
+      setInputValue(quantityInCart.toString());
+      return;
+    }
+
+    // Determine simplified max limit (optional, e.g. 99)
+    if (newQuantity > 99) newQuantity = 99;
+
+    // Only call update if value actually changed
+    if (newQuantity !== quantityInCart) {
+      updateQuantity(String(productData.id), newQuantity, currentCartItem.variantId);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      (e.target as HTMLInputElement).blur();
+    }
+  };
 
   const handleColorSelection = (idx: number) => {
     if (selectedColor === idx) {
@@ -400,6 +453,8 @@ export const OgabasseyV2ProductDetails: React.FC<
     }
   };
 
+
+
   const handleIncrement = () => {
     if (currentCartItem) {
       updateQuantity(
@@ -465,7 +520,7 @@ export const OgabasseyV2ProductDetails: React.FC<
           </Link>
           <ChevronRight size={16} className="mx-2" />
           <a
-            href={`/category/${productData.category}`}
+            href={`/ category / ${productData.category}`}
             className="md:hover:text-red-600 transition-colors"
           >
             {productData.category}
@@ -485,11 +540,10 @@ export const OgabasseyV2ProductDetails: React.FC<
                 className="w-full h-full object-cover transition-all duration-500"
               />
               <div
-                className={`absolute top-4 left-4 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${
-                  productData.condition === 'New'
-                    ? 'bg-emerald-500'
-                    : 'bg-amber-500'
-                }`}
+                className={`absolute top - 4 left - 4 text - white text - xs font - bold px - 3 py - 1 rounded - full uppercase tracking - wider ${productData.condition === 'New'
+                  ? 'bg-emerald-500'
+                  : 'bg-amber-500'
+                  }`}
               >
                 {productData.condition}
               </div>
@@ -502,11 +556,11 @@ export const OgabasseyV2ProductDetails: React.FC<
                   onClick={() => {
                     setSelectedImage(idx);
                   }}
-                  className={`relative w-24 h-24 bg-gray-50 rounded-xl border-2 flex-shrink-0 flex items-center justify-center p-0 overflow-hidden transition-all active:scale-95 ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent md:hover:border-gray-200'}`}
+                  className={`relative w - 24 h - 24 bg - gray - 50 rounded - xl border - 2 flex - shrink - 0 flex items - center justify - center p - 0 overflow - hidden transition - all active: scale - 95 ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent md:hover:border-gray-200'} `}
                 >
                   <img
                     src={img}
-                    alt={`View ${idx}`}
+                    alt={`View ${idx} `}
                     className="w-full h-full object-cover"
                   />
                 </button>
@@ -526,7 +580,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                 </button>
                 <button
                   onClick={handleToggleSaved}
-                  className={`transition-colors active:text-red-600 ${isLiked ? 'text-red-600' : 'text-gray-400 md:hover:text-red-600'}`}
+                  className={`transition - colors active: text - red - 600 ${isLiked ? 'text-red-600' : 'text-gray-400 md:hover:text-red-600'} `}
                 >
                   <Heart size={20} fill={isLiked ? 'currentColor' : 'none'} />
                 </button>
@@ -648,14 +702,13 @@ export const OgabasseyV2ProductDetails: React.FC<
                       <button
                         key={idx}
                         onClick={() => handleColorSelection(idx)}
-                        className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 outline-none active:scale-95 ${
-                          isPrimary
-                            ? 'border-[3px] border-red-600 scale-110 shadow-lg'
-                            : isSecondary
-                              ? 'border-[3px] border-blue-500 scale-105 shadow-md'
-                              : 'border border-gray-200 md:hover:border-gray-400 md:hover:scale-105 shadow-sm'
-                        }`}
-                        aria-label={`Select color ${color.name}`}
+                        className={`group relative w - 14 h - 14 rounded - full flex items - center justify - center transition - all duration - 300 outline - none active: scale - 95 ${isPrimary
+                          ? 'border-[3px] border-red-600 scale-110 shadow-lg'
+                          : isSecondary
+                            ? 'border-[3px] border-blue-500 scale-105 shadow-md'
+                            : 'border border-gray-200 md:hover:border-gray-400 md:hover:scale-105 shadow-sm'
+                          } `}
+                        aria-label={`Select color ${color.name} `}
                         title={color.name}
                       >
                         {/* Color Circle */}
@@ -712,7 +765,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                       <button
                         key={idx}
                         onClick={() => setSelectedStorage(idx)}
-                        className={`px-4 py-3 rounded-xl border text-sm font-bold transition-all active:scale-95 ${selectedStorage === idx ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100' : 'border-gray-200 text-gray-700 md:hover:border-gray-400 md:hover:bg-gray-50'}`}
+                        className={`px - 4 py - 3 rounded - xl border text - sm font - bold transition - all active: scale - 95 ${selectedStorage === idx ? 'border-red-600 bg-red-50 text-red-700 ring-2 ring-red-100' : 'border-gray-200 text-gray-700 md:hover:border-gray-400 md:hover:bg-gray-50'} `}
                       >
                         {size}
                       </button>
@@ -741,9 +794,19 @@ export const OgabasseyV2ProductDetails: React.FC<
                     <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
                       Quantity
                     </span>
-                    <span className="text-lg font-bold text-gray-900">
-                      {quantityInCart}
+                    <span className="text-xs text-gray-400 font-medium uppercase tracking-wider mb-0.5">
+                      Quantity
                     </span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      value={inputValue}
+                      onChange={handleQuantityChange}
+                      onBlur={handleQuantityBlur}
+                      onKeyDown={handleKeyDown}
+                      className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-none p-0 focus:ring-0 focus:border-none"
+                    />
                   </div>
                   <button
                     onClick={handleIncrement}
@@ -808,25 +871,25 @@ export const OgabasseyV2ProductDetails: React.FC<
           <div className="flex border-b border-gray-200 mb-8 overflow-x-auto hide-scrollbar">
             <button
               onClick={() => setActiveTab('description')}
-              className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'description' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
+              className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap ${activeTab === 'description' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               Description
             </button>
             <button
               onClick={() => setActiveTab('specs')}
-              className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'specs' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
+              className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap ${activeTab === 'specs' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               Specifications
             </button>
             <button
               onClick={() => setActiveTab('reviews')}
-              className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap ${activeTab === 'reviews' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
+              className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap ${activeTab === 'reviews' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               Reviews (124)
             </button>
             <button
               onClick={() => setActiveTab('compare')}
-              className={`pb-4 px-6 font-semibold text-lg transition-colors whitespace-nowrap flex items-center gap-2 ${activeTab === 'compare' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'}`}
+              className={`pb - 4 px - 6 font - semibold text - lg transition - colors whitespace - nowrap flex items - center gap - 2 ${activeTab === 'compare' ? 'text-red-600 border-b-2 border-red-600' : 'text-gray-500 md:hover:text-gray-800'} `}
             >
               <ArrowRightLeft size={18} /> Compare
             </button>
@@ -836,13 +899,6 @@ export const OgabasseyV2ProductDetails: React.FC<
             {activeTab === 'description' && (
               <div className="prose max-w-none text-gray-600 animate-in fade-in duration-300">
                 <p className="mb-4">{productData.description}</p>
-                <ul className="list-disc pl-5 space-y-2 mt-4">
-                  <li>Titanium design</li>
-                  <li>A17 Pro chip</li>
-                  <li>Action button</li>
-                  <li>48MP Main camera</li>
-                  <li>USB-C connector</li>
-                </ul>
               </div>
             )}
 
@@ -989,7 +1045,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                       ].map((field, i) => (
                         <div
                           key={i}
-                          className={`h-12 flex items-center px-4 text-sm font-bold text-gray-500 ${i % 2 !== 0 ? 'bg-gray-50 rounded-lg' : ''}`}
+                          className={`h - 12 flex items - center px - 4 text - sm font - bold text - gray - 500 ${i % 2 !== 0 ? 'bg-gray-50 rounded-lg' : ''} `}
                         >
                           {field.label}
                         </div>
@@ -1059,7 +1115,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                             />
                           </div>
                           <a
-                            href={`/product/${comp.id}`}
+                            href={`/ product / ${comp.id} `}
                             className="font-bold text-gray-500 text-center text-sm line-clamp-2 px-2 hover:text-red-600 transition-colors h-10 flex items-center"
                           >
                             {comp.name}

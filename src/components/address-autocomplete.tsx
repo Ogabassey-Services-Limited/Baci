@@ -204,7 +204,7 @@ export function AddressAutocomplete({
   const InputComponent = useThemedInput ? ThemedInput : Input;
 
   return (
-    <div className="relative group">
+    <div className="relative group" style={{ overflow: 'visible' }}>
       {showIcon && (
         <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-[var(--store-primary)] transition-colors duration-200 z-10" />
       )}
@@ -220,7 +220,8 @@ export function AddressAutocomplete({
           'pr-10 transition-all duration-200',
           className
         )}
-        autoComplete="off"
+        autoComplete="new-password"
+        data-lpignore="true"
       />
 
       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
@@ -239,7 +240,7 @@ export function AddressAutocomplete({
         )}
       </div>
 
-      {/* Custom Dropdown */}
+      {/* Custom Dropdown - positioned to escape parent containers */}
       <AnimatePresence>
         {isOpen && predictions.length > 0 && (
           <motion.div
@@ -248,7 +249,8 @@ export function AddressAutocomplete({
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.15, ease: 'easeOut' }}
             ref={dropdownRef}
-            className="absolute z-50 w-full mt-2 bg-popover/95 backdrop-blur-sm border rounded-xl shadow-xl max-h-[300px] overflow-auto overflow-x-hidden"
+            className="absolute left-0 right-0 top-full z-[9999] w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-[300px] overflow-auto overflow-x-hidden"
+            style={{ position: 'absolute' }}
           >
             <div className="p-1.5 space-y-0.5">
               {predictions.map((prediction, index) => (
@@ -294,7 +296,15 @@ export function AddressAutocomplete({
 
             <div className="px-4 py-2 border-t bg-muted/30 flex justify-end sticky bottom-0 backdrop-blur-md">
               <span className="text-xs text-muted-foreground opacity-60">
-                Powered by Google
+                Powered by{' '}
+                <span className="font-medium">
+                  <span className="text-[#4285F4]">G</span>
+                  <span className="text-[#EA4335]">o</span>
+                  <span className="text-[#FBBC05]">o</span>
+                  <span className="text-[#4285F4]">g</span>
+                  <span className="text-[#34A853]">l</span>
+                  <span className="text-[#EA4335]">e</span>
+                </span>
               </span>
             </div>
           </motion.div>

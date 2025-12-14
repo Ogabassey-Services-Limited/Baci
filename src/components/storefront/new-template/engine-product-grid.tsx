@@ -44,9 +44,7 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
 const DEMO_SLUGS = new Set([
     'ogabassey',
     'new-template-demo',
-    'gadget-custom-template-ogabassey',
     'premium-default',
-    'lumina-preview',
 ]);
 
 interface EngineProductGridProps {

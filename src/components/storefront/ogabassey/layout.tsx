@@ -1,9 +1,11 @@
 'use client';
 
+import type { MerchantData } from '@/hooks/use-merchant';
 import type React from 'react';
 import { CartProvider } from '@/hooks/use-cart';
 
 import { ChatWidget } from './components/ChatWidget';
+import { CartSidebar } from './components/CartSidebar';
 import { Footer } from './components/Footer';
 import { MobileFooter } from './components/MobileFooter';
 import { OfflineNotice } from './components/OfflineNotice';
@@ -15,7 +17,13 @@ import { V2NotificationProvider } from './providers/v2-notification-context';
 import { V2SavedProvider } from './providers/v2-saved-context';
 import { V2ThemeProvider } from './providers/v2-theme-context';
 
-export function OgabasseyLayout({ children }: { children: React.ReactNode }) {
+export function OgabasseyLayout({
+  children,
+  merchant,
+}: {
+  children: React.ReactNode;
+  merchant?: MerchantData;
+}) {
   return (
     <V2ThemeProvider>
       {/* Using unified cart with Smart Cart Pro enabled */}
@@ -26,16 +34,17 @@ export function OgabasseyLayout({ children }: { children: React.ReactNode }) {
               <div className="text-gray-900 bg-white min-h-screen flex flex-col">
                 <SnowEffect />
                 <Navbar
-                  storeName="Ogabassey"
-                  storeSlug="ogabassey"
+                  storeName={merchant?.business_name || 'Ogabassey'}
+                  storeSlug={merchant?.slug || 'ogabassey'}
                   showSearch={true}
                   showCart={true}
                   showUser={true}
                   showBell={true}
                 />
                 <main className="flex-1">{children}</main>
-                <Footer />
-                <MobileFooter />
+                <Footer merchant={merchant} />
+                <MobileFooter storeSlug={merchant?.slug || 'ogabassey'} />
+                <CartSidebar />
                 <ChatWidget />
                 <PopupSystem />
                 <OfflineNotice />

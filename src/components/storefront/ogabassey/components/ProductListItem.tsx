@@ -13,6 +13,8 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { Product } from '../types';
+import { getProductUrl } from '@/lib/seo-utils';
+
 
 interface ProductListItemProps {
   product: Product;
@@ -20,6 +22,7 @@ interface ProductListItemProps {
   isAdded: boolean;
   isWishlisted: boolean;
   onToggleWishlist: (e: React.MouseEvent) => void;
+  storeSlug?: string;
 }
 
 export const ProductListItem: React.FC<ProductListItemProps> = ({
@@ -28,6 +31,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   isAdded,
   isWishlisted,
   onToggleWishlist,
+  storeSlug,
 }) => {
   const [activeColorIndex, setActiveColorIndex] = useState(0);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -70,9 +74,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative">
       <Link
-        href={`/product/${product.id}` as any}
+        href={getProductUrl({ ...product, id: String(product.id) }) as any}
         className="absolute inset-0 z-0"
       />
+
 
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
@@ -112,13 +117,12 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         {/* Condition Badge - Top Left */}
         {product.condition && (
           <div
-            className={`absolute top-2 left-2 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm whitespace-nowrap z-20 ${
-              product.condition === 'New'
-                ? 'bg-gray-900'
-                : product.condition === 'Open Box'
-                  ? 'bg-indigo-600'
-                  : 'bg-stone-500'
-            }`}
+            className={`absolute top-2 left-2 text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm whitespace-nowrap z-20 ${product.condition === 'New'
+              ? 'bg-gray-900'
+              : product.condition === 'Open Box'
+                ? 'bg-indigo-600'
+                : 'bg-stone-500'
+              }`}
           >
             {product.condition}
           </div>
@@ -127,21 +131,21 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         {/* Colors Swatches - Bottom Middle - Interactive */}
         {product.colors && product.colors.length > 0 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center -space-x-1.5 z-20 pointer-events-auto">
-            {product.colors.slice(0, 3).map((color, idx) => {
-              // Determine display color (map names to hex if needed, or use raw hex)
-              const hexColor = color.startsWith('#') ? color : '#cccccc';
+            {product.colors.slice(0, 4).map((color, idx) => {
+              const hexColor = typeof color === 'string'
+                ? (color.startsWith('#') ? color : '#cccccc')
+                : color.value;
               const isSelected = idx === activeColorIndex;
               return (
                 <button
                   key={idx}
                   onClick={(e) => handleColorSelect(e, idx)}
-                  className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${
-                    isSelected
-                      ? 'w-3.5 h-3.5 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
-                      : 'w-3 h-3 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
-                  }`}
+                  className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${isSelected
+                    ? 'w-3.5 h-3.5 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
+                    : 'w-3 h-3 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
+                    }`}
                   style={{ backgroundColor: hexColor }}
-                  title={color}
+                  title={typeof color === 'string' ? color : color.name}
                 />
               );
             })}
@@ -159,11 +163,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         >
           <Heart
             size={16}
-            className={`transition-all duration-200 ${
-              isWishlisted
-                ? 'fill-red-500 text-red-500 scale-110'
-                : 'text-gray-400 md:group-hover/heart:text-red-500'
-            }`}
+            className={`transition-all duration-200 ${isWishlisted
+              ? 'fill-red-500 text-red-500 scale-110'
+              : 'text-gray-400 md:group-hover/heart:text-red-500'
+              }`}
           />
         </button>
       </div>
@@ -185,7 +188,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
                 <Star
                   key={i}
                   size={12}
-                  className={`${i < Math.floor(product.rating) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                  className={`${i < Math.floor(product.rating ?? 0) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
                 />
               ))}
             </div>
@@ -203,11 +206,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
 
           <button
             onClick={(e) => onAddToCart(e, product)}
-            className={`z-20 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 ${
-              isAdded
-                ? 'bg-red-600 text-white pointer-events-none'
-                : 'bg-gray-900 text-white md:hover:bg-red-600 active:bg-red-700 pointer-events-auto'
-            }`}
+            className={`z-20 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 ${isAdded
+              ? 'bg-red-600 text-white pointer-events-none'
+              : 'bg-gray-900 text-white md:hover:bg-red-600 active:bg-red-700 pointer-events-auto'
+              }`}
           >
             {isAdded ? (
               <>
@@ -221,6 +223,6 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div >
   );
 };

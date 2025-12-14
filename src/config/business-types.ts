@@ -74,7 +74,7 @@ export interface BusinessTypeConfig {
   /** Recommended features for this business type (future) */
   recommendedFeatures?: string[];
   /** Template component to use for storefronts */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // biome-ignore lint/suspicious/noExplicitAny: Template components have varying prop types
   template: React.ComponentType<any>;
   /** Lucide icon component for UI */
   icon: LucideIcon;

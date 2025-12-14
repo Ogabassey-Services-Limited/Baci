@@ -15,7 +15,28 @@ import { ProductCard } from '../components/ProductCard';
 import { products } from '../data/products';
 import type { Product } from '../types';
 
-export const CategoryPage: React.FC = () => {
+import { CheckCircle, Info, ChevronDown } from 'lucide-react'; // Added icons
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+
+export interface CategorySEOProps {
+  seoHeading?: string;
+  seoDescription?: string;
+  seoFeatures?: string[];
+  seoFaqs?: { question: string; answer: string }[];
+}
+
+export const CategoryPage: React.FC<CategorySEOProps> = ({
+  seoHeading,
+  seoDescription,
+  seoFeatures = [],
+  seoFaqs = []
+}) => {
+  const [showMobileIntro, setShowMobileIntro] = useState(false);
   const params = useParams();
   const categoryName = (params?.category || 'All') as string;
   const _router = useRouter();
@@ -226,6 +247,100 @@ export const CategoryPage: React.FC = () => {
             </p>
           </div>
 
+          {/* Category SEO Intro Content */}
+          {(seoHeading || seoDescription) && (
+            <div className="mb-8 mt-6">
+              <section
+                aria-labelledby="category-intro-heading"
+                className="bg-blue-50/40 border border-blue-100/60 rounded-xl overflow-hidden transition-all duration-300"
+              >
+                <div className="p-5 md:p-6">
+                  {/* Mobile Toggle Header */}
+                  <div
+                    className="md:hidden flex items-center justify-between cursor-pointer"
+                    onClick={() => setShowMobileIntro(!showMobileIntro)}
+                  >
+                    <div className="flex items-center gap-2 text-blue-900 font-medium">
+                      <Info size={18} className="text-blue-600" />
+                      <span>About {pageTitle}</span>
+                    </div>
+                    <ChevronDown
+                      size={18}
+                      className={`text-blue-500 transition-transform duration-300 ${showMobileIntro ? 'rotate-180' : ''}`}
+                    />
+                  </div>
+
+                  {/* Content Container - Always visible on desktop, toggle on mobile */}
+                  <div className={`${showMobileIntro ? 'block mt-4' : 'hidden'} md:block`}>
+                    <h2
+                      id="category-intro-heading"
+                      className="text-lg md:text-xl font-bold text-gray-900 mb-3"
+                    >
+                      {seoHeading || `Buy ${pageTitle} in Nigeria`}
+                    </h2>
+
+                    {seoDescription && (
+                      <div className="prose prose-sm prose-blue text-gray-600 max-w-none mb-4 leading-relaxed">
+                        <p>{seoDescription}</p>
+                      </div>
+                    )}
+
+                    {/* Features Grid */}
+                    {seoFeatures && seoFeatures.length > 0 && (
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4 pt-4 border-t border-blue-100">
+                        {seoFeatures.map((feature, idx) => (
+                          <li key={idx} className="flex items-center gap-2 text-sm text-gray-700 bg-white/60 px-3 py-2 rounded-lg">
+                            <CheckCircle size={14} className="text-green-600 shrink-0" />
+                            <span className="font-medium">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {/* Brand Filter Links (SEO Internal Linking) */}
+                    <div className="mt-4 flex flex-wrap gap-2 pt-2">
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider self-center mr-1">Top Brands:</span>
+                      {['Samsung', 'Apple', 'Tecno', 'Infinix', 'Xiaomi'].map(brand => (
+                        <Link
+                          key={brand}
+                          href={`/${brand.toLowerCase()}`}
+                          className="text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 hover:text-blue-900 px-2.5 py-1 rounded-full border border-blue-100 transition-colors"
+                        >
+                          {brand}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          )}
+
+
+
+          {/* RENDER FAQs (If available) */}
+          {seoFaqs && seoFaqs.length > 0 && (
+            <div className="mb-12 max-w-3xl mx-auto">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+                Frequently Asked Questions
+              </h2>
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <Accordion type="single" collapsible className="w-full">
+                  {seoFaqs.map((faq, idx) => (
+                    <AccordionItem value={`item-${idx}`} key={idx}>
+                      <AccordionTrigger className="text-lg font-medium text-gray-800 text-left">
+                        {faq.question}
+                      </AccordionTrigger>
+                      <AccordionContent className="text-gray-600 prose prose-sm max-w-none">
+                        <div dangerouslySetInnerHTML={{ __html: faq.answer }} />
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            </div>
+          )}
+
           {/* View Mode & Mobile Filter Toggle */}
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center bg-white rounded-lg p-1 border border-gray-200">
@@ -251,7 +366,7 @@ export const CategoryPage: React.FC = () => {
             </button>
           </div>
         </div>
-      </div>
+      </div >
 
       <div className="max-w-[1400px] mx-auto px-4 md:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -333,42 +448,44 @@ export const CategoryPage: React.FC = () => {
       </div>
 
       {/* Mobile Filter Drawer */}
-      {isMobileFilterOpen && (
-        <div className="fixed inset-0 z-[60] flex justify-end">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setIsMobileFilterOpen(false)}
-          />
-          <div className="relative w-full max-w-xs bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
-            <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-bold text-lg text-gray-900">Filters</h3>
-              <button
-                onClick={() => setIsMobileFilterOpen(false)}
-                className="p-1 hover:bg-gray-100 rounded-full"
-              >
-                <X size={24} className="text-gray-500" />
-              </button>
-            </div>
-            <div className="p-5 pb-24">
-              <CategoryFiltersSidebar
-                filters={filters}
-                availableOptions={availableOptions}
-                onFilterChange={handleFilterChange}
-                onClearFilters={() => setFilters(initialFilterState)}
-                className="border-none shadow-none p-0"
-              />
-            </div>
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
-              <button
-                onClick={() => setIsMobileFilterOpen(false)}
-                className="w-full bg-red-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95"
-              >
-                Show {filteredProducts.length} Results
-              </button>
+      {
+        isMobileFilterOpen && (
+          <div className="fixed inset-0 z-[60] flex justify-end">
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setIsMobileFilterOpen(false)}
+            />
+            <div className="relative w-full max-w-xs bg-white h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
+              <div className="sticky top-0 bg-white z-10 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="font-bold text-lg text-gray-900">Filters</h3>
+                <button
+                  onClick={() => setIsMobileFilterOpen(false)}
+                  className="p-1 hover:bg-gray-100 rounded-full"
+                >
+                  <X size={24} className="text-gray-500" />
+                </button>
+              </div>
+              <div className="p-5 pb-24">
+                <CategoryFiltersSidebar
+                  filters={filters}
+                  availableOptions={availableOptions}
+                  onFilterChange={handleFilterChange}
+                  onClearFilters={() => setFilters(initialFilterState)}
+                  className="border-none shadow-none p-0"
+                />
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100">
+                <button
+                  onClick={() => setIsMobileFilterOpen(false)}
+                  className="w-full bg-red-600 text-white font-bold py-3 rounded-xl shadow-lg active:scale-95"
+                >
+                  Show {filteredProducts.length} Results
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };

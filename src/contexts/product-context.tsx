@@ -14,7 +14,12 @@ import { useToast } from '@/hooks/use-toast';
 import type { Product } from '@/lib/products';
 import { useAuth } from './auth-context'; // Import the useAuth hook
 
-export type WorkflowStep = 'view' | 'upload' | 'processing' | 'review';
+export type WorkflowStep =
+  | 'view'
+  | 'upload'
+  | 'processing'
+  | 'review'
+  | 'studio';
 
 interface PaginationInfo {
   page: number;
@@ -130,12 +135,14 @@ export const ProductProvider: React.FC<{
 
       // Prevent rapid re-fetching (throttle to 1s)
       const now = Date.now();
+      // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
       const lastFetch = (fetchProducts as any).lastFetch || 0;
       if (now - lastFetch < 1000) {
         console.log('Throttling product fetch');
         return;
       }
       // Store timestamp on the function object (or use a ref in real implementation, but this works for quick patch)
+      // biome-ignore lint/suspicious/noExplicitAny: Using function property for quick throttle patch
       (fetchProducts as any).lastFetch = now;
 
       // Prevent duplicate fetches with same parameters
@@ -300,13 +307,44 @@ export const ProductProvider: React.FC<{
   };
 
   const applyChanges = async (changesToApply: Change[]) => {
-    toast({
-      title: 'Catalog Updated!',
-      description: `${changesToApply.length} change(s) have been applied.`,
-    });
-    setWorkflowStep('view');
-    setAiResponse(null);
-    await fetchProducts(true);
+    try {
+      const response = await fetch('/api/products/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ changes: changesToApply }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to apply changes');
+      }
+
+      const result = await response.json();
+
+      toast({
+        title: 'Catalog Updated!',
+        description: `Successfully applied ${result.results.updated} updates, ${result.results.created} new products, and ${result.results.removed} removals.`,
+      });
+
+      if (result.results.errors.length > 0) {
+        console.error(result.results.errors);
+        toast({
+          title: 'Some errors occurred',
+          description: 'Check console for details on failed items.',
+          variant: 'destructive',
+        });
+      }
+
+      setWorkflowStep('view');
+      setAiResponse(null);
+      await fetchProducts(true);
+    } catch (error) {
+      console.error('Error applying changes:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to apply changes to the database.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

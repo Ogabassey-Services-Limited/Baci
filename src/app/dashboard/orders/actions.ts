@@ -38,6 +38,7 @@ export interface Order {
     price: number;
     image?: string;
     variant?: string;
+    hasAssurance?: boolean;
   }>;
 }
 
@@ -60,6 +61,7 @@ interface OrderItem {
   quantity: number;
   price?: string | number;
   variant_name?: string;
+  has_assurance?: boolean;
 }
 
 function formatStatus(status: string): string {
@@ -135,6 +137,7 @@ export async function getOrders(
       price: Number.parseFloat(String(item.price || 0)),
       image: undefined,
       variant: item.variant_name || undefined,
+      hasAssurance: item.has_assurance || false,
     })),
   }));
 
@@ -237,6 +240,7 @@ export async function getOrder(
       price: Number.parseFloat(String(item.price || 0)),
       image: undefined, // Image not available without product join
       variant: item.variant_name || undefined,
+      hasAssurance: item.has_assurance || false,
     })),
   };
 }

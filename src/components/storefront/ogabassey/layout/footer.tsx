@@ -1,4 +1,4 @@
-// @ts-nocheck - Template preview
+// Template preview
 
 import {
   Apple,
@@ -24,6 +24,9 @@ interface FooterProps {
 }
 
 export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
+  // Helper to generate store-relative URLs
+  const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
+
   return (
     <footer className="bg-[#1a1a1a] text-white pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans border-t border-gray-800">
       {/* Pattern Overlay - Same as Navbar */}
@@ -114,7 +117,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
                 <li>
-                  <Link href="/about" className="hover:text-red-500">
+                  <Link href={getUrl('/pages/about') as any} className="hover:text-red-500">
                     About Us
                   </Link>
                 </li>
@@ -124,22 +127,22 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
                   </a>
                 </li>
                 <li>
-                  <Link href="/blog" className="hover:text-red-500">
+                  <Link href={getUrl('/pages/blog') as any} className="hover:text-red-500">
                     Blog
                   </Link>
                 </li>
                 <li>
-                  <Link href="/privacy" className="hover:text-red-500">
+                  <Link href={getUrl('/pages/privacy') as any} className="hover:text-red-500">
                     Privacy Policy
                   </Link>
                 </li>
                 <li>
-                  <Link href="/legal" className="hover:text-red-500">
+                  <Link href={getUrl('/pages/terms') as any} className="hover:text-red-500">
                     Legal & Disputes
                   </Link>
                 </li>
                 <li>
-                  <Link href="/sustainability" className="hover:text-red-500">
+                  <Link href={getUrl('/pages/about') as any} className="hover:text-red-500">
                     Sustainability
                   </Link>
                 </li>
@@ -151,22 +154,22 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
                 <li>
-                  <Link href="/repairs" className="hover:text-red-500">
+                  <Link href={getUrl('/repairs') as any} className="hover:text-red-500">
                     Repairs
                   </Link>
                 </li>
                 <li>
-                  <Link href="/swap" className="hover:text-red-500">
+                  <Link href={getUrl('/swap') as any} className="hover:text-red-500">
                     Sell Device
                   </Link>
                 </li>
                 <li>
-                  <Link href="/orders" className="hover:text-red-500">
+                  <Link href={getUrl('/orders/track') as any} className="hover:text-red-500">
                     Track Order
                   </Link>
                 </li>
                 <li>
-                  <Link href="/help" className="hover:text-red-500">
+                  <Link href={getUrl('/pages/faq') as any} className="hover:text-red-500">
                     Support
                   </Link>
                 </li>

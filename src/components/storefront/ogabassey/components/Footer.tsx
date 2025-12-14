@@ -1,4 +1,5 @@
-// Migrated from temp-source/components/Footer.tsx
+import type { MerchantData } from '@/hooks/use-merchant';
+import { normalizeSocialUrl } from '@/lib/social';
 import {
   Apple,
   Facebook,
@@ -16,7 +17,40 @@ import type React from 'react';
 
 import { Logo } from './Logo';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  merchant?: MerchantData;
+  storeSlug?: string;
+}
+
+export const Footer: React.FC<FooterProps> = ({ merchant }) => {
+  const businessName = merchant?.business_name || 'Ogabassey';
+  const socialLinks = merchant?.social_media || {};
+  const contactEmail = merchant?.email || 'support@ogabassey.com';
+  const contactPhone = merchant?.phone || '+234 814 697 8921';
+  const contactAddress = merchant?.business_address || '2 Olaide Tomori St, Ikeja, Lagos';
+
+  // Helper to render social link if it exists
+  const renderSocialLink = (
+    input: string | undefined,
+    label: string,
+    platform: 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'youtube' | 'linkedin',
+    Icon: React.ElementType
+  ) => {
+    const url = normalizeSocialUrl(input, platform);
+    if (!url) return null;
+    return (
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-gray-400 hover:text-white transition-colors"
+        aria-label={label}
+      >
+        <Icon size={20} />
+      </a>
+    );
+  };
+
   return (
     <footer className="bg-[#1a1a1a] text-white pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans border-t border-gray-800">
       {/* Pattern Overlay - Same as Navbar */}
@@ -42,156 +76,96 @@ export const Footer: React.FC = () => {
               Making Smartphones Accessible and Affordable
             </p>
             <div className="flex items-center gap-4 flex-wrap">
-              <a
-                href="https://instagram.com/ogabasseyy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="Instagram"
-              >
-                <Instagram size={20} />
-              </a>
-              <a
-                href="https://facebook.com/ogabasseyy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="Facebook"
-              >
-                <Facebook size={20} />
-              </a>
-              <a
-                href="https://tiktok.com/@ogabasseyy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="TikTok"
-              >
-                <Music size={20} />
-              </a>
-              <a
-                href="https://twitter.com/ogabasseyy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="Twitter"
-              >
-                <Twitter size={20} />
-              </a>
-              <a
-                href="https://youtube.com/@ogabasseyy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="YouTube"
-              >
-                <Youtube size={20} />
-              </a>
-              <a
-                href="https://ng.linkedin.com/company/ogabasseyy?trk=public_post_feed-actor-name"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-400 hover:text-white transition-colors"
-                aria-label="LinkedIn"
-              >
-                <Linkedin size={20} />
-              </a>
+              {renderSocialLink(
+                socialLinks.instagram,
+                'Instagram',
+                'instagram',
+                Instagram
+              )}
+              {renderSocialLink(
+                socialLinks.facebook,
+                'Facebook',
+                'facebook',
+                Facebook
+              )}
+              {renderSocialLink(socialLinks.tiktok, 'TikTok', 'tiktok', Music)}
+              {renderSocialLink(
+                socialLinks.twitter,
+                'Twitter',
+                'twitter',
+                Twitter
+              )}
+              {renderSocialLink(
+                socialLinks.youtube,
+                'YouTube',
+                'youtube',
+                Youtube
+              )}
+              {renderSocialLink(
+                socialLinks.linkedin,
+                'LinkedIn',
+                'linkedin',
+                Linkedin
+              )}
             </div>
           </div>
 
           {/* Column 2: Quick Links (Merged) */}
-          <div className="flex justify-between md:justify-start gap-12">
+          {/* Column 2: Quick Links (Unified) */}
+          <nav className="flex justify-between md:justify-start gap-12" aria-label="Footer navigation">
             <div>
               <h3 className="text-sm font-bold mb-4 text-white uppercase tracking-wider">
-                Company
+                Menu
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li>
-                  <Link href="/about" className="hover:text-red-500">
-                    About Us
-                  </Link>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-red-500">
-                    Careers
-                  </a>
-                </li>
-                <li>
-                  <Link href="/blog" className="hover:text-red-500">
-                    Blog
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/privacy" className="hover:text-red-500">
-                    Privacy Policy
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/legal" className="hover:text-red-500">
-                    Legal & Disputes
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/sustainability" className="hover:text-red-500">
-                    Sustainability
-                  </Link>
-                </li>
+                <li><Link href="/products" className="hover:text-red-500">Shop Phones</Link></li>
+                <li><Link href="/about" className="hover:text-red-500">About Us</Link></li>
+                <li><Link href="/blog" className="hover:text-red-500">Blog</Link></li>
+                <li><Link href="/repairs" className="hover:text-red-500">Repairs</Link></li>
+                <li><Link href="/swap" className="hover:text-red-500">Swap Device</Link></li>
               </ul>
             </div>
             <div>
               <h3 className="text-sm font-bold mb-4 text-white uppercase tracking-wider">
-                Services
+                Support
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li>
-                  <Link href="/repairs" className="hover:text-red-500">
-                    Repairs
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/swap" className="hover:text-red-500">
-                    Sell Device
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/orders" className="hover:text-red-500">
-                    Track Order
-                  </Link>
-                </li>
-                <li>
-                  <Link href="/help" className="hover:text-red-500">
-                    Support
-                  </Link>
-                </li>
+                <li><Link href="/orders" className="hover:text-red-500">Track Order</Link></li>
+                <li><Link href="/help" className="hover:text-red-500">Help Center</Link></li>
+                <li><Link href="/contact" className="hover:text-red-500">Contact Us</Link></li>
+                <li><Link href="/legal" className="hover:text-red-500">Legal & Disputes</Link></li>
+                <li><Link href="/sustainability" className="hover:text-red-500">Sustainability</Link></li>
               </ul>
             </div>
-          </div>
+          </nav>
 
           {/* Column 3: Contact (Compact) */}
-          <div>
+          <address className="not-italic">
             <h3 className="text-sm font-bold mb-4 text-white uppercase tracking-wider">
               Contact
             </h3>
             <ul className="space-y-3 text-xs text-gray-400">
               <li className="flex items-start gap-2">
                 <MapPin className="shrink-0 text-red-600" size={16} />
-                <span>2 Olaide Tomori St, Ikeja, Lagos</span>
+                <span>{contactAddress}</span>
               </li>
               <li className="flex items-center gap-2">
                 <Phone className="shrink-0 text-red-600" size={16} />
-                <span>+234 814 697 8921</span>
+                <a href={`tel:${contactPhone.replace(/\s/g, '')}`} className="hover:text-white transition-colors">
+                  {contactPhone}
+                </a>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="shrink-0 text-red-600" size={16} />
                 <a
-                  href="mailto:support@ogabassey.com"
+                  href={`mailto:${contactEmail}`}
                   className="hover:text-white transition-colors"
                 >
-                  support@ogabassey.com
+                  {contactEmail}
                 </a>
               </li>
             </ul>
-          </div>
+          </address>
 
           {/* Column 4: App & Payment (Horizontal) */}
           <div>
@@ -240,13 +214,22 @@ export const Footer: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex items-center gap-3 opacity-70 grayscale hover:grayscale-0 transition-all">
-              <span className="text-xs font-bold text-white">Secured by:</span>
-              <div className="h-4 w-auto bg-white/20 rounded px-1 flex items-center justify-center text-[8px] font-bold text-white tracking-tighter px-2">
-                PAYSTACK
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-[10px] text-gray-500 font-medium">Secured by:</span>
+              {/* Paystack Logo Badge */}
+              <div className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm opacity-90 hover:opacity-100 transition-opacity">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-blue-600 fill-current">
+                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14h-2v-2h2v2zm0-4h-2V7h2v6z" />
+                </svg>
+                <span className="text-[10px] font-bold text-gray-900 tracking-tight">Paystack</span>
               </div>
-              <div className="h-4 w-auto bg-white/20 rounded px-1 flex items-center justify-center text-[8px] font-bold text-white tracking-tighter px-2">
-                FLUTTERWAVE
+
+              {/* Flutterwave Logo Badge */}
+              <div className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm opacity-90 hover:opacity-100 transition-opacity">
+                <svg viewBox="0 0 24 24" className="w-4 h-4 text-orange-500 fill-current">
+                  <path d="M12 2L2 22h10l10-20H12zm0 6l-5 10h10L12 8z" />
+                </svg>
+                <span className="text-[10px] font-bold text-gray-900 tracking-tight">Flutterwave</span>
               </div>
             </div>
           </div>

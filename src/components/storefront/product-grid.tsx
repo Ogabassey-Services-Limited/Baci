@@ -525,7 +525,7 @@ export function StorefrontProductGrid({
                       {cartItem ? (
                         <div className="flex items-center gap-1">
                           <ThemedButton
-                            colorRole="accent"
+                            colorRole="primary"
                             size="icon"
                             variant="outline"
                             className="h-10 w-10 min-w-[44px] min-h-[44px]"
@@ -550,7 +550,7 @@ export function StorefrontProductGrid({
                             aria-label={`Quantity for ${product.name}`}
                           />
                           <ThemedButton
-                            colorRole="accent"
+                            colorRole="primary"
                             size="icon"
                             className="h-10 w-10 min-w-[44px] min-h-[44px]"
                             onClick={() =>

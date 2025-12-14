@@ -1,73 +1,54 @@
 'use client';
 
-import { Calendar, ExternalLink, History, ShoppingCart } from 'lucide-react';
+import { Calendar, ExternalLink, History, ShoppingCart, ShieldCheck } from 'lucide-react';
 import type React from 'react';
-import { EmptyState } from './empty-state';
+import { EmptyState } from '../components/empty-state';
 
-// Inlined products needed for history
-const products = [
-  {
-    id: '1',
-    name: 'iPhone 15 Pro Max',
-    price: '₦1,800,000',
-    image: 'https://fdn2.gsmarena.com/vv/bigpic/apple-iphone-15-pro-max.jpg',
-  },
-  {
-    id: '3',
-    name: 'MacBook Pro 14"',
-    price: '₦2,500,000',
-    image: 'https://fdn2.gsmarena.com/vv/bigpic/apple-macbook-pro-14-2023.jpg',
-  },
-  {
-    id: '5',
-    name: 'PlayStation 5',
-    price: '₦750,000',
-    image:
-      'https://gmedia.playstation.com/is/image/SIEPDC/ps5-product-thumbnail-01-en-14sep21?$facebook$',
-  },
-  {
-    id: '7',
-    name: 'iPad Pro 12.9"',
-    price: '₦1,200,000',
-    image: 'https://fdn2.gsmarena.com/vv/bigpic/apple-ipad-pro-129-2022.jpg',
-  },
-];
+// Interface matching the real order structure from the API
+export interface OrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  image?: string; // Optional since API might not return it directly yet
+  has_assurance?: boolean;
+}
 
-export const OgabasseyV2PurchaseHistory: React.FC = () => {
-  // const { addToCart } = useCart();
-  // const navigate = useNavigate();
+export interface Order {
+  id: string;
+  order_number: string;
+  created_at: string;
+  total: number;
+  items: OrderItem[];
+}
 
-  // Mock Purchase History Data (Flat list of items)
-  const purchasedItems = [
-    {
-      purchaseId: 'PUR-9921',
-      date: 'Jan 15, 2024',
-      product: products[0],
-      price: products[0].price,
-      quantity: 1,
-    },
-    {
-      purchaseId: 'PUR-9921',
-      date: 'Jan 15, 2024',
-      product: products[2],
-      price: products[2].price,
-      quantity: 1,
-    },
-    {
-      purchaseId: 'PUR-8810',
-      date: 'Dec 10, 2023',
-      product: products[1],
-      price: products[1].price,
-      quantity: 1,
-    },
-    {
-      purchaseId: 'PUR-7723',
-      date: 'Nov 05, 2023',
-      product: products[3],
-      price: products[3].price,
-      quantity: 2,
-    },
-  ];
+export interface PurchaseHistoryProps {
+  orders: Order[];
+  onBuyAgain?: (productName: string) => void; // Placeholder for now
+  onViewDetails?: (orderId: string) => void;
+}
+
+export const OgabasseyV2PurchaseHistory: React.FC<PurchaseHistoryProps> = ({
+  orders,
+  onBuyAgain,
+  onViewDetails,
+}) => {
+  // Helper to format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: 'NGN',
+    }).format(amount);
+  };
+
+  // Helper to format date
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
@@ -77,7 +58,7 @@ export const OgabasseyV2PurchaseHistory: React.FC = () => {
           Purchase History
         </h1>
 
-        {purchasedItems.length === 0 ? (
+        {orders.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <EmptyState
               variant="history"
@@ -89,57 +70,74 @@ export const OgabasseyV2PurchaseHistory: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            {purchasedItems.map((item, idx) => (
-              <div
-                key={idx}
-                className="bg-white rounded-2xl border border-gray-100 p-4 md:p-6 flex flex-col md:flex-row gap-6 items-start md:items-center shadow-sm hover:shadow-md transition-shadow"
-              >
-                {/* Image */}
-                <div className="w-20 h-20 bg-gray-50 rounded-xl p-2 shrink-0 border border-gray-100 flex items-center justify-center">
-                  <img
-                    src={item.product.image}
-                    alt={item.product.name}
-                    className="w-full h-full object-contain mix-blend-multiply"
-                  />
-                </div>
+            {orders.map((order) => (
+              <div key={order.id} className="space-y-4">
+                {/* Render each item in the order separately for the history view, or group them. 
+                     The design suggests a list of items. 
+                     We'll iterate items within the order. */}
+                {order.items.map((item, idx) => (
+                  <div
+                    key={item.id || idx}
+                    className="bg-white rounded-2xl border border-gray-100 p-4 md:p-6 flex flex-col md:flex-row gap-6 items-start md:items-center shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    {/* Image - Placeholder for now if not in API */}
+                    <div className="w-20 h-20 bg-gray-50 rounded-xl p-2 shrink-0 border border-gray-100 flex items-center justify-center">
+                      {/* TODO: Add image to Order Item API response */}
+                      <ShoppingCart className="text-gray-300" size={32} />
+                    </div>
 
-                {/* Details */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
-                    <Calendar size={12} />
-                    <span>Purchased on {item.date}</span>
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                        <Calendar size={12} />
+                        <span>Purchased on {formatDate(order.created_at)}</span>
+                      </div>
+                      <h3 className="font-bold text-gray-900 text-sm md:text-base mb-1 truncate">
+                        {item.name}
+                      </h3>
+                      <p className="text-sm font-bold text-red-600">
+                        {formatCurrency(item.price)} <span className="text-gray-400 font-normal">x {item.quantity}</span>
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">Order #{order.order_number}</p>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
+                      <button
+                        type="button"
+                        onClick={() => onBuyAgain?.(item.name)}
+                        className="flex-1 md:flex-none bg-gray-900 text-white text-xs font-bold py-2.5 px-4 rounded-xl hover:bg-red-600 transition-colors flex items-center justify-center gap-2 shadow-sm active:scale-95"
+                      >
+                        <ShoppingCart size={14} /> Buy Again
+                      </button>
+
+
+                      <button
+                        type="button"
+                        onClick={() => onViewDetails?.(order.id)}
+                        className="p-2.5 border border-gray-200 rounded-xl text-gray-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
+                        title="View Order Details"
+                      >
+                        <ExternalLink size={16} />
+                      </button>
+                      {/* Assurance / Insurance Policy Link */}
+                      {item.has_assurance && (
+                        <a
+                          href={`/account/orders/${order.id}/insurance`}
+                          className="p-2.5 border border-green-200 bg-green-50 rounded-xl text-green-700 hover:bg-green-100 transition-colors flex items-center justify-center"
+                          title="View Insurance Policy"
+                        >
+                          <ShieldCheck size={16} />
+                        </a>
+                      )}
+                    </div>
                   </div>
-                  <h3 className="font-bold text-gray-900 text-sm md:text-base mb-1 truncate">
-                    {item.product.name}
-                  </h3>
-                  <p className="text-sm font-bold text-red-600">{item.price}</p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // addToCart(item.product, 1);
-                      // navigate('/cart');
-                      console.log('Buy again:', item.product.id);
-                    }}
-                    className="flex-1 md:flex-none bg-gray-900 text-white text-xs font-bold py-2.5 px-4 rounded-xl hover:bg-red-600 transition-colors flex items-center justify-center gap-2 shadow-sm active:scale-95"
-                  >
-                    <ShoppingCart size={14} /> Buy Again
-                  </button>
-                  <button
-                    type="button"
-                    className="p-2.5 border border-gray-200 rounded-xl text-gray-500 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors"
-                  >
-                    <ExternalLink size={16} />
-                  </button>
-                </div>
+                ))}
               </div>
             ))}
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 };

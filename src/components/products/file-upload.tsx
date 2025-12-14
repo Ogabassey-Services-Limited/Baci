@@ -66,8 +66,8 @@ export function FileUpload() {
     <div className="flex flex-col items-center justify-center h-full p-8 text-center bg-muted/20 rounded-lg border-2 border-dashed">
       <h2 className="text-2xl font-bold mb-4">Upload Price List</h2>
       <p className="text-muted-foreground mb-8 max-w-md">
-        Upload your price list file (CSV, PDF, or even an image). The AI will
-        analyze it and suggest catalog updates.
+        Upload a picture of your price list, or a CSV/PDF file. The customized
+        AI will analyze the image to identify products and prices.
       </p>
 
       <div className="w-full max-w-sm space-y-4 mb-8">

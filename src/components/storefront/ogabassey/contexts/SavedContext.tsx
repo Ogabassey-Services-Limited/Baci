@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import type React from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';

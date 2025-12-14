@@ -43,10 +43,24 @@ const values = [
   },
 ];
 
-export const OgabasseyV2AboutUs: React.FC = () => {
+// Define props interface if not imported (but we can use any for now or import)
+interface AboutProps {
+  merchant?: any;
+}
+
+export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  const businessName = merchant?.business_name || 'Ogabassey';
+  const aboutPage = merchant?.about_page || {};
+  const legacyContent = merchant?.pages?.about;
+
+  // Use content from merchant data or fallback to defaults
+  const headline = aboutPage.headline || `Making Tech Accessible & Affordable`;
+  const story = aboutPage.story || legacyContent || `Your premier destination for high-quality new and pre-owned gadgets. Bridging the digital divide, one device at a time.`;
+  const location = merchant?.address || 'Lagos, Nigeria';
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -58,22 +72,18 @@ export const OgabasseyV2AboutUs: React.FC = () => {
             Our Story
           </span>
           <h1 className="text-4xl md:text-6xl font-extrabold mb-6 tracking-tight leading-tight">
-            Making Smartphones <br className="hidden md:block" />
-            <span className="text-red-600">Accessible & Affordable</span>
+            {headline}
           </h1>
           <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed">
-            Your premier destination for high-quality new and pre-owned gadgets.
-            Bridging the digital divide, one device at a time.
+            {story.substring(0, 150)}...
           </p>
         </div>
-
-        {/* Decorative Elements */}
-        <div className="absolute top-1/2 left-10 w-24 h-24 border-4 border-white/5 rounded-full animate-pulse" />
-        <div className="absolute bottom-10 right-10 w-32 h-32 bg-red-600/10 rounded-full blur-3xl" />
+        {/* ... */}
       </div>
 
-      {/* Stats Strip */}
+      {/* Stats Strip - Keep hardcoded for now or make dynamic later */}
       <div className="bg-gray-50 border-b border-gray-100">
+        {/* ... (Keep existing stats code) ... */}
         <div className="max-w-[1400px] mx-auto px-4 md:px-6">
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-200/50">
             {stats.map((stat) => (
@@ -100,7 +110,7 @@ export const OgabasseyV2AboutUs: React.FC = () => {
           <div className="order-2 lg:order-1">
             <div className="relative rounded-3xl overflow-hidden shadow-2xl group aspect-video">
               <Image
-                src="https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1600&auto=format&fit=crop"
+                src={aboutPage.image_url || "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?q=80&w=1600&auto=format&fit=crop"}
                 alt="Our Team"
                 fill
                 className="object-cover transition-transform duration-700 group-hover:scale-105"
@@ -108,7 +118,7 @@ export const OgabasseyV2AboutUs: React.FC = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
               <div className="absolute bottom-6 left-6 text-white">
                 <p className="font-bold text-lg">Our Headquarters</p>
-                <p className="text-sm opacity-80">Lagos, Nigeria</p>
+                <p className="text-sm opacity-80">{location}</p>
               </div>
             </div>
           </div>
@@ -118,18 +128,8 @@ export const OgabasseyV2AboutUs: React.FC = () => {
               Driven by Technology.
             </h2>
             <div className="space-y-6 text-gray-600 leading-relaxed">
-              <p>
-                Founded with a simple yet ambitious goal: to democratize access
-                to premium technology in Africa. We realized that many people
-                desired high-end devices but were limited by exorbitant prices
-                or fear of counterfeit products.
-              </p>
-              <p>
-                We stepped in to fill that gap. By sourcing directly from
-                verified global suppliers and implementing a rigorous quality
-                check process, we ensure that every device you buy from us is
-                authentic and reliable.
-              </p>
+              <div dangerouslySetInnerHTML={{ __html: story }} />
+
               <ul className="space-y-3 pt-2">
                 {[
                   'Certified Pre-Owned Devices',
@@ -154,6 +154,7 @@ export const OgabasseyV2AboutUs: React.FC = () => {
         </div>
 
         {/* Core Values */}
+        {/* ... (Keep existing values) ... */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
             Why We Do What We Do
@@ -186,6 +187,7 @@ export const OgabasseyV2AboutUs: React.FC = () => {
         </div>
 
         {/* CTA Section */}
+        {/* ... */}
         <div className="bg-red-600 rounded-3xl p-8 md:p-16 text-center text-white relative overflow-hidden shadow-2xl">
           <div className="relative z-10">
             <h2 className="text-3xl md:text-5xl font-bold mb-6">
@@ -202,8 +204,6 @@ export const OgabasseyV2AboutUs: React.FC = () => {
               Start Shopping <ChevronRight size={20} />
             </Link>
           </div>
-
-          {/* Background circles */}
           <div className="absolute top-0 left-0 w-64 h-64 bg-white/10 rounded-full -translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-white/10 rounded-full translate-x-1/3 translate-y-1/3" />
         </div>

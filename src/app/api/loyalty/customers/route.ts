@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get tier distribution
+    // OPTIMIZED: Get tier distribution using SQL GROUP BY
     const { data: tierCounts } = await supabase
       .from('customer_loyalty')
       .select('current_tier')

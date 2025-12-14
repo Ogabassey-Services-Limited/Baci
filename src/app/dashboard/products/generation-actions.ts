@@ -1,0 +1,68 @@
+'use server';
+
+import { generateObject } from 'ai';
+import { z } from 'zod';
+import { geminiFlash, withRetry } from '@/ai/provider';
+
+// Schema for the batch response
+const ProductEnrichmentSchema = z.object({
+  productName: z.string(),
+  description: z
+    .string()
+    .describe(
+      'A compelling, SEO-optimized product description (approx 2 sentences).'
+    ),
+  sku: z
+    .string()
+    .describe(
+      'A generated SKU (e.g., BRAND-MODEL-SPEC) if one is not obvious, otherwise logical alphanumeric code.'
+    ),
+  attributes: z
+    .record(z.string(), z.string())
+    .describe(
+      'Extracted attributes like RAM, Storage, Color, Screen Size from the name.'
+    ),
+});
+
+const BatchEnrichmentResponseSchema = z.object({
+  results: z.array(ProductEnrichmentSchema),
+});
+
+export type EnrichedProduct = z.infer<typeof ProductEnrichmentSchema>;
+
+export async function enrichProductsBatch(
+  productNames: string[]
+): Promise<EnrichedProduct[]> {
+  if (!productNames.length) return [];
+
+  const prompt = `
+You are an expert e-commerce catalog manager.
+Your task is to ENRICH product data based on their names.
+
+For each product:
+1.  **Description**: Write a short, persuasive, SEO-friendly description (2-3 sentences).
+2.  **Attributes**: Extract structured data (RAM, Storage, Color, etc.) from the name.
+    - Example: "iPhone 12 64GB Blue" -> { "Storage": "64GB", "Color": "Blue", "Brand": "Apple", "Model": "iPhone 12" }
+3.  **SKU**: Generate a logical SKU if missing. Format: BRAND-KEYWORD-VAR (e.g., APPL-IP12-64BLU).
+
+Products:
+${productNames.map((name, i) => `${i + 1}. ${name}`).join('\n')}
+
+Return a JSON array matching the product names to their enriched data.
+`;
+
+  try {
+    const { object } = await withRetry(async () => {
+      return await generateObject({
+        model: geminiFlash,
+        schema: BatchEnrichmentResponseSchema,
+        prompt,
+      });
+    });
+
+    return object.results;
+  } catch (error) {
+    console.error('Error in enrichProductsBatch:', error);
+    return [];
+  }
+}

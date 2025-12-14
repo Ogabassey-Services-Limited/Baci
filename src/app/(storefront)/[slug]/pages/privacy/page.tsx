@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { PrivacyPageClient } from './privacy-page-client';
@@ -102,9 +103,15 @@ export default async function PrivacyPage({ params }: PageProps) {
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
       />
-      <PrivacyPageClient
+      <StorefrontPageWrapper
+        pageName="Privacy"
         merchant={merchant}
-        content={merchant.pages?.privacy}
+        fallback={
+          <PrivacyPageClient
+            merchant={merchant}
+            content={merchant.pages?.privacy}
+          />
+        }
       />
     </>
   );

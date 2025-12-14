@@ -73,9 +73,9 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
       <main id="main-content" className="flex-1 pt-16">
         {/* Hero Section */}
         <section className="relative w-full pt-3 pb-7 md:pb-10 lg:pb-14 overflow-hidden bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-background min-h-[85vh] flex items-center">
-          {/* Background Elements - GPU accelerated with will-change */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-accent/5 rounded-full blur-[100px] -z-10 will-change-transform" />
-          <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-primary/5 rounded-full blur-[100px] -z-10 will-change-transform" />
+          {/* Background Elements - Optimized with radial gradients instead of heavy blur filters */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-[radial-gradient(ellipse_at_center,_var(--theme-accent)_0%,_transparent_70%)] opacity-5 -z-10 pointer-events-none" />
+          <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-[radial-gradient(ellipse_at_center,_var(--theme-primary)_0%,_transparent_70%)] opacity-5 -z-10 pointer-events-none" />
 
           <div
             className="container relative z-10"
@@ -208,7 +208,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
         {/* Features Grid */}
         <section
           id="features"
-          className="py-24 bg-slate-50 dark:bg-slate-900/50"
+          className="py-24 bg-slate-50 dark:bg-slate-900/50 [content-visibility:auto] contain-intrinsic-size-[1px_1000px]"
         >
           <div
             className="container"
@@ -284,7 +284,10 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
         </section>
 
         {/* How It Works Section */}
-        <section id="how-it-works" className="py-24 bg-white dark:bg-slate-950">
+        <section
+          id="how-it-works"
+          className="py-24 bg-white dark:bg-slate-950 [content-visibility:auto] contain-intrinsic-size-[1px_800px]"
+        >
           <div
             className="container"
             style={{
@@ -397,7 +400,10 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
         </section>
 
         {/* FAQs Section */}
-        <section id="faqs" className="py-24 bg-slate-50 dark:bg-slate-900/50">
+        <section
+          id="faqs"
+          className="py-24 bg-slate-50 dark:bg-slate-900/50 [content-visibility:auto] contain-intrinsic-size-[1px_1000px]"
+        >
           <div
             className="container"
             style={{

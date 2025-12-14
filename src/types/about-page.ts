@@ -3,6 +3,8 @@
  * These types support rich SEO with schema.org AboutPage markup
  */
 
+import { normalizeSocialUrl } from '@/lib/social';
+
 export interface TeamMember {
   name: string;
   role: string;
@@ -83,6 +85,7 @@ export function generateAboutPageJsonLd(
     logo_url?: string;
     country?: string;
     email?: string;
+    social_media?: Record<string, string>;
   },
   aboutPage: MerchantAboutPage,
   baseUrl: string
@@ -93,6 +96,27 @@ export function generateAboutPageJsonLd(
     name: merchant.business_name,
     url: baseUrl,
   };
+
+  if (merchant.social_media) {
+    const sameAs = Object.entries(merchant.social_media)
+      .map(([platform, handle]) =>
+        normalizeSocialUrl(
+          handle,
+          platform as
+            | 'instagram'
+            | 'facebook'
+            | 'tiktok'
+            | 'twitter'
+            | 'youtube'
+            | 'linkedin'
+        )
+      )
+      .filter((url): url is string => !!url);
+
+    if (sameAs.length > 0) {
+      organizationData.sameAs = sameAs;
+    }
+  }
 
   if (merchant.logo_url) {
     organizationData.logo = merchant.logo_url;

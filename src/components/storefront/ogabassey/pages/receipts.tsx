@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
-import { EmptyState } from './empty-state';
+import { EmptyState } from '../components/empty-state';
 
 // Inlined mock data for ReceiptsPage to ensure standalone functionality
 const products = [

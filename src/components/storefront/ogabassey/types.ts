@@ -27,34 +27,107 @@ export interface Banner {
 
 export interface Product {
   id: number | string;
+  merchantId?: string; // For scoped searches (comparison)
+  slug?: string;
   name: string;
   price: string;
   rawPrice?: number;
   image: string;
   description: string;
-  rating: number;
+  rating?: number;
   category: string;
+  categorySlug?: string;
   condition:
-    | 'New'
-    | 'Used'
-    | 'Open Box'
-    | 'new'
-    | 'used'
-    | 'open_box'
-    | 'refurbished';
+  | 'New'
+  | 'Used'
+  | 'Open Box'
+  | 'new'
+  | 'used'
+  | 'open_box'
+  | 'refurbished';
   // Detailed specs for filtering
   brand?: string;
   storage?: string | string[];
   ram?: string;
-  colors?: string[];
+  colors?: string[] | { name: string; value: string }[];
   simType?: string;
   displayType?: string;
   displaySize?: string;
   // New fields for Interactive Grid
   images?: string[];
   spec?: string;
+  specs?: { label: string; value: string }[];
+  detailedSpecs?: { category: string; items: { label: string; value: string }[] }[];
   reviews?: number;
   stock?: number;
+  videoUrl?: string; // YouTube URL for unboxing/review
+  // Technical specs from API (optional but typed)
+  product_key_specs?: ProductKeySpecs;
+}
+
+export interface ProductKeySpecs {
+  // Network
+  network_technology?: string;
+  is_5g?: boolean;
+  has_nfc?: boolean;
+
+  // Body
+  dimensions_mm?: string;
+  weight_g?: number;
+  build_materials?: string;
+  ip_rating?: string;
+  sim_type?: string;
+
+  // Display
+  display_type?: string;
+  screen_size_inches?: number;
+  display_resolution?: string;
+  refresh_rate_hz?: number;
+  display_ppi?: number;
+  display_peak_brightness?: number;
+
+  // Platform
+  android_version?: string;
+  chipset?: string;
+  cpu_cores?: string;
+  gpu?: string;
+
+  // Memory
+  ram_gb?: number;
+  storage_gb?: number;
+  has_card_slot?: boolean;
+  card_slot_type?: string;
+
+  // Camera
+  main_camera_mp?: number;
+  has_quad_camera?: boolean;
+  has_triple_camera?: boolean;
+  has_dual_camera?: boolean;
+  front_camera_mp?: number;
+  rear_camera_video?: string;
+
+  // Sound
+  has_stereo_speakers?: boolean;
+  has_headphone_jack?: boolean;
+
+  // Connectivity
+  wifi_bands?: string;
+  bluetooth_version?: string;
+  usb_type?: string;
+  has_usb_otg?: boolean;
+  has_fm_radio?: boolean;
+
+  // Features
+  fingerprint_type?: string;
+
+  // Battery
+  battery_mah?: number;
+  charging_watt?: number;
+  has_wireless_charging?: boolean;
+  wireless_charging_watt?: number;
+
+  // Allow index access for generic mapping
+  [key: string]: string | number | boolean | undefined;
 }
 
 import type { CartItem } from '@/hooks/use-cart';

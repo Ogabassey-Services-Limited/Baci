@@ -12,13 +12,6 @@ import { createClient } from '@/lib/supabase/server';
  * - merchantId: string (required)
  */
 
-interface RecentPurchase {
-  id: string;
-  city: string;
-  timeAgo: string;
-  productName?: string;
-}
-
 // Nigerian cities for anonymized display
 const NIGERIAN_CITIES = [
   'Lagos',
@@ -43,11 +36,11 @@ const NIGERIAN_CITIES = [
   'Akure',
 ];
 
-function getRandomCity(): string {
+function _getRandomCity(): string {
   return NIGERIAN_CITIES[Math.floor(Math.random() * NIGERIAN_CITIES.length)];
 }
 
-function formatTimeAgo(date: Date): string {
+function _formatTimeAgo(date: Date): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
@@ -80,96 +73,25 @@ export async function GET(request: NextRequest) {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // Get recent orders for this product (last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    // OPTIMIZED: Use RPC for social proof stats
+    const { data: stats, error: statsError } = await supabase.rpc(
+      'get_social_proof_stats',
+      {
+        p_product_id: productId,
+        p_merchant_id: merchantId,
+      }
+    );
 
-    const { data: recentOrders, error } = await supabase
-      .from('order_items')
-      .select(`
-        id,
-        quantity,
-        created_at,
-        orders!inner (
-          id,
-          merchant_id,
-          shipping_city,
-          created_at,
-          payment_status
-        )
-      `)
-      .eq('product_id', productId)
-      .eq('orders.merchant_id', merchantId)
-      .eq('orders.payment_status', 'paid')
-      .gte('orders.created_at', sevenDaysAgo.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(20);
+    if (statsError) throw statsError;
 
-    if (error) {
-      console.error('Error fetching social proof data:', error);
-      // Return empty data on error rather than failing
-      return NextResponse.json({
-        recentSales: 0,
-        recentPurchases: [],
-        trending: false,
-      });
-    }
-
-    // Calculate recent sales count
-    const recentSales =
-      recentOrders?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
-
-    // Format recent purchases (anonymized)
-    const recentPurchases: RecentPurchase[] = (recentOrders || [])
-      .slice(0, 5)
-      .map((item, index) => {
-        // orders can be array or single object depending on supabase response
-        const orderArray = item.orders as unknown as
-          | Array<{ shipping_city?: string; created_at: string }>
-          | { shipping_city?: string; created_at: string }
-          | null;
-        const orderData = Array.isArray(orderArray)
-          ? orderArray[0]
-          : orderArray;
-        return {
-          id: `purchase-${index}`,
-          city: orderData?.shipping_city || getRandomCity(),
-          timeAgo: formatTimeAgo(
-            new Date(orderData?.created_at || item.created_at)
-          ),
-        };
-      });
-
-    // Determine if product is trending (more than 5 sales in 7 days)
-    const trending = recentSales >= 5;
-
-    // Get 24-hour sales count for the "X sold in last 24 hours" display
-    const oneDayAgo = new Date();
-    oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-
-    const { data: dailyOrders } = await supabase
-      .from('order_items')
-      .select(`
-        quantity,
-        orders!inner (
-          merchant_id,
-          created_at,
-          payment_status
-        )
-      `)
-      .eq('product_id', productId)
-      .eq('orders.merchant_id', merchantId)
-      .eq('orders.payment_status', 'paid')
-      .gte('orders.created_at', oneDayAgo.toISOString());
-
-    const dailySales =
-      dailyOrders?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
+    // biome-ignore lint/suspicious/noExplicitAny: Supabase RPC returns dynamic structure
+    const proofStats = stats as any;
 
     return NextResponse.json({
-      recentSales: dailySales, // Sales in last 24 hours
-      weekSales: recentSales, // Sales in last 7 days
-      recentPurchases,
-      trending,
+      recentSales: Number(proofStats.dailySales) || 0,
+      weekSales: Number(proofStats.weekSales) || 0,
+      recentPurchases: proofStats.recentPurchases || [],
+      trending: (Number(proofStats.weekSales) || 0) >= 5,
     });
   } catch (error) {
     console.error('Social proof API error:', error);

@@ -9,6 +9,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import type { Product as BaciProduct } from '@/lib/products';
@@ -49,6 +50,7 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
 
     return {
       id: p.id,
+      slug: p.slug,
       name: p.name,
       price: formattedPrice,
       rawPrice: p.price, // Already in Naira
@@ -56,11 +58,13 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
       description: p.description,
       rating: p.rating ?? 4.5,
       category: p.category || 'General',
+      categorySlug: p.category_slug,
       condition: mapCondition(p.condition),
       brand: p.brand,
       colors: p.colors,
       storage: p.storage_options?.[0],
       images: p.images?.map((img) => img.url),
+      // Ensure we map any other needed fields
     };
   });
 }
@@ -75,51 +79,61 @@ interface EngineProductGridProps {
   useMockData?: boolean;
   /** External products to use (from parent component) */
   externalProducts?: BaciProduct[];
-  /** Category filter */
-  selectedCategory?: string;
-  /** Minimum price filter */
-  minPrice?: number;
-  /** Maximum price filter */
-  maxPrice?: number;
   /** Grid title */
   title?: string;
   /** Show view all link */
   showViewAll?: boolean;
   /** Max products to display */
   limit?: number;
+  // Previously passed props like defaultCategory are now handled via URL
 }
 
 export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   storeSlug,
   useMockData = false,
   externalProducts,
-  selectedCategory: defaultCategory = 'All',
-  minPrice: defaultMin = 0,
-  maxPrice: defaultMax = 100000000,
   title = 'Featured Products',
   showViewAll = true,
   limit,
 }) => {
-  // Use safe version that doesn't throw outside provider
   const _merchantContext = useMerchantSafe();
   const { addToCart } = useCart();
   const { toggleSaved, isSaved } = useV2Saved();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [addedItems, setAddedItems] = useState<(number | string)[]>([]);
   const [particles, setParticles] = useState<Particle[]>([]);
 
-  // Filter state
-  const [selectedCategory, setSelectedCategory] = useState(defaultCategory);
-  const [priceRange, setPriceRange] = useState({
-    min: defaultMin,
-    max: defaultMax,
-  });
-  const [selectedBrand, setSelectedBrand] = useState('All');
-  const [selectedCondition, setSelectedCondition] = useState('All');
-  const [minRating, setMinRating] = useState(0);
+  // Get filters from URL or default to 'All'
+  const selectedCategory = searchParams.get('category') || 'All';
+  const selectedBrand = searchParams.get('brand') || 'All';
+  const selectedCondition = searchParams.get('condition') || 'All';
+  const minPrice = searchParams.get('min_price') ? Number(searchParams.get('min_price')) : 0;
+  const maxPrice = searchParams.get('max_price') ? Number(searchParams.get('max_price')) : 100000000;
+
+  const [minRating, setMinRating] = useState(0); // Client-side only
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  // Helper to update URL with single or multiple params
+  const updateFilters = (updates: Record<string, string | number | null>) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === 'All' || value === null || (value === 0 && key === 'min_price') || (value === 100000000 && key === 'max_price')) {
+        current.delete(key);
+      } else {
+        current.set(key, String(value));
+      }
+    });
+
+    const search = current.toString();
+    const query = search ? `?${search}` : '';
+    router.push(`${pathname}${query}` as any, { scroll: false });
+  };
 
   // Fetch products from API or use mock data
   useEffect(() => {
@@ -131,31 +145,25 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
         return;
       }
 
-      // If using mock data or demo slug, use the static mock products
+      // If using mock data or demo slug
       if (useMockData || !storeSlug || DEMO_SLUGS.has(storeSlug)) {
         setProducts(mockProducts);
         setLoading(false);
         return;
       }
 
-      // Fetch from API - need to get merchant_id from slug first
       try {
         setLoading(true);
 
-        // First, get merchant ID from slug
-        const merchantRes = await fetch(
-          `/api/merchants/by-slug?slug=${storeSlug}`
-        );
-        let merchantId: string | null = null;
+        // First, get merchant ID from slug (optimized to skip if context has it)
+        let merchantId = _merchantContext?.merchant?.id;
 
-        if (merchantRes.ok) {
-          const merchantData = await merchantRes.json();
-          merchantId = merchantData.merchant?.id;
-        }
-
-        // If we have merchant context, use that ID instead
-        if (!merchantId && _merchantContext?.merchant?.id) {
-          merchantId = _merchantContext.merchant.id;
+        if (!merchantId) {
+          const merchantRes = await fetch(`/api/merchants/by-slug?slug=${storeSlug}`);
+          if (merchantRes.ok) {
+            const merchantData = await merchantRes.json();
+            merchantId = merchantData.merchant?.id;
+          }
         }
 
         if (!merchantId) {
@@ -165,31 +173,37 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
           return;
         }
 
-        // Fetch products using merchant_id
-        const response = await fetch(
-          `/api/storefront/products?merchant_id=${merchantId}`
-        );
+        // Build API URL with filters
+        const apiParams = new URLSearchParams();
+        apiParams.set('merchant_id', merchantId);
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch products');
-        }
+        if (selectedCategory !== 'All') apiParams.set('category', selectedCategory);
+        if (selectedBrand !== 'All') apiParams.set('brand', selectedBrand);
+        if (selectedCondition !== 'All') apiParams.set('condition', selectedCondition);
+        if (minPrice > 0) apiParams.set('min_price', String(minPrice));
+        if (maxPrice < 100000000) apiParams.set('max_price', String(maxPrice));
+
+        const response = await fetch(`/api/storefront/products?${apiParams.toString()}`);
+
+        if (!response.ok) throw new Error('Failed to fetch products');
 
         const data = await response.json();
 
-        if (
-          data.products &&
-          Array.isArray(data.products) &&
-          data.products.length > 0
-        ) {
+        if (data.products && Array.isArray(data.products)) {
+          // If request has filters but returns empty, we should define how to handle it.
+          // API returns [] which is fine.
           setProducts(toTemplateProducts(data.products));
         } else {
-          // Fallback to mock data if no products
-          console.log('No products found, using mock data');
-          setProducts(mockProducts);
+          setProducts(mockProducts); // Fallback only on explicit error structure? No, empty is valid.
+          // If Products is empty logic:
+          if (data.products && Array.isArray(data.products)) {
+            setProducts([]);
+          } else {
+            setProducts(mockProducts);
+          }
         }
       } catch (err) {
         console.error('Error fetching products:', err);
-        // Fallback to mock data on error
         setProducts(mockProducts);
       } finally {
         setLoading(false);
@@ -202,67 +216,40 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     useMockData,
     externalProducts,
     _merchantContext?.merchant?.id,
+    selectedCategory,
+    selectedBrand,
+    selectedCondition,
+    minPrice,
+    maxPrice
   ]);
 
-  // Derive categories and brands from products
+  // Derive available categories and brands for the sidebar
+  // Using products list to populate sidebar (Note: this causes options to shrink as you filter!)
   const categories = useMemo(() => {
     return ['All', ...Array.from(new Set(products.map((p) => p.category)))];
   }, [products]);
 
   const brands = useMemo(() => {
-    return Array.from(
-      new Set(products.map((p) => p.brand).filter(Boolean) as string[])
-    );
+    return Array.from(new Set(products.map((p) => p.brand).filter(Boolean) as string[]));
   }, [products]);
 
-  // Apply filters
+  // Apply client-side filters (only Rating is client-side for now)
   const filteredProducts = useMemo(() => {
-    let filtered = products.filter((product) => {
-      if (selectedCategory !== 'All' && product.category !== selectedCategory) {
-        return false;
-      }
-      if (selectedBrand !== 'All' && product.brand !== selectedBrand) {
-        return false;
-      }
-      if (
-        selectedCondition !== 'All' &&
-        product.condition !== selectedCondition
-      ) {
-        return false;
-      }
-      if (product.rating < minRating) {
-        return false;
-      }
-      if (
-        (product.rawPrice || 0) < priceRange.min ||
-        (priceRange.max > 0 && (product.rawPrice || 0) > priceRange.max)
-      ) {
-        return false;
-      }
-      return true;
-    });
-
-    // Apply limit if specified
-    if (limit && limit > 0) {
-      filtered = filtered.slice(0, limit);
+    let result = products;
+    if (minRating > 0) {
+      result = result.filter((p) => (p.rating || 0) >= minRating);
     }
-
-    return filtered;
-  }, [
-    products,
-    selectedCategory,
-    selectedBrand,
-    selectedCondition,
-    minRating,
-    priceRange,
-    limit,
-  ]);
+    // Limit logic
+    if (limit && limit > 0) {
+      result = result.slice(0, limit);
+    }
+    return result;
+  }, [products, minRating, limit]);
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
     e.stopPropagation();
 
-    // Pass product directly to V2 cart which expects local Product type
     addToCart(product as any, 1);
 
     // Particle animation
@@ -289,11 +276,16 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   };
 
   const handleResetFilters = () => {
-    setSelectedCategory('All');
-    setPriceRange({ min: 0, max: 100000000 });
-    setSelectedBrand('All');
-    setSelectedCondition('All');
     setMinRating(0);
+    // Remove all query params except standard ones? Or clear specific ones.
+    // simpler: clear known filters.
+    updateFilters({
+      category: 'All',
+      brand: 'All',
+      condition: 'All',
+      min_price: 0,
+      max_price: 100000000
+    });
   };
 
   // Helper to get product ID as string
@@ -324,15 +316,15 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
       <AdvancedProductFilters
         categories={categories}
         selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
-        minPrice={priceRange.min}
-        maxPrice={priceRange.max}
-        onPriceChange={(min, max) => setPriceRange({ min, max })}
+        onSelectCategory={(val) => updateFilters({ category: val })}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        onPriceChange={(min, max) => updateFilters({ min_price: min, max_price: max })}
         brands={brands}
         selectedBrand={selectedBrand}
-        onSelectBrand={setSelectedBrand}
+        onSelectBrand={(val) => updateFilters({ brand: val })}
         selectedCondition={selectedCondition}
-        onSelectCondition={setSelectedCondition}
+        onSelectCondition={(val) => updateFilters({ condition: val })}
         minRating={minRating}
         onSelectRating={setMinRating}
         viewMode={viewMode}
@@ -403,6 +395,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                         e.preventDefault();
                         toggleSaved(product as any);
                       }}
+                      storeSlug={storeSlug}
                     />
                   ) : (
                     <>
@@ -417,6 +410,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                             e.preventDefault();
                             toggleSaved(product as any);
                           }}
+                          storeSlug={storeSlug}
                         />
                       </div>
                       <div className="hidden md:block">
@@ -429,6 +423,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                             e.preventDefault();
                             toggleSaved(product as any);
                           }}
+                          storeSlug={storeSlug}
                         />
                       </div>
                     </>
@@ -437,11 +432,10 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
                   {/* Ad insertion */}
                   {(index + 1 === 4 || index + 1 === 8) && (
                     <div
-                      className={`col-span-2 ${
-                        viewMode === 'grid' ? 'lg:col-span-4' : 'w-full'
-                      } flex items-center justify-center my-2 md:my-4`}
+                      className={`col-span-2 ${viewMode === 'grid' ? 'lg:col-span-4' : 'w-full'
+                        } flex items-center justify-center my-2 md:my-4`}
                     >
-                      <AdUnit placementKey="PRODUCT_GRID_IN_FEED" />
+                      <AdUnit placementKey="PRODUCT_GRID_MPU" />
                     </div>
                   )}
                 </React.Fragment>

@@ -66,11 +66,15 @@ export function generateProductSlug(
  */
 export function buildProductUrl(
   productSlug: string,
-  category?: string | null
+  category?: string | null,
+  categorySlug?: string | null
 ): Route {
-  if (category) {
-    const categorySlug = generateSlug(category);
+  if (categorySlug) {
     return `/${categorySlug}/${productSlug}` as Route;
+  }
+  if (category) {
+    const slug = generateSlug(category);
+    return `/${slug}/${productSlug}` as Route;
   }
   return `/products/${productSlug}` as Route;
 }
@@ -83,6 +87,8 @@ export function getProductUrl(product: {
   slug?: string;
   name: string;
   category?: string | null;
+  category_slug?: string;
+  categorySlug?: string;
   condition?: 'new' | 'used' | string;
   condition_detail?: string;
   id: string;
@@ -97,7 +103,11 @@ export function getProductUrl(product: {
     ) ||
     product.id;
 
-  return buildProductUrl(productSlug, product.category);
+  return buildProductUrl(
+    productSlug,
+    product.category,
+    product.category_slug || product.categorySlug
+  );
 }
 
 /**
@@ -221,6 +231,176 @@ export function generateProductSchema(
       value: product.weight_value,
       unitCode: WEIGHT_UNIT_CODES[product.weight_unit] || 'KGM',
     };
+  }
+
+  // Detailed specifications for AI/Crawlers (additionalProperty)
+  // This enables rich snippets and voice assistants to answer spec queries
+  const additionalProperties = [];
+
+  // Extract from product_key_specs (GSM Arena-level specs)
+  const keySpecs = product.product_key_specs;
+
+  if (keySpecs && !Array.isArray(keySpecs)) {
+    interface SpecMapping {
+      key: string;
+      name: string;
+      format?: (v: string | number | boolean | undefined) => string;
+      check?: (v: string | number | boolean | undefined) => boolean;
+    }
+
+    const SPEC_MAPPINGS: SpecMapping[] = [
+      // Network
+      { key: 'network_technology', name: 'Network Technology' },
+      { key: 'is_5g', name: '5G Support', format: (v) => (v ? 'Yes' : 'No') },
+      { key: 'has_nfc', name: 'NFC', format: (v) => (v ? 'Yes' : 'No') },
+
+      // Body
+      { key: 'dimensions_mm', name: 'Dimensions' },
+      { key: 'weight_g', name: 'Weight', format: (v) => `${v}g` },
+      { key: 'build_materials', name: 'Build' },
+      { key: 'ip_rating', name: 'IP Rating' },
+      { key: 'sim_type', name: 'SIM Type' },
+
+      // Display
+      { key: 'display_type', name: 'Display Type' },
+      {
+        key: 'screen_size_inches',
+        name: 'Screen Size',
+        format: (v) => `${v} inches`,
+      },
+      { key: 'display_resolution', name: 'Display Resolution' },
+      { key: 'refresh_rate_hz', name: 'Refresh Rate', format: (v) => `${v}Hz` },
+      { key: 'display_ppi', name: 'Pixel Density', format: (v) => `${v} ppi` },
+      {
+        key: 'display_peak_brightness',
+        name: 'Peak Brightness',
+        format: (v) => `${v} nits`,
+      },
+
+      // Platform
+      {
+        key: 'android_version',
+        name: 'Operating System',
+        format: (v) => `Android ${v}`,
+      },
+      { key: 'chipset', name: 'Chipset' },
+      { key: 'cpu_cores', name: 'CPU' },
+      { key: 'gpu', name: 'GPU' },
+
+      // Memory
+      { key: 'ram_gb', name: 'RAM', format: (v) => `${v}GB` },
+      { key: 'storage_gb', name: 'Internal Storage', format: (v) => `${v}GB` },
+      {
+        key: 'card_slot_type',
+        name: 'Card Slot',
+        check: () => keySpecs.has_card_slot,
+      },
+
+      // Camera
+      {
+        key: 'front_camera_mp',
+        name: 'Selfie Camera',
+        format: (v) => `${v}MP`,
+      },
+      { key: 'rear_camera_video', name: 'Video Recording' },
+
+      // Sound
+      {
+        key: 'has_stereo_speakers',
+        name: 'Speakers',
+        format: (v) => (v ? 'Stereo' : 'Mono'),
+      },
+      {
+        key: 'has_headphone_jack',
+        name: '3.5mm Headphone Jack',
+        format: (v) => (v ? 'Yes' : 'No'),
+      },
+
+      // Connectivity
+      { key: 'wifi_bands', name: 'WiFi' },
+      { key: 'bluetooth_version', name: 'Bluetooth' },
+      {
+        key: 'usb_type',
+        name: 'USB',
+        format: (v) => v + (keySpecs.has_usb_otg ? ' (OTG)' : ''),
+      },
+      {
+        key: 'has_fm_radio',
+        name: 'FM Radio',
+        format: () => 'Yes',
+        check: (v) => !!v,
+      },
+
+      // Features
+      { key: 'fingerprint_type', name: 'Fingerprint Sensor' },
+
+      // Battery
+      {
+        key: 'battery_mah',
+        name: 'Battery Capacity',
+        format: (v) => `${v}mAh`,
+      },
+      { key: 'charging_watt', name: 'Fast Charging', format: (v) => `${v}W` },
+      {
+        key: 'wireless_charging_watt',
+        name: 'Wireless Charging',
+        format: (v) => `${v}W`,
+        check: () => keySpecs.has_wireless_charging,
+      },
+    ];
+
+    // Handle Main Camera logic separately (too complex for generic map)
+    if (keySpecs.main_camera_mp) {
+      const cameraType = keySpecs.has_quad_camera
+        ? 'Quad'
+        : keySpecs.has_triple_camera
+          ? 'Triple'
+          : keySpecs.has_dual_camera
+            ? 'Dual'
+            : 'Single';
+      additionalProperties.push({
+        '@type': 'PropertyValue',
+        name: 'Main Camera',
+        value: `${cameraType} ${keySpecs.main_camera_mp}MP`,
+      });
+    }
+
+    // Process configuration-driven specs
+    for (const mapping of SPEC_MAPPINGS) {
+      const value = keySpecs[mapping.key];
+      const shouldInclude = mapping.check
+        ? mapping.check(value)
+        : value !== null && value !== undefined;
+
+      if (shouldInclude) {
+        additionalProperties.push({
+          '@type': 'PropertyValue',
+          name: mapping.name,
+          value: mapping.format
+            ? escapeHtml(mapping.format(value))
+            : escapeHtml(String(value)),
+        });
+      }
+    }
+  }
+
+  // Also include legacy specifications format if present
+  if (product.specifications && Array.isArray(product.specifications)) {
+    for (const category of product.specifications) {
+      if (category.items && Array.isArray(category.items)) {
+        for (const item of category.items) {
+          additionalProperties.push({
+            '@type': 'PropertyValue',
+            name: escapeHtml(item.label),
+            value: escapeHtml(item.value),
+          });
+        }
+      }
+    }
+  }
+
+  if (additionalProperties.length > 0) {
+    schema.additionalProperty = additionalProperties;
   }
 
   // Dimensions
@@ -366,6 +546,18 @@ export interface LocalBusinessData {
   openingHours?: string[]; // e.g., ["Mo-Fr 09:00-17:00", "Sa 10:00-14:00"]
   priceRange?: string; // e.g., "$$" or "₦₦"
   socialMedia?: Record<string, string>;
+  rating?: {
+    ratingValue: number;
+    reviewCount: number;
+  };
+  reviews?: Review[];
+}
+
+export interface Review {
+  author: string;
+  datePublished: string;
+  reviewBody: string;
+  reviewRating: number;
 }
 
 export function generateLocalBusinessSchema(
@@ -435,6 +627,41 @@ export function generateLocalBusinessSchema(
     schema.sameAs = Object.values(business.socialMedia)
       .filter(Boolean)
       .map((url) => escapeHtml(url));
+  }
+
+  // Add AggregateRating if provided
+  if (business.rating) {
+    schema.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: business.rating.ratingValue,
+      reviewCount: business.rating.reviewCount,
+      bestRating: '5',
+      worstRating: '1',
+    };
+  }
+
+  // Add Reviews if provided
+  if (business.reviews && business.reviews.length > 0) {
+    // Sort reviews: 5 stars, then 4 stars, etc. (Descending order)
+    const sortedReviews = [...business.reviews].sort(
+      (a, b) => b.reviewRating - a.reviewRating
+    );
+
+    schema.review = sortedReviews.map((review) => ({
+      '@type': 'Review',
+      author: {
+        '@type': 'Person',
+        name: escapeHtml(review.author),
+      },
+      datePublished: escapeHtml(review.datePublished),
+      reviewBody: escapeHtml(review.reviewBody),
+      reviewRating: {
+        '@type': 'Rating',
+        ratingValue: review.reviewRating,
+        bestRating: '5',
+        worstRating: '1',
+      },
+    }));
   }
 
   return schema;
@@ -701,6 +928,57 @@ export function generateWebSiteSchema(
       },
       'query-input': 'required name=search_term_string',
     };
+  }
+
+  return schema;
+}
+
+/**
+ * Generates Service schema for utility services (Airtime, Data, Showmax, etc.)
+ * @see https://schema.org/Service
+ */
+export interface ServiceData {
+  name: string;
+  description: string;
+  providerName: string;
+  providerUrl: string;
+  serviceType: string;
+  areaServed?: string;
+  logo?: string;
+  offers?: {
+    price: string | number;
+    priceCurrency: string;
+  }[];
+}
+
+export function generateServiceSchema(
+  data: ServiceData
+): Record<string, unknown> {
+  const schema: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: escapeHtml(data.name),
+    description: escapeHtml(data.description),
+    provider: {
+      '@type': 'LocalBusiness',
+      name: escapeHtml(data.providerName),
+      url: escapeHtml(data.providerUrl),
+      image: data.logo ? escapeHtml(data.logo) : undefined,
+    },
+    serviceType: escapeHtml(data.serviceType),
+    areaServed: {
+      '@type': 'Country',
+      name: data.areaServed ? escapeHtml(data.areaServed) : 'Nigeria',
+    },
+  };
+
+  if (data.offers && data.offers.length > 0) {
+    schema.offers = data.offers.map((offer) => ({
+      '@type': 'Offer',
+      price: offer.price,
+      priceCurrency: offer.priceCurrency,
+      availability: 'https://schema.org/InStock',
+    }));
   }
 
   return schema;

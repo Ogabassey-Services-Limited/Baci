@@ -2,6 +2,7 @@
 
 import AppBody from '@/components/app-body';
 import { AuthProvider } from '@/contexts/auth-context';
+import { ProductProvider } from '@/contexts/product-context';
 import {
   type MerchantData,
   MerchantProvider,
@@ -37,9 +38,11 @@ export function DashboardProviders({
         initialMerchant={initialMerchant}
         initialStaffAccess={initialStaffAccess}
       >
-        <DashboardClientLayout>
-          <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
-        </DashboardClientLayout>
+        <ProductProvider>
+          <DashboardClientLayout>
+            <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
+          </DashboardClientLayout>
+        </ProductProvider>
       </MerchantProvider>
     </AuthProvider>
   );

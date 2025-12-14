@@ -73,7 +73,8 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
       return false;
     }
     // Rating Filter
-    if (product.rating < minRating) {
+    const rating = product.rating ?? 0;
+    if (rating < minRating) {
       return false;
     }
     // Price Filter
@@ -167,7 +168,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
           <div className="flex items-center gap-4">
             {showViewAll && (
               <Link
-                href="#"
+                href="/products"
                 className="text-gray-500 hover:text-red-600 font-medium transition-colors text-xs md:text-base hidden sm:block"
               >
                 View all products

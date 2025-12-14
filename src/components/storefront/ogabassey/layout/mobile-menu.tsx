@@ -1,5 +1,5 @@
 'use client';
-// @ts-nocheck - Template preview
+// Template preview
 
 import {
   Crown,
@@ -37,30 +37,34 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  // const { theme, toggleTheme } = useTheme();
-  // const theme = 'standard';
-  // const toggleTheme = () => { };
+
+  // Extract store slug from pathname (first segment that's not a known page route)
+  const pathSegments = pathname?.split('/').filter(Boolean) || [];
+  const knownRoutes = ['account', 'cart', 'checkout', 'products', 'wishlist', 'wallet', 'repairs', 'imei-check', 'pages'];
+  const firstSegment = pathSegments[0] || '';
+  const storeSlug = knownRoutes.includes(firstSegment) ? '' : firstSegment;
 
   if (!isOpen) return null;
 
   const handleNavigate = (path: string) => {
-    router.push(path as any);
+    const fullPath = storeSlug ? `/${storeSlug}${path}` : path;
+    router.push(fullPath as any);
     onClose();
   };
 
   const menuItems = [
-    { label: 'Profile', icon: User, path: '/profile' },
+    { label: 'Profile', icon: User, path: '/account' },
     { label: 'Member Status', icon: Crown, path: '/member-status' },
-    { label: 'Orders', icon: ShoppingBag, path: '/orders' },
-    { label: 'Saved Items', icon: Heart, path: '/saved' },
+    { label: 'Orders', icon: ShoppingBag, path: '/account/orders' },
+    { label: 'Saved Items', icon: Heart, path: '/wishlist' },
     { label: 'IMEI Checker', icon: ScanBarcode, path: '/imei-check' },
     { label: 'Wallet', icon: Wallet, path: '/wallet' },
     { label: 'Receipts', icon: FileText, path: '/receipts' },
-    { label: 'Address Book', icon: MapPin, path: '/addresses' },
+    { label: 'Address Book', icon: MapPin, path: '/account/addresses' },
     { label: 'Repairs', icon: Wrench, path: '/repairs' },
     { label: 'Swap / Trade-in', icon: RefreshCw, path: '/swap' },
     { label: 'My Reviews', icon: Star, path: '/reviews' },
-    { label: 'Help & Support', icon: HelpCircle, path: '/help' },
+    { label: 'Help & Support', icon: HelpCircle, path: '/pages/faq' },
   ];
 
   return (
@@ -74,7 +78,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
       {/* Sidebar */}
       <div className="absolute inset-y-0 left-0 w-[85%] max-w-[320px] bg-white shadow-2xl animate-in slide-in-from-left duration-300 flex flex-col">
         <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-          <Logo className="h-8 w-auto" />
+          <Logo className="h-8 w-auto" color="black" />
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-full text-gray-500"

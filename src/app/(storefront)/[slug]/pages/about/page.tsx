@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { StorefrontPageWrapper } from '@/app/(storefront)/[slug]/storefront-page-wrapper';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import {
@@ -96,10 +97,16 @@ export default async function AboutPage({ params }: PageProps) {
           __html: safeJsonLdStringify(jsonLd as Record<string, unknown>),
         }}
       />
-      <AboutPageClient
+      <StorefrontPageWrapper
+        pageName="About"
         merchant={merchant}
-        aboutPage={aboutPage}
-        legacyContent={legacyAboutContent}
+        fallback={
+          <AboutPageClient
+            merchant={merchant}
+            aboutPage={aboutPage}
+            legacyContent={legacyAboutContent}
+          />
+        }
       />
     </>
   );

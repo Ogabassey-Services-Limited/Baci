@@ -13,6 +13,7 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { Product } from '../types';
+import { getProductUrl } from '@/lib/seo-utils';
 
 interface ProductGridItemProps {
   product: Product;
@@ -21,6 +22,7 @@ interface ProductGridItemProps {
   viewMode?: 'grid' | 'list';
   isWishlisted: boolean;
   onToggleWishlist: (e: React.MouseEvent) => void;
+  storeSlug?: string;
 }
 
 export const ProductGridItem: React.FC<ProductGridItemProps> = ({
@@ -30,6 +32,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   viewMode = 'grid',
   isWishlisted,
   onToggleWishlist,
+  storeSlug,
 }) => {
   // Use slightly larger icons in the mobile list feed
   const iconSize = viewMode === 'list' ? 22 : 18;
@@ -76,7 +79,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative">
       <Link
-        href={`/product/${product.id}` as any}
+        href={getProductUrl({ ...product, id: String(product.id) }) as any}
         className="absolute inset-0 z-0"
       />
 
@@ -121,13 +124,12 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         {/* Condition Badge - Top Left */}
         {product.condition && (
           <div
-            className={`absolute top-3 left-3 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 whitespace-nowrap ${
-              product.condition === 'New'
-                ? 'bg-gray-900'
-                : product.condition === 'Open Box'
-                  ? 'bg-indigo-600'
-                  : 'bg-stone-500'
-            }`}
+            className={`absolute top-3 left-3 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide shadow-sm z-10 whitespace-nowrap ${product.condition === 'New'
+              ? 'bg-gray-900'
+              : product.condition === 'Open Box'
+                ? 'bg-indigo-600'
+                : 'bg-stone-500'
+              }`}
           >
             {product.condition}
           </div>
@@ -137,20 +139,21 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         {product.colors && product.colors.length > 0 && (
           <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center -space-x-1.5 z-20 pointer-events-auto">
             {product.colors.slice(0, 4).map((color, idx) => {
-              const hexColor = color.startsWith('#') ? color : '#cccccc';
+              const hexColor = typeof color === 'string'
+                ? (color.startsWith('#') ? color : '#cccccc')
+                : color.value;
               const isSelected = idx === activeColorIndex;
               return (
                 <button
                   key={idx}
                   onClick={(e) => handleColorSelect(e, idx)}
-                  className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${
-                    isSelected
-                      ? 'w-4 h-4 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
-                      : 'w-3.5 h-3.5 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
-                  }`}
+                  className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${isSelected
+                    ? 'w-4 h-4 ring-2 ring-gray-300 ring-offset-1 z-30 scale-110'
+                    : 'w-3.5 h-3.5 hover:scale-110 hover:z-20 opacity-90 hover:opacity-100'
+                    }`}
                   style={{ backgroundColor: hexColor }}
-                  title={color}
-                  aria-label={`Select color ${color}`}
+                  title={typeof color === 'string' ? color : color.name}
+                  aria-label={`Select color ${typeof color === 'string' ? color : color.name}`}
                 />
               );
             })}
@@ -173,22 +176,20 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         >
           <Heart
             size={18}
-            className={`transition-all duration-200 ${
-              isWishlisted
-                ? 'fill-red-500 text-red-500 scale-110'
-                : 'text-gray-400 md:group-hover/heart:text-red-500'
-            }`}
+            className={`transition-all duration-200 ${isWishlisted
+              ? 'fill-red-500 text-red-500 scale-110'
+              : 'text-gray-400 md:group-hover/heart:text-red-500'
+              }`}
           />
         </button>
 
         {/* Floating Cart Button - Inside Bottom Right */}
         <button
           onClick={(e) => onAddToCart(e, product)}
-          className={`absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-md border border-gray-100 transition-all duration-200 pointer-events-auto active:scale-90 ${
-            isAdded
-              ? 'bg-red-600 text-white md:hover:bg-red-700'
-              : 'bg-white text-gray-900 md:hover:text-red-600 md:hover:border-red-100'
-          }`}
+          className={`absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-md border border-gray-100 transition-all duration-200 pointer-events-auto active:scale-90 ${isAdded
+            ? 'bg-red-600 text-white md:hover:bg-red-700'
+            : 'bg-white text-gray-900 md:hover:text-red-600 md:hover:border-red-100'
+            }`}
         >
           {isAdded ? (
             <Check size={iconSize} />
@@ -207,7 +208,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
               <Star
                 key={i}
                 size={12}
-                className={`${i < Math.floor(product.rating) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
+                className={`${i < Math.floor(product.rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`}
               />
             ))}
             <span className="text-[10px] text-gray-400 ml-1">
@@ -226,15 +227,12 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           )}
         </h3>
 
-        {/* Description: 
-            - Grid Mode (Mobile): Hidden
-            - List Mode (Mobile): Visible
-            - Desktop: Always Visible
-        */}
+        {/* Short Teaser - Single line */}
         <p
-          className={`text-gray-500 text-xs mb-3 line-clamp-2 leading-relaxed ${viewMode === 'list' ? 'block' : 'hidden md:block'}`}
+          className={`text-gray-400 text-[11px] mb-2 line-clamp-1 ${viewMode === 'list' ? 'block' : 'hidden md:block'}`}
         >
-          {product.description}
+          {product.description?.slice(0, 60)}{product.description && product.description.length > 60 ? '...' : ''}
+          <span className="text-red-500 font-medium ml-1">View specs →</span>
         </p>
 
         {/* Price & Details */}

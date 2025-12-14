@@ -24,6 +24,9 @@ import { trackEvent } from '@/lib/event-tracking';
 import type { Product, ProductVariant } from '@/lib/products';
 import { cn } from '@/lib/utils';
 
+// Placeholder image for products without images
+const PLACEHOLDER_IMAGE = '/placeholder.svg';
+
 // Lazy load heavy components to reduce initial bundle size
 const Cart = dynamic(
   () => import('@/components/cart').then((mod) => mod.Cart),
@@ -109,7 +112,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
   const { addToRecentlyViewed } = useRecentlyViewed();
   const [quantity, setQuantity] = useState(product.minimum_order_quantity || 1);
   const [selectedImage, setSelectedImage] = useState(
-    product.imageLarge || product.image
+    product.imageLarge || product.image || PLACEHOLDER_IMAGE
   );
 
   // Variant selection state
@@ -337,7 +340,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               <div className="space-y-4">
                 <div className="bg-muted/50 rounded-lg overflow-hidden aspect-square relative border border-border/50">
                   <Image
-                    src={selectedImage}
+                    src={selectedImage || PLACEHOLDER_IMAGE}
                     alt={product.name}
                     data-ai-hint={product.imageHint}
                     fill
@@ -360,32 +363,38 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                       )}
                     >
                       <Image
-                        src={product.imageLarge || product.image}
+                        src={
+                          product.imageLarge ||
+                          product.image ||
+                          PLACEHOLDER_IMAGE
+                        }
                         alt={`${product.name} - Main image`}
                         fill
                         className="object-cover"
                       />
                     </button>
-                    {product.images.map((img, idx) => (
-                      <button
-                        key={img.url}
-                        type="button"
-                        onClick={() => setSelectedImage(img.url)}
-                        className={cn(
-                          'relative w-20 h-20 rounded-md overflow-hidden border-2 flex-shrink-0',
-                          selectedImage === img.url
-                            ? 'border-primary'
-                            : 'border-transparent'
-                        )}
-                      >
-                        <Image
-                          src={img.url}
-                          alt={img.alt || `Product image ${idx + 1}`}
-                          fill
-                          className="object-cover"
-                        />
-                      </button>
-                    ))}
+                    {product.images
+                      .filter((img) => img.url)
+                      .map((img, idx) => (
+                        <button
+                          key={img.url || `img-${idx}`}
+                          type="button"
+                          onClick={() => setSelectedImage(img.url)}
+                          className={cn(
+                            'relative w-20 h-20 rounded-md overflow-hidden border-2 flex-shrink-0',
+                            selectedImage === img.url
+                              ? 'border-primary'
+                              : 'border-transparent'
+                          )}
+                        >
+                          <Image
+                            src={img.url}
+                            alt={img.alt || `Product image ${idx + 1}`}
+                            fill
+                            className="object-cover"
+                          />
+                        </button>
+                      ))}
                   </div>
                 )}
               </div>

@@ -16,58 +16,71 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import type React from 'react';
 
-const menuItems = [
-  {
-    icon: Package,
-    label: 'My Orders',
-    desc: 'Track, return, or buy again',
-    link: '/orders',
-  },
-  {
-    icon: History,
-    label: 'Purchase History',
-    desc: 'Browse past items',
-    link: '/purchase-history',
-  },
-  {
-    icon: Heart,
-    label: 'Saved Items',
-    desc: 'Your wishlist',
-    link: '/saved',
-  },
-  {
-    icon: Wallet,
-    label: 'My Wallet',
-    desc: 'Manage balance & cards',
-    link: '/wallet',
-  },
-  {
-    icon: MapPin,
-    label: 'Addresses',
-    desc: 'Edit delivery locations',
-    link: '/addresses',
-  },
-  {
-    icon: Bell,
-    label: 'Notifications',
-    desc: 'Offers & order updates',
-    link: '/notifications',
-  },
-  {
-    icon: Shield,
-    label: 'Security',
-    desc: 'Password & 2FA',
-    link: '/security',
-  },
-  {
-    icon: HelpCircle,
-    label: 'Help & Support',
-    desc: 'FAQs & customer care',
-    link: '/help',
-  },
-];
+// Extract store slug from pathname
+function useStoreSlug() {
+  const pathname = usePathname();
+  const pathSegments = pathname?.split('/').filter(Boolean) || [];
+  const knownRoutes = ['account', 'cart', 'checkout', 'products', 'wishlist', 'wallet', 'repairs', 'imei-check', 'pages'];
+  const firstSegment = pathSegments[0] || '';
+  return knownRoutes.includes(firstSegment) ? '' : firstSegment;
+}
+
+const getMenuItems = (storeSlug: string) => {
+  const prefix = storeSlug ? `/${storeSlug}` : '';
+  return [
+    {
+      icon: Package,
+      label: 'My Orders',
+      desc: 'Track, return, or buy again',
+      link: `${prefix}/account/orders`,
+    },
+    {
+      icon: History,
+      label: 'Purchase History',
+      desc: 'Browse past items',
+      link: `${prefix}/purchase-history`,
+    },
+    {
+      icon: Heart,
+      label: 'Saved Items',
+      desc: 'Your wishlist',
+      link: `${prefix}/wishlist`,
+    },
+    {
+      icon: Wallet,
+      label: 'My Wallet',
+      desc: 'Manage balance & cards',
+      link: `${prefix}/wallet`,
+    },
+    {
+      icon: MapPin,
+      label: 'Addresses',
+      desc: 'Edit delivery locations',
+      link: `${prefix}/account/addresses`,
+    },
+    {
+      icon: Bell,
+      label: 'Notifications',
+      desc: 'Offers & order updates',
+      link: `${prefix}/notifications`,
+    },
+    {
+      icon: Shield,
+      label: 'Security',
+      desc: 'Password & 2FA',
+      link: `${prefix}/security`,
+    },
+    {
+      icon: HelpCircle,
+      label: 'Help & Support',
+      desc: 'FAQs & customer care',
+      link: `${prefix}/pages/faq`,
+    },
+  ];
+};
 
 // Mock User Data
 const user = {
@@ -80,6 +93,9 @@ const user = {
 };
 
 export const OgabasseyV2Profile: React.FC = () => {
+  const storeSlug = useStoreSlug();
+  const menuItems = getMenuItems(storeSlug);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1 flex flex-col">

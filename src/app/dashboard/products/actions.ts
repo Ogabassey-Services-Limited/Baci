@@ -2,7 +2,12 @@
 
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { geminiFlash, sanitizePromptInput, withRetry } from '@/ai/provider';
+import {
+  gemini25FlashImage,
+  geminiFlash,
+  sanitizePromptInput,
+  withRetry,
+} from '@/ai/provider';
 import type { Product } from '@/lib/products';
 
 // Zod schema for the AI response
@@ -13,6 +18,11 @@ const ChangeDetailsSchema = z.object({
   description: z.string().optional(),
   stock: z.number().optional(),
   brand: z.string().optional(),
+  image: z.string().optional().describe('URL of the product image'),
+  attributes: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe('Key-value pairs of product attributes (e.g., RAM, Storage)'),
 });
 
 const ChangeSchema = z.object({
@@ -64,6 +74,8 @@ export interface Change {
     description?: string;
     stock?: number;
     brand?: string;
+    image?: string;
+    attributes?: Record<string, string>;
   };
   reason?: string;
 }
@@ -88,7 +100,6 @@ export async function processPriceList(
   fileType: string
 ): Promise<AIResponse> {
   performance.mark('processPriceList-start');
-  // Sanitize user-provided inputs
   const safeVendor = sanitizePromptInput(vendor, 100).value;
   const safeFileType = sanitizePromptInput(fileType, 50).value;
 
@@ -105,18 +116,47 @@ ${priceListData}
 ---
 
 Instructions:
-1.  Analyze the new price list and identify all differences from the current catalog.
-2.  For existing products, identify price changes. Use the SKU/ID to match products.
-3.  Identify any completely new products in the price list.
-4.  Identify products in the current catalog that are NOT in the new price list; suggest them for removal.
-5.  Populate the 'changes' array with objects representing these findings.
-6.  If a required field for a new product like "Condition" is missing, use the 'missingParameterRequest' field to ask for it.
-7.  If you are uncertain about a change (e.g., two products have similar names), use 'clarificationRequest' to ask the user.
-8.  Provide a concise 'summary' of all the changes you found.
+1.  Analyze the new price list. verify header rows vs data rows.
+    - **Header Row Detection**: The first few rows might be titles/decorative (e.g., "Premium Used..."). Look for the actual header row containing "Product Name", "Price", etc.
+    - **Currency Cleaning**: Prices may contain symbols like "₦" or ",". Strip these out to get raw numbers (e.g., "₦320,000.00" -> 320000).
+2.  **Matching Logic**:
+    - First, try to match by SKU if available.
+    - If no SKU (or SKU not found), **match by Product Name** (case-insensitive).
+    - If a match is found, check for price or stock changes.
+3.  **New Products**:
+    - If a row has a Name and Price but no match in the catalog, mark it as a 'new' product.
+    - It is OK if new products only have Name and Price (defaults will be used).
+    - **Skip empty rows** or rows with just a description but no Name/Price.
+4.  **Removals**:
+    - Identify products in the current catalog that are NOT in the new price list; suggest them for removal.
+    - BE CAREFUL: Only suggest removal if the price list appears to be a *full update*. If it looks like a partial list (few items), assume others are unchanged.
+5.  Populate the 'changes' array.
+6.  If a critical field is unclear, use 'clarificationRequest'.
+7.  Provide a concise 'summary' of changes.
 `;
+
+  const isImage = fileType.startsWith('image/');
 
   try {
     const { object } = await withRetry(async () => {
+      // For images, we must use the multimodal model and messages format
+      if (isImage) {
+        return await generateObject({
+          model: gemini25FlashImage,
+          schema: AIResponseSchema,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image', image: priceListData }, // priceListData is base64 string
+              ],
+            },
+          ],
+        });
+      }
+
+      // For text/CSV/PDF, standard text-only model
       return await generateObject({
         model: geminiFlash,
         schema: AIResponseSchema,
@@ -134,13 +174,253 @@ Instructions:
     return result;
   } catch (error) {
     console.error('Error processing price list with AI:', error);
-    // Return a structured error response
+    return {
+      changes: [],
+      summary: `Error: ${error instanceof Error ? error.message : 'AI processing failed. Please try again.'}`,
+    };
+  }
+}
+
+/**
+ * Direct CSV Parser for Large Catalogs (1000+ products)
+ * Parses CSV programmatically without AI, matches against existing products by name.
+ * Much faster and handles unlimited rows.
+ */
+// biome-ignore lint/suspicious/useAwait: Server Actions must be async functions
+export async function parseCSVDirectly(
+  currentProducts: Product[],
+  csvData: string
+): Promise<AIResponse> {
+  const lines = csvData.split('\n').filter((line) => line.trim());
+  if (lines.length < 2) {
     return {
       changes: [],
       summary:
-        'An error occurred while processing the price list. The AI model could not return a valid response. Please check the file format or try again.',
+        'No data rows found in CSV. Please ensure the file is not empty.',
     };
   }
+
+  // Scan first 10 rows to find the header row
+  let headerRowIdx = -1;
+  let nameIdx = -1;
+  let priceIdx = -1;
+  let skuIdx = -1;
+  let stockIdx = -1;
+  let imageIdx = -1; // Added image index
+
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const row = parseCSVRow(lines[i].toLowerCase());
+
+    const nIdx = row.findIndex(
+      (h) =>
+        h.includes('name') ||
+        h.includes('prod') ||
+        h.includes('item') ||
+        h.includes('title') ||
+        h.includes('model')
+    );
+    const pIdx = row.findIndex(
+      (h) =>
+        h.includes('price') ||
+        h.includes('cost') ||
+        h.includes('amount') ||
+        h.includes('naira') ||
+        h.includes('ngn')
+    );
+
+    if (nIdx !== -1 && pIdx !== -1) {
+      headerRowIdx = i;
+      nameIdx = nIdx;
+      priceIdx = pIdx;
+
+      // Look for other optional columns in this valid header row
+      skuIdx = row.findIndex(
+        (h) =>
+          h.includes('sku') ||
+          h.includes('code') ||
+          h.includes('id') ||
+          h.includes('ref')
+      );
+      stockIdx = row.findIndex(
+        (h) =>
+          h.includes('stock') ||
+          h.includes('qty') ||
+          h.includes('quantity') ||
+          h.includes('count')
+      );
+      imageIdx = row.findIndex(
+        (h) =>
+          h.includes('image') ||
+          h.includes('photo') ||
+          h.includes('url') ||
+          h.includes('img')
+      ); // Find image index
+
+      break;
+    }
+  }
+
+  if (headerRowIdx === -1) {
+    return {
+      changes: [],
+      summary:
+        'Could not find "Name" and "Price" columns in the first 10 rows. Please add headers to your sheet (e.g., "Product Name", "Price").',
+    };
+  }
+
+  // Build lookup map of existing products (by normalized name)
+  const existingByName = new Map<string, Product>();
+  const existingBySku = new Map<string, Product>();
+  for (const p of currentProducts) {
+    existingByName.set(normalizeName(p.name), p);
+    if (p.sku) existingBySku.set(p.sku.toLowerCase().trim(), p);
+  }
+
+  const changes: Change[] = [];
+  const processedNames = new Set<string>();
+  let skippedCount = 0;
+
+  // Process data rows (start after header row)
+  for (let i = headerRowIdx + 1; i < lines.length; i++) {
+    const row = parseCSVRow(lines[i]);
+    if (row.length <= Math.max(nameIdx, priceIdx)) {
+      skippedCount++;
+      continue;
+    }
+
+    const rawName = row[nameIdx]?.trim() || '';
+    const rawPrice = row[priceIdx]?.trim() || '';
+    const rawSku = skuIdx !== -1 ? row[skuIdx]?.trim() : undefined;
+    const rawStock = stockIdx !== -1 ? row[stockIdx]?.trim() : undefined;
+    const rawImage = imageIdx !== -1 ? row[imageIdx]?.trim() : undefined; // Extract raw image
+
+    if (!rawName || !rawPrice) {
+      skippedCount++;
+      continue;
+    }
+
+    const normalizedName = normalizeName(rawName);
+    const price = parsePrice(rawPrice);
+    const stock = rawStock
+      ? Number.parseInt(rawStock.replace(/[^0-9]/g, ''), 10)
+      : undefined;
+
+    if (Number.isNaN(price)) {
+      skippedCount++;
+      continue;
+    }
+
+    processedNames.add(normalizedName);
+
+    // Try to match by SKU first, then by name
+    let existingProduct = rawSku
+      ? existingBySku.get(rawSku.toLowerCase())
+      : undefined;
+    if (!existingProduct) {
+      existingProduct = existingByName.get(normalizedName);
+    }
+
+    if (existingProduct) {
+      // Check if price changed
+      if (Math.abs(existingProduct.price - price) > 0.01) {
+        changes.push({
+          type: 'update',
+          productId: existingProduct.id,
+          newPrice: price,
+          details: {
+            name: rawName,
+            price: existingProduct.price,
+            sku: rawSku || existingProduct.sku,
+            stock: stock ?? existingProduct.stock,
+            image: rawImage, // Include image in update
+          },
+          reason: `Price changed from ${existingProduct.price} to ${price}`,
+        });
+      }
+      // Could add stock change detection here if needed
+    } else {
+      // New product
+      changes.push({
+        type: 'new',
+        details: {
+          name: rawName,
+          price,
+          sku: rawSku,
+          stock: stock ?? 0,
+          image: rawImage, // Include image for new product
+        },
+      });
+    }
+  }
+
+  // Check for removals (products in catalog but not in CSV)
+  // Only suggest removals if CSV has substantial data (avoid false positives)
+  const csvProductCount = processedNames.size;
+  const catalogCount = currentProducts.length;
+
+  // Only suggest removals if CSV has at least 50% of catalog size (likely a full update)
+  if (csvProductCount >= catalogCount * 0.5) {
+    for (const product of currentProducts) {
+      if (!processedNames.has(normalizeName(product.name))) {
+        changes.push({
+          type: 'remove',
+          productId: product.id,
+          details: {
+            name: product.name,
+            price: product.price,
+            sku: product.sku,
+          },
+          reason: 'Not found in updated price list',
+        });
+      }
+    }
+  }
+
+  const newCount = changes.filter((c) => c.type === 'new').length;
+  const updateCount = changes.filter((c) => c.type === 'update').length;
+
+  return {
+    changes,
+    summary: `Parsed ${csvProductCount} products from CSV. Found ${newCount} new, ${updateCount} updates. Skipped ${skippedCount} rows (empty or invalid).`,
+  };
+}
+
+// Helper: Parse a single CSV row (handles quoted fields)
+function parseCSVRow(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+// Helper: Normalize product name for matching
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special chars
+    .replace(/\s+/g, ' ') // Normalize whitespace
+    .trim();
+}
+
+// Helper: Parse price string (handles currency symbols, commas)
+function parsePrice(priceStr: string): number {
+  const cleaned = priceStr
+    .replace(/[₦$€£¥,\s]/g, '') // Remove currency symbols and commas
+    .replace(/\.(?=.*\.)/g, ''); // Keep only last decimal point
+  return Number.parseFloat(cleaned) || 0;
 }
 
 export async function fetchGoogleSheet(url: string): Promise<string> {
@@ -167,26 +447,40 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
       throw new Error('Invalid URL. Only HTTPS URLs are allowed.');
     }
 
-    // Extract Spreadsheet ID and construct export URL
-    // Regex to capture the ID between /d/ and /
-    const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    // Check for "Published to Web" URL (e.g., .../d/e/.../pubhtml)
+    const isPublishedUrl = url.includes('/d/e/');
+    let exportUrl: string;
 
-    if (!match || !match[1]) {
-      throw new Error(
-        'Invalid Google Sheets URL. Could not extract spreadsheet ID.'
-      );
+    if (isPublishedUrl) {
+      // Convert pubhtml or other endings to pub?output=csv
+      // Base ID extraction for published sheets is complex, so we just modify the URL suffix
+      const baseUrl = url.split('/pub')[0];
+      exportUrl = `${baseUrl}/pub?output=csv`;
+      // Re-validate the constructed URL to prevent SSRF
+      const exportParsedUrl = new URL(exportUrl);
+      if (!allowedHosts.includes(exportParsedUrl.hostname)) {
+        throw new Error('Invalid URL. Only Google Sheets URLs are allowed.');
+      }
+    } else {
+      // Standard Sheet: Extract Spreadsheet ID and construct export URL
+      // Regex to capture the ID between /d/ and /
+      const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+
+      if (!match || !match[1]) {
+        throw new Error(
+          'Invalid Google Sheets URL. Could not extract spreadsheet ID.'
+        );
+      }
+
+      const spreadsheetId = match[1];
+
+      // Validate spreadsheet ID format (alphanumeric, hyphens, underscores only)
+      if (!/^[a-zA-Z0-9-_]+$/.test(spreadsheetId)) {
+        throw new Error('Invalid spreadsheet ID format.');
+      }
+
+      exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
     }
-
-    const spreadsheetId = match[1];
-
-    // Validate spreadsheet ID format (alphanumeric, hyphens, underscores only)
-    if (!/^[a-zA-Z0-9-_]+$/.test(spreadsheetId)) {
-      throw new Error('Invalid spreadsheet ID format.');
-    }
-
-    // Always construct the export URL from the validated spreadsheet ID
-    // Never use the user-provided URL directly for the fetch request
-    const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
 
     const response = await fetch(exportUrl);
 

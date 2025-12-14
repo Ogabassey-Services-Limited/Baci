@@ -2,6 +2,7 @@ import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 
@@ -17,20 +18,52 @@ function mapProduct(p: Record<string, unknown>) {
     imageLarge: (p.images as { url: string }[])?.[0]?.url || '',
     imageHint: p.image_hint,
     category: p.category || 'General',
+    category_slug: (
+      p.product_categories as { categories: { slug: string } }[]
+    )?.[0]?.categories?.slug,
     brand: p.brand,
     status: p.status || 'active',
     has_variants: p.has_variants,
     slug: p.slug,
     sku: p.sku,
     manage_stock: p.manage_stock,
-    stock: p.stock_quantity || 0,
+    stock: (p.stock as number) || 0,
     low_stock_threshold: p.low_stock_threshold,
+    specifications: p.specifications,
   };
 }
 
-// Factory function that creates a cached function for each merchant
-// This ensures each merchant gets their own cache entry
-function createCachedProductsFetcher(merchantId: string) {
+// Zod schema for query parameters
+const querySchema = z.object({
+  merchant_id: z.string().uuid().optional(),
+  category: z.string().optional(),
+  brand: z.string().optional(),
+  condition: z.enum(['new', 'used', 'refurbished', 'all']).optional(),
+  min_price: z.coerce.number().nonnegative().optional(),
+  max_price: z.coerce.number().nonnegative().optional(),
+  sort: z.enum(['newest', 'price-asc', 'price-desc']).default('newest'),
+  q: z.string().max(100).optional(),
+  ids: z.string().optional(),
+});
+
+type ProductFilters = z.infer<typeof querySchema>;
+
+// Factory function that creates a cached function for each merchant + filters combination
+function createCachedProductsFetcher(
+  merchantId: string,
+  filters: ProductFilters = { sort: 'newest' }
+) {
+  // Create a cache key based on merchant and all active filters
+  const cacheKeyParts = ['storefront-products', merchantId];
+  if (filters.category) cacheKeyParts.push(`cat-${filters.category}`);
+  if (filters.brand) cacheKeyParts.push(`brand-${filters.brand}`);
+  if (filters.condition) cacheKeyParts.push(`cond-${filters.condition}`);
+  if (filters.min_price) cacheKeyParts.push(`min-${filters.min_price}`);
+  if (filters.max_price) cacheKeyParts.push(`max-${filters.max_price}`);
+  if (filters.sort) cacheKeyParts.push(`sort-${filters.sort}`);
+  if (filters.q)
+    cacheKeyParts.push(`q-${filters.q.slice(0, 100).toLowerCase().trim()}`);
+
   return unstable_cache(
     async () => {
       const supabase = createStaticClient(
@@ -38,18 +71,71 @@ function createCachedProductsFetcher(merchantId: string) {
         getSupabaseAnonKey()
       );
 
-      const { data: products, error } = await supabase
+      let query = supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          product_categories!inner (
+            categories!inner (
+              slug
+            )
+          )
+        `)
         .eq('merchant_id', merchantId)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .eq('status', 'active');
+
+      // Apply Filters
+      if (filters.category && filters.category !== 'all') {
+        // Filter by category slug via the junction table
+        query = query.eq(
+          'product_categories.categories.slug',
+          filters.category
+        );
+      }
+
+      if (filters.brand && filters.brand !== 'all') {
+        // TODO: Implement brand filtering once products.brand_id relation is established
+        // For now, skip brand filtering to avoid incorrect results
+        // console.warn('Brand filtering not yet implemented');
+      }
+
+      if (filters.condition && filters.condition !== 'all') {
+        query = query.eq('condition', filters.condition);
+      }
+
+      if (filters.min_price !== undefined) {
+        query = query.gte('price', filters.min_price);
+      }
+
+      if (filters.max_price !== undefined) {
+        query = query.lte('price', filters.max_price);
+      }
+
+      if (filters.q) {
+        const sanitizedQuery = filters.q.slice(0, 100);
+        query = query.ilike('name', `%${sanitizedQuery}%`);
+      }
+
+      // Apply Sort
+      switch (filters.sort) {
+        case 'price-asc':
+          query = query.order('price', { ascending: true });
+          break;
+        case 'price-desc':
+          query = query.order('price', { ascending: false });
+          break;
+        default:
+          query = query.order('created_at', { ascending: false });
+          break;
+      }
+
+      const { data: products, error } = await query;
 
       if (error) throw error;
 
       return (products || []).map(mapProduct);
     },
-    ['storefront-products', merchantId], // Include merchantId in cache key
+    cacheKeyParts,
     {
       revalidate: 300, // Revalidate every 5 minutes
       tags: ['storefront-products', `merchant-${merchantId}`],
@@ -77,8 +163,27 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
   try {
-    const merchantId = searchParams.get('merchant_id');
-    const ids = searchParams.get('ids'); // Comma-separated list of product IDs
+    // Validate parameters
+    const parsed = querySchema.safeParse(Object.fromEntries(searchParams));
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid parameters', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const {
+      merchant_id: merchantId,
+      ids,
+      category,
+      brand,
+      condition,
+      min_price,
+      max_price,
+      sort,
+      q,
+    } = parsed.data;
 
     if (!merchantId) {
       return NextResponse.json(
@@ -114,14 +219,24 @@ export async function GET(request: NextRequest) {
     }
 
     // Otherwise, return all active products (cached)
-    const getCachedProducts = createCachedProductsFetcher(merchantId);
+    const filters = {
+      category: category || undefined,
+      brand: brand || undefined,
+      condition: condition || undefined,
+      min_price,
+      max_price,
+      sort,
+      q: q || undefined,
+    };
+
+    const getCachedProducts = createCachedProductsFetcher(merchantId, filters);
     const mappedProducts = await getCachedProducts();
 
     return NextResponse.json(
       { products: mappedProducts },
       {
         headers: {
-          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600',
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300', // Reduced cache time for search interactions
         },
       }
     );
