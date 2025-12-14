@@ -36,12 +36,17 @@ export default async function DomainsPage({
   const tab =
     typeof searchParams?.tab === 'string' ? searchParams.tab : 'overview';
 
-  const { data: domains } = await supabase
+  const { data: domains, error: domainsError } = await supabase
     .from('domains')
     .select('*')
     .eq('merchant_id', merchant.id)
     .order('is_primary', { ascending: false }) // Primary first
     .order('created_at', { ascending: false }); // Then newest
+
+  if (domainsError) {
+    console.error('Error fetching domains:', domainsError);
+    throw new Error('Failed to load domains');
+  }
 
   const domainsList = (domains as Domain[]) || [];
 

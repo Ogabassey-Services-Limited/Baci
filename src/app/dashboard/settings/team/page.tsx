@@ -3,9 +3,12 @@ import { BagLoader } from '@/components/ui/bag-loader';
 import { getStaffMembers } from './actions';
 import { TeamClient } from './team-client';
 
-export default async function TeamSettingsPage() {
+async function TeamContent() {
   const staff = await getStaffMembers();
+  return <TeamClient initialStaff={staff} />;
+}
 
+export default function TeamSettingsPage() {
   return (
     <Suspense
       fallback={
@@ -14,7 +17,7 @@ export default async function TeamSettingsPage() {
         </div>
       }
     >
-      <TeamClient initialStaff={staff} />
+      <TeamContent />
     </Suspense>
   );
 }

@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import { Button } from '@/components/ui/button';
 import { BUSINESS_TYPES } from '@/config/business-types';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { getAllTemplates } from '@/templates/registry';

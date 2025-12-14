@@ -106,13 +106,18 @@ export const getMerchantForUser = cache(async () => {
 
     // If we found a merchant, fetch their primary domain
     if (merchantData) {
-      const { data: primaryDomain } = await supabase
+      const { data: primaryDomain, error: domainError } = await supabase
         .from('domains')
         .select('domain')
         .eq('merchant_id', merchantData.id)
         .eq('is_primary', true)
         .eq('status', 'active')
         .single();
+
+      // PGRST116 = no rows found, which is expected if merchant has no custom domain
+      if (domainError && domainError.code !== 'PGRST116') {
+        console.error('Error fetching primary domain:', domainError);
+      }
 
       if (primaryDomain) {
         merchantData.custom_domain = primaryDomain.domain;

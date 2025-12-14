@@ -3,9 +3,12 @@ import { BagLoader } from '@/components/ui/bag-loader';
 import { getDiscountCodes } from './actions';
 import { DiscountClient } from './discount-client';
 
-export default async function DiscountCodesPage() {
+async function DiscountContent() {
   const discountCodes = await getDiscountCodes();
+  return <DiscountClient initialDiscountCodes={discountCodes} />;
+}
 
+export default function DiscountCodesPage() {
   return (
     <Suspense
       fallback={
@@ -14,7 +17,7 @@ export default async function DiscountCodesPage() {
         </div>
       }
     >
-      <DiscountClient initialDiscountCodes={discountCodes} />
+      <DiscountContent />
     </Suspense>
   );
 }

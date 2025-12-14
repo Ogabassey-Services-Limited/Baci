@@ -2,7 +2,13 @@ import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { getTransactions, getWalletData } from './actions';
+import {
+  getTransactions,
+  getWalletData,
+  type PendingSettlement,
+  type Transaction,
+  type WalletData,
+} from './actions';
 import WalletClient from './wallet-client';
 
 export const metadata: Metadata = {
@@ -39,8 +45,8 @@ export default async function WalletPage() {
   }
 
   // Fetch data in parallel
-  let walletData;
-  let transactions;
+  let walletData: { wallet: WalletData; pendingSettlements: PendingSettlement[] } | null;
+  let transactions: Transaction[];
 
   try {
     [walletData, transactions] = await Promise.all([
