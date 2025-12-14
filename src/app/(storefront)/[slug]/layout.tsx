@@ -93,7 +93,7 @@ export default async function StorefrontLayout({
   }
 
   // Use appropriate lookup method based on identifier type
-  let merchant;
+  let merchant: Awaited<ReturnType<typeof getCachedMerchant>> = null;
   if (isDomainIdentifier(slug)) {
     // Custom domain access (e.g., ogabassey.com)
     merchant = await getCachedMerchantByDomain(slug);

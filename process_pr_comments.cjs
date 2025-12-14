@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('node:fs');
 
 const prNumber = process.env.PR_NUMBER || 'unknown';
 const inputFile = `pr_${prNumber}_full_threads.json`;
