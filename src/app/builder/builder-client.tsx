@@ -6,6 +6,7 @@ import {
   Drawer,
   Puck,
 } from '@measured/puck';
+import '@measured/puck/puck.css';
 import {
   ArrowLeft,
   Box,
@@ -159,10 +160,6 @@ export default function BuilderClient() {
   const { user, loading: authLoading } = useAuth();
   const { merchant, loading: merchantLoading } = useMerchant();
 
-  // Dynamically load Puck CSS to avoid render-blocking
-  useEffect(() => {
-    import('@measured/puck/puck.css');
-  }, []);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -505,9 +502,9 @@ export default function BuilderClient() {
                             newContent[componentIndex - 1],
                             newContent[componentIndex],
                           ] = [
-                            newContent[componentIndex],
-                            newContent[componentIndex - 1],
-                          ];
+                              newContent[componentIndex],
+                              newContent[componentIndex - 1],
+                            ];
                           setData({ ...data, content: newContent });
                         }
                       }}
@@ -518,9 +515,9 @@ export default function BuilderClient() {
                             newContent[componentIndex],
                             newContent[componentIndex + 1],
                           ] = [
-                            newContent[componentIndex + 1],
-                            newContent[componentIndex],
-                          ];
+                              newContent[componentIndex + 1],
+                              newContent[componentIndex],
+                            ];
                           setData({ ...data, content: newContent });
                         }
                       }}
@@ -843,11 +840,10 @@ export default function BuilderClient() {
                     <button
                       type="button"
                       onClick={() => setViewportWidth(375)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
-                        viewportWidth === 375
-                          ? 'bg-white shadow-sm'
-                          : 'hover:bg-white'
-                      }`}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 375
+                        ? 'bg-white shadow-sm'
+                        : 'hover:bg-white'
+                        }`}
                       title="Mobile Portrait (375px)"
                     >
                       <Smartphone className="w-4 h-4 text-primary" />
@@ -856,11 +852,10 @@ export default function BuilderClient() {
                     <button
                       type="button"
                       onClick={() => setViewportWidth(768)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
-                        viewportWidth === 768
-                          ? 'bg-white shadow-sm'
-                          : 'hover:bg-white'
-                      }`}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 768
+                        ? 'bg-white shadow-sm'
+                        : 'hover:bg-white'
+                        }`}
                       title="Tablet (768px)"
                     >
                       <Tablet className="w-4 h-4 text-primary" />
@@ -869,11 +864,10 @@ export default function BuilderClient() {
                     <button
                       type="button"
                       onClick={() => setViewportWidth(1200)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${
-                        viewportWidth === 1200
-                          ? 'bg-white shadow-sm'
-                          : 'hover:bg-white'
-                      }`}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-colors text-sm ${viewportWidth === 1200
+                        ? 'bg-white shadow-sm'
+                        : 'hover:bg-white'
+                        }`}
                       title="Desktop (1200px)"
                     >
                       <Monitor className="w-4 h-4 text-primary" />

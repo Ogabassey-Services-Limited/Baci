@@ -299,6 +299,7 @@ export default function CustomersClientPage({
             className="pl-8 border-primary/50 focus-visible:ring-primary"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            aria-label="Search customers"
           />
         </div>
       </div>
@@ -352,6 +353,7 @@ export default function CustomersClientPage({
                     <Link
                       href={`/dashboard/customers/${customer.id}`}
                       className="hover:underline"
+                      aria-label={`View details for ${customer.first_name} ${customer.last_name}`}
                     >
                       {customer.first_name} {customer.last_name}
                     </Link>
@@ -375,7 +377,7 @@ export default function CustomersClientPage({
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${customer.first_name} ${customer.last_name}`}>
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>

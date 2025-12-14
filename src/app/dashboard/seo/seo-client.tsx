@@ -2,6 +2,8 @@
 
 import {
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   RefreshCw,
   Sparkles,
@@ -79,15 +81,23 @@ export default function SEOClient({
   const [isPending, startTransition] = useTransition();
 
   // State
-  // We don't need detailed product state if we use router.refresh, but selection state is local.
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [optimizations, setOptimizations] = useState<SEOOptimization[]>([]);
   const [optimizing, setOptimizing] = useState(false);
   const [showOptimized, setShowOptimized] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 50;
 
   // Derived state from server props
   const products = initialProducts;
   const summary = initialSummary;
+
+  // Pagination Logic
+  const totalPages = Math.ceil(products.length / itemsPerPage);
+  const paginatedProducts = products.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   const handleRefresh = () => {
     startTransition(() => {
@@ -105,6 +115,7 @@ export default function SEOClient({
   };
 
   const selectAll = () => {
+    // Select all needing work across ALL pages, not just current page
     const needsWork = products.filter((p) => p.seoScore < 100);
     setSelectedProducts(needsWork.map((p) => p.productId));
   };
@@ -443,7 +454,7 @@ export default function SEOClient({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {products.map((product) => (
+              {paginatedProducts.map((product) => (
                 <TableRow
                   key={product.productId}
                   className={
@@ -457,6 +468,7 @@ export default function SEOClient({
                       checked={selectedProducts.includes(product.productId)}
                       onCheckedChange={() => toggleProduct(product.productId)}
                       disabled={product.seoScore === 100}
+                      aria-label={`Select ${product.productName}`}
                     />
                   </TableCell>
                   <TableCell>
@@ -512,6 +524,36 @@ export default function SEOClient({
               )}
             </TableBody>
           </Table>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-end space-x-2 py-4">
+              <div className="flex-1 text-sm text-muted-foreground text-left">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  aria-label="Previous page"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  aria-label="Next page"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,50 +1,118 @@
+import { Plus } from 'lucide-react';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
-import DomainsClient from './domains-client';
+import { ConnectDomainForm } from './components/connect-domain-form';
+import { type Domain, DomainCard } from './components/domain-card';
+import { DomainSearchPanel } from './components/domain-search-panel';
+import { DomainsHeader } from './components/domains-header';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Domains | Baci',
-  description: 'Manage your custom domains and subdomains',
+  description: 'Manage your store domains and custom URLs',
 };
 
-export default async function DomainsPage() {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+// Force dynamic since we depend on request cookies and latest DB state
+export const dynamic = 'force-dynamic';
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect('/login');
-  }
-
-  // Get merchant ID
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
+export default async function DomainsPage({
+  searchParams,
+}: {
+  searchParams?: { [key: string]: string | string[] | undefined };
+}) {
+  const { merchant } = await getMerchantForUser();
 
   if (!merchant) {
     redirect('/login');
   }
 
-  // Fetch domains
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  // Handle tab from URL
+  const tab =
+    typeof searchParams?.tab === 'string' ? searchParams.tab : 'overview';
+
   const { data: domains } = await supabase
     .from('domains')
     .select('*')
     .eq('merchant_id', merchant.id)
     .order('is_primary', { ascending: false }) // Primary first
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false }); // Then newest
 
-  // Cast domains to match client expectations if types differ slightly
-  // biome-ignore lint/suspicious/noExplicitAny: Domain type mismatch between server and client
+  const domainsList = (domains as Domain[]) || [];
+
+  // Empty state logic
+  const hasDomains = domainsList.length > 0;
+
   return (
-    <DomainsClient
-      initialDomains={(domains || []) as any[]}
-      merchantId={merchant.id}
-    />
+    <div className="container mx-auto p-6 space-y-6">
+      <DomainsHeader />
+
+      <Tabs defaultValue={tab} className="w-full">
+        <TabsList className="bg-slate-100/80 dark:bg-slate-800/50 p-1">
+          <TabsTrigger
+            value="overview"
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm"
+          >
+            My Domains
+          </TabsTrigger>
+          <TabsTrigger
+            value="search"
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm"
+          >
+            Search & Buy
+          </TabsTrigger>
+          <TabsTrigger
+            value="custom"
+            className="data-[state=active]:bg-white dark:data-[state=active]:bg-slate-950 data-[state=active]:shadow-sm"
+          >
+            Connect Existing Domain
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-4 pt-4">
+          {!hasDomains ? (
+            <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-xl bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-4">
+                <Plus className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h2 className="text-xl font-semibold mb-2">No domains yet</h2>
+              <p className="text-muted-foreground text-center max-w-md mb-6">
+                Connect a custom domain or buy a new one to get started.
+              </p>
+              {/* Note: In a server component we can't easily switch tabs programmatically with a button click 
+                  unless we use a client component wrapper. For empty state, users can click the tabs above. 
+                  Or we could just render the Action Buttons here that link to query params? 
+                  For now, simple instruction reference is fine. */}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {domainsList.map((domain) => (
+                <DomainCard key={domain.id} domain={domain} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Search Tab */}
+        <TabsContent value="search" className="pt-4">
+          <div className="max-w-3xl mx-auto">
+            <DomainSearchPanel />
+          </div>
+        </TabsContent>
+
+        {/* Custom Tab */}
+        <TabsContent value="custom" className="pt-4">
+          <div className="max-w-2xl mx-auto">
+            <ConnectDomainForm />
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

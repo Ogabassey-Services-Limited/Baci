@@ -114,7 +114,7 @@ export function CookieConsent() {
               </div>
 
               <div className="flex-1 space-y-1">
-                <h3 className="font-semibold text-sm">We value your privacy</h3>
+                <h2 className="font-semibold text-sm">We value your privacy</h2>
                 <p className="text-sm text-muted-foreground leading-snug">
                   We use cookies to enhance your experience and analyze traffic.
                   <Link

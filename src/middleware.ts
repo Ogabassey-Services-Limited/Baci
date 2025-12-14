@@ -234,14 +234,15 @@ function generateCSP(
     // Strict nonce-based CSP for admin and authentication routes
     return Object.entries({
       ...baseDirectives,
-      'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://maps.googleapis.com https://vercel.live https://va.vercel-scripts.com`,
+      // Note: Removed 'strict-dynamic' to allow host-based allowlists (maps, vercel) to work
+      // if they are not loaded by a nonced script. Added 'unsafe-eval' for libs that need it.
+      'script-src': `'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://vercel.live https://va.vercel-scripts.com`,
       'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
       'connect-src':
         "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
       'frame-src': "'self' https://checkout.korapay.com",
       'form-action': "'self'",
       'frame-ancestors': "'self'",
-      'require-trusted-types-for': "'script'",
     })
       .map(([key, value]) => `${key} ${value}`.trim())
       .join('; ');

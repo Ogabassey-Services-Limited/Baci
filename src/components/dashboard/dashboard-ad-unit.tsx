@@ -35,10 +35,10 @@ export function DashboardAdUnit({
         >
           {/* Placeholder - replace with actual ad script */}
           <div className="flex flex-col items-center justify-center p-4">
-            <span className="text-xs font-medium text-muted-foreground/50 uppercase tracking-widest">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
               Ad Space
             </span>
-            <span className="text-[10px] text-muted-foreground/30 mt-1">
+            <span className="text-[10px] text-muted-foreground/70 mt-1">
               {dimensions.width}×{dimensions.height}
             </span>
           </div>

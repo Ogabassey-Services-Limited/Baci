@@ -630,7 +630,12 @@ export default function DashboardClientLayout({
               <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                    aria-label="User menu"
+                  >
                     <User className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -662,6 +667,7 @@ export default function DashboardClientLayout({
                     variant="ghost"
                     size="sm"
                     className="h-8 rounded-full px-3 gap-2 hover:bg-white/50"
+                    aria-label="Select country"
                   >
                     {merchantLoading ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -703,6 +709,7 @@ export default function DashboardClientLayout({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 rounded-full hover:bg-white/50"
+                    aria-label="User menu"
                   >
                     <User className="h-4 w-4" />
                   </Button>
@@ -729,7 +736,7 @@ export default function DashboardClientLayout({
 
           <main
             id="main-content"
-            className="flex-1 transition-all duration-300 ease-in-out md:pt-20"
+            className="flex-1 transition-all duration-300 ease-in-out md:pt-20 p-4 md:p-6 lg:p-8 overflow-auto"
           >
             <NotificationBanner />
             <Suspense

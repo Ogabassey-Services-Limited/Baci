@@ -362,7 +362,11 @@ export function SetupChecklist({
           </Button>
         )}
       </div>
-      <Progress value={readiness.overallProgress} className="h-2" />
+      <Progress
+        value={readiness.overallProgress}
+        className="h-2"
+        aria-label="Setup progress"
+      />
     </div>
   );
 
@@ -408,6 +412,7 @@ export function SetupChecklist({
             type="button"
             onClick={() => setDismissed(true)}
             className="absolute top-4 right-4 p-1 rounded-full hover:bg-muted transition-colors"
+            aria-label="Dismiss setup checklist"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -466,7 +471,11 @@ export function SetupChecklist({
               <span className="text-muted-foreground">Setup Progress</span>
               <span className="font-medium">{readiness.overallProgress}%</span>
             </div>
-            <Progress value={readiness.overallProgress} className="h-2" />
+            <Progress
+              value={readiness.overallProgress}
+              className="h-2"
+              aria-label="Setup progress"
+            />
           </div>
         </CardHeader>
 

@@ -630,6 +630,8 @@ function ProductsPageContent() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                   disabled={isLoading}
                   rows={1}
+                  id="product-search"
+                  name="search"
                 />
                 <Button
                   type="submit"

@@ -194,7 +194,7 @@ export function ProductCatalog({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {localProducts.map((product) => {
+              {localProducts.map((product, index) => {
                 const isLowStock = !product.manage_stock
                   ? false
                   : product.stock <= (product.low_stock_threshold || 5);
@@ -204,8 +204,8 @@ export function ProductCatalog({
                       className={cn(
                         'group hover:bg-muted/30 transition-colors border-b border-primary/5',
                         product.variants &&
-                          product.variants.length > 0 &&
-                          'bg-muted/5'
+                        product.variants.length > 0 &&
+                        'bg-muted/5'
                       )}
                     >
                       <TableCell className="pl-6 py-3">
@@ -216,6 +216,7 @@ export function ProductCatalog({
                               size="icon"
                               className="h-6 w-6 p-0 hover:bg-transparent"
                               onClick={() => toggleProduct(product.id)}
+                              aria-label={expandedProducts.has(product.id) ? "Collapse variants" : "Expand variants"}
                             >
                               {expandedProducts.has(product.id) ? (
                                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -230,10 +231,12 @@ export function ProductCatalog({
                             {product.image ? (
                               <Image
                                 src={product.image}
-                                alt={product.name}
+                                alt=""
                                 width={48}
                                 height={48}
                                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                aria-hidden="true"
+                                priority={index < 4}
                               />
                             ) : (
                               <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
@@ -278,6 +281,8 @@ export function ProductCatalog({
                             {formatCurrency(0).replace(/[0-9.,\s]/g, '')}
                           </span>
                           <Input
+                            id={`price-${product.id}`}
+                            name={`price-${product.id}`}
                             type="text"
                             defaultValue={product.price.toLocaleString(
                               'en-US',
@@ -306,9 +311,11 @@ export function ProductCatalog({
                       </TableCell>
                       <TableCell>
                         {product.manage_stock &&
-                        (!product.variants || product.variants.length === 0) ? (
+                          (!product.variants || product.variants.length === 0) ? (
                           <div className="mx-auto w-24 relative">
                             <Input
+                              id={`stock-${product.id}`}
+                              name={`stock-${product.id}`}
                               type="number"
                               value={product.stock}
                               onChange={(e) =>
@@ -320,10 +327,10 @@ export function ProductCatalog({
                               className={cn(
                                 'h-8 text-center font-mono text-sm bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-accent transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
                                 product.stock === 0 &&
-                                  'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40',
+                                'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:hover:bg-red-900/40',
                                 isLowStock &&
-                                  product.stock > 0 &&
-                                  'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-900/40'
+                                product.stock > 0 &&
+                                'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-900/40'
                               )}
                               aria-label={`Stock for ${product.name}`}
                             />
@@ -355,6 +362,7 @@ export function ProductCatalog({
                           size="icon"
                           className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                           onClick={() => onEditProduct?.(product)}
+                          aria-label={`Edit ${product.name}`}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -376,10 +384,11 @@ export function ProductCatalog({
                                   {variant.primary_image ? (
                                     <Image
                                       src={variant.primary_image}
-                                      alt="Variant"
+                                      alt=""
                                       width={32}
                                       height={32}
                                       className="h-full w-full object-cover"
+                                      aria-hidden="true"
                                     />
                                   ) : (
                                     <div className="h-full w-full flex items-center justify-center text-muted-foreground/20">
@@ -412,6 +421,8 @@ export function ProductCatalog({
                             <TableCell>
                               <div className="mx-auto w-24 relative">
                                 <Input
+                                  id={`variant-stock-${variant.id}`}
+                                  name={`variant-stock-${variant.id}`}
                                   type="number"
                                   value={variant.stock_quantity}
                                   onChange={(e) =>
@@ -424,11 +435,12 @@ export function ProductCatalog({
                                   className={cn(
                                     'h-7 text-center font-mono text-xs bg-transparent border-transparent hover:border-border/60 focus:border-primary/50 focus:bg-accent transition-all shadow-none focus:shadow-sm remove-arrow rounded-md',
                                     variant.stock_quantity === 0 &&
-                                      'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
+                                    'text-red-600 font-medium bg-red-50/50 hover:bg-red-50 hover:border-red-200',
                                     isVariantLowStock &&
-                                      variant.stock_quantity > 0 &&
-                                      'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
+                                    variant.stock_quantity > 0 &&
+                                    'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
                                   )}
+                                  aria-label={`Stock for variant ${Object.values(variant.attributes).join(', ')}`}
                                 />
                                 {isVariantLowStock && (
                                   <div

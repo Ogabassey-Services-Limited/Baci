@@ -39,15 +39,15 @@ export function AnalyticsCategoryNav({
     label: string;
     icon: React.ElementType;
   }[] = [
-    { id: 'overview', label: 'Overview 📊', icon: LayoutGrid },
-    { id: 'finance', label: 'Finance 💰', icon: DollarSign },
-    { id: 'products', label: 'Products 📦', icon: Package },
-    { id: 'inventory', label: 'Inventory 📈', icon: TrendingUp },
-    { id: 'customers', label: 'Customers 👥', icon: Users },
-    { id: 'segments', label: 'Segments 🎯', icon: Target },
-    { id: 'marketing', label: 'Marketing 📣', icon: Megaphone },
-    { id: 'ads', label: 'Ad Conversions ⚡', icon: Zap },
-  ];
+      { id: 'overview', label: 'Overview 📊', icon: LayoutGrid },
+      { id: 'finance', label: 'Finance 💰', icon: DollarSign },
+      { id: 'products', label: 'Products 📦', icon: Package },
+      { id: 'inventory', label: 'Inventory 📈', icon: TrendingUp },
+      { id: 'customers', label: 'Customers 👥', icon: Users },
+      { id: 'segments', label: 'Segments 🎯', icon: Target },
+      { id: 'marketing', label: 'Marketing 📣', icon: Megaphone },
+      { id: 'ads', label: 'Ad Conversions ⚡', icon: Zap },
+    ];
 
   return (
     <div
@@ -69,7 +69,7 @@ export function AnalyticsCategoryNav({
               'relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap',
               isActive
                 ? 'text-white'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                : 'text-foreground/70 hover:text-foreground hover:bg-muted/50'
             )}
           >
             {isActive && (

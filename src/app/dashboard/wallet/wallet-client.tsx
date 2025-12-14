@@ -433,7 +433,7 @@ export default function WalletClient({
                     }
                     disabled={savingSettings}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger aria-label="Select payout day">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -457,7 +457,7 @@ export default function WalletClient({
                     }
                     disabled={savingSettings}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger aria-label="Select minimum payout amount">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>

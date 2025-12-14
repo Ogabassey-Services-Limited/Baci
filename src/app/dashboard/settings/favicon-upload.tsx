@@ -115,9 +115,17 @@ export function FaviconUpload() {
       )}
 
       <div className="flex items-center gap-4">
-        <label
-          htmlFor="favicon-upload"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        {/* Replaced label with div to prevent duplicate label issue, using onClick to trigger input */}
+        <div
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 transition-colors opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={() => document.getElementById('favicon-upload')?.click()}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              document.getElementById('favicon-upload')?.click();
+            }
+          }}
         >
           {uploading ? (
             <>
@@ -130,7 +138,7 @@ export function FaviconUpload() {
               Upload Favicon
             </>
           )}
-        </label>
+        </div>
         <input
           id="favicon-upload"
           type="file"
@@ -138,6 +146,7 @@ export function FaviconUpload() {
           onChange={handleUpload}
           disabled={uploading}
           className="sr-only"
+          aria-label="Upload favicon file" // Explicit label
         />
       </div>
 

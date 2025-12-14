@@ -275,13 +275,14 @@ const OrderCard = ({
             }
             checked={isSelected}
             className="mt-1 shrink-0"
+            aria-label={`Select order ${order.orderNumber}`}
           />
           {/* Main Click Area */}
           <div
             className="flex-1 min-w-0"
-            /* Removed generic onClick to prevent conflict with Name Link.
-             Only expanding on row click if not clicking interactive elements.
-             But simpler to let user click Chevron or non-interactive areas. */
+          /* Removed generic onClick to prevent conflict with Name Link.
+           Only expanding on row click if not clicking interactive elements.
+           But simpler to let user click Chevron or non-interactive areas. */
           >
             {/* Header: Customer & Date & Urgency */}
             <div className="flex flex-wrap gap-2 text-sm mb-3 items-center">
@@ -307,13 +308,12 @@ const OrderCard = ({
 
               {/* Urgency / Time Badge */}
               <div
-                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ml-2 ${
-                  isUrgent
-                    ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-                    : isWarning
-                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                      : 'bg-muted text-muted-foreground'
-                }`}
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium ml-2 ${isUrgent
+                  ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+                  : isWarning
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                    : 'bg-muted text-muted-foreground'
+                  }`}
               >
                 {isActionable && (isUrgent || isWarning) && (
                   <span className="font-semibold mr-1">{contextLabel}</span>
@@ -406,6 +406,7 @@ const OrderCard = ({
               size="icon"
               onClick={() => setIsExpanded(!isExpanded)}
               className="shrink-0 h-8 w-8"
+              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} details for order ${order.orderNumber}`}
             >
               {isExpanded ? (
                 <ChevronUp className="h-4 w-4" />
@@ -422,9 +423,9 @@ const OrderCard = ({
         <div className="bg-muted/10 border-t p-4 animate-in slide-in-from-top-2">
           <div className="grid gap-6 md:grid-cols-2">
             <div>
-              <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
                 <Box className="w-3 h-3" /> Item Details
-              </h5>
+              </h4>
               <div className="space-y-2">
                 {order.items?.map((item) => (
                   <div
@@ -459,17 +460,17 @@ const OrderCard = ({
               </h5>
               <div className="bg-background rounded-lg border p-4 text-sm space-y-3">
                 <div className="flex justify-between border-b pb-2">
-                  <span className="text-muted-foreground">Shipping Status</span>
+                  <span className="text-foreground/70 font-medium">Shipping Status</span>
                   <StatusBadge status={order.shippingStatus} type="shipping" />
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Provider</span>
+                  <span className="text-foreground/70 font-medium">Provider</span>
                   <span className="font-medium">
                     {order.shipping_provider || 'Not assigned'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-muted-foreground">Tracking #</span>
+                  <span className="text-foreground/70 font-medium">Tracking #</span>
                   <span className="font-mono bg-muted px-2 py-0.5 rounded text-xs">
                     {order.tracking_number || 'PENDING'}
                   </span>
@@ -851,7 +852,7 @@ export default function OrdersClientPage({
             className="absolute top-2 right-2 h-6 w-6"
             onClick={() => setShowAlert(false)}
           >
-            <BagLoader size={32} />
+            <X className="h-4 w-4" />
             <span className="sr-only">Dismiss</span>
           </Button>
         </Alert>
