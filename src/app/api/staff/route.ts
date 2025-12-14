@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 
@@ -226,7 +227,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Build invitation URL
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
+    const inviteUrl = `${getAppUrl()}/invite/${invitationToken}`;
 
     // Send invitation email (fire and forget)
     sendEmail({

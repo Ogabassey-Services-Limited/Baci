@@ -17,6 +17,8 @@
  * - Reduced client-side JavaScript
  */
 
+import { getAppUrl } from '@/env';
+
 export interface ServerAnalyticsUserData {
   email?: string;
   phone?: string;
@@ -59,8 +61,8 @@ function getBaseUrl(): string {
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
-  // Server-side: use environment variable or default
-  return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  // Server-side: use type-safe environment variable
+  return getAppUrl();
 }
 
 /**

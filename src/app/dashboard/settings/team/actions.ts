@@ -3,6 +3,7 @@
 import crypto from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import type { StaffRole } from '@/types/staff';
@@ -250,7 +251,7 @@ export async function resendInvitation(id: string) {
     invitationToken
   );
 
-  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
+  const inviteUrl = `${getAppUrl()}/invite/${invitationToken}`;
 
   revalidatePath('/dashboard/settings/team');
   // We return the URL so the UI can show it if needed (legacy behavior kept)
@@ -366,7 +367,7 @@ async function sendInviteEmail(
   businessName: string,
   token: string
 ) {
-  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${token}`;
+  const inviteUrl = `${getAppUrl()}/invite/${token}`;
 
   // Escape user-controlled values to prevent HTML injection
   const safeName = escapeHtmlForEmail(name) || 'there';

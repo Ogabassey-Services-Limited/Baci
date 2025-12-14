@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 
 interface RouteParams {
@@ -300,7 +301,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
+    const inviteUrl = `${getAppUrl()}/invite/${invitationToken}`;
 
     return NextResponse.json({
       message: 'Invitation resent successfully',

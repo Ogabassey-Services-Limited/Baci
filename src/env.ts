@@ -92,6 +92,29 @@ export const getRootDomain = (): string => {
   return process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
 };
 
+/**
+ * Get the application base URL (server-side only).
+ * Used for generating absolute URLs like invite links, callbacks, etc.
+ * @returns {string} The app URL with fallback to localhost in development
+ */
+export const getAppUrl = (): string => {
+  const url = process.env.NEXT_PUBLIC_APP_URL;
+  if (!url) {
+    // In development, fallback to localhost
+    if (process.env.NODE_ENV !== 'production') {
+      return 'http://localhost:3000';
+    }
+    // In production, warn and use a sensible default
+    if (typeof window === 'undefined') {
+      console.warn(
+        'NEXT_PUBLIC_APP_URL is not defined. Using default https://usebaci.com'
+      );
+    }
+    return 'https://usebaci.com';
+  }
+  return url;
+};
+
 export const isProduction = (): boolean => {
   return process.env.NODE_ENV === 'production';
 };

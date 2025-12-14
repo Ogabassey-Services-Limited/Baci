@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import sanitizeHtml from 'sanitize-html';
+import { getAppUrl } from '@/env';
 
 /**
  * Blog RSS Feed API
@@ -152,7 +153,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const { merchant, posts } = data;
 
     // Base URL for the merchant's storefront
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://usebaci.com';
+    const baseUrl = getAppUrl();
     const storeUrl = `${baseUrl}/${merchant.slug}`;
     const feedUrl = `${baseUrl}/api/blog/feed/${merchant.slug}`;
 
