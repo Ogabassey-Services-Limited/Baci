@@ -125,7 +125,10 @@ export default function LoginForm() {
   };
 
   return (
-    <main id="main-content" className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background">
+    <main
+      id="main-content"
+      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background"
+    >
       {/* Static Background - removed animated orbs for performance */}
       <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
       <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
@@ -209,7 +212,9 @@ export default function LoginForm() {
                         size="sm"
                         className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent z-20"
                         onClick={() => setShowPassword(!showPassword)}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        aria-label={
+                          showPassword ? 'Hide password' : 'Show password'
+                        }
                       >
                         {showPassword ? (
                           <EyeOff className="h-4 w-4 text-muted-foreground" />

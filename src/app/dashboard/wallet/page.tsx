@@ -45,7 +45,10 @@ export default async function WalletPage() {
   }
 
   // Fetch data in parallel
-  let walletData: { wallet: WalletData; pendingSettlements: PendingSettlement[] } | null;
+  let walletData: {
+    wallet: WalletData;
+    pendingSettlements: PendingSettlement[];
+  } | null;
   let transactions: Transaction[];
 
   try {

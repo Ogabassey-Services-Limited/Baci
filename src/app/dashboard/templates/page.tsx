@@ -29,7 +29,7 @@ const BUSINESS_TYPE_TO_CATEGORY: Record<string, string[]> = {
 export default async function TemplatesPage({
   searchParams,
 }: {
-  searchParams?: { [key: string]: string | string[] | undefined };
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { merchant } = await getMerchantForUser();
 
@@ -38,7 +38,8 @@ export default async function TemplatesPage({
   }
 
   const templates = getAllTemplates();
-  const showAll = searchParams?.showAll === 'true';
+  const resolvedSearchParams = await searchParams;
+  const showAll = resolvedSearchParams?.showAll === 'true';
 
   // Determine user's business category
   const userBusinessType = merchant.business_type;

@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export default async function DomainsPage({
   searchParams,
 }: {
-  searchParams?: { [key: string]: string | string[] | undefined };
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const { merchant } = await getMerchantForUser();
 
@@ -32,9 +32,11 @@ export default async function DomainsPage({
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
+  const resolvedSearchParams = await searchParams;
+
   // Handle tab from URL
   const tab =
-    typeof searchParams?.tab === 'string' ? searchParams.tab : 'overview';
+    typeof resolvedSearchParams?.tab === 'string' ? resolvedSearchParams.tab : 'overview';
 
   const { data: domains, error: domainsError } = await supabase
     .from('domains')
@@ -48,7 +50,7 @@ export default async function DomainsPage({
     console.error('Error fetching domains:', domainsError);
   }
 
-  const domainsList = domainsError ? [] : ((domains as Domain[]) || []);
+  const domainsList = domainsError ? [] : (domains as Domain[]) || [];
 
   // Empty state logic
   const hasDomains = domainsList.length > 0;
@@ -107,7 +109,7 @@ export default async function DomainsPage({
         {/* Search Tab */}
         <TabsContent value="search" className="pt-4">
           <div className="max-w-3xl mx-auto">
-            <DomainSearchPanel />
+            <DomainSearchPanel merchant={merchant} />
           </div>
         </TabsContent>
 

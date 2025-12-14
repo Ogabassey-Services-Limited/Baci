@@ -4,8 +4,8 @@ import { getDiscountCodes } from './actions';
 import { DiscountClient } from './discount-client';
 
 async function DiscountContent() {
-  const discountCodes = await getDiscountCodes();
-  return <DiscountClient initialDiscountCodes={discountCodes} />;
+  const { discountCodes, currencySymbol } = await getDiscountCodes();
+  return <DiscountClient initialDiscountCodes={discountCodes} currencySymbol={currencySymbol} />;
 }
 
 export default function DiscountCodesPage() {

@@ -57,19 +57,34 @@ import {
   deleteDiscountCode,
   upsertDiscountCode,
 } from './actions';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+
+const discountSchema = z.object({
+  code: z.string().min(3, 'Code must be at least 3 characters'),
+  type: z.enum(['percentage', 'fixed']),
+  value: z.coerce.number().min(0, 'Value must be positive'),
+  applies_to: z.enum(['all', 'specific_products', 'min_order_value']),
+  min_order_value: z.coerce.number().optional(),
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
+  usage_limit: z.coerce.number().optional(),
+});
+
 
 interface DiscountClientProps {
   initialDiscountCodes: DiscountCode[];
+  currencySymbol: string;
 }
 
-export function DiscountClient({ initialDiscountCodes }: DiscountClientProps) {
+export function DiscountClient({ initialDiscountCodes, currencySymbol }: DiscountClientProps) {
   const { toast } = useToast();
   const router = useRouter();
-  const { merchant } = useMerchant();
-  const country = merchant?.country
-    ? getCountryByCode(merchant.country)
-    : undefined;
-  const currencySymbol = country?.currencySymbol || '$';
+
+  // currencySymbol is passed from server now
+
 
   // Use props for initial data, but keep it in state if we want optimistic UI (or just rely on router.refresh)
   // Since we are using router.refresh() in actions (revalidatePath), we can rely on props being updated.
@@ -382,6 +397,7 @@ export function DiscountClient({ initialDiscountCodes }: DiscountClientProps) {
                           variant="ghost"
                           size="icon"
                           onClick={() => openEditDialog(code)}
+                          aria-label={`Edit ${code.code}`}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -389,6 +405,7 @@ export function DiscountClient({ initialDiscountCodes }: DiscountClientProps) {
                           variant="ghost"
                           size="icon"
                           onClick={() => openDeleteDialog(code.id, code.code)}
+                          aria-label={`Delete ${code.code}`}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -444,7 +461,7 @@ export function DiscountClient({ initialDiscountCodes }: DiscountClientProps) {
                   id="description"
                   value={formData.description}
                   onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
+                    setFormData({ ...formData, description: e.target.value || '' })
                   }
                   placeholder="20% off all products"
                 />

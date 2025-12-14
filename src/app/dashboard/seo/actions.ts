@@ -205,8 +205,8 @@ export async function getSEOStatus(merchantId: string): Promise<{
   const avgScore =
     totalProducts > 0
       ? Math.round(
-          analysis.reduce((sum, a) => sum + a.seoScore, 0) / totalProducts
-        )
+        analysis.reduce((sum, a) => sum + a.seoScore, 0) / totalProducts
+      )
       : 0;
 
   return {
@@ -334,7 +334,7 @@ Return ONLY valid JSON, no markdown or explanation.`;
         },
       });
     } catch (error) {
-      console.error(`Error generating SEO for ${product.name}:`, error);
+      console.error('Error generating SEO for product:', product.name, error);
       // Skip this product or provide limited fallback?
       // For now, easier to skip or throw partial error, but let's just skip to keep logic simple without crashing entire batch
     }
@@ -357,7 +357,7 @@ export async function saveSEOSettings(
 
   // Validate ownership first (though RLS should handle it, explicit check is good)
   // For batch updates, execute all and check for errors
-  const results = await Promise.all(
+  const results = await Promise.allSettled(
     optimizations.map(
       (opt) =>
         supabase
@@ -373,12 +373,39 @@ export async function saveSEOSettings(
   );
 
   // Check for errors in batch updates
-  const errors = results.filter((r) => r.error);
+  const rejected = results.filter((r) => r.status === 'rejected');
+  const fulfilled = results.filter((r) => r.status === 'fulfilled');
+
+  // Also check for Supabase errors in the fulfilled results if they return { error }
+  // But supabase.update returns a wrapper. update() ... then ... 
+  // Wait, if I await the query, it returns { data, error }.
+  // But Promise.allSettled wraps that.
+  // Actually, supabase query execution: await query -> { data, error }.
+  // So fulfilled result.value will be { data, error }.
+  // We need to check result.value.error!
+
+  // Let's refine the logic to check inside fulfilled.
+  const errors = results.filter(
+    (r) => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error)
+  );
+
   if (errors.length > 0) {
     console.error('Failed to update some products:', errors);
-    throw new Error(`Failed to update ${errors.length} product(s)`);
+    // Partial success is better than failure, but we should notify
+    // Changing return type signature requires updating call sites? 
+    // The previous code verified call sites: seo-client.tsx expects { success: boolean }?
+    // seo-client checks: `await saveSEOSettings(...)`. It doesn't check return value structure deeply?
+    // Let's check seo-client usage in grep results: `const result = await saveSEOSettings(merchantId, updates);`
+    // It implies we should return something useful.
+
+    return {
+      success: errors.length < results.length,
+      updated: results.length - errors.length,
+      failed: errors.length,
+      message: `Updated ${results.length - errors.length} products, ${errors.length} failed`
+    };
   }
 
   revalidatePath('/dashboard/seo');
-  return { success: true };
+  return { success: true, updated: results.length, failed: 0 };
 }

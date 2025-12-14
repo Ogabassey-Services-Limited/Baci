@@ -46,6 +46,7 @@ import { uploadImage } from '@/lib/storage';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type { BrandColors } from '@/types';
+import type { CachedMerchant } from '@/lib/cached-data';
 
 extend([a11yPlugin]);
 
@@ -110,8 +111,7 @@ const sanitizeSocialMedia = (social: Record<string, string>) => {
 };
 
 interface SettingsFormProps {
-  // biome-ignore lint/suspicious/noExplicitAny: Merchant type from Supabase query
-  initialMerchant: any;
+  initialMerchant: CachedMerchant;
   initialBlogEnabled: boolean;
 }
 
@@ -158,13 +158,18 @@ export function SettingsForm({
 
   // Ref to track pending autosave timeout for debouncing
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Ref to track the status reset timeout
+  const resetStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestDataRef = useRef<Record<string, unknown> | null>(null);
 
-  // Cleanup pending autosave on unmount
+  // Cleanup pending timeouts on unmount
   useEffect(() => {
     return () => {
       if (autoSaveTimeoutRef.current) {
         clearTimeout(autoSaveTimeoutRef.current);
+      }
+      if (resetStatusTimeoutRef.current) {
+        clearTimeout(resetStatusTimeoutRef.current);
       }
     };
   }, []);
@@ -196,7 +201,13 @@ export function SettingsForm({
           );
           setSaveStatus('saved');
           // Reset to idle after 2 seconds
-          setTimeout(() => setSaveStatus('idle'), 2000);
+          if (resetStatusTimeoutRef.current) {
+            clearTimeout(resetStatusTimeoutRef.current);
+          }
+          resetStatusTimeoutRef.current = setTimeout(
+            () => setSaveStatus('idle'),
+            2000
+          );
         } catch (e) {
           logger.error({ error: e as Error, message: 'Autosave failed' });
           setSaveStatus('idle');
@@ -529,7 +540,7 @@ export function SettingsForm({
                                   style={{
                                     backgroundColor:
                                       brandColors[
-                                        role as keyof typeof brandColors
+                                      role as keyof typeof brandColors
                                       ],
                                   }}
                                 />

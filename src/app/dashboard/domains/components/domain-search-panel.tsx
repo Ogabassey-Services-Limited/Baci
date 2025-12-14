@@ -31,7 +31,11 @@ interface SearchResult {
   note?: string;
 }
 
-export function DomainSearchPanel() {
+interface DomainSearchPanelProps {
+  merchant: CachedMerchant;
+}
+
+export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
 
@@ -225,7 +229,7 @@ export function DomainSearchPanel() {
                 <div className="text-right">
                   <div className="font-bold text-lg">
                     {result.price > 0 ? (
-                      `₦${result.price.toLocaleString()}`
+                      `${merchant?.currency || '₦'}${result.price.toLocaleString()}`
                     ) : (
                       <span className="text-green-600">Free</span>
                     )}

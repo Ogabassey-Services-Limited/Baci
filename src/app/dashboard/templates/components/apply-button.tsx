@@ -2,7 +2,7 @@
 
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
@@ -21,7 +21,7 @@ export function ApplyTemplateButton({
   const [isActivating, setIsActivating] = useState(false);
   const { updateMerchant } = useMerchant();
 
-  const handleApply = async (e: React.MouseEvent) => {
+  const handleApply = async (e: MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsActivating(true);

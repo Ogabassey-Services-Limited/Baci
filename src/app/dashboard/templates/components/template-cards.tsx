@@ -48,7 +48,7 @@ export function LivePreviewCard({
                   className="text-8xl font-black opacity-10 select-none"
                   aria-hidden="true"
                 >
-                  {template.name.charAt(0)}
+                  {(template.name || '?').charAt(0)}
                 </div>
                 <p className="text-sm text-muted-foreground mt-4">
                   Click to preview
@@ -137,8 +137,11 @@ export function SmallPreviewCard({
                 sizes="(max-width: 768px) 50vw, 33vw"
               />
             ) : (
-              <div className="text-6xl font-black opacity-20 select-none">
-                {template.name.charAt(0)}
+              <div
+                className="text-6xl font-black opacity-20 select-none"
+                aria-hidden="true"
+              >
+                {(template.name || '?').charAt(0)}
               </div>
             )}
           </div>

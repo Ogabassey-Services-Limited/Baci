@@ -32,15 +32,16 @@ const placeholderInsights: Insight[] = [
 ];
 
 // Category keywords for filtering insights - defined outside component to avoid recreation
-const CATEGORY_KEYWORDS: Partial<Record<AnalyticsCategory, readonly string[]>> = {
-  finance: ['revenue', 'sales', 'profit', 'cost', 'money'],
-  products: ['product', 'stock', 'inventory', 'selling'],
-  customers: ['customer', 'user', 'buyer', 'retention'],
-  marketing: ['campaign', 'ad', 'social', 'traffic', 'conversion'],
-  inventory: ['inventory', 'stock', 'warehouse', 'supply'],
-  segments: ['segment', 'cohort', 'group', 'audience'],
-  ads: ['ad', 'campaign', 'advertising', 'promotion'],
-} as const;
+const CATEGORY_KEYWORDS: Partial<Record<AnalyticsCategory, readonly string[]>> =
+  {
+    finance: ['revenue', 'sales', 'profit', 'cost', 'money'],
+    products: ['product', 'stock', 'inventory', 'selling'],
+    customers: ['customer', 'user', 'buyer', 'retention'],
+    marketing: ['campaign', 'ad', 'social', 'traffic', 'conversion'],
+    inventory: ['inventory', 'stock', 'warehouse', 'supply'],
+    segments: ['segment', 'cohort', 'group', 'audience'],
+    ads: ['ad', 'campaign', 'advertising', 'promotion'],
+  } as const;
 
 export function AIInsightsPanel({
   className,
@@ -98,12 +99,12 @@ export function AIInsightsPanel({
     activeCategory === 'overview'
       ? insights
       : insights.filter((insight) => {
-          const text = (insight.title + insight.description).toLowerCase();
-          return (
-            CATEGORY_KEYWORDS[activeCategory]?.some((k) => text.includes(k)) ??
-            true
-          );
-        });
+        const text = (insight.title + insight.description).toLowerCase();
+        return (
+          CATEGORY_KEYWORDS[activeCategory]?.some((k) => text.includes(k)) ??
+          true
+        );
+      });
 
   // Auto-rotate insights every 5 seconds
   useEffect(() => {
@@ -153,9 +154,9 @@ export function AIInsightsPanel({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
-              <h3 className="text-sm font-semibold text-foreground">
+              <h2 className="text-sm font-semibold text-foreground">
                 Insights unavailable
-              </h3>
+              </h2>
               <p className="text-xs text-muted-foreground">
                 We couldn't load AI insights right now. Your analytics data is
                 still available below.
@@ -169,14 +170,14 @@ export function AIInsightsPanel({
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.3 }}
             >
-              <h3
+              <h2
                 className={cn(
                   'text-sm font-semibold text-foreground',
                   isAnalyzing && 'text-indigo-600 dark:text-indigo-400'
                 )}
               >
                 {currentInsight.title}
-              </h3>
+              </h2>
               <p className="text-xs text-muted-foreground line-clamp-2">
                 {currentInsight.description}
               </p>
@@ -187,9 +188,9 @@ export function AIInsightsPanel({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
-              <h3 className="text-sm font-semibold text-foreground">
+              <h2 className="text-sm font-semibold text-foreground">
                 No insights yet
-              </h3>
+              </h2>
               <p className="text-xs text-muted-foreground">
                 Keep selling to generate AI-powered insights about your
                 business.

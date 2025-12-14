@@ -127,7 +127,10 @@ export default function WalletClient({
       }
 
       toast({ title: 'Success', description: 'Settings updated' });
-      // No manual state update needed, revalidatePath in action handles it
+
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (error) {
       console.error('Failed to update wallet settings:', error);
       toast({
@@ -518,11 +521,10 @@ export default function WalletClient({
                         {tx.description}
                       </TableCell>
                       <TableCell
-                        className={`text-right font-medium ${
-                          tx.type === 'credit'
+                        className={`text-right font-medium ${tx.type === 'credit'
                             ? 'text-green-600'
                             : 'text-gray-900 dark:text-gray-100'
-                        }`}
+                          }`}
                       >
                         {tx.type === 'credit' ? '+' : '-'}₦
                         {tx.amount.toLocaleString()}

@@ -171,7 +171,7 @@ export async function inviteStaffMember(data: {
       return { success: true, message: 'Staff member re-invited successfully' };
     }
 
-    throw new Error('A staff member with this email already exists');
+    throw new Error('Unable to invite staff member. Please check the email address and try again.');
   }
 
   // Generate invitation token

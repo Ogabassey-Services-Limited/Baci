@@ -79,16 +79,21 @@ export async function getDiscountCodes() {
     throw new Error('Unauthorized');
   }
 
-  // Get merchant
+  // Get merchant with country
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
-    .select('id')
+    .select('id, country')
     .eq('user_id', user.id)
     .single();
 
   if (merchantError || !merchant) {
     throw new Error('Merchant not found');
   }
+
+  // Get currency symbol
+  const { getCountryByCode } = await import('@/lib/countries');
+  const country = merchant.country ? getCountryByCode(merchant.country) : undefined;
+  const currencySymbol = country?.currencySymbol || '$';
 
   // Get discount codes
   const { data: discountCodes, error } = await supabase
@@ -101,7 +106,10 @@ export async function getDiscountCodes() {
     throw new Error(error.message);
   }
 
-  return discountCodes as DiscountCode[];
+  return {
+    discountCodes: discountCodes as DiscountCode[],
+    currencySymbol
+  };
 }
 
 export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
@@ -130,30 +138,58 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
     throw new Error('Merchant not found');
   }
 
-  // Base data without merchant_id (to prevent ownership bypass on update)
-  const baseDiscountCodeData = {
+  // Base required data
+  const baseData = {
     code: validatedInput.code.toUpperCase(),
-    description: validatedInput.description || null,
     discount_type: validatedInput.discount_type,
     discount_value: validatedInput.discount_value,
-    minimum_purchase_amount: validatedInput.minimum_purchase_amount || 0,
-    maximum_discount_amount: validatedInput.maximum_discount_amount || null,
-    usage_limit: validatedInput.usage_limit || null,
-    usage_limit_per_customer: validatedInput.usage_limit_per_customer || 1,
-    starts_at: validatedInput.starts_at || null,
-    expires_at: validatedInput.expires_at || null,
-    is_active:
-      validatedInput.is_active !== undefined ? validatedInput.is_active : true,
-    applies_to: validatedInput.applies_to || 'all',
-    product_ids: validatedInput.product_ids || [],
-    category_ids: validatedInput.category_ids || [],
+  };
+
+  // Helper to build payload: undefined inputs are ignored (preserving existing),
+  // but explicit values (including nulls if allowed) are applied.
+  // For creation, we apply defaults.
+  // For update, we only apply what's in validatedInput.
+
+  const buildPayload = (isUpdate: boolean) => {
+    const payload: any = { ...baseData };
+
+    // Helper to conditionally add field if defined
+    const addIfDefined = (key: string, value: any, defaultValue?: any) => {
+      if (value !== undefined) {
+        payload[key] = value;
+      } else if (!isUpdate && defaultValue !== undefined) {
+        // Only apply default on create if missing
+        payload[key] = defaultValue;
+      }
+    };
+
+    // Description: Undefined -> Ignore (Update) or Null (Create). Empty string -> Null.
+    if (validatedInput.description !== undefined) {
+      payload.description = validatedInput.description || null;
+    } else if (!isUpdate) {
+      payload.description = null;
+    }
+
+    addIfDefined('minimum_purchase_amount', validatedInput.minimum_purchase_amount, 0);
+    addIfDefined('maximum_discount_amount', validatedInput.maximum_discount_amount, null);
+    addIfDefined('usage_limit', validatedInput.usage_limit, null);
+    addIfDefined('usage_limit_per_customer', validatedInput.usage_limit_per_customer, 1);
+    addIfDefined('starts_at', validatedInput.starts_at, null);
+    addIfDefined('expires_at', validatedInput.expires_at, null);
+    addIfDefined('is_active', validatedInput.is_active, true);
+    addIfDefined('applies_to', validatedInput.applies_to, 'all');
+    addIfDefined('product_ids', validatedInput.product_ids, []);
+    addIfDefined('category_ids', validatedInput.category_ids, []);
+
+    return payload;
   };
 
   if (validatedInput.id) {
     // Update existing - don't include merchant_id to prevent ownership bypass
+    const payload = buildPayload(true);
     const { error } = await supabase
       .from('discount_codes')
-      .update(baseDiscountCodeData)
+      .update(payload)
       .eq('id', validatedInput.id)
       .eq('merchant_id', merchant.id) // Ensure ownership
       .select()
@@ -170,8 +206,9 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
     }
   } else {
     // Create new - include merchant_id for insert
+    const payload = buildPayload(false);
     const { error } = await supabase.from('discount_codes').insert({
-      ...baseDiscountCodeData,
+      ...payload,
       merchant_id: merchant.id,
     });
 

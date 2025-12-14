@@ -235,7 +235,7 @@ export default function SEOClient({
                 {initialSummary.averageSEOScore}%
               </div>
               <Progress
-                value={initialSummary.averageSEOScore}
+                value={Math.min(100, Math.max(0, initialSummary.averageSEOScore))}
                 className="mt-2"
               />
             </CardContent>

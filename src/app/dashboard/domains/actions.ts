@@ -8,7 +8,9 @@ type SetPrimaryDomainResult =
   | { success: true }
   | { success: false; error: string };
 
-export async function setPrimaryDomain(domain: string): Promise<SetPrimaryDomainResult> {
+export async function setPrimaryDomain(
+  domain: string
+): Promise<SetPrimaryDomainResult> {
   try {
     // Input validation
     if (!domain || typeof domain !== 'string' || !domain.trim()) {

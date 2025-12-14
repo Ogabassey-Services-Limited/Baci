@@ -52,40 +52,40 @@ const pageFields: {
   label: string;
   description: string;
 }[] = [
-  {
-    name: 'about',
-    label: 'About Us',
-    description:
-      'Tell your customers your story. What makes your brand special?',
-  },
-  {
-    name: 'contact',
-    label: 'Contact Information',
-    description:
-      'How can customers get in touch? Provide an email, phone number, or address.',
-  },
-  {
-    name: 'privacy',
-    label: 'Privacy Policy',
-    description: 'Explain how you collect, use, and protect customer data.',
-  },
-  {
-    name: 'terms',
-    label: 'Terms and Conditions',
-    description: 'Set the rules for using your store and making purchases.',
-  },
-  {
-    name: 'faq',
-    label: 'Frequently Asked Questions',
-    description: 'Answer common questions your customers might have.',
-  },
-  {
-    name: 'legal',
-    label: 'Legal and Dispute',
-    description:
-      'Provide information on legal policies and how disputes are handled.',
-  },
-];
+    {
+      name: 'about',
+      label: 'About Us',
+      description:
+        'Tell your customers your story. What makes your brand special?',
+    },
+    {
+      name: 'contact',
+      label: 'Contact Information',
+      description:
+        'How can customers get in touch? Provide an email, phone number, or address.',
+    },
+    {
+      name: 'privacy',
+      label: 'Privacy Policy',
+      description: 'Explain how you collect, use, and protect customer data.',
+    },
+    {
+      name: 'terms',
+      label: 'Terms and Conditions',
+      description: 'Set the rules for using your store and making purchases.',
+    },
+    {
+      name: 'faq',
+      label: 'Frequently Asked Questions',
+      description: 'Answer common questions your customers might have.',
+    },
+    {
+      name: 'legal',
+      label: 'Legal and Dispute',
+      description:
+        'Provide information on legal policies and how disputes are handled.',
+    },
+  ];
 
 export default function PagesClient() {
   const { toast } = useToast();
@@ -94,6 +94,8 @@ export default function PagesClient() {
   const [completedPages, setCompletedPages] = useState<Record<string, boolean>>(
     {}
   );
+  // Track specific page being toggled to prevent race conditions
+  const [togglingPage, setTogglingPage] = useState<string | null>(null);
 
   const form = useForm<PagesFormValues>({
     resolver: zodResolver(pagesSchema),
@@ -107,9 +109,13 @@ export default function PagesClient() {
     },
   });
 
+  // Track initialization to prevent overwriting user input
+  const [initialized, setInitialized] = useState(false);
+
   useEffect(() => {
-    if (merchant?.pages) {
+    if (!initialized && merchant?.pages) {
       form.reset(merchant.pages);
+      setInitialized(true);
     }
     if (merchant?.feature_settings?.pages_completed) {
       const pagesCompleted = merchant.feature_settings.pages_completed;
@@ -117,10 +123,14 @@ export default function PagesClient() {
         setCompletedPages(pagesCompleted as Record<string, boolean>);
       }
     }
-  }, [merchant, form]);
+  }, [merchant, form.reset, initialized]);
 
   const handleStatusChange = async (pageName: string, checked: boolean) => {
-    const previousStatus = completedPages[pageName];
+    if (togglingPage) return; // Prevent concurrent updates
+
+    setTogglingPage(pageName);
+    const previousStatus = !!completedPages[pageName]; // Ensure boolean
+    // Optimistic update
     const newStatus = { ...completedPages, [pageName]: checked };
     setCompletedPages(newStatus);
 
@@ -142,6 +152,8 @@ export default function PagesClient() {
         description: 'Failed to update page status.',
         variant: 'destructive',
       });
+    } finally {
+      setTogglingPage(null);
     }
   };
 
@@ -212,6 +224,7 @@ export default function PagesClient() {
                           onCheckedChange={(checked) =>
                             handleStatusChange(page.name, checked)
                           }
+                          disabled={togglingPage === page.name}
                           aria-label={`Mark ${page.label} as completed`}
                         />
                         <Label
