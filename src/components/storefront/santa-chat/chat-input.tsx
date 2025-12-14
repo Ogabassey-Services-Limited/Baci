@@ -142,6 +142,7 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
           >
             {placeholder.split('').map((char, index) => (
               <span
+                // biome-ignore lint/suspicious/noArrayIndexKey: Static string mapping, order is stable
                 key={`placeholder-char-${char}-${index}`}
                 style={{
                   animation: 'magical-reveal 0.7s ease-out forwards',

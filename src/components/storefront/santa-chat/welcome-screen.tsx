@@ -38,6 +38,7 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
       {/* Snowflakes animation CSS */}
       {/* Snowflakes animation CSS */}
       <style
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: Dynamic CSS injection for animation
         dangerouslySetInnerHTML={{
           __html: `
         .snowflake {
@@ -66,6 +67,7 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
       {/* Falling snowflakes */}
       {snowflakes.map((flake, i) => (
         <div
+          // biome-ignore lint/suspicious/noArrayIndexKey: Particles are not reordered
           key={`snowflake-${i}`}
           className="snowflake"
           style={{
