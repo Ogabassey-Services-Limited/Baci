@@ -1,7 +1,6 @@
-'use client';
-
 import { Globe, Plus } from 'lucide-react';
-import Link from 'next/link'; // Use Link for navigation
+import Link from 'next/link';
+
 import { Button } from '@/components/ui/button';
 
 export function DomainsHeader() {

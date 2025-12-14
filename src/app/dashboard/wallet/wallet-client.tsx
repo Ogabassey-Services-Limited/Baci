@@ -66,7 +66,7 @@ interface WalletClientProps {
 }
 
 export default function WalletClient({
-  wallet: initialWallet,
+  wallet,
   pendingSettlements,
   transactions,
   merchantId,
@@ -76,9 +76,6 @@ export default function WalletClient({
   const [isPending, startTransition] = useTransition();
   const [withdrawing, setWithdrawing] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
-
-  // We use the prop directly. Updates come from server revalidation.
-  const wallet = initialWallet;
 
   const handleRefresh = () => {
     startTransition(() => {
@@ -129,7 +126,8 @@ export default function WalletClient({
 
       toast({ title: 'Success', description: 'Settings updated' });
       // No manual state update needed, revalidatePath in action handles it
-    } catch {
+    } catch (error) {
+      console.error('Failed to update wallet settings:', error);
       toast({
         title: 'Error',
         description: 'Failed to update settings',
@@ -141,7 +139,9 @@ export default function WalletClient({
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-NG', {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return 'Invalid date';
+    return date.toLocaleDateString('en-NG', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -151,7 +151,9 @@ export default function WalletClient({
   };
 
   const formatShortDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-NG', {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return 'Invalid date';
+    return date.toLocaleDateString('en-NG', {
       day: 'numeric',
       month: 'short',
     });
@@ -294,11 +296,9 @@ export default function WalletClient({
               <p className="text-xs text-muted-foreground">
                 {wallet.upcomingCount} settlement
                 {wallet.upcomingCount !== 1 ? 's' : ''} arriving
-                {wallet.nextSettlementDate && (
-                  <span className="block font-medium text-amber-700">
-                    Next: {formatShortDate(wallet.nextSettlementDate)}
-                  </span>
-                )}
+                <span className="block font-medium text-amber-700">
+                  Next: {formatShortDate(wallet.nextSettlementDate)}
+                </span>
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">
