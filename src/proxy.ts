@@ -382,7 +382,9 @@ export async function proxy(request: NextRequest) {
         response.headers.set('x-custom-domain', domain);
         response.headers.set('x-merchant-domain', domain);
 
-        const routeType = getRouteType(pathname);
+        // Extract original path by removing the domain prefix
+        const originalPath = pathname.slice(`/${domain}`.length) || '/';
+        const routeType = getRouteType(originalPath);
         const nonce =
           routeType === 'admin' || routeType === 'auth'
             ? crypto.randomUUID()

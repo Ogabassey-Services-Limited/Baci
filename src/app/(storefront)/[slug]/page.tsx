@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
+import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
@@ -15,68 +16,11 @@ import {
   generateWebSiteSchema,
   type LocalBusinessData,
 } from '@/lib/seo-utils';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 import { StorefrontWrapper } from './storefront-wrapper';
-
-// Valid slug pattern: alphanumeric and hyphens, no file extensions
-const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
-
-// Valid domain pattern: basic domain format (e.g., ogabassey.com)
-const VALID_DOMAIN_REGEX = /^[a-z0-9][a-z0-9-]*\.[a-z]{2,}$/;
-
-// Reserved paths that should NOT be treated as merchant slugs
-const RESERVED_PATHS = new Set([
-  'cart',
-  'checkout',
-  'api',
-  'auth',
-  'login',
-  'logout',
-  'dashboard',
-  'admin',
-  'builder',
-  'onboarding',
-  'preview',
-  'about',
-  'contact',
-  'blog',
-  'pricing',
-  'terms',
-  'privacy',
-  'features',
-  'demo',
-  'developers',
-  'track',
-  'invite',
-  'reset-password',
-  'template-preview',
-]);
-
-/**
- * Check if the identifier looks like a domain (contains a dot)
- */
-function isDomainIdentifier(identifier: string): boolean {
-  return (
-    identifier.includes('.') &&
-    VALID_DOMAIN_REGEX.test(identifier.toLowerCase())
-  );
-}
-
-function isValidMerchantSlug(slug: string): boolean {
-  return (
-    typeof slug === 'string' &&
-    !!slug.trim() &&
-    !slug.includes('.') && // No file extensions
-    !RESERVED_PATHS.has(slug.toLowerCase()) && // Not a reserved path
-    VALID_SLUG_REGEX.test(slug.toLowerCase())
-  );
-}
-
-/**
- * Validate that the identifier is either a valid slug or a valid domain
- */
-function isValidMerchantIdentifier(identifier: string): boolean {
-  return isValidMerchantSlug(identifier) || isDomainIdentifier(identifier);
-}
 
 // Enable ISR with 1 minute revalidation for storefront homepages
 export const revalidate = 60;
@@ -96,10 +40,10 @@ export async function generateMetadata({
     };
   }
 
-  // Use appropriate lookup method based on identifier type
+  // Use appropriate lookup method based on identifier type - normalize to lowercase
   const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug)
-    : await getCachedMerchant(slug);
+    ? await getCachedMerchantByDomain(slug.toLowerCase())
+    : await getCachedMerchant(slug.toLowerCase());
 
   if (!merchant) {
     return {
@@ -168,17 +112,13 @@ export async function generateMetadata({
   };
 }
 
-import { notFound } from 'next/navigation';
-
-// ... imports
-
 export default async function StorefrontPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  console.log('[StorefrontPage] Loading slug:', slug);
+  console.log('[StorefrontPage] Loading identifier:', slug);
 
   // Validate identifier format (can be slug or domain)
   if (!isValidMerchantIdentifier(slug)) {
@@ -188,9 +128,10 @@ export default async function StorefrontPage({
 
   // Use appropriate lookup method based on identifier type
   console.log('[StorefrontPage] Fetching cached merchant...');
+  const lookupKey = slug.toLowerCase();
   const merchant = isDomainIdentifier(slug)
-    ? await getCachedMerchantByDomain(slug)
-    : await getCachedMerchant(slug);
+    ? await getCachedMerchantByDomain(lookupKey)
+    : await getCachedMerchant(lookupKey);
   console.log(
     '[StorefrontPage] Merchant result:',
     merchant ? merchant.id : 'null'
