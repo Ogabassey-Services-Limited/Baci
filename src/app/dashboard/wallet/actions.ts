@@ -6,6 +6,7 @@ import { payoutMerchantCommission } from '@/lib/kuda';
 import { createClient } from '@/lib/supabase/server';
 
 const MIN_WITHDRAWAL_AMOUNT = 1000;
+const MAX_TRANSACTION_LIMIT = 100;
 const VALID_PAYOUT_DAYS = [
   'monday',
   'tuesday',
@@ -194,6 +195,9 @@ export async function getTransactions(merchantId: string, limit = 10) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
+  // Clamp limit to prevent excessive queries
+  const safeLimit = Math.min(Math.max(1, limit), MAX_TRANSACTION_LIMIT);
+
   // Verify ownership
   const ownershipCheck = await verifyMerchantOwnership(supabase, merchantId);
   if (!ownershipCheck.success) {
@@ -205,7 +209,7 @@ export async function getTransactions(merchantId: string, limit = 10) {
     .select('*')
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
-    .limit(limit);
+    .limit(safeLimit);
 
   // Validate and map transactions with runtime type checking
   const validTypes = ['credit', 'debit', 'withdrawal', 'payout'] as const;
@@ -264,6 +268,9 @@ export async function updateWalletSettings(
 
   // Validate minimum payout amount
   if (settings.minPayoutAmount !== undefined) {
+    if (!Number.isFinite(settings.minPayoutAmount)) {
+      return { success: false, error: 'Invalid payout amount' };
+    }
     if (settings.minPayoutAmount < MIN_WITHDRAWAL_AMOUNT) {
       return {
         success: false,

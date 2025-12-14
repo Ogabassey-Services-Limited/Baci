@@ -98,7 +98,9 @@ export default function WalletClient({
         title: 'Success',
         description: `Successfully withdrew ₦${result.amount?.toLocaleString()}`,
       });
-      router.refresh();
+      startTransition(() => {
+        router.refresh();
+      });
     } catch (error) {
       toast({
         title: 'Error',

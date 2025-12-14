@@ -29,12 +29,35 @@ const CACHE_DURATIONS = {
   static: 3600, // 1 hour for rarely changing data
 } as const;
 
+// Type for merchant data with optional custom_domain
+interface CachedMerchant {
+  id: string;
+  business_name: string;
+  site_title: string;
+  site_tagline: string;
+  site_description: string;
+  business_type: string;
+  logo_url: string;
+  phone: string;
+  email: string;
+  social_media: unknown;
+  brand_colors: unknown;
+  slug: string;
+  business_address: string;
+  payout_currency: string;
+  is_published: boolean;
+  template_id: string;
+  plan_tier: string;
+  premium_features: unknown;
+  custom_domain?: string;
+}
+
 /**
  * Cached merchant data by slug
  * Uses 60 second cache with tags for invalidation
  */
 export const getCachedMerchant = unstable_cache(
-  async (slug: string) => {
+  async (slug: string): Promise<CachedMerchant | null> => {
     const supabase = getPublicSupabaseClient();
 
     const { data, error } = await supabase
@@ -83,8 +106,7 @@ export const getCachedMerchant = unstable_cache(
         .single();
 
       if (primaryDomain) {
-        // biome-ignore lint/suspicious/noExplicitAny: Adding custom_domain to merchant data dynamically
-        (data as any).custom_domain = primaryDomain.domain;
+        return { ...data, custom_domain: primaryDomain.domain };
       }
     }
 

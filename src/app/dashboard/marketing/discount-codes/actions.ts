@@ -2,7 +2,34 @@
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+
+// Zod validation schema for discount code
+const upsertDiscountCodeSchema = z
+  .object({
+    id: z.string().optional(),
+    code: z.string().min(1, 'Code is required'),
+    description: z.string().optional(),
+    discount_type: z.enum(['percentage', 'fixed_amount']),
+    discount_value: z.number().positive('Discount value must be positive'),
+    minimum_purchase_amount: z.number().nonnegative().optional(),
+    maximum_discount_amount: z.number().positive().nullable().optional(),
+    usage_limit: z.number().positive().nullable().optional(),
+    usage_limit_per_customer: z.number().positive().optional(),
+    starts_at: z.string().optional(),
+    expires_at: z.string().optional(),
+    is_active: z.boolean().optional(),
+    applies_to: z
+      .enum(['all', 'specific_products', 'specific_categories'])
+      .optional(),
+    product_ids: z.array(z.string()).optional(),
+    category_ids: z.array(z.string()).optional(),
+  })
+  .refine(
+    (data) => data.discount_type !== 'percentage' || data.discount_value <= 100,
+    { message: 'Percentage discount must be <= 100' }
+  );
 
 export interface DiscountCode {
   id: string;
@@ -78,6 +105,9 @@ export async function getDiscountCodes() {
 }
 
 export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
+  // Validate input with Zod schema
+  const validatedInput = upsertDiscountCodeSchema.parse(input);
+
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
@@ -100,35 +130,31 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
     throw new Error('Merchant not found');
   }
 
-  // Validation
-  if (!input.code || !input.discount_type || !input.discount_value) {
-    throw new Error('Missing required fields');
-  }
-
-  const discountCodeData = {
-    merchant_id: merchant.id,
-    code: input.code.toUpperCase(),
-    description: input.description || null,
-    discount_type: input.discount_type,
-    discount_value: input.discount_value,
-    minimum_purchase_amount: input.minimum_purchase_amount || 0,
-    maximum_discount_amount: input.maximum_discount_amount || null,
-    usage_limit: input.usage_limit || null,
-    usage_limit_per_customer: input.usage_limit_per_customer || 1,
-    starts_at: input.starts_at || null,
-    expires_at: input.expires_at || null,
-    is_active: input.is_active !== undefined ? input.is_active : true,
-    applies_to: input.applies_to || 'all',
-    product_ids: input.product_ids || [],
-    category_ids: input.category_ids || [],
+  // Base data without merchant_id (to prevent ownership bypass on update)
+  const baseDiscountCodeData = {
+    code: validatedInput.code.toUpperCase(),
+    description: validatedInput.description || null,
+    discount_type: validatedInput.discount_type,
+    discount_value: validatedInput.discount_value,
+    minimum_purchase_amount: validatedInput.minimum_purchase_amount || 0,
+    maximum_discount_amount: validatedInput.maximum_discount_amount || null,
+    usage_limit: validatedInput.usage_limit || null,
+    usage_limit_per_customer: validatedInput.usage_limit_per_customer || 1,
+    starts_at: validatedInput.starts_at || null,
+    expires_at: validatedInput.expires_at || null,
+    is_active:
+      validatedInput.is_active !== undefined ? validatedInput.is_active : true,
+    applies_to: validatedInput.applies_to || 'all',
+    product_ids: validatedInput.product_ids || [],
+    category_ids: validatedInput.category_ids || [],
   };
 
-  if (input.id) {
-    // Update existing
-    const { data, error } = await supabase
+  if (validatedInput.id) {
+    // Update existing - don't include merchant_id to prevent ownership bypass
+    const { error } = await supabase
       .from('discount_codes')
-      .update(discountCodeData)
-      .eq('id', input.id)
+      .update(baseDiscountCodeData)
+      .eq('id', validatedInput.id)
       .eq('merchant_id', merchant.id) // Ensure ownership
       .select()
       .single();
@@ -142,15 +168,12 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
       }
       throw new Error(error.message);
     }
-
-    if (!data) {
-      throw new Error('Discount code not found');
-    }
   } else {
-    // Create new
-    const { error } = await supabase
-      .from('discount_codes')
-      .insert(discountCodeData);
+    // Create new - include merchant_id for insert
+    const { error } = await supabase.from('discount_codes').insert({
+      ...baseDiscountCodeData,
+      merchant_id: merchant.id,
+    });
 
     if (error) {
       if (error.code === '23505') {
@@ -187,7 +210,7 @@ export async function deleteDiscountCode(id: string) {
     throw new Error('Merchant not found');
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('discount_codes')
     .delete()
     .eq('id', id)
@@ -200,10 +223,6 @@ export async function deleteDiscountCode(id: string) {
       throw new Error('Discount code not found');
     }
     throw new Error(error.message);
-  }
-
-  if (!data) {
-    throw new Error('Discount code not found');
   }
 
   revalidatePath('/dashboard/marketing/discount-codes');

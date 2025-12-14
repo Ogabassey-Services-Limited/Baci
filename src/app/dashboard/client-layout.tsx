@@ -66,11 +66,13 @@ const StoreLink = ({
   isCollapsed,
   merchantLoading,
   storeUrl,
+  customDomain,
 }: {
   isMobile?: boolean;
   isCollapsed: boolean;
   merchantLoading: boolean;
   storeUrl: string;
+  customDomain?: string;
 }) => {
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
@@ -131,6 +133,7 @@ const StoreLink = ({
   // 1. Relative paths starting with /
   // 2. localhost URLs (development only)
   // 3. URLs ending with .usebaci.com (production)
+  // 4. Custom domains that match merchant's custom_domain
   const isSafeUrl = (() => {
     if (storeUrl.startsWith('/') && !storeUrl.startsWith('//')) return true;
     if (storeUrl.startsWith('http://localhost:')) return true;
@@ -139,6 +142,12 @@ const StoreLink = ({
       const url = new URL(storeUrl);
       const trustedDomain =
         process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+
+      // Allow custom domains that match merchant's custom_domain
+      if (customDomain && url.hostname === customDomain) {
+        return true;
+      }
+
       // Ensure the hostname ends with our trusted domain (prevents subdomain takeover)
       return (
         url.hostname.endsWith(`.${trustedDomain}`) ||
@@ -435,7 +444,7 @@ export default function DashboardClientLayout({
           <div
             className={cn(
               'fixed top-4 bottom-4 left-4 rounded-3xl border border-white/20 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl transition-all duration-300 flex flex-col overflow-hidden',
-              isCollapsed ? 'w-[80px]' : 'w-[260px]'
+              isCollapsed ? 'w-[100px]' : 'w-[280px]'
             )}
           >
             {/* Sidebar Header */}
@@ -518,6 +527,7 @@ export default function DashboardClientLayout({
                     isCollapsed={isCollapsed}
                     merchantLoading={merchantLoading}
                     storeUrl={storeUrl}
+                    customDomain={merchant?.custom_domain}
                   />
                 </nav>
               </TooltipProvider>
@@ -556,7 +566,7 @@ export default function DashboardClientLayout({
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={cn(
               'fixed top-8 z-30 hidden md:flex rounded-full shadow-lg border border-white/20 bg-white/80 dark:bg-black/40 dark:border-white/10 backdrop-blur-md transition-all duration-300 hover:scale-110',
-              isCollapsed ? 'left-[70px]' : 'left-[250px]'
+              isCollapsed ? 'left-[90px]' : 'left-[270px]'
             )}
           >
             {isCollapsed ? (
@@ -658,6 +668,7 @@ export default function DashboardClientLayout({
                 isCollapsed={false}
                 merchantLoading={merchantLoading}
                 storeUrl={storeUrl}
+                customDomain={merchant?.custom_domain}
               />
               <div className="w-[1px] h-4 bg-border/50" />
 
