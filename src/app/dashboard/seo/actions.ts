@@ -143,17 +143,25 @@ function analyzeSEO(
   };
 }
 
-export async function getSEOStatus(merchantId: string) {
+export async function getSEOStatus(merchantId: string): Promise<{
+  products: ProductSEO[];
+  summary: SEOSummary | null;
+}> {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  const { data: products } = await supabase
+  const { data: products, error } = await supabase
     .from('products')
     .select(
       'id, name, description, meta_title, meta_description, keywords, category, brand, price'
     )
     .eq('merchant_id', merchantId)
     .eq('status', 'active');
+
+  if (error) {
+    console.error('Error fetching products for SEO status:', error);
+    throw new Error('Failed to fetch products');
+  }
 
   if (!products) {
     return {
@@ -224,13 +232,18 @@ export async function generateSEOSuggestions(
     throw new Error('Maximum 20 products per batch');
   }
 
-  const { data: products } = await supabase
+  const { data: products, error } = await supabase
     .from('products')
     .select(
       'id, name, description, category, brand, price, meta_title, meta_description, keywords'
     )
     .eq('merchant_id', merchantId)
     .in('id', productIds);
+
+  if (error) {
+    console.error('Error fetching products for SEO generation:', error);
+    throw new Error('Failed to fetch products');
+  }
 
   if (!products || products.length === 0) {
     throw new Error('No products found');
@@ -245,7 +258,7 @@ Product Name: ${product.name}
 Description: ${product.description}
 Category: ${product.category || 'General'}
 Brand: ${product.brand || 'N/A'}
-Price: ₦${product.price.toLocaleString()}
+Price: ${product.price ? `₦${product.price.toLocaleString()}` : 'Contact for price'}
 
 Generate the following in JSON format:
 {
@@ -272,13 +285,26 @@ Return ONLY valid JSON, no markdown or explanation.`;
         prompt,
       });
 
-      // Extract JSON from response
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('Invalid JSON response');
+      // Try to parse the response directly, or extract JSON if wrapped
+      let parsed: {
+        meta_title: string;
+        meta_description: string;
+        keywords: string[];
+        focus_keyword: string;
+        suggestions?: string[];
+      };
+      try {
+        parsed = JSON.parse(response);
+      } catch {
+        // Extract JSON from markdown or text wrapper
+        const jsonMatch =
+          response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/) ||
+          response.match(/(\{[\s\S]*\})/);
+        if (!jsonMatch) {
+          throw new Error('Invalid JSON response');
+        }
+        parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
       }
-
-      const parsed = JSON.parse(jsonMatch[0]);
 
       // Analyze the generated content
       const analysis = analyzeSEO(
@@ -328,21 +354,28 @@ export async function saveSEOSettings(
   const supabase = createClient(cookieStore);
 
   // Validate ownership first (though RLS should handle it, explicit check is good)
-  // For batch updates, it's efficient to just loop and update
-  const updates = optimizations.map(
-    (opt) =>
-      supabase
-        .from('products')
-        .update({
-          meta_title: opt.meta_title,
-          meta_description: opt.meta_description,
-          keywords: opt.keywords,
-        })
-        .eq('id', opt.productId)
-        .eq('merchant_id', merchantId) // Safety check
+  // For batch updates, execute all and check for errors
+  const results = await Promise.all(
+    optimizations.map(
+      (opt) =>
+        supabase
+          .from('products')
+          .update({
+            meta_title: opt.meta_title,
+            meta_description: opt.meta_description,
+            keywords: opt.keywords,
+          })
+          .eq('id', opt.productId)
+          .eq('merchant_id', merchantId) // Safety check
+    )
   );
 
-  await Promise.all(updates);
+  // Check for errors in batch updates
+  const errors = results.filter((r) => r.error);
+  if (errors.length > 0) {
+    console.error('Failed to update some products:', errors);
+    throw new Error(`Failed to update ${errors.length} product(s)`);
+  }
 
   revalidatePath('/dashboard/seo');
   return { success: true };
