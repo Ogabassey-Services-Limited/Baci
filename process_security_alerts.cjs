@@ -124,6 +124,8 @@ try {
       if (!instance) return;
 
       const loc = instance.location;
+      if (!loc) return; // Defensive check for missing location data
+
       const path = loc.path;
       const line = loc.startLine || loc.start_line;
       const msg = (instance.message?.text || '')
