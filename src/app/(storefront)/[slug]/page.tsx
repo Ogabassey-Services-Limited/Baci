@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 
-import { getCachedMerchant } from '@/lib/cached-data';
+import { getCachedMerchant, getCachedMerchantByDomain } from '@/lib/cached-data';
 import { getPlaceDetailsServer } from '@/lib/google-places';
 import {
   generateLocalBusinessSchema,
@@ -16,6 +16,9 @@ import { StorefrontWrapper } from './storefront-wrapper';
 
 // Valid slug pattern: alphanumeric and hyphens, no file extensions
 const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
+
+// Valid domain pattern: basic domain format (e.g., ogabassey.com)
+const VALID_DOMAIN_REGEX = /^[a-z0-9][a-z0-9-]*\.[a-z]{2,}$/;
 
 // Reserved paths that should NOT be treated as merchant slugs
 const RESERVED_PATHS = new Set([
@@ -45,6 +48,13 @@ const RESERVED_PATHS = new Set([
   'template-preview',
 ]);
 
+/**
+ * Check if the identifier looks like a domain (contains a dot)
+ */
+function isDomainIdentifier(identifier: string): boolean {
+  return identifier.includes('.') && VALID_DOMAIN_REGEX.test(identifier.toLowerCase());
+}
+
 function isValidMerchantSlug(slug: string): boolean {
   return (
     typeof slug === 'string' &&
@@ -53,6 +63,13 @@ function isValidMerchantSlug(slug: string): boolean {
     !RESERVED_PATHS.has(slug.toLowerCase()) && // Not a reserved path
     VALID_SLUG_REGEX.test(slug.toLowerCase())
   );
+}
+
+/**
+ * Validate that the identifier is either a valid slug or a valid domain
+ */
+function isValidMerchantIdentifier(identifier: string): boolean {
+  return isValidMerchantSlug(identifier) || isDomainIdentifier(identifier);
 }
 
 // Enable ISR with 1 minute revalidation for storefront homepages
@@ -65,16 +82,18 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
 
-  // Skip database query for invalid slugs (like static asset requests)
-  if (!isValidMerchantSlug(slug)) {
+  // Skip database query for invalid identifiers (like static asset requests)
+  if (!isValidMerchantIdentifier(slug)) {
     return {
       title: 'Not Found',
       description: 'The page you are looking for does not exist.',
     };
   }
 
-  // Use cached merchant data for better performance
-  const merchant = await getCachedMerchant(slug);
+  // Use appropriate lookup method based on identifier type
+  const merchant = isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(slug)
+    : await getCachedMerchant(slug);
 
   if (!merchant) {
     return {
@@ -155,15 +174,17 @@ export default async function StorefrontPage({
   const { slug } = await params;
   console.log('[StorefrontPage] Loading slug:', slug);
 
-  // Validate slug format to prevent database queries for static assets
-  if (!isValidMerchantSlug(slug)) {
-    console.log('[StorefrontPage] Invalid slug:', slug);
+  // Validate identifier format (can be slug or domain)
+  if (!isValidMerchantIdentifier(slug)) {
+    console.log('[StorefrontPage] Invalid identifier:', slug);
     notFound();
   }
 
-  // Use cached merchant data for better performance
+  // Use appropriate lookup method based on identifier type
   console.log('[StorefrontPage] Fetching cached merchant...');
-  const merchant = await getCachedMerchant(slug);
+  const merchant = isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(slug)
+    : await getCachedMerchant(slug);
   console.log(
     '[StorefrontPage] Merchant result:',
     merchant ? merchant.id : 'null'

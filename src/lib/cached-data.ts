@@ -149,6 +149,84 @@ export const getCachedMerchant = unstable_cache(
 );
 
 /**
+ * Cached merchant data by custom domain
+ * Looks up the domain in the domains table and fetches the associated merchant
+ * Uses 60 second cache with tags for invalidation
+ */
+export const getCachedMerchantByDomain = unstable_cache(
+  async (domain: string): Promise<CachedMerchant | null> => {
+    const supabase = getPublicSupabaseClient();
+
+    // First, find the merchant_id from the domains table
+    const { data: domainData, error: domainError } = await supabase
+      .from('domains')
+      .select('merchant_id, domain')
+      .eq('domain', domain)
+      .eq('status', 'active')
+      .single();
+
+    if (domainError || !domainData) {
+      console.error(
+        `Error fetching domain "${domain}":`,
+        domainError ? JSON.stringify(domainError, null, 2) : 'No data found'
+      );
+      return null;
+    }
+
+    // Now fetch the merchant using the merchant_id
+    const { data, error } = await supabase
+      .from('merchants')
+      .select(`
+        id,
+        business_name,
+        site_title,
+        site_tagline,
+        site_description,
+        business_type,
+        logo_url,
+        phone,
+        email,
+        social_media,
+        brand_colors,
+        slug,
+        business_address,
+        payout_currency,
+        is_published,
+        template_id,
+        plan_tier,
+        premium_features,
+        country,
+        hero_slides
+      `)
+      .eq('id', domainData.merchant_id)
+      .single();
+
+    if (error) {
+      console.error(
+        `Error fetching merchant for domain "${domain}":`,
+        JSON.stringify(error, null, 2)
+      );
+      return null;
+    }
+
+    if (!data) {
+      console.warn(`No merchant data found for domain "${domain}"`);
+      return null;
+    }
+
+    console.log(`Successfully fetched merchant by domain: ${domain} -> ${data.slug} (${data.id})`);
+
+    // Return with the custom_domain set
+    return { ...data, custom_domain: domainData.domain };
+  },
+  ['merchant-by-domain'],
+  {
+    revalidate: CACHE_DURATIONS.storefront,
+    tags: ['merchants', 'domains'],
+  }
+);
+
+/**
  * Cached merchant data by ID
  */
 export const getCachedMerchantById = unstable_cache(

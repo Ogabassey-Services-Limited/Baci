@@ -370,9 +370,41 @@ export async function middleware(request: NextRequest) {
       subdomain = null;
     } else if (isValidCustomDomain(hostname)) {
       // Custom domain: ogabassey.com - validated format
-      // Let the page resolve merchant by domain lookup
-      const response = NextResponse.next();
-      response.headers.set('x-custom-domain', normalizeHostname(hostname));
+      const domain = normalizeHostname(hostname);
+
+      // Prevent redirect loop: if the path already starts with the domain, 
+      // it means we've already rewritten. Just let it pass through.
+      const isAlreadyRewritten = pathname.startsWith(`/${domain}`);
+
+      if (isAlreadyRewritten) {
+        // Already rewritten, just pass through with headers set
+        const response = NextResponse.next();
+        response.headers.set('x-custom-domain', domain);
+        response.headers.set('x-merchant-domain', domain);
+
+        const routeType = getRouteType(pathname);
+        const nonce =
+          routeType === 'admin' || routeType === 'auth'
+            ? crypto.randomUUID()
+            : undefined;
+
+        return applySecurityHeaders(
+          response,
+          pathname,
+          userAgent,
+          routeType,
+          nonce,
+          request
+        );
+      }
+
+      // First visit: Rewrite to /${domain}${pathname} so the storefront [slug] route handles it
+      const url = request.nextUrl.clone();
+      url.pathname = `/${domain}${pathname}`;
+
+      const response = NextResponse.rewrite(url);
+      response.headers.set('x-custom-domain', domain);
+      response.headers.set('x-merchant-domain', domain);
 
       // Generate route-specific CSP
       const routeType = getRouteType(pathname);
