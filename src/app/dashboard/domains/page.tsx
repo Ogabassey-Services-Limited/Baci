@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
+import type { CachedMerchant } from '@/lib/cached-data';
 import { ConnectDomainForm } from './components/connect-domain-form';
 import { type Domain, DomainCard } from './components/domain-card';
 import { DomainSearchPanel } from './components/domain-search-panel';
@@ -109,7 +110,7 @@ export default async function DomainsPage({
         {/* Search Tab */}
         <TabsContent value="search" className="pt-4">
           <div className="max-w-3xl mx-auto">
-            <DomainSearchPanel merchant={merchant} />
+            <DomainSearchPanel merchant={merchant as unknown as CachedMerchant} />
           </div>
         </TabsContent>
 
