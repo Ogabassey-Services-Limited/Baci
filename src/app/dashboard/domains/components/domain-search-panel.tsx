@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import type { CachedMerchant } from '@/lib/cached-data';
 
 interface SearchResult {
   domain: string;
@@ -229,7 +230,7 @@ export function DomainSearchPanel({ merchant }: DomainSearchPanelProps) {
                 <div className="text-right">
                   <div className="font-bold text-lg">
                     {result.price > 0 ? (
-                      `${merchant?.currency || '₦'}${result.price.toLocaleString()}`
+                      `${merchant?.payout_currency || '₦'}${result.price.toLocaleString()}`
                     ) : (
                       <span className="text-green-600">Free</span>
                     )}

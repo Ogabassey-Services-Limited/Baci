@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/card';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
+import type { CachedMerchant } from '@/lib/cached-data';
 
 export const metadata: Metadata = {
   title: 'Settings | Baci',
@@ -52,7 +53,7 @@ export default async function SettingsPage() {
 
       {/* Main Settings Form (Branding, Features, Favicon, Hero, Social) */}
       <SettingsForm
-        initialMerchant={merchant}
+        initialMerchant={merchant as unknown as CachedMerchant}
         initialBlogEnabled={blogEnabled}
       />
 
