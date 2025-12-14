@@ -47,6 +47,11 @@ interface OtpState {
   expiresAt?: number;
 }
 
+interface GoogleAuthResponse {
+  url?: string;
+  error?: string;
+}
+
 interface CustomerAuthContextType {
   user: CustomerUser | null;
   customer: Customer | null;
@@ -213,7 +218,7 @@ export function CustomerAuthProvider({
         body: JSON.stringify({ merchantSlug, redirectUrl }),
       });
 
-      const data = await response.json();
+      const data: GoogleAuthResponse = await response.json();
 
       if (!response.ok) {
         return {
