@@ -1,10 +1,11 @@
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getTransactions, getWalletData } from './actions';
 import WalletClient from './wallet-client';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Wallet | Dashboard',
   description: 'Manage your earnings and withdrawals',
 };
@@ -21,21 +22,35 @@ export default async function WalletPage() {
     redirect('/auth/login');
   }
 
-  const { data: merchant } = await supabase
+  const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select('id')
     .eq('user_id', user.id)
     .single();
+
+  // PGRST116 = no rows found, which is expected for new users
+  if (merchantError && merchantError.code !== 'PGRST116') {
+    console.error('Failed to fetch merchant:', merchantError);
+    throw new Error('Failed to load merchant data');
+  }
 
   if (!merchant) {
     redirect('/onboarding');
   }
 
   // Fetch data in parallel
-  const [walletData, transactions] = await Promise.all([
-    getWalletData(merchant.id),
-    getTransactions(merchant.id),
-  ]);
+  let walletData;
+  let transactions;
+
+  try {
+    [walletData, transactions] = await Promise.all([
+      getWalletData(merchant.id),
+      getTransactions(merchant.id),
+    ]);
+  } catch (error) {
+    console.error('Failed to fetch wallet data:', error);
+    throw new Error('Failed to load wallet data');
+  }
 
   return (
     <WalletClient
