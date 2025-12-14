@@ -168,7 +168,7 @@ export default async function IntegrationsPage() {
   const { merchant } = await getMerchantForUser();
 
   if (!merchant) {
-    redirect('/login');
+    redirect(asRoute('/login'));
   }
 
   return (
@@ -218,8 +218,7 @@ export default async function IntegrationsPage() {
           <div className="rounded-full bg-muted p-4 mb-4">
             <ShoppingBag className="h-8 w-8 text-muted-foreground" />
           </div>
-          {/* Changed H3 to H2 for better heading hierarchy */}
-          <h2 className="text-lg font-semibold mb-2">More Coming Soon</h2>
+          <h3 className="text-lg font-semibold mb-2">More Coming Soon</h3>
           <p className="text-muted-foreground text-center max-w-md">
             We're working on integrations with more platforms including Amazon,
             Jumia, and Konga. Stay tuned for updates!

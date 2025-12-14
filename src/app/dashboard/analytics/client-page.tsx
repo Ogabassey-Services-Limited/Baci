@@ -173,26 +173,38 @@ export default function AnalyticsClientPage() {
 
   // Fetch specialized data when category changes
   useEffect(() => {
+    let isCancelled = false;
+
     async function fetchCategoryData() {
       if (!merchant) return;
 
       if (activeCategory === 'inventory') {
         const inventoryData = await fetchInventoryData();
-        setAnalyticsData((prev) =>
-          prev ? { ...prev, ...inventoryData } : inventoryData
-        );
+        if (!isCancelled) {
+          setAnalyticsData((prev) =>
+            prev ? { ...prev, ...inventoryData } : inventoryData
+          );
+        }
       } else if (activeCategory === 'segments') {
         const segmentData = await fetchSegmentData();
-        setAnalyticsData((prev) =>
-          prev ? { ...prev, ...segmentData } : segmentData
-        );
+        if (!isCancelled) {
+          setAnalyticsData((prev) =>
+            prev ? { ...prev, ...segmentData } : segmentData
+          );
+        }
       } else if (activeCategory === 'ads') {
         const adData = await fetchAdAnalyticsData();
-        setAnalyticsData((prev) => (prev ? { ...prev, ...adData } : adData));
+        if (!isCancelled) {
+          setAnalyticsData((prev) => (prev ? { ...prev, ...adData } : adData));
+        }
       }
     }
 
     fetchCategoryData();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [
     activeCategory,
     merchant,

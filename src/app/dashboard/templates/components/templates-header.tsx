@@ -1,11 +1,4 @@
 'use client';
-// Header uses router.push or Link to toggle filter?
-// Client Component because it handles the logic of "Show All" vs "Recommended".
-// Actually, if we use URL params (?showAll=true), it can be Server Component using Link?
-// But the current implementation uses a Button onClick.
-// "Show All" toggle is purely preferential.
-// Let's use router.push with search params to keep it URL-driven, matching Domains page.
-// This allows sharing the URL state.
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -51,6 +44,12 @@ export function TemplatesHeader({
           <Button
             variant={showAll ? 'secondary' : 'default'}
             onClick={toggleFilter}
+            aria-pressed={!showAll}
+            aria-label={
+              showAll
+                ? 'Show only recommended templates'
+                : 'Show all templates'
+            }
           >
             {showAll ? 'Show Recommended Only' : 'Show All Templates'}
           </Button>

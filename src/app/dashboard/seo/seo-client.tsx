@@ -165,6 +165,12 @@ export default function SEOClient({
         setShowOptimized(false);
         setSelectedProducts([]);
         router.refresh();
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to save changes.',
+          variant: 'destructive',
+        });
       }
     } catch (error) {
       console.error('Save error:', error);
@@ -228,7 +234,10 @@ export default function SEOClient({
               <div className="text-2xl font-bold">
                 {initialSummary.averageSEOScore}%
               </div>
-              <Progress value={initialSummary.averageSEOScore} className="mt-2" />
+              <Progress
+                value={initialSummary.averageSEOScore}
+                className="mt-2"
+              />
             </CardContent>
           </Card>
           <Card>
