@@ -106,8 +106,8 @@ export function ConnectDomainForm() {
           variant: 'destructive',
         });
       }
-    } catch {
-      console.error('Error adding domain');
+    } catch (error) {
+      console.error('Error adding domain:', error);
       toast({
         title: 'Error',
         description: 'An error occurred while adding the domain.',
@@ -146,11 +146,16 @@ export function ConnectDomainForm() {
             />
             <Button type="submit" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
               ) : (
-                <Plus className="w-4 h-4 mr-2" />
+                <>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Connect
+                </>
               )}
-              Connect
             </Button>
           </form>
         </Form>

@@ -4,7 +4,6 @@ import {
   Copy,
   DollarSign,
   Edit,
-  // Loader2,
   Percent,
   PlusCircle,
   Tag,
@@ -26,6 +25,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -83,6 +83,11 @@ export function DiscountClient({ initialDiscountCodes }: DiscountClientProps) {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCode, setEditingCode] = useState<DiscountCode | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [codeToDelete, setCodeToDelete] = useState<{
+    id: string;
+    code: string;
+  } | null>(null);
 
   const [formData, setFormData] = useState({
     code: '',
@@ -139,21 +144,22 @@ export function DiscountClient({ initialDiscountCodes }: DiscountClientProps) {
     });
   };
 
+  const openDeleteDialog = (id: string, code: string) => {
+    setCodeToDelete({ id, code });
+    setDeleteDialogOpen(true);
+  };
+
   // biome-ignore lint/suspicious/useAwait: async needed for startTransition with Server Action
-  const handleDelete = async (id: string, code: string) => {
-    if (
-      !confirm(`Are you sure you want to delete the discount code "${code}"?`)
-    ) {
-      return;
-    }
+  const confirmDelete = async () => {
+    if (!codeToDelete) return;
 
     startTransition(async () => {
       try {
-        await deleteDiscountCode(id);
+        await deleteDiscountCode(codeToDelete.id);
 
         toast({
           title: 'Deleted',
-          description: `Discount code ${code} has been deleted.`,
+          description: `Discount code ${codeToDelete.code} has been deleted.`,
         });
 
         router.refresh();
@@ -163,6 +169,9 @@ export function DiscountClient({ initialDiscountCodes }: DiscountClientProps) {
           description: (error as Error).message,
           variant: 'destructive',
         });
+      } finally {
+        setDeleteDialogOpen(false);
+        setCodeToDelete(null);
       }
     });
   };
@@ -379,7 +388,7 @@ export function DiscountClient({ initialDiscountCodes }: DiscountClientProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDelete(code.id, code.code)}
+                          onClick={() => openDeleteDialog(code.id, code.code)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -618,6 +627,49 @@ export function DiscountClient({ initialDiscountCodes }: DiscountClientProps) {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Discount Code</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the discount code{' '}
+              <strong>{codeToDelete?.code}</strong>? This action cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteDialogOpen(false);
+                setCodeToDelete(null);
+              }}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <>
+                  <BagLoader size={16} />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

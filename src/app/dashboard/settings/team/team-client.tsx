@@ -320,6 +320,17 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
 
   // biome-ignore lint/suspicious/useAwait: async needed for startTransition with Server Action
   const handleSuspend = async (staffId: string, currentStatus: string) => {
+    // Don't allow suspending pending invites - they should be removed instead
+    if (currentStatus === 'pending') {
+      toast({
+        title: 'Cannot Suspend',
+        description:
+          'Pending invitations cannot be suspended. Remove and re-invite instead.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const newStatus = currentStatus === 'suspended' ? 'active' : 'suspended';
 
     startTransition(async () => {
@@ -529,34 +540,34 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
               </Button>
             </div>
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Member</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead className="w-[50px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {staff.map((member) => (
-                    <TableRow key={member.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">
-                            {member.name || member.email}
-                          </p>
-                          {member.name && (
-                            <p className="text-sm text-muted-foreground">
-                              {member.email}
+            <TooltipProvider>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Member</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Joined</TableHead>
+                      <TableHead className="w-[50px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {staff.map((member) => (
+                      <TableRow key={member.id}>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">
+                              {member.name || member.email}
                             </p>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <TooltipProvider>
+                            {member.name && (
+                              <p className="text-sm text-muted-foreground">
+                                {member.email}
+                              </p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
                           <Tooltip>
                             <TooltipTrigger>
                               <Badge
@@ -573,87 +584,87 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                               </p>
                             </TooltipContent>
                           </Tooltip>
-                        </TooltipProvider>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(member.status)}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {member.status === 'pending' ? (
-                          <span className="text-amber-600">
-                            Invited {formatDate(member.invited_at)}
-                          </span>
-                        ) : (
-                          formatDate(member.accepted_at)
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Actions</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {member.status === 'pending' && (
+                        </TableCell>
+                        <TableCell>{getStatusBadge(member.status)}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {member.status === 'pending' ? (
+                            <span className="text-amber-600">
+                              Invited {formatDate(member.invited_at)}
+                            </span>
+                          ) : (
+                            formatDate(member.accepted_at)
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {member.status === 'pending' && (
+                                <DropdownMenuItem
+                                  onClick={() => handleResendInvite(member.id)}
+                                >
+                                  <RefreshCw className="h-4 w-4 mr-2" />
+                                  Resend Invitation
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
-                                onClick={() => handleResendInvite(member.id)}
+                                onClick={() => {
+                                  setStaffToEditRole({
+                                    id: member.id,
+                                    email: member.email,
+                                    currentRole: member.role,
+                                  });
+                                  setSelectedRole(member.role);
+                                  setRoleDialogOpen(true);
+                                }}
                               >
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                Resend Invitation
+                                <Shield className="h-4 w-4 mr-2" />
+                                Change Role
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              onClick={() => {
-                                setStaffToEditRole({
-                                  id: member.id,
-                                  email: member.email,
-                                  currentRole: member.role,
-                                });
-                                setSelectedRole(member.role);
-                                setRoleDialogOpen(true);
-                              }}
-                            >
-                              <Shield className="h-4 w-4 mr-2" />
-                              Change Role
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            {member.status === 'active' && (
+                              <DropdownMenuSeparator />
+                              {member.status === 'active' && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleSuspend(member.id, member.status)
+                                  }
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  Suspend Access
+                                </DropdownMenuItem>
+                              )}
+                              {member.status === 'suspended' && (
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleSuspend(member.id, member.status)
+                                  }
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-2" />
+                                  Reactivate
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onClick={() =>
-                                  handleSuspend(member.id, member.status)
+                                  handleRemoveStaff(member.id, member.email)
                                 }
+                                className="text-red-600"
                               >
-                                <XCircle className="h-4 w-4 mr-2" />
-                                Suspend Access
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Remove
                               </DropdownMenuItem>
-                            )}
-                            {member.status === 'suspended' && (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleSuspend(member.id, member.status)
-                                }
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" />
-                                Reactivate
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              onClick={() =>
-                                handleRemoveStaff(member.id, member.email)
-                              }
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Remove
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </TooltipProvider>
           )}
         </CardContent>
       </Card>
