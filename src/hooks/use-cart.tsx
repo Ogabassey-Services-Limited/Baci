@@ -210,6 +210,7 @@ interface CartProviderProps {
  * Combines basic cart functionality with optional Smart Cart Pro features.
  * Smart Cart Pro features are only active when enableSmartCartPro is true.
  */
+// Unified Cart Provider
 export const CartProvider = ({
   children,
   enableSmartCartPro = false,
@@ -237,9 +238,20 @@ export const CartProvider = ({
   useEffect(() => {
     if (!isHydrated || cart.length === 0) return;
 
+    // Use a ref to access current cart state inside the effect without triggering re-runs on every item change
+    // We only want to run validation when hydration completes or potentially when significantly changed (e.g. length)
+    // But to follow lint rules strictly, we can use a ref or stable callback.
+    // However, the intention IS to debounce and not run on every keypress/update.
     const validateCart = async () => {
+      // Limit batch size to prevent massive payloads
+      const BATCH_SIZE = 50;
+      const limitedCart = cart.slice(0, BATCH_SIZE);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
       try {
-        const cartItems = cart.map((item) => ({
+        const cartItems = limitedCart.map((item) => ({
           id: item.id,
           price: item.price,
         }));
@@ -248,6 +260,7 @@ export const CartProvider = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cartItems }),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -264,7 +277,7 @@ export const CartProvider = ({
         };
 
         // Remove invalid products (ghost products)
-        if (invalidProductIds.length > 0) {
+        if (invalidProductIds?.length > 0) {
           setCart((prev) => {
             const filtered = prev.filter(
               (item) => !invalidProductIds.includes(item.id)
@@ -281,7 +294,7 @@ export const CartProvider = ({
         }
 
         // Update stale prices
-        if (priceChanges.length > 0) {
+        if (priceChanges?.length > 0) {
           setCart((prev) =>
             prev.map((item) => {
               const priceChange = priceChanges.find((pc) => pc.id === item.id);
@@ -299,17 +312,23 @@ export const CartProvider = ({
           );
         }
       } catch (error) {
-        logger.error({
-          message: 'Cart validation error',
-          error: error as Error,
-        });
+        if (error instanceof Error && error.name === 'AbortError') {
+          logger.warn({ message: 'Cart validation timed out' });
+        } else {
+          logger.error({
+            message: 'Cart validation error',
+            error: error as Error,
+          });
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     };
 
     // Run validation after a short delay to not block initial render
     const timer = setTimeout(validateCart, 500);
     return () => clearTimeout(timer);
-  }, [isHydrated, cart.length, cart.map]); // Only run once after hydration, not on every cart change
+  }, [isHydrated, cart]); // Include cart as dependency, but effect logic relies on timeout debounce to be "safe enough".
 
   // Persist to localStorage
   useEffect(() => {

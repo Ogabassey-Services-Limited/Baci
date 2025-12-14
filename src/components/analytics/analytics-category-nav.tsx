@@ -13,15 +13,19 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type AnalyticsCategory =
-  | 'overview'
-  | 'finance'
-  | 'products'
-  | 'customers'
-  | 'marketing'
-  | 'inventory'
-  | 'segments'
-  | 'ads';
+// Valid categories for URL parameter validation - derive type from array using as const
+export const VALID_CATEGORIES = [
+  'overview',
+  'finance',
+  'products',
+  'customers',
+  'marketing',
+  'inventory',
+  'segments',
+  'ads',
+] as const;
+
+export type AnalyticsCategory = (typeof VALID_CATEGORIES)[number];
 
 interface AnalyticsCategoryNavProps {
   activeCategory: AnalyticsCategory;
@@ -69,7 +73,7 @@ export function AnalyticsCategoryNav({
               'relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap',
               isActive
                 ? 'text-white'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                : 'text-foreground/70 hover:text-foreground hover:bg-muted/50'
             )}
           >
             {isActive && (

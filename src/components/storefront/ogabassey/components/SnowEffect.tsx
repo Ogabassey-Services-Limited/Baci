@@ -1,42 +1,127 @@
 'use client';
 
-import type React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useV2Theme } from '../providers/v2-theme-context';
+
+/* 
+ * Performant Canvas-based Snow Effect
+ * Best Practice: useAnimationFrame loop + Offscreen drawing if needed (simple canvas is fast enough for < 500 particles)
+ */
+
+interface Snowflake {
+  x: number;
+  y: number;
+  radius: number;
+  speed: number;
+  wind: number;
+
+  angle: number;
+}
 
 export const SnowEffect: React.FC = () => {
   const { theme } = useV2Theme();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const requestRef = useRef<number>(undefined);
+
+  useEffect(() => {
+    if (theme !== 'santa' || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+
+    const particles: Snowflake[] = [];
+    const particleCount = width < 768 ? 50 : 150; // Fewer on mobile for performance
+
+    // Initialize particles
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        radius: Math.random() * 3 + 1,
+        speed: Math.random() * 1 + 0.5,
+        wind: Math.random() * 0.5 - 0.25,
+        angle: Math.random() * Math.PI * 2,
+      });
+    }
+
+    const update = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw gradient overlay for festive feel (optional, can be CSS)
+      // Keeping it simple in canvas to just draw snow
+
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.beginPath();
+
+      for (let i = 0; i < particleCount; i++) {
+        const p = particles[i];
+
+        // Move
+        p.y += p.speed;
+        p.x += p.wind + Math.sin(p.angle) * 0.5;
+        p.angle += 0.01;
+
+        // Reset if out of bounds
+        if (p.y > height) {
+          p.y = -10;
+          p.x = Math.random() * width;
+        }
+        if (p.x > width + 5) {
+          p.x = -5;
+        } else if (p.x < -5) {
+          p.x = width + 5;
+        }
+
+        // Draw
+        ctx.moveTo(p.x + p.radius, p.y);
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      }
+
+      ctx.fill();
+      requestRef.current = requestAnimationFrame(update);
+    };
+
+    update();
+
+    let resizeTimer: NodeJS.Timeout;
+    const handleResize = () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+
+        // Clamp existing particles to new viewport
+        // (Optional: implementation choice, but good practice per review)
+      }, 150);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      clearTimeout(resizeTimer);
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [theme]);
 
   if (theme !== 'santa') return null;
 
-  // Create an array of snowflakes with random properties
-  const snowflakes = Array.from({ length: 50 }).map((_, i) => ({
-    id: i,
-    left: `${Math.random() * 100}%`,
-    animationDuration: `${Math.random() * 3 + 5}s`,
-    animationDelay: `${Math.random() * 5}s`,
-    opacity: Math.random(),
-    size: `${Math.random() * 5 + 3}px`,
-  }));
-
   return (
-    <div className="fixed inset-0 pointer-events-none z-[200] overflow-hidden">
-      {snowflakes.map((flake) => (
-        <div
-          key={flake.id}
-          className="absolute top-[-10px] bg-white rounded-full snowflake"
-          style={{
-            left: flake.left,
-            width: flake.size,
-            height: flake.size,
-            opacity: flake.opacity,
-            animation: `snowfall ${flake.animationDuration} linear infinite`,
-            animationDelay: flake.animationDelay,
-            boxShadow: '0 0 5px rgba(255,255,255,0.8)',
-          }}
-        />
-      ))}
-      {/* Festive Top Decoration - Hanging Lights Overlay */}
-      <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-red-600 via-green-600 to-red-600 opacity-20 blur-xl" />
+    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full"
+      />
+      {/* Festive Lights Decoration - CSS Overlay */}
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500/20 via-green-500/20 to-red-500/20 blur-sm" />
     </div>
   );
 };

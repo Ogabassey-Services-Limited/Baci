@@ -101,6 +101,7 @@ export async function getPlaceDetailsServer(placeId: string) {
         'X-Goog-FieldMask': fields,
       },
       next: { revalidate: 3600 }, // Cache for 1 hour
+      signal: AbortSignal.timeout(5000), // Timeout after 5 seconds
     });
 
     if (!response.ok) return null;

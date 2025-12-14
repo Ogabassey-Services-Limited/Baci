@@ -29,12 +29,57 @@ const CACHE_DURATIONS = {
   static: 3600, // 1 hour for rarely changing data
 } as const;
 
+// Type for merchant data with optional custom_domain
+export interface HeroSlide {
+  id: string;
+  imageUrl: string;
+  headline: string;
+  description: string;
+  cta: string;
+}
+
+export interface CachedMerchant {
+  id: string;
+  business_name: string;
+  site_title: string;
+  site_tagline: string;
+  site_description: string;
+  business_type: string;
+  logo_url: string;
+  phone: string;
+  email: string;
+  social_media: {
+    twitter?: string;
+    facebook?: string;
+    instagram?: string;
+    tiktok?: string;
+    youtube?: string;
+    pinterest?: string;
+    linkedin?: string;
+  } | null;
+  brand_colors: {
+    primary: string;
+    background: string;
+    accent: string;
+  } | null;
+  slug: string;
+  business_address: string;
+  payout_currency: string;
+  is_published: boolean;
+  template_id: string;
+  plan_tier: string;
+  premium_features: unknown;
+  custom_domain?: string;
+  country?: string;
+  hero_slides?: HeroSlide[];
+}
+
 /**
  * Cached merchant data by slug
  * Uses 60 second cache with tags for invalidation
  */
 export const getCachedMerchant = unstable_cache(
-  async (slug: string) => {
+  async (slug: string): Promise<CachedMerchant | null> => {
     const supabase = getPublicSupabaseClient();
 
     const { data, error } = await supabase
@@ -56,8 +101,11 @@ export const getCachedMerchant = unstable_cache(
         payout_currency,
         is_published,
         template_id,
+        template_id,
         plan_tier,
-        premium_features
+        premium_features,
+        country,
+        hero_slides
       `)
       .eq('slug', slug)
       .single();
@@ -67,9 +115,28 @@ export const getCachedMerchant = unstable_cache(
         `Error fetching merchant for slug "${slug}":`,
         JSON.stringify(error, null, 2)
       );
-      // Also log the raw error just in case
-      console.error('Raw error:', error);
       return null;
+    }
+
+    if (!data) {
+      console.warn(`No merchant data found for slug "${slug}"`);
+    } else {
+      console.log(`Successfully fetched merchant: ${slug} (${data.id})`);
+    }
+
+    // Fetch primary domain
+    if (data) {
+      const { data: primaryDomain } = await supabase
+        .from('domains')
+        .select('domain')
+        .eq('merchant_id', data.id)
+        .eq('is_primary', true)
+        .eq('status', 'active')
+        .single();
+
+      if (primaryDomain) {
+        return { ...data, custom_domain: primaryDomain.domain };
+      }
     }
 
     return data;
@@ -103,7 +170,9 @@ export const getCachedMerchantById = unstable_cache(
         social_media,
         brand_colors,
         slug,
-        business_address
+        business_address,
+        country,
+        hero_slides
       `)
       .eq('id', merchantId)
       .single();

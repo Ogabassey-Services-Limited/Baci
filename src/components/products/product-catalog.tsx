@@ -194,7 +194,7 @@ export function ProductCatalog({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {localProducts.map((product) => {
+              {localProducts.map((product, index) => {
                 const isLowStock = !product.manage_stock
                   ? false
                   : product.stock <= (product.low_stock_threshold || 5);
@@ -216,6 +216,11 @@ export function ProductCatalog({
                               size="icon"
                               className="h-6 w-6 p-0 hover:bg-transparent"
                               onClick={() => toggleProduct(product.id)}
+                              aria-label={
+                                expandedProducts.has(product.id)
+                                  ? 'Collapse variants'
+                                  : 'Expand variants'
+                              }
                             >
                               {expandedProducts.has(product.id) ? (
                                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -230,10 +235,13 @@ export function ProductCatalog({
                             {product.image ? (
                               <Image
                                 src={product.image}
-                                alt={product.name}
+                                alt=""
                                 width={48}
                                 height={48}
+                                sizes="48px"
                                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                aria-hidden="true"
+                                priority={index < 4}
                               />
                             ) : (
                               <div className="h-full w-full flex items-center justify-center text-muted-foreground/30">
@@ -278,6 +286,8 @@ export function ProductCatalog({
                             {formatCurrency(0).replace(/[0-9.,\s]/g, '')}
                           </span>
                           <Input
+                            id={`price-${product.id}`}
+                            name={`price-${product.id}`}
                             type="text"
                             defaultValue={product.price.toLocaleString(
                               'en-US',
@@ -309,6 +319,8 @@ export function ProductCatalog({
                         (!product.variants || product.variants.length === 0) ? (
                           <div className="mx-auto w-24 relative">
                             <Input
+                              id={`stock-${product.id}`}
+                              name={`stock-${product.id}`}
                               type="number"
                               value={product.stock}
                               onChange={(e) =>
@@ -355,6 +367,7 @@ export function ProductCatalog({
                           size="icon"
                           className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
                           onClick={() => onEditProduct?.(product)}
+                          aria-label={`Edit ${product.name}`}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -376,10 +389,12 @@ export function ProductCatalog({
                                   {variant.primary_image ? (
                                     <Image
                                       src={variant.primary_image}
-                                      alt="Variant"
+                                      alt=""
                                       width={32}
                                       height={32}
+                                      sizes="32px"
                                       className="h-full w-full object-cover"
+                                      aria-hidden="true"
                                     />
                                   ) : (
                                     <div className="h-full w-full flex items-center justify-center text-muted-foreground/20">
@@ -412,6 +427,8 @@ export function ProductCatalog({
                             <TableCell>
                               <div className="mx-auto w-24 relative">
                                 <Input
+                                  id={`variant-stock-${variant.id}`}
+                                  name={`variant-stock-${variant.id}`}
                                   type="number"
                                   value={variant.stock_quantity}
                                   onChange={(e) =>
@@ -429,6 +446,7 @@ export function ProductCatalog({
                                       variant.stock_quantity > 0 &&
                                       'text-amber-600 font-medium bg-amber-50/50 hover:bg-amber-50 hover:border-amber-200'
                                   )}
+                                  aria-label={`Stock for variant ${Object.values(variant.attributes).join(', ')}`}
                                 />
                                 {isVariantLowStock && (
                                   <div

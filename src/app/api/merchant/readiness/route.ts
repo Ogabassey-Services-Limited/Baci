@@ -91,14 +91,6 @@ export async function GET() {
       .eq('merchant_id', merchant.id)
       .eq('status', 'active');
 
-    // Get feature settings (if needed in future for conditional setup items)
-    // Currently the result is not used, but the query validates merchant access
-    const { data: _featureSettings } = await supabase
-      .from('merchant_feature_settings')
-      .select('*')
-      .eq('merchant_id', merchant.id)
-      .single();
-
     // Build checklist items
     const items: SetupItem[] = [
       // === REQUIRED ITEMS ===

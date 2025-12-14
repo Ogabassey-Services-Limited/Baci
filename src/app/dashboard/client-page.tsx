@@ -40,7 +40,10 @@ const RevenueSparkline = dynamic(
     import('@/components/dashboard/dashboard-charts').then(
       (mod) => mod.RevenueSparkline
     ),
-  { ssr: false, loading: () => <Skeleton className="h-full w-full" /> }
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-full w-full min-h-[100px]" />,
+  }
 );
 
 const RevenueBarChart = dynamic(
@@ -48,7 +51,10 @@ const RevenueBarChart = dynamic(
     import('@/components/dashboard/dashboard-charts').then(
       (mod) => mod.RevenueBarChart
     ),
-  { ssr: false, loading: () => <Skeleton className="h-full w-full" /> }
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-full w-full min-h-[400px]" />,
+  }
 );
 
 const chartConfig = {
@@ -332,13 +338,13 @@ export default function DashboardClientPage({
                 <Sparkles className="h-8 w-8" />
               </div>
               <div className="space-y-2 flex-1">
-                <h3 className="text-xl font-semibold">
+                <h2 className="text-xl font-semibold">
                   Good morning,{' '}
                   <span className="capitalize">
                     {merchant?.slug || merchant?.business_name || 'Merchant'}
                   </span>
                   !
-                </h3>
+                </h2>
                 <p className="text-muted-foreground leading-relaxed">
                   {dashboardData.revenue.change > 0 ? (
                     <>
@@ -381,12 +387,12 @@ export default function DashboardClientPage({
               <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-medium truncate">
+              <h2 className="text-sm font-medium truncate">
                 Good morning,{' '}
                 <span className="capitalize">
                   {merchant?.business_name?.split(' ')[0] || 'Merchant'}
                 </span>
-              </h3>
+              </h2>
               <p className="text-xs text-muted-foreground truncate">
                 {dashboardData.revenue.change >= 0 ? (
                   <>

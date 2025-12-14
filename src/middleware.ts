@@ -234,7 +234,8 @@ function generateCSP(
     // Strict nonce-based CSP for admin and authentication routes
     return Object.entries({
       ...baseDirectives,
-      'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://maps.googleapis.com https://vercel.live https://va.vercel-scripts.com`,
+      // strict-dynamic allows nonced scripts to load additional scripts dynamically (CSP Level 3)
+      'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://vercel.live https://va.vercel-scripts.com`,
       'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
       'connect-src':
         "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
@@ -491,6 +492,19 @@ function applySecurityHeaders(
   if (nonce) {
     response.headers.set('x-nonce', nonce);
   }
+
+  // HSTS: Enforce HTTPS with subdomains and preload (Lighthouse Best Practice)
+  response.headers.set(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains; preload'
+  );
+
+  // COOP: Isolate top-level window from cross-origin documents (Lighthouse Best Practice)
+  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+
+  // COEP: Cross-Origin Embedder Policy for SharedArrayBuffer support
+  // Note: 'credentialless' is more compatible than 'require-corp'
+  response.headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
 
   // Detect bots/crawlers for optimized SEO caching
   const isBot =

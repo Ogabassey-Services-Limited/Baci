@@ -405,6 +405,21 @@ export const MerchantProvider = ({
         }
       }
 
+      // Fetch primary domain and attach it to merchantData
+      if (merchantData?.id) {
+        const { data: primaryDomain } = await supabase
+          .from('domains')
+          .select('domain')
+          .eq('merchant_id', merchantData.id)
+          .eq('is_primary', true)
+          .eq('status', 'active')
+          .single();
+
+        if (primaryDomain) {
+          merchantData.custom_domain = primaryDomain.domain;
+        }
+      }
+
       setMerchant(merchantData);
       setStaffAccess(access);
     } catch (error) {

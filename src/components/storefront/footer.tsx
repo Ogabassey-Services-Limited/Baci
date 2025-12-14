@@ -150,7 +150,7 @@ export function StorefrontFooter() {
             <h3 className="text-lg font-semibold mb-4">
               {merchant.business_name}
             </h3>
-            <p className="text-sm opacity-80">
+            <p className="text-sm opacity-90">
               Your trusted destination for quality products and excellent
               service.
             </p>
@@ -165,7 +165,7 @@ export function StorefrontFooter() {
                   <a
                     key={link.key}
                     href={`/pages/${link.key}`}
-                    className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100 transition-opacity"
+                    className="text-sm hover:underline underline-offset-4 opacity-90 hover:opacity-100 transition-opacity"
                     style={{
                       color: 'var(--theme-footer-link, currentColor)',
                     }}
@@ -181,7 +181,7 @@ export function StorefrontFooter() {
           {hasContactInfo && (
             <div>
               <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
-              <div className="flex flex-col gap-3 text-sm opacity-80">
+              <div className="flex flex-col gap-3 text-sm opacity-90">
                 {merchant.support_email && (
                   <a
                     href={`mailto:${merchant.support_email}`}
@@ -247,7 +247,7 @@ export function StorefrontFooter() {
 
         {/* Copyright */}
         <div className="mt-8 pt-8 border-t border-white/10 text-center">
-          <p className="text-sm opacity-60">
+          <p className="text-sm opacity-80">
             &copy; {new Date().getFullYear()} {merchant.business_name}. All
             rights reserved.
           </p>

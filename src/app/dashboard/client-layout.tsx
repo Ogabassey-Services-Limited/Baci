@@ -66,11 +66,13 @@ const StoreLink = ({
   isCollapsed,
   merchantLoading,
   storeUrl,
+  customDomain,
 }: {
   isMobile?: boolean;
   isCollapsed: boolean;
   merchantLoading: boolean;
   storeUrl: string;
+  customDomain?: string;
 }) => {
   const baseClassName = isMobile
     ? 'mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground'
@@ -131,6 +133,7 @@ const StoreLink = ({
   // 1. Relative paths starting with /
   // 2. localhost URLs (development only)
   // 3. URLs ending with .usebaci.com (production)
+  // 4. Custom domains that match merchant's custom_domain
   const isSafeUrl = (() => {
     if (storeUrl.startsWith('/') && !storeUrl.startsWith('//')) return true;
     if (storeUrl.startsWith('http://localhost:')) return true;
@@ -139,6 +142,12 @@ const StoreLink = ({
       const url = new URL(storeUrl);
       const trustedDomain =
         process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+
+      // Allow custom domains that match merchant's custom_domain
+      if (customDomain && url.hostname === customDomain) {
+        return true;
+      }
+
       // Ensure the hostname ends with our trusted domain (prevents subdomain takeover)
       return (
         url.hostname.endsWith(`.${trustedDomain}`) ||
@@ -292,7 +301,12 @@ export default function DashboardClientLayout({
       return `http://localhost:3000/${merchant.slug}`;
     }
 
-    // In production, use subdomain URL
+    // In production, prioritize custom domain
+    if (merchant.custom_domain) {
+      return `https://${merchant.custom_domain}`;
+    }
+
+    // Fallback to subdomain URL
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     return `https://${merchant.slug}.${rootDomain}`;
   };
@@ -418,7 +432,7 @@ export default function DashboardClientLayout({
       <div
         className={cn(
           'grid min-h-screen w-full transition-all',
-          isCollapsed ? 'md:grid-cols-[80px_1fr]' : 'md:grid-cols-[260px_1fr]'
+          isCollapsed ? 'md:grid-cols-[100px_1fr]' : 'md:grid-cols-[280px_1fr]'
         )}
         style={{
           paddingLeft: 'env(safe-area-inset-left)',
@@ -430,7 +444,7 @@ export default function DashboardClientLayout({
           <div
             className={cn(
               'fixed top-4 bottom-4 left-4 rounded-3xl border border-white/20 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl transition-all duration-300 flex flex-col overflow-hidden',
-              isCollapsed ? 'w-[80px]' : 'w-[260px]'
+              isCollapsed ? 'w-[100px]' : 'w-[280px]'
             )}
           >
             {/* Sidebar Header */}
@@ -513,6 +527,7 @@ export default function DashboardClientLayout({
                     isCollapsed={isCollapsed}
                     merchantLoading={merchantLoading}
                     storeUrl={storeUrl}
+                    customDomain={merchant?.custom_domain}
                   />
                 </nav>
               </TooltipProvider>
@@ -543,7 +558,7 @@ export default function DashboardClientLayout({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex flex-col relative min-h-screen">
+        <div className="flex flex-col relative min-h-screen overflow-x-hidden">
           {/* Collapse Button - Floating */}
           <Button
             variant="secondary"
@@ -551,7 +566,7 @@ export default function DashboardClientLayout({
             onClick={() => setIsCollapsed(!isCollapsed)}
             className={cn(
               'fixed top-8 z-30 hidden md:flex rounded-full shadow-lg border border-white/20 bg-white/80 dark:bg-black/40 dark:border-white/10 backdrop-blur-md transition-all duration-300 hover:scale-110',
-              isCollapsed ? 'left-[70px]' : 'left-[250px]'
+              isCollapsed ? 'left-[90px]' : 'left-[270px]'
             )}
           >
             {isCollapsed ? (
@@ -625,7 +640,12 @@ export default function DashboardClientLayout({
               <NotificationCenter />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="rounded-full">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full"
+                    aria-label="User menu"
+                  >
                     <User className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -648,6 +668,7 @@ export default function DashboardClientLayout({
                 isCollapsed={false}
                 merchantLoading={merchantLoading}
                 storeUrl={storeUrl}
+                customDomain={merchant?.custom_domain}
               />
               <div className="w-[1px] h-4 bg-border/50" />
 
@@ -657,6 +678,7 @@ export default function DashboardClientLayout({
                     variant="ghost"
                     size="sm"
                     className="h-8 rounded-full px-3 gap-2 hover:bg-white/50"
+                    aria-label="Select country"
                   >
                     {merchantLoading ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -698,6 +720,7 @@ export default function DashboardClientLayout({
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 rounded-full hover:bg-white/50"
+                    aria-label="User menu"
                   >
                     <User className="h-4 w-4" />
                   </Button>
@@ -724,7 +747,7 @@ export default function DashboardClientLayout({
 
           <main
             id="main-content"
-            className="flex-1 transition-all duration-300 ease-in-out md:pt-20"
+            className="flex-1 transition-all duration-300 ease-in-out md:pt-20 p-4 md:p-6 lg:p-8 overflow-auto"
           >
             <NotificationBanner />
             <Suspense

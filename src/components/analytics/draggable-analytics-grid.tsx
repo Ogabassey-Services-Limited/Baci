@@ -681,6 +681,7 @@ export function DraggableAnalyticsGrid({
             size="sm"
             onClick={() => setIsEditMode(true)}
             className="gap-2 flex-shrink-0"
+            aria-label="Customize Dashboard Layout"
           >
             <Settings2 className="w-4 h-4" />
             Customize Dashboard
@@ -1177,6 +1178,7 @@ export function DraggableAnalyticsGrid({
           size="sm"
           onClick={() => setIsEditMode(false)}
           className="gap-2 flex-shrink-0"
+          aria-label="Save Dashboard Layout"
         >
           <Check className="w-4 h-4" />
           Save Layout

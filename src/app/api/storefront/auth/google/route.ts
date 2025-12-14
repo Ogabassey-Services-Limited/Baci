@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getAppUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 
 const googleAuthSchema = z.object({
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
     const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: redirectUrl || `${process.env.NEXT_PUBLIC_APP_URL}/account`,
+        redirectTo: redirectUrl || `${getAppUrl()}/account`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',

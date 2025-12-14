@@ -26,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { submitKyc } from '../actions';
 
 // Define the schema for KYC validation
 const kycSchema = z
@@ -82,19 +83,15 @@ export function KycForm({ initialData }: KycFormProps) {
   const onSubmit = async (data: KycFormValues) => {
     setSaving(true);
     try {
-      const response = await fetch('/api/merchant/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nin: data.nin || null,
-          bvn: data.bvn || null,
-          cac_number: data.cac_number || null,
-          kyc_status: 'pending',
-        }),
+      // Use Server Action instead of fetch
+      const result = await submitKyc({
+        nin: data.nin || null,
+        bvn: data.bvn || null,
+        cac_number: data.cac_number || null,
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to save KYC information');
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to save KYC information');
       }
 
       toast({
@@ -110,7 +107,10 @@ export function KycForm({ initialData }: KycFormProps) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to save KYC information. Please try again.',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Failed to save KYC information. Please try again.',
       });
     } finally {
       setSaving(false);

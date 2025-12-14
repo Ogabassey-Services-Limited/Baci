@@ -7,6 +7,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter';
 import { Toaster } from '@/components/ui/toaster';
 import { PLATFORM_CONFIG, PLATFORM_PRICING } from '@/config/platform';
+import { NonceProvider } from '@/contexts/NonceProvider';
 import { Providers } from '@/contexts/providers';
 import {
   generateOrganizationSchema,
@@ -200,14 +201,16 @@ export default async function RootLayout({
         {/* Skip link for accessibility - allows keyboard users to bypass navigation */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:bg-primary focus:text-primary-foreground focus:px-4 focus:py-2 focus:rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="sr-only focus-visible:not-sr-only focus-visible:absolute focus-visible:top-4 focus-visible:left-4 focus-visible:z-[9999] focus-visible:bg-primary focus-visible:text-primary-foreground focus-visible:px-4 focus-visible:py-2 focus-visible:rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           Skip to main content
         </a>
-        <Providers>
-          {children}
-          <Toaster />
-        </Providers>
+        <NonceProvider nonce={nonce}>
+          <Providers>
+            {children}
+            <Toaster />
+          </Providers>
+        </NonceProvider>
         <WebVitalsReporter />
         <Analytics />
         <SpeedInsights />
