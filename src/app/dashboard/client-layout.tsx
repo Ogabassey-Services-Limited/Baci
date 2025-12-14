@@ -423,7 +423,7 @@ export default function DashboardClientLayout({
       <div
         className={cn(
           'grid min-h-screen w-full transition-all',
-          isCollapsed ? 'md:grid-cols-[80px_1fr]' : 'md:grid-cols-[260px_1fr]'
+          isCollapsed ? 'md:grid-cols-[100px_1fr]' : 'md:grid-cols-[280px_1fr]'
         )}
         style={{
           paddingLeft: 'env(safe-area-inset-left)',
@@ -548,7 +548,7 @@ export default function DashboardClientLayout({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex flex-col relative min-h-screen">
+        <div className="flex flex-col relative min-h-screen overflow-x-hidden">
           {/* Collapse Button - Floating */}
           <Button
             variant="secondary"
