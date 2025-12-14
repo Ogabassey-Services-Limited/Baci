@@ -115,6 +115,7 @@ export function SettingsForm({
 
   // Local state initialized from props
   const [merchantState, setMerchantState] = useState(initialMerchant);
+  const [isDirty, setIsDirty] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -137,16 +138,25 @@ export function SettingsForm({
   const [blogEnabled, setBlogEnabled] = useState(initialBlogEnabled);
   const [featuresLoading, setFeaturesLoading] = useState(false);
 
-  // Sync internal state if prop changes significantly (optional, but good for revalidation)
+  // Sync internal state if prop changes significantly (only if not dirty to prevent data loss)
   useEffect(() => {
-    if (initialMerchant) {
+    if (initialMerchant && !isDirty) {
       setMerchantState(initialMerchant);
     }
-  }, [initialMerchant]);
+  }, [initialMerchant, isDirty]);
 
   // Ref to track pending autosave timeout for debouncing
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const latestDataRef = useRef<Record<string, unknown> | null>(null);
+
+  // Cleanup pending autosave on unmount
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Debounced autosave function to prevent race conditions
   const autoSave = useCallback(
@@ -207,30 +217,13 @@ export function SettingsForm({
 
     try {
       const supabase = createClient();
-      // Check if row exists first
-      const { data: existing } = await supabase
+      // Use upsert for atomic operation to avoid TOCTOU race condition
+      const { error } = await supabase
         .from('merchant_feature_settings')
-        .select('id')
-        .eq('merchant_id', merchantState.id)
-        .single();
-
-      let error: { message: string } | null = null;
-
-      if (existing) {
-        const { error: updateError } = await supabase
-          .from('merchant_feature_settings')
-          .update({ blog_enabled: enabled })
-          .eq('merchant_id', merchantState.id);
-        error = updateError;
-      } else {
-        const { error: insertError } = await supabase
-          .from('merchant_feature_settings')
-          .insert({
-            merchant_id: merchantState.id,
-            blog_enabled: enabled,
-          });
-        error = insertError;
-      }
+        .upsert(
+          { merchant_id: merchantState.id, blog_enabled: enabled },
+          { onConflict: 'merchant_id' }
+        );
 
       if (error) throw error;
 
@@ -283,7 +276,11 @@ export function SettingsForm({
           if (uploadedUrl) {
             handleHeroSlideChange(index, 'imageUrl', uploadedUrl);
           }
-        } catch (_) {
+        } catch (error) {
+          logger.error({
+            error: error as Error,
+            message: 'Hero image upload failed',
+          });
           toast({
             title: 'Upload Failed',
             description: 'Could not upload hero image.',
@@ -357,7 +354,10 @@ export function SettingsForm({
     }
   };
 
-  const handleColorChange = (role: keyof BrandColors, newColor: string) => {
+  const handleColorChange = async (
+    role: keyof BrandColors,
+    newColor: string
+  ) => {
     if (merchantState?.brand_colors) {
       const updatedColors = { ...merchantState.brand_colors, [role]: newColor };
       // Optimistic update
@@ -366,11 +366,22 @@ export function SettingsForm({
         ...prev,
         brand_colors: updatedColors,
       }));
-      updateMerchant({ brand_colors: updatedColors });
+      setIsDirty(true);
+      try {
+        await updateMerchant({ brand_colors: updatedColors });
+        setIsDirty(false);
+      } catch (e) {
+        logger.error({ error: e as Error, message: 'Color update failed' });
+        toast({
+          title: 'Color Update Failed',
+          description: 'Could not save color changes.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
-  const handleShuffleColors = () => {
+  const handleShuffleColors = async () => {
     if (!merchantState?.brand_colors) return;
     const { primary, background, accent } = merchantState.brand_colors;
     const remappedColors: BrandColors = {
@@ -383,7 +394,18 @@ export function SettingsForm({
       ...prev,
       brand_colors: remappedColors,
     }));
-    updateMerchant({ brand_colors: remappedColors });
+    setIsDirty(true);
+    try {
+      await updateMerchant({ brand_colors: remappedColors });
+      setIsDirty(false);
+    } catch (e) {
+      logger.error({ error: e as Error, message: 'Shuffle colors failed' });
+      toast({
+        title: 'Color Update Failed',
+        description: 'Could not save shuffled colors.',
+        variant: 'destructive',
+      });
+    }
   };
 
   async function onSubmit(data: SettingsFormValues) {
@@ -438,6 +460,7 @@ export function SettingsForm({
                       src={merchantState.logo_url}
                       alt="Uploaded Logo Preview"
                       fill
+                      sizes="(max-width: 768px) 100vw, 200px"
                       className="rounded-md p-2 object-contain"
                     />
                     <div className="absolute top-2 right-2 bg-green-500 rounded-full p-1.5 shadow-md">
@@ -600,7 +623,7 @@ export function SettingsForm({
           <CardHeader>
             <CardTitle>Hero Section Carousel</CardTitle>
             <CardDescription>
-              Manage the slides for your storefronts hero section. Recommended
+              Manage the slides for your storefront's hero section. Recommended
               size: 1920x1080px.
             </CardDescription>
           </CardHeader>
@@ -637,6 +660,7 @@ export function SettingsForm({
                     <Input
                       placeholder="Headline"
                       value={slide.headline}
+                      aria-label={`Slide ${index + 1} headline`}
                       onChange={(e) =>
                         handleHeroSlideChange(index, 'headline', e.target.value)
                       }
@@ -644,6 +668,7 @@ export function SettingsForm({
                     <Input
                       placeholder="Description"
                       value={slide.description}
+                      aria-label={`Slide ${index + 1} description`}
                       onChange={(e) =>
                         handleHeroSlideChange(
                           index,
@@ -655,6 +680,7 @@ export function SettingsForm({
                     <Input
                       placeholder="Button Text (e.g., Shop Now)"
                       value={slide.cta}
+                      aria-label={`Slide ${index + 1} button text`}
                       onChange={(e) =>
                         handleHeroSlideChange(index, 'cta', e.target.value)
                       }
@@ -705,7 +731,7 @@ export function SettingsForm({
               )}
             </div>
             <CardDescription>
-              Add your social media handles to improve your stores SEO and
+              Add your social media handles to improve your store's SEO and
               social sharing.
             </CardDescription>
           </CardHeader>
