@@ -292,7 +292,12 @@ export default function DashboardClientLayout({
       return `http://localhost:3000/${merchant.slug}`;
     }
 
-    // In production, use subdomain URL
+    // In production, prioritize custom domain
+    if (merchant.custom_domain) {
+      return `https://${merchant.custom_domain}`;
+    }
+
+    // Fallback to subdomain URL
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
     return `https://${merchant.slug}.${rootDomain}`;
   };

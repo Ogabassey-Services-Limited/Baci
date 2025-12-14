@@ -37,6 +37,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { setPrimaryDomain } from './actions';
 
 interface Domain {
   id: string;
@@ -772,6 +773,39 @@ export default function DomainsPage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
+                        {!domain.is_primary && domain.status === 'active' && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="shadow-sm hover:shadow-md transition-shadow bg-indigo-600 hover:bg-indigo-700 text-white"
+                            onClick={async () => {
+                              try {
+                                const result = await setPrimaryDomain(
+                                  domain.domain
+                                );
+                                if (!result.success) {
+                                  throw new Error(result.error);
+                                }
+                                toast({
+                                  title: 'Success',
+                                  description: 'Domain set as primary',
+                                });
+                                // No need to reload, revalidatePath handles it
+                              } catch (error) {
+                                toast({
+                                  title: 'Error',
+                                  description:
+                                    error instanceof Error
+                                      ? error.message
+                                      : 'Failed to set primary domain',
+                                  variant: 'destructive',
+                                });
+                              }
+                            }}
+                          >
+                            <span className="mr-2">⭐</span> Make Primary
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"

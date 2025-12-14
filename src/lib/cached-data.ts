@@ -72,6 +72,22 @@ export const getCachedMerchant = unstable_cache(
       return null;
     }
 
+    // Fetch primary domain
+    if (data) {
+      const { data: primaryDomain } = await supabase
+        .from('domains')
+        .select('domain')
+        .eq('merchant_id', data.id)
+        .eq('is_primary', true)
+        .eq('status', 'active')
+        .single();
+
+      if (primaryDomain) {
+        // biome-ignore lint/suspicious/noExplicitAny: Adding custom_domain to merchant data dynamically
+        (data as any).custom_domain = primaryDomain.domain;
+      }
+    }
+
     return data;
   },
   ['merchant-by-slug'],

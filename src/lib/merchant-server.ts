@@ -104,6 +104,21 @@ export const getMerchantForUser = cache(async () => {
       }
     }
 
+    // If we found a merchant, fetch their primary domain
+    if (merchantData) {
+      const { data: primaryDomain } = await supabase
+        .from('domains')
+        .select('domain')
+        .eq('merchant_id', merchantData.id)
+        .eq('is_primary', true)
+        .eq('status', 'active')
+        .single();
+
+      if (primaryDomain) {
+        merchantData.custom_domain = primaryDomain.domain;
+      }
+    }
+
     return { merchant: merchantData, staffAccess: access, user };
   } catch (error) {
     console.error('Failed to load merchant data server-side:', error);
