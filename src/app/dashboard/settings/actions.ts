@@ -40,3 +40,58 @@ export async function uploadFavicon(formData: FormData, merchantId: string) {
     };
   }
 }
+
+type KycData = {
+  nin: string | null;
+  bvn: string | null;
+  cac_number: string | null;
+};
+
+export async function submitKyc(data: KycData) {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error('Unauthorized');
+    }
+
+    // Get merchant ID owned by user
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (!merchant) {
+      throw new Error('Merchant not found');
+    }
+
+    const { error } = await supabase
+      .from('merchants')
+      .update({
+        nin: data.nin,
+        bvn: data.bvn,
+        cac_number: data.cac_number,
+        kyc_status: 'pending',
+      })
+      .eq('id', merchant.id);
+
+    if (error) throw error;
+
+    revalidatePath('/dashboard/settings/kyc');
+    revalidatePath('/dashboard/settings');
+    return { success: true };
+  } catch (error) {
+    console.error('KYC submission failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Submission failed',
+    };
+  }
+}
