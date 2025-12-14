@@ -632,6 +632,7 @@ function ProductsPageContent() {
                   rows={1}
                   id="product-search"
                   name="search"
+                  aria-label="Search products or paste price list"
                 />
                 <Button
                   type="submit"

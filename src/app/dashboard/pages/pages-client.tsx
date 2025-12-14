@@ -112,11 +112,12 @@ export default function PagesClient() {
       form.reset(merchant.pages);
     }
     if (merchant?.feature_settings?.pages_completed) {
-      setCompletedPages(
-        merchant.feature_settings.pages_completed as Record<string, boolean>
-      );
+      const pagesCompleted = merchant.feature_settings.pages_completed;
+      if (pagesCompleted && typeof pagesCompleted === 'object') {
+        setCompletedPages(pagesCompleted as Record<string, boolean>);
+      }
     }
-  }, [merchant, form.reset]);
+  }, [merchant, form]);
 
   const handleStatusChange = async (pageName: string, checked: boolean) => {
     const previousStatus = completedPages[pageName];
