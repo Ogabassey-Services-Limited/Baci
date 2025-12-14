@@ -23,6 +23,8 @@ import { Logo } from './logo';
 
 // import { useTheme } from '../contexts/ThemeContext'; // Removed
 
+import { useV2Theme } from '../providers/v2-theme-context';
+
 interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
@@ -37,6 +39,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
+  const { theme, setTheme } = useV2Theme();
 
   // Extract store slug from pathname (first segment that's not a known page route)
   const pathSegments = pathname?.split('/').filter(Boolean) || [];
@@ -66,6 +69,10 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
     { label: 'My Reviews', icon: Star, path: '/reviews' },
     { label: 'Help & Support', icon: HelpCircle, path: '/pages/faq' },
   ];
+
+  const handleToggleTheme = () => {
+    setTheme(theme === 'santa' ? 'standard' : 'santa');
+  };
 
   return (
     <div className="fixed inset-0 z-[100]">
@@ -118,13 +125,27 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               })}
             </div>
 
-            {/* Theme Toggle Section (Removed for now) */}
-            {/* <div className="mt-6 pt-6 border-t border-gray-100">
+            {/* Theme Toggle Section */}
+            <div className="mt-6 pt-6 border-t border-gray-100">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
                 Appearance
               </h3>
-              ...
-            </div> */}
+              <button
+                onClick={handleToggleTheme}
+                className={`w-full flex items-center justify-between p-3 rounded-xl transition-all border ${theme === 'santa' ? 'bg-red-50 border-red-200 shadow-sm' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🎅</span>
+                  <div className="text-left">
+                    <p className={`text-sm font-bold ${theme === 'santa' ? 'text-red-700' : 'text-gray-900'}`}>Festive Mode</p>
+                    <p className="text-[10px] text-gray-500">Enable Santa's Workshop</p>
+                  </div>
+                </div>
+                <div className={`w-10 h-5 rounded-full relative transition-colors duration-300 ${theme === 'santa' ? 'bg-red-500' : 'bg-gray-300'}`}>
+                  <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm ${theme === 'santa' ? 'left-[22px]' : 'left-[2px]'}`} />
+                </div>
+              </button>
+            </div>
           </div>
         </div>
 

@@ -41,7 +41,7 @@ interface CachedMerchant {
   phone: string;
   email: string;
   social_media: unknown;
-  brand_colors: unknown;
+  brand_colors: { primary?: string; background?: string; accent?: string } | null;
   slug: string;
   business_address: string;
   payout_currency: string;
