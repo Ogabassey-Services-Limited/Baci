@@ -118,9 +118,12 @@ export function DomainCard({ domain }: DomainCardProps) {
   const handleVerify = async () => {
     setIsVerifying(true);
     try {
-      const response = await fetch(`/api/domains/${domain.domain}/verify`, {
-        method: 'POST',
-      });
+      const response = await fetch(
+        `/api/domains/${encodeURIComponent(domain.domain)}/verify`,
+        {
+          method: 'POST',
+        }
+      );
       const data = await response.json();
 
       if (response.ok && data.success) {
@@ -154,9 +157,12 @@ export function DomainCard({ domain }: DomainCardProps) {
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/domains/${domain.domain}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `/api/domains/${encodeURIComponent(domain.domain)}`,
+        {
+          method: 'DELETE',
+        }
+      );
 
       if (response.ok) {
         toast({
@@ -326,7 +332,11 @@ export function DomainCard({ domain }: DomainCardProps) {
                   )}
                   <DropdownMenuItem
                     onClick={() =>
-                      window.open(`https://${domain.domain}`, '_blank')
+                      window.open(
+                        `https://${domain.domain}`,
+                        '_blank',
+                        'noopener,noreferrer'
+                      )
                     }
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />

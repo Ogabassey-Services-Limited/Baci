@@ -1,8 +1,11 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import { Copy, Loader2, Plus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,39 +15,62 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+
+// Domain validation schema
+const domainSchema = z.object({
+  domain: z
+    .string()
+    .min(1, 'Domain is required')
+    .regex(
+      /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*\.[a-z]{2,}$/i,
+      'Invalid domain format (e.g., example.com)'
+    )
+    .transform((val) => val.trim().toLowerCase()),
+});
+
+type DomainFormValues = z.infer<typeof domainSchema>;
 
 export function ConnectDomainForm() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [input, setInput] = useState('');
-  const [isAdding, setIsAdding] = useState(false);
   const [verificationInfo, setVerificationInfo] = useState<{
     domain: string;
     token: string;
   } | null>(null);
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: 'Copied!',
-      description: 'Verification token copied to clipboard.',
-    });
-  };
+  const form = useForm<DomainFormValues>({
+    resolver: zodResolver(domainSchema),
+    defaultValues: { domain: '' },
+  });
 
-  const handleAdd = async () => {
-    if (!input.trim()) {
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
       toast({
-        title: 'Invalid Domain',
-        description: 'Please enter a valid domain name.',
+        title: 'Copied!',
+        description: 'Verification token copied to clipboard.',
+      });
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      toast({
+        title: 'Failed to copy',
+        description: 'Please copy the token manually.',
         variant: 'destructive',
       });
-      return;
     }
+  };
 
-    setIsAdding(true);
+  const onSubmit = async (data: DomainFormValues) => {
     setVerificationInfo(null);
 
     try {
@@ -52,11 +78,11 @@ export function ConnectDomainForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          domain: input.trim().toLowerCase(),
+          domain: data.domain,
         }),
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
       if (response.ok) {
         toast({
@@ -66,28 +92,27 @@ export function ConnectDomainForm() {
         });
 
         setVerificationInfo({
-          domain: data.domain.domain,
-          token: data.verification.value,
+          domain: result.domain.domain,
+          token: result.verification.value,
         });
 
-        setInput('');
+        form.reset();
         router.refresh();
       } else {
         toast({
           title: 'Failed to Add Domain',
-          description: data.error || 'Could not add domain. Please try again.',
+          description:
+            result.error || 'Could not add domain. Please try again.',
           variant: 'destructive',
         });
       }
     } catch (error) {
-      console.error('Error adding domain:', error);
+      console.error('Error adding domain');
       toast({
         title: 'Error',
         description: 'An error occurred while adding the domain.',
         variant: 'destructive',
       });
-    } finally {
-      setIsAdding(false);
     }
   };
 
@@ -101,23 +126,34 @@ export function ConnectDomainForm() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex gap-2">
-          <Input
-            placeholder="example.com"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
-            disabled={isAdding}
-          />
-          <Button onClick={handleAdd} disabled={isAdding}>
-            {isAdding ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Plus className="w-4 h-4 mr-2" />
-            )}
-            Connect
-          </Button>
-        </div>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex gap-2">
+            <FormField
+              control={form.control}
+              name="domain"
+              render={({ field }) => (
+                <FormItem className="flex-1">
+                  <FormControl>
+                    <Input
+                      placeholder="example.com"
+                      {...field}
+                      disabled={form.formState.isSubmitting}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Button type="submit" disabled={form.formState.isSubmitting}>
+              {form.formState.isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4 mr-2" />
+              )}
+              Connect
+            </Button>
+          </form>
+        </Form>
 
         {verificationInfo && (
           <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">

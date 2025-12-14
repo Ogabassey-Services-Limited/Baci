@@ -7,6 +7,27 @@ import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import type { StaffRole } from '@/types/staff';
 
+// Valid staff statuses
+type StaffStatus = 'pending' | 'active' | 'suspended' | 'removed';
+
+const VALID_STATUSES: StaffStatus[] = [
+  'pending',
+  'active',
+  'suspended',
+  'removed',
+];
+
+// HTML escape function for email templates to prevent HTML injection
+function escapeHtmlForEmail(str: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export async function getStaffMembers() {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
@@ -238,7 +259,7 @@ export async function resendInvitation(id: string) {
 
 export async function updateStaffMember(
   id: string,
-  data: { role?: StaffRole; status?: string }
+  data: { role?: StaffRole; status?: StaffStatus }
 ) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
@@ -249,6 +270,11 @@ export async function updateStaffMember(
 
   if (!user) {
     throw new Error('Unauthorized');
+  }
+
+  // Validate status if provided
+  if (data.status && !VALID_STATUSES.includes(data.status)) {
+    throw new Error('Invalid status value');
   }
 
   // Get merchant
@@ -262,14 +288,23 @@ export async function updateStaffMember(
     throw new Error('Merchant not found');
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('staff_members')
     .update(data)
     .eq('id', id)
-    .eq('merchant_id', merchant.id);
+    .eq('merchant_id', merchant.id)
+    .select('id')
+    .single();
 
   if (error) {
+    if (error.code === 'PGRST116') {
+      throw new Error('Staff member not found');
+    }
     throw new Error('Failed to update staff member');
+  }
+
+  if (!updated) {
+    throw new Error('Staff member not found');
   }
 
   revalidatePath('/dashboard/settings/team');
@@ -299,15 +334,24 @@ export async function removeStaffMember(id: string) {
     throw new Error('Merchant not found');
   }
 
-  // Soft delete
-  const { error } = await supabase
+  // Soft delete - verify a row was actually updated
+  const { data: removed, error } = await supabase
     .from('staff_members')
     .update({ status: 'removed' })
     .eq('id', id)
-    .eq('merchant_id', merchant.id);
+    .eq('merchant_id', merchant.id)
+    .select('id')
+    .single();
 
   if (error) {
+    if (error.code === 'PGRST116') {
+      throw new Error('Staff member not found');
+    }
     throw new Error('Failed to remove staff member');
+  }
+
+  if (!removed) {
+    throw new Error('Staff member not found');
   }
 
   revalidatePath('/dashboard/settings/team');
@@ -323,6 +367,11 @@ async function sendInviteEmail(
   token: string
 ) {
   const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${token}`;
+
+  // Escape user-controlled values to prevent HTML injection
+  const safeName = escapeHtmlForEmail(name) || 'there';
+  const safeBusinessName = escapeHtmlForEmail(businessName);
+  const safeRole = escapeHtmlForEmail(role.replace('_', ' '));
 
   try {
     await sendEmail({
@@ -340,8 +389,8 @@ async function sendInviteEmail(
             <div style="text-align: center; margin-bottom: 30px;">
               <h1 style="color: #6366f1; margin: 0;">You're Invited!</h1>
             </div>
-            <p>Hi ${name || 'there'},</p>
-            <p>You've been invited to join <strong>${businessName}</strong> as a <strong>${role.replace('_', ' ')}</strong>.</p>
+            <p>Hi ${safeName},</p>
+            <p>You've been invited to join <strong>${safeBusinessName}</strong> as a <strong>${safeRole}</strong>.</p>
             <p>Click the button below to accept your invitation and set up your account:</p>
             <div style="text-align: center; margin: 30px 0;">
               <a href="${inviteUrl}" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500;">Accept Invitation</a>
@@ -351,7 +400,7 @@ async function sendInviteEmail(
             </p>
             <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
             <p style="font-size: 12px; color: #666; text-align: center;">
-              This invitation was sent by ${businessName} via Baci.
+              This invitation was sent by ${safeBusinessName} via Baci.
             </p>
           </body>
           </html>
@@ -360,8 +409,8 @@ async function sendInviteEmail(
       emailType: 'team',
     });
   } catch (error) {
-    console.error('Failed to send invite email:', error);
-    // Silent fail on email shouldn't break the action, but maybe log it?
+    console.error('Failed to send invite email');
+    // Silent fail on email shouldn't break the action
     // The action caller handles "success" so we probably shouldn't throw here if the DB part worked.
   }
 }
