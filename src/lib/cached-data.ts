@@ -32,11 +32,10 @@ const CACHE_DURATIONS = {
 // Type for merchant data with optional custom_domain
 export interface HeroSlide {
   id: string;
-  image_url: string;
-  title?: string;
-  subtitle?: string;
-  cta_text?: string;
-  cta_link?: string;
+  imageUrl: string;
+  headline: string;
+  description: string;
+  cta: string;
 }
 
 export interface CachedMerchant {

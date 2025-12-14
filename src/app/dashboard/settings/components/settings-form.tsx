@@ -40,7 +40,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
-import type { CachedMerchant } from '@/lib/cached-data';
+import { type CachedMerchant, type HeroSlide } from '@/lib/cached-data';
 import { logger } from '@/lib/logger';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { uploadImage } from '@/lib/storage';
@@ -59,13 +59,7 @@ const settingsSchema = z.object({
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
 
-interface HeroSlide {
-  id: string;
-  imageUrl: string;
-  headline: string;
-  description: string;
-  cta: string;
-}
+
 
 const extractColorsFromImage = (imageDataUri: string): Promise<BrandColors> => {
   return new Promise((resolve, reject) => {
@@ -540,7 +534,7 @@ export function SettingsForm({
                                   style={{
                                     backgroundColor:
                                       brandColors[
-                                        role as keyof typeof brandColors
+                                      role as keyof typeof brandColors
                                       ],
                                   }}
                                 />
