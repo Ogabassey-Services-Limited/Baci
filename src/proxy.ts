@@ -274,7 +274,7 @@ function generateCSP(
  * Next.js Middleware Function
  * Handles multi-tenant routing, security headers, caching, and authentication
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const pathname = request.nextUrl.pathname;
   // console.log('[Middleware] Request:', pathname);
