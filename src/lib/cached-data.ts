@@ -30,6 +30,15 @@ const CACHE_DURATIONS = {
 } as const;
 
 // Type for merchant data with optional custom_domain
+export interface HeroSlide {
+  id: string;
+  image_url: string;
+  title?: string;
+  subtitle?: string;
+  cta_text?: string;
+  cta_link?: string;
+}
+
 export interface CachedMerchant {
   id: string;
   business_name: string;
@@ -63,7 +72,7 @@ export interface CachedMerchant {
   premium_features: unknown;
   custom_domain?: string;
   country?: string;
-  hero_slides?: any[]; // Using any[] for now to prevent breaking, ideally strictly typed
+  hero_slides?: HeroSlide[];
 }
 
 /**

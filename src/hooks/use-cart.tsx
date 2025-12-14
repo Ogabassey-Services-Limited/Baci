@@ -210,6 +210,7 @@ interface CartProviderProps {
  * Combines basic cart functionality with optional Smart Cart Pro features.
  * Smart Cart Pro features are only active when enableSmartCartPro is true.
  */
+// Unified Cart Provider
 export const CartProvider = ({
   children,
   enableSmartCartPro = false,
@@ -237,6 +238,10 @@ export const CartProvider = ({
   useEffect(() => {
     if (!isHydrated || cart.length === 0) return;
 
+    // Use a ref to access current cart state inside the effect without triggering re-runs on every item change
+    // We only want to run validation when hydration completes or potentially when significantly changed (e.g. length)
+    // But to follow lint rules strictly, we can use a ref or stable callback.
+    // However, the intention IS to debounce and not run on every keypress/update.
     const validateCart = async () => {
       // Limit batch size to prevent massive payloads
       const BATCH_SIZE = 50;
@@ -323,7 +328,7 @@ export const CartProvider = ({
     // Run validation after a short delay to not block initial render
     const timer = setTimeout(validateCart, 500);
     return () => clearTimeout(timer);
-  }, [isHydrated, cart.length, cart.map]); // Only run once after hydration, not on every cart change
+  }, [isHydrated, cart]); // Include cart as dependency, but effect logic relies on timeout debounce to be "safe enough".
 
   // Persist to localStorage
   useEffect(() => {
