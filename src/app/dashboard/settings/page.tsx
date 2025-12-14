@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { ChevronRight, CreditCard, Users } from 'lucide-react';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
@@ -14,7 +15,7 @@ import {
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Settings | Baci',
   description: "Manage your store's branding, features, and configuration.",
 };
