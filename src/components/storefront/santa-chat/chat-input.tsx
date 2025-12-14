@@ -94,10 +94,11 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className={`flex items-center space-x-2 bg-white border rounded-2xl px-3 py-2 shadow-sm transition-all duration-200 ${showSendIcon
+      className={`flex items-center space-x-2 bg-white border rounded-2xl px-3 py-2 shadow-sm transition-all duration-200 ${
+        showSendIcon
           ? 'border-red-600 ring-1 ring-red-600/50'
           : 'border-gray-200'
-        }`}
+      }`}
     >
       {/* Image upload button */}
       <input

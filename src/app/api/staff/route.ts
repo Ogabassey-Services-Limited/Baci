@@ -194,7 +194,10 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: 'Unable to invite staff member. Please check the email address and try again.' },
+        {
+          error:
+            'Unable to invite staff member. Please check the email address and try again.',
+        },
         { status: 409 }
       );
     }

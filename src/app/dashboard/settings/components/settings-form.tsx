@@ -40,13 +40,13 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
+import type { CachedMerchant } from '@/lib/cached-data';
 import { logger } from '@/lib/logger';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { uploadImage } from '@/lib/storage';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type { BrandColors } from '@/types';
-import type { CachedMerchant } from '@/lib/cached-data';
 
 extend([a11yPlugin]);
 
@@ -540,7 +540,7 @@ export function SettingsForm({
                                   style={{
                                     backgroundColor:
                                       brandColors[
-                                      role as keyof typeof brandColors
+                                        role as keyof typeof brandColors
                                       ],
                                   }}
                                 />

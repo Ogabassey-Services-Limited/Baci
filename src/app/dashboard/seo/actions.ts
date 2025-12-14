@@ -205,8 +205,8 @@ export async function getSEOStatus(merchantId: string): Promise<{
   const avgScore =
     totalProducts > 0
       ? Math.round(
-        analysis.reduce((sum, a) => sum + a.seoScore, 0) / totalProducts
-      )
+          analysis.reduce((sum, a) => sum + a.seoScore, 0) / totalProducts
+        )
       : 0;
 
   return {
@@ -373,11 +373,12 @@ export async function saveSEOSettings(
   );
 
   // Check for errors in batch updates
-  const rejected = results.filter((r) => r.status === 'rejected');
-  const fulfilled = results.filter((r) => r.status === 'fulfilled');
+  // Check for errors in batch updates
+  // const rejected = results.filter((r) => r.status === 'rejected');
+  // const fulfilled = results.filter((r) => r.status === 'fulfilled');
 
   // Also check for Supabase errors in the fulfilled results if they return { error }
-  // But supabase.update returns a wrapper. update() ... then ... 
+  // But supabase.update returns a wrapper. update() ... then ...
   // Wait, if I await the query, it returns { data, error }.
   // But Promise.allSettled wraps that.
   // Actually, supabase query execution: await query -> { data, error }.
@@ -386,13 +387,14 @@ export async function saveSEOSettings(
 
   // Let's refine the logic to check inside fulfilled.
   const errors = results.filter(
-    (r) => r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error)
+    (r) =>
+      r.status === 'rejected' || (r.status === 'fulfilled' && r.value.error)
   );
 
   if (errors.length > 0) {
     console.error('Failed to update some products:', errors);
     // Partial success is better than failure, but we should notify
-    // Changing return type signature requires updating call sites? 
+    // Changing return type signature requires updating call sites?
     // The previous code verified call sites: seo-client.tsx expects { success: boolean }?
     // seo-client checks: `await saveSEOSettings(...)`. It doesn't check return value structure deeply?
     // Let's check seo-client usage in grep results: `const result = await saveSEOSettings(merchantId, updates);`
@@ -402,7 +404,7 @@ export async function saveSEOSettings(
       success: errors.length < results.length,
       updated: results.length - errors.length,
       failed: errors.length,
-      message: `Updated ${results.length - errors.length} products, ${errors.length} failed`
+      message: `Updated ${results.length - errors.length} products, ${errors.length} failed`,
     };
   }
 

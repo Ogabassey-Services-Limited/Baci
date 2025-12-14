@@ -12,9 +12,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import type { CachedMerchant } from '@/lib/cached-data';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { createClient } from '@/lib/supabase/server';
-import type { CachedMerchant } from '@/lib/cached-data';
 
 export const metadata: Metadata = {
   title: 'Settings | Baci',

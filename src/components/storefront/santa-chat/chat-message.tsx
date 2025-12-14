@@ -1,7 +1,7 @@
 'use client';
 
-import Image from 'next/image';
 import DOMPurify from 'isomorphic-dompurify';
+import Image from 'next/image';
 import type { ChatMessage as ChatMessageType } from './types';
 
 interface ChatMessageProps {
@@ -55,10 +55,7 @@ function SimpleMarkdownRenderer({ text }: { text: string }) {
 
   return (
     // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized HTML content
-    <div
-      className="text-sm"
-      dangerouslySetInnerHTML={{ __html: cleanHtml }}
-    />
+    <div className="text-sm" dangerouslySetInnerHTML={{ __html: cleanHtml }} />
   );
 }
 
@@ -114,7 +111,8 @@ export function ChatMessage({ message }: ChatMessageProps) {
         className={`max-w-[80%] p-3 shadow-md ${messageBubbleColor} ${bubbleStyles}`}
       >
         {message.imageUrl ? (
-          (message.imageUrl.startsWith('data:image/') || message.imageUrl.startsWith('https://')) ? (
+          message.imageUrl.startsWith('data:image/') ||
+          message.imageUrl.startsWith('https://') ? (
             // biome-ignore lint/performance/noImgElement: Data URL from user upload, not optimizable
             <img
               src={message.imageUrl}

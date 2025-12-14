@@ -241,21 +241,23 @@ export function DomainCard({ domain }: DomainCardProps) {
   return (
     <>
       <Card
-        className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg border-2 ${domain.status === 'active'
-          ? 'border-green-200 dark:border-green-800 hover:border-green-300'
-          : domain.status === 'failed'
-            ? 'border-red-200 dark:border-red-800'
-            : 'border-amber-200 dark:border-amber-800'
-          }`}
+        className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg border-2 ${
+          domain.status === 'active'
+            ? 'border-green-200 dark:border-green-800 hover:border-green-300'
+            : domain.status === 'failed'
+              ? 'border-red-200 dark:border-red-800'
+              : 'border-amber-200 dark:border-amber-800'
+        }`}
       >
         {/* Status indicator bar at top */}
         <div
-          className={`absolute top-0 left-0 right-0 h-1 ${domain.status === 'active'
-            ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-            : domain.status === 'failed'
-              ? 'bg-gradient-to-r from-red-400 to-rose-500'
-              : 'bg-gradient-to-r from-amber-400 to-yellow-500'
-            }`}
+          className={`absolute top-0 left-0 right-0 h-1 ${
+            domain.status === 'active'
+              ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+              : domain.status === 'failed'
+                ? 'bg-gradient-to-r from-red-400 to-rose-500'
+                : 'bg-gradient-to-r from-amber-400 to-yellow-500'
+          }`}
         />
 
         <CardHeader className="pb-3">
@@ -263,20 +265,22 @@ export function DomainCard({ domain }: DomainCardProps) {
             <div className="flex items-start gap-4">
               {/* Domain Icon with status-based styling */}
               <div
-                className={`flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center shadow-sm ${domain.status === 'active'
-                  ? 'bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20'
-                  : domain.status === 'failed'
-                    ? 'bg-gradient-to-br from-red-100 to-rose-50 dark:from-red-900/30 dark:to-rose-900/20'
-                    : 'bg-gradient-to-br from-amber-100 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20'
-                  }`}
+                className={`flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center shadow-sm ${
+                  domain.status === 'active'
+                    ? 'bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20'
+                    : domain.status === 'failed'
+                      ? 'bg-gradient-to-br from-red-100 to-rose-50 dark:from-red-900/30 dark:to-rose-900/20'
+                      : 'bg-gradient-to-br from-amber-100 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20'
+                }`}
               >
                 <Globe
-                  className={`w-7 h-7 ${domain.status === 'active'
-                    ? 'text-green-600 dark:text-green-400'
-                    : domain.status === 'failed'
-                      ? 'text-red-600 dark:text-red-400'
-                      : 'text-amber-600 dark:text-amber-400'
-                    }`}
+                  className={`w-7 h-7 ${
+                    domain.status === 'active'
+                      ? 'text-green-600 dark:text-green-400'
+                      : domain.status === 'failed'
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-amber-600 dark:text-amber-400'
+                  }`}
                 />
               </div>
 

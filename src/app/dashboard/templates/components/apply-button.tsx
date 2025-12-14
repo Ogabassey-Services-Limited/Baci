@@ -2,7 +2,7 @@
 
 import { CheckCircle, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, type MouseEvent } from 'react';
+import { type MouseEvent, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';

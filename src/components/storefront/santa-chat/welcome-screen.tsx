@@ -1,8 +1,8 @@
 'use client';
 
+import { Mountains_of_Christmas } from 'next/font/google';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { Mountains_of_Christmas } from 'next/font/google';
 
 const mountainsOfChristmas = Mountains_of_Christmas({
   weight: ['400', '700'],
@@ -18,7 +18,9 @@ interface WelcomeScreenProps {
  * Based on the original Santa-by-Ogabassey design
  */
 export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
-  const [snowflakes, setSnowflakes] = useState<{ left: number; fontSize: number; duration: number; delay: number }[]>([]);
+  const [snowflakes, setSnowflakes] = useState<
+    { left: number; fontSize: number; duration: number; delay: number }[]
+  >([]);
 
   useEffect(() => {
     setSnowflakes(
@@ -35,8 +37,9 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
     <div className="h-full w-full flex flex-col items-center justify-center bg-red-600 text-white p-4 text-center overflow-hidden relative">
       {/* Snowflakes animation CSS */}
       {/* Snowflakes animation CSS */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
         .snowflake {
           position: absolute;
           top: -10%;
@@ -56,7 +59,9 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
             opacity: 0;
           }
         }
-      `}} />
+      `,
+        }}
+      />
 
       {/* Falling snowflakes */}
       {snowflakes.map((flake, i) => (

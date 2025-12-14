@@ -218,7 +218,7 @@ export function StorefrontFooter() {
                 {availableSocialLinks.map((social) => {
                   const handle =
                     merchant.social_media?.[
-                    social.key as keyof typeof merchant.social_media
+                      social.key as keyof typeof merchant.social_media
                     ];
                   const url = handle?.startsWith('http')
                     ? handle

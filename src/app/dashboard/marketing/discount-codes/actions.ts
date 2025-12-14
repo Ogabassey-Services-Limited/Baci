@@ -92,7 +92,9 @@ export async function getDiscountCodes() {
 
   // Get currency symbol
   const { getCountryByCode } = await import('@/lib/countries');
-  const country = merchant.country ? getCountryByCode(merchant.country) : undefined;
+  const country = merchant.country
+    ? getCountryByCode(merchant.country)
+    : undefined;
   const currencySymbol = country?.currencySymbol || '$';
 
   // Get discount codes
@@ -108,7 +110,7 @@ export async function getDiscountCodes() {
 
   return {
     discountCodes: discountCodes as DiscountCode[],
-    currencySymbol
+    currencySymbol,
   };
 }
 
@@ -170,10 +172,22 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
       payload.description = null;
     }
 
-    addIfDefined('minimum_purchase_amount', validatedInput.minimum_purchase_amount, 0);
-    addIfDefined('maximum_discount_amount', validatedInput.maximum_discount_amount, null);
+    addIfDefined(
+      'minimum_purchase_amount',
+      validatedInput.minimum_purchase_amount,
+      0
+    );
+    addIfDefined(
+      'maximum_discount_amount',
+      validatedInput.maximum_discount_amount,
+      null
+    );
     addIfDefined('usage_limit', validatedInput.usage_limit, null);
-    addIfDefined('usage_limit_per_customer', validatedInput.usage_limit_per_customer, 1);
+    addIfDefined(
+      'usage_limit_per_customer',
+      validatedInput.usage_limit_per_customer,
+      1
+    );
     addIfDefined('starts_at', validatedInput.starts_at, null);
     addIfDefined('expires_at', validatedInput.expires_at, null);
     addIfDefined('is_active', validatedInput.is_active, true);

@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { streamText } from 'ai';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
@@ -5,20 +6,22 @@ import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
 import { AI_RATE_LIMITS, checkRateLimit, geminiFlash } from '@/ai/provider';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 // Define Zod schema for request validation
 const santaChatSchema = z.object({
-  messages: z.array(
-    z.object({
-      role: z.enum(['user', 'assistant', 'system']),
-      content: z.string().min(1).max(10000),
-      imageUrl: z.string().optional(), // Allow imageUrl if present in client logic
-    })
-  ).min(1).max(50),
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant', 'system']),
+        content: z.string().min(1).max(10000),
+        imageUrl: z.string().optional(), // Allow imageUrl if present in client logic
+      })
+    )
+    .min(1)
+    .max(50),
 });
 
 /**
@@ -48,12 +51,10 @@ async function generateSantaPrompt(supabase: SupabaseClient): Promise<string> {
     // Format product list with prices and cost prices
     const productList =
       products
-        ?.map(
-          (p) => {
-            const minPrice = (Number(p.cost_price) || 0) + 10000;
-            return `*   ${p.name}: ₦${Number(p.price).toLocaleString()} (Min Approved: ₦${minPrice.toLocaleString()})`;
-          }
-        )
+        ?.map((p) => {
+          const minPrice = (Number(p.cost_price) || 0) + 10000;
+          return `*   ${p.name}: ₦${Number(p.price).toLocaleString()} (Min Approved: ₦${minPrice.toLocaleString()})`;
+        })
         .join('\n') || '(Products loading...)';
 
     return `You are Santa Claus, partnering with a gadget company called Ogabassey. Your personality is jolly, warm, kind, and a little bit whimsical.
@@ -112,8 +113,8 @@ export async function POST(req: Request) {
       error: authError,
     } = await supabase.auth.getUser();
 
-    // NOTE: Santa Chat might be public properly? 
-    // The previous implementation used IP fallback. 
+    // NOTE: Santa Chat might be public properly?
+    // The previous implementation used IP fallback.
     // BUT the requirement was explicit: "Always verify user authentication before performing database operations".
     // AND "Product data... fetched without permission checks".
     // However, if this is a storefront chat, maybe anonymous users should use it?
@@ -166,7 +167,7 @@ export async function POST(req: Request) {
     const { messages } = validation.data;
 
     // Step 4: Sanitize user messages
-    const sanitizedMessages = messages.map(msg => ({
+    const sanitizedMessages = messages.map((msg) => ({
       ...msg,
       content: msg.role === 'user' ? sanitizeHtml(msg.content) : msg.content,
     }));

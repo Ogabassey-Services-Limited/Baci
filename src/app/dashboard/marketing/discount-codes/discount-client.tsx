@@ -1,5 +1,6 @@
 'use client';
 
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Copy,
   DollarSign,
@@ -11,6 +12,8 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
@@ -29,6 +32,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -57,10 +68,6 @@ import {
   deleteDiscountCode,
   upsertDiscountCode,
 } from './actions';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 const discountSchema = z.object({
   code: z.string().min(3, 'Code must be at least 3 characters'),
@@ -73,18 +80,19 @@ const discountSchema = z.object({
   usage_limit: z.coerce.number().optional(),
 });
 
-
 interface DiscountClientProps {
   initialDiscountCodes: DiscountCode[];
   currencySymbol: string;
 }
 
-export function DiscountClient({ initialDiscountCodes, currencySymbol }: DiscountClientProps) {
+export function DiscountClient({
+  initialDiscountCodes,
+  currencySymbol,
+}: DiscountClientProps) {
   const { toast } = useToast();
   const router = useRouter();
 
   // currencySymbol is passed from server now
-
 
   // Use props for initial data, but keep it in state if we want optimistic UI (or just rely on router.refresh)
   // Since we are using router.refresh() in actions (revalidatePath), we can rely on props being updated.
@@ -122,6 +130,28 @@ export function DiscountClient({ initialDiscountCodes, currencySymbol }: Discoun
   // biome-ignore lint/suspicious/useAwait: async needed for startTransition with Server Action
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate form data
+    const result = discountSchema.safeParse({
+      code: formData.code,
+      type: formData.discount_type,
+      value: formData.discount_value,
+      applies_to: formData.applies_to,
+      min_order_value: formData.minimum_purchase_amount,
+      start_date: formData.starts_at || undefined,
+      end_date: formData.expires_at || undefined,
+      usage_limit: formData.usage_limit || undefined,
+    });
+
+    if (!result.success) {
+      const errorMsg = result.error.issues[0].message;
+      toast({
+        title: 'Validation Error',
+        description: errorMsg,
+        variant: 'destructive',
+      });
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -461,7 +491,10 @@ export function DiscountClient({ initialDiscountCodes, currencySymbol }: Discoun
                   id="description"
                   value={formData.description}
                   onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value || '' })
+                    setFormData({
+                      ...formData,
+                      description: e.target.value || '',
+                    })
                   }
                   placeholder="20% off all products"
                 />

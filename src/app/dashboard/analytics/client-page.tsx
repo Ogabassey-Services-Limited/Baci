@@ -39,8 +39,12 @@ export default function AnalyticsClientPage() {
       : 'overview'
   );
   // Split state to avoid race conditions where base fetch overwrites category data
-  const [baseAnalytics, setBaseAnalytics] = useState<AnalyticsData | null>(null);
-  const [categoryAnalytics, setCategoryAnalytics] = useState<Partial<AnalyticsData>>({});
+  const [baseAnalytics, setBaseAnalytics] = useState<AnalyticsData | null>(
+    null
+  );
+  const [categoryAnalytics, setCategoryAnalytics] = useState<
+    Partial<AnalyticsData>
+  >({});
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
   // Derived state
@@ -49,17 +53,17 @@ export default function AnalyticsClientPage() {
     : null;
 
   // Placeholder fetch functions for specialized categories - implementation pending
-  const fetchInventoryData = useCallback(async () => {
+  const fetchInventoryData = useCallback(() => {
     // TODO: Implement actual data fetching
     return {};
   }, []);
 
-  const fetchSegmentData = useCallback(async () => {
+  const fetchSegmentData = useCallback(() => {
     // TODO: Implement actual data fetching
     return {};
   }, []);
 
-  const fetchAdAnalyticsData = useCallback(async () => {
+  const fetchAdAnalyticsData = useCallback(() => {
     // TODO: Implement actual data fetching
     return {};
   }, []);

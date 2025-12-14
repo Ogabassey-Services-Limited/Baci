@@ -110,7 +110,7 @@ export function SantaChatDialog({
 
             const chunk = decoder.decode(value, { stream: true });
             // Parse the streaming data format from Vercel AI SDK
-            // Note: If the API returns raw text stream, this splitting isn't needed. 
+            // Note: If the API returns raw text stream, this splitting isn't needed.
             // If it returns standard AI stream protocol (0:"..."), this is correct.
             // Keeping existing logic as safeguard.
             const lines = chunk.split('\n');
@@ -129,9 +129,7 @@ export function SantaChatDialog({
 
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === assistantId
-                  ? { ...m, content: assistantContent }
-                  : m
+                m.id === assistantId ? { ...m, content: assistantContent } : m
               )
             );
           }

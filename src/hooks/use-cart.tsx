@@ -506,10 +506,10 @@ export const CartProvider = ({
         prev.map((item) =>
           item.cartItemId === cartItemId
             ? {
-              ...item,
-              negotiatedPrice: newPrice,
-              negotiationStatus: 'accepted',
-            }
+                ...item,
+                negotiatedPrice: newPrice,
+                negotiationStatus: 'accepted',
+              }
             : item
         )
       );

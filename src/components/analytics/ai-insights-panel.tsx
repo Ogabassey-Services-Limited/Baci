@@ -99,12 +99,12 @@ export function AIInsightsPanel({
     activeCategory === 'overview'
       ? insights
       : insights.filter((insight) => {
-        const text = (insight.title + insight.description).toLowerCase();
-        return (
-          CATEGORY_KEYWORDS[activeCategory]?.some((k) => text.includes(k)) ??
-          true
-        );
-      });
+          const text = (insight.title + insight.description).toLowerCase();
+          return (
+            CATEGORY_KEYWORDS[activeCategory]?.some((k) => text.includes(k)) ??
+            true
+          );
+        });
 
   // Auto-rotate insights every 5 seconds
   useEffect(() => {

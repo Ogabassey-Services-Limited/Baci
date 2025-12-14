@@ -5,7 +5,12 @@ import { DiscountClient } from './discount-client';
 
 async function DiscountContent() {
   const { discountCodes, currencySymbol } = await getDiscountCodes();
-  return <DiscountClient initialDiscountCodes={discountCodes} currencySymbol={currencySymbol} />;
+  return (
+    <DiscountClient
+      initialDiscountCodes={discountCodes}
+      currencySymbol={currencySymbol}
+    />
+  );
 }
 
 export default function DiscountCodesPage() {
