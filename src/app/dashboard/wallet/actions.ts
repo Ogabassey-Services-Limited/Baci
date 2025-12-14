@@ -6,6 +6,47 @@ import { payoutMerchantCommission } from '@/lib/kuda';
 import { createClient } from '@/lib/supabase/server';
 
 const MIN_WITHDRAWAL_AMOUNT = 1000;
+const VALID_PAYOUT_DAYS = [
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
+] as const;
+
+/**
+ * Helper to verify the authenticated user owns the given merchantId
+ */
+async function verifyMerchantOwnership(
+  supabase: ReturnType<typeof createClient>,
+  merchantId: string
+): Promise<
+  { success: true; userId: string } | { success: false; error: string }
+> {
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  const { data: merchant } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('id', merchantId)
+    .eq('user_id', user.id)
+    .single();
+
+  if (!merchant) {
+    return { success: false, error: 'Merchant not found or access denied' };
+  }
+
+  return { success: true, userId: user.id };
+}
 
 export type WalletData = {
   id: string;
@@ -47,6 +88,12 @@ export type Transaction = {
 export async function getWalletData(merchantId: string) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+
+  // Verify ownership
+  const ownershipCheck = await verifyMerchantOwnership(supabase, merchantId);
+  if (!ownershipCheck.success) {
+    return null;
+  }
 
   // Get pending settlements
   const { data: pendingSettlements } = await supabase
@@ -91,7 +138,7 @@ export async function getWalletData(merchantId: string) {
         lastPayoutAmount: wallet.last_payout_amount
           ? Number(wallet.last_payout_amount)
           : null,
-        canWithdraw: Number(wallet.available_balance) >= 1000,
+        canWithdraw: Number(wallet.available_balance) >= MIN_WITHDRAWAL_AMOUNT,
         nextSettlementDate: null,
         nextSettlementAmount: null,
       } as WalletData,
@@ -147,6 +194,12 @@ export async function getTransactions(merchantId: string, limit = 10) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
+  // Verify ownership
+  const ownershipCheck = await verifyMerchantOwnership(supabase, merchantId);
+  if (!ownershipCheck.success) {
+    return [];
+  }
+
   const { data: transactions } = await supabase
     .from('merchant_transactions')
     .select('*')
@@ -154,15 +207,25 @@ export async function getTransactions(merchantId: string, limit = 10) {
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  return (transactions || []).map((tx) => ({
-    id: tx.id,
-    type: tx.type,
-    amount: Number(tx.amount),
-    balanceAfter: Number(tx.balance_after),
-    status: tx.status,
-    description: tx.description,
-    createdAt: tx.created_at,
-  })) as Transaction[];
+  // Validate and map transactions with runtime type checking
+  const validTypes = ['credit', 'debit', 'withdrawal', 'payout'] as const;
+  const validStatuses = ['pending', 'completed', 'failed'] as const;
+
+  return (transactions || []).map((tx) => {
+    // Runtime validation for type safety
+    const txType = validTypes.includes(tx.type) ? tx.type : 'credit';
+    const txStatus = validStatuses.includes(tx.status) ? tx.status : 'pending';
+
+    return {
+      id: tx.id,
+      type: txType as Transaction['type'],
+      amount: Number(tx.amount),
+      balanceAfter: Number(tx.balance_after),
+      status: txStatus as Transaction['status'],
+      description: tx.description,
+      createdAt: tx.created_at,
+    };
+  });
 }
 
 export async function updateWalletSettings(
@@ -176,15 +239,42 @@ export async function updateWalletSettings(
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
+  // Verify ownership
+  const ownershipCheck = await verifyMerchantOwnership(supabase, merchantId);
+  if (!ownershipCheck.success) {
+    return { success: false, error: ownershipCheck.error };
+  }
+
   const updates: Record<string, unknown> = {};
+
   if (typeof settings.autoPayoutEnabled === 'boolean') {
     updates.auto_payout_enabled = settings.autoPayoutEnabled;
   }
+
+  // Validate payout day
   if (settings.autoPayoutDay) {
-    updates.auto_payout_day = settings.autoPayoutDay.toLowerCase();
+    const day = settings.autoPayoutDay.toLowerCase();
+    if (
+      !VALID_PAYOUT_DAYS.includes(day as (typeof VALID_PAYOUT_DAYS)[number])
+    ) {
+      return { success: false, error: 'Invalid payout day' };
+    }
+    updates.auto_payout_day = day;
   }
-  if (settings.minPayoutAmount) {
+
+  // Validate minimum payout amount
+  if (settings.minPayoutAmount !== undefined) {
+    if (settings.minPayoutAmount < MIN_WITHDRAWAL_AMOUNT) {
+      return {
+        success: false,
+        error: `Minimum payout amount must be at least ₦${MIN_WITHDRAWAL_AMOUNT.toLocaleString()}`,
+      };
+    }
     updates.min_payout_amount = settings.minPayoutAmount;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return { success: true }; // Nothing to update
   }
 
   const { error } = await supabase
@@ -205,13 +295,24 @@ export async function withdrawFunds(merchantId: string, amount?: number) {
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  // Get merchant bank details
+  // Verify ownership and get merchant bank details in one query
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { success: false, error: 'Unauthorized' };
+  }
+
+  // Get merchant bank details with ownership check
   const { data: merchant } = await supabase
     .from('merchants')
     .select(
       'id, business_name, bank_account_number, bank_code, bank_account_name'
     )
     .eq('id', merchantId)
+    .eq('user_id', user.id)
     .single();
 
   if (
@@ -283,17 +384,31 @@ export async function withdrawFunds(merchantId: string, amount?: number) {
     );
 
     // Complete withdrawal with result
-    await supabase.rpc('complete_wallet_withdrawal', {
-      p_transaction_id: transactionId,
-      p_success: transferResult.success,
-      p_transfer_reference: transferResult.reference,
-      p_transfer_message: transferResult.message,
-    });
+    const { error: completeError } = await supabase.rpc(
+      'complete_wallet_withdrawal',
+      {
+        p_transaction_id: transactionId,
+        p_success: transferResult.success,
+        p_transfer_reference: transferResult.reference,
+        p_transfer_message: transferResult.message,
+      }
+    );
+
+    if (completeError) {
+      // Critical: Log for manual reconciliation - funds may have transferred
+      console.error(
+        'Critical: Failed to complete withdrawal record after transfer:',
+        completeError,
+        { transactionId, transferResult }
+      );
+    }
 
     if (!transferResult.success) {
       return {
         success: false,
-        error: 'Transfer failed. Your balance has been restored.',
+        error: completeError
+          ? 'Transfer failed. Please contact support to verify your balance.'
+          : 'Transfer failed. Your balance has been restored.',
       };
     }
 
@@ -305,16 +420,34 @@ export async function withdrawFunds(merchantId: string, amount?: number) {
     };
   } catch (transferError) {
     console.error('Transfer execution error:', transferError);
-    // Refund balance on error
-    await supabase.rpc('complete_wallet_withdrawal', {
-      p_transaction_id: transactionId,
-      p_success: false,
-      p_transfer_reference: null,
-      p_transfer_message:
-        transferError instanceof Error
-          ? transferError.message
-          : 'Transfer failed',
-    });
+
+    // Attempt to refund balance on error
+    const { error: refundError } = await supabase.rpc(
+      'complete_wallet_withdrawal',
+      {
+        p_transaction_id: transactionId,
+        p_success: false,
+        p_transfer_reference: null,
+        p_transfer_message:
+          transferError instanceof Error
+            ? transferError.message
+            : 'Transfer failed',
+      }
+    );
+
+    if (refundError) {
+      // Critical: Balance restoration failed - requires manual intervention
+      console.error(
+        'Critical: Failed to restore balance after failed transfer:',
+        refundError,
+        { transactionId, transferError }
+      );
+      return {
+        success: false,
+        error:
+          'Transfer failed and balance restoration encountered an issue. Please contact support immediately.',
+      };
+    }
 
     return {
       success: false,
