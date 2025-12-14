@@ -88,13 +88,9 @@ export default function SEOClient({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
 
-  // Derived state from server props
-  const products = initialProducts;
-  const summary = initialSummary;
-
   // Pagination Logic
-  const totalPages = Math.ceil(products.length / itemsPerPage);
-  const paginatedProducts = products.slice(
+  const totalPages = Math.ceil(initialProducts.length / itemsPerPage);
+  const paginatedProducts = initialProducts.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -116,7 +112,7 @@ export default function SEOClient({
 
   const selectAll = () => {
     // Select all needing work across ALL pages, not just current page
-    const needsWork = products.filter((p) => p.seoScore < 100);
+    const needsWork = initialProducts.filter((p) => p.seoScore < 100);
     setSelectedProducts(needsWork.map((p) => p.productId));
   };
 
@@ -219,7 +215,7 @@ export default function SEOClient({
       </div>
 
       {/* Summary Stats */}
-      {summary && (
+      {initialSummary && (
         <div className="grid gap-4 md:grid-cols-5">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -230,9 +226,9 @@ export default function SEOClient({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {summary.averageSEOScore}%
+                {initialSummary.averageSEOScore}%
               </div>
-              <Progress value={summary.averageSEOScore} className="mt-2" />
+              <Progress value={initialSummary.averageSEOScore} className="mt-2" />
             </CardContent>
           </Card>
           <Card>
@@ -244,10 +240,10 @@ export default function SEOClient({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {summary.fullyOptimized}
+                {initialSummary.fullyOptimized}
               </div>
               <p className="text-xs text-muted-foreground">
-                of {summary.totalProducts} products
+                of {initialSummary.totalProducts} products
               </p>
             </CardContent>
           </Card>
@@ -260,7 +256,7 @@ export default function SEOClient({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {summary.missingTitle}
+                {initialSummary.missingTitle}
               </div>
             </CardContent>
           </Card>
@@ -273,7 +269,7 @@ export default function SEOClient({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {summary.missingDescription}
+                {initialSummary.missingDescription}
               </div>
             </CardContent>
           </Card>
@@ -286,7 +282,7 @@ export default function SEOClient({
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {summary.missingKeywords}
+                {initialSummary.missingKeywords}
               </div>
             </CardContent>
           </Card>
@@ -341,7 +337,7 @@ export default function SEOClient({
                     <div className="text-sm font-medium text-muted-foreground">
                       Original
                     </div>
-                    <div className="p-3 bg-gray-50 rounded space-y-2">
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded space-y-2">
                       <div>
                         <span className="text-xs text-muted-foreground">
                           Title:{' '}
@@ -365,7 +361,7 @@ export default function SEOClient({
                     <div className="text-sm font-medium text-green-600 dark:text-green-400">
                       Optimized
                     </div>
-                    <div className="p-3 bg-green-50 rounded space-y-2">
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded space-y-2">
                       <div>
                         <span className="text-xs text-muted-foreground">
                           Title:{' '}
@@ -512,7 +508,7 @@ export default function SEOClient({
                   </TableCell>
                 </TableRow>
               ))}
-              {products.length === 0 && (
+              {initialProducts.length === 0 && (
                 <TableRow>
                   <TableCell
                     colSpan={7}

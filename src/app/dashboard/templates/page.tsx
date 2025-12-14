@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { BUSINESS_TYPES } from '@/config/business-types';
 import { getMerchantForUser } from '@/lib/merchant-server';
@@ -5,7 +6,7 @@ import { getAllTemplates } from '@/templates/registry';
 import { LivePreviewCard, SmallPreviewCard } from './components/template-cards';
 import { TemplatesHeader } from './components/templates-header';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Template Gallery | Baci',
   description: 'Browse and preview all available storefront templates',
 };
@@ -55,8 +56,9 @@ export default async function TemplatesPage({
   // If no templates match the filter, show all
   const displayTemplates =
     filteredTemplates.length > 0 ? filteredTemplates : templates;
-  const isFiltered =
-    userBusinessType && targetCategories?.length > 0 && !showAll;
+  const isFiltered = Boolean(
+    userBusinessType && targetCategories?.length > 0 && !showAll
+  );
 
   // Group templates
   const productionTemplates = displayTemplates.filter(
@@ -69,7 +71,7 @@ export default async function TemplatesPage({
     <div className="space-y-6">
       <TemplatesHeader
         businessName={merchant.business_name}
-        isFiltered={!!isFiltered} // Ensure boolean
+        isFiltered={isFiltered}
         userBusinessType={userBusinessType}
       />
 

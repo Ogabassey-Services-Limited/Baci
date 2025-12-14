@@ -31,6 +31,14 @@ const placeholderInsights: Insight[] = [
   },
 ];
 
+// Category keywords for filtering insights - defined outside component to avoid recreation
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  finance: ['revenue', 'sales', 'profit', 'cost', 'money'],
+  products: ['product', 'stock', 'inventory', 'selling'],
+  customers: ['customer', 'user', 'buyer', 'retention'],
+  marketing: ['campaign', 'ad', 'social', 'traffic', 'conversion'],
+};
+
 export function AIInsightsPanel({
   className,
   activeCategory,
@@ -87,17 +95,11 @@ export function AIInsightsPanel({
     activeCategory === 'overview'
       ? insights
       : insights.filter((insight) => {
-        const text = (insight.title + insight.description).toLowerCase();
-        const keywords: Record<string, string[]> = {
-          finance: ['revenue', 'sales', 'profit', 'cost', 'money'],
-          products: ['product', 'stock', 'inventory', 'selling'],
-          customers: ['customer', 'user', 'buyer', 'retention'],
-          marketing: ['campaign', 'ad', 'social', 'traffic', 'conversion'],
-        };
-        return (
-          keywords[activeCategory]?.some((k) => text.includes(k)) ?? true
-        );
-      });
+          const text = (insight.title + insight.description).toLowerCase();
+          return (
+            CATEGORY_KEYWORDS[activeCategory]?.some((k) => text.includes(k)) ?? true
+          );
+        });
 
   // Auto-rotate insights every 5 seconds
   useEffect(() => {
@@ -163,14 +165,14 @@ export function AIInsightsPanel({
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.3 }}
             >
-              <h2
+              <h3
                 className={cn(
                   'text-sm font-semibold text-foreground',
                   isAnalyzing && 'text-indigo-600 dark:text-indigo-400'
                 )}
               >
                 {currentInsight.title}
-              </h2>
+              </h3>
               <p className="text-xs text-muted-foreground line-clamp-2">
                 {currentInsight.description}
               </p>
