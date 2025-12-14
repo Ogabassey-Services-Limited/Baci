@@ -120,6 +120,7 @@ export function FaviconUpload() {
           type="button"
           className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md cursor-pointer hover:bg-primary/90 transition-colors opacity-100 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => document.getElementById('favicon-upload')?.click()}
+          disabled={uploading}
         >
           {uploading ? (
             <>

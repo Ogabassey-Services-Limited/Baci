@@ -456,9 +456,9 @@ const OrderCard = ({
             </div>
 
             <div>
-              <h5 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-2">
                 <MapPin className="w-3 h-3" /> Fulfillment
-              </h5>
+              </h4>
               <div className="bg-background rounded-lg border p-4 text-sm space-y-3">
                 <div className="flex justify-between border-b pb-2">
                   <span className="text-foreground/70 font-medium">

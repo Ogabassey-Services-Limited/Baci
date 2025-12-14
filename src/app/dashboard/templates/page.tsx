@@ -46,18 +46,18 @@ export default async function TemplatesPage({
     ? BUSINESS_TYPE_TO_CATEGORY[userBusinessType]
     : [];
 
-  // Filter templates
+  // Filter templates - targetCategories is always an array, no need for optional chaining
   const filteredTemplates = templates.filter((t) => {
-    if (showAll || !userBusinessType || targetCategories?.length === 0)
+    if (showAll || !userBusinessType || targetCategories.length === 0)
       return true;
-    return targetCategories?.includes(t.category);
+    return targetCategories.includes(t.category);
   });
 
   // If no templates match the filter, show all
   const displayTemplates =
     filteredTemplates.length > 0 ? filteredTemplates : templates;
   const isFiltered = Boolean(
-    userBusinessType && targetCategories?.length > 0 && !showAll
+    userBusinessType && targetCategories.length > 0 && !showAll
   );
 
   // Group templates
@@ -78,11 +78,7 @@ export default async function TemplatesPage({
       <div className="space-y-16">
         {displayTemplates.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              No templates found for this category.
-            </p>
-            {/* The header handles the toggle, but we can add a simple link/button here too if needed. 
-                Since header is sticky/visible, it's fine. */}
+            <p className="text-muted-foreground">No templates available yet.</p>
           </div>
         )}
 

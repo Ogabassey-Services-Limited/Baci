@@ -234,9 +234,8 @@ function generateCSP(
     // Strict nonce-based CSP for admin and authentication routes
     return Object.entries({
       ...baseDirectives,
-      // Note: Removed 'strict-dynamic' to allow host-based allowlists (maps, vercel) to work
-      // if they are not loaded by a nonced script. Added 'unsafe-eval' for libs that need it.
-      'script-src': `'self' 'nonce-${nonce}' 'unsafe-inline' 'unsafe-eval' https://maps.googleapis.com https://vercel.live https://va.vercel-scripts.com`,
+      // strict-dynamic allows nonced scripts to load additional scripts dynamically (CSP Level 3)
+      'script-src': `'self' 'nonce-${nonce}' 'strict-dynamic' https://vercel.live https://va.vercel-scripts.com`,
       'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
       'connect-src':
         "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com",
