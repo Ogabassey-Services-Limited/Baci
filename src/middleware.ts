@@ -241,6 +241,7 @@ function generateCSP(
       'frame-src': "'self' https://checkout.korapay.com",
       'form-action': "'self'",
       'frame-ancestors': "'self'",
+      'require-trusted-types-for': "'script'",
     })
       .map(([key, value]) => `${key} ${value}`.trim())
       .join('; ');
@@ -491,6 +492,19 @@ function applySecurityHeaders(
   if (nonce) {
     response.headers.set('x-nonce', nonce);
   }
+
+  // HSTS: Enforce HTTPS with subdomains and preload (Lighthouse Best Practice)
+  response.headers.set(
+    'Strict-Transport-Security',
+    'max-age=31536000; includeSubDomains; preload'
+  );
+
+  // COOP: Isolate top-level window from cross-origin documents (Lighthouse Best Practice)
+  response.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+
+  // COEP: Cross-Origin Embedder Policy for SharedArrayBuffer support
+  // Note: 'credentialless' is more compatible than 'require-corp'
+  response.headers.set('Cross-Origin-Embedder-Policy', 'credentialless');
 
   // Detect bots/crawlers for optimized SEO caching
   const isBot =

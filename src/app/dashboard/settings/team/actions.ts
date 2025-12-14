@@ -1,0 +1,367 @@
+'use server';
+
+import crypto from 'node:crypto';
+import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
+import { createClient } from '@/lib/supabase/server';
+import { sendEmail } from '@/lib/zeptomail';
+import type { StaffRole } from '@/types/staff';
+
+export async function getStaffMembers() {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+
+  // Get merchant
+  const { data: merchant, error: merchantError } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (merchantError || !merchant) {
+    throw new Error('Merchant not found');
+  }
+
+  // Get staff members
+  const { data: staff, error: staffError } = await supabase
+    .from('staff_members')
+    .select('*')
+    .eq('merchant_id', merchant.id)
+    .neq('status', 'removed')
+    .order('created_at', { ascending: false });
+
+  if (staffError) {
+    console.error('Failed to fetch staff:', staffError);
+    throw new Error('Failed to fetch staff');
+  }
+
+  return staff || [];
+}
+
+export async function inviteStaffMember(data: {
+  email: string;
+  name?: string;
+  role: StaffRole;
+}) {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+
+  // Get merchant
+  const { data: merchant, error: merchantError } = await supabase
+    .from('merchants')
+    .select('id, business_name')
+    .eq('user_id', user.id)
+    .single();
+
+  if (merchantError || !merchant) {
+    throw new Error('Merchant not found');
+  }
+
+  const { email, name, role } = data;
+
+  if (!email || !role) {
+    throw new Error('Email and role are required');
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new Error('Invalid email format');
+  }
+
+  // Check if staff member already exists
+  const { data: existing } = await supabase
+    .from('staff_members')
+    .select('id, status')
+    .eq('merchant_id', merchant.id)
+    .eq('email', email.toLowerCase())
+    .single();
+
+  if (existing) {
+    if (existing.status === 'removed') {
+      // Reactivate removed staff member
+      const invitationToken = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+
+      const { error: reactivateError } = await supabase
+        .from('staff_members')
+        .update({
+          name,
+          role,
+          status: 'pending',
+          invitation_token: invitationToken,
+          invitation_expires_at: expiresAt.toISOString(),
+          invited_at: new Date().toISOString(),
+          accepted_at: null,
+          user_id: null,
+        })
+        .eq('id', existing.id);
+
+      if (reactivateError) {
+        throw new Error('Failed to reactivate staff member');
+      }
+
+      await sendInviteEmail(
+        email,
+        name || '',
+        role,
+        merchant.business_name,
+        invitationToken
+      );
+
+      revalidatePath('/dashboard/settings/team');
+      return { success: true, message: 'Staff member re-invited successfully' };
+    }
+
+    throw new Error('A staff member with this email already exists');
+  }
+
+  // Generate invitation token
+  const invitationToken = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+
+  // Create staff member
+  const { error: createError } = await supabase.from('staff_members').insert({
+    merchant_id: merchant.id,
+    email: email.toLowerCase(),
+    name,
+    role,
+    invitation_token: invitationToken,
+    invitation_expires_at: expiresAt.toISOString(),
+  });
+
+  if (createError) {
+    throw new Error('Failed to invite staff member');
+  }
+
+  await sendInviteEmail(
+    email,
+    name || '',
+    role,
+    merchant.business_name,
+    invitationToken
+  );
+
+  revalidatePath('/dashboard/settings/team');
+  return { success: true, message: 'Staff member invited successfully' };
+}
+
+export async function resendInvitation(id: string) {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+
+  // Get merchant
+  const { data: merchant, error: merchantError } = await supabase
+    .from('merchants')
+    .select('id, business_name')
+    .eq('user_id', user.id)
+    .single();
+
+  if (merchantError || !merchant) {
+    throw new Error('Merchant not found');
+  }
+
+  // Get staff member
+  const { data: staff } = await supabase
+    .from('staff_members')
+    .select('*')
+    .eq('id', id)
+    .eq('merchant_id', merchant.id)
+    .single();
+
+  if (!staff) {
+    throw new Error('Staff member not found');
+  }
+
+  if (staff.status !== 'pending') {
+    throw new Error('Can only resend invitation to pending staff members');
+  }
+
+  // Generate new invitation token
+  const invitationToken = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  // Update staff member
+  const { error: updateError } = await supabase
+    .from('staff_members')
+    .update({
+      invitation_token: invitationToken,
+      invitation_expires_at: expiresAt.toISOString(),
+      invited_at: new Date().toISOString(),
+    })
+    .eq('id', id);
+
+  if (updateError) {
+    throw new Error('Failed to resend invitation');
+  }
+
+  await sendInviteEmail(
+    staff.email,
+    staff.name || '',
+    staff.role,
+    merchant.business_name,
+    invitationToken
+  );
+
+  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${invitationToken}`;
+
+  revalidatePath('/dashboard/settings/team');
+  // We return the URL so the UI can show it if needed (legacy behavior kept)
+  return { success: true, inviteUrl };
+}
+
+export async function updateStaffMember(
+  id: string,
+  data: { role?: StaffRole; status?: string }
+) {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+
+  // Get merchant
+  const { data: merchant, error: merchantError } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (merchantError || !merchant) {
+    throw new Error('Merchant not found');
+  }
+
+  const { error } = await supabase
+    .from('staff_members')
+    .update(data)
+    .eq('id', id)
+    .eq('merchant_id', merchant.id);
+
+  if (error) {
+    throw new Error('Failed to update staff member');
+  }
+
+  revalidatePath('/dashboard/settings/team');
+  return { success: true };
+}
+
+export async function removeStaffMember(id: string) {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+
+  // Get merchant
+  const { data: merchant, error: merchantError } = await supabase
+    .from('merchants')
+    .select('id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (merchantError || !merchant) {
+    throw new Error('Merchant not found');
+  }
+
+  // Soft delete
+  const { error } = await supabase
+    .from('staff_members')
+    .update({ status: 'removed' })
+    .eq('id', id)
+    .eq('merchant_id', merchant.id);
+
+  if (error) {
+    throw new Error('Failed to remove staff member');
+  }
+
+  revalidatePath('/dashboard/settings/team');
+  return { success: true };
+}
+
+// Helper to send email
+async function sendInviteEmail(
+  email: string,
+  name: string,
+  role: string,
+  businessName: string,
+  token: string
+) {
+  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${token}`;
+
+  try {
+    await sendEmail({
+      to: email,
+      toName: name,
+      subject: `You've been invited to join ${businessName}`,
+      htmlContent: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #6366f1; margin: 0;">You're Invited!</h1>
+            </div>
+            <p>Hi ${name || 'there'},</p>
+            <p>You've been invited to join <strong>${businessName}</strong> as a <strong>${role.replace('_', ' ')}</strong>.</p>
+            <p>Click the button below to accept your invitation and set up your account:</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${inviteUrl}" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 500;">Accept Invitation</a>
+            </div>
+            <p style="font-size: 12px; color: #666;">
+              This invitation will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
+            </p>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <p style="font-size: 12px; color: #666; text-align: center;">
+              This invitation was sent by ${businessName} via Baci.
+            </p>
+          </body>
+          </html>
+        `,
+      textContent: `Hi ${name || 'there'},\n\nYou've been invited to join ${businessName} as a ${role.replace('_', ' ')}.\n\nClick the link below to accept your invitation:\n${inviteUrl}\n\nThis invitation will expire in 7 days.\n\nIf you didn't expect this invitation, you can safely ignore this email.`,
+      emailType: 'team',
+    });
+  } catch (error) {
+    console.error('Failed to send invite email:', error);
+    // Silent fail on email shouldn't break the action, but maybe log it?
+    // The action caller handles "success" so we probably shouldn't throw here if the DB part worked.
+  }
+}
