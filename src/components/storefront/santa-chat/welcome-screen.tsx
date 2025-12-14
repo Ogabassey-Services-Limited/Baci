@@ -1,0 +1,90 @@
+'use client';
+
+import Image from 'next/image';
+
+interface WelcomeScreenProps {
+  onStart: () => void;
+}
+
+/**
+ * Welcome screen with falling snowflakes animation
+ * Based on the original Santa-by-Ogabassey design
+ */
+export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
+  return (
+    <div className="h-full w-full flex flex-col items-center justify-center bg-red-600 text-white p-4 text-center overflow-hidden relative">
+      {/* Snowflakes animation CSS */}
+      <style jsx>{`
+        .snowflake {
+          position: absolute;
+          top: -10%;
+          color: #fff;
+          font-size: 1em;
+          animation: fall linear infinite;
+        }
+
+        @keyframes fall {
+          0% {
+            transform: translateY(0);
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(105vh);
+            opacity: 0;
+          }
+        }
+      `}</style>
+
+      {/* Falling snowflakes */}
+      {Array.from({ length: 50 }).map((_, i) => (
+        <div
+          key={`snowflake-${i}`}
+          className="snowflake"
+          style={{
+            left: `${Math.random() * 100}vw`,
+            fontSize: `${Math.random() * 1.5 + 0.5}em`,
+            animationDuration: `${Math.random() * 5 + 5}s`,
+            animationDelay: `-${Math.random() * 5}s`,
+          }}
+        >
+          ❄
+        </div>
+      ))}
+
+      {/* Content */}
+      <div className="relative z-10 flex flex-col items-center">
+        <Image
+          src="https://img.icons8.com/plasticine/200/santa.png"
+          alt="Smiling Santa Claus"
+          width={160}
+          height={160}
+          className="mx-auto mb-6 animate-bounce"
+          style={{ animationDuration: '2s' }}
+        />
+        <h1
+          className="text-4xl md:text-6xl mb-2 tracking-wide"
+          style={{
+            fontFamily: '"Mountains of Christmas", cursive',
+            textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
+          }}
+        >
+          Welcome to Santa&apos;s Workshop!
+        </h1>
+        <p
+          className="max-w-md mx-auto mb-8 text-red-100"
+          style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.5)' }}
+        >
+          Have you been good this year? Santa is here to listen to your
+          Christmas wishes. Come on in and share what you&apos;re dreaming of!
+        </p>
+        <button
+          type="button"
+          onClick={onStart}
+          className="bg-white text-red-600 font-bold py-3 px-8 rounded-full text-lg shadow-xl hover:bg-red-100 transform hover:scale-105 transition-all duration-300 ease-in-out"
+        >
+          Chat with Santa
+        </button>
+      </div>
+    </div>
+  );
+}
