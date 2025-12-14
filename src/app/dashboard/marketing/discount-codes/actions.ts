@@ -153,12 +153,14 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
   // For update, we only apply what's in validatedInput.
 
   const buildPayload = (isUpdate: boolean) => {
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic payload construction needs flexibility
-    const payload: any = { ...baseData };
+    const payload: Record<string, unknown> = { ...baseData };
 
     // Helper to conditionally add field if defined
-    // biome-ignore lint/suspicious/noExplicitAny: Dynamic value types
-    const addIfDefined = (key: string, value: any, defaultValue?: any) => {
+    const addIfDefined = (
+      key: string,
+      value: unknown,
+      defaultValue?: unknown
+    ) => {
       if (value !== undefined) {
         payload[key] = value;
       } else if (!isUpdate && defaultValue !== undefined) {
