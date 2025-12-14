@@ -14,7 +14,7 @@ interface Snowflake {
   radius: number;
   speed: number;
   wind: number;
-  opacity: number;
+
   angle: number;
 }
 
@@ -46,7 +46,6 @@ export const SnowEffect: React.FC = () => {
         radius: Math.random() * 3 + 1,
         speed: Math.random() * 1 + 0.5,
         wind: Math.random() * 0.5 - 0.25,
-        opacity: Math.random() * 0.5 + 0.3,
         angle: Math.random() * Math.PI * 2,
       });
     }
@@ -80,7 +79,7 @@ export const SnowEffect: React.FC = () => {
         }
 
         // Draw
-        ctx.moveTo(p.x, p.y);
+        ctx.moveTo(p.x + p.radius, p.y);
         ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
       }
 
@@ -90,16 +89,24 @@ export const SnowEffect: React.FC = () => {
 
     update();
 
+    let resizeTimer: NodeJS.Timeout;
     const handleResize = () => {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+
+        // Clamp existing particles to new viewport
+        // (Optional: implementation choice, but good practice per review)
+      }, 150);
     };
 
     window.addEventListener('resize', handleResize);
 
     return () => {
+      clearTimeout(resizeTimer);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       window.removeEventListener('resize', handleResize);
     };

@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import DOMPurify from 'isomorphic-dompurify';
 import type { ChatMessage as ChatMessageType } from './types';
 
 interface ChatMessageProps {
@@ -10,7 +11,14 @@ interface ChatMessageProps {
 /**
  * Simple markdown renderer for Santa's messages
  */
+/**
+ * Simple markdown renderer for Santa's messages
+ */
 function SimpleMarkdownRenderer({ text }: { text: string }) {
+  // Import DOMPurify here or outside. Since it's a client component, we import at top.
+  // But to avoid adding imports in this replace block, I'll rely on the existing imports or add it if missing.
+  // Wait, I need to add the import first.
+
   const renderText = () => {
     let html = text
       .replace(/&/g, '&amp;')
@@ -42,11 +50,14 @@ function SimpleMarkdownRenderer({ text }: { text: string }) {
     return html.replace(/\n/g, '<br />');
   };
 
+  // Safe usage with Isomorphic DOMPurify
+  const cleanHtml = DOMPurify.sanitize(renderText());
+
   return (
-    // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized HTML content with escaped entities
+    // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized HTML content
     <div
       className="text-sm"
-      dangerouslySetInnerHTML={{ __html: renderText() }}
+      dangerouslySetInnerHTML={{ __html: cleanHtml }}
     />
   );
 }
@@ -71,6 +82,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
       alt="Santa Claus"
       width={40}
       height={40}
+      sizes="40px"
       className="rounded-full shadow-lg self-start object-cover animate-bounce"
       style={{
         animationDuration: '2.5s',
@@ -102,12 +114,16 @@ export function ChatMessage({ message }: ChatMessageProps) {
         className={`max-w-[80%] p-3 shadow-md ${messageBubbleColor} ${bubbleStyles}`}
       >
         {message.imageUrl ? (
-          // biome-ignore lint/performance/noImgElement: Data URL from user upload, not optimizable
-          <img
-            src={message.imageUrl}
-            alt="User upload"
-            className="max-w-xs max-h-64 rounded-lg"
-          />
+          (message.imageUrl.startsWith('data:image/') || message.imageUrl.startsWith('https://')) ? (
+            // biome-ignore lint/performance/noImgElement: Data URL from user upload, not optimizable
+            <img
+              src={message.imageUrl}
+              alt="User upload"
+              className="max-w-xs max-h-64 rounded-lg"
+            />
+          ) : (
+            <span className="text-red-500 text-xs">[Invalid Image]</span>
+          )
         ) : (
           <SimpleMarkdownRenderer text={message.content} />
         )}

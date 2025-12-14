@@ -132,6 +132,9 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               </h3>
               <button
                 onClick={handleToggleTheme}
+                role="switch"
+                aria-checked={theme === 'santa'}
+                aria-label="Toggle festive mode"
                 className={`w-full flex items-center justify-between p-3 rounded-xl transition-all border ${theme === 'santa' ? 'bg-red-50 border-red-200 shadow-sm' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
               >
                 <div className="flex items-center gap-3">

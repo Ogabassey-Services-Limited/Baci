@@ -1,6 +1,13 @@
 'use client';
 
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import { Mountains_of_Christmas } from 'next/font/google';
+
+const mountainsOfChristmas = Mountains_of_Christmas({
+  weight: ['400', '700'],
+  subsets: ['latin'],
+});
 
 interface WelcomeScreenProps {
   onStart: () => void;
@@ -11,16 +18,32 @@ interface WelcomeScreenProps {
  * Based on the original Santa-by-Ogabassey design
  */
 export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
+  const [snowflakes, setSnowflakes] = useState<{ left: number; fontSize: number; duration: number; delay: number }[]>([]);
+
+  useEffect(() => {
+    setSnowflakes(
+      Array.from({ length: 50 }).map(() => ({
+        left: Math.random() * 100,
+        fontSize: Math.random() * 1.5 + 0.5,
+        duration: Math.random() * 5 + 5,
+        delay: -Math.random() * 5,
+      }))
+    );
+  }, []);
+
   return (
     <div className="h-full w-full flex flex-col items-center justify-center bg-red-600 text-white p-4 text-center overflow-hidden relative">
       {/* Snowflakes animation CSS */}
-      <style jsx>{`
+      {/* Snowflakes animation CSS */}
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .snowflake {
           position: absolute;
           top: -10%;
           color: #fff;
           font-size: 1em;
           animation: fall linear infinite;
+          z-index: 1;
         }
 
         @keyframes fall {
@@ -33,18 +56,18 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
             opacity: 0;
           }
         }
-      `}</style>
+      `}} />
 
       {/* Falling snowflakes */}
-      {Array.from({ length: 50 }).map((_, i) => (
+      {snowflakes.map((flake, i) => (
         <div
           key={`snowflake-${i}`}
           className="snowflake"
           style={{
-            left: `${Math.random() * 100}vw`,
-            fontSize: `${Math.random() * 1.5 + 0.5}em`,
-            animationDuration: `${Math.random() * 5 + 5}s`,
-            animationDelay: `-${Math.random() * 5}s`,
+            left: `${flake.left}vw`,
+            fontSize: `${flake.fontSize}em`,
+            animationDuration: `${flake.duration}s`,
+            animationDelay: `${flake.delay}s`,
           }}
         >
           ❄
@@ -52,19 +75,19 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
       ))}
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center">
+      <div className="relative z-20 flex flex-col items-center">
         <Image
-          src="https://img.icons8.com/plasticine/200/santa.png"
+          src="/african-santa-head.svg"
           alt="Smiling Santa Claus"
           width={160}
           height={160}
+          sizes="160px"
           className="mx-auto mb-6 animate-bounce"
           style={{ animationDuration: '2s' }}
         />
         <h1
-          className="text-4xl md:text-6xl mb-2 tracking-wide"
+          className={`text-4xl md:text-6xl mb-2 tracking-wide ${mountainsOfChristmas.className}`}
           style={{
-            fontFamily: '"Mountains of Christmas", cursive',
             textShadow: '2px 2px 4px rgba(0,0,0,0.5)',
           }}
         >

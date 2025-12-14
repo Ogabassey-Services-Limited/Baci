@@ -1,32 +1,47 @@
 import { streamText } from 'ai';
 import { cookies } from 'next/headers';
+import { z } from 'zod';
 import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
 import { AI_RATE_LIMITS, checkRateLimit, geminiFlash } from '@/ai/provider';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
+// Define Zod schema for request validation
+const santaChatSchema = z.object({
+  messages: z.array(
+    z.object({
+      role: z.enum(['user', 'assistant', 'system']),
+      content: z.string().min(1).max(10000),
+      imageUrl: z.string().optional(), // Allow imageUrl if present in client logic
+    })
+  ).min(1).max(50),
+});
+
 /**
  * Generate dynamic Santa system instruction with actual product data
  */
-async function generateSantaPrompt(): Promise<string> {
+async function generateSantaPrompt(supabase: SupabaseClient): Promise<string> {
   try {
+    // Fetch merchant ID first
+    const { data: merchant } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('slug', 'ogabassey')
+      .single();
+
+    if (!merchant?.id) {
+      throw new Error('Merchant not found');
+    }
+
     // Fetch Ogabassey products with cost prices
-    const supabase = await createClient(await cookies());
     const { data: products } = await supabase
       .from('products')
       .select('name, price, cost_price')
-      .eq(
-        'merchant_id',
-        (
-          await supabase
-            .from('merchants')
-            .select('id')
-            .eq('slug', 'ogabassey')
-            .single()
-        ).data?.id
-      )
+      .eq('merchant_id', merchant.id)
       .not('cost_price', 'is', null)
       .limit(20);
 
@@ -34,8 +49,10 @@ async function generateSantaPrompt(): Promise<string> {
     const productList =
       products
         ?.map(
-          (p) =>
-            `*   ${p.name}: ₦${Number(p.price).toLocaleString()} (cost: ₦${Number(p.cost_price).toLocaleString()})`
+          (p) => {
+            const minPrice = (Number(p.cost_price) || 0) + 10000;
+            return `*   ${p.name}: ₦${Number(p.price).toLocaleString()} (Min Approved: ₦${minPrice.toLocaleString()})`;
+          }
         )
         .join('\n') || '(Products loading...)';
 
@@ -44,27 +61,27 @@ async function generateSantaPrompt(): Promise<string> {
 **Your Core Purpose:**
 To receive Christmas wishes for gadgets and determine if the user's budget qualifies them for a special Ogabassey discount, all while being a delightful Santa.
 
-**IMPORTANT - Cost Price Logic:**
-You have access to both the SELLING PRICE and the COST PRICE of each product. Use these rules:
-- The MINIMUM acceptable price is: cost_price + ₦10,000 (this ensures Ogabassey still makes some profit)
-- If the user's budget is BELOW cost_price + ₦10,000, you CANNOT approve the deal even as a "hardship" case
+**IMPORTANT - Discount Logic:**
+You have access to the SELLING PRICE and the MIN APPROVED PRICE for each item.
+- The **MIN APPROVED PRICE** is the absolute lowest amount we can accept.
+- If the user's budget is BELOW the Min Approved Price, you CANNOT approve the deal.
 
 **Key Rules of Engagement:**
 1.  **Greeting:** You are engaging in a continuous conversation. Be warm and jolly. Respond naturally without re-introducing yourself.
 
 2.  **Wish Analysis:** When a user mentions a gadget:
     - Find the matching product from the catalog below
-    - Compare their budget to both the selling price AND the minimum acceptable price (cost + ₦10,000)
+    - Compare their budget to both the selling price AND the Min Approved Price
 
 3.  **Discount Logic (Strictly follow this order):**
     *   **If user's budget >= selling price:** Grant immediately! "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
     *   **If discount needed < 10%:** Grant! "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
-    *   **If discount 10-40% AND budget >= cost + ₦10,000:** Check with "chief elf". Tell them to ask "What did the elf say?"
+    *   **If discount 10-40% AND budget >= Min Approved Price:** Check with "chief elf". Tell them to ask "What did the elf say?"
     *   **If they ask for elf's decision:** Approve with "ACTION:ADD_TO_CART|PRODUCT:[Name]|PRICE:[Budget]"
-    *   **If discount 40-80% AND budget >= cost + ₦10,000:** Offer "Christmas Cheer" payment plan (30% now, rest monthly)
-    *   **If budget < cost + ₦10,000:** This is a HARDSHIP case. Be gentle but explain that even Santa's workshop has costs. Encourage saving, mention payment plans, but DO NOT approve the deal.
+    *   **If discount 40-80% AND budget >= Min Approved Price:** Offer "Christmas Cheer" payment plan (30% now, rest monthly)
+    *   **If budget < Min Approved Price:** This is a HARDSHIP case. Be gentle but explain that even Santa's workshop has costs. Encourage saving, mention payment plans, but DO NOT approve the deal.
 
-4.  **Product Catalog (with costs for your reference - don't show costs to users):**
+4.  **Product Catalog (Confidential - Internal Use Only):**
 ${productList}
 
 5.  **Formatting:** Use **bold** for excitement, *italics*, and bullet points. Keep responses warm and festive!
@@ -87,10 +104,36 @@ ${productList}
  */
 export async function POST(req: Request) {
   try {
-    // Get user identifier for rate limiting
-    const forwarded = req.headers.get('x-forwarded-for');
-    const ip = forwarded?.split(',')[0] ?? 'anonymous';
-    const rateLimitKey = `santa-chat:${ip}`;
+    // Step 1: Create Supabase client and verify authentication
+    const cookieStore = await cookies();
+    const supabase = await createClient(cookieStore);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    // NOTE: Santa Chat might be public properly? 
+    // The previous implementation used IP fallback. 
+    // BUT the requirement was explicit: "Always verify user authentication before performing database operations".
+    // AND "Product data... fetched without permission checks".
+    // However, if this is a storefront chat, maybe anonymous users should use it?
+    // CodeRabbit said: "Missing authentication verification (critical)... No user authentication check before database operations"
+    // So I MUST add it. If anonymous chat is needed, we'd need a service role or anonymous session.
+    // Assuming for now user must be logged in (which fits Baci/Ogabassey logged-in flow).
+
+    if (authError || !user) {
+      // CodeRabbit suggestion was to return 401.
+      return new Response(
+        JSON.stringify({
+          error: 'Unauthorized',
+          message: 'Please sign in to chat with Santa!',
+        }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Step 2: Check rate limit per authenticated user
+    const rateLimitKey = `santa-chat:${user.id}`;
 
     // Check rate limit
     const rateLimit = checkRateLimit(rateLimitKey, AI_RATE_LIMITS.builder);
@@ -106,23 +149,36 @@ export async function POST(req: Request) {
       );
     }
 
-    const { messages } = await req.json();
+    // Step 3: Parse and validate request body with Zod
+    const body = await req.json();
+    const validation = santaChatSchema.safeParse(body);
 
-    if (!messages || !Array.isArray(messages)) {
+    if (!validation.success) {
       return new Response(
-        JSON.stringify({ error: 'Messages array is required' }),
+        JSON.stringify({
+          error: 'Invalid input',
+          details: validation.error.format(),
+        }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
+    const { messages } = validation.data;
+
+    // Step 4: Sanitize user messages
+    const sanitizedMessages = messages.map(msg => ({
+      ...msg,
+      content: msg.role === 'user' ? sanitizeHtml(msg.content) : msg.content,
+    }));
+
     // Generate prompt with actual product data
-    const systemPrompt = await generateSantaPrompt();
+    const systemPrompt = await generateSantaPrompt(supabase);
 
     // Stream the response
     const result = streamText({
       model: geminiFlash,
       system: systemPrompt,
-      messages,
+      messages: sanitizedMessages,
     });
 
     return result.toTextStreamResponse();

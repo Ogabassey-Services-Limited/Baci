@@ -25,10 +25,11 @@ export function SantaWidget() {
           aria-label="Chat with Santa"
         >
           <Image
-            src="https://img.icons8.com/plasticine/80/santa.png"
+            src="/african-santa-head.svg"
             alt="Santa"
             width={48}
             height={48}
+            sizes="64px"
           />
         </button>
       )}

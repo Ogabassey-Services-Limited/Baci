@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: 'A staff member with this email already exists' },
+        { error: 'Unable to invite staff member. Please check the email address and try again.' },
         { status: 409 }
       );
     }

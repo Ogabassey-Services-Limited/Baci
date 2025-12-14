@@ -58,11 +58,35 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      console.error('Invalid file type');
+      // Optional: Add toast notification
+      return;
+    }
+
+    // Limit file size (5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      console.error('File too large');
+      // Optional: Add toast notification
+      return;
+    }
+
     const reader = new FileReader();
+    reader.onerror = () => {
+      console.error('Failed to read file');
+    };
     reader.onloadend = () => {
-      onSendMessage({ content: '', imageUrl: reader.result as string });
+      if (typeof reader.result === 'string') {
+        onSendMessage({ content: '', imageUrl: reader.result });
+      }
     };
     reader.readAsDataURL(file);
+
+    // Reset input to allow re-uploading same file
+    e.target.value = '';
   };
 
   const showSendIcon = input.trim().length > 0;
@@ -70,11 +94,10 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className={`flex items-center space-x-2 bg-white border rounded-2xl px-3 py-2 shadow-sm transition-all duration-200 ${
-        showSendIcon
+      className={`flex items-center space-x-2 bg-white border rounded-2xl px-3 py-2 shadow-sm transition-all duration-200 ${showSendIcon
           ? 'border-red-600 ring-1 ring-red-600/50'
           : 'border-gray-200'
-      }`}
+        }`}
     >
       {/* Image upload button */}
       <input

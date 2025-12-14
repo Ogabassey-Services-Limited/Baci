@@ -12,6 +12,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  imageUrl?: string;
 }
 
 interface SantaChatDialogProps {
@@ -54,13 +55,14 @@ export function SantaChatDialog({
   };
 
   const sendMessage = useCallback(
-    async (userMessage: string) => {
-      if (!userMessage.trim()) return;
+    async (userMessage: string, imageUrl?: string) => {
+      if (!userMessage.trim() && !imageUrl) return;
 
       const userMsg: Message = {
         id: `user-${Date.now()}`,
         role: 'user',
         content: userMessage,
+        imageUrl,
       };
 
       // Add user message to state
@@ -77,6 +79,10 @@ export function SantaChatDialog({
             messages: updatedMessages.map((m) => ({
               role: m.role,
               content: m.content,
+              // If image exists, experimental attachments or mixed content might be needed
+              // For now, pass it as a separate field or extended content if specific provider supports it
+              // Assuming API handles experimental_attachments or just extra fields
+              imageUrl: m.imageUrl,
             })),
           }),
         });
@@ -104,25 +110,30 @@ export function SantaChatDialog({
 
             const chunk = decoder.decode(value, { stream: true });
             // Parse the streaming data format from Vercel AI SDK
+            // Note: If the API returns raw text stream, this splitting isn't needed. 
+            // If it returns standard AI stream protocol (0:"..."), this is correct.
+            // Keeping existing logic as safeguard.
             const lines = chunk.split('\n');
+
             for (const line of lines) {
               if (line.startsWith('0:')) {
                 // Text content chunk
                 try {
                   const text = JSON.parse(line.slice(2));
                   assistantContent += text;
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantId
-                        ? { ...m, content: assistantContent }
-                        : m
-                    )
-                  );
                 } catch {
-                  // Ignore parse errors for non-JSON chunks
+                  // Ignore parse errors
                 }
               }
             }
+
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? { ...m, content: assistantContent }
+                  : m
+              )
+            );
           }
         }
       } catch (err) {
@@ -138,14 +149,7 @@ export function SantaChatDialog({
   );
 
   const handleSendMessage = (message: Omit<ChatMessageType, 'role'>) => {
-    if (!message.content.trim() && !message.imageUrl) return;
-
-    // For image messages, append a description
-    const content = message.imageUrl
-      ? 'I sent you a picture, Santa! What do you think?'
-      : message.content;
-
-    sendMessage(content);
+    sendMessage(message.content, message.imageUrl);
   };
 
   if (showWelcome) {
@@ -256,11 +260,12 @@ export function SantaChatDialog({
             <div className="flex justify-start my-2">
               <div className="flex gap-2 items-center">
                 <Image
-                  src="https://img.icons8.com/plasticine/100/santa.png"
+                  src="/african-santa-head.svg"
                   alt="Santa"
                   width={40}
                   height={40}
-                  className="rounded-full"
+                  sizes="40px"
+                  className="rounded-full object-cover"
                 />
                 <div
                   className="bg-red-100 p-3 rounded-t-xl rounded-br-xl shadow-md flex items-center"

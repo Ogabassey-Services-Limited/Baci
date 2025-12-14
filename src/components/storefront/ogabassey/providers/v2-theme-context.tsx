@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 export type V2ThemeMode = 'standard' | 'santa';
 
@@ -24,7 +24,23 @@ export const useV2Theme = () => {
 export const V2ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [theme, setTheme] = useState<V2ThemeMode>('standard');
+  const [theme, setTheme] = useState<V2ThemeMode>(() => {
+    if (typeof window !== 'undefined') {
+      // Client-side: Check month
+      const isDecember = new Date().getMonth() === 11;
+      return isDecember ? 'santa' : 'standard';
+    }
+    // Server-side default (to avoid hydration mismatch, though arguably server could checks date too)
+    return 'standard';
+  });
+
+  // Ensure 'santa' is applied if we are indeed in December after hydration
+  useEffect(() => {
+    const isDecember = new Date().getMonth() === 11;
+    if (isDecember) {
+      setTheme('santa');
+    }
+  }, []);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'standard' ? 'santa' : 'standard'));
