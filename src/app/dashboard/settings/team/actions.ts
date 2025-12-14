@@ -64,10 +64,12 @@ export async function getStaffMembers() {
     throw new Error('Merchant not found');
   }
 
-  // Get staff members
+  // Get staff members - select only fields needed by UI to avoid exposing sensitive data like invitation_token
   const { data: staff, error: staffError } = await supabase
     .from('staff_members')
-    .select('*')
+    .select(
+      'id, email, name, role, status, created_at, invited_at, accepted_at'
+    )
     .eq('merchant_id', merchant.id)
     .neq('status', 'removed')
     .order('created_at', { ascending: false });
@@ -226,10 +228,10 @@ export async function resendInvitation(id: string) {
     throw new Error('Merchant not found');
   }
 
-  // Get staff member
+  // Get staff member - only select fields needed for resending invitation
   const { data: staff } = await supabase
     .from('staff_members')
-    .select('*')
+    .select('id, email, name, role, status')
     .eq('id', id)
     .eq('merchant_id', merchant.id)
     .single();
@@ -269,11 +271,8 @@ export async function resendInvitation(id: string) {
     invitationToken
   );
 
-  const inviteUrl = `${getAppUrl()}/invite/${invitationToken}`;
-
   revalidatePath('/dashboard/settings/team');
-  // We return the URL so the UI can show it if needed (legacy behavior kept)
-  return { success: true, inviteUrl };
+  return { success: true };
 }
 
 export async function updateStaffMember(
@@ -312,9 +311,18 @@ export async function updateStaffMember(
     throw new Error('Merchant not found');
   }
 
+  // Explicitly construct update object with only allowed fields to prevent prototype pollution
+  const updateData: { role?: StaffRole; status?: StaffStatus } = {};
+  if (data.role) updateData.role = data.role;
+  if (data.status) updateData.status = data.status;
+
+  if (Object.keys(updateData).length === 0) {
+    throw new Error('No valid fields to update');
+  }
+
   const { data: updated, error } = await supabase
     .from('staff_members')
-    .update(data)
+    .update(updateData)
     .eq('id', id)
     .eq('merchant_id', merchant.id)
     .select('id')
@@ -395,7 +403,7 @@ async function sendInviteEmail(
   // Escape user-controlled values to prevent HTML injection
   const safeName = escapeHtmlForEmail(name) || 'there';
   const safeBusinessName = escapeHtmlForEmail(businessName);
-  const safeRole = escapeHtmlForEmail(role.replace('_', ' '));
+  const safeRole = escapeHtmlForEmail(role.replaceAll('_', ' '));
 
   try {
     await sendEmail({
@@ -429,7 +437,7 @@ async function sendInviteEmail(
           </body>
           </html>
         `,
-      textContent: `Hi ${name || 'there'},\n\nYou've been invited to join ${businessName} as a ${role.replace('_', ' ')}.\n\nClick the link below to accept your invitation:\n${inviteUrl}\n\nThis invitation will expire in 7 days.\n\nIf you didn't expect this invitation, you can safely ignore this email.`,
+      textContent: `Hi ${name || 'there'},\n\nYou've been invited to join ${businessName} as a ${role.replaceAll('_', ' ')}.\n\nClick the link below to accept your invitation:\n${inviteUrl}\n\nThis invitation will expire in 7 days.\n\nIf you didn't expect this invitation, you can safely ignore this email.`,
       emailType: 'team',
     });
   } catch {

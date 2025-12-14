@@ -4,8 +4,6 @@ import {
   ArrowLeft,
   CheckCircle,
   Clock,
-  Copy,
-  Info,
   Loader2,
   Mail,
   MoreHorizontal,
@@ -24,7 +22,6 @@ import { useState, useTransition } from 'react';
 // But actions.ts returns DB rows which might slightly differ if we used join?
 // Actually actions.ts returns `select * from staff_members`
 import type { StaffMember } from '@/app/api/staff/route';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -176,7 +173,6 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
     name: '',
     role: 'sales_rep' as StaffRole,
   });
-  const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   // biome-ignore lint/suspicious/useAwait: async needed for startTransition with Server Action
@@ -233,16 +229,13 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
   const handleResendInvite = async (staffId: string) => {
     startTransition(async () => {
       try {
-        const result = await resendInvitation(staffId);
+        await resendInvitation(staffId);
 
         toast({
           title: 'Invitation Resent',
           description: 'The invitation has been resent.',
         });
 
-        if (result.inviteUrl) {
-          setLastInviteUrl(result.inviteUrl);
-        }
         router.refresh();
       } catch (error) {
         console.error('Failed to resend invitation:', error);
@@ -357,25 +350,6 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
         });
       }
     });
-  };
-
-  const copyInviteLink = async () => {
-    if (lastInviteUrl) {
-      try {
-        await navigator.clipboard.writeText(lastInviteUrl);
-        toast({
-          title: 'Copied',
-          description: 'Invite link copied to clipboard.',
-        });
-      } catch (error) {
-        console.error('Failed to copy to clipboard:', error);
-        toast({
-          title: 'Failed to copy',
-          description: 'Could not copy link to clipboard.',
-          variant: 'destructive',
-        });
-      }
-    }
   };
 
   return (
@@ -510,22 +484,6 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Last invite URL */}
-          {lastInviteUrl && (
-            <Alert className="mb-4">
-              <Info className="h-4 w-4" />
-              <AlertTitle>Invitation Link</AlertTitle>
-              <AlertDescription className="flex items-center gap-2 mt-2">
-                <code className="text-xs bg-muted px-2 py-1 rounded flex-1 truncate">
-                  {lastInviteUrl}
-                </code>
-                <Button variant="outline" size="sm" onClick={copyInviteLink}>
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-
           {/* Staff Table */}
           {staff.length === 0 ? (
             <div className="text-center py-12 border rounded-lg bg-muted/30">
