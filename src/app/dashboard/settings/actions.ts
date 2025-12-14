@@ -88,7 +88,8 @@ export async function submitKyc(data: KycData) {
     revalidatePath('/dashboard/settings');
     return { success: true };
   } catch (error) {
-    console.error('KYC submission failed:', error);
+    // Don't log the full error to avoid exposing sensitive KYC data (NIN, BVN)
+    console.error('KYC submission failed');
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Submission failed',

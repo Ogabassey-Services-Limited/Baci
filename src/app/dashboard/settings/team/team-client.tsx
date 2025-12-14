@@ -164,6 +164,13 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
     id: string;
     email: string;
   } | null>(null);
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [staffToEditRole, setStaffToEditRole] = useState<{
+    id: string;
+    email: string;
+    currentRole: StaffRole;
+  } | null>(null);
+  const [selectedRole, setSelectedRole] = useState<StaffRole>('sales_rep');
   const [inviteForm, setInviteForm] = useState({
     email: '',
     name: '',
@@ -237,10 +244,14 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
           setLastInviteUrl(result.inviteUrl);
         }
         router.refresh();
-      } catch {
+      } catch (error) {
+        console.error('Failed to resend invitation:', error);
         toast({
           title: 'Error',
-          description: 'Failed to resend invitation.',
+          description:
+            error instanceof Error
+              ? error.message
+              : 'Failed to resend invitation.',
           variant: 'destructive',
         });
       }
@@ -266,10 +277,14 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
         });
 
         router.refresh();
-      } catch {
+      } catch (error) {
+        console.error('Failed to remove team member:', error);
         toast({
           title: 'Error',
-          description: 'Failed to remove team member.',
+          description:
+            error instanceof Error
+              ? error.message
+              : 'Failed to remove team member.',
           variant: 'destructive',
         });
       } finally {
@@ -291,10 +306,12 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
         });
 
         router.refresh();
-      } catch {
+      } catch (error) {
+        console.error('Failed to update role:', error);
         toast({
           title: 'Error',
-          description: 'Failed to update role.',
+          description:
+            error instanceof Error ? error.message : 'Failed to update role.',
           variant: 'destructive',
         });
       }
@@ -319,23 +336,34 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
         });
 
         router.refresh();
-      } catch {
+      } catch (error) {
+        console.error('Failed to update status:', error);
         toast({
           title: 'Error',
-          description: 'Failed to update status.',
+          description:
+            error instanceof Error ? error.message : 'Failed to update status.',
           variant: 'destructive',
         });
       }
     });
   };
 
-  const copyInviteLink = () => {
+  const copyInviteLink = async () => {
     if (lastInviteUrl) {
-      navigator.clipboard.writeText(lastInviteUrl);
-      toast({
-        title: 'Copied',
-        description: 'Invite link copied to clipboard.',
-      });
+      try {
+        await navigator.clipboard.writeText(lastInviteUrl);
+        toast({
+          title: 'Copied',
+          description: 'Invite link copied to clipboard.',
+        });
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+        toast({
+          title: 'Failed to copy',
+          description: 'Could not copy link to clipboard.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
@@ -576,19 +604,13 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
                             )}
                             <DropdownMenuItem
                               onClick={() => {
-                                const newRole = prompt(
-                                  `Change role for ${member.email}. Current: ${ROLE_LABELS[member.role]}\n\nAvailable roles:\n` +
-                                    Object.entries(ROLE_LABELS)
-                                      .map(([k, v]) => `${k}: ${v}`)
-                                      .join('\n'),
-                                  member.role
-                                );
-                                if (newRole && newRole in ROLE_LABELS) {
-                                  handleUpdateRole(
-                                    member.id,
-                                    newRole as StaffRole
-                                  );
-                                }
+                                setStaffToEditRole({
+                                  id: member.id,
+                                  email: member.email,
+                                  currentRole: member.role,
+                                });
+                                setSelectedRole(member.role);
+                                setRoleDialogOpen(true);
                               }}
                             >
                               <Shield className="h-4 w-4 mr-2" />
@@ -693,6 +715,78 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Role Dialog */}
+      <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Change Role</DialogTitle>
+            <DialogDescription>
+              Update the role for <strong>{staffToEditRole?.email}</strong>.
+              Current role:{' '}
+              {staffToEditRole && ROLE_LABELS[staffToEditRole.currentRole]}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="role-select">New Role</Label>
+            <Select
+              value={selectedRole}
+              onValueChange={(value) => setSelectedRole(value as StaffRole)}
+            >
+              <SelectTrigger id="role-select" className="mt-2">
+                <SelectValue placeholder="Select a role" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    <div className="flex flex-col items-start">
+                      <span>{label}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {ROLE_DESCRIPTIONS[value as StaffRole]}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRoleDialogOpen(false);
+                setStaffToEditRole(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={
+                isPending || selectedRole === staffToEditRole?.currentRole
+              }
+              onClick={() => {
+                if (staffToEditRole) {
+                  handleUpdateRole(staffToEditRole.id, selectedRole);
+                  setRoleDialogOpen(false);
+                  setStaffToEditRole(null);
+                }
+              }}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 motion-safe:animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <Shield className="h-4 w-4 mr-2" />
+                  Update Role
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

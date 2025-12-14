@@ -145,13 +145,22 @@ export default function PagesClient() {
 
   async function onSubmit(data: PagesFormValues) {
     setIsSaving(true);
-    await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
-    updateMerchant({ pages: data });
-    setIsSaving(false);
-    toast({
-      title: 'Pages Saved!',
-      description: 'Your informational pages have been updated.',
-    });
+    try {
+      await updateMerchant({ pages: data });
+      toast({
+        title: 'Pages Saved!',
+        description: 'Your informational pages have been updated.',
+      });
+    } catch (error) {
+      console.error('Failed to save pages:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save page content.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   if (loading) {

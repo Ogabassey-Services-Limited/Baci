@@ -209,12 +209,21 @@ export function DiscountClient({ initialDiscountCodes }: DiscountClientProps) {
     });
   };
 
-  const copyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast({
-      title: 'Copied!',
-      description: `Code "${code}" copied to clipboard.`,
-    });
+  const copyCode = async (code: string) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast({
+        title: 'Copied!',
+        description: `Code "${code}" copied to clipboard.`,
+      });
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      toast({
+        title: 'Failed to copy',
+        description: 'Could not copy code to clipboard.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const formatDiscount = (code: DiscountCode) => {

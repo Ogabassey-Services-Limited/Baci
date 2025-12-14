@@ -23,6 +23,18 @@ export type AnalyticsCategory =
   | 'segments'
   | 'ads';
 
+// Valid categories for URL parameter validation
+export const VALID_CATEGORIES: AnalyticsCategory[] = [
+  'overview',
+  'finance',
+  'products',
+  'customers',
+  'marketing',
+  'inventory',
+  'segments',
+  'ads',
+];
+
 interface AnalyticsCategoryNavProps {
   activeCategory: AnalyticsCategory;
   onCategoryChange: (category: AnalyticsCategory) => void;
@@ -39,15 +51,15 @@ export function AnalyticsCategoryNav({
     label: string;
     icon: React.ElementType;
   }[] = [
-      { id: 'overview', label: 'Overview 📊', icon: LayoutGrid },
-      { id: 'finance', label: 'Finance 💰', icon: DollarSign },
-      { id: 'products', label: 'Products 📦', icon: Package },
-      { id: 'inventory', label: 'Inventory 📈', icon: TrendingUp },
-      { id: 'customers', label: 'Customers 👥', icon: Users },
-      { id: 'segments', label: 'Segments 🎯', icon: Target },
-      { id: 'marketing', label: 'Marketing 📣', icon: Megaphone },
-      { id: 'ads', label: 'Ad Conversions ⚡', icon: Zap },
-    ];
+    { id: 'overview', label: 'Overview 📊', icon: LayoutGrid },
+    { id: 'finance', label: 'Finance 💰', icon: DollarSign },
+    { id: 'products', label: 'Products 📦', icon: Package },
+    { id: 'inventory', label: 'Inventory 📈', icon: TrendingUp },
+    { id: 'customers', label: 'Customers 👥', icon: Users },
+    { id: 'segments', label: 'Segments 🎯', icon: Target },
+    { id: 'marketing', label: 'Marketing 📣', icon: Megaphone },
+    { id: 'ads', label: 'Ad Conversions ⚡', icon: Zap },
+  ];
 
   return (
     <div

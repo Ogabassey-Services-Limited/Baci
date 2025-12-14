@@ -68,12 +68,13 @@ export function DomainSearchPanel() {
     }
 
     const domainPart = term.split('.')[0];
-    const domainRegex = /^[a-z0-9-]+$/i;
+    // RFC 1123 compliant: must start and end with alphanumeric, can have hyphens in middle
+    const domainRegex = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/i;
     if (!domainRegex.test(domainPart)) {
       toast({
         title: 'Invalid domain name',
         description:
-          'Domain names can only contain letters, numbers, and hyphens.',
+          'Domain names must start and end with a letter or number, and can contain hyphens in the middle.',
         variant: 'destructive',
       });
       return;

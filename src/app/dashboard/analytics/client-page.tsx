@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   type AnalyticsCategory,
   AnalyticsCategoryNav,
+  VALID_CATEGORIES,
 } from '@/components/analytics/analytics-category-nav';
 import { AnalyticsFilters } from '@/components/analytics/analytics-filters';
 import {
@@ -30,8 +31,12 @@ export default function AnalyticsClientPage() {
     to: new Date(),
   });
   const searchParams = useSearchParams();
+  const categoryParam = searchParams.get('category');
   const [activeCategory, setActiveCategory] = useState<AnalyticsCategory>(
-    (searchParams.get('category') as AnalyticsCategory) || 'overview'
+    categoryParam &&
+      VALID_CATEGORIES.includes(categoryParam as AnalyticsCategory)
+      ? (categoryParam as AnalyticsCategory)
+      : 'overview'
   );
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
     null
@@ -128,6 +133,8 @@ export default function AnalyticsClientPage() {
 
   // Fetch analytics data
   useEffect(() => {
+    const controller = new AbortController();
+
     async function fetchAnalytics() {
       if (!merchant || !date.from || !date.to) return;
 
@@ -138,7 +145,8 @@ export default function AnalyticsClientPage() {
           endDate: date.to.toISOString(),
         });
         const response = await fetch(
-          `/api/analytics?${queryParams.toString()}`
+          `/api/analytics?${queryParams.toString()}`,
+          { signal: controller.signal }
         );
         if (response.ok) {
           const data = await response.json();
@@ -151,6 +159,7 @@ export default function AnalyticsClientPage() {
           );
         }
       } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
         console.error('Error fetching analytics:', error);
       } finally {
         setLoadingAnalytics(false);
@@ -158,6 +167,8 @@ export default function AnalyticsClientPage() {
     }
 
     fetchAnalytics();
+
+    return () => controller.abort();
   }, [merchant, date]);
 
   // Fetch specialized data when category changes
