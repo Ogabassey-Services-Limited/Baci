@@ -67,9 +67,10 @@ function analyzeSEO(
 
   // Title analysis
   const titleLength = title.length;
-  const titleHasKeyword = title
-    .toLowerCase()
-    .includes(focusKeyword.toLowerCase());
+  // Guard against empty focusKeyword - ''.includes('') returns true incorrectly
+  const titleHasKeyword =
+    focusKeyword.length > 0 &&
+    title.toLowerCase().includes(focusKeyword.toLowerCase());
 
   if (titleLength < 30) {
     issues.push('Title is too short (< 30 chars)');
@@ -87,9 +88,10 @@ function analyzeSEO(
 
   // Description analysis
   const descLength = description.length;
-  const descHasKeyword = description
-    .toLowerCase()
-    .includes(focusKeyword.toLowerCase());
+  // Guard against empty focusKeyword - ''.includes('') returns true incorrectly
+  const descHasKeyword =
+    focusKeyword.length > 0 &&
+    description.toLowerCase().includes(focusKeyword.toLowerCase());
 
   if (descLength < 120) {
     issues.push('Meta description is too short (< 120 chars)');

@@ -31,8 +31,18 @@ export default async function SEOOptimizerPage() {
     redirect('/onboarding');
   }
 
-  // Fetch initial data
-  const { products, summary } = await getSEOStatus(merchant.id);
+  // Fetch initial data with error handling
+  let products: Awaited<ReturnType<typeof getSEOStatus>>['products'] = [];
+  let summary: Awaited<ReturnType<typeof getSEOStatus>>['summary'] = null;
+
+  try {
+    const result = await getSEOStatus(merchant.id);
+    products = result.products;
+    summary = result.summary;
+  } catch (error) {
+    console.error('Failed to fetch SEO status:', error);
+    // Products and summary remain at default values
+  }
 
   return (
     <SEOClient

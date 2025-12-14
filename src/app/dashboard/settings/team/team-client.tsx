@@ -192,18 +192,6 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
           description: result.message,
         });
 
-        // If we had the URL back from action, set it
-        // The inviteStaffMember action doesn't return URL because it sends email?
-        // Wait, the API route returned URL. Let's check my action implementation.
-        // My action calls sendEmail and returns success.
-        // It does NOT currently return the URL. I should probably update the action to return URL if I want this feature.
-        // Update: I will fix this in a follow-up if critical, but for now let's assume email is primary.
-        // Actually, user might want to copy link.
-        // I'll proceed without link display for now or check if I can add it.
-        // Re-checking action code... I didn't return inviteUrl in `inviteStaffMember`.
-        // I will fix `inviteStaffMember` in the next step to return `inviteUrl` if I can, aka "return URL for copy".
-        // But let's stick to current impl for now.
-
         setInviteForm({ email: '', name: '', role: 'sales_rep' });
         setInviteDialogOpen(false);
         router.refresh();
@@ -283,7 +271,11 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
   };
 
   // biome-ignore lint/suspicious/useAwait: async needed for startTransition with Server Action
-  const handleUpdateRole = async (staffId: string, newRole: StaffRole) => {
+  const handleUpdateRole = async (
+    staffId: string,
+    newRole: StaffRole,
+    onSuccess?: () => void
+  ) => {
     startTransition(async () => {
       try {
         await updateStaffMember(staffId, { role: newRole });
@@ -294,6 +286,7 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
         });
 
         router.refresh();
+        onSuccess?.();
       } catch (error) {
         console.error('Failed to update role:', error);
         toast({
@@ -734,9 +727,11 @@ export function TeamClient({ initialStaff }: TeamClientProps) {
               }
               onClick={() => {
                 if (staffToEditRole) {
-                  handleUpdateRole(staffToEditRole.id, selectedRole);
-                  setRoleDialogOpen(false);
-                  setStaffToEditRole(null);
+                  handleUpdateRole(staffToEditRole.id, selectedRole, () => {
+                    // Close dialog only after successful update
+                    setRoleDialogOpen(false);
+                    setStaffToEditRole(null);
+                  });
                 }
               }}
             >

@@ -43,23 +43,30 @@ export async function uploadFavicon(formData: FormData, merchantId: string) {
 }
 
 // Zod schema for KYC validation - NIN and BVN are 11-digit numbers in Nigeria
+// Transform empty strings to null before validation to handle form submissions gracefully
 const kycSchema = z
   .object({
     nin: z
       .string()
-      .regex(/^\d{11}$/, 'NIN must be 11 digits')
-      .nullable(),
+      .transform((val) => (val === '' ? null : val))
+      .nullable()
+      .refine((val) => val === null || /^\d{11}$/.test(val), {
+        message: 'NIN must be 11 digits',
+      }),
     bvn: z
       .string()
-      .regex(/^\d{11}$/, 'BVN must be 11 digits')
-      .nullable(),
+      .transform((val) => (val === '' ? null : val))
+      .nullable()
+      .refine((val) => val === null || /^\d{11}$/.test(val), {
+        message: 'BVN must be 11 digits',
+      }),
     cac_number: z
       .string()
-      .regex(
-        /^(RC|BN)\s?\d{6,8}$/i,
-        'CAC must be in format RC/BN followed by 6-8 digits'
-      )
-      .nullable(),
+      .transform((val) => (val === '' ? null : val))
+      .nullable()
+      .refine((val) => val === null || /^(RC|BN)\s?\d{6,8}$/i.test(val), {
+        message: 'CAC must be in format RC/BN followed by 6-8 digits',
+      }),
   })
   .refine((data) => data.nin || data.bvn || data.cac_number, {
     message: 'At least one KYC field must be provided',

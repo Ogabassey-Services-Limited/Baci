@@ -41,6 +41,7 @@ import { Switch } from '@/components/ui/switch';
 import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
+import { sanitizeText } from '@/lib/sanitize-core';
 import { uploadImage } from '@/lib/storage';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
@@ -96,6 +97,16 @@ const extractColorsFromImage = (imageDataUri: string): Promise<BrandColors> => {
       reject(new Error('Image could not be loaded for color extraction.'));
     };
   });
+};
+
+// Sanitize social media handles before submission
+const sanitizeSocialMedia = (social: Record<string, string>) => {
+  return Object.fromEntries(
+    Object.entries(social).map(([key, value]) => [
+      key,
+      sanitizeText(value.trim()),
+    ])
+  );
 };
 
 interface SettingsFormProps {
@@ -316,6 +327,8 @@ export function SettingsForm({
       reader.onloadend = async () => {
         const dataUri = reader.result as string;
         setIsUploading(true);
+        // Store previous state for rollback on error
+        const previousState = merchantState;
         try {
           // Optimistic UI update for logo
           // biome-ignore lint/suspicious/noExplicitAny: State callback typing
@@ -337,6 +350,8 @@ export function SettingsForm({
             description: 'Your new brand identity is saved.',
           });
         } catch (e) {
+          // Revert optimistic update on error
+          setMerchantState(previousState);
           logger.error({
             error: e as Error,
             message: 'Logo upload and color extraction failed.',
@@ -414,7 +429,7 @@ export function SettingsForm({
       await updateMerchant({
         ...data,
         hero_slides: heroSlides,
-        social_media: socialMedia,
+        social_media: sanitizeSocialMedia(socialMedia),
       } as Parameters<typeof updateMerchant>[0]);
       toast({
         title: 'Settings Saved!',

@@ -128,11 +128,13 @@ export function DomainSearchPanel() {
         body: JSON.stringify({ domain, years: 1 }),
       });
 
-      const data = await response.json();
-
+      // Check response.ok before calling .json() to handle non-JSON error responses
       if (!response.ok) {
-        throw new Error(data.error || 'Purchase failed');
+        const error = await response.json();
+        throw new Error(error.error || 'Purchase failed');
       }
+
+      const data = await response.json();
 
       toast({
         title: '🎉 Domain Purchased!',

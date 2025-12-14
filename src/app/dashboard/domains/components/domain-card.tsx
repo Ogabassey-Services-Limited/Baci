@@ -117,13 +117,18 @@ export function DomainCard({ domain }: DomainCardProps) {
 
   const handleVerify = async () => {
     setIsVerifying(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     try {
       const response = await fetch(
         `/api/domains/${encodeURIComponent(domain.domain)}/verify`,
         {
           method: 'POST',
+          signal: controller.signal,
         }
       );
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (response.ok && data.success) {
@@ -142,11 +147,14 @@ export function DomainCard({ domain }: DomainCardProps) {
         });
       }
     } catch (error) {
-      console.error('Error verifying domain:', error);
+      clearTimeout(timeoutId);
+      console.error('Error verifying domain');
       toast({
         title: 'Verification Error',
         description:
-          'An error occurred while verifying the domain. Please try again.',
+          error instanceof Error && error.name === 'AbortError'
+            ? 'Request timed out. Please try again.'
+            : 'An error occurred while verifying the domain. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -156,13 +164,18 @@ export function DomainCard({ domain }: DomainCardProps) {
 
   const handleDelete = async () => {
     setIsDeleting(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     try {
       const response = await fetch(
         `/api/domains/${encodeURIComponent(domain.domain)}`,
         {
           method: 'DELETE',
+          signal: controller.signal,
         }
       );
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         toast({
@@ -179,10 +192,14 @@ export function DomainCard({ domain }: DomainCardProps) {
         });
       }
     } catch (error) {
-      console.error('Error deleting domain:', error);
+      clearTimeout(timeoutId);
+      console.error('Error deleting domain');
       toast({
         title: 'Error',
-        description: 'An error occurred while deleting the domain',
+        description:
+          error instanceof Error && error.name === 'AbortError'
+            ? 'Request timed out. Please try again.'
+            : 'An error occurred while deleting the domain',
         variant: 'destructive',
       });
     } finally {
@@ -346,8 +363,12 @@ export function DomainCard({ domain }: DomainCardProps) {
                           );
                         }
                       } catch {
-                        // Invalid URL, don't open
-                        console.error('Invalid domain URL:', domain.domain);
+                        // Invalid URL, don't open - show user feedback
+                        toast({
+                          title: 'Invalid URL',
+                          description: 'Unable to open the domain URL.',
+                          variant: 'destructive',
+                        });
                       }
                     }}
                   >
