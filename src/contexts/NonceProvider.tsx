@@ -1,7 +1,7 @@
 'use client';
 
 import { MotionConfig } from 'framer-motion';
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, type ReactNode, useContext } from 'react';
 
 interface NonceContextValue {
   nonce?: string;

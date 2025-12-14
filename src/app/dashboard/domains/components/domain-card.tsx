@@ -331,13 +331,25 @@ export function DomainCard({ domain }: DomainCardProps) {
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem
-                    onClick={() =>
-                      window.open(
-                        `https://${domain.domain}`,
-                        '_blank',
-                        'noopener,noreferrer'
-                      )
-                    }
+                    onClick={() => {
+                      // Validate domain format and ensure https protocol
+                      try {
+                        const url = new URL(`https://${domain.domain}`);
+                        if (
+                          url.protocol === 'https:' ||
+                          url.protocol === 'http:'
+                        ) {
+                          window.open(
+                            url.href,
+                            '_blank',
+                            'noopener,noreferrer'
+                          );
+                        }
+                      } catch {
+                        // Invalid URL, don't open
+                        console.error('Invalid domain URL:', domain.domain);
+                      }
+                    }}
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Visit Site

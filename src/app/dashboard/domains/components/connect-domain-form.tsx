@@ -106,7 +106,7 @@ export function ConnectDomainForm() {
           variant: 'destructive',
         });
       }
-    } catch (error) {
+    } catch {
       console.error('Error adding domain');
       toast({
         title: 'Error',

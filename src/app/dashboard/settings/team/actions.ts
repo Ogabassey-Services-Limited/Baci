@@ -18,6 +18,18 @@ const VALID_STATUSES: StaffStatus[] = [
   'removed',
 ];
 
+// Valid staff roles for runtime validation
+const VALID_ROLES: StaffRole[] = [
+  'admin',
+  'manager',
+  'sales_rep',
+  'inventory',
+  'accountant',
+  'customer_service',
+  'marketing',
+  'fulfillment',
+];
+
 // HTML escape function for email templates to prevent HTML injection
 function escapeHtmlForEmail(str: string): string {
   if (!str) return '';
@@ -101,6 +113,11 @@ export async function inviteStaffMember(data: {
     throw new Error('Email and role are required');
   }
 
+  // Validate role at runtime
+  if (!VALID_ROLES.includes(role)) {
+    throw new Error('Invalid role value');
+  }
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     throw new Error('Invalid email format');
@@ -124,7 +141,8 @@ export async function inviteStaffMember(data: {
       const { error: reactivateError } = await supabase
         .from('staff_members')
         .update({
-          name,
+          // Only update name if explicitly provided, preserving existing name otherwise
+          ...(name !== undefined && { name }),
           role,
           status: 'pending',
           invitation_token: invitationToken,
@@ -278,6 +296,11 @@ export async function updateStaffMember(
     throw new Error('Invalid status value');
   }
 
+  // Validate role if provided
+  if (data.role && !VALID_ROLES.includes(data.role)) {
+    throw new Error('Invalid role value');
+  }
+
   // Get merchant
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
@@ -409,7 +432,7 @@ async function sendInviteEmail(
       textContent: `Hi ${name || 'there'},\n\nYou've been invited to join ${businessName} as a ${role.replace('_', ' ')}.\n\nClick the link below to accept your invitation:\n${inviteUrl}\n\nThis invitation will expire in 7 days.\n\nIf you didn't expect this invitation, you can safely ignore this email.`,
       emailType: 'team',
     });
-  } catch (error) {
+  } catch {
     console.error('Failed to send invite email');
     // Silent fail on email shouldn't break the action
     // The action caller handles "success" so we probably shouldn't throw here if the DB part worked.

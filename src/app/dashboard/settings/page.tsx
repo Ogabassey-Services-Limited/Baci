@@ -1,5 +1,5 @@
-import type { Metadata } from 'next';
 import { ChevronRight, CreditCard, Users } from 'lucide-react';
+import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -71,12 +71,16 @@ export default async function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/dashboard/settings/payments">
-              <Button variant="outline" className="w-full justify-between">
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              asChild
+            >
+              <Link href="/dashboard/settings/payments">
                 <span>Manage Payment Settings</span>
                 <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </CardContent>
         </Card>
 
@@ -93,12 +97,16 @@ export default async function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/dashboard/settings/team">
-              <Button variant="outline" className="w-full justify-between">
+            <Button
+              variant="outline"
+              className="w-full justify-between"
+              asChild
+            >
+              <Link href="/dashboard/settings/team">
                 <span>Manage Team Members</span>
                 <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </CardContent>
         </Card>
 
