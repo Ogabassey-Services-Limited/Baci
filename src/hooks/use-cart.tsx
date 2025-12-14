@@ -238,8 +238,15 @@ export const CartProvider = ({
     if (!isHydrated || cart.length === 0) return;
 
     const validateCart = async () => {
+      // Limit batch size to prevent massive payloads
+      const BATCH_SIZE = 50;
+      const limitedCart = cart.slice(0, BATCH_SIZE);
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
       try {
-        const cartItems = cart.map((item) => ({
+        const cartItems = limitedCart.map((item) => ({
           id: item.id,
           price: item.price,
         }));
@@ -248,6 +255,7 @@ export const CartProvider = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cartItems }),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -264,7 +272,7 @@ export const CartProvider = ({
         };
 
         // Remove invalid products (ghost products)
-        if (invalidProductIds.length > 0) {
+        if (invalidProductIds?.length > 0) {
           setCart((prev) => {
             const filtered = prev.filter(
               (item) => !invalidProductIds.includes(item.id)
@@ -281,7 +289,7 @@ export const CartProvider = ({
         }
 
         // Update stale prices
-        if (priceChanges.length > 0) {
+        if (priceChanges?.length > 0) {
           setCart((prev) =>
             prev.map((item) => {
               const priceChange = priceChanges.find((pc) => pc.id === item.id);
@@ -299,10 +307,16 @@ export const CartProvider = ({
           );
         }
       } catch (error) {
-        logger.error({
-          message: 'Cart validation error',
-          error: error as Error,
-        });
+        if (error instanceof Error && error.name === 'AbortError') {
+          logger.warn({ message: 'Cart validation timed out' });
+        } else {
+          logger.error({
+            message: 'Cart validation error',
+            error: error as Error,
+          });
+        }
+      } finally {
+        clearTimeout(timeoutId);
       }
     };
 
@@ -492,10 +506,10 @@ export const CartProvider = ({
         prev.map((item) =>
           item.cartItemId === cartItemId
             ? {
-                ...item,
-                negotiatedPrice: newPrice,
-                negotiationStatus: 'accepted',
-              }
+              ...item,
+              negotiatedPrice: newPrice,
+              negotiationStatus: 'accepted',
+            }
             : item
         )
       );
