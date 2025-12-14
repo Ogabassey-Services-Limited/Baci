@@ -372,7 +372,7 @@ export async function middleware(request: NextRequest) {
       // Custom domain: ogabassey.com - validated format
       const domain = normalizeHostname(hostname);
 
-      // Prevent redirect loop: if the path already starts with the domain, 
+      // Prevent redirect loop: if the path already starts with the domain,
       // it means we've already rewritten. Just let it pass through.
       const isAlreadyRewritten = pathname.startsWith(`/${domain}`);
 

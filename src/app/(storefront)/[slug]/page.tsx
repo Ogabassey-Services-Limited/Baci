@@ -4,7 +4,10 @@ import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 
-import { getCachedMerchant, getCachedMerchantByDomain } from '@/lib/cached-data';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
 import { getPlaceDetailsServer } from '@/lib/google-places';
 import {
   generateLocalBusinessSchema,
@@ -52,7 +55,10 @@ const RESERVED_PATHS = new Set([
  * Check if the identifier looks like a domain (contains a dot)
  */
 function isDomainIdentifier(identifier: string): boolean {
-  return identifier.includes('.') && VALID_DOMAIN_REGEX.test(identifier.toLowerCase());
+  return (
+    identifier.includes('.') &&
+    VALID_DOMAIN_REGEX.test(identifier.toLowerCase())
+  );
 }
 
 function isValidMerchantSlug(slug: string): boolean {

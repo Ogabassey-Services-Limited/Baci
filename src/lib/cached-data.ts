@@ -214,7 +214,9 @@ export const getCachedMerchantByDomain = unstable_cache(
       return null;
     }
 
-    console.log(`Successfully fetched merchant by domain: ${domain} -> ${data.slug} (${data.id})`);
+    console.log(
+      `Successfully fetched merchant by domain: ${domain} -> ${data.slug} (${data.id})`
+    );
 
     // Return with the custom_domain set
     return { ...data, custom_domain: domainData.domain };

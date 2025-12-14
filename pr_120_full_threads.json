@@ -1,0 +1,62 @@
+{
+  "data": {
+    "repository": {
+      "pullRequest": {
+        "reviewThreads": {
+          "pageInfo": {
+            "hasNextPage": false,
+            "endCursor": "Y3Vyc29yOnYyOpK0MjAyNS0xMi0xNFQxNTo0NToxOFrOZf1Dew=="
+          },
+          "nodes": [
+            {
+              "isResolved": false,
+              "path": "src/lib/cached-data.ts",
+              "originalStartLine": null,
+              "comments": {
+                "nodes": [
+                  {
+                    "author": { "login": "github-advanced-security" },
+                    "body": "## Semgrep Finding: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring\n\nDetected string concatenation with a non-literal variable in a util.format / console.log function. If an attacker injects a format specifier in the string, it will forge the log message. Try to use constant values for the format string.\n\n[Show more details](https://github.com/Ogabassey-Services-Limited/Baci/security/code-scanning/294)",
+                    "url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/120#discussion_r2617263232",
+                    "createdAt": "2025-12-14T15:45:18Z"
+                  }
+                ]
+              }
+            },
+            {
+              "isResolved": false,
+              "path": "src/lib/cached-data.ts",
+              "originalStartLine": null,
+              "comments": {
+                "nodes": [
+                  {
+                    "author": { "login": "github-advanced-security" },
+                    "body": "## Semgrep Finding: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring\n\nDetected string concatenation with a non-literal variable in a util.format / console.log function. If an attacker injects a format specifier in the string, it will forge the log message. Try to use constant values for the format string.\n\n[Show more details](https://github.com/Ogabassey-Services-Limited/Baci/security/code-scanning/295)",
+                    "url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/120#discussion_r2617263233",
+                    "createdAt": "2025-12-14T15:45:18Z"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "comments": {
+          "nodes": [
+            {
+              "author": { "login": "vercel" },
+              "body": "[vc]: #HGNWnpWE1d6SkMLoXQvJRLGRviR327DT+VeG2IrHGcU=:eyJpc01vbm9yZXBvIjp0cnVlLCJ0eXBlIjoiZ2l0aHViIiwicHJvamVjdHMiOlt7Im5hbWUiOiJiYWNpIiwibGl2ZUZlZWRiYWNrIjp7InJlc29sdmVkIjowLCJ1bnJlc29sdmVkIjowLCJ0b3RhbCI6MCwibGluayI6IiJ9LCJpbnNwZWN0b3JVcmwiOiJodHRwczovL3ZlcmNlbC5jb20vYmFzc2V5cy1wcm9qZWN0cy1kNzM5NTYxMS9iYWNpLzc5UmJ2Z1V1aXRkS1k1UXMzYjhqRlF4Z2RBSHIiLCJuZXh0Q29tbWl0U3RhdHVzIjoiSUdOT1JFRCJ9XX0=\nThe latest updates on your projects. Learn more about [Vercel for GitHub](https://vercel.link/github-learn-more).\n\n\n<details><summary>1 Skipped Deployment</summary>\n\n| Project | Deployment | Review | Updated (UTC) |\n| :--- | :----- | :------ | :------ |\n| [baci](https://vercel.com/basseys-projects-d7395611/baci) | ![Ignored](https://vercel.com/static/status/canceled.svg) [Ignored](https://vercel.com/basseys-projects-d7395611/baci/79RbvgUuitdKY5Qs3b8jFQxgdAHr) |  | Dec 14, 2025 3:43pm |\n</details>\n\n",
+              "url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/120#issuecomment-3651530355",
+              "createdAt": "2025-12-14T15:43:49Z"
+            },
+            {
+              "author": { "login": "coderabbitai" },
+              "body": "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n<!-- This is an auto-generated comment: review in progress by coderabbit.ai -->\n\n> [!NOTE]\n> Currently processing new changes in this PR. This may take a few minutes, please wait...\n> \n> <details>\n> <summary>📥 Commits</summary>\n> \n> Reviewing files that changed from the base of the PR and between d4a4c5d5ec3de6313446b7daec4841cfbea3b23a and f0f3873d68d58e751c6cdef868c396eab928741a.\n> \n> </details>\n> \n> <details>\n> <summary>📒 Files selected for processing (4)</summary>\n> \n> * `src/app/(storefront)/[slug]/layout.tsx` (5 hunks)\n> * `src/app/(storefront)/[slug]/page.tsx` (6 hunks)\n> * `src/lib/cached-data.ts` (1 hunks)\n> * `src/middleware.ts` (1 hunks)\n> \n> </details>\n> \n> ```ascii\n>  __________________________________\n> < Software is hard. - Donald Knuth >\n>  ----------------------------------\n>   \\\n>    \\   (\\__/)\n>        (•ㅅ•)\n>        / 　 づ\n> ```\n\n<!-- end of auto-generated comment: review in progress by coderabbit.ai -->\n\n\n<!-- finishing_touch_checkbox_start -->\n\n<details>\n<summary>✨ Finishing touches</summary>\n\n- [ ] <!-- {\"checkboxId\": \"7962f53c-55bc-4827-bfbf-6a18da830691\"} --> 📝 Generate docstrings\n<details>\n<summary>🧪 Generate unit tests (beta)</summary>\n\n- [ ] <!-- {\"checkboxId\": \"f47ac10b-58cc-4372-a567-0e02b2c3d479\", \"radioGroupId\": \"utg-output-choice-group-unknown_comment_id\"} -->   Create PR with unit tests\n- [ ] <!-- {\"checkboxId\": \"07f1e7d6-8a8e-4e23-9900-8731c2c87f58\", \"radioGroupId\": \"utg-output-choice-group-unknown_comment_id\"} -->   Post copyable unit tests in a comment\n- [ ] <!-- {\"checkboxId\": \"6ba7b810-9dad-11d1-80b4-00c04fd430c8\", \"radioGroupId\": \"utg-output-choice-group-unknown_comment_id\"} -->   Commit unit tests in branch `feat/custom-domain-routing`\n\n</details>\n\n</details>\n\n<!-- finishing_touch_checkbox_end -->\n\n<!-- tips_start -->\n\n---\n\nThanks for using [CodeRabbit](https://coderabbit.ai?utm_source=oss&utm_medium=github&utm_campaign=Ogabassey-Services-Limited/Baci&utm_content=120)! It's free for OSS, and your support helps us grow. If you like it, consider giving us a shout-out.\n\n<details>\n<summary>❤️ Share</summary>\n\n- [X](https://twitter.com/intent/tweet?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A&url=https%3A//coderabbit.ai)\n- [Mastodon](https://mastodon.social/share?text=I%20just%20used%20%40coderabbitai%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20the%20proprietary%20code.%20Check%20it%20out%3A%20https%3A%2F%2Fcoderabbit.ai)\n- [Reddit](https://www.reddit.com/submit?title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&text=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code.%20Check%20it%20out%3A%20https%3A//coderabbit.ai)\n- [LinkedIn](https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fcoderabbit.ai&mini=true&title=Great%20tool%20for%20code%20review%20-%20CodeRabbit&summary=I%20just%20used%20CodeRabbit%20for%20my%20code%20review%2C%20and%20it%27s%20fantastic%21%20It%27s%20free%20for%20OSS%20and%20offers%20a%20free%20trial%20for%20proprietary%20code)\n\n</details>\n\n<sub>Comment `@coderabbitai help` to get the list of available commands and usage tips.</sub>\n\n<!-- tips_end -->",
+              "url": "https://github.com/Ogabassey-Services-Limited/Baci/pull/120#issuecomment-3651530437",
+              "createdAt": "2025-12-14T15:43:56Z"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

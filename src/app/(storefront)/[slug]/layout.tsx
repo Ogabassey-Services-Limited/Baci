@@ -4,7 +4,10 @@ import { MerchantSlugSync } from '@/components/storefront/merchant-slug-sync';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { CartProvider } from '@/hooks/use-cart';
 import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
-import { getCachedMerchant, getCachedMerchantByDomain } from '@/lib/cached-data';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
 
 // Valid slug pattern: alphanumeric and hyphens, no file extensions
 const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
@@ -52,7 +55,10 @@ const RESERVED_PATHS = new Set([
  * Check if the identifier looks like a domain (contains a dot)
  */
 function isDomainIdentifier(identifier: string): boolean {
-  return identifier.includes('.') && VALID_DOMAIN_REGEX.test(identifier.toLowerCase());
+  return (
+    identifier.includes('.') &&
+    VALID_DOMAIN_REGEX.test(identifier.toLowerCase())
+  );
 }
 
 function isValidMerchantSlug(slug: string): boolean {
