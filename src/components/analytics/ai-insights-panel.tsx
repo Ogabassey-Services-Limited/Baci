@@ -32,12 +32,15 @@ const placeholderInsights: Insight[] = [
 ];
 
 // Category keywords for filtering insights - defined outside component to avoid recreation
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
+const CATEGORY_KEYWORDS: Partial<Record<AnalyticsCategory, readonly string[]>> = {
   finance: ['revenue', 'sales', 'profit', 'cost', 'money'],
   products: ['product', 'stock', 'inventory', 'selling'],
   customers: ['customer', 'user', 'buyer', 'retention'],
   marketing: ['campaign', 'ad', 'social', 'traffic', 'conversion'],
-};
+  inventory: ['inventory', 'stock', 'warehouse', 'supply'],
+  segments: ['segment', 'cohort', 'group', 'audience'],
+  ads: ['ad', 'campaign', 'advertising', 'promotion'],
+} as const;
 
 export function AIInsightsPanel({
   className,
@@ -97,7 +100,8 @@ export function AIInsightsPanel({
       : insights.filter((insight) => {
           const text = (insight.title + insight.description).toLowerCase();
           return (
-            CATEGORY_KEYWORDS[activeCategory]?.some((k) => text.includes(k)) ?? true
+            CATEGORY_KEYWORDS[activeCategory]?.some((k) => text.includes(k)) ??
+            true
           );
         });
 

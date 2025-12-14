@@ -353,7 +353,7 @@ export default function CustomersClientPage({
                     <Link
                       href={`/dashboard/customers/${customer.id}`}
                       className="hover:underline"
-                      aria-label={`View details for ${customer.first_name} ${customer.last_name}`}
+                      aria-label={`View details for ${customer.first_name || 'Unknown'} ${customer.last_name || 'Customer'}`}
                     >
                       {customer.first_name} {customer.last_name}
                     </Link>
@@ -377,7 +377,12 @@ export default function CustomersClientPage({
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Actions for ${customer.first_name} ${customer.last_name}`}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          aria-label={`Actions for ${customer.first_name || 'Unknown'} ${customer.last_name || 'Customer'}`}
+                        >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>

@@ -43,12 +43,12 @@ export default async function DomainsPage({
     .order('is_primary', { ascending: false }) // Primary first
     .order('created_at', { ascending: false }); // Then newest
 
+  // Handle error gracefully - show empty state instead of throwing
   if (domainsError) {
     console.error('Error fetching domains:', domainsError);
-    throw new Error('Failed to load domains');
   }
 
-  const domainsList = (domains as Domain[]) || [];
+  const domainsList = domainsError ? [] : ((domains as Domain[]) || []);
 
   // Empty state logic
   const hasDomains = domainsList.length > 0;
