@@ -1,23 +1,22 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-
 import {
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
 import { getPlaceDetailsServer } from '@/lib/google-places';
+import type { Product } from '@/lib/products';
 import {
   generateLocalBusinessSchema,
   generateServiceSchema,
   generateWebSiteSchema,
   type LocalBusinessData,
 } from '@/lib/seo-utils';
-import { createClient } from '@/lib/supabase/server'; // Import Supabase client
-import { cookies } from 'next/headers'; // Import cookies
+import { createClient } from '@/lib/supabase/server';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -164,7 +163,7 @@ export default async function StorefrontPage({
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
 
-  let merchantProducts: any[] = [];
+  let merchantProducts: Product[] = [];
 
   try {
     const { data: products, error } = await supabase
@@ -193,7 +192,9 @@ export default async function StorefrontPage({
         JSON.stringify(error, null, 2)
       );
     } else {
-      merchantProducts = products || [];
+      // Type assertion: Supabase returns partial data for homepage listing
+      // StorefrontWrapper only uses the fields we fetch
+      merchantProducts = (products || []) as Product[];
     }
   } catch (err) {
     console.error('[StorefrontPage] Failed to fetch products:', err);

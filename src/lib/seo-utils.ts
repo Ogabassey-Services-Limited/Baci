@@ -35,8 +35,8 @@ export function generateSlug(text: string): string {
  */
 export function generateProductSlug(
   name: string,
-  condition?: 'new' | 'used' | string,
-  conditionDetail?: string
+  _condition?: 'new' | 'used' | string,
+  _conditionDetail?: string
 ): string {
   // Phase 7: Condition Deduplication
   // We no longer inject condition into the slug. Slugs should be unique to the PRODUCT FAMILY (e.g. "iphone-12")
@@ -173,53 +173,53 @@ export function generateProductSchema(
     offers:
       product.offers && product.offers.length > 0
         ? product.offers.map((offer) => ({
-          '@type': 'Offer',
-          price: offer.price,
-          priceCurrency: currency,
-          availability:
-            offer.stock_quantity > 0
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
-          itemCondition:
-            offer.condition === 'new'
-              ? 'https://schema.org/NewCondition'
-              : offer.condition === 'open_box'
-                ? 'https://schema.org/OpenBoxCondition' // Note: Google treats as Used but OpenBox is valid Schema
-                : offer.condition === 'refurbished'
-                  ? 'https://schema.org/RefurbishedCondition'
-                  : 'https://schema.org/UsedCondition',
-          seller: {
-            '@type': 'Organization',
-            name: safeMerchantName,
-          },
-          priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
-            .toISOString()
-            .substring(0, 10),
-        }))
+            '@type': 'Offer',
+            price: offer.price,
+            priceCurrency: currency,
+            availability:
+              offer.stock_quantity > 0
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+            itemCondition:
+              offer.condition === 'new'
+                ? 'https://schema.org/NewCondition'
+                : offer.condition === 'open_box'
+                  ? 'https://schema.org/OpenBoxCondition' // Note: Google treats as Used but OpenBox is valid Schema
+                  : offer.condition === 'refurbished'
+                    ? 'https://schema.org/RefurbishedCondition'
+                    : 'https://schema.org/UsedCondition',
+            seller: {
+              '@type': 'Organization',
+              name: safeMerchantName,
+            },
+            priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
+              .toISOString()
+              .substring(0, 10),
+          }))
         : {
-          '@type': 'Offer',
-          price: product.price,
-          priceCurrency: currency,
-          availability:
-            product.stock > 0
-              ? 'https://schema.org/InStock'
-              : 'https://schema.org/OutOfStock',
-          itemCondition:
-            product.condition === 'used'
-              ? 'https://schema.org/UsedCondition'
-              : product.condition === 'open_box'
-                ? 'https://schema.org/OpenBoxCondition'
-                : product.condition === 'refurbished'
-                  ? 'https://schema.org/RefurbishedCondition'
-                  : 'https://schema.org/NewCondition',
-          seller: {
-            '@type': 'Organization',
-            name: safeMerchantName,
+            '@type': 'Offer',
+            price: product.price,
+            priceCurrency: currency,
+            availability:
+              product.stock > 0
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+            itemCondition:
+              product.condition === 'used'
+                ? 'https://schema.org/UsedCondition'
+                : product.condition === 'open_box'
+                  ? 'https://schema.org/OpenBoxCondition'
+                  : product.condition === 'refurbished'
+                    ? 'https://schema.org/RefurbishedCondition'
+                    : 'https://schema.org/NewCondition',
+            seller: {
+              '@type': 'Organization',
+              name: safeMerchantName,
+            },
+            priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
+              .toISOString()
+              .substring(0, 10),
           },
-          priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
-            .toISOString()
-            .substring(0, 10),
-        },
   };
 
   // Product identifiers (important for Google Merchant Center) - sanitized

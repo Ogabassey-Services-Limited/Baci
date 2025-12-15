@@ -23,7 +23,6 @@ try {
     allAlerts = JSON.parse(fixedRaw);
   }
 
-
   // Deduplicate by number (use optional chaining for safety)
   const uniqueAlertsMap = new Map();
   allAlerts.forEach((a) => {
@@ -35,7 +34,7 @@ try {
   console.log(`Found ${total} unique alerts.`);
 
   // Filter for open only
-  const openAlerts = uniqueAlerts.filter(a => a.state === 'open');
+  const openAlerts = uniqueAlerts.filter((a) => a.state === 'open');
   const openCount = openAlerts.length;
 
   // Initialize counts
@@ -59,10 +58,13 @@ try {
   const progress = {
     total: openCount,
     resolved: 0,
-    pending: openCount
+    pending: openCount,
   };
 
-  const percentResolved = progress.total > 0 ? ((progress.resolved / progress.total) * 100).toFixed(1) : '0.0';
+  const percentResolved =
+    progress.total > 0
+      ? ((progress.resolved / progress.total) * 100).toFixed(1)
+      : '0.0';
 
   let md = `# Security Alerts Todo List
 
@@ -130,7 +132,7 @@ try {
       const path = loc.path || 'unknown';
       const line = loc.start_line || 0;
       const msg = (instance.message?.text || '')
-        .replace(/\\/g, '\\\\')  // Escape backslashes first
+        .replace(/\\/g, '\\\\') // Escape backslashes first
         .replace(/\n/g, ' ')
         .replace(/\|/g, '\\|')
         .replace(/\[/g, '\\[')
@@ -141,7 +143,6 @@ try {
     });
     md += `\n`;
   });
-
 
   fs.writeFileSync(outputFile, md);
   console.log(`Generated ${outputFile}`);

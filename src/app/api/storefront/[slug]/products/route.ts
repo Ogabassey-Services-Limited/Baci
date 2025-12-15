@@ -90,7 +90,11 @@ export async function GET(
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('[API] Product fetch error for merchant:', merchantId, error);
+      console.error(
+        '[API] Product fetch error for merchant:',
+        merchantId,
+        error
+      );
       throw error;
     }
 

@@ -8,6 +8,10 @@ import { OgabasseyLayout } from '@/components/storefront/ogabassey';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { CATEGORY_SEO_DEFAULTS } from '@/config/category-seo-defaults';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import {
@@ -16,7 +20,6 @@ import {
   generateFAQSchema,
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
-import { getCachedMerchant, getCachedMerchantByDomain } from '@/lib/cached-data';
 import { isDomainIdentifier } from '@/lib/validation';
 
 // Enable ISR with 5 minute revalidation
@@ -68,8 +71,8 @@ const getCategoryData = cache(
     // Check key variations if direct match fails (e.g. 'smartphones' vs 'phones')
     const fallbackConfig = !defaultConfig
       ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-        normalizedSlug.includes(key)
-      )?.[1]
+          normalizedSlug.includes(key)
+        )?.[1]
       : null;
 
     const effectiveConfig = defaultConfig || fallbackConfig;
@@ -88,7 +91,10 @@ const getCategoryData = cache(
     };
 
     // Extract parent for easier access
-    const parentCategory = category?.parent as unknown as { name: string; slug: string } | null;
+    const parentCategory = category?.parent as unknown as {
+      name: string;
+      slug: string;
+    } | null;
 
     // 3. Get products using single optimized query (2025 best practice)
     // Uses Supabase .or() to check category OR brand in one DB call
@@ -111,7 +117,9 @@ const getCategoryData = cache(
       `)
       .eq('merchant_id', merchant.id)
       .eq('status', 'active')
-      .or(`category.eq.${sanitizedCategoryName},brand.ilike.${sanitizedCategoryName},name.ilike.%${sanitizedCategoryName}%`)
+      .or(
+        `category.eq.${sanitizedCategoryName},brand.ilike.${sanitizedCategoryName},name.ilike.%${sanitizedCategoryName}%`
+      )
       .limit(50);
 
     if (productsError) {
@@ -176,8 +184,13 @@ export async function generateMetadata({
       siteName: merchant.business_name,
       ...(products.length > 0 &&
         products[0].images?.[0] && {
-        images: [{ url: products[0].images[0] as unknown as string, alt: categoryData.name }],
-      }),
+          images: [
+            {
+              url: products[0].images[0] as unknown as string,
+              alt: categoryData.name,
+            },
+          ],
+        }),
     },
     twitter: {
       card: 'summary_large_image',
@@ -214,9 +227,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
   });
 
   // Generate BreadcrumbList schema (Hierarchical)
-  const breadcrumbItems = [
-    { name: merchant.business_name, url: baseUrl },
-  ];
+  const breadcrumbItems = [{ name: merchant.business_name, url: baseUrl }];
 
   // Add parent category if exists (e.g. Smartphones -> Samsung)
   if (categoryData.parent) {
@@ -275,16 +286,16 @@ export default async function CategoryPageRoute({ params }: PageProps) {
             seoFeatures={categoryData.seo.features}
             seoFaqs={categoryData.seo.faqs}
             categoryImage={categoryData.image}
-            products={products.map((p: any) => ({
+            products={products.map((p) => ({
               id: p.id,
               name: p.name,
               slug: p.slug,
-              description: p.description,
+              description: p.description || '',
               price: `₦${p.price?.toLocaleString() || 0}`,
               rawPrice: p.price || 0,
-              image: p.images?.[0],
-              images: p.images || [],
-              category: p.category,
+              image: p.images?.[0]?.url || '',
+              images: p.images?.map((img) => img.url) || [],
+              category: p.category || '',
               brand: p.brand,
               condition: p.condition || 'New',
               stock: p.stock,

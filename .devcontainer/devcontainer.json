@@ -1,15 +1,15 @@
 {
-    "name": "Baci Dev Container",
-    "dockerComposeFile": "../docker-compose.yml",
-    "service": "web",
-    "workspaceFolder": "/app",
-    "customizations": {
-        "vscode": {
-            "extensions": [
-                "dbaeumer.vscode-eslint",
-                "esbenp.prettier-vscode",
-                "bradlc.vscode-tailwindcss"
-            ]
-        }
+  "name": "Baci Dev Container",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "web",
+  "workspaceFolder": "/app",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+      ]
     }
+  }
 }

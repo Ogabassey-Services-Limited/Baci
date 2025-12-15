@@ -555,7 +555,10 @@ const getProduct = cache(
     const { data: product, error: productError } = await query.maybeSingle();
 
     if (productError || !product) {
-      console.error('Product not found:', JSON.stringify(productError, null, 2));
+      console.error(
+        'Product not found:',
+        JSON.stringify(productError, null, 2)
+      );
       return null;
     }
 
@@ -643,13 +646,13 @@ export async function generateMetadata({
       images: product.images?.length
         ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
         : [
-          {
-            url: product.imageLarge || product.image,
-            width: 800,
-            height: 600,
-            alt: product.name,
-          },
-        ],
+            {
+              url: product.imageLarge || product.image,
+              width: 800,
+              height: 600,
+              alt: product.name,
+            },
+          ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,

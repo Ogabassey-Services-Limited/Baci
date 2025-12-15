@@ -7,8 +7,8 @@ import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import { Button } from '@/components/ui/button';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { useMerchant } from '@/hooks/use-merchant';
-import { getTemplate, type TemplatePageProps } from '@/templates/registry';
 import type { Product } from '@/lib/products';
+import { getTemplate, type TemplatePageProps } from '@/templates/registry';
 
 const DynamicPuckStorefront = dynamic(
   () =>

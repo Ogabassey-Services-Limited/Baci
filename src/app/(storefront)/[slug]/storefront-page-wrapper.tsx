@@ -3,9 +3,8 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { useMerchant } from '@/hooks/use-merchant';
-import { getTemplate, type TemplateComponents } from '@/templates/registry';
-
 import type { Product } from '@/lib/products';
+import { getTemplate, type TemplateComponents } from '@/templates/registry';
 
 interface StorefrontPageWrapperProps {
   pageName: keyof TemplateComponents;

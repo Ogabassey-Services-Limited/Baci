@@ -192,7 +192,10 @@ export async function openCreditDirectCheckout(
         onClose();
       },
       onPopup: (response) => {
-        console.log('Credit Direct popup opened:', response.checkoutTransactionId);
+        console.log(
+          'Credit Direct popup opened:',
+          response.checkoutTransactionId
+        );
         onPopup?.(response.checkoutTransactionId);
       },
     });
