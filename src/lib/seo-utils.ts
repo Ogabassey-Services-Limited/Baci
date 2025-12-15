@@ -184,7 +184,7 @@ export function generateProductSchema(
               offer.condition === 'new'
                 ? 'https://schema.org/NewCondition'
                 : offer.condition === 'open_box'
-                  ? 'https://schema.org/OpenBoxCondition' // Note: Google treats as Used but OpenBox is valid Schema
+                  ? 'https://schema.org/UsedCondition' // Open box treated as Used per Schema.org spec
                   : offer.condition === 'refurbished'
                     ? 'https://schema.org/RefurbishedCondition'
                     : 'https://schema.org/UsedCondition',
@@ -208,7 +208,7 @@ export function generateProductSchema(
               product.condition === 'used'
                 ? 'https://schema.org/UsedCondition'
                 : product.condition === 'open_box'
-                  ? 'https://schema.org/OpenBoxCondition'
+                  ? 'https://schema.org/UsedCondition' // Open box treated as Used per Schema.org spec
                   : product.condition === 'refurbished'
                     ? 'https://schema.org/RefurbishedCondition'
                     : 'https://schema.org/NewCondition',
