@@ -290,6 +290,18 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     };
   }, [productFound, serverProduct, getColorHex]);
 
+  // Phase 7: Condition State
+  const [selectedCondition, setSelectedCondition] = useState<string>(
+    (productData.condition as string) || 'New'
+  );
+
+  // Update selected condition if product changes
+  useEffect(() => {
+    if (productData.condition) {
+      setSelectedCondition(productData.condition);
+    }
+  }, [productData.id, productData.condition]);
+
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedColor, setSelectedColor] = useState<number | null>(null);
   const [secondaryColor, setSecondaryColor] = useState<number | null>(null);
@@ -464,17 +476,51 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     }
   };
 
+  // Phase 7: Get Current Offer Data (Price, Stock) based on Condition
+  const currentOffer = useMemo(() => {
+    // If selected matches main product condition, return main product data
+    if (selectedCondition.toLowerCase() === (productData.condition || 'new').toLowerCase()) {
+      return {
+        price: productData.price,
+        rawPrice: productData.rawPrice,
+        stock: productData.stock ?? 10,
+        id: productData.id, // Main product ID
+      };
+    }
+
+    // Otherwise look in offers
+    if (productData.offers) {
+      const offer = productData.offers.find(o => o.condition.toLowerCase() === selectedCondition.toLowerCase());
+      if (offer) {
+        return {
+          price: `₦${offer.price.toLocaleString()}`,
+          rawPrice: offer.price,
+          stock: offer.stock_quantity,
+          id: productData.id, // Still use parent ID, but cart handles condition distinction
+        };
+      }
+    }
+
+    // Fallback to main product if not found (shouldn't happen if UI matches availability)
+    return {
+      price: productData.price,
+      rawPrice: productData.rawPrice,
+      stock: productData.stock ?? 10,
+      id: productData.id,
+    };
+  }, [selectedCondition, productData]);
+
   const getProductForCart = (): Product => {
     return {
       id: productData.id,
       name: productData.name,
-      price: productData.price,
-      rawPrice: productData.rawPrice,
+      price: typeof currentOffer.price === 'string' ? currentOffer.price : `₦${currentOffer.price}`, // Handle generic type mismatch if any, though currentOffer.price is string|number
+      rawPrice: currentOffer.rawPrice,
       image: productData.images[selectedImage],
       description: productData.description,
       rating: productData.rating,
       category: productData.category,
-      condition: productData.condition as 'New' | 'Used',
+      condition: selectedCondition as 'New' | 'Used', // Use selected condition
       brand: productData.brand,
     };
   };
@@ -515,6 +561,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         selectedStorage !== null
           ? productData.storage[selectedStorage]
           : undefined,
+      condition: selectedCondition, // Pass condition to cart
     });
   };
 
@@ -617,7 +664,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                   : 'bg-amber-500'
                   }`}
               >
-                {productData.condition}
+                {selectedCondition}
               </div>
             </div>
 
@@ -686,8 +733,43 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
             </div>
 
             <div className="text-3xl font-bold text-red-600 mb-6">
-              {productData.price}
+              {currentOffer.price}
             </div>
+
+            {/* Condition Selector (Phase 7) */}
+            {(productData.has_condition_offers || (productData.offers && productData.offers.length > 0)) && (
+              <div className="mb-6">
+                <label className="text-sm font-bold text-gray-900 block mb-3">
+                  Condition: <span className="text-red-600">{selectedCondition}</span>
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  {/* Render Main Product Option */}
+                  <button
+                    onClick={() => setSelectedCondition(productData.condition || 'New')}
+                    className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-all ${selectedCondition === (productData.condition || 'New')
+                      ? 'border-red-600 bg-red-50 text-red-700'
+                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                  >
+                    {productData.condition || 'New'}
+                  </button>
+
+                  {/* Render Other Offers */}
+                  {productData.offers?.map((offer) => (
+                    <button
+                      key={offer.id}
+                      onClick={() => setSelectedCondition(offer.condition)}
+                      className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-all capitalize ${selectedCondition === offer.condition
+                        ? 'border-red-600 bg-red-50 text-red-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                    >
+                      {offer.condition.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Estimated Delivery Section */}
             <div className="mb-6 p-3 bg-gray-50 rounded-xl border border-gray-100 flex items-start justify-between">

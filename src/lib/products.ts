@@ -151,6 +151,17 @@ export interface Product {
   // Variant support
   has_variants?: boolean;
   variants?: ProductVariant[];
+
+  // Condition support (Phase 7)
+  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
+  has_condition_offers?: boolean;
+  offers?: {
+    id: string;
+    condition: 'new' | 'used' | 'open_box' | 'refurbished';
+    price: number;
+    stock_quantity: number;
+    images?: string[];
+  }[];
 }
 
 export const products: Product[] = [

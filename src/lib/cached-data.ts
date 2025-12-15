@@ -410,6 +410,15 @@ export const getCachedProduct = unstable_cache(
         created_at,
         product_key_specs,
         specifications,
+        condition,
+        has_condition_offers,
+        offers:product_offers (
+          id,
+          condition,
+          price,
+          stock_quantity,
+          images
+        ),
         product_variants (
           id,
           name,

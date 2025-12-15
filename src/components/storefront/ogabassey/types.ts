@@ -63,6 +63,15 @@ export interface Product {
   videoUrl?: string; // YouTube URL for unboxing/review
   // Technical specs from API (optional but typed)
   product_key_specs?: ProductKeySpecs;
+  // Phase 7: Condition Deduplication
+  has_condition_offers?: boolean;
+  offers?: {
+    id: string;
+    condition: 'new' | 'used' | 'open_box' | 'refurbished';
+    price: number;
+    stock_quantity: number;
+    images?: string[];
+  }[];
 }
 
 export interface ProductKeySpecs {
