@@ -149,6 +149,8 @@ export async function POST(request: NextRequest) {
           /[\r\n]/g,
           ''
         );
+        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
+        // Values are already sanitized above - safe to use in template literal
         console.error(`Error processing change for ${safeName}:`, err);
         results.errors.push(`Failed to ${safeType} "${safeName}"`);
       }

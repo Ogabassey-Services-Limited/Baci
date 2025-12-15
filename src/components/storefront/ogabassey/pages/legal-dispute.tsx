@@ -143,6 +143,7 @@ export const OgabasseyV2LegalDispute: React.FC<LegalProps> = ({ merchant }) => {
 
           {customContent ? (
             <div className="prose max-w-none text-gray-600">
+              {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml, typescript.react.react-dangerouslysetinnerhtml-prop */}
               <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(customContent) }} />
             </div>
           ) : (

@@ -129,6 +129,7 @@ export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
               Driven by Technology.
             </h2>
             <div className="space-y-6 text-gray-600 leading-relaxed">
+              {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml, typescript.react.react-dangerouslysetinnerhtml-prop */}
               <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(story) }} />
 
               <ul className="space-y-3 pt-2">
