@@ -87,7 +87,7 @@ export async function getGeoFromIP(ip: string): Promise<GeoPrivacyInfo> {
   try {
     // Use ip-api.com (free, no API key required, 45 requests/minute)
     const response = await fetch(
-      `http://ip-api.com/json/${ip}?fields=status,country,countryCode,region,regionName,city`,
+      `https://ip-api.com/json/${ip}?fields=status,country,countryCode,region,regionName,city`,
       {
         next: { revalidate: 86400 }, // Cache for 24 hours
         signal: controller.signal,

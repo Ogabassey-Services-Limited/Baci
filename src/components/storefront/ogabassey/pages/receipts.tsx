@@ -112,7 +112,7 @@ export const OgabasseyV2Receipts: React.FC = () => {
   const handleViewReceipt = (receipt: ReceiptData) => {
     // setSelectedReceipt(receipt);
     // setIsModalOpen(true);
-    console.log('View receipt:', receipt.id);
+    // TODO: Implement view receipt functionality
   };
 
   const getStatusBadge = (status: string) => {

@@ -1,8 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
+
 dotenv.config();
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Complete mapping of incorrect -> correct category names
 const categoryFixes: Record<string, string> = {
@@ -54,8 +63,19 @@ async function fixCategories() {
 
     // Verify results
     console.log('\n=== VERIFICATION ===');
-    const { data: products } = await supabase.from('products').select('category');
-    const distinct = [...new Set(products?.map(p => p.category))].sort();
+    const { data: products, error: verifyError } = await supabase.from('products').select('category');
+
+    if (verifyError) {
+        console.error('❌ Query failed:', verifyError.message);
+        return;
+    }
+
+    if (!products) {
+        console.error('❌ No data returned');
+        return;
+    }
+
+    const distinct = [...new Set(products.map(p => p.category))].sort();
     console.log('Distinct categories now:', distinct.length);
     distinct.forEach(c => console.log('  - ' + c));
 }

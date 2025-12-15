@@ -1,17 +1,32 @@
 import fs from 'fs';
 import Fuse from 'fuse.js';
 
+interface HPLaptop {
+    productSlug: string;
+    productUrl: string;
+    images: string[];
+}
+
+interface HPSearchable extends HPLaptop {
+    searchName: string;
+}
+
+interface OurLaptop {
+    productId: string;
+    productName: string;
+}
+
 // Load our laptop wishlist (products needing images)
-const ourLaptops = JSON.parse(fs.readFileSync('sourcing_wishlist_laptops.json', 'utf-8'));
+const ourLaptops: OurLaptop[] = JSON.parse(fs.readFileSync('sourcing_wishlist_laptops.json', 'utf-8'));
 console.log(`Our inventory: ${ourLaptops.length} laptops needing images`);
 
 // Load HP sitemap images
-const hpLaptops = JSON.parse(fs.readFileSync('hp_laptop_images.json', 'utf-8'));
+const hpLaptops: HPLaptop[] = JSON.parse(fs.readFileSync('hp_laptop_images.json', 'utf-8'));
 console.log(`HP sitemap: ${hpLaptops.length} laptops with official images\n`);
 
 // Enrich data with synthesized names for matching
 // "hp-elitebook-8-g1i-14-inch..." -> "elitebook 840 g11"
-const hpSearchable = hpLaptops.map((p: any) => {
+const hpSearchable: HPSearchable[] = hpLaptops.map((p) => {
     let searchName = p.productSlug.replace(/-/g, ' ');
 
     // Naming Convention Hack/Fix
@@ -58,11 +73,18 @@ console.log('--- DEBUG SEARCH "elitebook 840 g11" ---');
 testRes.slice(0, 3).forEach(r => console.log(`${r.item.productSlug} (score: ${r.score})`));
 console.log('----------------------------------------\n');
 
-const matches: any[] = [];
-const noMatch: any[] = [];
+const matches: Array<{
+    supabaseId: string;
+    ourProductName: string;
+    hpProductSlug: string;
+    hpProductUrl: string;
+    imageUrl: string;
+    matchScore: number;
+}> = [];
+const noMatch: OurLaptop[] = [];
 
 // Filter to HP only to avoid Dell/Apple noise
-const hpOnlyLaptops = ourLaptops.filter((p: any) => p.productName.toLowerCase().startsWith('hp'));
+const hpOnlyLaptops = ourLaptops.filter((p) => p.productName.toLowerCase().startsWith('hp'));
 console.log(`Processing ${hpOnlyLaptops.length} HP products (filtered from ${ourLaptops.length})...`);
 
 for (const our of hpOnlyLaptops) {
@@ -81,7 +103,7 @@ for (const our of hpOnlyLaptops) {
     const results = fuse.search(searchTerm);
 
     // Find first VALID match within top 10
-    let bestMatch: any = null;
+    let bestMatch: HPSearchable | null = null;
     let bestScore = 1;
 
     for (const result of results.slice(0, 10)) {

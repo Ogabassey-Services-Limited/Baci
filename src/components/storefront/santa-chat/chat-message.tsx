@@ -1,7 +1,7 @@
 'use client';
 
-import DOMPurify from 'isomorphic-dompurify';
 import Image from 'next/image';
+import { sanitizeHtml } from '@/lib/sanitize';
 import type { ChatMessage as ChatMessageType } from './types';
 
 interface ChatMessageProps {
@@ -50,8 +50,8 @@ function SimpleMarkdownRenderer({ text }: { text: string }) {
     return html.replace(/\n/g, '<br />');
   };
 
-  // Safe usage with Isomorphic DOMPurify
-  const cleanHtml = DOMPurify.sanitize(renderText());
+  // Safe usage with project's sanitization utility
+  const cleanHtml = sanitizeHtml(renderText());
 
   return (
     // biome-ignore lint/security/noDangerouslySetInnerHtml: Sanitized HTML content

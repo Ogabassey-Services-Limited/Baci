@@ -387,4 +387,7 @@ async function seedAppleProducts() {
     console.log("🏁 Apple Seeding Complete!");
 }
 
-seedAppleProducts();
+seedAppleProducts().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

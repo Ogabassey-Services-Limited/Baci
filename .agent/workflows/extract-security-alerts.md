@@ -2,13 +2,17 @@
 description: Fetch and parse GitHub Code Scanning security alerts into a todo list
 ---
 
+# Extract Security Alerts
+
 This workflow fetches all open code scanning alerts from the repository and converts them into a structured Markdown list for systematic resolution.
 
 **Prerequisites:**
+
 - GitHub CLI (`gh`) installed and authenticated.
 - Node.js installed.
 
 ### 1. Fetch Security Alerts
+
 Fetch all open code scanning alerts using the GitHub API.
 
 ```bash
@@ -58,7 +62,14 @@ query($owner: String!, $name: String!, $endCursor: String) {
 ```
 
 ### 2. Create Parser Script
-Create a Node.js script to process the JSON and generate the Markdown report.
+
+Create a Node.js script to process the JSON and generate the Markdown report. Alternatively, the repository includes `process_security_alerts.cjs` which processes the JSON and generates the Markdown report.
+
+```bash
+node process_security_alerts.cjs
+```
+
+Or create a custom parser:
 
 ```javascript
 // turbo

@@ -3,15 +3,32 @@ import * as dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function populateCategoryImages() {
     console.log('🚀 Starting Category Image Population...');
 
     // 1. Get all categories
-    const { data: categories } = await supabase.from('categories').select('id, name, slug, image_url, merchant_id, parent_id');
+    const { data: categories, error: categoriesError } = await supabase.from('categories').select('id, name, slug, image_url, merchant_id, parent_id');
 
-    if (!categories) return;
+    if (categoriesError) {
+        console.error('❌ Query failed:', categoriesError.message);
+        process.exit(1);
+    }
+
+    if (!categories) {
+        console.error('❌ No categories returned');
+        process.exit(1);
+    }
+
     console.log(`📂 Found ${categories.length} categories.`);
 
     let updatedCount = 0;
@@ -36,7 +53,13 @@ async function populateCategoryImages() {
         // Note: products table uses 'category' string column, not relation ID usually in this schema
         query = query.eq('category', cat.name);
 
-        let { data: products } = await query;
+        let { data: products, error: productsError } = await query;
+
+        if (productsError) {
+            console.error(`❌ Query failed for category '${cat.name}':`, productsError.message);
+            continue;
+        }
+
         let validImage = null;
 
         if (products && products.length > 0 && products[0].images && products[0].images.length > 0) {

@@ -275,4 +275,7 @@ async function seedLegacyAppleProducts() {
     console.log("🏁 Legacy Apple Seeding Complete!");
 }
 
-seedLegacyAppleProducts();
+seedLegacyAppleProducts().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

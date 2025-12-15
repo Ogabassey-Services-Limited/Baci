@@ -85,7 +85,7 @@ export const OgabasseyV2OrderDetails: React.FC = () => {
         });
         navigate('/cart');
         */
-    console.log('Buy again clicked');
+    // TODO: Implement buy again functionality
   };
 
   const getStatusColor = (status: string) => {

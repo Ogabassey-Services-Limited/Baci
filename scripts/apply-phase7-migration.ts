@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import fs from 'fs';
@@ -7,22 +6,78 @@ import path from 'path';
 // Load environment variables
 dotenv.config({ path: '.env.local' });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+/**
+ * Split SQL into statements while respecting $$ dollar-quoted blocks
+ * (e.g., PL/pgSQL function bodies)
+ */
+function splitSqlStatements(sql: string): string[] {
+    const statements: string[] = [];
+    let current = '';
+    let inDollarQuote = false;
+    const lines = sql.split('\n');
+
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+
+        // Skip pure comment lines at statement boundaries
+        if (!inDollarQuote && current.trim() === '' && trimmedLine.startsWith('--')) {
+            continue;
+        }
+
+        // Check for $$ boundaries
+        const dollarMatches = line.match(/\$\$/g);
+        if (dollarMatches) {
+            // Toggle inDollarQuote for each $$ found
+            for (const _ of dollarMatches) {
+                inDollarQuote = !inDollarQuote;
+            }
+        }
+
+        current += line + '\n';
+
+        // If we're outside dollar quotes and line ends with ;, it's a statement boundary
+        if (!inDollarQuote && trimmedLine.endsWith(';')) {
+            const stmt = current.trim();
+            if (stmt && !stmt.split('\n').every(l => l.trim().startsWith('--') || l.trim() === '')) {
+                statements.push(stmt);
+            }
+            current = '';
+        }
+    }
+
+    // Handle any remaining content
+    if (current.trim()) {
+        statements.push(current.trim());
+    }
+
+    return statements;
+}
 
 async function main() {
     console.log('🚀 Applying Phase 7 Condition Deduplication Schema...\n');
 
     // Read the migration file
     const migrationPath = path.join(process.cwd(), 'supabase/migrations/20251215120000_condition_deduplication.sql');
+
+    if (!fs.existsSync(migrationPath)) {
+        console.error(`❌ Migration file not found: ${migrationPath}`);
+        process.exit(1);
+    }
+
     const sql = fs.readFileSync(migrationPath, 'utf-8');
 
-    // Split into individual statements (simple approach)
-    const statements = sql
-        .split(/;\s*\n/)
-        .map(s => s.trim())
-        .filter(s => s.length > 0 && !s.startsWith('--'));
+    // Split into individual statements (respects $$ dollar-quoted blocks)
+    const statements = splitSqlStatements(sql);
 
     console.log(`📝 Found ${statements.length} SQL statements to execute.\n`);
 
@@ -37,7 +92,8 @@ async function main() {
         }
 
         try {
-            const { error } = await supabase.rpc('exec_sql', { sql_query: stmt + ';' });
+            // Statement already includes trailing semicolon from the splitter
+            const { error } = await supabase.rpc('exec_sql', { sql_query: stmt });
             if (error) {
                 // Try direct query as fallback (won't work for DDL but let's try)
                 console.log(`⚠️ Statement ${i + 1}: RPC failed, trying direct...`);

@@ -8,14 +8,22 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 const execAsync = promisify(exec);
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-const VPS_IP = '82.29.190.219';
-const VPS_USER = 'bassey';
-// const SSH_KEY = '/Users/mac/.ssh/id_rsa'; // Standard
-const SSH_KEY = '/Users/mac/.ssh/id_ed25519'; // User specific
-const REMOTE_DIR = '/var/www/cdn/products';
-const CDN_BASE_URL = 'https://cdn.ogabassey.com/products';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const VPS_IP = process.env.VPS_IP || '82.29.190.219';
+const VPS_USER = process.env.VPS_USER || 'bassey';
+const SSH_KEY = process.env.SSH_KEY_PATH || path.join(process.env.HOME || '~', '.ssh/id_ed25519');
+const REMOTE_DIR = process.env.VPS_PATH || '/var/www/cdn/products';
+const CDN_BASE_URL = process.env.CDN_BASE_URL || 'https://cdn.ogabassey.com/products';
 
 const BRANDED_DIR = path.join(process.cwd(), 'gaming_branded_images');
 
@@ -28,8 +36,19 @@ async function deployGaming() {
     console.log(`Found ${files.length} branded images.`);
 
     // 2. Fetch Gaming Products
-    const { data: products } = await supabase.from('products').select('id, slug, name').eq('category', 'Video Games');
-    const productMap = new Map(products?.map(p => [p.slug, p]) || []);
+    const { data: products, error: productsError } = await supabase.from('products').select('id, slug, name').eq('category', 'Video Games');
+
+    if (productsError) {
+        console.error('❌ Query failed:', productsError.message);
+        process.exit(1);
+    }
+
+    if (!products) {
+        console.error('❌ No products returned');
+        process.exit(1);
+    }
+
+    const productMap = new Map(products.map(p => [p.slug, p]));
 
     const uploads = [];
 
@@ -72,8 +91,8 @@ async function deployGaming() {
 
             // 5. Update Database immediately after upload?
             // Better to move first.
-        } catch (e: any) {
-            console.error(`Upload failed for ${u.remoteName}: ${e.message}`);
+        } catch (e) {
+            console.error(`Upload failed for ${u.remoteName}: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
 
@@ -84,8 +103,8 @@ async function deployGaming() {
     try {
         await execAsync(moveCmd);
         console.log("Files moved and permissions set (644).");
-    } catch (e: any) {
-        console.error("Move command issue:", e.message);
+    } catch (e) {
+        console.error("Move command issue:", e instanceof Error ? e.message : String(e));
         // Continue to DB update anyway as move might have partially succeeded
     }
 

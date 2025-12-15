@@ -36,4 +36,7 @@ async function run() {
     console.log('✅ Done!');
 }
 
-run();
+run().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

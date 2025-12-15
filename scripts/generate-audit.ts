@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -10,7 +9,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase credentials');
+    console.error('❌ Missing Supabase credentials');
     process.exit(1);
 }
 
@@ -19,30 +18,24 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function generateReport() {
     console.log('Generating Audit Report...');
 
-    // 1. Fetch No Images
-    const { data: noImages } = await supabase
+    // Fetch all active products once and perform audit checks locally
+    // This is more efficient than multiple DB queries with unsupported filters
+    const { data: allProducts, error } = await supabase
         .from('products')
-        .select('id, name, brand, category, price')
-        .or('images.is.null,images.eq.[]')
-        .eq('status', 'active')
-        .order('brand');
-
-    // 2. Fetch Thin Content
-    const { data: thinContent } = await supabase
-        .from('products')
-        .select('id, name, brand, description')
-        .lt('description.length', 50) // approximate check not directly supported by filters easily without RPC, but specific char length filter might not work in JS client standard filter. 
-        // Actually Supabase filtered doesn't support length check directly.
-        // I will fetch a sample or check client side if I fetch minimal data.
-        // Let's rely on the previous SQL count which said 7.
-        // I'll fetch ALL and filter in JS for the report since n~2000 is small.
+        .select('id, name, brand, category, description, images')
         .eq('status', 'active');
 
-    // 3. Fetch All active to filter locally
-    const { data: allProducts } = await supabase.from('products').select('id, name, brand, category, description, images').eq('status', 'active');
+    if (error) {
+        console.error('❌ Failed to fetch products for audit:', error.message);
+        process.exit(1);
+    }
 
-    if (!allProducts) return;
+    if (!allProducts || allProducts.length === 0) {
+        console.warn('⚠️ No active products found; skipping audit report generation.');
+        return;
+    }
 
+    // Filter locally for missing images and thin descriptions
     const missingImages = allProducts.filter(p => !p.images || !Array.isArray(p.images) || p.images.length === 0);
     const thinDescriptions = allProducts.filter(p => !p.description || p.description.length < 50);
 
@@ -81,7 +74,10 @@ Update your seed scripts with image URLs or manually upload images via the dashb
     });
 
     fs.writeFileSync('IMMEDIATE_ACTION_REQUIRED.md', md);
-    console.log('Report generated: IMMEDIATE_ACTION_REQUIRED.md');
+    console.log('✅ Report generated: IMMEDIATE_ACTION_REQUIRED.md');
 }
 
-generateReport();
+generateReport().catch((error) => {
+    console.error('❌ Audit report generation failed:', error);
+    process.exit(1);
+});

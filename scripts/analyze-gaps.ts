@@ -5,16 +5,29 @@ import path from 'path';
 
 dotenv.config({ path: '.env.local' });
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-const IMG_DIR = '/Users/mac/Baci-app/Baci/public/website designs';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+const IMG_DIR = process.env.IMG_DIR || path.join(process.cwd(), 'public/website designs');
 
 async function analyze() {
     console.log('🔍 Analyzing Gaps...');
 
     // 1. Get all products
-    const { data: products } = await supabase
+    const { data: products, error } = await supabase
         .from('products')
         .select('id, name, slug, images');
+
+    if (error) {
+        console.error('❌ Failed to fetch products:', error.message);
+        process.exit(1);
+    }
 
     // 2. Identify Unmatched Products
     const unmatchedProducts = products?.filter(p => !p.images || p.images.length === 0 || p.images[0] === null);
@@ -67,11 +80,12 @@ async function analyze() {
                 try {
                     const json = JSON.parse(line);
                     if (json.matchedImageFilename) {
-                        usedImageFilenames.add(json.matchedImageFilename.split('/').pop()!);
-                        // Note: matchedImageFilename in JSONL might be full path or relative. 
-                        // Let's check the format.
+                        // Use path.basename for cross-platform compatibility
+                        usedImageFilenames.add(path.basename(json.matchedImageFilename));
                     }
-                } catch (e) { }
+                } catch (e) {
+                    console.warn(`⚠️ Error parsing line in ${f}:`, e instanceof Error ? e.message : 'Unknown error');
+                }
             });
         }
     });
@@ -110,4 +124,7 @@ async function analyze() {
     unusedImages.slice(0, 10).forEach(i => console.log(`   ${path.basename(i)}`));
 }
 
-analyze();
+analyze().catch((error) => {
+    console.error('❌ Fatal error:', error);
+    process.exit(1);
+});

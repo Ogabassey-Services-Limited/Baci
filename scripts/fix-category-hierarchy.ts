@@ -1,8 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
+
 dotenv.config();
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Define the complete hierarchy: parent -> children
 const hierarchy: Record<string, string[]> = {
@@ -31,8 +40,17 @@ async function fixHierarchy() {
     console.log('🔧 Fixing Category Hierarchy...\n');
 
     // Get all categories
-    const { data: categories } = await supabase.from('categories').select('id, name, slug, parent_id');
-    if (!categories) { console.error('Failed to fetch categories'); return; }
+    const { data: categories, error: fetchError } = await supabase.from('categories').select('id, name, slug, parent_id');
+
+    if (fetchError) {
+        console.error('❌ Query failed:', fetchError.message);
+        process.exit(1);
+    }
+
+    if (!categories) {
+        console.error('❌ Failed to fetch categories');
+        process.exit(1);
+    }
 
     const catMap = new Map(categories.map(c => [c.name, c]));
 
@@ -77,11 +95,22 @@ async function fixHierarchy() {
 
     // Print final tree
     console.log('\n=== FINAL HIERARCHY ===');
-    const { data: finalCats } = await supabase.from('categories').select('id, name, parent_id').order('name');
-    const parents = finalCats?.filter(c => !c.parent_id) || [];
+    const { data: finalCats, error: finalError } = await supabase.from('categories').select('id, name, parent_id').order('name');
+
+    if (finalError) {
+        console.error('❌ Query failed:', finalError.message);
+        return;
+    }
+
+    if (!finalCats) {
+        console.error('❌ No data returned');
+        return;
+    }
+
+    const parents = finalCats.filter(c => !c.parent_id);
 
     for (const parent of parents) {
-        const children = finalCats?.filter(c => c.parent_id === parent.id) || [];
+        const children = finalCats.filter(c => c.parent_id === parent.id);
         if (children.length > 0) {
             console.log(`\n📁 ${parent.name}`);
             children.forEach(c => console.log(`   └── ${c.name}`));
@@ -89,4 +118,7 @@ async function fixHierarchy() {
     }
 }
 
-fixHierarchy();
+fixHierarchy().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

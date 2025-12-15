@@ -17,7 +17,15 @@ const PREVIOUS_MATCH_FILES = [
 const OUTPUT_FILE = 'scripts/ai_matches_phase2.jsonl';
 
 // --- Init ---
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY;
 console.log(`🔑 API Key Status: ${apiKey ? 'Loaded (' + apiKey.substring(0, 4) + '...)' : 'MISSING'}`);
@@ -96,7 +104,9 @@ async function matchRest() {
                     if (json.matchedImageFilename) {
                         usedImageFilenames.add(path.basename(json.matchedImageFilename));
                     }
-                } catch (e) { }
+                } catch (e) {
+                    console.warn(`⚠️ Error parsing line in ${f}:`, e instanceof Error ? e.message : 'Unknown error');
+                }
             });
         }
     });
@@ -109,7 +119,9 @@ async function matchRest() {
             try {
                 const json = JSON.parse(line);
                 if (json.matchedImageFilename) usedImageFilenames.add(path.basename(json.matchedImageFilename));
-            } catch (e) { }
+            } catch (e) {
+                console.warn(`⚠️ Error parsing line in ${OUTPUT_FILE}:`, e instanceof Error ? e.message : 'Unknown error');
+            }
         });
     }
 
@@ -188,4 +200,7 @@ async function matchRest() {
     console.log('\n🎉 Phase 2 Matching Complete!');
 }
 
-matchRest();
+matchRest().catch((error) => {
+    console.error('❌ Fatal error:', error);
+    process.exit(1);
+});

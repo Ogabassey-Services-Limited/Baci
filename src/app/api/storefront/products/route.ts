@@ -10,7 +10,8 @@ import { createClient } from '@/lib/supabase/server';
 // Map database product to API response format
 function mapProduct(p: Record<string, unknown>) {
   // Robustly handle images field (could be string[] or {url:string}[])
-  const rawImages = (p.images as any[]) || [];
+  type ImageInput = string | { url?: string; alt?: string; order?: number };
+  const rawImages = (p.images as ImageInput[]) || [];
   const processedImages = rawImages.map((img, index) => {
     if (typeof img === 'string') {
       return { url: img, alt: (p.name as string) || '', order: index };

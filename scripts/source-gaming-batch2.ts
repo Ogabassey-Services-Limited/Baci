@@ -64,8 +64,8 @@ async function sourceImages() {
             } else {
                 console.log(`   ❌ Image not found in metadata.`);
             }
-        } catch (e: any) {
-            console.error(`   ❌ Failed: ${e.message}`);
+        } catch (e) {
+            console.error(`   ❌ Failed: ${e instanceof Error ? e.message : String(e)}`);
         }
 
         await new Promise(r => setTimeout(r, 500));

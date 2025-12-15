@@ -45,9 +45,10 @@ async function testGemini25Flash() {
             console.log('\n⚠️ No images generated - text-only response');
             console.log('This model does not support image generation.');
         }
-    } catch (error: any) {
+    } catch (error) {
         console.log('❌ Error:');
-        console.error(error.message.substring(0, 300));
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error(errorMsg.substring(0, 300));
     }
 }
 

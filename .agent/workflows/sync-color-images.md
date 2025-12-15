@@ -33,7 +33,6 @@ This workflow uploads product color images from the local `/public/website desig
 
 Generate a report of which colors are missing images:
 
-// turbo
 ```bash
 npx ts-node scripts/sync-color-images.ts --report "iPhone 16"
 ```
@@ -79,6 +78,7 @@ npx ts-node scripts/sync-color-images.ts --all
 **IMPORTANT:** Before uploading to CDN, convert images to AVIF format for optimal compression.
 
 ### On the CDN Server (after upload)
+
 ```bash
 # SSH into the CDN server
 ssh bassey@82.29.190.219
@@ -100,6 +100,7 @@ sudo chmod 644 *.avif
 ```
 
 ### Compression Results
+
 | Format | Size | Savings |
 |--------|------|---------|
 | PNG | 200KB | - |

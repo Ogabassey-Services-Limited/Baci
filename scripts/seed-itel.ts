@@ -290,4 +290,7 @@ async function seedItelProducts() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedItelProducts();
+seedItelProducts().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

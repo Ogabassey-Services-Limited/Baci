@@ -303,4 +303,7 @@ The **${p.name}** is available at Ogabassey for **${priceStr}**, or pay **₦${m
     console.log(`\n🏁 MacBook Price Update Complete!`);
 }
 
-updateMacBookCostPrices();
+updateMacBookCostPrices().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

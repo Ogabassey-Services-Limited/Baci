@@ -10,7 +10,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import type React from 'react';
-import DOMPurify from 'isomorphic-dompurify';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 // Define props
 interface LegalProps {
@@ -143,7 +143,7 @@ export const OgabasseyV2LegalDispute: React.FC<LegalProps> = ({ merchant }) => {
 
           {customContent ? (
             <div className="prose max-w-none text-gray-600">
-              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(customContent) }} />
+              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(customContent) }} />
             </div>
           ) : (
             <>

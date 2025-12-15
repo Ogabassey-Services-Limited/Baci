@@ -511,4 +511,7 @@ async function seedIphones() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedIphones();
+seedIphones().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

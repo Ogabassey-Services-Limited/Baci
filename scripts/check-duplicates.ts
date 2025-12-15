@@ -1,26 +1,32 @@
-
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function checkDuplicates() {
     console.log('Checking for duplicate slugs...');
 
-    // Query to find duplicates
-    // We want to find slug, merchant_id pairs that appear more than once
-    const { data, error } = await supabase.rpc('check_duplicate_slugs');
+    // Try the RPC approach first
+    const { data: rpcData, error: rpcError } = await supabase.rpc('check_duplicate_slugs');
 
-    // Supabase RPC is the best way, but let's try a raw SQL query via a temporary function if RPC doesn't exist,
-    // or just fetch all keys and process in memory if the dataset isn't huge (risky).
-    // Better approach: Use a raw query with the pg driver connection if available? Node.js usually doesn't expose it directly here.
-    // We can try to create a function first.
+    if (!rpcError && rpcData && rpcData.length > 0) {
+        console.log(`Found ${rpcData.length} duplicate sets via RPC! ⚠️`);
+        for (const dup of rpcData) {
+            console.log(`Duplicate: ${dup.merchant_id}:${dup.slug} -> Count: ${dup.count}`);
+        }
+        return;
+    }
 
-    // Let's try creating a temp function to check duplicates
+    // If RPC failed or returned nothing, try creating a function
     const createFunc = `
     CREATE OR REPLACE FUNCTION get_duplicate_slugs()
     RETURNS TABLE (merchant_id uuid, slug text, count bigint)
@@ -36,10 +42,11 @@ async function checkDuplicates() {
     $$;
   `;
 
-    const { error: funcError } = await supabase.rpc('exec_sql', { sql: createFunc });
+    const { error: funcError } = await supabase.rpc('exec_sql', { sql_query: createFunc });
 
-    // If we can't create functions (permissions), we'll do a paginated fetch and check in memory.
-    // Assuming we might not have 'exec_sql' RPC helper.
+    if (funcError) {
+        console.warn('Could not create helper function (likely permissions), falling back to in-memory check');
+    }
 
     // Fallback: In-memory check (efficient enough for <10k products)
     let allProducts: { id: string; slug: string; merchant_id: string }[] = [];
@@ -59,7 +66,7 @@ async function checkDuplicates() {
         }
 
         if (pageData && pageData.length > 0) {
-            allProducts = [...allProducts, ...pageData];
+            allProducts.push(...pageData);
             page++;
             console.log(`Fetched ${allProducts.length} products...`);
         } else {
@@ -90,4 +97,7 @@ async function checkDuplicates() {
     }
 }
 
-checkDuplicates();
+checkDuplicates().catch((err) => {
+    console.error('Failed to check duplicates:', err);
+    process.exit(1);
+});

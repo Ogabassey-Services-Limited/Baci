@@ -193,11 +193,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
           // If request has filters but returns empty, we should define how to handle it.
           // API returns [] which is fine.
 
-          // Debug: Log raw and mapped products
-          console.log('[EngineProductGrid] Raw API Products:', data.products);
-
           const mappedProducts = toTemplateProducts(data.products);
-          console.log('[EngineProductGrid] Mapped Products:', mappedProducts);
 
           // Filter is now handled server-side!
           setProducts(mappedProducts);

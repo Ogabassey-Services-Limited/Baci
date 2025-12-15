@@ -6,13 +6,21 @@ import { execSync } from 'child_process';
 
 dotenv.config({ path: '.env.local' });
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const VPS_USER = 'bassey';
-const VPS_IP = '82.29.190.219';
-const VPS_PATH = '/var/www/cdn/products';
-const CDN_BASE = 'https://cdn.ogabassey.com/products/';
-const STAGE_DIR = 'scripts/staging_gallery';
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const VPS_USER = process.env.VPS_USER || 'bassey';
+const VPS_IP = process.env.VPS_IP || '82.29.190.219';
+const VPS_PATH = process.env.VPS_PATH || '/var/www/cdn/products';
+const CDN_BASE = process.env.CDN_BASE_URL || 'https://cdn.ogabassey.com/products/';
+const STAGE_DIR = path.join(process.cwd(), 'scripts/staging_gallery');
 
 interface GalleryMatch {
     productId: string;
@@ -36,7 +44,7 @@ async function deploy() {
     console.log('🚀 Starting Gallery Deployment...');
 
     // 1. Load Gallery Matches
-    const data: GalleryMatch[] = JSON.parse(fs.readFileSync('scripts/gallery_matches.json', 'utf-8'));
+    const data: GalleryMatch[] = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'scripts/gallery_matches.json'), 'utf-8'));
     console.log(`📦 Products to update: ${data.length}`);
 
     // 2. Prepare Staging
@@ -116,4 +124,7 @@ async function deploy() {
     console.log('🎉 Gallery Deployment Complete!');
 }
 
-deploy();
+deploy().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

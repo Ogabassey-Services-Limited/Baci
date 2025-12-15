@@ -115,7 +115,6 @@
     "@vitejs/plugin-react": "^5.1.2",
     "babel-plugin-react-compiler": "^1.0.0",
     "baseline-browser-mapping": "^2.9.6",
-    "biome": "^0.3.3",
     "critical": "^7.2.1",
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.0.10",

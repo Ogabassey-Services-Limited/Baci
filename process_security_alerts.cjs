@@ -24,9 +24,11 @@ try {
   }
 
 
-  // Deduplicate by number
+  // Deduplicate by number (use optional chaining for safety)
   const uniqueAlertsMap = new Map();
-  allAlerts.forEach(a => uniqueAlertsMap.set(a.number, a));
+  allAlerts.forEach((a) => {
+    if (a?.number) uniqueAlertsMap.set(a.number, a);
+  });
   const uniqueAlerts = Array.from(uniqueAlertsMap.values());
 
   const total = uniqueAlerts.length;
@@ -60,13 +62,15 @@ try {
     pending: openCount
   };
 
+  const percentResolved = progress.total > 0 ? ((progress.resolved / progress.total) * 100).toFixed(1) : '0.0';
+
   let md = `# Security Alerts Todo List
 
 <div align="center">
 
 ### 🛡️ Security Resolution Status
 <!-- RESOLUTION_STATS -->
-**${progress.resolved} / ${progress.total} Resolved** (0.0%)
+**${progress.resolved} / ${progress.total} Resolved** (${percentResolved}%)
 <!-- /RESOLUTION_STATS -->
 
 </div>
@@ -75,18 +79,20 @@ try {
 
 `;
 
-  // Group by Rule ID
+  // Group by Rule ID (with null safety)
   const byRule = {};
   openAlerts.forEach((alert) => {
     // Filter for open state
     if (alert.state !== 'open') return;
 
-    const ruleId = alert.rule.id;
+    const ruleId = alert.rule?.id;
+    if (!ruleId) return; // Skip alerts without rule ID
+
     if (!byRule[ruleId]) {
       byRule[ruleId] = {
-        name: alert.rule.description || ruleId,
-        severity: alert.rule.severity,
-        tool: alert.tool.name,
+        name: alert.rule?.description || ruleId,
+        severity: alert.rule?.severity || 'unknown',
+        tool: alert.tool?.name || 'Unknown tool',
         alerts: [],
       };
     }
@@ -96,17 +102,18 @@ try {
   // Sort rules by severity (Error > Warning > Note)
   const severityOrder = { error: 0, warning: 1, note: 2, none: 3 };
   const sortedRuleIds = Object.keys(byRule).sort((a, b) => {
-    const sevA = severityOrder[byRule[a].severity.toLowerCase()] ?? 99;
-    const sevB = severityOrder[byRule[b].severity.toLowerCase()] ?? 99;
+    const sevA = severityOrder[byRule[a].severity?.toLowerCase()] ?? 99;
+    const sevB = severityOrder[byRule[b].severity?.toLowerCase()] ?? 99;
     return sevA - sevB;
   });
 
   sortedRuleIds.forEach((ruleId) => {
     const group = byRule[ruleId];
+    const severityLower = group.severity?.toLowerCase();
     const icon =
-      group.severity === 'error'
+      severityLower === 'error'
         ? '🔴'
-        : group.severity === 'warning'
+        : severityLower === 'warning'
           ? '🟠'
           : '🔵';
 
@@ -117,10 +124,13 @@ try {
 
     group.alerts.forEach((alert) => {
       const instance = alert.most_recent_instance;
-      const loc = instance.location;
-      const path = loc.path;
-      const line = loc.start_line;
-      const msg = instance.message.text
+      const loc = instance?.location;
+      if (!loc) return; // Skip if no location info
+
+      const path = loc.path || 'unknown';
+      const line = loc.start_line || 0;
+      const msg = (instance.message?.text || '')
+        .replace(/\\/g, '\\\\')  // Escape backslashes first
         .replace(/\n/g, ' ')
         .replace(/\|/g, '\\|')
         .replace(/\[/g, '\\[')

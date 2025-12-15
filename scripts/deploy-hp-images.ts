@@ -6,16 +6,22 @@ import path from 'path';
 
 dotenv.config({ path: '.env.local' });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-const VPS_USER = 'bassey';
-const VPS_IP = '82.29.190.219';
-const CDN_PATH = '/home/bassey/hp_uploads';
-const LOCAL_DIR = 'hp_downloaded_images';
+const VPS_USER = process.env.VPS_USER || 'bassey';
+const VPS_IP = process.env.VPS_IP || '82.29.190.219';
+const CDN_PATH = process.env.VPS_UPLOAD_PATH || '/home/bassey/hp_uploads';
+const LOCAL_DIR = path.join(process.cwd(), 'hp_downloaded_images');
 
-const matches = JSON.parse(fs.readFileSync('hp_matched_images.json', 'utf-8'));
+const matches = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'hp_matched_images.json'), 'utf-8'));
 
 async function deploy() {
     console.log(`🚀 Starting deployment for ${matches.length} verified products...`);
@@ -44,7 +50,8 @@ async function deploy() {
         }
 
         // 3. Update Supabase
-        const cdnUrl = `https://cdn.ogabassey.com/products/${remoteFilename}`;
+        const CDN_BASE_URL = process.env.CDN_BASE_URL || 'https://cdn.ogabassey.com/products';
+        const cdnUrl = `${CDN_BASE_URL}/${remoteFilename}`;
         console.log(`🔄 Updating DB...`);
 
         const { error } = await supabase

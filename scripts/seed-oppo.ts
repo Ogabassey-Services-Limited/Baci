@@ -39,7 +39,17 @@ const PRICE_DATA = [
 // SPECS DATABASE (Researched)
 // ------------------------------------------------------------------
 
-const MODEL_SPECS: Record<string, any> = {
+interface ModelSpec {
+    name: string;
+    screen: string;
+    processor: string;
+    battery: string;
+    camera: string;
+    features: string;
+    desc: string;
+}
+
+const MODEL_SPECS: Record<string, ModelSpec> = {
     "A3X": {
         name: "Oppo A3x (2024)",
         screen: "6.67\" HD+ 90Hz/120Hz LCD (1000 nits)",
@@ -142,7 +152,14 @@ function generateSlug(name: string): string {
         .trim();
 }
 
-function generateDescription(info: any, modelData: any) {
+interface ModelData {
+    specs: string;
+    rdp: number;
+    rrp: number;
+    model: string;
+}
+
+function generateDescription(info: ModelSpec, modelData: ModelData) {
     return `
 # ${info.name} (${modelData.specs})
 

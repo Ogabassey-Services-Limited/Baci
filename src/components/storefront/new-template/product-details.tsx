@@ -131,8 +131,7 @@ export const ProductDetails: React.FC = () => {
   };
 
   const applyNegotiatedPrice = (cartItemId: string, price: number) => {
-    console.log(`Negotiated price ${price} for ${cartItemId}`);
-    // In a real implementation, we would update the cart item price here.
+    // TODO: In a real implementation, we would update the cart item price here.
   };
 
   return (

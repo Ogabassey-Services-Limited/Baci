@@ -1,8 +1,8 @@
 import type React from 'react';
-import type { Product } from '../types'; // Use local type for consistency with InteractiveProductGrid
-import { BannerCarousel } from '../components/BannerCarousel';
-import { Hero } from '../components/Hero';
-import { InteractiveProductGrid } from '../components/InteractiveProductGrid';
+import type { Product } from '@/components/storefront/ogabassey/types';
+import { BannerCarousel } from '@/components/storefront/ogabassey/components/BannerCarousel';
+import { Hero } from '@/components/storefront/ogabassey/components/Hero';
+import { InteractiveProductGrid } from '@/components/storefront/ogabassey/components/InteractiveProductGrid';
 
 interface HomePageProps {
   products: Product[];

@@ -5,7 +5,15 @@ import path from 'path';
 
 dotenv.config();
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const PRIMARY_IMAGE_DIR = '/Users/mac/Baci-app/Baci/public/website designs';
 const CDN_BASE = 'https://cdn.ogabassey.com/products';
@@ -170,4 +178,7 @@ async function matchImages() {
     console.log(`\n📊 Summary: ${matched} matched, ${unmatched} unmatched out of ${products?.length}`);
 }
 
-matchImages();
+matchImages().catch((error) => {
+    console.error('❌ Fatal error:', error);
+    process.exit(1);
+});

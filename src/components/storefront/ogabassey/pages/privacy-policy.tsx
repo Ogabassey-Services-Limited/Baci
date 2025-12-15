@@ -10,7 +10,7 @@ import {
   Shield,
 } from 'lucide-react';
 import type React from 'react';
-import DOMPurify from 'isomorphic-dompurify';
+import { sanitizeHtml } from '@/lib/sanitize';
 
 // Define props
 interface PrivacyProps {
@@ -141,7 +141,7 @@ export const OgabasseyV2PrivacyPolicy: React.FC<PrivacyProps> = ({ merchant }) =
 
           {customContent ? (
             <div className="prose max-w-none text-gray-600">
-              <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(customContent) }} />
+              <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(customContent) }} />
             </div>
           ) : (
             <>

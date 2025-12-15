@@ -52,17 +52,19 @@ async function testGemini3Flash() {
                 } else {
                     console.log('   ⚠️ Image generation NOT supported (text only).');
                 }
-            } catch (e: any) {
-                console.log(`   ⚠️ Image generation failed: ${e.message.split('\n')[0]}`);
+            } catch (e) {
+                const errorMsg = e instanceof Error ? e.message : String(e);
+                console.log(`   ⚠️ Image generation failed: ${errorMsg.split('\n')[0]}`);
             }
 
-        } catch (error: any) {
-            if (error.message.includes('404') || error.message.includes('not found')) {
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            if (errorMsg.includes('404') || errorMsg.includes('not found')) {
                 console.log('❌ Model not found');
-            } else if (error.message.includes('429')) {
+            } else if (errorMsg.includes('429')) {
                 console.log('❌ Quota exceeded (Model exists but limit reached)');
             } else {
-                console.log(`❌ Error: ${error.message.split('\n')[0]}`);
+                console.log(`❌ Error: ${errorMsg.split('\n')[0]}`);
             }
         }
     }

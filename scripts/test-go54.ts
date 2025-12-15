@@ -75,8 +75,8 @@ async function testGo54Integration() {
     console.log('✅ Nameservers retrieved:');
     console.log(JSON.stringify(nameservers, null, 2));
     console.log('\n');
-  } catch (error: any) {
-    console.error('❌ Test 2 Failed:', error.message);
+  } catch (error) {
+    console.error('❌ Test 2 Failed:', error instanceof Error ? error.message : String(error));
     console.log('\n');
   }
   */

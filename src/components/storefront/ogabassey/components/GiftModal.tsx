@@ -82,19 +82,19 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
     e.preventDefault();
     if (!isValid) return;
 
-    // Mock saving gift options
-    console.log({
-      selectedItemIds,
-      address,
-      senderType: senderType!,
-      senderName: senderType === 'named' ? senderName : undefined,
-      recipientName,
-      recipientEmail,
-      recipientPhone,
-      message,
-      wrapping: wrapping!,
-      wrappingCost: wrapping === 'standard' ? 10000 : 0,
-    });
+    // TODO: Implement gift options saving
+    // Gift data: {
+    //   selectedItemIds,
+    //   address,
+    //   senderType,
+    //   senderName (if named),
+    //   recipientName,
+    //   recipientEmail,
+    //   recipientPhone,
+    //   message,
+    //   wrapping,
+    //   wrappingCost: wrapping === 'standard' ? 10000 : 0,
+    // }
 
     // Navigate to checkout with flag
     router.push('/checkout?giftWrappingCost=10000');

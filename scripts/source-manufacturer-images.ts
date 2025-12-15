@@ -5,10 +5,15 @@ import path from 'path';
 
 dotenv.config({ path: '.env.local' });
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const BRANDS = ['Apple', 'Samsung', 'Google', 'HP', 'Dell', 'Sony', 'Nintendo'];
 const COLORS = ['Porcelain', 'Obsidian', 'Bay', 'Rose', 'Hazel', 'Snow', 'Charcoal', 'Lemongrass']; // Add more specific colors
@@ -60,4 +65,7 @@ async function sourceImages() {
     console.log(`📝 Generated sourcing wishlist with ${wishlist.length} items.`);
 }
 
-sourceImages();
+sourceImages().catch((error) => {
+    console.error('❌ Fatal error:', error);
+    process.exit(1);
+});

@@ -578,4 +578,7 @@ async function seedSamsungWithFullSpecs() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedSamsungWithFullSpecs();
+seedSamsungWithFullSpecs().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

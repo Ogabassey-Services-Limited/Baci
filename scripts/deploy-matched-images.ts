@@ -6,7 +6,15 @@ import { execSync } from 'child_process';
 
 dotenv.config({ path: '.env.local' });
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const MATCH_FILES = [
     'scripts/ai_matches_part1.jsonl',
@@ -14,12 +22,13 @@ const MATCH_FILES = [
     'scripts/ai_matches_part3.jsonl',
     'scripts/heuristic_matches.jsonl',
     'scripts/samsung_fallback_matches.jsonl'
-];
+].map(f => path.join(process.cwd(), f));
 
-const PRIMARY_IMAGE_DIR = '/Users/mac/Baci-app/Baci/public/website designs';
-const VPS_USER = 'bassey';
-const VPS_IP = '82.29.190.219';
-const VPS_PATH = '/var/www/cdn/products';
+const PRIMARY_IMAGE_DIR = process.env.PRIMARY_IMAGE_DIR || path.join(process.cwd(), 'public/website designs');
+const VPS_USER = process.env.VPS_USER || 'bassey';
+const VPS_IP = process.env.VPS_IP || '82.29.190.219';
+const VPS_PATH = process.env.VPS_PATH || '/var/www/cdn/products';
+const SSH_KEY = process.env.SSH_KEY_PATH || path.join(process.env.HOME || '~', '.ssh/id_ed25519');
 
 interface MatchConfig {
     productId: string;
@@ -46,7 +55,9 @@ async function deployMatches() {
                 if (match.matchedImageFilename) {
                     allMatches.push(match);
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.warn(`⚠️ Error parsing line in ${file}:`, e instanceof Error ? e.message : 'Unknown error');
+            }
         }
     }
 
@@ -99,14 +110,15 @@ async function deployMatches() {
         fileMapping.set(m.matchedImageFilename, newFilename);
 
         // Clean SEO URL - no encoding needed since slug is already URL-safe
-        const url = `https://cdn.ogabassey.com/products/${newFilename}`;
+        const CDN_BASE_URL = process.env.CDN_BASE_URL || 'https://cdn.ogabassey.com/products';
+        const url = `${CDN_BASE_URL}/${newFilename}`;
         updates.push({ id: m.productId, url });
     }
 
     console.log(`\n📦 Unique images to upload: ${uniqueImages.size}`);
 
     // 5. Stage Files with New SEO-friendly Names
-    const STAGE_DIR = 'scripts/staging_upload';
+    const STAGE_DIR = path.join(process.cwd(), 'scripts/staging_upload');
     if (fs.existsSync(STAGE_DIR)) fs.rmSync(STAGE_DIR, { recursive: true, force: true });
     fs.mkdirSync(STAGE_DIR);
 
@@ -138,7 +150,7 @@ async function deployMatches() {
     console.log(`   Fixing VPS directory permissions first...`);
     try {
         // Fix permissions BEFORE upload - grant bassey user write access
-        execSync(`ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_IP} "sudo chown -R ${VPS_USER}:www-data ${VPS_PATH} && sudo chmod -R 775 ${VPS_PATH}"`, { stdio: 'inherit' });
+        execSync(`ssh -i "${SSH_KEY}" -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_IP} "sudo chown -R ${VPS_USER}:www-data ${VPS_PATH} && sudo chmod -R 775 ${VPS_PATH}"`, { stdio: 'inherit' });
         console.log('   ✅ VPS permissions ready.');
     } catch (e) {
         console.error('   ⚠️ Could not fix permissions, trying upload anyway...');
@@ -147,13 +159,13 @@ async function deployMatches() {
     console.log(`   Uploading ${uniqueImages.size - missingCount} images to VPS using rsync...`);
     try {
         // Use rsync for robust transfer
-        const rsyncCmd = `rsync -avz --progress -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" "${STAGE_DIR}/" ${VPS_USER}@${VPS_IP}:${VPS_PATH}/`;
+        const rsyncCmd = `rsync -avz --progress -e "ssh -i \\"${SSH_KEY}\\" -o StrictHostKeyChecking=no" "${STAGE_DIR}/" ${VPS_USER}@${VPS_IP}:${VPS_PATH}/`;
 
         execSync(rsyncCmd, { stdio: 'inherit' });
         console.log('   ✅ Upload complete.');
 
         // Reset permissions for Nginx
-        execSync(`ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_IP} "sudo chown -R www-data:www-data ${VPS_PATH} && sudo chmod -R 755 ${VPS_PATH}"`, { stdio: 'inherit' });
+        execSync(`ssh -i "${SSH_KEY}" -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_IP} "sudo chown -R www-data:www-data ${VPS_PATH} && sudo chmod -R 755 ${VPS_PATH}"`, { stdio: 'inherit' });
         console.log('   ✅ Permissions finalized.');
 
     } catch (e) {
@@ -195,4 +207,7 @@ async function deployMatches() {
     console.log('\n🎉 Deployment Complete!');
 }
 
-deployMatches();
+deployMatches().catch((error) => {
+    console.error('❌ Fatal error:', error);
+    process.exit(1);
+});

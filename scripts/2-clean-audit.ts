@@ -125,8 +125,8 @@ function scanForMalware(content: string): string[] {
     }
 
     // Check for inline scripts with suspicious content
-    // Handle script tags with optional whitespace before >
-    const scriptMatches = content.match(/<script[^>]*>[\s\S]*?<\/script[^>]*>/gi);
+    // Handle script tags with any attributes before > (permissive matching)
+    const scriptMatches = content.match(/<script[^>]*>[\s\S]*?<\/script\s*>/gi);
     if (scriptMatches) {
         for (const script of scriptMatches) {
             if (

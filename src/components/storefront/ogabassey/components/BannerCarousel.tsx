@@ -1,6 +1,8 @@
 'use client';
 
 // Migrated from temp-source/components/BannerCarousel.tsx
+import Image from 'next/image';
+import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import type { AD_CONFIG } from '../config/ads';
@@ -73,8 +75,6 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         bgColor: 'bg-black', // Default for category headers
         textColor: 'text-white',
       };
-      // Return custom slide + existing slides (excluding duplicates if needed)
-      // For now, prepend it.
       return [customSlide, ...BANNER_SLIDES];
     }
     return BANNER_SLIDES;
@@ -99,10 +99,13 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
           <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
             {slide.type === 'image' ? (
               <div className="w-full h-full relative overflow-hidden group">
-                <img
-                  src={slide.imageUrl}
-                  alt={slide.title}
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                <Image
+                  src={slide.imageUrl || ''}
+                  alt={slide.title || 'Banner'}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px"
+                  className="object-cover transition-transform duration-1000 group-hover:scale-105"
+                  priority={slide.id === 1}
                 />
                 <div
                   className={`absolute inset-0 bg-gradient-to-r ${slide.bgColor === 'bg-black' ? 'from-black/80' : 'from-red-900/80'} to-transparent flex flex-col justify-center px-8 md:px-16`}
@@ -117,20 +120,13 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                   >
                     {slide.subtitle}
                   </p>
-                  {slide.link ? (
-                    <a
-                      href={slide.link}
+                  {slide.link && (
+                    <Link
+                      href={slide.link as any}
                       className="mt-4 px-6 py-2 bg-white text-gray-900 text-xs md:text-sm font-bold rounded-full w-fit hover:bg-gray-100 transition-colors shadow-lg active:scale-95 inline-block"
                     >
                       Shop Now
-                    </a>
-                  ) : (
-                    <a
-                      href={slide.link}
-                      className="mt-4 px-6 py-2 bg-white text-gray-900 text-xs md:text-sm font-bold rounded-full w-fit hover:bg-gray-100 transition-colors shadow-lg active:scale-95 inline-block"
-                    >
-                      Shop Now
-                    </a>
+                    </Link>
                   )}
                 </div>
               </div>

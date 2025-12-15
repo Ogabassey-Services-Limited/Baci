@@ -1,22 +1,29 @@
-
 import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
-import { execSync } from 'child_process';
 
 // Load environment variables
 dotenv.config({ path: '.env.local' });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-const SOURCE_DIRS = [
-    '/Users/mac/Baci-app/Baci/public/website designs/iphones',
-    '/Users/mac/Baci-app/Baci/public/website designs/SAMSUNG',
-    '/Users/mac/Baci-app/Baci/public/website designs/LAPTOPS AND OTHERS' // for S21 FE etc
-];
+// Get source directories from CLI args or use relative defaults
+const SOURCE_DIRS = process.argv.slice(2).length > 0
+    ? process.argv.slice(2)
+    : [
+        path.join(process.cwd(), 'public/website designs/iphones'),
+        path.join(process.cwd(), 'public/website designs/SAMSUNG'),
+        path.join(process.cwd(), 'public/website designs/LAPTOPS AND OTHERS')
+    ];
 
 const CDN_BASE_URL = 'https://cdn.ogabassey.com/products';
 
@@ -52,7 +59,8 @@ function findImages(dir: string, fileList: string[] = []) {
 // Best effort parser based on "Product Name Color.ext" format
 function parseFilename(filePath: string): Partial<ImageMapping> {
     const filename = path.basename(filePath);
-    const namePart = filename.replace(/\.(avif|png|jpg|webp)$/i, '');
+    // Include jpeg to match findImages pattern
+    const namePart = filename.replace(/\.(avif|png|jpe?g|webp)$/i, '');
 
     // Strategy: Split by common color names or " - " separators
     // Most files look like "SAMSUNG GALAXY S24 ULTRA TITANIUM YELLOW"
@@ -129,7 +137,15 @@ async function main() {
     console.log(`Fetched ${products?.length} products.`);
 
     // Match logic
-    const updates: any[] = [];
+    interface ProductUpdate {
+        productId: string;
+        productName: string;
+        imagePath: string;
+        newFilename: string;
+        color: string;
+        cdnUrl: string;
+    }
+    const updates: ProductUpdate[] = [];
 
     for (const map of mappings) {
         if (!products) continue;
@@ -164,9 +180,23 @@ async function main() {
 
     console.log(`🚀 Unique images to upload: ${uniqueUploads.size}`);
 
+    // Helper to escape SQL string values (prevent SQL injection)
+    const escapeSql = (str: string): string => str.replace(/'/g, "''");
+
+    // Configurable remote host from environment or default
+    const REMOTE_HOST = process.env.MIGRATION_REMOTE_HOST || 'bassey@82.29.190.219';
+    const REMOTE_PATH = process.env.MIGRATION_REMOTE_PATH || '~/upload_temp';
+
     // Output commands to file for review
-    const uploadCommands = Array.from(uniqueUploads.entries()).map(([dest, src]) => `scp "${src}" bassey@82.29.190.219:~/upload_temp/${dest}`).join('\n');
-    const dbUpdates = updates.map(u => `UPDATE products SET images = jsonb_set(COALESCE(images, '[]'::jsonb), '{0}', '"${u.cdnUrl}"'), color_images = jsonb_set(COALESCE(color_images, '{}'::jsonb), '{${u.color}}', '["${u.cdnUrl}"]') WHERE id = '${u.productId}';`).join('\n');
+    const uploadCommands = Array.from(uniqueUploads.entries()).map(([dest, src]) => `scp "${src}" ${REMOTE_HOST}:${REMOTE_PATH}/${dest}`).join('\n');
+
+    // Escape SQL values to prevent injection
+    const dbUpdates = updates.map(u => {
+        const safeColor = escapeSql(u.color);
+        const safeCdnUrl = escapeSql(u.cdnUrl);
+        const safeProductId = escapeSql(u.productId);
+        return `UPDATE products SET images = jsonb_set(COALESCE(images, '[]'::jsonb), '{0}', '"${safeCdnUrl}"'), color_images = jsonb_set(COALESCE(color_images, '{}'::jsonb), '{${safeColor}}', '["${safeCdnUrl}"]') WHERE id = '${safeProductId}';`;
+    }).join('\n');
 
     fs.writeFileSync('migration_upload.sh', uploadCommands);
     fs.writeFileSync('migration_db.sql', dbUpdates);

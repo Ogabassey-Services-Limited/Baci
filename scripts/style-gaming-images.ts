@@ -25,8 +25,8 @@ async function styleImages() {
             await image.write(path.join(OUT_DIR, outName));
             console.log(`   Saved ${outName}`);
 
-        } catch (e: any) {
-            console.error(`   Failed ${file}:`, e.message);
+        } catch (e) {
+            console.error(`   Failed ${file}:`, e instanceof Error ? e.message : String(e));
         }
     }
 }

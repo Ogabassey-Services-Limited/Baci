@@ -86,10 +86,12 @@ const nextConfig: NextConfig = {
         hostname: 'commondatastorage.googleapis.com',
       },
       {
+        // GSMArena CDN for device/phone images
         protocol: 'https',
         hostname: 'fdn.gsmarena.com',
       },
       {
+        // GSMArena CDN for device/phone images
         protocol: 'https',
         hostname: 'fdn2.gsmarena.com',
       },

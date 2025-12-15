@@ -36,8 +36,9 @@ async function testLiveModel() {
         } else {
             console.log('\n⚠️ No images in response - this is a text/audio model, not image generation');
         }
-    } catch (error: any) {
-        console.log('❌ Error:', error.message.substring(0, 200));
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.log('❌ Error:', errorMsg.substring(0, 200));
     }
 }
 

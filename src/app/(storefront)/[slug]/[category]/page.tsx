@@ -92,6 +92,8 @@ const getCategoryData = cache(
 
     // 3. Get products using single optimized query (2025 best practice)
     // Uses Supabase .or() to check category OR brand in one DB call
+    // Sanitize categoryName to prevent PostgREST filter injection
+    const sanitizedCategoryName = categoryName.replace(/[,().]/g, '');
     const { data: products, error: productsError } = await supabase
       .from('products')
       .select(`
@@ -109,7 +111,7 @@ const getCategoryData = cache(
       `)
       .eq('merchant_id', merchant.id)
       .eq('status', 'active')
-      .or(`category.eq.${categoryName},brand.ilike.${categoryName},name.ilike.%${categoryName}%`)
+      .or(`category.eq.${sanitizedCategoryName},brand.ilike.${sanitizedCategoryName},name.ilike.%${sanitizedCategoryName}%`)
       .limit(50);
 
     if (productsError) {

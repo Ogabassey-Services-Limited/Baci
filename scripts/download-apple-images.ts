@@ -36,7 +36,15 @@ async function downloadAppleImages() {
     }
 
     console.log(`🍎 Downloading ${ALL_VARIANTS.length} Apple product images...\n`);
-    const results: any[] = [];
+
+    interface DownloadResult {
+        name: string;
+        slug: string;
+        localPath?: string;
+        success: boolean;
+    }
+
+    const results: DownloadResult[] = [];
 
     for (const variant of ALL_VARIANTS) {
         const url = `${CDN_BASE}/${variant.slug}?wid=1200&hei=900&fmt=png&qlt=95`;

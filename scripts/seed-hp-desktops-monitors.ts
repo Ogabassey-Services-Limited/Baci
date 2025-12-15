@@ -667,4 +667,7 @@ async function seedHPDesktopsMonitors() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedHPDesktopsMonitors();
+seedHPDesktopsMonitors().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

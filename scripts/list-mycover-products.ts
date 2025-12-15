@@ -31,7 +31,12 @@ async function listProducts() {
             const data = JSON.parse(text);
             console.log('✅ Success! Found products:');
             if (data.data && Array.isArray(data.data)) {
-                data.data.forEach((p: any) => {
+                interface MyCoverProduct {
+                    id: string;
+                    name: string;
+                    category?: { name: string };
+                }
+                data.data.forEach((p: MyCoverProduct) => {
                     console.log(`- [${p.id}] ${p.name} (Category: ${p.category?.name || 'N/A'})`);
                 });
             }
@@ -41,4 +46,7 @@ async function listProducts() {
     }
 }
 
-listProducts();
+listProducts().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

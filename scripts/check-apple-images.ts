@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -10,7 +9,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.error('Missing Supabase credentials');
+    console.error('❌ Missing Supabase credentials');
     process.exit(1);
 }
 
@@ -40,6 +39,11 @@ async function checkBrands() {
         .ilike('brand', '%Apple%')  // fuzzy match
         .limit(5);
 
+    if (appleError) {
+        console.error('Error fetching Apple products:', appleError);
+        return;
+    }
+
     if (appleProducts && appleProducts.length > 0) {
         console.log(`Found ${appleProducts.length} Apple-like products:`);
         appleProducts.forEach(p => {
@@ -50,4 +54,4 @@ async function checkBrands() {
     }
 }
 
-checkBrands();
+await checkBrands();

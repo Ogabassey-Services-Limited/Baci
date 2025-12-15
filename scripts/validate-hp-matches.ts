@@ -1,9 +1,18 @@
 import fs from 'fs';
 
-const matches = JSON.parse(fs.readFileSync('hp_matched_images.json', 'utf-8'));
+interface HPMatch {
+    supabaseId: string;
+    ourProductName: string;
+    hpProductSlug: string;
+    hpProductUrl: string;
+    imageUrl: string;
+    matchScore: number;
+}
+
+const matches: HPMatch[] = JSON.parse(fs.readFileSync('hp_matched_images.json', 'utf-8'));
 console.log(`Checking ${matches.length} candidates...`);
 
-const validMatches = matches.filter((m: any) => {
+const validMatches = matches.filter((m) => {
     // Helper to extract series and gen
     const getModelInfo = (name: string) => {
         // Extract number like "840", "440", "640", "15"
