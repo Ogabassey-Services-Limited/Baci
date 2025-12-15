@@ -33,7 +33,7 @@ function mapProduct(p: Record<string, unknown>) {
 // Cached function to get merchant ID from slug
 const getMerchantIdBySlug = unstable_cache(
   async (slug: string) => {
-    console.log("[API] Looking up merchant ID for slug:", slug);
+    console.log('[API] Looking up merchant ID for slug:', slug);
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
 
     const { data, error } = await supabase
@@ -43,10 +43,10 @@ const getMerchantIdBySlug = unstable_cache(
       .single();
 
     if (error) {
-      console.error("[API] Merchant lookup error for slug", slug, ":", error);
+      console.error('[API] Merchant lookup error for slug:', slug, error);
       return null;
     }
-    console.log("[API] Found merchant ID:", data?.id);
+    console.log('[API] Found merchant ID:', data?.id);
     return data?.id;
   },
   ['merchant-slug-id-lookup'], // Changed key to force cache invalidation
@@ -81,7 +81,7 @@ export async function GET(
     // We use a fresh client here to ensure we get latest data if cache is stale
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
 
-    console.log("[API] Fetching products for merchant:", merchantId);
+    console.log('[API] Fetching products for merchant:', merchantId);
     const { data: products, error } = await supabase
       .from('products')
       .select('*')
@@ -90,14 +90,11 @@ export async function GET(
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error(
-        `[API] Product fetch error for merchant ${merchantId}:`,
-        error
-      );
+      console.error('[API] Product fetch error for merchant:', merchantId, error);
       throw error;
     }
 
-    console.log("[API] Found", products?.length || 0, "products");
+    console.log('[API] Found products:', products?.length || 0);
 
     const mappedProducts = (products || []).map(mapProduct);
 

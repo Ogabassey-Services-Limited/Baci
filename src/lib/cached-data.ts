@@ -108,20 +108,21 @@ export const getCachedMerchant = unstable_cache(
         hero_slides
       `)
       .eq('slug', slug)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error(
-        `Error fetching merchant for slug "${slug}":`,
+        'Error fetching merchant for slug:',
+        slug,
         JSON.stringify(error, null, 2)
       );
       return null;
     }
 
     if (!data) {
-      console.warn("No merchant data found for slug", slug);
+      console.warn('No merchant data found for slug:', slug);
     } else {
-      console.log("Successfully fetched merchant:", slug, `(${data.id})`);
+      console.log('Successfully fetched merchant:', slug, data.id);
     }
 
     // Fetch primary domain
@@ -310,15 +311,23 @@ export const getCachedProducts = unstable_cache(
         currency,
         status,
         is_featured,
+        is_parent,
         quantity,
         track_quantity,
         images,
+        color_images,
+        brand,
+        condition,
         product_variants (
           id,
           name,
           options,
           price_modifier,
-          stock
+          stock,
+          storage,
+          sim_type,
+          color,
+          price_override
         ),
         product_categories (
           category_id,
@@ -331,6 +340,7 @@ export const getCachedProducts = unstable_cache(
       `)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
+      .or('is_parent.eq.true,parent_product_id.is.null') // Only show parent products or standalone products
       .order('created_at', { ascending: false });
 
     if (options?.categoryId) {
@@ -396,6 +406,7 @@ export const getCachedProduct = unstable_cache(
         quantity,
         track_quantity,
         images,
+        color_images,
         created_at,
         product_key_specs,
         specifications,
@@ -404,7 +415,13 @@ export const getCachedProduct = unstable_cache(
           name,
           options,
           price_modifier,
-          stock
+          stock,
+          storage,
+          sim_type,
+          color,
+          images,
+          primary_image,
+          price_override
         ),
         product_categories (
           category_id,

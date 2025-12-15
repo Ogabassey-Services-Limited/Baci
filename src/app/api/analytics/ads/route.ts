@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import type { AdTrackingData } from '@/lib/ad-tracking-cookies';
 import { cache, generateCacheKey } from '@/lib/cache';
 import { createClient } from '@/lib/supabase/server';
 
@@ -14,18 +15,6 @@ import { createClient } from '@/lib/supabase/server';
  * - Click attribution (orders with fbclid, ttclid, gclid, sccid)
  * - Platform configuration status
  */
-
-interface AdTrackingData {
-  fbclid?: string;
-  fbp?: string;
-  ttclid?: string;
-  ttp?: string;
-  gclid?: string;
-  sccid?: string;
-  gaClientId?: string;
-  eventId?: string;
-  limitedDataUse?: boolean;
-}
 
 interface PlatformStats {
   name: string;
@@ -219,11 +208,17 @@ export async function GET(request: Request) {
           }
         }
 
-        // If any platform is configured and we have tracking data, count it
-        const anyConfigured = Object.values(platformStats).some(
-          (p) => p.configured
-        );
-        if (anyConfigured) {
+        // Count as conversion only if the order has tracking for a configured platform
+        const hasConfiguredPlatformTracking =
+          (platformStats.facebook.configured &&
+            (tracking.fbclid || tracking.fbp)) ||
+          (platformStats.tiktok.configured &&
+            (tracking.ttclid || tracking.ttp)) ||
+          (platformStats.ga4.configured &&
+            (tracking.gclid || tracking.gaClientId)) ||
+          (platformStats.snapchat.configured && tracking.sccid);
+
+        if (hasConfiguredPlatformTracking) {
           totalConversions++;
           totalAttributedRevenue += revenue;
         }

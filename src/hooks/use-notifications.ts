@@ -88,7 +88,8 @@ export function useNotifications(): UseNotificationsReturn {
           const errorData = await response.json().catch(() => ({}));
           // Don't throw for 429s or other actionable errors, just log and return empty
           console.error(
-            `Failed to fetch notifications: ${response.status}`,
+            'Failed to fetch notifications:',
+            response.status,
             errorData
           );
           return [];

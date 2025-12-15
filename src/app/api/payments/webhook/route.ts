@@ -450,10 +450,18 @@ export async function POST(request: NextRequest) {
               // Fire-and-forget: Don't await, let it run in background
               sendPurchaseConversion(analyticsConfig, orderConversionData)
                 .then((results) => {
-                  logConversionResults(
-                    orderConversionData.orderNumber,
-                    results
-                  );
+                  try {
+                    logConversionResults(
+                      orderConversionData.orderNumber,
+                      results
+                    );
+                  } catch (logErr) {
+                    logger.error({
+                      message: 'Failed to log conversion results',
+                      orderId: order.id,
+                      error: logErr,
+                    });
+                  }
                 })
                 .catch((err) => {
                   logger.error({

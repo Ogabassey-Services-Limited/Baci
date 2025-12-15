@@ -78,16 +78,23 @@ export async function getGeoFromHeaders(): Promise<GeoPrivacyInfo> {
 /**
  * Detect user's geo location from IP address using free API
  * Use this as fallback when Vercel headers aren't available
+ * Includes timeout to prevent order processing delays
  */
 export async function getGeoFromIP(ip: string): Promise<GeoPrivacyInfo> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+
   try {
     // Use ip-api.com (free, no API key required, 45 requests/minute)
     const response = await fetch(
       `http://ip-api.com/json/${ip}?fields=status,country,countryCode,region,regionName,city`,
       {
         next: { revalidate: 86400 }, // Cache for 24 hours
+        signal: controller.signal,
       }
     );
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       return getDefaultGeoInfo();
@@ -101,7 +108,11 @@ export async function getGeoFromIP(ip: string): Promise<GeoPrivacyInfo> {
 
     return analyzeGeoForPrivacy(data.countryCode, data.region, data.city);
   } catch (error) {
-    console.error('[Geo Privacy] IP lookup failed:', error);
+    clearTimeout(timeoutId);
+    // Don't log abort errors as they're expected on timeout
+    if (error instanceof Error && error.name !== 'AbortError') {
+      console.error('[Geo Privacy] IP lookup failed:', error);
+    }
     return getDefaultGeoInfo();
   }
 }

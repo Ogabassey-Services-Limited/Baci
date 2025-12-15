@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getTemplate, type TemplatePageProps } from '@/templates/registry';
+import type { Product } from '@/lib/products';
 
 const DynamicPuckStorefront = dynamic(
   () =>
@@ -17,11 +18,15 @@ const DynamicPuckStorefront = dynamic(
   { ssr: false } // Client-side only rendering
 );
 
+interface StorefrontWrapperProps {
+  products?: Product[];
+}
+
 /**
  * Wrapper that renders the appropriate storefront template based on merchant's template_id.
  * Falls back to Puck storefront if no template_id is set or template not found.
  */
-export function StorefrontWrapper() {
+export function StorefrontWrapper({ products = [] }: StorefrontWrapperProps) {
   const { merchant, loading } = useMerchant();
   const [showError, setShowError] = useState(false);
   const [TemplateHome, setTemplateHome] =
@@ -63,7 +68,7 @@ export function StorefrontWrapper() {
         setTemplateHome(() => components.Home);
         setTemplateLoading(false);
       } catch (error) {
-        console.error("Failed to load template", templateId, ":", error);
+        console.error('Failed to load template:', templateId, error);
         setTemplateHome(null);
         setTemplateLoading(false);
       }
@@ -114,6 +119,7 @@ export function StorefrontWrapper() {
           <TemplateHome
             storeSlug={merchant?.slug}
             merchant={merchant || undefined}
+            products={products}
             isPreview={false}
           />
         </Suspense>
