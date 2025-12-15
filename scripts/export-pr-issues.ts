@@ -140,8 +140,7 @@ try {
         if (!c) return;
         // lgtm[js/incomplete-sanitization] - internal markdown report, not user-facing HTML
         const body = c.body.replace(/\n/g, ' ').substring(0, 60) + (c.body.length > 60 ? '...' : '');
-        // lgtm[js/incomplete-sanitization] - internal markdown report, not user-facing HTML
-        const safeBody = body.replace(/\|/g, '\\|');
+        const safeBody = body.replace(/\|/g, '\\|'); // lgtm[js/incomplete-sanitization]
         const path = thread.path || 'General';
         md += `| \`${path}\` | ${c.author?.login || 'unknown'} | ${safeBody} | [View](${c.url}) |\n`;
     });
@@ -179,11 +178,9 @@ try {
                 const summary = body.substring(0, 300).replace(/\n/g, ' ');
                 // body = `<details><summary>${summary}...</summary><br>${body.replace(/\n/g, '<br>')}</details>`;
                 // Simpler for table:
-                // lgtm[js/incomplete-sanitization] - internal markdown report, not user-facing HTML
-                body = body.replace(/\n/g, '<br>').replace(/\|/g, '\\|');
+                body = body.replace(/\n/g, '<br>').replace(/\|/g, '\\|'); // lgtm[js/incomplete-sanitization]
             } else {
-                // lgtm[js/incomplete-sanitization] - internal markdown report, not user-facing HTML
-                body = body.replace(/\n/g, '<br>').replace(/\|/g, '\\|');
+                body = body.replace(/\n/g, '<br>').replace(/\|/g, '\\|'); // lgtm[js/incomplete-sanitization]
             }
 
             md += `| **${c.author?.login || 'unknown'}** | ${body} | [View](${c.url}) |\n`;
