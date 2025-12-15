@@ -10,7 +10,7 @@ async function checkQuota() {
     const apiKey = process.env.GOOGLE_GENAI_API_KEY || process.env.GEMINI_API_KEY;
 
     console.log('--- Google AI API Quota Check ---');
-    console.log("API Key found:", apiKey ? 'Yes' : 'No');
+    console.log(`API Key found: ${apiKey ? 'Yes' : 'No'}`);
     if (!apiKey) {
         console.error('ERROR: No API key found in .env or .env.local');
         return;
@@ -21,7 +21,7 @@ async function checkQuota() {
     });
 
     const modelName = 'gemini-2.5-flash-image';
-    console.log("\nTesting model:", modelName);
+    console.log(`\nTesting model: ${modelName}`);
 
     try {
         const start = Date.now();
@@ -32,8 +32,8 @@ async function checkQuota() {
         const duration = Date.now() - start;
 
         console.log('✅ Success!');
-        console.log("Response: \"" + result.text + "\"");
-        console.log("Latency:", duration, "ms");
+        console.log(`Response: "${result.text}"`);
+        console.log(`Latency: ${duration}ms`);
         console.log('\nYour API key and quota are working correctly for text generation.');
     } catch (error: any) {
         console.log('❌ Request Failed');
@@ -47,7 +47,7 @@ async function checkQuota() {
             console.error('3. Billing is not enabled for this project');
         } else if (error.message.includes('404') || error.message.includes('not found')) {
             console.error('\n🔴 MODEL NOT FOUND (404)');
-            console.error("The model \"" + modelName + "\" is not available for your API key.");
+            console.error(`The model "${modelName}" is not available for your API key.`);
         } else {
             console.error('\n🔴 UNEXPECTED ERROR');
             console.error(error);

@@ -194,7 +194,7 @@ async function updateMacBookCostPrices() {
         }
     }
 
-    console.log("\n   Updated:", updated, "| Not found:", notFound, "\n");
+    console.log(`\n   Updated: ${updated} | Not found: ${notFound}\n`);
 
     // Part 2: Add missing MacBooks
     console.log("📊 Part 2: Adding missing MacBooks...\n");
@@ -214,7 +214,7 @@ async function updateMacBookCostPrices() {
     for (const p of MISSING_MACBOOKS) {
         const specs = MACBOOK_SPECS[p.specs];
         if (!specs) {
-            console.warn("⚠️ No specs for", p.specs, ", skipping.");
+            console.warn(`⚠️ No specs for ${p.specs}, skipping.`);
             continue;
         }
 
@@ -299,7 +299,7 @@ The **${p.name}** is available at Ogabassey for **${priceStr}**, or pay **₦${m
         }
     }
 
-    console.log("\n   Created:", created, "| Skipped:", skipped);
+    console.log(`\n   Created: ${created} | Skipped: ${skipped}`);
     console.log(`\n🏁 MacBook Price Update Complete!`);
 }
 

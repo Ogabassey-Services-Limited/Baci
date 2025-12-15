@@ -12,7 +12,7 @@ if (!fs.existsSync(downloadDir)) {
 // Clean filenames (remove all trailing *)
 const cleanFiles = unmatchedFiles.map((f: string) => f.replace(/\*$/g, ''));
 
-console.log("🚀 Preparing to download", cleanFiles.length, "files...");
+console.log(`🚀 Preparing to download ${cleanFiles.length} files...`);
 
 const fileListPath = 'files_to_tar.txt';
 fs.writeFileSync(fileListPath, cleanFiles.map((f: string) => `/var/www/cdn/products/${f}`).join('\n'));

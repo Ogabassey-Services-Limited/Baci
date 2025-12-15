@@ -23,10 +23,10 @@ async function styleImages() {
             // Save as PNG
             const outName = file.replace(/\.(jpg|jpeg|png)$/i, '.png');
             await image.write(path.join(OUT_DIR, outName));
-            console.log("   Saved", outName);
+            console.log(`   Saved ${outName}`);
 
         } catch (e: any) {
-            console.error("   Failed", file, ":", e.message);
+            console.error(`   Failed ${file}:`, e.message);
         }
     }
 }

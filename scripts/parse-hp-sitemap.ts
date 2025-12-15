@@ -5,7 +5,7 @@ const sitemapXml = fs.readFileSync('hp_pdp_sitemap.xml', 'utf-8');
 
 // Parse URL blocks: <url>...</url>
 const urlBlocks = sitemapXml.match(/<url>[\s\S]*?<\/url>/g) || [];
-console.log("Found", urlBlocks.length, "product entries in HP sitemap");
+console.log(`Found ${urlBlocks.length} product entries in HP sitemap`);
 
 interface ProductImageMap {
     productUrl: string;
@@ -56,7 +56,7 @@ for (const block of urlBlocks) {
     }
 }
 
-console.log("\nExtracted", products.length, "products with high-quality Widen images");
+console.log(`\nExtracted ${products.length} products with high-quality Widen images`);
 
 // Save full mapping
 fs.writeFileSync('hp_sitemap_images.json', JSON.stringify(products, null, 2));
@@ -67,12 +67,12 @@ const laptops = products.filter(p =>
     laptopKeywords.some(kw => p.productSlug.toLowerCase().includes(kw))
 );
 
-console.log("\n🎯 Found", laptops.length, "HP Laptops with official images!");
+console.log(`\n🎯 Found ${laptops.length} HP Laptops with official images!`);
 fs.writeFileSync('hp_laptop_images.json', JSON.stringify(laptops, null, 2));
 
 // Show first 10
 console.log('\nFirst 10 Laptops:');
 laptops.slice(0, 10).forEach(l => {
-    console.log("-", l.productSlug);
-    console.log("  Image:", l.images[0]);
+    console.log(`- ${l.productSlug}`);
+    console.log(`  Image: ${l.images[0]}`);
 });

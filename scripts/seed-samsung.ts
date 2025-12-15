@@ -503,7 +503,7 @@ async function seedSamsungWithFullSpecs() {
     const categoryId = samsungCat?.id;
 
     // C. Seed Products
-    console.log("🌱 Seeding", PRODUCTS_TO_SEED.length, "Samsung products with full specs...\n");
+    console.log(`🌱 Seeding ${PRODUCTS_TO_SEED.length} Samsung products with full specs...\n`);
 
     let created = 0;
     let skipped = 0;
@@ -511,7 +511,7 @@ async function seedSamsungWithFullSpecs() {
     for (const p of PRODUCTS_TO_SEED) {
         const specs = SAMSUNG_SPECS[p.model];
         if (!specs) {
-            console.warn("⚠️ No specs for", p.model, ", skipping.");
+            console.warn(`⚠️ No specs for ${p.model}, skipping.`);
             continue;
         }
 
@@ -530,7 +530,7 @@ async function seedSamsungWithFullSpecs() {
         // Check if exists
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log("   ⏩ Skipping existing:", fullName);
+            console.log(`   ⏩ Skipping existing: ${fullName}`);
             skipped++;
             continue;
         }
@@ -545,8 +545,8 @@ async function seedSamsungWithFullSpecs() {
 
         const description = generateDescription(p.model, fullName, p.rrp, specs, metadata);
 
-        console.log("   ✨ Creating:", fullName);
-        console.log("      Cost: ₦" + p.rdp.toLocaleString(), "| Sell: ₦" + p.rrp.toLocaleString());
+        console.log(`   ✨ Creating: ${fullName}`);
+        console.log(`      Cost: ₦${p.rdp.toLocaleString()} | Sell: ₦${p.rrp.toLocaleString()}`);
 
         const { data: newProd, error } = await supabase.from('products').insert({
             name: fullName,
@@ -564,7 +564,7 @@ async function seedSamsungWithFullSpecs() {
         }).select().single();
 
         if (error) {
-            console.error("   ❌ Failed:", fullName, error.message);
+            console.error(`   ❌ Failed: ${fullName}`, error.message);
         } else {
             if (categoryId) {
                 await supabase.from('product_categories').insert({ product_id: newProd.id, category_id: categoryId });
@@ -575,7 +575,7 @@ async function seedSamsungWithFullSpecs() {
     }
 
     console.log(`\n🏁 Samsung Seeding Complete!`);
-    console.log("   Created:", created, "| Skipped:", skipped);
+    console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
 seedSamsungWithFullSpecs();

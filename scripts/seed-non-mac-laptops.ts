@@ -271,7 +271,7 @@ async function seed() {
 
             if (updateError) console.error(`❌ Update Failed ${p.name}:`, updateError.message);
             else {
-                console.log("🔄 Updated (Metadata Fix):", p.name);
+                console.log(`🔄 Updated (Metadata Fix): ${p.name}`);
                 updated++;
             }
         } else {
@@ -295,13 +295,13 @@ async function seed() {
             if (error) {
                 console.error(`❌ Failed ${p.name}:`, error.message);
             } else {
-                console.log("✅ Created:", p.name);
+                console.log(`✅ Created: ${p.name}`);
                 created++;
             }
         }
     }
 
-    console.log("\n🏁 Done! Created:", created, ", Updated:", updated, ", Skipped:", skipped);
+    console.log(`\n🏁 Done! Created: ${created}, Updated: ${updated}, Skipped: ${skipped}`);
 }
 
 seed();

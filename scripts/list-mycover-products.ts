@@ -32,7 +32,7 @@ async function listProducts() {
             console.log('✅ Success! Found products:');
             if (data.data && Array.isArray(data.data)) {
                 data.data.forEach((p: any) => {
-                    console.log("- [" + p.id + "]", p.name, "(Category: " + (p.category?.name || 'N/A') + ")");
+                    console.log(`- [${p.id}] ${p.name} (Category: ${p.category?.name || 'N/A'})`);
                 });
             }
         }

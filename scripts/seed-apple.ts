@@ -304,12 +304,12 @@ async function seedAppleProducts() {
     }
 
     // B. Seed Products
-    console.log("🌱 Seeding", PRODUCTS_TO_SEED.length, "Apple products...");
+    console.log(`🌱 Seeding ${PRODUCTS_TO_SEED.length} Apple products...`);
 
     for (const p of PRODUCTS_TO_SEED) {
         const specs = APPLE_SPECS[p.model];
         if (!specs) {
-            console.warn("⚠️ No specs found for iPhone", p.model, ", skipping content generation.");
+            console.warn(`⚠️ No specs found for iPhone ${p.model}, skipping content generation.`);
             continue;
         }
 
@@ -348,12 +348,12 @@ async function seedAppleProducts() {
         const dbCondition = p.condition.toLowerCase() === 'new' ? 'new' : 'used';
 
         if (existing) {
-            console.log("   ⏩ Skipping existing:", fullName);
+            console.log(`   ⏩ Skipping existing: ${fullName}`);
             // Optional: Link to category if missing
             await supabase.from('product_categories').upsert({ product_id: existing.id, category_id: categoryId });
         } else {
-            console.log("   ✨ Creating:", fullName);
-            console.log("      Cost: ₦" + costPrice + ", Markup: " + ((markup - 1) * 100).toFixed(0) + "%, Retail: ₦" + retailPrice);
+            console.log(`   ✨ Creating: ${fullName}`);
+            console.log(`      Cost: ₦${costPrice}, Markup: ${((markup - 1) * 100).toFixed(0)}%, Retail: ₦${retailPrice}`);
 
             const { data: newProd, error: insertError } = await supabase
                 .from('products')
@@ -375,7 +375,7 @@ async function seedAppleProducts() {
                 .single();
 
             if (insertError) {
-                console.error("   ❌ Failed to insert", fullName, ":", insertError);
+                console.error(`   ❌ Failed to insert ${fullName}:`, insertError);
             } else {
                 // Link Category
                 await supabase.from('product_categories').insert({ product_id: newProd.id, category_id: categoryId });

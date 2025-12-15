@@ -13,11 +13,11 @@ async function fixNames() {
         .select('id, name')
         .ilike('name', '%iPhone 17 Air%');
 
-    console.log("Found", products?.length || 0, "products to rename.");
+    console.log(`Found ${products?.length || 0} products to rename.`);
 
     for (const p of products || []) {
         const newName = p.name.replace('iPhone 17 Air', 'iPhone Air');
-        console.log("Renaming: \"" + p.name + "\" -> \"" + newName + "\"");
+        console.log(`Renaming: "${p.name}" -> "${newName}"`);
 
         await supabase
             .from('products')

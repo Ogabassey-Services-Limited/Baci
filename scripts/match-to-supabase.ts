@@ -64,7 +64,7 @@ async function matchToSupabase() {
 
         if (searchResult.length > 0 && searchResult[0].score! < 0.5) {
             const supaProduct = searchResult[0].item;
-            console.log("✅ \"" + match.productName + "\" -> \"" + supaProduct.name + "\" (score: " + searchResult[0].score?.toFixed(3) + ")");
+            console.log(`✅ "${match.productName}" -> "${supaProduct.name}" (score: ${searchResult[0].score?.toFixed(3)})`);
 
             finalMatches.push({
                 oldFile: match.file.replace(/\*$/g, ''),
@@ -76,14 +76,14 @@ async function matchToSupabase() {
                 score: searchResult[0].score
             });
         } else {
-            console.log("❌ No match for:", match.productName);
+            console.log(`❌ No match for: "${match.productName}"`);
             failedMatches.push(match);
         }
     }
 
     console.log(`\n📊 Final Summary:`);
-    console.log("✅ Matched to Supabase:", finalMatches.length);
-    console.log("❌ No Supabase match:", failedMatches.length);
+    console.log(`✅ Matched to Supabase: ${finalMatches.length}`);
+    console.log(`❌ No Supabase match: ${failedMatches.length}`);
 
     // Save results
     fs.writeFileSync('final_migration.json', JSON.stringify(finalMatches, null, 2));

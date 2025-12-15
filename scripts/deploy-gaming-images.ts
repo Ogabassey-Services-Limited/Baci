@@ -77,14 +77,15 @@ async function deployGaming() {
         }
     }
 
-    // 6. Move files on VPS
-    console.log("Moving files to content directory...");
-    const moveCmd = `ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_IP} "echo 'Ogabassey1234!Praisethelord96!' | sudo -S sh -c 'mv /home/bassey/*.png ${REMOTE_DIR}/ && chown -R bassey:bassey ${REMOTE_DIR} && chmod 644 ${REMOTE_DIR}/*.png'"`;
+    // 6. Move files on VPS and set correct permissions
+    console.log("Moving files to content directory and fixing permissions...");
+    // Use umask 022 to ensure correct permissions, then move and chmod
+    const moveCmd = `ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_IP} "umask 022 && mv /home/bassey/*.png ${REMOTE_DIR}/ 2>/dev/null; chmod 644 ${REMOTE_DIR}/*.png 2>/dev/null || echo 'Some files already moved'"`;
     try {
         await execAsync(moveCmd);
-        console.log("Files moved and permissions set.");
+        console.log("Files moved and permissions set (644).");
     } catch (e: any) {
-        console.error("Move command failed:", e.message);
+        console.error("Move command issue:", e.message);
         // Continue to DB update anyway as move might have partially succeeded
     }
 

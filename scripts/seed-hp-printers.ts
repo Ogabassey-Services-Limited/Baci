@@ -457,7 +457,7 @@ async function seedHPPrinters() {
     }
 
     // Seed Printers
-    console.log("🌱 Seeding", HP_PRINTERS.length, "HP Printers...\n");
+    console.log(`🌱 Seeding ${HP_PRINTERS.length} HP Printers...\n`);
     let created = 0;
     let skipped = 0;
 
@@ -466,7 +466,7 @@ async function seedHPPrinters() {
 
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log("   ⏩ Skipping existing:", product.name);
+            console.log(`   ⏩ Skipping existing: ${product.name}`);
             skipped++;
             continue;
         }
@@ -497,8 +497,8 @@ async function seedHPPrinters() {
             metadata.monthlyDutyCycle = product.specs.monthlyDutyCycle;
         }
 
-        console.log("   ✨ Creating:", product.name);
-        console.log("      Cost: ₦" + product.cost_price.toLocaleString() + " | Sell: ₦" + sellingPrice.toLocaleString());
+        console.log(`   ✨ Creating: ${product.name}`);
+        console.log(`      Cost: ₦${product.cost_price.toLocaleString()} | Sell: ₦${sellingPrice.toLocaleString()}`);
 
         const { data: newProd, error } = await supabase.from('products').insert({
             name: `${product.name} (New)`,
@@ -517,7 +517,7 @@ async function seedHPPrinters() {
         }).select().single();
 
         if (error) {
-            console.error("   ❌ Failed:", product.name, error.message);
+            console.error(`   ❌ Failed: ${product.name}`, error.message);
         } else {
             if (printerCat?.id) {
                 await supabase.from('product_categories').insert({ product_id: newProd.id, category_id: printerCat.id });
@@ -528,7 +528,7 @@ async function seedHPPrinters() {
     }
 
     console.log(`\n🏁 HP Printers Seeding Complete!`);
-    console.log("   Created:", created, "| Skipped:", skipped);
+    console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
 seedHPPrinters();

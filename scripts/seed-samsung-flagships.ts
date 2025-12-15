@@ -593,7 +593,7 @@ async function seedSamsungFlagships() {
     const merchantId = samsungCat.merchant_id;
     const categoryId = samsungCat.id;
 
-    console.log("🌱 Seeding", PRODUCTS_TO_SEED.length, "Samsung flagship products...\n");
+    console.log(`🌱 Seeding ${PRODUCTS_TO_SEED.length} Samsung flagship products...\n`);
 
     let created = 0;
     let skipped = 0;
@@ -615,7 +615,7 @@ async function seedSamsungFlagships() {
         // Check if exists
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log("   ⏩ Skipping existing:", fullName);
+            console.log(`   ⏩ Skipping existing: ${fullName}`);
             skipped++;
             continue;
         }
@@ -632,8 +632,8 @@ async function seedSamsungFlagships() {
 
         const description = generateDescription(p.model, fullName, p.price, specs, metadata);
 
-        console.log("   ✨ Creating:", fullName);
-        console.log("      Price: ₦" + p.price.toLocaleString(), "| Condition:", p.condition);
+        console.log(`   ✨ Creating: ${fullName}`);
+        console.log(`      Price: ₦${p.price.toLocaleString()} | Condition: ${p.condition}`);
 
         // Determine database condition value
         // For Open Box: we store 'used' in DB (maps to RefurbishedCondition in schema)
@@ -666,7 +666,7 @@ async function seedSamsungFlagships() {
     }
 
     console.log(`\n🏁 Samsung Flagships Seeding Complete!`);
-    console.log("   Created:", created, "| Skipped:", skipped);
+    console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
 seedSamsungFlagships();

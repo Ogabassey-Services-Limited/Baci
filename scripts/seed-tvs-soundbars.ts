@@ -372,7 +372,7 @@ async function seedTVsAndSoundbars() {
         if (error) {
             console.error(`❌ Failed ${tv.name}:`, error.message);
         } else {
-            console.log("✅ Upserted", tv.name);
+            console.log(`✅ Upserted ${tv.name}`);
             tvCount++;
         }
     }
@@ -422,12 +422,12 @@ async function seedTVsAndSoundbars() {
         if (error) {
             console.error(`❌ Failed ${sb.name}:`, error.message);
         } else {
-            console.log("✅ Upserted", sb.name);
+            console.log(`✅ Upserted ${sb.name}`);
             sbCount++;
         }
     }
 
-    console.log("\n🎉 Complete! Imported", tvCount, "TVs and", sbCount, "Soundbars.");
+    console.log(`\n🎉 Complete! Imported ${tvCount} TVs and ${sbCount} Soundbars.`);
 }
 
 seedTVsAndSoundbars().catch(console.error);

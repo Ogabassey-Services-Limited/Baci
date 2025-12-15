@@ -11,7 +11,7 @@ for (let i = 0; i < files.length; i += batchSize) {
     batches.push(files.slice(i, i + batchSize));
 }
 
-console.log("Found", files.length, "images. Created", batches.length, "batches.");
+console.log(`Found ${files.length} images. Created ${batches.length} batches.`);
 
 // Create a markdown file to display images for visual inspection
 let markdownContent = `# Orphaned Image Identification\n\n`;
@@ -23,7 +23,7 @@ batches.forEach((batch, batchIndex) => {
     batch.forEach((file, index) => {
         // Validation to prevent path traversal (though readdirSync returns basenames)
         if (file.includes('..') || file.includes('/')) {
-            console.warn("Skipping suspicious file:", file);
+            console.warn(`Skipping suspicious file: ${file}`);
             return;
         }
         const filePath = path.join(imageDir, file);
