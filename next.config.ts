@@ -85,6 +85,14 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'commondatastorage.googleapis.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'fdn.gsmarena.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'fdn2.gsmarena.com',
+      },
     ],
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",

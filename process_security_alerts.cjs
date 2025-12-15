@@ -12,50 +12,47 @@ try {
   const raw = fs.readFileSync(inputFile, 'utf8');
   let allAlerts = [];
 
-  // Robustly handle potentially concatenated JSON objects or valid arrays
-  const trimmedRaw = raw.trim();
+  // Handle expected array from REST API
+  // gh api --paginate returns concatenated JSON arrays (e.g. [...][...])
+  // We need to fix this to be a valid single generic array or handle the concatenation
   try {
-    // Attempt 1: Standard JSON parse
-    allAlerts = JSON.parse(trimmedRaw);
+    allAlerts = JSON.parse(raw);
   } catch (_e) {
-    try {
-      // Attempt 2: Handle concatenated root objects (common in some paginated outputs)
-      // e.g. {...}{...} -> [{...},{...}]
-      const fixedRaw = `[${trimmedRaw.replace(/}{/g, '},{')}]`;
-      allAlerts = JSON.parse(fixedRaw);
-    } catch (_e2) {
-      // Attempt 3: Line-by-line parsing (newline delimited JSON)
-      allAlerts = trimmedRaw.split('\n').filter(Boolean).map(line => {
-        try { return JSON.parse(line); } catch (e) { return null; }
-      }).filter(Boolean);
-    }
+    // Try fixing concatenated arrays format: ][ -> ,
+    const fixedRaw = raw.replace(/\]\s*\[/g, ',');
+    allAlerts = JSON.parse(fixedRaw);
   }
 
-  // Handle GitHub API pagination wrapper if present
-  // If result is an array of pages { data: { ... } }, flatten it
-  if (allAlerts.length > 0 && (allAlerts[0].data || allAlerts[0].nodes)) {
-    const flattened = [];
-    allAlerts.forEach(page => {
-      if (page.data?.repository?.codeScanningAlerts?.nodes) {
-        flattened.push(...page.data.repository.codeScanningAlerts.nodes);
-      } else if (Array.isArray(page)) {
-        flattened.push(...page);
-      }
-    });
-    if (flattened.length > 0) allAlerts = flattened;
-  }
 
   // Deduplicate by number
   const uniqueAlertsMap = new Map();
-  allAlerts.forEach(a => { if (a && a.number) uniqueAlertsMap.set(a.number, a); });
+  allAlerts.forEach(a => uniqueAlertsMap.set(a.number, a));
   const uniqueAlerts = Array.from(uniqueAlertsMap.values());
 
   const total = uniqueAlerts.length;
   console.log(`Found ${total} unique alerts.`);
 
   // Filter for open only
-  const openAlerts = uniqueAlerts.filter(a => a.state === 'open' || a.state === 'OPEN');
+  const openAlerts = uniqueAlerts.filter(a => a.state === 'open');
   const openCount = openAlerts.length;
+
+  // Initialize counts
+  // We manually fixed 23 alerts (High + Medium)
+  // Pending = Open Count in GitHub (which is outdated since we haven't pushed yet)
+  // So "Resolved" should be tracked by us, or we just report what GitHub sees?
+  // User wants to see progress of *this session*.
+  // Ideally, we start with Pending = openCount.
+  // Then we mark 23 as [x].
+  // So Total = openCount.
+  // Resolved = 0 (initially).
+  // But wait, if I mark them [x] in the file, that's done manually.
+  // The header calculation uses `progress.resolved`.
+  // I should set `progress.resolved` to 23 manually? No, the script generates the file.
+  // The User edits the file to mark [x].
+  // So the script should produce [ ] for all open alerts.
+  // And the header will stay 0/Total until the user ticks them?
+  // OR I can hardcode the "Fixed" logic if I know which ones I fixed?
+  // Better: Just report "Open on GitHub". User marks [x].
 
   const progress = {
     total: openCount,
@@ -81,18 +78,15 @@ try {
   // Group by Rule ID
   const byRule = {};
   openAlerts.forEach((alert) => {
-    // Robust null check for rule data
-    if (!alert.rule) {
-      console.warn(`Alert ${alert.number} missing rule data, skipping.`);
-      return;
-    }
+    // Filter for open state
+    if (alert.state !== 'open') return;
 
     const ruleId = alert.rule.id;
     if (!byRule[ruleId]) {
       byRule[ruleId] = {
         name: alert.rule.description || ruleId,
         severity: alert.rule.severity,
-        tool: alert.tool?.name || 'Unknown',
+        tool: alert.tool.name,
         alerts: [],
       };
     }
@@ -107,11 +101,14 @@ try {
     return sevA - sevB;
   });
 
-  const severityIcons = { error: '🔴', warning: '🟠', note: '🔵' };
-
   sortedRuleIds.forEach((ruleId) => {
     const group = byRule[ruleId];
-    const icon = severityIcons[group.severity.toLowerCase()] || '🔵';
+    const icon =
+      group.severity === 'error'
+        ? '🔴'
+        : group.severity === 'warning'
+          ? '🟠'
+          : '🔵';
 
     md += `## ${icon} ${group.name} (${group.alerts.length})\n`;
     md += `- **Rule ID**: \`${ruleId}\`\n`;
@@ -119,29 +116,22 @@ try {
     md += `- **Tool**: ${group.tool}\n\n`;
 
     group.alerts.forEach((alert) => {
-      // Handle different API shapes (GraphQL vs REST)
-      const instance = alert.mostRecentInstance || alert.most_recent_instance;
-      if (!instance) return;
-
+      const instance = alert.most_recent_instance;
       const loc = instance.location;
-      if (!loc) return; // Defensive check for missing location data
-
       const path = loc.path;
-      const line = loc.startLine || loc.start_line;
-      const msg = (instance.message?.text || '')
+      const line = loc.start_line;
+      const msg = instance.message.text
         .replace(/\n/g, ' ')
-        .replace(/[|`*_[\]]/g, '\\$&'); // Escape markdown special chars
-
-      // Handle environment variables for URL construction if available, else standard fallback
-      const repoOwner = process.env.REPO_OWNER || 'unknown';
-      const repoName = process.env.REPO_NAME || 'unknown';
-      // Fallback for REST API which provides html_url directly
-      const url = alert.html_url || `https://github.com/${repoOwner}/${repoName}/security/code-scanning/${alert.number}`;
+        .replace(/\|/g, '\\|')
+        .replace(/\[/g, '\\[')
+        .replace(/\]/g, '\\]');
+      const url = alert.html_url;
 
       md += `- [ ] **${path}:${line}** - ${msg} [[View Alert](${url})]\n`;
     });
     md += `\n`;
   });
+
 
   fs.writeFileSync(outputFile, md);
   console.log(`Generated ${outputFile}`);

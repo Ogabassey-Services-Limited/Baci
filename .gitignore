@@ -67,7 +67,6 @@ orphaned_images_full/
 *_result.json
 *_matches.json
 *_wishlist.json
-pr_*_full_threads.json
 *_export.txt
 test_sheet*.csv
 user_provided_sheet.csv
