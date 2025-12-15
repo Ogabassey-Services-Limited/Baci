@@ -5,11 +5,14 @@ import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import { useMerchant } from '@/hooks/use-merchant';
 import { getTemplate, type TemplateComponents } from '@/templates/registry';
 
+import type { Product } from '@/lib/products';
+
 interface StorefrontPageWrapperProps {
   pageName: keyof TemplateComponents;
   fallback?: ReactNode;
   // biome-ignore lint/suspicious/noExplicitAny: Merchant data structure varies
   merchant?: any; // We accept merchant prop for initial data
+  products?: Product[]; // Added optional products prop
 }
 
 /**
@@ -20,6 +23,7 @@ export function StorefrontPageWrapper({
   pageName,
   fallback,
   merchant: initialMerchant,
+  products = [], // Default to empty array if not provided
 }: StorefrontPageWrapperProps) {
   const { merchant: hookMerchant, loading: hookLoading } = useMerchant();
 
@@ -84,7 +88,7 @@ export function StorefrontPageWrapper({
       <TemplateComponent
         merchant={merchant}
         storeSlug={merchant.slug}
-        products={[]}
+        products={products}
         isPreview={false}
       />
     );

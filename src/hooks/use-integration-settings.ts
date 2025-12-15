@@ -63,7 +63,7 @@ export function useIntegrationSettings<T extends object>({
           setSettings(extracted);
         }
       } catch (error) {
-        console.error("Failed to fetch", platformName, "settings:", error);
+        console.error(`Failed to fetch ${platformName} settings:`, error);
       } finally {
         setIsLoading(false);
       }
@@ -101,7 +101,7 @@ export function useIntegrationSettings<T extends object>({
           description: `Your ${platformName} settings have been updated.`,
         });
       } catch (error) {
-        console.error("Failed to save", platformName, "settings:", error);
+        console.error(`Failed to save ${platformName} settings:`, error);
         toast({
           variant: 'destructive',
           title: 'Save failed',

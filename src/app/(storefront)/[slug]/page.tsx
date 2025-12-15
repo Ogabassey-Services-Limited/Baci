@@ -16,6 +16,8 @@ import {
   generateWebSiteSchema,
   type LocalBusinessData,
 } from '@/lib/seo-utils';
+import { createClient } from '@/lib/supabase/server'; // Import Supabase client
+import { cookies } from 'next/headers'; // Import cookies
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
@@ -63,7 +65,7 @@ export async function generateMetadata({
     `Shop at ${merchant.business_name}. Browse our collection and enjoy convenient delivery.`;
 
   const headersList = await headers();
-  const host = headersList.get('host') || `${slug}.localhost:3000`;
+  const host = headersList.get('host') || `${slug}.localhost: 3000`;
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
 
@@ -156,6 +158,45 @@ export default async function StorefrontPage({
     } catch (err) {
       console.error('[StorefrontPage] Failed to fetch place details:', err);
     }
+  }
+
+  // Fetch products for the homepage (Featured/Latest)
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  let merchantProducts: any[] = [];
+
+  try {
+    const { data: products, error } = await supabase
+      .from('products')
+      .select(`
+        id,
+        name,
+        slug,
+        description,
+        price,
+        compare_at_price,
+        images,
+        category,
+        brand,
+        condition,
+        stock
+      `)
+      .eq('merchant_id', merchant.id)
+      .eq('status', 'active')
+      .order('price', { ascending: false }) // Show expensive/hero items first
+      .limit(50);
+
+    if (error) {
+      console.error(
+        '[StorefrontPage] Error fetching products:',
+        JSON.stringify(error, null, 2)
+      );
+    } else {
+      merchantProducts = products || [];
+    }
+  } catch (err) {
+    console.error('[StorefrontPage] Failed to fetch products:', err);
   }
 
   // Check if store is published - show "coming soon" page if not
@@ -301,6 +342,10 @@ export default async function StorefrontPage({
                   providerUrl: baseUrl,
                   serviceType: 'Mobile Phone Top-up',
                   logo: merchant.logo_url || undefined,
+                  offers: [
+                    { price: '100', priceCurrency: 'NGN' },
+                    { price: '1000', priceCurrency: 'NGN' },
+                  ],
                 })
               ),
             }}
@@ -318,6 +363,10 @@ export default async function StorefrontPage({
                   providerUrl: baseUrl,
                   serviceType: 'Internet Data Services',
                   logo: merchant.logo_url || undefined,
+                  offers: [
+                    { price: '500', priceCurrency: 'NGN' },
+                    { price: '5000', priceCurrency: 'NGN' },
+                  ],
                 })
               ),
             }}
@@ -325,7 +374,8 @@ export default async function StorefrontPage({
         </>
       )}
       <Suspense fallback={<StorefrontPageSkeleton />}>
-        <StorefrontWrapper />
+        {/* Pass products to wrapper for use in template homepage */}
+        <StorefrontWrapper products={merchantProducts} />
       </Suspense>
     </>
   );

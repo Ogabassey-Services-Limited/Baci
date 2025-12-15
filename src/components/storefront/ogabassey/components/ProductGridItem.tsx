@@ -118,6 +118,11 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           alt={product.name}
           loading="lazy"
           onLoad={() => setIsImageLoaded(true)}
+          onError={(e) => {
+            e.currentTarget.src = PLACEHOLDER_IMAGE;
+            e.currentTarget.onerror = null; // Prevent infinite loop if placeholder fails
+            setIsImageLoaded(true);
+          }}
           className={`w-full h-full object-contain p-4 transition-all duration-500 z-10 ${isImageLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
         />
 

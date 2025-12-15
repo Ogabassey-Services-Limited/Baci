@@ -551,7 +551,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
       const OgabasseyHome: React.ComponentType<TemplatePageProps> = (props) => {
         return (
           <OgabasseyLayout merchant={props.merchant}>
-            <OgabasseyHomePage />
+            <OgabasseyHomePage products={props.products} />
           </OgabasseyLayout>
         );
       };

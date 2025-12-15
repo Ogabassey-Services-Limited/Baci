@@ -26,10 +26,10 @@ const MOBILE_SLIDES: SlideData[] = [
   {
     id: 1,
     type: 'image',
-    title: 'iPhone 16 Pro Max',
-    subtitle: 'Maximize your CREATIVITY with the new titanium finish.',
+    title: 'iPhone 17 Pro Max',
+    subtitle: 'Beyond IMAGINATION with the new nebula finish.',
     bgClass: 'bg-[#F5F5F7]',
-    src: 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-naturaltitanium?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1692845702708',
+    src: '/images/hero/iphone-17-pro-max.png',
     textColor: 'text-gray-900',
     imageFit: 'contain',
   },
@@ -55,12 +55,11 @@ const MOBILE_SLIDES: SlideData[] = [
 const DESKTOP_IPHONE_SLIDES = [
   {
     id: 1,
-    title: 'iPhone 16',
+    title: 'iPhone 17',
     subtitle: 'Pro Max',
-    headline: 'Maximize your',
-    headlineSuffix: 'CREATIVITY',
-    image:
-      'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-naturaltitanium?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1692845702708',
+    headline: 'Beyond',
+    headlineSuffix: 'IMAGINATION',
+    image: '/images/hero/iphone-17-pro-max.png',
     theme: 'light',
   },
   {

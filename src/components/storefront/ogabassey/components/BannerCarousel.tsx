@@ -2,7 +2,7 @@
 
 // Migrated from temp-source/components/BannerCarousel.tsx
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { AD_CONFIG } from '../config/ads';
 import { AdUnit } from './AdUnit';
 
@@ -48,19 +48,44 @@ const BANNER_SLIDES: BannerSlide[] = [
 
 interface BannerCarouselProps {
   className?: string;
+  categoryImage?: string | null;
+  title?: string;
+  description?: string;
 }
 
 export const BannerCarousel: React.FC<BannerCarouselProps> = ({
   className = 'h-40 md:h-52',
+  categoryImage,
+  title,
+  description,
 }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
+  // Dynamic slides based on props
+  const slides = useMemo(() => {
+    if (categoryImage) {
+      const customSlide: BannerSlide = {
+        id: 0,
+        type: 'image',
+        imageUrl: categoryImage,
+        title: title || 'Shop Now',
+        subtitle: description || 'Explore our best collection',
+        bgColor: 'bg-black', // Default for category headers
+        textColor: 'text-white',
+      };
+      // Return custom slide + existing slides (excluding duplicates if needed)
+      // For now, prepend it.
+      return [customSlide, ...BANNER_SLIDES];
+    }
+    return BANNER_SLIDES;
+  }, [categoryImage, title, description]);
+
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % BANNER_SLIDES.length);
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]); // Depend on slides length
 
   return (
     <div
@@ -70,7 +95,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         className="flex h-full transition-transform duration-700 ease-in-out"
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
-        {BANNER_SLIDES.map((slide) => (
+        {slides.map((slide) => (
           <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
             {slide.type === 'image' ? (
               <div className="w-full h-full relative overflow-hidden group">
@@ -83,18 +108,30 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                   className={`absolute inset-0 bg-gradient-to-r ${slide.bgColor === 'bg-black' ? 'from-black/80' : 'from-red-900/80'} to-transparent flex flex-col justify-center px-8 md:px-16`}
                 >
                   <h3
-                    className={`text-2xl md:text-4xl font-bold ${slide.textColor} mb-2 leading-tight`}
+                    className={`text-2xl md:text-4xl font-bold ${slide.textColor} mb-2 leading-tight line-clamp-1`}
                   >
                     {slide.title}
                   </h3>
                   <p
-                    className={`text-sm md:text-lg ${slide.textColor} opacity-90 max-w-md`}
+                    className={`text-sm md:text-lg ${slide.textColor} opacity-90 max-w-md line-clamp-2`}
                   >
                     {slide.subtitle}
                   </p>
-                  <button className="mt-4 px-6 py-2 bg-white text-gray-900 text-xs md:text-sm font-bold rounded-full w-fit hover:bg-gray-100 transition-colors shadow-lg active:scale-95">
-                    Shop Now
-                  </button>
+                  {slide.link ? (
+                    <a
+                      href={slide.link}
+                      className="mt-4 px-6 py-2 bg-white text-gray-900 text-xs md:text-sm font-bold rounded-full w-fit hover:bg-gray-100 transition-colors shadow-lg active:scale-95 inline-block"
+                    >
+                      Shop Now
+                    </a>
+                  ) : (
+                    <a
+                      href={slide.link}
+                      className="mt-4 px-6 py-2 bg-white text-gray-900 text-xs md:text-sm font-bold rounded-full w-fit hover:bg-gray-100 transition-colors shadow-lg active:scale-95 inline-block"
+                    >
+                      Shop Now
+                    </a>
+                  )}
                 </div>
               </div>
             ) : (
@@ -113,15 +150,14 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
       </div>
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-        {BANNER_SLIDES.map((slide, idx) => (
+        {slides.map((slide, idx) => (
           <button
             key={idx}
             onClick={() => setCurrentSlide(idx)}
-            className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${
-              idx === currentSlide
-                ? 'w-6 bg-white'
-                : 'w-1.5 bg-white/40 hover:bg-white/70'
-            }`}
+            className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${idx === currentSlide
+              ? 'w-6 bg-white'
+              : 'w-1.5 bg-white/40 hover:bg-white/70'
+              }`}
             style={{
               backgroundColor:
                 slide.type === 'ad' && idx === currentSlide

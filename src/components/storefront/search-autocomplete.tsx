@@ -197,9 +197,9 @@ export function SearchAutocomplete({
           id={listboxId}
           role="listbox"
           aria-label="Search suggestions"
-          className="absolute z-50 mt-2 w-full rounded-md border glass-themed shadow-lg"
+          className="absolute z-50 mt-2 w-full rounded-xl border border-gray-100 shadow-2xl bg-white text-gray-900 overflow-hidden ring-1 ring-black/5"
         >
-          <div className="max-h-96 overflow-y-auto p-2">
+          <div className="max-h-[400px] overflow-y-auto py-2">
             {/* Product suggestions */}
             {suggestions.length > 0 && (
               // biome-ignore lint/a11y/useSemanticElements: role="group" is correct for listbox groups
@@ -210,7 +210,7 @@ export function SearchAutocomplete({
               >
                 <div
                   id="products-group-label"
-                  className="px-2 py-1.5 text-xs font-semibold text-muted-foreground"
+                  className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-gray-400"
                 >
                   Products
                 </div>
@@ -226,14 +226,14 @@ export function SearchAutocomplete({
                       setIsOpen(false);
                     }}
                     className={cn(
-                      'flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors',
+                      'flex w-full items-center gap-3 px-4 py-2 text-left transition-colors',
                       highlightedIndex === index
-                        ? 'bg-accent text-accent-foreground'
-                        : 'hover:bg-accent/50'
+                        ? 'bg-red-50/80 text-gray-900'
+                        : 'hover:bg-gray-50'
                     )}
                   >
-                    {product.image_small && (
-                      <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded">
+                    {product.image_small ? (
+                      <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded bg-gray-100 border border-gray-100">
                         <Image
                           src={product.image_small}
                           alt=""
@@ -242,16 +242,22 @@ export function SearchAutocomplete({
                           aria-hidden="true"
                         />
                       </div>
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded bg-gray-100 text-gray-400">
+                        <Search size={16} />
+                      </div>
                     )}
                     <div className="flex-1 overflow-hidden">
-                      <div className="truncate font-medium">{product.name}</div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="truncate font-semibold text-sm text-gray-900">
+                        {product.name}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
                         {product.category && (
-                          <span className="rounded bg-muted px-1.5 py-0.5">
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
                             {product.category}
                           </span>
                         )}
-                        <span className="font-semibold">
+                        <span className="font-bold text-red-600">
                           <span className="sr-only">Price: </span>₦
                           {product.price.toLocaleString()}
                         </span>
@@ -268,7 +274,7 @@ export function SearchAutocomplete({
               <div role="group" aria-labelledby="popular-searches-label">
                 <div
                   id="popular-searches-label"
-                  className="px-2 py-1.5 text-xs font-semibold text-muted-foreground"
+                  className="px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-gray-400 border-t border-gray-50 mt-2"
                 >
                   Popular searches
                 </div>
@@ -286,24 +292,26 @@ export function SearchAutocomplete({
                         setIsOpen(false);
                       }}
                       className={cn(
-                        'flex w-full items-center gap-2 rounded-md p-2 text-left transition-colors',
+                        'flex w-full items-center gap-3 px-4 py-2 text-left transition-colors',
                         highlightedIndex === optionIndex
-                          ? 'bg-accent text-accent-foreground'
-                          : 'hover:bg-accent/50'
+                          ? 'bg-red-50/80 text-gray-900'
+                          : 'hover:bg-gray-50'
                       )}
                     >
-                      <TrendingUp
-                        className="h-4 w-4 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                      <span className="flex-1 truncate">
+                      <div className="flex bg-gray-100 rounded-full p-1.5 text-gray-500">
+                        <TrendingUp
+                          className="h-3.5 w-3.5"
+                          aria-hidden="true"
+                        />
+                      </div>
+                      <span className="flex-1 truncate text-sm font-medium text-gray-700">
                         {search.search_query}
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        <span className="sr-only">Searched </span>
-                        {search.search_count}{' '}
-                        <span className="sr-only">times</span>
-                      </span>
+                      {search.search_count > 10 && (
+                        <span className="text-[10px] font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">
+                          Trending
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -313,10 +321,10 @@ export function SearchAutocomplete({
 
           {loading && (
             <div
-              className="border-t p-2 text-center text-xs text-muted-foreground"
+              className="border-t border-gray-100 bg-gray-50 p-2 text-center text-xs font-medium text-gray-500"
               aria-live="polite"
             >
-              Loading...
+              Searching...
             </div>
           )}
         </div>

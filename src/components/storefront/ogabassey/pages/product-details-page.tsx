@@ -216,6 +216,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         images: normalizedImages,
         colors: normalizedColors,
         storage: normalizedStorage,
+        colorImages: (serverProduct as any).color_images || {}, // Color→Images mapping
         condition: (serverProduct.condition as any) || 'New',
         // Ensure defaults for critical UI fields if missing
         rating: serverProduct.rating || 0,
@@ -285,6 +286,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       images: normalizedImages,
       colors: normalizedColors,
       storage: normalizedStorage,
+      colorImages: {}, // Fallback has no color mapping
     };
   }, [productFound, serverProduct, getColorHex]);
 
@@ -432,7 +434,20 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     if (secondaryColor === idx) {
       setSecondaryColor(null);
     }
-    setSelectedImage(idx < productData.images.length ? idx : 0);
+
+    // Use color_images mapping if available, otherwise fall back to index-based
+    const colorName = productData.colors[idx]?.name;
+    const colorImages = productData.colorImages as Record<string, string[]> | undefined;
+
+    if (colorImages && colorName && colorImages[colorName]?.length > 0) {
+      // Find the first image for this color in the main images array
+      const colorImage = colorImages[colorName][0];
+      const imageIndex = productData.images.findIndex((img: string) => img === colorImage);
+      setSelectedImage(imageIndex >= 0 ? imageIndex : 0);
+    } else {
+      // Fallback to index-based mapping
+      setSelectedImage(idx < productData.images.length ? idx : 0);
+    }
   };
 
   const handleColorDoubleClick = (idx: number) => {
@@ -577,7 +592,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           </Link>
           <ChevronRight size={16} className="mx-2" />
           <Link
-            href={`/category/${productData.category}` as any}
+            href={`/${params.slug}/${productData.category}` as any}
             className="md:hover:text-red-600 transition-colors"
           >
             {productData.category}

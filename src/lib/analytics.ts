@@ -99,10 +99,10 @@ async function dispatchCAPI(
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
-      console.warn(provider, "CAPI dispatch failed:", response.statusText);
+      console.warn(`${provider} CAPI dispatch failed:`, response.statusText);
     }
   } catch (err) {
-    console.warn(provider, "CAPI dispatch error:", err);
+    console.warn(`${provider} CAPI dispatch error:`, err);
   }
 }
 
