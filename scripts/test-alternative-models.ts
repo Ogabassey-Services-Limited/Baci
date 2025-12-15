@@ -39,15 +39,16 @@ async function testAlternativeModels() {
             console.log(`   Latency: ${duration}ms`);
             console.log(`   ✨ This model has available quota!`);
             break; // Stop once we find a working model
-        } catch (error: any) {
+        } catch (error) {
             console.log('❌ FAILED');
+            const errorMsg = error instanceof Error ? error.message : String(error);
 
-            if (error.message.includes('429') || error.message.includes('quota')) {
+            if (errorMsg.includes('429') || errorMsg.includes('quota')) {
                 console.log('   Reason: Quota exceeded');
-            } else if (error.message.includes('404')) {
+            } else if (errorMsg.includes('404')) {
                 console.log('   Reason: Model not found');
             } else {
-                console.log(`   Reason: ${error.message.split('\n')[0]}`);
+                console.log(`   Reason: ${errorMsg.split('\n')[0]}`);
             }
         }
     }

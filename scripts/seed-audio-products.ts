@@ -95,7 +95,16 @@ function generateSlug(name: string): string {
         .trim();
 }
 
-function generateDescription(product: any, sellingPrice: number) {
+interface AudioProduct {
+    name: string;
+    cost: number;
+    brand: string;
+    type: string;
+    model?: string;
+    colors?: string[];
+}
+
+function generateDescription(product: AudioProduct, sellingPrice: number) {
     const priceStr = `₦${sellingPrice.toLocaleString()}`;
 
     if (product.brand === 'Apple') {

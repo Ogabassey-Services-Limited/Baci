@@ -41,20 +41,21 @@ async function testNewKey() {
         }
 
         console.log('\n✨ This API key works! It has available quota.');
-    } catch (error: any) {
+    } catch (error) {
         console.log('❌ FAILED\n');
+        const errorMsg = error instanceof Error ? error.message : String(error);
 
-        if (error.message.includes('429') || error.message.includes('quota')) {
+        if (errorMsg.includes('429') || errorMsg.includes('quota')) {
             console.log('🔴 QUOTA EXCEEDED');
             console.log('This key also has quota issues.');
-        } else if (error.message.includes('401') || error.message.includes('403')) {
+        } else if (errorMsg.includes('401') || errorMsg.includes('403')) {
             console.log('🔴 AUTHENTICATION ERROR');
             console.log('This key may be invalid or restricted.');
-        } else if (error.message.includes('404')) {
+        } else if (errorMsg.includes('404')) {
             console.log('🔴 MODEL NOT FOUND');
             console.log('The model is not available for this key.');
         } else {
-            console.log('Error:', error.message);
+            console.log('Error:', errorMsg);
         }
     }
 }

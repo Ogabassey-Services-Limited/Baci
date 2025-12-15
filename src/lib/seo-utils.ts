@@ -35,23 +35,23 @@ export function generateSlug(text: string): string {
  */
 export function generateProductSlug(
   name: string,
-  condition?: 'new' | 'used' | string,
-  conditionDetail?: string
+  _condition?: 'new' | 'used' | string,
+  _conditionDetail?: string
 ): string {
-  const baseSlug = generateSlug(name);
+  // Phase 7: Condition Deduplication
+  // We no longer inject condition into the slug. Slugs should be unique to the PRODUCT FAMILY (e.g. "iphone-12")
+  // The condition is handled via query params or internal product logic.
+  // We strip common condition suffixes from the name if they exist, to ensure clean slugs.
+  let cleanName = name;
+  const lowerName = name.toLowerCase();
 
-  // If no condition specified, just use base slug
-  if (!condition) {
-    return baseSlug;
-  }
+  // Basic cleanup of condition terms if they are part of the name
+  if (lowerName.endsWith(' (new)')) cleanName = name.slice(0, -6);
+  else if (lowerName.endsWith(' (used)')) cleanName = name.slice(0, -7);
+  else if (lowerName.endsWith(' new')) cleanName = name.slice(0, -4);
+  else if (lowerName.endsWith(' used')) cleanName = name.slice(0, -5);
 
-  // Use condition detail if available (e.g., "refurbished", "premium-used")
-  // Otherwise use the condition itself (e.g., "new", "used")
-  const conditionSlug = conditionDetail
-    ? generateSlug(conditionDetail)
-    : generateSlug(condition);
-
-  return `${baseSlug}-${conditionSlug}`;
+  return generateSlug(cleanName);
 }
 
 /**
@@ -170,27 +170,56 @@ export function generateProductSchema(
       '@type': 'Brand',
       name: safeBrand,
     },
-    offers: {
-      '@type': 'Offer',
-      price: product.price,
-      priceCurrency: currency,
-      availability:
-        product.stock > 0
-          ? 'https://schema.org/InStock'
-          : 'https://schema.org/OutOfStock',
-      itemCondition:
-        product.condition === 'used'
-          ? 'https://schema.org/UsedCondition'
-          : 'https://schema.org/NewCondition',
-      seller: {
-        '@type': 'Organization',
-        name: safeMerchantName,
-      },
-      // Add price valid until (30 days from now for freshness)
-      priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
-        .toISOString()
-        .substring(0, 10),
-    },
+    offers:
+      product.offers && product.offers.length > 0
+        ? product.offers.map((offer) => ({
+            '@type': 'Offer',
+            price: offer.price,
+            priceCurrency: currency,
+            availability:
+              offer.stock_quantity > 0
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+            itemCondition:
+              offer.condition === 'new'
+                ? 'https://schema.org/NewCondition'
+                : offer.condition === 'open_box'
+                  ? 'https://schema.org/UsedCondition' // Open box treated as Used per Schema.org spec
+                  : offer.condition === 'refurbished'
+                    ? 'https://schema.org/RefurbishedCondition'
+                    : 'https://schema.org/UsedCondition',
+            seller: {
+              '@type': 'Organization',
+              name: safeMerchantName,
+            },
+            priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
+              .toISOString()
+              .substring(0, 10),
+          }))
+        : {
+            '@type': 'Offer',
+            price: product.price,
+            priceCurrency: currency,
+            availability:
+              product.stock > 0
+                ? 'https://schema.org/InStock'
+                : 'https://schema.org/OutOfStock',
+            itemCondition:
+              product.condition === 'used'
+                ? 'https://schema.org/UsedCondition'
+                : product.condition === 'open_box'
+                  ? 'https://schema.org/UsedCondition' // Open box treated as Used per Schema.org spec
+                  : product.condition === 'refurbished'
+                    ? 'https://schema.org/RefurbishedCondition'
+                    : 'https://schema.org/NewCondition',
+            seller: {
+              '@type': 'Organization',
+              name: safeMerchantName,
+            },
+            priceValidUntil: new Date(Date.now() + THIRTY_DAYS_MS)
+              .toISOString()
+              .substring(0, 10),
+          },
   };
 
   // Product identifiers (important for Google Merchant Center) - sanitized
@@ -448,7 +477,8 @@ export function generateProductSchema(
   if (
     product.compare_at_price &&
     product.compare_at_price > product.price &&
-    schema.offers
+    schema.offers &&
+    !Array.isArray(schema.offers)
   ) {
     schema.offers.priceSpecification = {
       '@type': 'PriceSpecification',

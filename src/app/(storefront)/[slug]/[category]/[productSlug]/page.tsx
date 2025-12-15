@@ -464,7 +464,7 @@ const getProduct = cache(
         'id, business_name, social_media, payout_currency, business_type, template_id'
       )
       .eq('slug', storeSlug)
-      .single();
+      .maybeSingle();
 
     if (merchantError || !merchant) {
       console.error('Merchant not found:', merchantError);
@@ -552,10 +552,13 @@ const getProduct = cache(
       query = query.eq('slug', productSlug);
     }
 
-    const { data: product, error: productError } = await query.single();
+    const { data: product, error: productError } = await query.maybeSingle();
 
     if (productError || !product) {
-      console.error('Product not found:', productError);
+      console.error(
+        'Product not found:',
+        JSON.stringify(productError, null, 2)
+      );
       return null;
     }
 
@@ -697,7 +700,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
   const productPath = getProductUrl(product);
   const productUrl = `${baseUrl}${productPath}`;
 
-  if (productSchema.offers) {
+  if (productSchema.offers && !Array.isArray(productSchema.offers)) {
     productSchema.offers.url = escapeHtml(productUrl);
   }
 

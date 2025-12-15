@@ -436,10 +436,10 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
       );
     }
 
-    // SSRF Protection: Only allow Google Sheets domains
+    // SSRF Protection: Only allow allowed Google domains
     const allowedHosts = ['docs.google.com', 'sheets.google.com'];
     if (!allowedHosts.includes(parsedUrl.hostname)) {
-      throw new Error('Invalid URL. Only Google Sheets URLs are allowed.');
+      throw new Error('Invalid URL. Only Google Sheets domains are allowed.');
     }
 
     // Ensure HTTPS protocol
@@ -447,42 +447,79 @@ export async function fetchGoogleSheet(url: string): Promise<string> {
       throw new Error('Invalid URL. Only HTTPS URLs are allowed.');
     }
 
-    // Check for "Published to Web" URL (e.g., .../d/e/.../pubhtml)
-    const isPublishedUrl = url.includes('/d/e/');
-    let exportUrl: string;
+    // SSRF Protection: Build export URL completely from scratch using only validated components
+    // Never use string manipulation on raw user input - only use parsed URL properties
 
-    if (isPublishedUrl) {
-      // Convert pubhtml or other endings to pub?output=csv
-      // Base ID extraction for published sheets is complex, so we just modify the URL suffix
-      const baseUrl = url.split('/pub')[0];
-      exportUrl = `${baseUrl}/pub?output=csv`;
-      // Re-validate the constructed URL to prevent SSRF
-      const exportParsedUrl = new URL(exportUrl);
-      if (!allowedHosts.includes(exportParsedUrl.hostname)) {
-        throw new Error('Invalid URL. Only Google Sheets URLs are allowed.');
-      }
-    } else {
-      // Standard Sheet: Extract Spreadsheet ID and construct export URL
-      // Regex to capture the ID between /d/ and /
-      const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    // Case 1: "Published to Web" URL (e.g. /d/e/.../pubhtml)
+    if (parsedUrl.pathname.includes('/d/e/')) {
+      // Extract the published sheet ID using regex from validated pathname
+      const publishedMatch = parsedUrl.pathname.match(
+        /\/d\/e\/([a-zA-Z0-9-_]+)/
+      );
 
-      if (!match || !match[1]) {
+      if (!publishedMatch || !publishedMatch[1]) {
         throw new Error(
-          'Invalid Google Sheets URL. Could not extract spreadsheet ID.'
+          'Invalid Google Sheets URL. Could not extract published spreadsheet ID.'
         );
       }
 
-      const spreadsheetId = match[1];
+      const publishedId = publishedMatch[1];
 
-      // Validate spreadsheet ID format (alphanumeric, hyphens, underscores only)
-      if (!/^[a-zA-Z0-9-_]+$/.test(spreadsheetId)) {
-        throw new Error('Invalid spreadsheet ID format.');
+      // Build URL completely from scratch - no tainted user input
+      const exportUrlObj = new URL('https://docs.google.com');
+      exportUrlObj.pathname = `/spreadsheets/d/e/${publishedId}/pub`;
+      exportUrlObj.searchParams.set('output', 'csv');
+
+      // Final hostname validation
+      if (exportUrlObj.hostname !== 'docs.google.com') {
+        throw new Error('Safety Check Failed: Invalid Hostname');
       }
 
-      exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv`;
+      const response = await fetch(exportUrlObj.toString(), {
+        method: 'GET',
+        headers: { Accept: 'text/csv' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch Google Sheet: ${response.statusText}`);
+      }
+
+      const text = await response.text();
+      performance.mark('fetchGoogleSheet-end');
+      performance.measure(
+        'fetchGoogleSheet',
+        'fetchGoogleSheet-start',
+        'fetchGoogleSheet-end'
+      );
+      return text;
     }
 
-    const response = await fetch(exportUrl);
+    // Case 2: Standard Sheet URL (e.g. /d/{ID}/edit)
+    // Extract spreadsheet ID using regex from validated pathname
+    const match = parsedUrl.pathname.match(/\/d\/([a-zA-Z0-9-_]+)/);
+
+    if (!match || !match[1]) {
+      throw new Error(
+        'Invalid Google Sheets URL. Could not extract spreadsheet ID.'
+      );
+    }
+
+    const spreadsheetId = match[1];
+
+    // Build URL completely from scratch - no tainted user input
+    const exportUrlObj = new URL('https://docs.google.com');
+    exportUrlObj.pathname = `/spreadsheets/d/${spreadsheetId}/export`;
+    exportUrlObj.searchParams.set('format', 'csv');
+
+    // Final hostname validation
+    if (exportUrlObj.hostname !== 'docs.google.com') {
+      throw new Error('Safety Check Failed: Invalid Hostname');
+    }
+
+    const response = await fetch(exportUrlObj.toString(), {
+      method: 'GET',
+      headers: { Accept: 'text/csv' },
+    });
 
     if (!response.ok) {
       throw new Error(`Failed to fetch Google Sheet: ${response.statusText}`);

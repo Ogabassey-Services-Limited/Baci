@@ -1,0 +1,20 @@
+{
+  "errors": [
+    {
+      "path": ["query", "repository", "codeScanningAlerts"],
+      "extensions": {
+        "code": "undefinedField",
+        "typeName": "Repository",
+        "fieldName": "codeScanningAlerts"
+      },
+      "locations": [{ "line": 3, "column": 5 }],
+      "message": "Field 'codeScanningAlerts' doesn't exist on type 'Repository'"
+    },
+    {
+      "path": ["query"],
+      "extensions": { "code": "variableNotUsed", "variableName": "endCursor" },
+      "locations": [{ "line": 1, "column": 1 }],
+      "message": "Variable $endCursor is declared by anonymous query but not used"
+    }
+  ]
+}

@@ -60,9 +60,9 @@ Please generate the logo image now.`,
         } else {
             console.log('\n⚠️ No images generated (might be text-only response)');
         }
-    } catch (error: any) {
+    } catch (error) {
         console.log('❌ FAILED\n');
-        console.error(error.message);
+        console.error(error instanceof Error ? error.message : String(error));
     }
 }
 

@@ -151,7 +151,7 @@ async function updateMacBookCostPrices() {
             .ilike('name', `%${sqlPattern.split('%').join('%')}%`);
 
         if (error) {
-            console.error(`   ❌ Error searching for: ${item.pattern}`, error.message);
+            console.error("❌ Error searching for:", item.pattern, error.message);
             continue;
         }
 
@@ -167,7 +167,7 @@ async function updateMacBookCostPrices() {
             const { data: flexProducts } = await query;
 
             if (!flexProducts || flexProducts.length === 0) {
-                console.log(`   ⚠️ No match found for: ${item.pattern}`);
+                console.log("⚠️ No match found for:", item.pattern);
                 notFound++;
                 continue;
             }
@@ -176,8 +176,8 @@ async function updateMacBookCostPrices() {
             for (const prod of flexProducts) {
                 if (prod.cost_price !== item.costPrice) {
                     await supabase.from('products').update({ cost_price: item.costPrice }).eq('id', prod.id);
-                    console.log(`   ✅ Updated: ${prod.name}`);
-                    console.log(`      Cost: ₦${prod.cost_price?.toLocaleString() || 'N/A'} → ₦${item.costPrice.toLocaleString()}`);
+                    console.log("   ✅ Updated:", prod.name);
+                    console.log("      Cost: ₦" + (prod.cost_price?.toLocaleString() || 'N/A') + " → ₦" + item.costPrice.toLocaleString());
                     updated++;
                 }
             }
@@ -186,8 +186,8 @@ async function updateMacBookCostPrices() {
             for (const prod of products) {
                 if (prod.cost_price !== item.costPrice) {
                     await supabase.from('products').update({ cost_price: item.costPrice }).eq('id', prod.id);
-                    console.log(`   ✅ Updated: ${prod.name}`);
-                    console.log(`      Cost: ₦${prod.cost_price?.toLocaleString() || 'N/A'} → ₦${item.costPrice.toLocaleString()}`);
+                    console.log("   ✅ Updated:", prod.name);
+                    console.log("      Cost: ₦" + (prod.cost_price?.toLocaleString() || 'N/A') + " → ₦" + item.costPrice.toLocaleString());
                     updated++;
                 }
             }
@@ -224,7 +224,7 @@ async function updateMacBookCostPrices() {
         // Check if exists
         const { data: existing } = await supabase.from('products').select('id').eq('slug', slug).maybeSingle();
         if (existing) {
-            console.log(`   ⏩ Skipping existing: ${fullName}`);
+            console.log("   ⏩ Skipping existing:", fullName);
             skipped++;
             continue;
         }
@@ -271,8 +271,8 @@ The **${p.name}** is available at Ogabassey for **${priceStr}**, or pay **₦${m
 - ✅ **Delivery:** Same-day Lagos, 2-5 days nationwide
 `;
 
-        console.log(`   ✨ Creating: ${fullName}`);
-        console.log(`      Cost: ₦${p.costPrice.toLocaleString()} → Price: ₦${price.toLocaleString()}`);
+        console.log("   ✨ Creating:", fullName);
+        console.log("      Cost: ₦" + p.costPrice.toLocaleString() + " → Price: ₦" + price.toLocaleString());
 
         const { data: newProd, error } = await supabase.from('products').insert({
             name: fullName,
@@ -291,7 +291,7 @@ The **${p.name}** is available at Ogabassey for **${priceStr}**, or pay **₦${m
         }).select().single();
 
         if (error) {
-            console.error(`   ❌ Failed: ${fullName}`, error.message);
+            console.error("   ❌ Failed:", fullName, error.message);
         } else {
             await supabase.from('product_categories').insert({ product_id: newProd.id, category_id: categoryId });
             console.log(`   ✅ Created & Linked`);
@@ -303,4 +303,7 @@ The **${p.name}** is available at Ogabassey for **${priceStr}**, or pay **₦${m
     console.log(`\n🏁 MacBook Price Update Complete!`);
 }
 
-updateMacBookCostPrices();
+updateMacBookCostPrices().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

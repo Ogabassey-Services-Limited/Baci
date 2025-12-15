@@ -668,4 +668,7 @@ async function seedSamsungExtras() {
     console.log(`   - Watches: ${WATCH_PRODUCTS.length} products`);
 }
 
-seedSamsungExtras();
+seedSamsungExtras().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

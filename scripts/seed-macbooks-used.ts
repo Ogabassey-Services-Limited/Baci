@@ -362,4 +362,7 @@ async function seedPremiumUsedMacBooks() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedPremiumUsedMacBooks();
+seedPremiumUsedMacBooks().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

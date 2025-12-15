@@ -34,6 +34,7 @@ export interface CartItem extends Product {
   secondaryColor?: string;
   secondaryColorValue?: string;
   selectedStorage?: string;
+  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
 
   // Smart Cart Pro: Price Negotiation
   negotiatedPrice?: number;
@@ -53,6 +54,7 @@ interface AddToCartOptions {
   secondaryColor?: string;
   secondaryColorValue?: string;
   storage?: string;
+  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
 }
 
 export interface CartContextType {
@@ -115,6 +117,7 @@ const generateCartItemId = (
   if (options?.variantId) parts.push(options.variantId);
   if (options?.color) parts.push(options.color);
   if (options?.storage) parts.push(options.storage);
+  if (options?.condition) parts.push(options.condition);
   return parts.join('-');
 };
 
@@ -400,6 +403,7 @@ export const CartProvider = ({
             secondaryColor: options?.secondaryColor,
             secondaryColorValue: options?.secondaryColorValue,
             selectedStorage: options?.storage,
+            condition: options?.condition,
             negotiationStatus: 'none',
             hasAssurance: false,
             assuranceRate: DEFAULT_ASSURANCE_RATE,

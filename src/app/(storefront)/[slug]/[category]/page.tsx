@@ -8,6 +8,10 @@ import { OgabasseyLayout } from '@/components/storefront/ogabassey';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { CATEGORY_SEO_DEFAULTS } from '@/config/category-seo-defaults';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import { safeJsonLdStringify } from '@/lib/sanitize-core';
 import {
@@ -16,6 +20,7 @@ import {
   generateFAQSchema,
 } from '@/lib/seo-utils';
 import { createClient } from '@/lib/supabase/server';
+import { isDomainIdentifier } from '@/lib/validation';
 
 // Enable ISR with 5 minute revalidation
 export const revalidate = 300;
@@ -32,23 +37,21 @@ const getCategoryData = cache(
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
-    // 1. Get Merchant
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id, business_name, slug, logo_url, template_id, payout_currency')
-      .eq('slug', storeSlug)
-      .single();
+    // 1. Get Merchant (using cached function for consistency and robust 404 handling)
+    const merchant = isDomainIdentifier(storeSlug)
+      ? await getCachedMerchantByDomain(storeSlug)
+      : await getCachedMerchant(storeSlug);
 
-    if (merchantError || !merchant) {
-      console.error('Merchant not found:', merchantError);
+    if (!merchant) {
+      console.error(`Merchant not found for slug: ${storeSlug}`);
       return null;
     }
 
-    // 2. Try to find category by slug
+    // 2. Try to find category by slug (fetching parent for hierarchical SEO)
     const { data: category } = await supabase
       .from('categories')
       .select(
-        'id, name, slug, description, seo_heading, seo_description, seo_features, seo_faq'
+        'id, name, slug, description, image_url, seo_heading, seo_description, seo_features, seo_faq, parent:parent_id(name, slug)'
       )
       .eq('merchant_id', merchant.id)
       .eq('slug', categorySlug)
@@ -87,45 +90,43 @@ const getCategoryData = cache(
       faqs: category?.seo_faq || effectiveConfig?.faqs || [],
     };
 
-    // 3. Get products in this category
-    let productsQuery = supabase
+    // Extract parent for easier access
+    const parentCategory = category?.parent as unknown as {
+      name: string;
+      slug: string;
+    } | null;
+
+    // 3. Get products using single optimized query (2025 best practice)
+    // Uses Supabase .or() to check category OR brand in one DB call
+    // Sanitize categoryName to prevent PostgREST filter injection
+    const sanitizedCategoryName = categoryName.replace(/[,().]/g, '');
+    const { data: products, error: productsError } = await supabase
       .from('products')
       .select(`
-      id,
-      name,
-      slug,
-      description,
-      price,
-      compare_at_price,
-      image,
-      images,
-      category,
-      category_slug,
-      brand,
-      condition,
-      stock,
-      rating
-    `)
+        id,
+        name,
+        slug,
+        description,
+        price,
+        compare_at_price,
+        images,
+        category,
+        brand,
+        condition,
+        stock
+      `)
       .eq('merchant_id', merchant.id)
-      .eq('status', 'active');
-
-    // Filter by category if we have one
-    if (category) {
-      // Use category relationship
-      productsQuery = productsQuery.eq('category_slug', categorySlug);
-    } else {
-      // Fallback to string matching on category field
-      productsQuery = productsQuery.ilike(
-        'category',
-        categoryName.replace(/ /g, '%')
-      );
-    }
-
-    const { data: products, error: productsError } =
-      await productsQuery.limit(50);
+      .eq('status', 'active')
+      .or(
+        `category.eq.${sanitizedCategoryName},brand.ilike.${sanitizedCategoryName},name.ilike.%${sanitizedCategoryName}%`
+      )
+      .limit(50);
 
     if (productsError) {
-      console.error('Products query error:', productsError);
+      console.error(
+        'Products query error:',
+        JSON.stringify(productsError, null, 2)
+      );
     }
 
     return {
@@ -134,7 +135,9 @@ const getCategoryData = cache(
         name: categoryName,
         slug: categorySlug,
         description: categoryDescription,
+        image: category?.image_url,
         seo: seoContent,
+        parent: parentCategory,
       },
       products: (products || []) as Product[],
     };
@@ -180,8 +183,13 @@ export async function generateMetadata({
       type: 'website',
       siteName: merchant.business_name,
       ...(products.length > 0 &&
-        products[0].image && {
-          images: [{ url: products[0].image, alt: categoryData.name }],
+        products[0].images?.[0] && {
+          images: [
+            {
+              url: products[0].images[0] as unknown as string,
+              alt: categoryData.name,
+            },
+          ],
         }),
     },
     twitter: {
@@ -218,11 +226,24 @@ export default async function CategoryPageRoute({ params }: PageProps) {
     currency: merchant.payout_currency || 'NGN',
   });
 
-  // Generate BreadcrumbList schema
-  const breadcrumbSchema = generateBreadcrumbSchema([
-    { name: merchant.business_name, url: baseUrl },
-    { name: categoryData.name, url: categoryUrl },
-  ]);
+  // Generate BreadcrumbList schema (Hierarchical)
+  const breadcrumbItems = [{ name: merchant.business_name, url: baseUrl }];
+
+  // Add parent category if exists (e.g. Smartphones -> Samsung)
+  if (categoryData.parent) {
+    breadcrumbItems.push({
+      name: categoryData.parent.name,
+      url: `${baseUrl}/${categoryData.parent.slug}`,
+    });
+  }
+
+  // Add current category
+  breadcrumbItems.push({
+    name: categoryData.name,
+    url: categoryUrl,
+  });
+
+  const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
 
   // Generate FAQPage schema if FAQs exist
   const faqSchema =
@@ -233,6 +254,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
   return (
     <>
       {/* CollectionPage Schema */}
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -241,6 +263,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
         }}
       />
       {/* BreadcrumbList Schema */}
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -250,6 +273,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
       />
       {/* FAQPage Schema */}
       {faqSchema && (
+        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml
         <script
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -264,6 +288,21 @@ export default async function CategoryPageRoute({ params }: PageProps) {
             seoDescription={categoryData.seo.description}
             seoFeatures={categoryData.seo.features}
             seoFaqs={categoryData.seo.faqs}
+            categoryImage={categoryData.image}
+            products={products.map((p) => ({
+              id: p.id,
+              name: p.name,
+              slug: p.slug,
+              description: p.description || '',
+              price: `₦${p.price?.toLocaleString() || 0}`,
+              rawPrice: p.price || 0,
+              image: p.images?.[0]?.url || '',
+              images: p.images?.map((img) => img.url) || [],
+              category: p.category || '',
+              brand: p.brand,
+              condition: p.condition || 'New',
+              stock: p.stock,
+            }))}
           />
         </OgabasseyLayout>
       </Suspense>

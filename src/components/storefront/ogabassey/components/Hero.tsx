@@ -2,6 +2,7 @@
 
 // Migrated from temp-source/components/Hero.tsx
 import { Gamepad2, Play } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -26,10 +27,10 @@ const MOBILE_SLIDES: SlideData[] = [
   {
     id: 1,
     type: 'image',
-    title: 'iPhone 16 Pro Max',
-    subtitle: 'Maximize your CREATIVITY with the new titanium finish.',
+    title: 'iPhone 17 Pro Max',
+    subtitle: 'Beyond IMAGINATION with the new nebula finish.',
     bgClass: 'bg-[#F5F5F7]',
-    src: 'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-naturaltitanium?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1692845702708',
+    src: '/images/hero/iphone-17-pro-max.png',
     textColor: 'text-gray-900',
     imageFit: 'contain',
   },
@@ -55,12 +56,11 @@ const MOBILE_SLIDES: SlideData[] = [
 const DESKTOP_IPHONE_SLIDES = [
   {
     id: 1,
-    title: 'iPhone 16',
+    title: 'iPhone 17',
     subtitle: 'Pro Max',
-    headline: 'Maximize your',
-    headlineSuffix: 'CREATIVITY',
-    image:
-      'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-naturaltitanium?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1692845702708',
+    headline: 'Beyond',
+    headlineSuffix: 'IMAGINATION',
+    image: '/images/hero/iphone-17-pro-max.png',
     theme: 'light',
   },
   {
@@ -176,11 +176,16 @@ export const Hero: React.FC = () => {
                     </div>
                   </div>
                   <div className="absolute inset-0 z-0">
-                    <img
-                      src={slide.src}
-                      alt={slide.title}
-                      className={`w-full h-full ${slide.imageFit === 'contain' ? 'object-contain object-right' : 'object-cover'} ${slide.imageFit === 'contain' ? 'w-[50%] ml-auto' : 'w-full'}`}
-                    />
+                    <div className={`relative w-full h-full ${slide.imageFit === 'contain' ? 'w-[50%] ml-auto' : 'w-full'}`}>
+                      <Image
+                        src={slide.src || ''}
+                        alt={slide.title || 'Hero slide'}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        className={slide.imageFit === 'contain' ? 'object-contain object-right' : 'object-cover'}
+                        priority={slide.id === 1}
+                      />
+                    </div>
                   </div>
                 </>
               )}
@@ -305,10 +310,13 @@ export const Hero: React.FC = () => {
 
                 {/* Image */}
                 <div className="absolute inset-0 w-full h-full z-0">
-                  <img
+                  <Image
                     src={slide.image}
                     alt={`${slide.title} ${slide.subtitle}`}
-                    className="w-full h-full object-cover object-center transition-transform duration-3000 ease-out scale-100 group-hover:scale-105"
+                    fill
+                    sizes="(max-width: 1024px) 100vw, 75vw"
+                    className="object-cover object-center transition-transform duration-3000 ease-out scale-100 group-hover:scale-105"
+                    priority={idx === 0}
                   />
                 </div>
               </div>
@@ -337,10 +345,12 @@ export const Hero: React.FC = () => {
           <div className="flex flex-col gap-4 h-full lg:col-span-1">
             {/* 2a. Top Unit: MacBook Promo */}
             <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-black">
-              <img
+              <Image
                 src="https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?q=80&w=1000&auto=format&fit=crop"
                 alt="MacBook Pro"
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0"
+                fill
+                sizes="(max-width: 1024px) 100vw, 25vw"
+                className="object-cover transition-transform duration-700 group-hover:scale-105 z-0"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10" />
 
@@ -372,10 +382,12 @@ export const Hero: React.FC = () => {
 
             {/* 2b. Bottom Unit: PS5 Promo */}
             <div className="flex-1 relative overflow-hidden rounded-2xl group cursor-pointer shadow-lg hover:shadow-xl transition-all duration-300 bg-[#2D0C7E]">
-              <img
+              <Image
                 src="https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?q=80&w=1000&auto=format&fit=crop"
                 alt="PS5 Controller"
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 z-0 opacity-80"
+                fill
+                sizes="(max-width: 1024px) 100vw, 25vw"
+                className="object-cover transition-transform duration-700 group-hover:scale-105 z-0 opacity-80"
               />
               <div className="absolute inset-0 bg-gradient-to-tr from-[#2D0C7E] via-[#2D0C7E]/60 to-transparent z-10" />
 

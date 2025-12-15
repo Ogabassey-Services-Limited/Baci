@@ -4,7 +4,8 @@ import Link from 'next/link';
 // Migrated from temp-source/components/InteractiveProductGrid.tsx
 import React, { useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
-import { products } from '../data/products';
+
+// import { products } from '../data/products'; // REMOVED MOCK DATA
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 import { AdUnit } from './AdUnit';
@@ -13,6 +14,7 @@ import { FloatingParticles, type Particle } from './FloatingParticles';
 import { ProductCard } from './ProductCard';
 
 interface InteractiveProductGridProps {
+  products: Product[]; // ADDED PROP
   selectedCategory?: string;
   minPrice?: number;
   maxPrice?: number;
@@ -21,6 +23,7 @@ interface InteractiveProductGridProps {
 }
 
 export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
+  products, // DESTRUCTURED PROP
   selectedCategory: defaultCategory = 'All',
   minPrice: defaultMin = 0,
   maxPrice: defaultMax = 100000000,

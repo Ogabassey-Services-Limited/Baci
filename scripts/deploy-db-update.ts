@@ -5,7 +5,15 @@ import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 const CDN_BASE_URL = 'https://cdn.ogabassey.com/products';
 
 async function deployDbUpdate() {
@@ -14,12 +22,22 @@ async function deployDbUpdate() {
     const appleDir = path.join(process.cwd(), 'apple_downloaded_images');
 
     // Fetch products
-    const { data: appleProducts } = await supabase
+    const { data: appleProducts, error: productsError } = await supabase
         .from('products')
         .select('id, name')
         .or('brand.ilike.Apple,name.ilike.%Apple%,name.ilike.%iPhone%,name.ilike.%MacBook%,name.ilike.%iPad%,name.ilike.%Watch%');
 
-    console.log(`Found ${appleProducts?.length || 0} Apple products in DB.`);
+    if (productsError) {
+        console.error('❌ Query failed:', productsError.message);
+        process.exit(1);
+    }
+
+    if (!appleProducts) {
+        console.error('❌ No products returned');
+        process.exit(1);
+    }
+
+    console.log(`Found ${appleProducts.length} Apple products in DB.`);
 
     const appleFiles = fs.readdirSync(appleDir).filter(f => f.startsWith('branded_') && f.endsWith('.png'));
 
@@ -30,14 +48,14 @@ async function deployDbUpdate() {
         let maxScore = 0;
 
         // Exact same matching logic as deploy script
-        const candidates = appleProducts?.filter(p => {
+        const candidates = appleProducts.filter(p => {
             const lowerName = p.name.toLowerCase();
             if (cleanName.includes('iphone') && !lowerName.includes('iphone')) return false;
             if (cleanName.includes('macbook') && !lowerName.includes('macbook')) return false;
             if (cleanName.includes('ipad') && !lowerName.includes('ipad')) return false;
             if (cleanName.includes('watch') && !lowerName.includes('watch')) return false;
             return true;
-        }) || [];
+        });
 
         for (const p of candidates) {
             let score = 0;

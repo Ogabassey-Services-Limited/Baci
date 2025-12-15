@@ -352,4 +352,7 @@ async function seedMissingMacBooks() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedMissingMacBooks();
+seedMissingMacBooks().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

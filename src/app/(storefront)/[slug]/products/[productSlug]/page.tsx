@@ -267,7 +267,7 @@ export default async function ProductPage({ params }: PageProps) {
   );
 
   // Add URL to the schema offers (sanitized to prevent XSS)
-  if (productSchema.offers) {
+  if (productSchema.offers && !Array.isArray(productSchema.offers)) {
     const productUrl = `${baseUrl}${urlPrefix}/products/${product.slug || product.id}`;
     productSchema.offers.url = escapeHtml(productUrl);
   }

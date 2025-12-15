@@ -928,4 +928,7 @@ async function seedHPBusinessLaptops() {
     console.log(`   Created: ${created} | Skipped: ${skipped} | Sold Out: ${soldOut}`);
 }
 
-seedHPBusinessLaptops();
+seedHPBusinessLaptops().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

@@ -358,7 +358,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                     {NAV_CATEGORIES.map((cat) => (
                       <Link
                         key={cat.name}
-                        href={`/category/${cat.name}` as any}
+                        href={`/${storeSlug}/${cat.name}` as any}
                         onClick={() => setShowCategoryDropdown(false)}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 hover:text-red-600 transition-colors group"
                       >

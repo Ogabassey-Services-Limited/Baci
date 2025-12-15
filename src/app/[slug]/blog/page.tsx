@@ -161,6 +161,7 @@ export default async function BlogPage({ params, searchParams }: PageProps) {
           );
         }
       } catch (error) {
+        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
         console.error(
           `Failed to load Blog component for template ${templateId}:`,
           error

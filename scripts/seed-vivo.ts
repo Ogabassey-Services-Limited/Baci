@@ -316,4 +316,7 @@ async function seedVivoProducts() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedVivoProducts();
+seedVivoProducts().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

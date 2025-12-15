@@ -1,6 +1,22 @@
 // Migrated from temp-source/types.ts
 import type React from 'react';
 
+/**
+ * Product condition enum - shared across the application
+ */
+export type ProductCondition = 'new' | 'used' | 'open_box' | 'refurbished';
+
+/**
+ * Product condition offer interface
+ */
+export interface ProductConditionOffer {
+  id: string;
+  condition: ProductCondition;
+  price: number;
+  stock_quantity: number;
+  images?: string[];
+}
+
 export interface ProductRecommendation {
   name: string;
   price: string;
@@ -41,10 +57,7 @@ export interface Product {
   | 'New'
   | 'Used'
   | 'Open Box'
-  | 'new'
-  | 'used'
-  | 'open_box'
-  | 'refurbished';
+  | ProductCondition;
   // Detailed specs for filtering
   brand?: string;
   storage?: string | string[];
@@ -63,6 +76,9 @@ export interface Product {
   videoUrl?: string; // YouTube URL for unboxing/review
   // Technical specs from API (optional but typed)
   product_key_specs?: ProductKeySpecs;
+  // Phase 7: Condition Deduplication
+  has_condition_offers?: boolean;
+  offers?: ProductConditionOffer[];
 }
 
 export interface ProductKeySpecs {

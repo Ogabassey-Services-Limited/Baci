@@ -1,59 +1,27 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-
-import { getCachedMerchant } from '@/lib/cached-data';
+import {
+  getCachedMerchant,
+  getCachedMerchantByDomain,
+} from '@/lib/cached-data';
 import { getPlaceDetailsServer } from '@/lib/google-places';
+import type { Product } from '@/lib/products';
 import {
   generateLocalBusinessSchema,
   generateServiceSchema,
   generateWebSiteSchema,
   type LocalBusinessData,
 } from '@/lib/seo-utils';
+import { createClient } from '@/lib/supabase/server';
+import {
+  isDomainIdentifier,
+  isValidMerchantIdentifier,
+} from '@/lib/validation';
 import { StorefrontWrapper } from './storefront-wrapper';
-
-// Valid slug pattern: alphanumeric and hyphens, no file extensions
-const VALID_SLUG_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
-
-// Reserved paths that should NOT be treated as merchant slugs
-const RESERVED_PATHS = new Set([
-  'cart',
-  'checkout',
-  'api',
-  'auth',
-  'login',
-  'logout',
-  'dashboard',
-  'admin',
-  'builder',
-  'onboarding',
-  'preview',
-  'about',
-  'contact',
-  'blog',
-  'pricing',
-  'terms',
-  'privacy',
-  'features',
-  'demo',
-  'developers',
-  'track',
-  'invite',
-  'reset-password',
-  'template-preview',
-]);
-
-function isValidMerchantSlug(slug: string): boolean {
-  return (
-    typeof slug === 'string' &&
-    !!slug.trim() &&
-    !slug.includes('.') && // No file extensions
-    !RESERVED_PATHS.has(slug.toLowerCase()) && // Not a reserved path
-    VALID_SLUG_REGEX.test(slug.toLowerCase())
-  );
-}
 
 // Enable ISR with 1 minute revalidation for storefront homepages
 export const revalidate = 60;
@@ -65,16 +33,18 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
 
-  // Skip database query for invalid slugs (like static asset requests)
-  if (!isValidMerchantSlug(slug)) {
+  // Skip database query for invalid identifiers (like static asset requests)
+  if (!isValidMerchantIdentifier(slug)) {
     return {
       title: 'Not Found',
       description: 'The page you are looking for does not exist.',
     };
   }
 
-  // Use cached merchant data for better performance
-  const merchant = await getCachedMerchant(slug);
+  // Use appropriate lookup method based on identifier type - normalize to lowercase
+  const merchant = isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(slug.toLowerCase())
+    : await getCachedMerchant(slug.toLowerCase());
 
   if (!merchant) {
     return {
@@ -94,7 +64,7 @@ export async function generateMetadata({
     `Shop at ${merchant.business_name}. Browse our collection and enjoy convenient delivery.`;
 
   const headersList = await headers();
-  const host = headersList.get('host') || `${slug}.localhost:3000`;
+  const host = headersList.get('host') || `${slug}.localhost: 3000`;
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
   const baseUrl = `${protocol}://${host}`;
 
@@ -143,27 +113,26 @@ export async function generateMetadata({
   };
 }
 
-import { notFound } from 'next/navigation';
-
-// ... imports
-
 export default async function StorefrontPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  console.log('[StorefrontPage] Loading slug:', slug);
+  console.log('[StorefrontPage] Loading identifier:', slug);
 
-  // Validate slug format to prevent database queries for static assets
-  if (!isValidMerchantSlug(slug)) {
-    console.log('[StorefrontPage] Invalid slug:', slug);
+  // Validate identifier format (can be slug or domain)
+  if (!isValidMerchantIdentifier(slug)) {
+    console.log('[StorefrontPage] Invalid identifier:', slug);
     notFound();
   }
 
-  // Use cached merchant data for better performance
+  // Use appropriate lookup method based on identifier type
   console.log('[StorefrontPage] Fetching cached merchant...');
-  const merchant = await getCachedMerchant(slug);
+  const lookupKey = slug.toLowerCase();
+  const merchant = isDomainIdentifier(slug)
+    ? await getCachedMerchantByDomain(lookupKey)
+    : await getCachedMerchant(lookupKey);
   console.log(
     '[StorefrontPage] Merchant result:',
     merchant ? merchant.id : 'null'
@@ -188,6 +157,47 @@ export default async function StorefrontPage({
     } catch (err) {
       console.error('[StorefrontPage] Failed to fetch place details:', err);
     }
+  }
+
+  // Fetch products for the homepage (Featured/Latest)
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+
+  let merchantProducts: Product[] = [];
+
+  try {
+    const { data: products, error } = await supabase
+      .from('products')
+      .select(`
+        id,
+        name,
+        slug,
+        description,
+        price,
+        compare_at_price,
+        images,
+        category,
+        brand,
+        condition,
+        stock
+      `)
+      .eq('merchant_id', merchant.id)
+      .eq('status', 'active')
+      .order('price', { ascending: false }) // Show expensive/hero items first
+      .limit(50);
+
+    if (error) {
+      console.error(
+        '[StorefrontPage] Error fetching products:',
+        JSON.stringify(error, null, 2)
+      );
+    } else {
+      // Type assertion: Supabase returns partial data for homepage listing
+      // StorefrontWrapper only uses the fields we fetch
+      merchantProducts = (products || []) as Product[];
+    }
+  } catch (err) {
+    console.error('[StorefrontPage] Failed to fetch products:', err);
   }
 
   // Check if store is published - show "coming soon" page if not
@@ -333,6 +343,10 @@ export default async function StorefrontPage({
                   providerUrl: baseUrl,
                   serviceType: 'Mobile Phone Top-up',
                   logo: merchant.logo_url || undefined,
+                  offers: [
+                    { price: '100', priceCurrency: 'NGN' },
+                    { price: '1000', priceCurrency: 'NGN' },
+                  ],
                 })
               ),
             }}
@@ -350,6 +364,10 @@ export default async function StorefrontPage({
                   providerUrl: baseUrl,
                   serviceType: 'Internet Data Services',
                   logo: merchant.logo_url || undefined,
+                  offers: [
+                    { price: '500', priceCurrency: 'NGN' },
+                    { price: '5000', priceCurrency: 'NGN' },
+                  ],
                 })
               ),
             }}
@@ -357,7 +375,8 @@ export default async function StorefrontPage({
         </>
       )}
       <Suspense fallback={<StorefrontPageSkeleton />}>
-        <StorefrontWrapper />
+        {/* Pass products to wrapper for use in template homepage */}
+        <StorefrontWrapper products={merchantProducts} />
       </Suspense>
     </>
   );

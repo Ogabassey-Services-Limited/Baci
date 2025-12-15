@@ -1,9 +1,14 @@
 import type React from 'react';
-import { BannerCarousel } from '../components/BannerCarousel';
-import { Hero } from '../components/Hero';
-import { InteractiveProductGrid } from '../components/InteractiveProductGrid';
+import type { Product } from '@/components/storefront/ogabassey/types';
+import { BannerCarousel } from '@/components/storefront/ogabassey/components/BannerCarousel';
+import { Hero } from '@/components/storefront/ogabassey/components/Hero';
+import { InteractiveProductGrid } from '@/components/storefront/ogabassey/components/InteractiveProductGrid';
 
-export const HomePage: React.FC = () => {
+interface HomePageProps {
+  products: Product[];
+}
+
+export const HomePage: React.FC<HomePageProps> = ({ products = [] }) => {
   return (
     <>
       <Hero />
@@ -13,7 +18,7 @@ export const HomePage: React.FC = () => {
         <BannerCarousel className="h-40 md:h-52" />
       </div>
 
-      <InteractiveProductGrid />
+      <InteractiveProductGrid products={products} />
     </>
   );
 };

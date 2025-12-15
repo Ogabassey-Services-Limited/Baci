@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { exec } from 'child_process';
+import { execSafe } from './lib/exec-safe';
 import path from 'path';
 
 // Apple CDN URL Pattern
@@ -30,22 +30,25 @@ const MACBOOK_AIR_VARIANTS = [
 const ALL_VARIANTS = [...IPHONE_17_PRO_VARIANTS, ...MACBOOK_AIR_VARIANTS];
 const OUTPUT_DIR = 'apple_downloaded_images';
 
-function execPromise(cmd: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        exec(cmd, (error, stdout, stderr) => {
-            if (error) reject(error);
-            else resolve(stdout);
-        });
-    });
-}
-
 async function downloadAppleImages() {
     if (!fs.existsSync(OUTPUT_DIR)) {
         fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     }
 
     console.log(`🍎 Downloading ${ALL_VARIANTS.length} Apple product images...\n`);
-    const results: any[] = [];
+
+    // SECURITY: Safe - all URLs and slugs are hardcoded constants
+    // execSafe uses spawn with shell:false, preventing command injection
+    // No user input, only developer-defined Apple product variants
+
+    interface DownloadResult {
+        name: string;
+        slug: string;
+        localPath?: string;
+        success: boolean;
+    }
+
+    const results: DownloadResult[] = [];
 
     for (const variant of ALL_VARIANTS) {
         const url = `${CDN_BASE}/${variant.slug}?wid=1200&hei=900&fmt=png&qlt=95`;
@@ -56,7 +59,7 @@ async function downloadAppleImages() {
         console.log(`   URL: ${url}`);
 
         try {
-            await execPromise(`curl -s "${url}" -o "${outputPath}"`);
+            await execSafe('curl', ['-s', url, '-o', outputPath]);
 
             // Check if file was actually downloaded (not an error page)
             const stats = fs.statSync(outputPath);
@@ -65,7 +68,7 @@ async function downloadAppleImages() {
 
                 // Apply branding
                 const brandedPath = path.join(OUTPUT_DIR, `branded_${filename}`);
-                await execPromise(`npx tsx scripts/apply-red-ring.ts "${outputPath}" "${brandedPath}"`);
+                await execSafe('npx', ['tsx', 'scripts/apply-red-ring.ts', outputPath, brandedPath]);
                 console.log(`   ✅ Branded`);
 
                 results.push({

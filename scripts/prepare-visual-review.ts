@@ -21,6 +21,12 @@ batches.forEach((batch, batchIndex) => {
     markdownContent += `\`\`\`carousel\n`;
 
     batch.forEach((file, index) => {
+        // Path traversal protection: Validate that file is a basename only (no path separators)
+        // Note: fs.readdirSync() returns basenames by default, but we validate defensively
+        if (file.includes('..') || file.includes('/') || file.includes('\\')) {
+            console.warn(`Skipping suspicious file: ${file}`);
+            return;
+        }
         const filePath = path.join(imageDir, file);
         markdownContent += `![${file}](${filePath})\n`;
         markdownContent += `> **File:** \`${file}\`\n\n`;

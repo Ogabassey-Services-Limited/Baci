@@ -148,4 +148,7 @@ async function testGadgetInsurance() {
     }
 }
 
-testGadgetInsurance();
+testGadgetInsurance().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

@@ -1,7 +1,14 @@
 import fs from 'fs';
 
+interface Migration {
+    supabaseId: string;
+    oldProductName: string;
+    supabaseName: string;
+    [key: string]: unknown;
+}
+
 // Load current matches
-const matches = JSON.parse(fs.readFileSync('final_migration.json', 'utf-8'));
+const matches: Migration[] = JSON.parse(fs.readFileSync('final_migration.json', 'utf-8'));
 
 // Define bad matches to remove (by supabaseId or score-based rules)
 const badMatches = [
@@ -19,7 +26,7 @@ const badMatches = [
     '10a81b5f-94d3-4046-b993-901e93e4be94',
 ];
 
-const cleanedMatches = matches.filter((m: any) => !badMatches.includes(m.supabaseId));
+const cleanedMatches = matches.filter((m) => !badMatches.includes(m.supabaseId));
 
 console.log(`Original matches: ${matches.length}`);
 console.log(`After cleanup: ${cleanedMatches.length}`);
@@ -30,6 +37,6 @@ console.log('\n✅ Saved to final_migration_cleaned.json');
 
 // Print confirmed matches
 console.log('\n📋 Confirmed Matches:');
-cleanedMatches.forEach((m: any) => {
+cleanedMatches.forEach((m) => {
     console.log(`  • ${m.oldProductName} → ${m.supabaseName}`);
 });

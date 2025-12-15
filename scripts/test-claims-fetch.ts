@@ -19,8 +19,8 @@ async function testClaimsFetch() {
         if (claims.length > 0) {
             console.log('Sample Claim:', claims[0]);
         }
-    } catch (e: any) {
-        console.error('❌ Failed:', e.message);
+    } catch (e) {
+        console.error('❌ Failed:', e instanceof Error ? e.message : String(e));
     }
 }
 

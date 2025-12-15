@@ -22,8 +22,16 @@ const files = filesRaw.trim().split('\n').filter(f => f.startsWith('productImage
 
 console.log(`📁 Found ${files.length} productImages files`);
 
+interface FileMatch {
+    file: string;
+    fileDate: string;
+    productId: number;
+    productName: string;
+    diffSeconds: number;
+}
+
 // Extract timestamps from filenames
-const fileMatches: any[] = [];
+const fileMatches: FileMatch[] = [];
 const unmatched: string[] = [];
 
 for (const file of files) {

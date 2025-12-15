@@ -279,9 +279,16 @@ export async function initializeTransaction(
 export async function verifyTransaction(
   reference: string
 ): Promise<PaymentVerificationResponse> {
+  // Validate reference format to prevent SSRF attacks
+  // Paystack references are typically alphanumeric with some special chars
+  const referencePattern = /^[A-Za-z0-9_-]{1,100}$/;
+  if (!reference || !referencePattern.test(reference)) {
+    throw new Error('Invalid transaction reference format');
+  }
+
   try {
     const response = await fetch(
-      `${PAYSTACK_BASE_URL}/transaction/verify/${reference}`,
+      `${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`,
       {
         method: 'GET',
         headers: {

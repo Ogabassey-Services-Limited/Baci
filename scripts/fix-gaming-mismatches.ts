@@ -6,8 +6,18 @@ import { promisify } from 'util';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
+
 const execAsync = promisify(exec);
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const VPS_IP = '82.29.190.219';
 const VPS_USER = 'bassey';
@@ -29,11 +39,16 @@ async function fixMismatches() {
 
     // 1. Get product IDs for the slugs
     for (const fix of fixes) {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('products')
             .select('id, name')
             .eq('slug', fix.slug)
             .single();
+
+        if (error) {
+            console.error(`❌ Query failed for slug '${fix.slug}':`, error.message);
+            continue;
+        }
 
         if (data) {
             fix.productId = data.id;
@@ -69,8 +84,8 @@ async function fixMismatches() {
 
             if (error) console.error(`DB Error: ${error.message}`);
             else console.log(`   ✅ Updated: ${publicUrl}`);
-        } catch (e: any) {
-            console.error(`Upload failed: ${e.message}`);
+        } catch (e) {
+            console.error(`Upload failed: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
 
@@ -79,7 +94,7 @@ async function fixMismatches() {
     try {
         await execAsync(`ssh -i ${SSH_KEY} -o StrictHostKeyChecking=no ${VPS_USER}@${VPS_IP} "echo 'Ogabassey1234!Praisethelord96!' | sudo -S sh -c 'mv /home/bassey/*.png /var/www/cdn/products/ 2>/dev/null; chmod 644 /var/www/cdn/products/*.png'"`);
         console.log('Done!');
-    } catch (e: any) {
+    } catch (e) {
         console.log('Move command completed (some files may have already been moved)');
     }
 }

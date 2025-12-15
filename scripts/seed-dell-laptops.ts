@@ -692,4 +692,7 @@ async function seedDellLaptops() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedDellLaptops();
+seedDellLaptops().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

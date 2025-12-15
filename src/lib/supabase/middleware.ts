@@ -6,7 +6,7 @@ import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
  * Creates a Supabase client for use in Next.js middleware.
  * This handles session refresh and cookie management automatically.
  *
- * @see https://supabase.com/docs/guides/auth/server-side/nextjs
+ * @see https://supabase.com/docs/guides/auth/server-side
  */
 export async function updateSession(request: NextRequest) {
   // Create a response that we can modify

@@ -9,6 +9,8 @@ import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 
+const PLACEHOLDER_IMAGE = 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
+
 interface ProductCardProps {
   product: Product;
   onAddToCart: (e: React.MouseEvent, product: Product) => void;
@@ -64,7 +66,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Image Container */}
         <div className="relative aspect-square mb-3 md:mb-4 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden z-10 pointer-events-none">
           <img
-            src={product.image}
+            src={product.image || PLACEHOLDER_IMAGE}
             alt={product.name}
             className="w-full h-full object-cover transition-transform duration-500 md:group-hover:scale-105"
           />
@@ -150,9 +152,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {product.name}
           </h3>
 
-          {/* Description */}
+          {/* Description - truncated */}
           <p className="text-gray-500 text-xs mb-3 line-clamp-2 leading-relaxed hidden md:block">
-            {product.description}
+            {product.description?.substring(0, 100) || 'No description available.'}
           </p>
 
           {/* Price */}
@@ -177,7 +179,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       {/* Image (Left Side) */}
       <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
         <img
-          src={product.image}
+          src={product.image || PLACEHOLDER_IMAGE}
           alt={product.name}
           className="w-full h-full object-cover md:group-hover:scale-110 transition-transform duration-500"
         />
@@ -212,8 +214,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         </div>
 
-        <p className="text-gray-500 text-sm mb-3 line-clamp-2 md:line-clamp-none">
-          {product.description}
+        <p className="text-gray-500 text-sm mb-3 line-clamp-3">
+          {product.description?.substring(0, 150) || 'No description available.'}
         </p>
 
         <div className="mt-auto flex items-center justify-between">

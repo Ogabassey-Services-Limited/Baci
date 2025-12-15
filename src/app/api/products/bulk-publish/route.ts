@@ -47,12 +47,12 @@ export async function POST() {
       console.error('Error deleting drafts:', deleteError);
     }
 
-    // Update all remaining products to published
+    // Update all remaining products to active (valid statuses: draft, active, archived)
     const { data: updatedProducts, error: updateError } = await supabase
       .from('products')
-      .update({ status: 'published', is_active: true })
+      .update({ status: 'active', is_active: true })
       .eq('merchant_id', merchant.id)
-      .neq('status', 'published')
+      .neq('status', 'active')
       .select('id');
 
     if (updateError) {

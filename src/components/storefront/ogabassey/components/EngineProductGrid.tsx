@@ -192,7 +192,11 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
         if (data.products && Array.isArray(data.products)) {
           // If request has filters but returns empty, we should define how to handle it.
           // API returns [] which is fine.
-          setProducts(toTemplateProducts(data.products));
+
+          const mappedProducts = toTemplateProducts(data.products);
+
+          // Filter is now handled server-side!
+          setProducts(mappedProducts);
         } else {
           setProducts(mockProducts); // Fallback only on explicit error structure? No, empty is valid.
           // If Products is empty logic:

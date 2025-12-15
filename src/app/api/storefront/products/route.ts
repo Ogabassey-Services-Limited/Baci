@@ -7,16 +7,34 @@ import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { createClient } from '@/lib/supabase/server';
 
 // Map database product to API response format
+// Map database product to API response format
 function mapProduct(p: Record<string, unknown>) {
+  // Robustly handle images field (could be string[] or {url:string}[])
+  type ImageInput = string | { url?: string; alt?: string; order?: number };
+  const rawImages = (p.images as ImageInput[]) || [];
+  const processedImages = rawImages.map((img, index) => {
+    if (typeof img === 'string') {
+      return { url: img, alt: (p.name as string) || '', order: index };
+    }
+    return {
+      url: img.url || '',
+      alt: img.alt || (p.name as string) || '',
+      order: img.order || index,
+    };
+  });
+
+  const primaryImage = processedImages[0]?.url || '';
+
   return {
     id: p.id,
     name: p.name,
     description: p.description,
     price: p.price,
     compare_at_price: p.compare_at_price,
-    image: (p.images as { url: string }[])?.[0]?.url || '',
-    imageLarge: (p.images as { url: string }[])?.[0]?.url || '',
+    image: primaryImage, // Legacy support
+    imageLarge: primaryImage, // Legacy support
     imageHint: p.image_hint,
+    images: processedImages, // New field required for gallery
     category: p.category || 'General',
     category_slug: (
       p.product_categories as { categories: { slug: string } }[]
@@ -44,6 +62,7 @@ const querySchema = z.object({
   sort: z.enum(['newest', 'price-asc', 'price-desc']).default('newest'),
   q: z.string().max(100).optional(),
   ids: z.string().optional(),
+  has_images: z.coerce.boolean().optional(),
 });
 
 type ProductFilters = z.infer<typeof querySchema>;
@@ -61,6 +80,7 @@ function createCachedProductsFetcher(
   if (filters.min_price) cacheKeyParts.push(`min-${filters.min_price}`);
   if (filters.max_price) cacheKeyParts.push(`max-${filters.max_price}`);
   if (filters.sort) cacheKeyParts.push(`sort-${filters.sort}`);
+  if (filters.has_images) cacheKeyParts.push(`img-${filters.has_images}`);
   if (filters.q)
     cacheKeyParts.push(`q-${filters.q.slice(0, 100).toLowerCase().trim()}`);
 
@@ -109,6 +129,12 @@ function createCachedProductsFetcher(
 
       if (filters.max_price !== undefined) {
         query = query.lte('price', filters.max_price);
+      }
+
+      if (filters.has_images) {
+        // Filter for products with non-empty images
+        // Reliable check for JSONB array: ensure index 0 is not null.
+        query = query.not('images->0', 'is', null);
       }
 
       if (filters.q) {
@@ -226,6 +252,7 @@ export async function GET(request: NextRequest) {
       min_price,
       max_price,
       sort,
+      has_images: parsed.data.has_images,
       q: q || undefined,
     };
 

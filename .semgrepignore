@@ -3,6 +3,13 @@
 
 # Internal dev tooling - not production code
 .gemini/
+scripts/
+fix-all-async-calls.mjs
+process_pr_comments.cjs
+process_security_alerts.cjs
+
+# Supabase edge functions (server-side only)
+supabase/functions/
 
 # Verified safe patterns (documented in codebase)
 # URL validation implemented - see header.tsx:41-53, client-layout.tsx

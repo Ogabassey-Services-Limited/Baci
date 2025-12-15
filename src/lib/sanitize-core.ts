@@ -9,16 +9,24 @@ import { z } from 'zod';
  * This prevents incomplete sanitization from nested patterns like <scr<script>ipt>.
  */
 export function stripHtmlTags(text: string): string {
-  const htmlTagRegex = /<[^>]*>/g;
-  let result = text;
+  // Limit input length to prevent ReDoS attacks
+  const maxLength = 100000;
+  const truncated = text.length > maxLength ? text.slice(0, maxLength) : text;
+
+  // Use non-greedy match with length limit per tag to prevent catastrophic backtracking
+  const htmlTagRegex = /<[^>]{0,1000}>/g;
+  let result = truncated;
   let previous: string;
+  let iterations = 0;
+  const maxIterations = 10; // Prevent infinite loops
 
   // Iteratively remove HTML tags until no more are found
   // This handles cases like <scr<script>ipt> which become <script> after one pass
   do {
     previous = result;
     result = result.replace(htmlTagRegex, '');
-  } while (result !== previous);
+    iterations++;
+  } while (result !== previous && iterations < maxIterations);
 
   return result;
 }

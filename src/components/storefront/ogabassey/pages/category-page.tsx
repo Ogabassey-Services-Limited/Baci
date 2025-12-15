@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import {
@@ -12,7 +13,6 @@ import {
   type FilterState,
 } from '../components/CategoryFiltersSidebar';
 import { ProductCard } from '../components/ProductCard';
-import { products } from '../data/products';
 import type { Product } from '../types';
 
 import { CheckCircle, Info, ChevronDown } from 'lucide-react'; // Added icons
@@ -28,13 +28,19 @@ export interface CategorySEOProps {
   seoDescription?: string;
   seoFeatures?: string[];
   seoFaqs?: { question: string; answer: string }[];
+  /** Products fetched from Supabase by the server page */
+  products?: Product[];
+  /** Optional category image URL from database */
+  categoryImage?: string | null;
 }
 
 export const CategoryPage: React.FC<CategorySEOProps> = ({
   seoHeading,
   seoDescription,
   seoFeatures = [],
-  seoFaqs = []
+  seoFaqs = [],
+  products = [],
+  categoryImage,
 }) => {
   const [showMobileIntro, setShowMobileIntro] = useState(false);
   const params = useParams();
@@ -65,14 +71,14 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   useEffect(() => {
     window.scrollTo(0, 0);
     setFilters(initialFilterState);
-  }, []); // Add categoryName dependency for proper reset
+  }, [categoryName]); // Add categoryName dependency for proper reset
 
-  // Derived Data: Products in the current Category
+  // Derived Data: Products in the current Category (from props)
   const categoryProducts = useMemo(() => {
-    return products.filter(
-      (p) => categoryName === 'All' || p.category === categoryName
-    );
-  }, [categoryName]);
+    // Use server-provided products directly
+    if (categoryName === 'All') return products;
+    return products.filter((p) => p.category === categoryName);
+  }, [categoryName, products]);
 
   // Derived Data: Available Options based on products in category
   const availableOptions = useMemo(() => {
@@ -224,7 +230,12 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     <div className="min-h-screen bg-gray-50 pb-20 pt-4">
       {/* Header Ad replaced with Banner Carousel */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-4">
-        <BannerCarousel className="h-40 md:h-52" />
+        <BannerCarousel
+          className="h-40 md:h-52"
+          categoryImage={categoryImage}
+          title={seoHeading || pageTitle}
+          description={seoDescription}
+        />
       </div>
 
       {/* Breadcrumb & Header */}
@@ -247,99 +258,11 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
             </p>
           </div>
 
-          {/* Category SEO Intro Content */}
-          {(seoHeading || seoDescription) && (
-            <div className="mb-8 mt-6">
-              <section
-                aria-labelledby="category-intro-heading"
-                className="bg-blue-50/40 border border-blue-100/60 rounded-xl overflow-hidden transition-all duration-300"
-              >
-                <div className="p-5 md:p-6">
-                  {/* Mobile Toggle Header */}
-                  <div
-                    className="md:hidden flex items-center justify-between cursor-pointer"
-                    onClick={() => setShowMobileIntro(!showMobileIntro)}
-                  >
-                    <div className="flex items-center gap-2 text-blue-900 font-medium">
-                      <Info size={18} className="text-blue-600" />
-                      <span>About {pageTitle}</span>
-                    </div>
-                    <ChevronDown
-                      size={18}
-                      className={`text-blue-500 transition-transform duration-300 ${showMobileIntro ? 'rotate-180' : ''}`}
-                    />
-                  </div>
-
-                  {/* Content Container - Always visible on desktop, toggle on mobile */}
-                  <div className={`${showMobileIntro ? 'block mt-4' : 'hidden'} md:block`}>
-                    <h2
-                      id="category-intro-heading"
-                      className="text-lg md:text-xl font-bold text-gray-900 mb-3"
-                    >
-                      {seoHeading || `Buy ${pageTitle} in Nigeria`}
-                    </h2>
-
-                    {seoDescription && (
-                      <div className="prose prose-sm prose-blue text-gray-600 max-w-none mb-4 leading-relaxed">
-                        <p>{seoDescription}</p>
-                      </div>
-                    )}
-
-                    {/* Features Grid */}
-                    {seoFeatures && seoFeatures.length > 0 && (
-                      <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4 pt-4 border-t border-blue-100">
-                        {seoFeatures.map((feature, idx) => (
-                          <li key={idx} className="flex items-center gap-2 text-sm text-gray-700 bg-white/60 px-3 py-2 rounded-lg">
-                            <CheckCircle size={14} className="text-green-600 shrink-0" />
-                            <span className="font-medium">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-
-                    {/* Brand Filter Links (SEO Internal Linking) */}
-                    <div className="mt-4 flex flex-wrap gap-2 pt-2">
-                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider self-center mr-1">Top Brands:</span>
-                      {['Samsung', 'Apple', 'Tecno', 'Infinix', 'Xiaomi'].map(brand => (
-                        <Link
-                          key={brand}
-                          href={`/${brand.toLowerCase()}`}
-                          className="text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 hover:text-blue-900 px-2.5 py-1 rounded-full border border-blue-100 transition-colors"
-                        >
-                          {brand}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </section>
-            </div>
-          )}
 
 
 
-          {/* RENDER FAQs (If available) */}
-          {seoFaqs && seoFaqs.length > 0 && (
-            <div className="mb-12 max-w-3xl mx-auto">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-                Frequently Asked Questions
-              </h2>
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <Accordion type="single" collapsible className="w-full">
-                  {seoFaqs.map((faq, idx) => (
-                    <AccordionItem value={`item-${idx}`} key={idx}>
-                      <AccordionTrigger className="text-lg font-medium text-gray-800 text-left">
-                        {faq.question}
-                      </AccordionTrigger>
-                      <AccordionContent className="text-gray-600 prose prose-sm max-w-none">
-                        <div dangerouslySetInnerHTML={{ __html: faq.answer }} />
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </div>
-            </div>
-          )}
+
+
 
           {/* View Mode & Mobile Filter Toggle */}
           <div className="flex items-center gap-2">
@@ -444,6 +367,56 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* SEO Content & FAQs - Moved to Bottom (Best Practice) */}
+      <div className="max-w-[1400px] mx-auto px-4 md:px-6 mt-16 border-t border-gray-100 pt-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+          {/* SEO Text */}
+          {(seoHeading || seoDescription) && (
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                {seoHeading || `Buy ${pageTitle} in Nigeria`}
+              </h2>
+              {seoDescription && (
+                <div className="prose prose-gray text-gray-500 leading-relaxed text-sm">
+                  <p>{seoDescription}</p>
+                </div>
+              )}
+              {/* Features Grid */}
+              {seoFeatures && seoFeatures.length > 0 && (
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
+                  {seoFeatures.map((feature, idx) => (
+                    <li key={idx} className="flex items-center gap-2 text-sm text-gray-600">
+                      <CheckCircle size={16} className="text-green-500 shrink-0" />
+                      <span className="font-medium">{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          {/* FAQs */}
+          {seoFaqs && seoFaqs.length > 0 && (
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h3>
+              <Accordion type="single" collapsible className="w-full">
+                {seoFaqs.map((faq, idx) => (
+                  <AccordionItem value={`item-${idx}`} key={idx} className="border-b-gray-100">
+                    <AccordionTrigger className="text-sm font-semibold text-gray-800 text-left hover:no-underline hover:text-red-600 py-3">
+                      {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-gray-500 text-sm leading-relaxed">
+                      {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml() */}
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(faq.answer) }} />
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </div>
+          )}
         </div>
       </div>
 

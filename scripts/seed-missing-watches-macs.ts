@@ -395,4 +395,7 @@ async function seedMissingProducts() {
     console.log(`\n🏁 Seeding Complete!`);
 }
 
-seedMissingProducts();
+seedMissingProducts().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

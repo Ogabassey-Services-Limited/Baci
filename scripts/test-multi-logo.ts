@@ -54,9 +54,12 @@ async function testMultiLogo() {
         } else {
             console.log('\n⚠️ No images generated.');
         }
-    } catch (error: any) {
-        console.log('❌ Error:', error.message);
+    } catch (error) {
+        console.log('❌ Error:', error instanceof Error ? error.message : String(error));
     }
 }
 
-testMultiLogo();
+testMultiLogo().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

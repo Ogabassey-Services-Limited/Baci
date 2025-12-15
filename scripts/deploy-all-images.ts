@@ -9,8 +9,14 @@ dotenv.config();
 
 const execAsync = promisify(exec);
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const VPS_USER = 'bassey';
@@ -27,14 +33,24 @@ async function deployImages() {
 
     console.log('\n--- Processing Apple Images ---');
 
-    const { data: appleProducts } = await supabase
+    const { data: appleProducts, error: productsError } = await supabase
         .from('products')
         .select('id, name, slug')
         .or('brand.ilike.Apple,name.ilike.%Apple%,name.ilike.%iPhone%,name.ilike.%MacBook%,name.ilike.%iPad%,name.ilike.%Watch%');
 
-    console.log(`Found ${appleProducts?.length || 0} Apple products in DB.`);
+    if (productsError) {
+        console.error('❌ Query failed:', productsError.message);
+        process.exit(1);
+    }
 
-    if (!appleProducts || appleProducts.length === 0) return;
+    if (!appleProducts) {
+        console.error('❌ No products returned');
+        process.exit(1);
+    }
+
+    console.log(`Found ${appleProducts.length} Apple products in DB.`);
+
+    if (appleProducts.length === 0) return;
 
     const appleFiles = fs.readdirSync(appleDir).filter(f => f.startsWith('branded_') && f.endsWith('.png'));
     let uploads: { localPath: string, remoteName: string, productId: string }[] = [];

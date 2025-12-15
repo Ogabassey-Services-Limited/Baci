@@ -420,4 +420,7 @@ async function seedAppleAccessories() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedAppleAccessories();
+seedAppleAccessories().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

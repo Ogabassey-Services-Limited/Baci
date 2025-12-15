@@ -1244,4 +1244,7 @@ async function seedHPConsumerLaptops() {
     console.log(`   Created: ${created} | Skipped: ${skipped} | Sold Out: ${soldOut}`);
 }
 
-seedHPConsumerLaptops();
+seedHPConsumerLaptops().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

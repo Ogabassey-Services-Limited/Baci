@@ -99,9 +99,11 @@ async function dispatchCAPI(
       body: JSON.stringify(payload),
     });
     if (!response.ok) {
+      // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
       console.warn(`${provider} CAPI dispatch failed:`, response.statusText);
     }
   } catch (err) {
+    // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
     console.warn(`${provider} CAPI dispatch error:`, err);
   }
 }

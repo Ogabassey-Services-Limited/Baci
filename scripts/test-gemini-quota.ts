@@ -35,17 +35,18 @@ async function checkQuota() {
         console.log(`Response: "${result.text}"`);
         console.log(`Latency: ${duration}ms`);
         console.log('\nYour API key and quota are working correctly for text generation.');
-    } catch (error: any) {
+    } catch (error) {
         console.log('❌ Request Failed');
+        const errorMsg = error instanceof Error ? error.message : String(error);
 
-        if (error.message.includes('429') || error.message.includes('quota')) {
+        if (errorMsg.includes('429') || errorMsg.includes('quota')) {
             console.error('\n🔴 QUOTA EXCEEDED (429)');
-            console.error('Details:', error.message);
+            console.error('Details:', errorMsg);
             console.error('\nPossible causes:');
             console.error('1. Free tier rate limit reached (usually resets every minute)');
             console.error('2. "Limit: 0" means this model is not available for your account/region');
             console.error('3. Billing is not enabled for this project');
-        } else if (error.message.includes('404') || error.message.includes('not found')) {
+        } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
             console.error('\n🔴 MODEL NOT FOUND (404)');
             console.error(`The model "${modelName}" is not available for your API key.`);
         } else {
@@ -55,4 +56,7 @@ async function checkQuota() {
     }
 }
 
-checkQuota();
+checkQuota().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

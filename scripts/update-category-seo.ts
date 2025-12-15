@@ -254,19 +254,31 @@ async function updateCategorySEO() {
     console.log("🔍 Updating Category SEO Fields...\n");
 
     // Get merchant ID
-    const { data: laptopsCat } = await supabase.from('categories').select('merchant_id').eq('slug', 'laptops').single();
-    if (!laptopsCat) {
-        console.error("❌ Cannot find laptops category for merchant ID");
-        return;
+    const { data: laptopsCat, error: laptopsError } = await supabase.from('categories').select('merchant_id').eq('slug', 'laptops').single();
+
+    if (laptopsError) {
+        console.error('❌ Query failed:', laptopsError.message);
+        process.exit(1);
     }
+
+    if (!laptopsCat) {
+        console.error('❌ Laptops category not found');
+        process.exit(1);
+    }
+
     const merchantId = laptopsCat.merchant_id;
 
     // Get all categories for this merchant
-    const { data: categories } = await supabase.from('categories').select('id, slug, name, seo_heading, seo_description, description').eq('merchant_id', merchantId);
+    const { data: categories, error: categoriesError } = await supabase.from('categories').select('id, slug, name, seo_heading, seo_description, description').eq('merchant_id', merchantId);
+
+    if (categoriesError) {
+        console.error('❌ Query failed:', categoriesError.message);
+        process.exit(1);
+    }
 
     if (!categories) {
-        console.error("❌ No categories found");
-        return;
+        console.error('❌ No categories returned');
+        process.exit(1);
     }
 
     console.log(`📋 Found ${categories.length} categories\n`);
@@ -279,14 +291,14 @@ async function updateCategorySEO() {
         const seoData = CATEGORY_SEO[cat.slug];
 
         if (!seoData) {
-            console.log(`   ⏩ No SEO data defined for: ${cat.name} (${cat.slug})`);
+            console.log("   ⏩ No SEO data defined for:", cat.name, "(" + cat.slug + ")");
             missing++;
             continue;
         }
 
         // Check if already has SEO fields
         if (cat.seo_heading && cat.seo_description && cat.description) {
-            console.log(`   ✅ Already has SEO: ${cat.name}`);
+            console.log("   ✅ Already has SEO:", cat.name);
             skipped++;
             continue;
         }
@@ -299,9 +311,9 @@ async function updateCategorySEO() {
         }).eq('id', cat.id);
 
         if (error) {
-            console.error(`   ❌ Failed to update ${cat.name}:`, error.message);
+            console.error("   ❌ Failed to update", cat.name, ":", error.message);
         } else {
-            console.log(`   🔄 Updated SEO: ${cat.name}`);
+            console.log("   🔄 Updated SEO:", cat.name);
             updated++;
         }
     }

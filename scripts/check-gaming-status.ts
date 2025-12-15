@@ -1,20 +1,39 @@
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
+
 dotenv.config();
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseKey) {
+    console.error('❌ Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
+    process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function checkGaming() {
     // Get all gaming products
-    const { data: all } = await supabase
+    const { data: all, error } = await supabase
         .from('products')
         .select('id, name, slug, images')
         .eq('category', 'Video Games');
 
-    console.log(`Total Video Games: ${all?.length || 0}`);
+    if (error) {
+        console.error('❌ Query failed:', error.message);
+        process.exit(1);
+    }
 
-    const withImages = all?.filter(p => p.images && p.images.length > 0) || [];
-    const withoutImages = all?.filter(p => !p.images || p.images.length === 0) || [];
+    if (!all) {
+        console.error('❌ No data returned');
+        process.exit(1);
+    }
+
+    console.log(`Total Video Games: ${all.length}`);
+
+    const withImages = all.filter(p => p.images && p.images.length > 0);
+    const withoutImages = all.filter(p => !p.images || p.images.length === 0);
 
     console.log(`\n✅ With Images: ${withImages.length}`);
     console.log(`❌ Without Images: ${withoutImages.length}`);
@@ -35,11 +54,16 @@ async function checkGaming() {
     ];
 
     for (const slug of mismatches) {
-        const { data } = await supabase
+        const { data, error: searchError } = await supabase
             .from('products')
             .select('id, name, slug')
             .ilike('slug', `%${slug.replace(/-/g, '%')}%`)
             .limit(3);
+
+        if (searchError) {
+            console.error(`❌ Search failed for '${slug}':`, searchError.message);
+            continue;
+        }
 
         console.log(`\nSearching for '${slug}':`);
         if (data && data.length > 0) {

@@ -533,4 +533,7 @@ async function seedMSIAsusGaming() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedMSIAsusGaming();
+seedMSIAsusGaming().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

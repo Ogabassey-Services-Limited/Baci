@@ -108,20 +108,31 @@ export const getCachedMerchant = unstable_cache(
         hero_slides
       `)
       .eq('slug', slug)
-      .single();
+      .maybeSingle();
 
     if (error) {
+      // Sanitize user-controlled slug to prevent log injection
+      const safeSlug = String(slug || '')
+        .replace(/[\r\n]/g, '')
+        .substring(0, 100);
       console.error(
-        `Error fetching merchant for slug "${slug}":`,
+        'Error fetching merchant for slug:',
+        safeSlug,
         JSON.stringify(error, null, 2)
       );
       return null;
     }
 
     if (!data) {
-      console.warn(`No merchant data found for slug "${slug}"`);
+      const safeSlug = String(slug || '')
+        .replace(/[\r\n]/g, '')
+        .substring(0, 100);
+      console.warn('No merchant data found for slug:', safeSlug);
     } else {
-      console.log(`Successfully fetched merchant: ${slug} (${data.id})`);
+      const safeSlug = String(slug || '')
+        .replace(/[\r\n]/g, '')
+        .substring(0, 100);
+      console.log('Successfully fetched merchant:', safeSlug, data.id);
     }
 
     // Fetch primary domain
@@ -145,6 +156,97 @@ export const getCachedMerchant = unstable_cache(
   {
     revalidate: CACHE_DURATIONS.storefront,
     tags: ['merchants'],
+  }
+);
+
+/**
+ * Cached merchant data by custom domain
+ * Looks up the domain in the domains table and fetches the associated merchant
+ * Uses 60 second cache with tags for invalidation
+ */
+/**
+ * Retrieves a merchant using their custom domain.
+ * Normalizes the domain to lowercase before lookup.
+ * @param domain The custom domain (e.g., "store.com").
+ * @returns The merchant object with `custom_domain` property, or null if not found.
+ */
+export const getCachedMerchantByDomain = unstable_cache(
+  async (domain: string): Promise<CachedMerchant | null> => {
+    const normalizedDomain = domain.toLowerCase();
+    const supabase = getPublicSupabaseClient();
+
+    // First, find the merchant_id from the domains table
+    const { data: domainData, error: domainError } = await supabase
+      .from('domains')
+      .select('merchant_id, domain')
+      .eq('domain', normalizedDomain)
+      .eq('status', 'active')
+      .single();
+
+    if (domainError || !domainData) {
+      console.error('Error fetching domain', {
+        domain: normalizedDomain,
+        error: domainError ?? 'No data found',
+      });
+      return null;
+    }
+
+    // Now fetch the merchant using the merchant_id
+    const { data, error } = await supabase
+      .from('merchants')
+      .select(`
+        id,
+        business_name,
+        site_title,
+        site_tagline,
+        site_description,
+        business_type,
+        logo_url,
+        phone,
+        email,
+        social_media,
+        brand_colors,
+        slug,
+        business_address,
+        payout_currency,
+        is_published,
+        template_id,
+        plan_tier,
+        premium_features,
+        country,
+        hero_slides
+      `)
+      .eq('id', domainData.merchant_id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching merchant for domain', {
+        domain: normalizedDomain,
+        error: error,
+      });
+      return null;
+    }
+
+    if (!data) {
+      console.warn('No merchant data found for domain', {
+        domain: normalizedDomain,
+      });
+      return null;
+    }
+
+    console.log('Successfully fetched merchant by domain', {
+      domain: normalizedDomain,
+      slug: data.slug,
+      merchantId: data.id,
+    });
+
+    // Return with the custom_domain set
+    return { ...data, custom_domain: domainData.domain };
+  },
+  ['merchant-by-domain'],
+  {
+    revalidate: CACHE_DURATIONS.storefront,
+    tags: ['merchants', 'domains'],
   }
 );
 
@@ -219,15 +321,23 @@ export const getCachedProducts = unstable_cache(
         currency,
         status,
         is_featured,
+        is_parent,
         quantity,
         track_quantity,
         images,
+        color_images,
+        brand,
+        condition,
         product_variants (
           id,
           name,
           options,
           price_modifier,
-          stock
+          stock,
+          storage,
+          sim_type,
+          color,
+          price_override
         ),
         product_categories (
           category_id,
@@ -240,6 +350,7 @@ export const getCachedProducts = unstable_cache(
       `)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
+      .or('is_parent.eq.true,parent_product_id.is.null') // Only show parent products or standalone products
       .order('created_at', { ascending: false });
 
     if (options?.categoryId) {
@@ -305,15 +416,31 @@ export const getCachedProduct = unstable_cache(
         quantity,
         track_quantity,
         images,
+        color_images,
         created_at,
         product_key_specs,
         specifications,
+        condition,
+        has_condition_offers,
+        offers:product_offers (
+          id,
+          condition,
+          price,
+          stock_quantity,
+          images
+        ),
         product_variants (
           id,
           name,
           options,
           price_modifier,
-          stock
+          stock,
+          storage,
+          sim_type,
+          color,
+          images,
+          primary_image,
+          price_override
         ),
         product_categories (
           category_id,

@@ -531,4 +531,7 @@ async function seedHPPrinters() {
     console.log(`   Created: ${created} | Skipped: ${skipped}`);
 }
 
-seedHPPrinters();
+seedHPPrinters().catch((error) => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+});

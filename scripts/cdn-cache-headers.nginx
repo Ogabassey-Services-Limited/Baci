@@ -1,0 +1,44 @@
+# CDN Cache Headers Configuration for cdn.ogabassey.com
+# Add this inside your server block in /etc/nginx/sites-available/cdn.ogabassey.com
+
+# ============================================
+# CACHE HEADERS FOR STATIC ASSETS
+# ============================================
+
+# Images - Cache for 1 year (immutable since filenames are UUIDs)
+location ~* \.(png|jpg|jpeg|gif|webp|avif|ico|svg)$ {
+    expires 1y;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    add_header X-Content-Type-Options "nosniff";
+    add_header Access-Control-Allow-Origin "*";
+    
+    # Enable gzip for SVGs
+    gzip_static on;
+}
+
+# CSS/JS - Cache for 1 year  
+location ~* \.(css|js)$ {
+    expires 1y;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    gzip_static on;
+}
+
+# Fonts - Cache for 1 year
+location ~* \.(woff|woff2|ttf|otf|eot)$ {
+    expires 1y;
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    add_header Access-Control-Allow-Origin "*";
+}
+
+# Videos - Cache for 1 month
+location ~* \.(mp4|webm|ogg)$ {
+    expires 30d;
+    add_header Cache-Control "public, max-age=2592000";
+}
+
+# ============================================
+# SECURITY HEADERS
+# ============================================
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;

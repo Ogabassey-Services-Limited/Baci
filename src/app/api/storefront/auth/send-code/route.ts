@@ -25,9 +25,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    // Basic email validation with length limit to prevent ReDoS
+    const isValidEmail =
+      email.length <= 254 &&
+      email.includes('@') &&
+      email.indexOf('@') > 0 &&
+      email.lastIndexOf('.') > email.indexOf('@') + 1 &&
+      !/\s/.test(email);
+    if (!isValidEmail) {
       return NextResponse.json(
         { error: 'Invalid email format' },
         { status: 400 }

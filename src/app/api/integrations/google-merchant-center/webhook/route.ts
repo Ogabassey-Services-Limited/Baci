@@ -6,7 +6,12 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    console.log('Received GMC Webhook:', body);
+    // Log event type only, not full payload (prevent log injection)
+    const eventType = String(body?.event || body?.type || 'unknown').replace(
+      /[\r\n]/g,
+      ''
+    );
+    console.log('Received GMC Webhook event:', eventType);
 
     return NextResponse.json({ received: true });
   } catch (error) {

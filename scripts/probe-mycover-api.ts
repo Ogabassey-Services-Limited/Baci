@@ -59,8 +59,8 @@ async function probe() {
                 console.log(`   🔎 INTERESTING! Not a 404!`);
                 console.log(`   Response: ${txt.slice(0, 300)}`);
             }
-        } catch (e: any) {
-            console.log(`   ⚠️ Network Error on ${ep.url}: ${e.message}`);
+        } catch (e) {
+            console.log(`   ⚠️ Network Error on ${ep.url}: ${e instanceof Error ? e.message : String(e)}`);
         }
     }
 }

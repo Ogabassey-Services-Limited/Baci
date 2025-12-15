@@ -3,16 +3,17 @@
 // Template preview
 import type React from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import type { Product } from '@/lib/products';
 import { BannerCarousel } from '../components/BannerCarousel';
 import { EngineProductGrid } from '../components/EngineProductGrid';
 import { Hero } from '../components/Hero';
 
-// Assuming HomePageProps is defined or imported elsewhere,
-// for the sake of syntactic correctness, we'll define a placeholder if not explicitly imported.
-// If HomePageProps is meant to be imported, please provide the import path.
-type HomePageProps = {};
+// Define the expected props
+interface HomePageProps {
+  products?: Product[];
+}
 
-export const OgabasseyHomePage: React.FC<HomePageProps> = () => {
+export const OgabasseyHomePage: React.FC<HomePageProps> = ({ products }) => {
   const merchantContext = useMerchantSafe();
   const storeSlug = merchantContext?.merchant?.slug;
 
@@ -31,7 +32,9 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = () => {
       <EngineProductGrid
         title="Featured Products"
         storeSlug={storeSlug}
-        useMockData={!storeSlug}
+        // If we have products from props, pass them to prevent client-side fetching
+        externalProducts={products}
+        useMockData={!storeSlug && !products}
       />
     </>
   );
