@@ -57,10 +57,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Ensure placeId is in the format "places/ID"
-    const resourceName = placeId.startsWith('places/')
-      ? placeId
-      : `places/${placeId}`;
+    // Validate placeId format to prevent SSRF attacks
+    // Google Place IDs are alphanumeric with some special chars, max ~300 chars
+    const placeIdPattern = /^[A-Za-z0-9_-]{1,300}$/;
+    const cleanPlaceId = placeId.startsWith('places/')
+      ? placeId.slice(7)
+      : placeId;
+
+    if (!placeIdPattern.test(cleanPlaceId)) {
+      return NextResponse.json(
+        { error: 'Invalid placeId format' },
+        { status: 400 }
+      );
+    }
+
+    // Construct resource name safely
+    const resourceName = `places/${cleanPlaceId}`;
 
     // Fields we need for address parsing
     const fields = [

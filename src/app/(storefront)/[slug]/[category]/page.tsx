@@ -254,6 +254,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
   return (
     <>
       {/* CollectionPage Schema */}
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -262,6 +263,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
         }}
       />
       {/* BreadcrumbList Schema */}
+      {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized
@@ -271,6 +273,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
       />
       {/* FAQPage Schema */}
       {faqSchema && (
+        // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml
         <script
           type="application/ld+json"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized

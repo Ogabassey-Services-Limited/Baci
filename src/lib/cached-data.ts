@@ -111,18 +111,28 @@ export const getCachedMerchant = unstable_cache(
       .maybeSingle();
 
     if (error) {
+      // Sanitize user-controlled slug to prevent log injection
+      const safeSlug = String(slug || '')
+        .replace(/[\r\n]/g, '')
+        .substring(0, 100);
       console.error(
         'Error fetching merchant for slug:',
-        slug,
+        safeSlug,
         JSON.stringify(error, null, 2)
       );
       return null;
     }
 
     if (!data) {
-      console.warn('No merchant data found for slug:', slug);
+      const safeSlug = String(slug || '')
+        .replace(/[\r\n]/g, '')
+        .substring(0, 100);
+      console.warn('No merchant data found for slug:', safeSlug);
     } else {
-      console.log('Successfully fetched merchant:', slug, data.id);
+      const safeSlug = String(slug || '')
+        .replace(/[\r\n]/g, '')
+        .substring(0, 100);
+      console.log('Successfully fetched merchant:', safeSlug, data.id);
     }
 
     // Fetch primary domain
