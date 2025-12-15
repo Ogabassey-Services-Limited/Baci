@@ -85,3 +85,25 @@ baci_product_names.txt
 
 # Disabled middleware
 middleware.ts.disabled
+
+# Staging and uploaded images (large files)
+scripts/staging_gallery/
+scripts/staging_upload/
+public/images/
+public/website designs/
+
+# Generated data and logs
+scripts/*.jsonl
+scripts/log*.txt
+scripts/deploy_log*.txt
+scripts/match_log*.txt
+
+# Migration files (contains local data/credentials)
+migration_db.sql
+migration_upload.sh
+
+# Audit reports (generated)
+CONDITION_DUPLICATION_AUDIT.md
+IMMEDIATE_ACTION_REQUIRED.md
+MISSING_IMAGES_REPORT.md
+scripts/DEPLOYMENT_SUMMARY.md
