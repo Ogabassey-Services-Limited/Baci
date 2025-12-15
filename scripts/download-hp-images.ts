@@ -12,6 +12,10 @@ if (!fs.existsSync(outputDir)) {
 console.log(`🚀 Downloading ${matches.length} official HP images...`);
 
 async function downloadAndBrand() {
+    // SECURITY: Safe - all data from controlled JSON file (hp_matched_images.json)
+    // execSafe uses spawn with shell:false, preventing command injection
+    // Image URLs are from official HP sources, file paths are path.join() sanitized
+
     for (const match of matches) {
         const imageUrl = match.imageUrl;
         const ext = imageUrl.includes('.jpg') ? 'jpg' : 'png';

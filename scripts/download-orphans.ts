@@ -26,10 +26,15 @@ console.log(`📝 Created file list. Archiving on server...`);
 async function run() {
     const vpsHost = `${VPS_USER}@${VPS_IP}`;
 
+    // SECURITY: Safe - VPS credentials from env vars (developer-controlled)
+    // execSafe uses spawn with shell:false, preventing command injection
+    // All file paths are either hardcoded or from controlled JSON data
+
     // 1. Copy list
     await execSafe('scp', [fileListPath, `${vpsHost}:/tmp/files_to_tar.txt`]);
 
     // 2. Tar on server (using -T)
+    // SECURITY: Safe - command uses hardcoded paths, no user input
     console.log('📦 Archiving on remote server...');
     await execSafe('ssh', [vpsHost, 'tar -czf /tmp/orphaned_images.tar.gz -T /tmp/files_to_tar.txt']);
 

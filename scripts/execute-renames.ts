@@ -26,11 +26,13 @@ fs.writeFileSync('vps_rename_script.sh', scriptContent);
 
 async function run() {
     console.log('📤 Uploading rename script...');
-    // Scp script
+    // SECURITY: Safe - hardcoded VPS host, local file path from controlled JSON
+    // execSafe uses spawn with shell:false, preventing command injection
     await execSafe('scp', ['vps_rename_script.sh', 'bassey@82.29.190.219:/tmp/vps_rename_script.sh']);
 
     console.log('▶️ Executing script on VPS...');
-    // SSH run
+    // SECURITY: Safe - command is a hardcoded path, no user input
+    // The script content is generated from controlled JSON data
     await execSafe('ssh', ['bassey@82.29.190.219', 'bash /tmp/vps_rename_script.sh']);
 
     console.log('✅ Done!');

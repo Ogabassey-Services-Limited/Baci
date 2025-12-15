@@ -21,8 +21,9 @@ batches.forEach((batch, batchIndex) => {
     markdownContent += `\`\`\`carousel\n`;
 
     batch.forEach((file, index) => {
-        // Validation to prevent path traversal (though readdirSync returns basenames)
-        if (file.includes('..') || file.includes('/')) {
+        // Path traversal protection: Validate that file is a basename only (no path separators)
+        // Note: fs.readdirSync() returns basenames by default, but we validate defensively
+        if (file.includes('..') || file.includes('/') || file.includes('\\')) {
             console.warn(`Skipping suspicious file: ${file}`);
             return;
         }

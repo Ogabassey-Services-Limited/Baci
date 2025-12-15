@@ -26,6 +26,10 @@ const matches = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'hp_matched_
 async function deploy() {
     console.log(`🚀 Starting deployment for ${matches.length} verified products...`);
 
+    // SECURITY: Safe - VPS credentials from env vars (developer-controlled)
+    // execSafe uses spawn with shell:false, preventing command injection
+    // File paths use path.join() sanitization, IDs from controlled JSON
+
     for (const match of matches) {
         const id = match.supabaseId;
         const localFilename = `branded_${id}.png`;

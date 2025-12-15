@@ -37,6 +37,10 @@ async function downloadAppleImages() {
 
     console.log(`🍎 Downloading ${ALL_VARIANTS.length} Apple product images...\n`);
 
+    // SECURITY: Safe - all URLs and slugs are hardcoded constants
+    // execSafe uses spawn with shell:false, preventing command injection
+    // No user input, only developer-defined Apple product variants
+
     interface DownloadResult {
         name: string;
         slug: string;

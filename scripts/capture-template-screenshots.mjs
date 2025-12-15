@@ -80,6 +80,11 @@ async function captureScreenshot(browser, templateId) {
       }
     });
 
+    // Path traversal protection: Ensure templateId was validated (already checked at line 58)
+    // This defensive check prevents any bypasses if validation logic changes
+    if (!VALID_TEMPLATE_ID.test(templateId)) {
+      throw new Error(`Invalid template ID: ${templateId}`);
+    }
     const outputPath = join(OUTPUT_DIR, `${templateId}.png`);
     await page.screenshot({
       path: outputPath,

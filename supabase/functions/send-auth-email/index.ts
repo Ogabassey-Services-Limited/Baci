@@ -87,6 +87,7 @@ function generateEmailHtml(
   const safeButtonText = escapeHtml(config.buttonText);
   // URL should be encoded, not just HTML escaped, but basic HTML escaping protects the attribute
   const safeUrl = escapeHtml(confirmationUrl);
+  const safeLogo = escapeHtml(LOGO_URL);
 
   return `<!DOCTYPE html>
 <html>
@@ -101,7 +102,7 @@ function generateEmailHtml(
         <table width="600" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
           <tr>
             <td style="background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); padding: 32px; text-align: center;">
-              <img src="${LOGO_URL}" alt="Baci" height="48" style="height: 48px; width: auto;">
+              <img src="${safeLogo}" alt="Baci" height="48" style="height: 48px; width: auto;">
             </td>
           </tr>
           <tr>

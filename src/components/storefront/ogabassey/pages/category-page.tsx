@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import {
@@ -408,7 +409,8 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                       {faq.question}
                     </AccordionTrigger>
                     <AccordionContent className="text-gray-500 text-sm leading-relaxed">
-                      <div dangerouslySetInnerHTML={{ __html: faq.answer }} />
+                      {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Content sanitized with sanitizeHtml() */}
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(faq.answer) }} />
                     </AccordionContent>
                   </AccordionItem>
                 ))}
