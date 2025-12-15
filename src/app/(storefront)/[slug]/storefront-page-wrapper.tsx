@@ -64,6 +64,7 @@ export function StorefrontPageWrapper({
           setTemplateComponent(() => Component);
         }
       } catch (error) {
+        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
         console.error(
           `Failed to load ${pageName} for template ${merchant.template_id}:`,
           error

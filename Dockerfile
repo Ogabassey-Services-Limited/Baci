@@ -45,6 +45,7 @@ COPY --from=builder /app/package.json ./package.json
 USER nextjs
 
 EXPOSE 3000
+# nosemgrep: dockerfile.security.missing-user.missing-user
 CMD ["npm", "start"]
 
 # Development image
@@ -63,4 +64,5 @@ COPY --chown=nextjs:nodejs . .
 
 USER nextjs
 
+# nosemgrep: dockerfile.security.missing-user.missing-user
 CMD ["npm", "run", "dev"]
