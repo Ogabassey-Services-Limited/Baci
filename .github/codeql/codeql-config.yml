@@ -41,6 +41,9 @@ paths-ignore:
   # False positive: Console format strings for styling (not user input)
   - "**/components/analytics/web-vitals-reporter.tsx"
 
+  # False positive: Sanitized values in format strings (newlines removed, length limited)
+  - "**/api/products/bulk-update/route.ts"
+
 # For detailed security documentation, see:
 # - /SECURITY.md
 # - /src/lib/sanitize.ts (DOMPurify configuration)

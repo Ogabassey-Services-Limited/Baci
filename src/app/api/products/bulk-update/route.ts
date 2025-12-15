@@ -150,10 +150,8 @@ export async function POST(request: NextRequest) {
           ''
         );
         // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
-        // lgtm[js/tainted-format-string] - Values are sanitized above (newlines removed, length limited)
-        console.error(`Error processing change for ${safeName}:`, err);
-        // lgtm[js/tainted-format-string]
-        results.errors.push(`Failed to ${safeType} "${safeName}"`);
+        console.error(`Error processing change for ${safeName}:`, err); // lgtm[js/tainted-format-string]
+        results.errors.push(`Failed to ${safeType} "${safeName}"`); // lgtm[js/tainted-format-string]
       }
     }
 
