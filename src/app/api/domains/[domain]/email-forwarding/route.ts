@@ -122,10 +122,17 @@ export async function POST(
       );
     }
 
-    // Validate email addresses
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Validate email addresses with length limit to prevent ReDoS
+    const isValidEmail = (email: string) =>
+      email &&
+      email.length <= 254 &&
+      email.includes('@') &&
+      email.indexOf('@') > 0 &&
+      email.lastIndexOf('.') > email.indexOf('@') + 1 &&
+      !/\s/.test(email);
+
     for (const forward of forwards) {
-      if (!forward.forwardto || !emailRegex.test(forward.forwardto)) {
+      if (!forward.forwardto || !isValidEmail(forward.forwardto)) {
         return NextResponse.json(
           { error: `Invalid destination email: ${forward.forwardto}` },
           { status: 400 }

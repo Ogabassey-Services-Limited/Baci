@@ -196,8 +196,15 @@ export async function PUT(request: NextRequest) {
       updateData.support_email &&
       typeof updateData.support_email === 'string'
     ) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(updateData.support_email)) {
+      // Email validation with length limit to prevent ReDoS
+      const email = updateData.support_email;
+      const isValidEmail =
+        email.length <= 254 &&
+        email.includes('@') &&
+        email.indexOf('@') > 0 &&
+        email.lastIndexOf('.') > email.indexOf('@') + 1 &&
+        !/\s/.test(email);
+      if (!isValidEmail) {
         return NextResponse.json(
           { error: 'support_email must be a valid email address' },
           { status: 400 }

@@ -40,8 +40,9 @@ export async function POST(request: NextRequest) {
   try {
     const payload: MyCoverWebhookPayload = await request.json();
 
-    // Log incoming webhook for debugging (in production, use proper logging)
-    console.log('[MyCover Webhook] Received:', payload.event, payload.data);
+    // Log incoming webhook for debugging (sanitize to prevent log injection)
+    const safeEvent = String(payload.event || '').replace(/[\r\n]/g, '');
+    console.log('[MyCover Webhook] Received:', safeEvent);
 
     // Create admin Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -67,7 +68,7 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        console.log('[MyCover Webhook] Unhandled event:', payload.event);
+        console.log('[MyCover Webhook] Unhandled event:', safeEvent);
     }
 
     return NextResponse.json({ received: true });
@@ -104,7 +105,9 @@ async function handlePolicyPurchased(
   if (error) {
     console.error('[MyCover Webhook] Failed to update policy:', error);
   } else {
-    console.log('[MyCover Webhook] Policy confirmed:', data.policy_id);
+    // Sanitize policy_id before logging to prevent log injection
+    const safePolicyId = String(data.policy_id || '').replace(/[\r\n]/g, '');
+    console.log('[MyCover Webhook] Policy confirmed:', safePolicyId);
   }
 }
 

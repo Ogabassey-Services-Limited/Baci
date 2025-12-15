@@ -52,8 +52,9 @@ export async function POST(request: NextRequest) {
       if (uuidRegex.test(strId)) {
         validFormatIds.push(strId);
       } else {
-        // Log invalid format for debugging
-        console.warn(`Cart contains invalid product ID format: "${strId}"`);
+        // Log invalid format for debugging (sanitize to prevent log injection)
+        const safeId = strId.replace(/[\r\n]/g, '').substring(0, 50);
+        console.warn(`Cart contains invalid product ID format: "${safeId}"`);
         invalidFormatIds.push(strId);
       }
     }

@@ -141,13 +141,16 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err) {
-        console.error(
-          `Error processing change for ${change.details.name}:`,
-          err
+        // Sanitize user-controlled values before logging to prevent log injection
+        const safeName = String(change.details?.name || 'unknown')
+          .replace(/[\r\n]/g, '')
+          .substring(0, 100);
+        const safeType = String(change.type || 'unknown').replace(
+          /[\r\n]/g,
+          ''
         );
-        results.errors.push(
-          `Failed to ${change.type} "${change.details.name}"`
-        );
+        console.error(`Error processing change for ${safeName}:`, err);
+        results.errors.push(`Failed to ${safeType} "${safeName}"`);
       }
     }
 
