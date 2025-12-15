@@ -27,6 +27,7 @@ import { PhoneInput } from '@/components/ui/phone-input';
 import { CheckoutAuthModal } from '@/components/storefront/checkout-auth-modal';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { openCredPalCheckout, isCredPalEligible } from '@/lib/credpal';
+import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 
 interface SavedAddress {
   id: number;
@@ -511,44 +512,39 @@ export const CheckoutPage: React.FC = () => {
           throw new Error('Payment initialization failed: No auth URL returned');
         }
       } else if (paymentMethod === 'credit_direct') {
-        // Credit Direct BNPL - Initialize via API
-        const bnplResponse = await fetch('/api/payments/bnpl/initialize', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            merchant_id: merchant.id,
-            order_id: order.id,
-            amount: total,
-            currency: 'NGN',
-            customer_email: customerEmail,
-            customer_name: `${firstName} ${lastName}`.trim(),
-            customer_phone: customerPhone,
-            items: cart.map(item => ({
-              name: item.name,
-              quantity: item.quantity,
-              amount: item.negotiatedPrice || item.price,
-            })),
-          }),
+        // Credit Direct BNPL - Client-side popup checkout
+        await openCreditDirectCheckout({
+          merchantSlug: merchant.slug || '',
+          orderId: order.id,
+          amount: total,
+          customerEmail,
+          customerPhone,
+          customerName: `${firstName} ${lastName}`.trim(),
+          items: cart.map(item => ({
+            id: String(item.id),
+            name: item.name,
+            price: item.negotiatedPrice || item.price,
+            quantity: item.quantity,
+          })),
+          onSuccess: (transactionId) => {
+            console.log('Credit Direct success:', transactionId);
+            clearCart();
+            router.push(`/order-success?type=credit_direct&orderId=${order.id}&sessionId=${transactionId}`);
+          },
+          onError: (error) => {
+            console.error('Credit Direct error:', error);
+            alert(error || 'Credit Direct checkout failed. Please try again.');
+            setIsProcessing(false);
+          },
+          onClose: () => {
+            setIsProcessing(false);
+          },
+          onPopup: (transactionId) => {
+            console.log('Credit Direct popup opened:', transactionId);
+          },
         });
-
-        if (!bnplResponse.ok) {
-          // Fallback: redirect to order success with pending BNPL status
-          clearCart();
-          router.push(`/order-success?type=credit_direct&orderId=${order.id}&status=pending`);
-          return;
-        }
-
-        const bnplResult = await bnplResponse.json();
-
-        if (bnplResult.success && bnplResult.checkout_url) {
-          clearCart();
-          window.location.href = bnplResult.checkout_url;
-          return;
-        } else {
-          // Fallback to success page with pending
-          clearCart();
-          router.push(`/order-success?type=credit_direct&orderId=${order.id}&status=pending`);
-        }
+        // Don't proceed further - callbacks handle the flow
+        return;
       } else if (paymentMethod === 'credpal') {
         // CredPal BNPL - Client-side popup checkout
         const credpalKey = process.env.NEXT_PUBLIC_CREDPAL_KEY;
