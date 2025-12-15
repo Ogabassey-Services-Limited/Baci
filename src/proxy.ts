@@ -374,7 +374,9 @@ export async function proxy(request: NextRequest) {
 
       // Prevent redirect loop: if the path already starts with the domain,
       // it means we've already rewritten. Just let it pass through.
-      const isAlreadyRewritten = pathname.startsWith(`/${domain}`);
+      // Use segment boundary check to avoid false positives (e.g., /shop.common matching /shop.com)
+      const isAlreadyRewritten =
+        pathname === `/${domain}` || pathname.startsWith(`/${domain}/`);
 
       if (isAlreadyRewritten) {
         // Already rewritten, just pass through with headers set
