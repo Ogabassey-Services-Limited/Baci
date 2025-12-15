@@ -11,6 +11,15 @@ queries:
 # All content passes through sanitizeHtml() or safeJsonLdStringify()
 # before being rendered with dangerouslySetInnerHTML
 paths-ignore:
+  # Internal scripts - dev tooling, not production code
+  - "scripts/**"
+  - "fix-all-async-calls.mjs"
+  - "process_pr_comments.cjs"
+  - "process_security_alerts.cjs"
+
+  # Supabase edge functions - server-side only
+  - "supabase/functions/**"
+
   # Storefront pages using sanitizeHtml() for user-generated content
   - "**/pages/faq/faq-page-client.tsx"
   - "**/pages/terms/terms-page-client.tsx"
