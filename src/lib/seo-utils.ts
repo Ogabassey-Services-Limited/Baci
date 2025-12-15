@@ -170,10 +170,6 @@ export function generateProductSchema(
       '@type': 'Brand',
       name: safeBrand,
     },
-    brand: {
-      '@type': 'Brand',
-      name: safeBrand,
-    },
     offers:
       product.offers && product.offers.length > 0
         ? product.offers.map((offer) => ({
@@ -481,7 +477,8 @@ export function generateProductSchema(
   if (
     product.compare_at_price &&
     product.compare_at_price > product.price &&
-    schema.offers
+    schema.offers &&
+    !Array.isArray(schema.offers)
   ) {
     schema.offers.priceSpecification = {
       '@type': 'PriceSpecification',

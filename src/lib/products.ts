@@ -25,6 +25,23 @@ export interface ProductDimensions {
   unit: 'cm' | 'in' | 'm';
 }
 
+export interface OfferSchema {
+  '@type': 'Offer';
+  price: number;
+  priceCurrency: string;
+  availability: string;
+  itemCondition?: string;
+  seller?: { '@type': 'Organization'; name: string };
+  priceValidUntil?: string;
+  url?: string;
+  priceSpecification?: {
+    '@type': 'PriceSpecification';
+    price: number;
+    priceCurrency: string;
+    valueAddedTaxIncluded?: boolean;
+  };
+}
+
 export interface ProductSchemaMarkup {
   '@context': 'https://schema.org';
   '@type': 'Product';
@@ -37,22 +54,7 @@ export interface ProductSchemaMarkup {
     ratingValue: number;
     reviewCount: number;
   };
-  offers?: {
-    '@type': 'Offer';
-    price: number;
-    priceCurrency: string;
-    availability: string;
-    itemCondition?: string;
-    seller?: { '@type': 'Organization'; name: string };
-    priceValidUntil?: string;
-    url?: string;
-    priceSpecification?: {
-      '@type': 'PriceSpecification';
-      price: number;
-      priceCurrency: string;
-      valueAddedTaxIncluded?: boolean;
-    };
-  };
+  offers?: OfferSchema | OfferSchema[];
   // Index signature for compatibility with Record<string, unknown>
   // Allows additional schema.org properties (sku, gtin, weight, etc.)
   [key: string]: unknown;
@@ -153,7 +155,6 @@ export interface Product {
   variants?: ProductVariant[];
 
   // Condition support (Phase 7)
-  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
   has_condition_offers?: boolean;
   offers?: {
     id: string;

@@ -697,7 +697,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
   const productPath = getProductUrl(product);
   const productUrl = `${baseUrl}${productPath}`;
 
-  if (productSchema.offers) {
+  if (productSchema.offers && !Array.isArray(productSchema.offers)) {
     productSchema.offers.url = escapeHtml(productUrl);
   }
 

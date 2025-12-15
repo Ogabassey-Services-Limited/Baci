@@ -34,7 +34,7 @@ export interface CartItem extends Product {
   secondaryColor?: string;
   secondaryColorValue?: string;
   selectedStorage?: string;
-  condition?: string;
+  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
 
   // Smart Cart Pro: Price Negotiation
   negotiatedPrice?: number;
@@ -54,7 +54,7 @@ interface AddToCartOptions {
   secondaryColor?: string;
   secondaryColorValue?: string;
   storage?: string;
-  condition?: string;
+  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
 }
 
 export interface CartContextType {

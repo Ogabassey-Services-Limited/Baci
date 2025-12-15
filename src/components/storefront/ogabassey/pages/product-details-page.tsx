@@ -291,14 +291,15 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   }, [productFound, serverProduct, getColorHex]);
 
   // Phase 7: Condition State
-  const [selectedCondition, setSelectedCondition] = useState<string>(
-    (productData.condition as string) || 'New'
+  type ConditionType = 'new' | 'used' | 'open_box' | 'refurbished';
+  const [selectedCondition, setSelectedCondition] = useState<ConditionType>(
+    (productData.condition as ConditionType) || 'new'
   );
 
   // Update selected condition if product changes
   useEffect(() => {
     if (productData.condition) {
-      setSelectedCondition(productData.condition);
+      setSelectedCondition(productData.condition as ConditionType);
     }
   }, [productData.id, productData.condition]);
 
