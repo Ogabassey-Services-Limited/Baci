@@ -16,7 +16,7 @@
     "capture-screenshots": "node scripts/capture-template-screenshots.mjs"
   },
   "dependencies": {
-    "@ai-sdk/google": "^2.0.46",
+    "@ai-sdk/google": "^2.0.47",
     "@ai-sdk/rsc": "^1.0.114",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.2",
