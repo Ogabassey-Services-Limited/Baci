@@ -162,7 +162,7 @@ export default async function BlogPostPage({ params }: PageProps) {
     description:
       post.seo_description || post.excerpt || post.content.substring(0, 160),
     url: `${baseUrl}/blog/${post.slug}`,
-    image: post.featured_image_url || `${baseUrl}/og-image.png`,
+    image: post.featured_image_url || `${baseUrl}/opengraph-image`,
     datePublished: post.published_at,
     dateModified: post.updated_at,
     author: {

@@ -73,7 +73,7 @@ export const metadata: Metadata = {
     siteName: PLATFORM_CONFIG.name,
     images: [
       {
-        url: `${PLATFORM_CONFIG.url}/og-image.png`, // Ensure this image exists or use a placeholder
+        url: '/opengraph-image',
         width: 1200,
         height: 630,
         alt: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
@@ -81,14 +81,13 @@ export const metadata: Metadata = {
     ],
     locale: 'en_US',
     type: 'website',
-    // ...
   },
   twitter: {
     card: 'summary_large_image',
     title: `${PLATFORM_CONFIG.name} - ${PLATFORM_CONFIG.description}`,
     description: PLATFORM_CONFIG.description,
-    creator: `@${PLATFORM_CONFIG.name}`, // Update if you have a specific handle
-    images: [`${PLATFORM_CONFIG.url}/og-image.png`],
+    creator: '@usebaci',
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: PLATFORM_CONFIG.url,

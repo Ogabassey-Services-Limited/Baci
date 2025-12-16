@@ -19,7 +19,7 @@ export const PLATFORM_PRICING: SoftwareApplicationData = {
   description: PLATFORM_CONFIG.description,
   url: PLATFORM_CONFIG.url,
   softwareVersion: PLATFORM_CONFIG.version,
-  image: `${PLATFORM_CONFIG.url}/og-image.png`,
+  image: `${PLATFORM_CONFIG.url}/opengraph-image`,
   featureList: [
     'AI Store Builder',
     'Inventory Management',
