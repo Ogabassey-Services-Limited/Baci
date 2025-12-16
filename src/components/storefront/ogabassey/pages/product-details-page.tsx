@@ -221,7 +221,6 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         images: normalizedImages,
         colors: normalizedColors,
         storage: normalizedStorage,
-        storage: normalizedStorage,
         platforms: (serverProduct as any).variants
           ? Array.from(new Set((serverProduct as any).variants
             .map((v: any) => v.attributes?.platform || v.platform) // Check both explicit and attribute
@@ -529,34 +528,37 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         }
       }
     }
-  }
 
     // 3. Resolve Platform Variant (Phase 4 Ext)
     if (selectedPlatform && productData.variants) {
-    // Find variant that matches Platform (and Storage if selected)
-    const variant = productData.variants.find(v => {
-      const platformMatch = (v.platform || v.attributes?.platform) === selectedPlatform;
-      const storageMatch = selectedStorage !== null && productData.storage ? v.storage === productData.storage[selectedStorage] : true;
-      return platformMatch && storageMatch;
-    });
+      // Find variant that matches Platform (and Storage if selected)
+      const variant = productData.variants.find((v) => {
+        const platformMatch =
+          (v.platform || v.attributes?.platform) === selectedPlatform;
+        const storageMatch =
+          selectedStorage !== null && productData.storage
+            ? v.storage === productData.storage[selectedStorage]
+            : true;
+        return platformMatch && storageMatch;
+      });
 
-    if (variant) {
-      if (variant.price_override) {
-        price = variant.price_override;
-      } else if (variant.price_modifier) {
-        price += variant.price_modifier;
+      if (variant) {
+        if (variant.price_override) {
+          price = variant.price_override;
+        } else if (variant.price_modifier) {
+          price += variant.price_modifier;
+        }
+        if (variant.stock !== undefined) stock = variant.stock;
       }
-      if (variant.stock !== undefined) stock = variant.stock;
     }
-  }
 
-  return {
-    price: `₦${price.toLocaleString()}`,
-    rawPrice: price,
-    stock,
-    id: productData.id,
-  };
-}, [selectedCondition, selectedStorage, productData]);
+    return {
+      price: `₦${price.toLocaleString()}`,
+      rawPrice: price,
+      stock,
+      id: productData.id,
+    };
+  }, [selectedCondition, selectedStorage, selectedPlatform, productData]);
 
 const getProductForCart = (): Product => {
   return {
