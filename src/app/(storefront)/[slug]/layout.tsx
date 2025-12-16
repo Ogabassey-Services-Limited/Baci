@@ -12,11 +12,11 @@ import {
 
 // Valid slug/domain patterns and reserved paths are now imported from @/lib/validation
 
+import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
-import { getCachedNavigationCategories } from '@/lib/cached-categories';
 
 // Enable ISR - revalidate categories every 5 minutes
 export const revalidate = 300;

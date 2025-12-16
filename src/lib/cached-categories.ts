@@ -1,6 +1,6 @@
+import { cookies } from 'next/headers';
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
-import { cookies } from 'next/headers';
 
 export interface CategoryNavItem {
   name: string;
@@ -29,6 +29,51 @@ export const getCachedNavigationCategories = cache(
       return [];
     }
 
-    return data || [];
+    const categories = data || [];
+
+    // Priority order for "Interest-Based" sorting
+    const PRIORITY_ORDER = [
+      'smartphones',
+      'phones',
+      'laptops',
+      'computers',
+      'tablets',
+      'ipads',
+      'gaming',
+      'consoles',
+      'smart watches',
+      'wearables',
+      'audio',
+      'speakers',
+      'headphones',
+      'televisions',
+      'tvs',
+      'monitors',
+      'printers',
+      'accessories', // Accessories usually go last in "Interest" hierarchy
+      'others',
+    ];
+
+    return categories.sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+
+      const aIndex = PRIORITY_ORDER.findIndex((p) => aName.includes(p));
+      const bIndex = PRIORITY_ORDER.findIndex((p) => bName.includes(p));
+
+      // Both are priority categories -> sort by priority index
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+
+      // Only A is priority -> A comes first
+      if (aIndex !== -1) return -1;
+
+      // Only B is priority -> B comes first
+      if (bIndex !== -1) return 1;
+
+      // Neither is priority -> Alphabetical sort
+      return aName.localeCompare(bName);
+    });
   }
 );

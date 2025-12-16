@@ -224,4 +224,4 @@ export const OgabasseyV2LegalDispute: React.FC<LegalProps> = ({ merchant }) => {
   );
 };
 
-export default OgabasseyV2LegalDispute;
+

@@ -74,6 +74,19 @@ function getSpecKey(productName: string): string | null {
     if (name.includes('38mm') || name.includes('38 mm')) {
       return 'apple-watch-series-3-38mm';
     }
+    if (name.includes('42mm') || name.includes('42 mm')) {
+      return 'apple-watch-series-3-42mm';
+    }
+  }
+
+  // Apple Watch Series 4
+  if (name.includes('series 4') || name.includes('series4')) {
+    if (name.includes('40mm') || name.includes('40 mm')) {
+      return 'apple-watch-series-4-40mm';
+    }
+    if (name.includes('44mm') || name.includes('44 mm')) {
+      return 'apple-watch-series-4-44mm';
+    }
   }
 
   // Apple Watch Series 11

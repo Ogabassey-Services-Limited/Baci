@@ -11,9 +11,9 @@ import {
   useState,
 } from 'react';
 import { useAuthSafe } from '@/contexts/auth-context';
+import type { CategoryNavItem } from '@/lib/cached-categories';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/client';
-import type { CategoryNavItem } from '@/lib/cached-categories';
 
 // Supabase data structure
 export interface MerchantData {

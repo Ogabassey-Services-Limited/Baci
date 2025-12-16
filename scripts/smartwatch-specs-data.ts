@@ -153,6 +153,63 @@ export const smartwatchSpecs = {
     available_colors: 'Midnight, Starlight, Silver, Pink',
     release_date: '2025-09-15',
   },
+
+  // Apple Watch Series 3 - 42mm
+  'apple-watch-series-3-42mm': {
+    screen_size_inches: 1.65,
+    display_type: 'OLED Retina',
+    display_resolution: '312x390',
+    battery_mah: 279, // Estimated
+    has_nfc: true,
+    ip_rating: 'WR50',
+    positioning: 'GPS, GLONASS',
+    bluetooth_version: 4.2,
+    weight_g: 32, // Aluminum case
+    dimensions_mm: '42.5x36.4x11.4',
+    chipset: 'Apple S3',
+    storage_gb: 8,
+    sensors: 'Accelerometer, Gyroscope, Heart Rate, Barometric Altimeter',
+    available_colors: 'Silver, Space Gray, Gold',
+    release_date: '2017-09-22',
+  },
+
+  // Apple Watch Series 4 - 40mm
+  'apple-watch-series-4-40mm': {
+    screen_size_inches: 1.57,
+    display_type: 'LTPO OLED Retina',
+    display_resolution: '324x394',
+    battery_mah: 245, // Estimated
+    has_nfc: true,
+    ip_rating: 'WR50',
+    positioning: 'GPS, GLONASS, Galileo, QZSS',
+    bluetooth_version: 5.0,
+    weight_g: 30, // Aluminum case
+    dimensions_mm: '40x34x10.7',
+    chipset: 'Apple S4',
+    storage_gb: 16,
+    sensors: 'Accelerometer, Gyroscope, Heart Rate, ECG, Compass, Altimeter, Fall Detection',
+    available_colors: 'Silver, Space Gray, Gold',
+    release_date: '2018-09-21',
+  },
+
+  // Apple Watch Series 4 - 44mm
+  'apple-watch-series-4-44mm': {
+    screen_size_inches: 1.78,
+    display_type: 'LTPO OLED Retina',
+    display_resolution: '368x448',
+    battery_mah: 292, // Estimated
+    has_nfc: true,
+    ip_rating: 'WR50',
+    positioning: 'GPS, GLONASS, Galileo, QZSS',
+    bluetooth_version: 5.0,
+    weight_g: 36, // Aluminum case
+    dimensions_mm: '44x38x10.7',
+    chipset: 'Apple S4',
+    storage_gb: 16,
+    sensors: 'Accelerometer, Gyroscope, Heart Rate, ECG, Compass, Altimeter, Fall Detection',
+    available_colors: 'Silver, Space Gray, Gold',
+    release_date: '2018-09-21',
+  },
 };
 
 export type SmartwatchSpec = typeof smartwatchSpecs[keyof typeof smartwatchSpecs];
