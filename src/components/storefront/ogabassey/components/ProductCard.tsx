@@ -11,6 +11,10 @@ import type { Product } from '../types';
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
 
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>?/gm, '') || '';
+}
+
 interface ProductCardProps {
   product: Product;
   onAddToCart: (e: React.MouseEvent, product: Product) => void;
@@ -154,7 +158,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Description - truncated */}
           <p className="text-gray-500 text-xs mb-3 line-clamp-2 leading-relaxed hidden md:block">
-            {product.description?.substring(0, 100) || 'No description available.'}
+            {stripHtml(product.description || '').substring(0, 100) || 'No description available.'}
           </p>
 
           {/* Price */}
@@ -215,7 +219,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         <p className="text-gray-500 text-sm mb-3 line-clamp-3">
-          {product.description?.substring(0, 150) || 'No description available.'}
+          {stripHtml(product.description || '').substring(0, 150) || 'No description available.'}
         </p>
 
         <div className="mt-auto flex items-center justify-between">

@@ -23,7 +23,7 @@ export function ProductComparisonTable({
     // Maximum 2 comparison slots + 1 main product = 3 columns
     const MAX_SLOTS = 2;
 
-    // Search products API
+    // Search products API - filtered to SAME CATEGORY only (Koray SEO: no cross-category comparisons)
     useEffect(() => {
         const searchProducts = async () => {
             if (!query.trim() || query.length < 2) {
@@ -33,7 +33,8 @@ export function ProductComparisonTable({
 
             setLoading(true);
             try {
-                // Construct API URL
+                // Construct API URL - filter to same category for semantic relevance
+                const categorySlug = mainProduct.categorySlug || mainProduct.category;
                 const params = new URLSearchParams({
                     q: query,
                     limit: '5',
@@ -41,6 +42,11 @@ export function ProductComparisonTable({
 
                 if (mainProduct.merchantId) {
                     params.append('merchant_id', mainProduct.merchantId);
+                }
+
+                // Filter to same category only - prevents cross-category comparisons
+                if (categorySlug) {
+                    params.append('category', categorySlug);
                 }
 
                 const res = await fetch(`/api/storefront/products?${params.toString()}`);
@@ -223,7 +229,9 @@ export function ProductComparisonTable({
                                                 <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center group-hover:bg-white">
                                                     <Plus size={20} />
                                                 </div>
-                                                <span className="text-xs font-bold uppercase tracking-wider">Add Product</span>
+                                                <span className="text-xs font-bold uppercase tracking-wider text-center px-2">
+                                                    Compare Similar {mainProduct.category || 'Products'}
+                                                </span>
                                             </button>
                                         )}
                                     </div>

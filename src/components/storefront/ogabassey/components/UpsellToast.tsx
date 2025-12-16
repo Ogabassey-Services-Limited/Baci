@@ -1,55 +1,105 @@
 'use client';
-// Migrated from temp-source/components/UpsellToast.tsx
+
 import { Plus, Sparkles, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
-import { products } from '../data/products';
 import type { Product } from '../types';
-
-// Mock upsell logic mapping categories to accessory recommendations
-const UPSELL_MAPPING: Record<string, number[]> = {
-  Phones: [4, 7], // Watch, Mouse (just examples of accessories)
-  Laptops: [7, 8], // Mouse, Printer
-  Gaming: [7, 2], // Mouse, Laptop
-  Accessories: [1, 3], // Phone, Console
-};
 
 interface UpsellToastProps {
   isVisible: boolean;
   onClose: () => void;
   triggerProduct: Product | null;
+  merchantId?: string;
+  storeSlug?: string;
 }
 
 export const UpsellToast: React.FC<UpsellToastProps> = ({
   isVisible,
   onClose,
   triggerProduct,
+  merchantId,
+  storeSlug,
 }) => {
   const { addToCart } = useCart();
   const [suggestion, setSuggestion] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isVisible && triggerProduct) {
-      // Find a relevant accessory
-      const category = triggerProduct.category || 'Accessories';
-      const potentialIds = UPSELL_MAPPING[category] || [7]; // Default to Mouse
-      const randomId =
-        potentialIds[Math.floor(Math.random() * potentialIds.length)];
-      // Ensure we compare strings properly if needed, though raw ids are numbers/strings
-      const foundProduct = products.find(
-        (p) => String(p.id) === String(randomId)
-      );
+      // Fetch a semantically relevant product from the SAME category (Koray SEO aligned)
+      const fetchSuggestion = async () => {
+        setLoading(true);
+        try {
+          const category = triggerProduct.categorySlug || triggerProduct.category;
+          const params = new URLSearchParams({
+            limit: '4',
+            status: 'active',
+          });
 
-      setSuggestion(foundProduct || null);
+          // Filter to same category for semantic relevance
+          if (category) {
+            params.append('category', category);
+          }
+
+          if (merchantId) {
+            params.append('merchant_id', merchantId);
+          }
+
+          const res = await fetch(`/api/storefront/products?${params.toString()}`);
+          const data = await res.json();
+
+          // Filter out the trigger product and pick a random suggestion
+          const candidates = (data.products || []).filter(
+            (p: any) => String(p.id) !== String(triggerProduct.id)
+          );
+
+          if (candidates.length > 0) {
+            const randomIndex = Math.floor(Math.random() * candidates.length);
+            const rawProduct = candidates[randomIndex];
+
+            // Transform to Product type
+            const product: Product = {
+              id: rawProduct.id,
+              name: rawProduct.name,
+              slug: rawProduct.slug,
+              price: new Intl.NumberFormat('en-NG', {
+                style: 'currency',
+                currency: 'NGN',
+              }).format(rawProduct.price),
+              rawPrice: rawProduct.price,
+              image: rawProduct.imageLarge || rawProduct.image,
+              images: [rawProduct.imageLarge || rawProduct.image],
+              description: rawProduct.description,
+              rating: rawProduct.rating || 0,
+              category: rawProduct.category,
+              categorySlug: rawProduct.categorySlug,
+              condition: rawProduct.condition || 'New',
+              brand: rawProduct.brand,
+              merchantId: rawProduct.merchantId,
+            };
+
+            setSuggestion(product);
+          } else {
+            setSuggestion(null);
+          }
+        } catch (err) {
+          console.error('Failed to fetch upsell suggestion:', err);
+          setSuggestion(null);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchSuggestion();
 
       // Auto dismiss after 8 seconds
       const timer = setTimeout(onClose, 8000);
       return () => clearTimeout(timer);
     }
-  }, [isVisible, triggerProduct, onClose]);
+  }, [isVisible, triggerProduct, merchantId, onClose]);
 
-  if (!isVisible || !suggestion) return null;
+  if (!isVisible || loading || !suggestion) return null;
 
   const handleAddSuggestion = () => {
     addToCart(suggestion as any, 1);
