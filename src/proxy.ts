@@ -1,13 +1,13 @@
 /**
  * Next.js 16 Proxy (Middleware)
- * 
+ *
  * Handles:
  * - Multi-tenant routing (subdomains and custom domains)
  * - Security headers (CSP, HSTS, COOP, COEP)
  * - Authentication session management
  * - Ad tracking cookie capture
  * - Cache control per route type
- * 
+ *
  * Note: Next.js 16 renamed middleware → proxy for security clarity.
  * This file serves as the application's middleware layer.
  * See: https://nextjs.org/docs/app/building-your-application/routing/middleware
