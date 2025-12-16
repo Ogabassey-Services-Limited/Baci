@@ -16,8 +16,13 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 export const OgabasseyV2Sustainability: React.FC = () => {
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '/';
+
   const initiatives = [
     {
       title: 'Paperless Since 2020',
@@ -352,7 +357,7 @@ export const OgabasseyV2Sustainability: React.FC = () => {
                 <Recycle size={20} /> Trade-in Device
               </Link>
               <Link
-                href="/"
+                href={asRoute(basePath)}
                 className="bg-white text-gray-900 font-bold py-3.5 px-8 rounded-xl hover:bg-gray-100 transition-colors shadow-lg active:scale-95"
               >
                 Shop Sustainable

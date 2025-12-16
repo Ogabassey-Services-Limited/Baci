@@ -14,6 +14,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 interface OrderItem {
   id: string;
@@ -87,6 +89,8 @@ const orders: Order[] = [
 ];
 
 export const OgabasseyV2Orders: React.FC = () => {
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '/';
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter Logic
@@ -175,7 +179,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                 Looks like you haven&apos;t placed any orders yet.
               </p>
               <Link
-                href="/"
+                href={asRoute(basePath)}
                 className="inline-block bg-red-600 text-white font-bold py-2.5 px-6 rounded-xl text-sm hover:bg-red-700 transition-colors"
               >
                 Start Shopping
