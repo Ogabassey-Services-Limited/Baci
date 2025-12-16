@@ -401,9 +401,10 @@ function toOgabasseyProduct(
     price: formatter.format(product.price),
     rawPrice: product.price,
     image: product.imageLarge || product.image,
-    images: product.images?.map((img) => img.url) || [
+    // Handle both string arrays and object arrays with url property
+    images: product.images?.map((img) => typeof img === 'string' ? img : img.url) || [
       product.imageLarge || product.image,
-    ],
+    ].filter(Boolean),
     description: product.description,
     rating: product.rating ?? 0,
     category: product.category || 'General',
@@ -676,13 +677,13 @@ export async function generateMetadata({
       images: product.images?.length
         ? product.images.map((img) => ({ url: img.url, alt: img.alt }))
         : [
-            {
-              url: product.imageLarge || product.image,
-              width: 800,
-              height: 600,
-              alt: product.name,
-            },
-          ],
+          {
+            url: product.imageLarge || product.image,
+            width: 800,
+            height: 600,
+            alt: product.name,
+          },
+        ],
       url: canonicalUrl,
       type: 'website',
       siteName: merchant?.business_name,
