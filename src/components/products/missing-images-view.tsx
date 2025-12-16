@@ -102,7 +102,9 @@ export function MissingImagesView() {
                 <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                   <span>{product.sku || 'No SKU'}</span>
                   <Badge variant="outline" className="text-[10px] h-5">
-                    {product.category || 'Uncategorized'}
+                    {product.categories?.name ||
+                      product.category ||
+                      'Uncategorized'}
                   </Badge>
                 </div>
               </CardContent>

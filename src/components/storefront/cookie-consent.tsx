@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { updateConsentMode } from '@/lib/consent-mode';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
@@ -31,7 +31,8 @@ export function CookieConsent() {
   const [showDetails, setShowDetails] = useState(false);
   const [preferences, setPreferences] =
     useState<CookiePreferences>(defaultPreferences);
-  const { basePath } = useMerchant();
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
 
   useEffect(() => {
     // Check if consent has already been given

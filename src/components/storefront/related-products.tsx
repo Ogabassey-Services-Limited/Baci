@@ -197,9 +197,9 @@ export function RelatedProducts({
                         {p.name}
                       </h3>
                     </Link>
-                    {p.category && (
+                    {((p as any).categories?.name || p.category) && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {p.category}
+                        {(p as any).categories?.name || p.category}
                       </p>
                     )}
                     <div className="flex items-center justify-between mt-2">

@@ -152,7 +152,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               items: [
                 { label: 'Brand', value: serverProduct.brand || 'Generic' },
                 { label: 'Condition', value: serverProduct.condition || 'New' },
-                { label: 'Category', value: serverProduct.category || 'General' },
+                { label: 'Category', value: serverProduct.categories?.name || (serverProduct as any).category || 'General' },
               ],
             },
           ]) as { category: string; items: { label: string; value: string }[] }[],
@@ -211,14 +211,16 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   // Comparison Logic - Compute comparable items
   const comparableProducts = useMemo(() => {
     // Get items from context that match category AND are NOT the current product
+    const categoryToMatch = productData.categories?.name || (productData as any).category;
     return compareItems
       .filter(
-        (p) =>
-          p.category === productData.category &&
-          String(p.id) !== String(productData.id)
+        (p) => {
+          const pCategory = (p as any).categories?.name || (p as any).category;
+          return pCategory === categoryToMatch && String(p.id) !== String(productData.id);
+        }
       )
       .slice(0, 3); // Max 3 competitors
-  }, [compareItems, productData.category, productData.id]);
+  }, [compareItems, productData.categories?.name, productData.id]);
 
   // Scroll to top on load - Optional in Next.js but kept for component mount reset
   useEffect(() => {
@@ -418,7 +420,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       image: productData.images[selectedImage],
       description: productData.description,
       rating: productData.rating,
-      category: productData.category,
+      category: productData.categories?.name || (productData as any).category,
       condition: selectedCondition as 'New' | 'Used', // Use selected condition
       brand: productData.brand,
       // Pass platform if selected
@@ -509,7 +511,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       image: productData.image,
       description: productData.description,
       rating: productData.rating,
-      category: productData.category,
+      category: productData.categories?.name || (productData as any).category,
       condition: productData.condition as 'New' | 'Used',
       brand: productData.brand,
       // Store additional details for full object persistence if needed
@@ -540,10 +542,10 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           </Link>
           <ChevronRight size={16} className="mx-2" />
           <Link
-            href={`/${params.slug}/${productData.category}` as any}
+            href={`/${params.slug}/${productData.categories?.name || (productData as any).category}` as any}
             className="md:hover:text-red-600 transition-colors"
           >
-            {productData.category}
+            {productData.categories?.name || (productData as any).category}
           </Link>
           <ChevronRight size={16} className="mx-2" />
           <span className="text-gray-900 font-medium">{productData.name}</span>
@@ -1117,7 +1119,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           <ProductVideo videoId={productData.videoUrl} title={productData.name} />
         )}
 
-        <BlogSnippet category={productData.category} />
+        <BlogSnippet category={productData.categories?.name || (productData as any).category} />
       </div >
 
       {/* --- FIXED MOBILE BOTTOM BAR --- */}

@@ -36,6 +36,8 @@ interface WishListItem {
     stock_quantity: number | null;
     status: string;
     category: string | null;
+    category_id?: string | null;
+    categories?: { id: string; name: string; slug: string } | null;
   };
 }
 
@@ -170,6 +172,11 @@ export default function WishListPage() {
     setMovingToCartId(item.id);
     try {
       // Convert wishlist item to product format for cart
+      // Use joined category data if available, fallback to TEXT column
+      const categoryName =
+        item.products.categories?.name || item.products.category || '';
+      const categorySlug = item.products.categories?.slug;
+
       const product = {
         id: item.products.id,
         name: item.products.name,
@@ -180,7 +187,8 @@ export default function WishListPage() {
         imageLarge: item.products.images?.[0] || '',
         imageHint: item.products.name,
         stock: item.products.stock_quantity ?? 0,
-        category: item.products.category || '',
+        category: categoryName,
+        category_slug: categorySlug,
         status: item.products.status as 'active' | 'draft' | 'archived',
         manage_stock: false,
         brand: '',
@@ -386,9 +394,9 @@ export default function WishListPage() {
                 <h3 className="font-semibold text-lg mb-2 line-clamp-2">
                   {item.products.name}
                 </h3>
-                {item.products.category && (
+                {(item.products.categories?.name || item.products.category) && (
                   <p className="text-sm text-muted-foreground mb-2">
-                    {item.products.category}
+                    {item.products.categories?.name || item.products.category}
                   </p>
                 )}
                 <p className="text-2xl font-bold mb-4">

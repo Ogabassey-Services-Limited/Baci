@@ -324,11 +324,12 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             {/* Visual Breadcrumbs */}
             <Breadcrumbs
               items={[
-                ...(product.category
+                ...(product.categories?.name || product.category
                   ? [
                       {
-                        label: product.category,
-                        href: `/?category=${encodeURIComponent(product.category)}`,
+                        label:
+                          product.categories?.name || product.category || '',
+                        href: `/?category=${encodeURIComponent(product.categories?.name || product.category || '')}`,
                       },
                     ]
                   : []),

@@ -16,6 +16,10 @@ import {
   isDomainIdentifier,
   isValidMerchantIdentifier,
 } from '@/lib/validation';
+import { getCachedNavigationCategories } from '@/lib/cached-categories';
+
+// Enable ISR - revalidate categories every 5 minutes
+export const revalidate = 300;
 
 export default async function StorefrontLayout({
   children,
@@ -63,11 +67,15 @@ export default async function StorefrontLayout({
   const hasCustomDomain = headersList.has('x-custom-domain');
   const routingMode = hasSubdomain || hasCustomDomain ? 'domain' : 'path';
 
+  // Fetch navigation categories server-side (cached)
+  const navigationCategories = await getCachedNavigationCategories(merchant.id);
+
   return (
     <MerchantProvider
       slug={merchantSlug}
       initialMerchant={merchant as unknown as MerchantData}
       initialRoutingMode={routingMode}
+      navigationCategories={navigationCategories}
     >
       <CartProvider enableSmartCartPro>
         <MerchantSlugSync slug={merchantSlug} />

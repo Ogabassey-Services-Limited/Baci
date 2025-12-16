@@ -32,7 +32,7 @@ export const UpsellToast: React.FC<UpsellToastProps> = ({
   useEffect(() => {
     if (isVisible && triggerProduct) {
       // Find a relevant accessory
-      const category = triggerProduct.category;
+      const category = triggerProduct.category || 'Accessories';
       const potentialIds = UPSELL_MAPPING[category] || [7]; // Default to Mouse
       const randomId =
         potentialIds[Math.floor(Math.random() * potentialIds.length)];

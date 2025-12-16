@@ -108,7 +108,9 @@ function StorefrontContent() {
 
   // PERFORMANCE: React Compiler handles memoization automatically
   // No need for manual useMemo - removing redundant wrapper
-  const categories = new Set(products.map((p) => p.category || 'General'));
+  const categories = new Set(
+    products.map((p) => p.categories?.name || p.category || 'General')
+  );
   const brands = new Set(products.map((p) => p.brand).filter(Boolean));
   const availableCategories = Array.from(categories);
   const availableBrands = Array.from(brands) as string[];
@@ -154,7 +156,8 @@ function StorefrontContent() {
 
     if (filterBy === 'category' && selectedCategory) {
       filtered = filtered.filter(
-        (p) => (p.category || 'General') === selectedCategory
+        (p) =>
+          (p.categories?.name || p.category || 'General') === selectedCategory
       );
     }
 

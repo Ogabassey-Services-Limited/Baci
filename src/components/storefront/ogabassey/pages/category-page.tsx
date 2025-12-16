@@ -77,7 +77,11 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const categoryProducts = useMemo(() => {
     // Use server-provided products directly
     if (categoryName === 'All') return products;
-    return products.filter((p) => p.category === categoryName);
+    // Support both new category join and legacy TEXT column
+    return products.filter((p) => {
+      const categoryNameToMatch = p.categories?.name || (p as any).category || '';
+      return categoryNameToMatch === categoryName;
+    });
   }, [categoryName, products]);
 
   // Derived Data: Available Options based on products in category

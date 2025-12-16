@@ -57,7 +57,9 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
       image: p.image,
       description: p.description,
       rating: p.rating ?? 4.5,
-      category: p.category || 'General',
+      category: (p as any).categories?.name || p.category || 'General',
+      category_id: p.category_id,
+      categories: (p as any).categories, // Joined category object from Supabase
       categorySlug: p.category_slug,
       condition: mapCondition(p.condition),
       brand: p.brand,
@@ -230,7 +232,8 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
   // Derive available categories and brands for the sidebar
   // Using products list to populate sidebar (Note: this causes options to shrink as you filter!)
   const categories = useMemo(() => {
-    return ['All', ...Array.from(new Set(products.map((p) => p.category)))];
+    const categorySet = new Set(products.map((p) => p.category).filter((c): c is string => Boolean(c)));
+    return ['All', ...Array.from(categorySet)];
   }, [products]);
 
   const brands = useMemo(() => {

@@ -27,7 +27,10 @@ export interface ProductRecommendation {
 export interface Category {
   id: string;
   name: string;
-  icon: React.ReactNode;
+  slug?: string;
+  parent_id?: string | null;
+  merchant_id?: string;
+  icon?: React.ReactNode;
   color?: string;
 }
 
@@ -51,7 +54,9 @@ export interface Product {
   image: string;
   description: string;
   rating?: number;
-  category: string;
+  category?: string; // Backward compatibility (TEXT column - deprecated)
+  category_id?: string; // FK to categories table
+  categories?: Category; // Joined category object (Supabase convention: singular)
   categorySlug?: string;
   condition:
   | 'New'

@@ -23,7 +23,7 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
         price: formatCurrency(p.price),
         rawPrice: p.price / 100,
         image: p.image,
-        category: p.category || 'General',
+        category: (p as any).categories?.name || p.category || 'General',
         rating: p.rating ?? 4.5,
         reviews: p.review_count ?? 0,
         description: p.description,

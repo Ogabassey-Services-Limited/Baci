@@ -9,6 +9,7 @@ import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/o
 import { ProductGridSkeleton } from '@/components/ui/skeletons';
 import { CATEGORY_SEO_DEFAULTS } from '@/config/category-seo-defaults';
 import {
+  getCachedCategories,
   getCachedMerchant,
   getCachedMerchantByDomain,
 } from '@/lib/cached-data';
@@ -24,6 +25,25 @@ import { isDomainIdentifier } from '@/lib/validation';
 
 // Enable ISR with 5 minute revalidation
 export const revalidate = 300;
+
+/**
+ * Generate static params for category pages at build time.
+ * This pre-renders category pages for faster initial loads and better SEO.
+ * Koray's framework: Zero server round-trips for crawlers = optimal Cost of Retrieval.
+ */
+export async function generateStaticParams() {
+  // For now, generate params for OgaBassey store (primary storefront)
+  const merchant = await getCachedMerchant('ogabassey');
+  if (!merchant) return [];
+
+  const categories = await getCachedCategories(merchant.id);
+
+  // Generate params for each category
+  return categories.map((category) => ({
+    slug: 'ogabassey',
+    category: category.slug,
+  }));
+}
 
 interface PageProps {
   params: Promise<{
@@ -71,8 +91,8 @@ const getCategoryData = cache(
     // Check key variations if direct match fails (e.g. 'smartphones' vs 'phones')
     const fallbackConfig = !defaultConfig
       ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-        normalizedSlug.includes(key)
-      )?.[1]
+          normalizedSlug.includes(key)
+        )?.[1]
       : null;
 
     const effectiveConfig = defaultConfig || fallbackConfig;
@@ -96,31 +116,69 @@ const getCategoryData = cache(
       slug: string;
     } | null;
 
-    // 3. Get products using single optimized query (2025 best practice)
-    // Uses Supabase .or() to check category OR brand in one DB call
-    // Sanitize categoryName to prevent PostgREST filter injection
-    const sanitizedCategoryName = categoryName.replace(/[,().]/g, '');
-    const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select(`
-        id,
-        name,
-        slug,
-        description,
-        price,
-        compare_at_price,
-        images,
-        category,
-        brand,
-        condition,
-        stock
-      `)
-      .eq('merchant_id', merchant.id)
-      .eq('status', 'active')
-      .or(
-        `category.eq.${sanitizedCategoryName},brand.ilike.${sanitizedCategoryName},name.ilike.%${sanitizedCategoryName}%`
-      )
-      .limit(50);
+    // 3. Get products using optimized query with category_id join
+    // First try to find products by category_id if we have a category
+    let products: Product[] = [];
+    let productsError = null;
+
+    if (category?.id) {
+      // Query products via category_id with join to categories table
+      const { data: productData, error: err } = await supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          slug,
+          description,
+          price,
+          compare_at_price,
+          images,
+          category,
+          brand,
+          condition,
+          stock,
+          category_id,
+          categories:category_id(id, name, slug)
+        `)
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'active')
+        .eq('category_id', category.id)
+        .limit(50);
+
+      products = (productData || []) as unknown as Product[];
+      productsError = err;
+    }
+
+    // Fallback: if no products found via category_id, try legacy TEXT category field, brand, or name
+    if (products.length === 0) {
+      const sanitizedCategoryName = categoryName.replace(/[,().]/g, '');
+      const { data: productData, error: err } = await supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          slug,
+          description,
+          price,
+          compare_at_price,
+          images,
+          category,
+          brand,
+          condition,
+          stock,
+          category_id,
+          categories:category_id(id, name, slug)
+        `)
+        .eq('merchant_id', merchant.id)
+        .eq('status', 'active')
+        .or(
+          `category.eq.${sanitizedCategoryName},brand.ilike.${sanitizedCategoryName},name.ilike.%${sanitizedCategoryName}%`
+        )
+        .limit(50);
+
+      products = (productData || []) as unknown as Product[];
+      productsError = err;
+    }
 
     if (productsError) {
       console.error(
@@ -184,13 +242,13 @@ export async function generateMetadata({
       siteName: merchant.business_name,
       ...(products.length > 0 &&
         products[0].images?.[0] && {
-        images: [
-          {
-            url: products[0].images[0] as unknown as string,
-            alt: categoryData.name,
-          },
-        ],
-      }),
+          images: [
+            {
+              url: products[0].images[0] as unknown as string,
+              alt: categoryData.name,
+            },
+          ],
+        }),
     },
     twitter: {
       card: 'summary_large_image',
@@ -292,20 +350,22 @@ export default async function CategoryPageRoute({ params }: PageProps) {
             seoFeatures={categoryData.seo.features}
             seoFaqs={categoryData.seo.faqs}
             categoryImage={categoryData.image}
-            products={products.map((p) => ({
-              id: p.id,
-              name: p.name,
-              slug: p.slug,
-              description: p.description || '',
-              price: `₦${p.price?.toLocaleString() || 0}`,
-              rawPrice: p.price || 0,
-              image: p.images?.[0]?.url || '',
-              images: p.images?.map((img) => img.url) || [],
-              category: p.category || '',
-              brand: p.brand,
-              condition: p.condition || 'New',
-              stock: p.stock,
-            }))}
+            products={products.map((p) => {
+              return {
+                id: p.id,
+                name: p.name,
+                slug: p.slug,
+                description: p.description || '',
+                price: `₦${p.price?.toLocaleString() || 0}`,
+                rawPrice: p.price || 0,
+                image: p.images?.[0]?.url || '',
+                images: p.images?.map((img) => img.url) || [],
+                category: p.categories?.name || p.category || '',
+                brand: p.brand,
+                condition: p.condition || 'New',
+                stock: p.stock,
+              };
+            })}
           />
         </OgabasseyLayout>
       </Suspense>

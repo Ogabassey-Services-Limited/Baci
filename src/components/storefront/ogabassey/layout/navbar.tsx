@@ -79,6 +79,14 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   // Notification UI State
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('notifications-enabled') === 'true';
+    }
+    return false;
+  });
+  const [categories, setCategories] = useState<Array<{ name: string; slug: string; icon: any }>>([]);
   const [showNotifications, setShowNotifications] = useState(false);
 
   const [_isSourceModalOpen, setIsSourceModalOpen] = useState(false);
@@ -141,13 +149,31 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
     setIsSourceModalOpen(true);
   };
 
-  const NAV_CATEGORIES = [
-    { name: 'Phones', icon: Smartphone },
-    { name: 'Laptops', icon: Laptop },
-    { name: 'Gaming', icon: Gamepad2 },
-    { name: 'Accessories', icon: Headphones },
-    { name: 'Printers', icon: Printer },
-  ];
+  // Icon mapping for categories
+  const getCategoryIcon = (categoryName: string) => {
+    const name = categoryName.toLowerCase();
+    if (name.includes('phone') || name.includes('smartphone')) return Smartphone;
+    if (name.includes('laptop') || name.includes('computer')) return Laptop;
+    if (name.includes('gaming') || name.includes('game')) return Gamepad2;
+    if (name.includes('accessory') || name.includes('accessories')) return Headphones;
+    if (name.includes('printer')) return Printer;
+    if (name.includes('tablet')) return Laptop;
+    if (name.includes('watch') || name.includes('wearable')) return Shield;
+    if (name.includes('audio') || name.includes('speaker') || name.includes('headphone')) return Headphones;
+    return Package; // Default icon
+  };
+
+  // Get categories from server-provided context (fetched server-side for SEO)
+  useEffect(() => {
+    if (merchantContext?.navigationCategories) {
+      const mappedCategories = merchantContext.navigationCategories.map((cat) => ({
+        name: cat.name,
+        slug: cat.slug,
+        icon: getCategoryIcon(cat.name),
+      }));
+      setCategories(mappedCategories);
+    }
+  }, [merchantContext?.navigationCategories]);
 
   return (
     <>
@@ -356,22 +382,26 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 {showCategoryDropdown && (
                   <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
                     <div className="absolute -top-1.5 left-8 w-3 h-3 bg-white rotate-45 border-l border-t border-gray-100" />
-                    {NAV_CATEGORIES.map((cat) => (
-                      <Link
-                        key={cat.name}
-                        href={`${storeSlug || ''}/${cat.name}` as any}
-                        onClick={() => setShowCategoryDropdown(false)}
-                        className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 hover:text-red-600 transition-colors group"
-                      >
-                        <cat.icon
-                          size={18}
-                          className="text-gray-400 group-hover:text-red-600 transition-colors"
-                        />
-                        <span className="font-medium text-gray-700 group-hover:text-red-900">
-                          {cat.name}
-                        </span>
-                      </Link>
-                    ))}
+                    {categories.length > 0 ? (
+                      categories.map((cat) => (
+                        <Link
+                          key={cat.slug}
+                          href={`${storeSlug || ''}/${cat.slug}` as any}
+                          onClick={() => setShowCategoryDropdown(false)}
+                          className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 hover:text-red-600 transition-colors group"
+                        >
+                          <cat.icon
+                            size={18}
+                            className="text-gray-400 group-hover:text-red-600 transition-colors"
+                          />
+                          <span className="font-medium text-gray-700 group-hover:text-red-900">
+                            {cat.name}
+                          </span>
+                        </Link>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-gray-500">Loading categories...</div>
+                    )}
                   </div>
                 )}
               </div>

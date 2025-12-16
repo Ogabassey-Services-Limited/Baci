@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get wish list items with product details
+    // Get wish list items with product details including joined category
     const { data: wishListItems, error } = await supabase
       .from('wish_list_items')
       .select(`
@@ -74,7 +74,9 @@ export async function GET(request: NextRequest) {
           images,
           stock_quantity,
           status,
-          category
+          category,
+          category_id,
+          categories:category_id(id, name, slug)
         )
       `)
       .eq('customer_email', customerIdentifier)

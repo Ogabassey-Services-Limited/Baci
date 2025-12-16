@@ -55,18 +55,19 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
 
   // Derive categories and brands dynamically from products
   const categories = useMemo(() => {
-    return ['All', ...Array.from(new Set(products.map((p) => p.category)))];
-  }, []);
+    return ['All', ...Array.from(new Set(products.map((p) => p.categories?.name || (p as any).category)))];
+  }, [products]);
 
   const brands = useMemo(() => {
     return Array.from(
       new Set(products.map((p) => p.brand).filter(Boolean) as string[])
     );
-  }, []);
+  }, [products]);
 
   const filteredProducts = products.filter((product) => {
     // Category Filter
-    if (selectedCategory !== 'All' && product.category !== selectedCategory) {
+    const productCategory = product.categories?.name || (product as any).category;
+    if (selectedCategory !== 'All' && productCategory !== selectedCategory) {
       return false;
     }
     // Brand Filter

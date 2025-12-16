@@ -57,10 +57,14 @@ function productToItem(
   quantity: number = 1,
   variant?: string
 ): EcommerceItem {
+  // Use joined categories.name from category_id, fallback to legacy TEXT field
+  const categoryName =
+    product.categories?.name || product.category || undefined;
+
   return {
     item_id: product.id,
     item_name: product.name,
-    item_category: product.category || undefined,
+    item_category: categoryName,
     price: product.price,
     quantity,
     item_variant: variant,
@@ -132,11 +136,14 @@ export const analytics = {
 
     sendGA4Event('view_item', params);
 
+    // Use joined categories.name from category_id, fallback to legacy TEXT field
+    const categoryName = product.categories?.name || product.category || '';
+
     sendFBEvent('ViewContent', {
       content_ids: [product.id],
       content_name: product.name,
       content_type: 'product',
-      content_category: product.category || '',
+      content_category: categoryName,
       value: product.price,
       currency,
     });
@@ -393,10 +400,13 @@ export const analytics = {
       items: [productToItem(product)],
     });
 
+    // Use joined categories.name from category_id, fallback to legacy TEXT field
+    const categoryName = product.categories?.name || product.category || '';
+
     sendFBEvent('AddToWishlist', {
       content_ids: [product.id],
       content_name: product.name,
-      content_category: product.category || '',
+      content_category: categoryName,
       value: product.price,
       currency,
     });

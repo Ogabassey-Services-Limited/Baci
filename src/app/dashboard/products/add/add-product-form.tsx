@@ -163,7 +163,10 @@ export default function AddProductForm({
     defaultValues: {
       name: initialData?.name || '',
       description: initialData?.description || '',
-      category: initialData?.category || 'General',
+      category:
+        (initialData as any)?.categories?.name ||
+        initialData?.category ||
+        'General',
       brand: initialData?.brand || '',
       price: initialData?.price || 0,
       compare_at_price: initialData?.compare_at_price || 0,

@@ -97,12 +97,12 @@ export default async function ContactPage({ params }: PageProps) {
             normalizeSocialUrl(
               handle as string,
               platform as
-              | 'instagram'
-              | 'facebook'
-              | 'tiktok'
-              | 'twitter'
-              | 'youtube'
-              | 'linkedin'
+                | 'instagram'
+                | 'facebook'
+                | 'tiktok'
+                | 'twitter'
+                | 'youtube'
+                | 'linkedin'
             )
           )
           .filter((url): url is string => !!url),

@@ -63,16 +63,24 @@ export function generateProductSlug(
  * Examples:
  *   - smartphones, "iphone-12-used" → "/smartphones/iphone-12-used"
  *   - null, "generic-item" → "/products/generic-item"
+ *
+ * @param productSlug The product slug
+ * @param category Category object with name/slug, or legacy TEXT category string
+ * @param categorySlug Category slug (for backward compatibility)
  */
 export function buildProductUrl(
   productSlug: string,
-  category?: string | null,
+  category?: string | null | { name?: string; slug?: string },
   categorySlug?: string | null
 ): Route {
+  // Handle category as object (from join) or string (legacy)
+  if (typeof category === 'object' && category?.slug) {
+    return `/${category.slug}/${productSlug}` as Route;
+  }
   if (categorySlug) {
     return `/${categorySlug}/${productSlug}` as Route;
   }
-  if (category) {
+  if (typeof category === 'string') {
     const slug = generateSlug(category);
     return `/${slug}/${productSlug}` as Route;
   }
@@ -87,6 +95,7 @@ export function getProductUrl(product: {
   slug?: string;
   name: string;
   category?: string | null;
+  categories?: { name?: string; slug?: string } | null;
   category_slug?: string;
   categorySlug?: string;
   condition?: 'new' | 'used' | string;
@@ -103,10 +112,14 @@ export function getProductUrl(product: {
     ) ||
     product.id;
 
+  // Extract category slug from categories object if available
+  const categorySlug =
+    product.categories?.slug || product.category_slug || product.categorySlug;
+
   return buildProductUrl(
     productSlug,
-    product.category,
-    product.category_slug || product.categorySlug
+    product.categories?.name || product.category,
+    categorySlug
   );
 }
 
@@ -243,8 +256,10 @@ export function generateProductSchema(
   }
 
   // Category for Google Product Category - sanitized
-  if (product.category) {
-    schema.category = escapeHtml(product.category);
+  // Use joined categories.name from category_id, fallback to legacy TEXT field
+  const categoryName = product.categories?.name || product.category;
+  if (categoryName) {
+    schema.category = escapeHtml(categoryName);
   }
 
   if (product.google_product_category) {

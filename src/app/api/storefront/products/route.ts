@@ -25,6 +25,18 @@ function mapProduct(p: Record<string, unknown>) {
 
   const primaryImage = processedImages[0]?.url || '';
 
+  // Extract category from joined data (prioritize direct join, then product_categories junction)
+  type CategoryData = { id: string; name: string; slug: string };
+  const directCategory = p.categories as CategoryData | null;
+  const junctionCategory = (
+    p.product_categories as { categories: CategoryData }[]
+  )?.[0]?.categories;
+
+  const categoryData = directCategory || junctionCategory;
+  const categoryName =
+    categoryData?.name || (p.category as string) || 'General';
+  const categorySlug = categoryData?.slug;
+
   return {
     id: p.id,
     name: p.name,
@@ -35,10 +47,8 @@ function mapProduct(p: Record<string, unknown>) {
     imageLarge: primaryImage, // Legacy support
     imageHint: p.image_hint,
     images: processedImages, // New field required for gallery
-    category: p.category || 'General',
-    category_slug: (
-      p.product_categories as { categories: { slug: string } }[]
-    )?.[0]?.categories?.slug,
+    category: categoryName,
+    category_slug: categorySlug,
     brand: p.brand,
     status: p.status || 'active',
     has_variants: p.has_variants,
@@ -95,8 +105,12 @@ function createCachedProductsFetcher(
         .from('products')
         .select(`
           *,
+          category_id,
+          categories:category_id(id, name, slug),
           product_categories!inner (
             categories!inner (
+              id,
+              name,
               slug
             )
           )
@@ -176,7 +190,18 @@ async function fetchProductsByIds(merchantId: string, ids: string[]) {
 
   const { data: products, error } = await supabase
     .from('products')
-    .select('*')
+    .select(`
+      *,
+      category_id,
+      categories:category_id(id, name, slug),
+      product_categories (
+        categories (
+          id,
+          name,
+          slug
+        )
+      )
+    `)
     .eq('merchant_id', merchantId)
     .in('id', ids);
 
