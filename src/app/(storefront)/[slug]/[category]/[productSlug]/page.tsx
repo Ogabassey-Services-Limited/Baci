@@ -407,7 +407,8 @@ function toOgabasseyProduct(
       [product.imageLarge || product.image].filter(Boolean),
     description: product.description,
     rating: product.rating ?? 0,
-    category: product.category || 'General',
+    // Use category from Product which is already resolved from join or TEXT field
+    category: product.categories?.name || product.category || 'General',
     categorySlug: product.category_slug,
     condition: (product.condition || 'new') as OgabasseyProduct['condition'],
     brand: product.brand,
@@ -513,11 +514,8 @@ const getProduct = cache(
       .from('products')
       .select(`
         *,
-        product_categories (
-          categories (
-            slug
-          )
-        ),
+        category_id,
+        categories:category_id(id, name, slug, parent_id),
         product_key_specs (
           screen_size_inches,
           refresh_rate_hz,
@@ -594,20 +592,26 @@ const getProduct = cache(
     }
 
     // Verify category matches (optional - for strictness)
-    // If category doesn't match, we could redirect to the correct URL
-    // For now, we'll just serve the product but use the correct canonical URL
-    // Verify category matches (optional - for strictness)
-    // We prefer the DB category slug if available, otherwise fallback to generated
-    interface ProductWithCategories {
-      product_categories?: Array<{ categories?: { slug?: string } }>;
+    // Use joined category data if available, fallback to TEXT column
+    interface ProductWithCategory {
+      categories?: {
+        id: string;
+        name: string;
+        slug: string;
+        parent_id?: string;
+      } | null;
     }
-    const productWithCats = product as unknown as ProductWithCategories;
-    const dbCategorySlug =
-      productWithCats.product_categories?.[0]?.categories?.slug;
+    const productWithCat = product as unknown as ProductWithCategory;
+    const joinedCategory = productWithCat.categories;
 
-    // Create extended product with category_slug to avoid mutation
+    // Determine category slug: prioritize joined category slug, then TEXT field slug generation
+    const dbCategorySlug = joinedCategory?.slug;
+    const dbCategoryName = joinedCategory?.name || product.category;
+
+    // Create extended product with category info
     const productWithCategorySlug: Product = {
       ...product,
+      category: dbCategoryName || product.category,
       category_slug: dbCategorySlug,
     } as Product;
 
@@ -736,8 +740,14 @@ export default async function CategoryProductPage({ params }: PageProps) {
   }
 
   // Generate breadcrumb schema with category
-  const categoryUrl = product.category
-    ? `${baseUrl}/${generateSlug(product.category)}`
+  // Use category_slug from product if available, otherwise generate from TEXT field
+  const categorySlugForUrl =
+    product.categories?.slug ||
+    product.category_slug ||
+    (product.category ? generateSlug(product.category) : null);
+
+  const categoryUrl = categorySlugForUrl
+    ? `${baseUrl}/${categorySlugForUrl}`
     : `${baseUrl}/products`;
 
   const breadcrumbItems = [

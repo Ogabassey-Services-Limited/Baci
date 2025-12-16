@@ -1,5 +1,23 @@
 'use client';
 
+/**
+ * @deprecated Use BrandProducts or PriceRangeProducts instead.
+ *
+ * This component is deprecated in favor of Koray-aligned semantic alternatives:
+ * - BrandProducts: Same brand, same category (builds brand entity)
+ * - PriceRangeProducts: Same category, similar price (supports comparison intent)
+ * - ComparisonProducts: Unified component for different comparison types
+ *
+ * The new components follow Koray GÜBÜR's holistic SEO framework:
+ * - Contextual I-node links with clear semantic purpose
+ * - Same category focus to maintain topical authority
+ * - Clear anchor text patterns: "More [Brand] [Category]", "[Category] ₦X-₦Y"
+ *
+ * @see src/components/storefront/brand-products.tsx
+ * @see src/components/storefront/price-range-products.tsx
+ * @see src/components/storefront/comparison-products.tsx
+ */
+
 import { ChevronLeft, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -197,9 +215,9 @@ export function RelatedProducts({
                         {p.name}
                       </h3>
                     </Link>
-                    {p.category && (
+                    {((p as any).categories?.name || p.category) && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {p.category}
+                        {(p as any).categories?.name || p.category}
                       </p>
                     )}
                     <div className="flex items-center justify-between mt-2">

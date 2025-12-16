@@ -26,9 +26,12 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { BrandProducts } from '@/components/storefront/brand-products';
+import { PriceRangeProducts } from '@/components/storefront/price-range-products';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import { BlogSnippet } from '../components/BlogSnippet';
@@ -152,7 +155,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               items: [
                 { label: 'Brand', value: serverProduct.brand || 'Generic' },
                 { label: 'Condition', value: serverProduct.condition || 'New' },
-                { label: 'Category', value: serverProduct.category || 'General' },
+                { label: 'Category', value: serverProduct.categories?.name || (serverProduct as any).category || 'General' },
               ],
             },
           ]) as { category: string; items: { label: string; value: string }[] }[],
@@ -211,14 +214,16 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   // Comparison Logic - Compute comparable items
   const comparableProducts = useMemo(() => {
     // Get items from context that match category AND are NOT the current product
+    const categoryToMatch = productData.categories?.name || (productData as any).category;
     return compareItems
       .filter(
-        (p) =>
-          p.category === productData.category &&
-          String(p.id) !== String(productData.id)
+        (p) => {
+          const pCategory = (p as any).categories?.name || (p as any).category;
+          return pCategory === categoryToMatch && String(p.id) !== String(productData.id);
+        }
       )
       .slice(0, 3); // Max 3 competitors
-  }, [compareItems, productData.category, productData.id]);
+  }, [compareItems, productData.categories?.name, productData.id]);
 
   // Scroll to top on load - Optional in Next.js but kept for component mount reset
   useEffect(() => {
@@ -418,7 +423,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       image: productData.images[selectedImage],
       description: productData.description,
       rating: productData.rating,
-      category: productData.category,
+      category: productData.categories?.name || (productData as any).category,
       condition: selectedCondition as 'New' | 'Used', // Use selected condition
       brand: productData.brand,
       // Pass platform if selected
@@ -509,7 +514,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       image: productData.image,
       description: productData.description,
       rating: productData.rating,
-      category: productData.category,
+      category: productData.categories?.name || (productData as any).category,
       condition: productData.condition as 'New' | 'Used',
       brand: productData.brand,
       // Store additional details for full object persistence if needed
@@ -535,15 +540,15 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       <div className="max-w-[1400px] mx-auto px-4 md:px-6">
         {/* Breadcrumb */}
         <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2">
-          <Link href="/" className="md:hover:text-red-600 transition-colors">
+          <Link href={asRoute(basePath || '/')} className="md:hover:text-red-600 transition-colors">
             Home
           </Link>
           <ChevronRight size={16} className="mx-2" />
           <Link
-            href={`/${params.slug}/${productData.category}` as any}
+            href={`/${params.slug}/${productData.categories?.slug || productData.categorySlug || encodeURIComponent((productData.categories?.name || (productData as any).category || '').toLowerCase())}` as any}
             className="md:hover:text-red-600 transition-colors"
           >
-            {productData.category}
+            {productData.categories?.name || (productData as any).category}
           </Link>
           <ChevronRight size={16} className="mx-2" />
           <span className="text-gray-900 font-medium">{productData.name}</span>
@@ -822,9 +827,19 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               </div>
             )}
 
-            {/* Short description excerpt (strip HTML for summary) */}
+            {/* Short description excerpt (strip HTML safely for summary) */}
             <p className="text-gray-600 leading-relaxed mb-8 border-b border-gray-100 pb-8 text-sm">
-              {(productData.description || '').replace(/<[^>]*>/g, '').substring(0, 250)}...
+              {(() => {
+                const desc = productData.description || '';
+                // Use DOM text extraction if available, fallback to regex
+                if (typeof document !== 'undefined') {
+                  const div = document.createElement('div');
+                  div.innerHTML = desc;
+                  return (div.textContent || '').substring(0, 250);
+                }
+                // Server-side fallback: remove all tags
+                return desc.replace(/<[^>]+>/g, '').substring(0, 250);
+              })()}...
             </p>
 
             {/* Storage Selector */}
@@ -981,10 +996,10 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           <div className="min-h-[300px]">
             {activeTab === 'description' && (
               <div className="prose max-w-none text-gray-600 animate-in fade-in duration-300">
-                {/* Render description as HTML (pre-sanitized in database) */}
+                {/* Render description as HTML with client-side sanitization */}
                 <div
                   className="mb-4 prose-headings:text-gray-900 prose-strong:text-gray-800 prose-table:text-sm"
-                  dangerouslySetInnerHTML={{ __html: productData.description || '' }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(productData.description || '') }}
                 />
 
                 {/* Dynamic Product Highlights for SEO & Readability */}
@@ -1117,7 +1132,24 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           <ProductVideo videoId={productData.videoUrl} title={productData.name} />
         )}
 
-        <BlogSnippet category={productData.category} />
+        <BlogSnippet category={productData.categories?.name || (productData as any).category} />
+
+        {/* Koray-aligned semantic sections */}
+        <div className="max-w-[1400px] mx-auto">
+          {/* Same brand, same category - builds brand entity */}
+          <BrandProducts
+            product={serverProduct as any}
+            maxProducts={4}
+            className="border-t border-gray-100 pt-8"
+          />
+
+          {/* Same category, similar price - supports comparison intent */}
+          <PriceRangeProducts
+            product={serverProduct as any}
+            maxProducts={4}
+            className="border-t border-gray-100"
+          />
+        </div>
       </div >
 
       {/* --- FIXED MOBILE BOTTOM BAR --- */}

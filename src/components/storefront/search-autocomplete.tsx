@@ -12,7 +12,13 @@ interface Product {
   id: string;
   name: string;
   slug?: string;
-  category?: string;
+  category?: string; // Backward compatibility (TEXT column - deprecated)
+  category_id?: string; // FK to categories table
+  categories?: {
+    id: string;
+    name: string;
+    slug?: string;
+  }; // Joined category object
   condition?: 'new' | 'used' | string;
   condition_detail?: string;
   price: number;
@@ -252,9 +258,9 @@ export function SearchAutocomplete({
                         {product.name}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                        {product.category && (
+                        {(product.categories?.name || product.category) && (
                           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
-                            {product.category}
+                            {product.categories?.name || product.category}
                           </span>
                         )}
                         <span className="font-bold text-red-600">

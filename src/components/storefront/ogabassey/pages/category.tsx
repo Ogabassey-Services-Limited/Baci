@@ -217,7 +217,7 @@ export const OgabasseyV2CategoryPage: React.FC<
       {/* Breadcrumb & Header */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-6">
         <nav className="flex items-center text-sm text-gray-500 overflow-x-auto whitespace-nowrap pb-2">
-          <Link href="/" className="hover:text-red-600 transition-colors">
+          <Link href={`/${storeSlug || 'ogabassey'}` as any} className="hover:text-red-600 transition-colors">
             Home
           </Link>
           <ChevronRight size={16} className="mx-2" />

@@ -1145,7 +1145,8 @@ function CheckoutPageContent() {
             name: item.name,
             price: item.price,
             quantity: item.quantity,
-            category: item.category,
+            category:
+              (item as any).categories?.name || item.category || 'General',
           })),
           undefined,
           { eventSourceUrl: window.location.href }

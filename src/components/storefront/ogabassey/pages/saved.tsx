@@ -5,6 +5,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 interface SavedProduct {
   id: string;
@@ -51,6 +53,8 @@ const initialSavedItems: SavedProduct[] = [
 ];
 
 export const OgabasseyV2SavedItems: React.FC = () => {
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '/';
   const [savedItems, setSavedItems] =
     useState<SavedProduct[]>(initialSavedItems);
 
@@ -80,7 +84,7 @@ export const OgabasseyV2SavedItems: React.FC = () => {
                 wishlist.
               </p>
               <Link
-                href="/"
+                href={asRoute(basePath)}
                 className="inline-block bg-red-600 text-white font-bold py-2.5 px-6 rounded-xl text-sm hover:bg-red-700 transition-colors"
               >
                 Start Shopping

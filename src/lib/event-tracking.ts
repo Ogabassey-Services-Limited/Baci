@@ -123,13 +123,17 @@ export const trackEvent = {
     product: Product,
     currency: string = 'USD'
   ) => {
+    // Use joined categories.name from category_id, fallback to legacy TEXT field
+    const categoryName =
+      product.categories?.name || product.category || undefined;
+
     // Store in Supabase for merchant dashboard
     sendEvent({
       event_type: 'product_view',
       merchant_id: merchantId,
       product_id: product.id,
       product_name: product.name,
-      product_category: product.category,
+      product_category: categoryName,
       product_price: product.price,
       currency,
     } as ProductEvent);
@@ -147,12 +151,16 @@ export const trackEvent = {
     quantity: number = 1,
     currency: string = 'USD'
   ) => {
+    // Use joined categories.name from category_id, fallback to legacy TEXT field
+    const categoryName =
+      product.categories?.name || product.category || undefined;
+
     sendEvent({
       event_type: 'add_to_cart',
       merchant_id: merchantId,
       product_id: product.id,
       product_name: product.name,
-      product_category: product.category,
+      product_category: categoryName,
       product_price: product.price,
       quantity,
       currency,
@@ -170,12 +178,16 @@ export const trackEvent = {
     quantity: number = 1,
     currency: string = 'USD'
   ) => {
+    // Use joined categories.name from category_id, fallback to legacy TEXT field
+    const categoryName =
+      product.categories?.name || product.category || undefined;
+
     sendEvent({
       event_type: 'remove_from_cart',
       merchant_id: merchantId,
       product_id: product.id,
       product_name: product.name,
-      product_category: product.category,
+      product_category: categoryName,
       product_price: product.price,
       quantity,
       currency,
@@ -276,12 +288,16 @@ export const trackEvent = {
     product: Product,
     currency: string = 'USD'
   ) => {
+    // Use joined categories.name from category_id, fallback to legacy TEXT field
+    const categoryName =
+      product.categories?.name || product.category || undefined;
+
     sendEvent({
       event_type: 'add_to_wishlist',
       merchant_id: merchantId,
       product_id: product.id,
       product_name: product.name,
-      product_category: product.category,
+      product_category: categoryName,
       product_price: product.price,
       currency,
     } as ProductEvent);

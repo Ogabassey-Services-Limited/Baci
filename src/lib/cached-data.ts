@@ -297,6 +297,10 @@ export const getCachedMerchantById = unstable_cache(
 /**
  * Cached products for a merchant
  * Uses 5 minute cache for product listings
+ *
+ * Note: Returns product_categories as an array with nested categories objects.
+ * Consumers should extract the first category like:
+ * `product.product_categories?.[0]?.categories` to get { id, name, slug }
  */
 export const getCachedProducts = unstable_cache(
   async (
@@ -391,6 +395,10 @@ export const getCachedProducts = unstable_cache(
 
 /**
  * Cached single product by slug
+ *
+ * Note: Returns product_categories as an array with nested categories objects.
+ * Consumers should extract the first category like:
+ * `product.product_categories?.[0]?.categories` to get { id, name, slug }
  */
 export const getCachedProduct = unstable_cache(
   async (merchantId: string, productSlug: string) => {

@@ -8,6 +8,8 @@ const OGABASSEY_MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
  * Common handler for product lookup
  */
 async function handleProductLookup(productName: string): Promise<NextResponse> {
+  // Sanitize for safe logging (prevent log injection)
+  const safeProductName = productName.replace(/[\r\n\t]/g, ' ').slice(0, 200);
   try {
     // Get products directly (bypass cache to ensure consistency)
     const santaProducts = await fetchSantaProducts(OGABASSEY_MERCHANT_ID);
@@ -16,7 +18,7 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
       '[Santa Product] Searching in',
       santaProducts.length,
       'products for:',
-      productName
+      safeProductName
     );
 
     // Find the best match by name
@@ -29,11 +31,14 @@ async function handleProductLookup(productName: string): Promise<NextResponse> {
     );
 
     if (!matchingProduct) {
-      console.log('[Santa Product] No match found for:', productName);
+      console.log('[Santa Product] No match found for:', safeProductName);
       return NextResponse.json({ product: null });
     }
 
-    console.log('[Santa Product] Found match:', matchingProduct.name);
+    console.log(
+      '[Santa Product] Found match:',
+      matchingProduct.name.slice(0, 100)
+    );
 
     // Now get the full product details from database
     const supabase = createServiceClient();

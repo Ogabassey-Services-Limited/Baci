@@ -92,8 +92,18 @@ export interface Product {
   mpn: string;
   fulfillmentFields?: { name: string }[];
   fulfillment_details?: { key: string; value: string }[];
+  // Category TEXT field (legacy, will be deprecated)
   category?: string;
   category_slug?: string;
+  // Category FK relationship (new, preferred)
+  category_id?: string;
+  // Joined category object from Supabase query
+  categories?: {
+    id?: string;
+    name?: string;
+    slug?: string;
+    parent_id?: string;
+  } | null;
   color?: string;
 
   // New fields

@@ -2,7 +2,7 @@
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "entry": [
     "next.config.{js,ts,cjs,mjs}",
-    "src/middleware.ts",
+    "src/proxy.ts",
     "src/app/**/{page,layout,loading,error,not-found,global-error,route,template,default}.{ts,tsx}",
     "scripts/**/*"
   ],

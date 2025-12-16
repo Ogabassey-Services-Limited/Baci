@@ -157,12 +157,3 @@ export function getFallbackImage(category?: string): string {
     categoryColors.default;
   return `https://placehold.co/600x600/${colors}?text=No+Image`;
 }
-
-/**
- * CDN and Storage URL constants
- */
-const CDN_BASE = 'https://cdn.ogabassey.com';
-const SUPABASE_STORAGE_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public`;
-
-
-

@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
@@ -51,6 +53,9 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '/';
+
   // Initial Filter State
   const initialFilterState: FilterState = {
     brand: [],
@@ -75,10 +80,10 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
   // Derived Data: Products in the current Category (from props)
   const categoryProducts = useMemo(() => {
-    // Use server-provided products directly
-    if (categoryName === 'All') return products;
-    return products.filter((p) => p.category === categoryName);
-  }, [categoryName, products]);
+    // Use server-provided products directly - no additional filtering needed
+    // since server already filters by category_id or category TEXT field
+    return products;
+  }, [products]);
 
   // Derived Data: Available Options based on products in category
   const availableOptions = useMemo(() => {
@@ -222,9 +227,17 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     }, 2000);
   };
 
-  // Decode URI component for category name display if weird chars
-  const pageTitle =
-    categoryName === 'All' ? 'All Products' : decodeURIComponent(categoryName);
+  // Clean display title for H1 and Breadcrumb (Koray-approved: no keyword stuffing)
+  const displayTitle = useMemo(() => {
+    if (categoryName === 'All') return 'All Products';
+
+    return decodeURIComponent(categoryName)
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  }, [categoryName]);
+
+  // SEO heading is only for the SEO content block at the bottom, not the H1
+  const pageTitle = displayTitle;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-4">
@@ -233,7 +246,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
         <BannerCarousel
           className="h-40 md:h-52"
           categoryImage={categoryImage}
-          title={seoHeading || pageTitle}
+          title={displayTitle}
           description={seoDescription}
         />
       </div>
@@ -241,28 +254,22 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       {/* Breadcrumb & Header */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-6">
         <nav className="flex items-center text-sm text-gray-500 overflow-x-auto whitespace-nowrap pb-2">
-          <Link href="/" className="hover:text-red-600 transition-colors">
+          <Link href={asRoute(basePath || '/')} className="hover:text-red-600 transition-colors">
             Home
           </Link>
           <ChevronRight size={16} className="mx-2" />
-          <span className="text-gray-900 font-medium">{pageTitle}</span>
+          <span className="text-gray-900 font-medium">{displayTitle}</span>
         </nav>
 
         <div className="mt-4 flex items-end justify-between">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
-              {pageTitle}
+              {displayTitle}
             </h1>
             <p className="text-gray-500 text-sm mt-1">
               {filteredProducts.length} results found
             </p>
           </div>
-
-
-
-
-
-
 
           {/* View Mode & Mobile Filter Toggle */}
           <div className="flex items-center gap-2">

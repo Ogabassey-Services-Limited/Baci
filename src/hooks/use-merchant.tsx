@@ -11,6 +11,7 @@ import {
   useState,
 } from 'react';
 import { useAuthSafe } from '@/contexts/auth-context';
+import type { CategoryNavItem } from '@/lib/cached-categories';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/client';
 
@@ -123,6 +124,7 @@ interface MerchantContextType {
   hasPermission: (resource: string, action: string) => boolean;
   routingMode: 'domain' | 'path';
   basePath: string;
+  navigationCategories: CategoryNavItem[];
 }
 
 const MerchantContext = createContext<MerchantContextType | undefined>(
@@ -135,6 +137,7 @@ interface MerchantProviderProps {
   initialMerchant?: MerchantData | null;
   initialStaffAccess?: StaffAccess;
   initialRoutingMode?: 'domain' | 'path';
+  navigationCategories?: CategoryNavItem[];
 }
 
 const defaultStaffAccess: StaffAccess = {
@@ -150,6 +153,7 @@ export const MerchantProvider = ({
   initialMerchant,
   initialStaffAccess,
   initialRoutingMode,
+  navigationCategories = [],
 }: MerchantProviderProps) => {
   // Use safe auth hook - returns null when outside AuthProvider (e.g., template preview)
   const auth = useAuthSafe();
@@ -525,6 +529,7 @@ export const MerchantProvider = ({
     hasPermission,
     routingMode,
     basePath,
+    navigationCategories,
   };
 
   return (

@@ -101,7 +101,7 @@ export const OrderSuccessPage: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col gap-4">
         <p>Order not found</p>
-        <Link href="/" className="text-red-600 font-bold hover:underline">
+        <Link href={getUrl('/') as any} className="text-red-600 font-bold hover:underline">
           Return Home
         </Link>
       </div>

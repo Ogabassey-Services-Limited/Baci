@@ -20,8 +20,8 @@ const GAMES_TO_CONSOLIDATE = [
     { groupStart: 'Sonic', regex: /^Sonic/i },
     { groupStart: 'Naruto', regex: /^Naruto/i },
     { groupStart: 'Mortal Kombat', regex: /^Mortal Kombat/i },
-    { groupStart: 'Grand Theft Auto', regex: /^Grand Theft Auto|GTA/i },
-    { groupStart: 'Call of Duty', regex: /^Call of Duty|COD/i },
+    { groupStart: 'Grand Theft Auto', regex: /^(?:Grand Theft Auto|GTA)/i },
+    { groupStart: 'Call of Duty', regex: /^(?:Call of Duty|COD)/i },
 ];
 
 const PLATFORMS = [

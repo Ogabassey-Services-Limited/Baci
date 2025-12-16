@@ -106,7 +106,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
             </span>
           </h1>
           <Link
-            href="/"
+            href={`/${storeSlug || 'ogabassey'}` as any}
             className="text-sm font-medium text-red-600 hover:text-red-700 hidden md:block"
           >
             Continue Shopping
@@ -120,7 +120,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
               title="Your cart is empty 🤧"
               description="Sorry, the product you are looking for is currently not available at the moment."
               actionLabel="Start Shopping"
-              actionLink="/"
+              actionLink={`/${storeSlug || 'ogabassey'}`}
             />
           </div>
         ) : (
@@ -166,8 +166,8 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span
                             className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${item.condition?.toLowerCase() === 'new'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                                : 'bg-amber-50 text-amber-700 border-amber-100'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                              : 'bg-amber-50 text-amber-700 border-amber-100'
                               }`}
                           >
                             {item.condition}

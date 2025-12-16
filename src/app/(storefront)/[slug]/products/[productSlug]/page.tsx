@@ -285,13 +285,14 @@ export default async function ProductPage({ params }: PageProps) {
 
   // Generate breadcrumb schema using helper function (sanitization handled in generateBreadcrumbSchema)
   const productUrl = `${baseUrl}${urlPrefix}/products/${product.slug || product.id}`;
-  const categoryUrl = product.category
-    ? `${baseUrl}${urlPrefix}/products?category=${encodeURIComponent(product.category)}`
+  const productCategory = product.categories?.name || product.category;
+  const categoryUrl = productCategory
+    ? `${baseUrl}${urlPrefix}/products?category=${encodeURIComponent(productCategory)}`
     : `${baseUrl}${urlPrefix}/products`;
 
   const breadcrumbItems = [
     { name: merchant?.business_name || 'Home', url: `${baseUrl}${urlPrefix}` },
-    { name: product.category || 'All Products', url: categoryUrl },
+    { name: productCategory || 'All Products', url: categoryUrl },
     { name: product.name, url: productUrl },
   ];
 
