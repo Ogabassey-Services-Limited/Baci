@@ -25,24 +25,6 @@ import { updateSession } from '@/lib/supabase/middleware';
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
 
-// Domain cache for custom domain lookups (persists across warm Edge invocations)
-// Key: hostname, Value: { slug: string, expiresAt: number }
-const domainCache = new Map<string, { slug: string; expiresAt: number }>();
-const DOMAIN_CACHE_TTL_MS = 60 * 1000; // 60 seconds
-const MAX_CACHE_SIZE = 1000; // Prevent unbounded memory growth
-
-/**
- * Prune expired entries when cache gets too large
- */
-function pruneDomainCache(now: number): void {
-  if (domainCache.size < MAX_CACHE_SIZE) return;
-  for (const [key, value] of domainCache.entries()) {
-    if (now > value.expiresAt) {
-      domainCache.delete(key);
-    }
-  }
-}
-
 // Reserved subdomains that should not be treated as merchant stores
 const RESERVED_SUBDOMAINS = new Set([
   'www',
