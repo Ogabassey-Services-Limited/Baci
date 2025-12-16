@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
@@ -50,6 +51,9 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
   const [addedItems, setAddedItems] = useState<number[]>([]);
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '/';
 
   // Initial Filter State
   const initialFilterState: FilterState = {
@@ -226,9 +230,15 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
     }, 2000);
   };
 
-  // Decode URI component for category name display if weird chars
-  const pageTitle =
-    categoryName === 'All' ? 'All Products' : decodeURIComponent(categoryName);
+  // Decode URI component and proper Title Case
+  const pageTitle = useMemo(() => {
+    if (seoHeading) return seoHeading;
+    if (categoryName === 'All') return 'All Products';
+
+    return decodeURIComponent(categoryName)
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  }, [categoryName, seoHeading]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 pt-4">
@@ -245,28 +255,22 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
       {/* Breadcrumb & Header */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-6">
         <nav className="flex items-center text-sm text-gray-500 overflow-x-auto whitespace-nowrap pb-2">
-          <Link href="/" className="hover:text-red-600 transition-colors">
+          <Link href={basePath} className="hover:text-red-600 transition-colors">
             Home
           </Link>
           <ChevronRight size={16} className="mx-2" />
-          <span className="text-gray-900 font-medium">{pageTitle}</span>
+          <span className="text-gray-900 font-medium capitalize">{pageTitle}</span>
         </nav>
 
         <div className="mt-4 flex items-end justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 capitalize">
               {pageTitle}
             </h1>
             <p className="text-gray-500 text-sm mt-1">
               {filteredProducts.length} results found
             </p>
           </div>
-
-
-
-
-
-
 
           {/* View Mode & Mobile Filter Toggle */}
           <div className="flex items-center gap-2">

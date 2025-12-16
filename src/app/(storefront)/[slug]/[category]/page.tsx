@@ -77,9 +77,13 @@ const getCategoryData = cache(
       .eq('slug', categorySlug)
       .single();
 
-    // Fallback: decode the slug to get category name
+    // Fallback: decode the slug to get category name and Title Case it
     const categoryName =
-      category?.name || decodeURIComponent(categorySlug).replace(/-/g, ' ');
+      category?.name ||
+      decodeURIComponent(categorySlug)
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, (l) => l.toUpperCase()); // Ensure Title Case (e.g. "smartphones" -> "Smartphones")
+
     const categoryDescription =
       category?.description ||
       `Browse our collection of ${categoryName} products.`;
@@ -99,9 +103,7 @@ const getCategoryData = cache(
 
     const seoContent = {
       heading:
-        category?.seo_heading ||
-        effectiveConfig?.heading ||
-        `Buy ${categoryName} in Nigeria`,
+        category?.seo_heading || effectiveConfig?.heading || categoryName, // Use clean name as default heading
       description:
         category?.seo_description ||
         effectiveConfig?.description ||
@@ -172,8 +174,8 @@ const getCategoryData = cache(
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
         .or(
-          `category.eq.${sanitizedCategoryName},brand.ilike.${sanitizedCategoryName},name.ilike.%${sanitizedCategoryName}%`
-        )
+          `category.ilike.%${sanitizedCategoryName}%,brand.ilike.%${sanitizedCategoryName}%,name.ilike.%${sanitizedCategoryName}%`
+        ) // Use ilike and wildcards for broader matching
         .limit(50);
 
       products = (productData || []) as unknown as Product[];
