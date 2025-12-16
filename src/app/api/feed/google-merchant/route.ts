@@ -28,12 +28,18 @@ function createCachedFeedDataFetcher(
         throw new Error('Merchant not found');
       }
 
+      // PERFORMANCE: Select only required fields and add limit
       const { data: products, error: productsError } = await supabase
         .from('products')
-        .select('*')
+        .select(
+          `id, name, description, slug, price, compare_at_price, images, image, imageLarge,
+           brand, gtin, mpn, sku, stock, condition, google_product_category, category,
+           weight_value, weight_unit, updated_at`
+        )
         .eq('merchant_id', merchant.id)
         .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(10000);
 
       if (productsError) {
         throw new Error('Failed to fetch products');

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
 /**
@@ -11,6 +12,12 @@ import { createClient } from '@/lib/supabase/server';
  * - search: string (search in title, body, customer name/email)
  * - limit: number (default 50)
  * - offset: number (default 0)
+ *
+ * PERFORMANCE NOTE: For optimal search performance, ensure these indexes exist:
+ * - CREATE INDEX idx_product_reviews_merchant_id ON product_reviews(merchant_id);
+ * - CREATE INDEX idx_product_reviews_status ON product_reviews(status);
+ * - CREATE INDEX idx_product_reviews_title_trgm ON product_reviews USING gin(title gin_trgm_ops);
+ * - CREATE INDEX idx_product_reviews_customer_name_trgm ON product_reviews USING gin(customer_name gin_trgm_ops);
  */
 export async function GET(request: NextRequest) {
   try {
@@ -42,7 +49,9 @@ export async function GET(request: NextRequest) {
     // Parse query params
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || 'all';
-    const search = searchParams.get('search') || '';
+    const searchRaw = searchParams.get('search') || '';
+    // SECURITY: Sanitize search input to prevent SQL injection
+    const search = searchRaw ? sanitizeSearchQuery(searchRaw) : '';
     const limit = Math.min(
       Number.parseInt(searchParams.get('limit') || '50', 10),
       100
@@ -70,10 +79,11 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status);
     }
 
-    // Apply search filter
-    if (search) {
+    // Apply search filter with sanitized pattern
+    if (search?.trim()) {
+      const sanitizedPattern = sanitizeLikePattern(search);
       query = query.or(
-        `title.ilike.%${search}%,body.ilike.%${search}%,customer_name.ilike.%${search}%,customer_email.ilike.%${search}%`
+        `title.ilike.%${sanitizedPattern}%,body.ilike.%${sanitizedPattern}%,customer_name.ilike.%${sanitizedPattern}%,customer_email.ilike.%${sanitizedPattern}%`
       );
     }
 

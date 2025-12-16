@@ -339,24 +339,14 @@ export const MerchantProvider = ({
           return;
         }
 
-        // First, try to find merchant where user is owner
-        const { data: ownedMerchant, error: ownerError } = await supabase
-          .from('merchants')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-
-        if (ownedMerchant && !ownerError) {
-          merchantData = ownedMerchant as MerchantData;
-          access = {
-            isStaff: false,
-            isOwner: true,
-            role: null,
-            permissions: { full_access: { all: true } },
-          };
-        } else if (ownerError && ownerError.code === 'PGRST116') {
-          // User is not a merchant owner, check if they're staff
-          const { data: staffMember, error: staffError } = await supabase
+        // PERFORMANCE: Fetch owner and staff data in parallel instead of sequentially
+        const [ownerResult, staffResult] = await Promise.all([
+          supabase
+            .from('merchants')
+            .select('*')
+            .eq('user_id', user.id)
+            .single(),
+          supabase
             .from('staff_members')
             .select(`
               id,
@@ -368,8 +358,22 @@ export const MerchantProvider = ({
             `)
             .eq('user_id', user.id)
             .eq('status', 'active')
-            .single();
+            .single(),
+        ]);
 
+        const { data: ownedMerchant, error: ownerError } = ownerResult;
+        const { data: staffMember, error: staffError } = staffResult;
+
+        if (ownedMerchant && !ownerError) {
+          merchantData = ownedMerchant as MerchantData;
+          access = {
+            isStaff: false,
+            isOwner: true,
+            role: null,
+            permissions: { full_access: { all: true } },
+          };
+        } else if (ownerError && ownerError.code === 'PGRST116') {
+          // User is not a merchant owner, check if they're staff
           if (staffMember && !staffError) {
             // User is an active staff member
             const merchantInfo =
@@ -416,6 +420,7 @@ export const MerchantProvider = ({
       }
 
       // Fetch primary domain and attach it to merchantData
+      // Note: This must be sequential since we need merchantData.id first
       if (merchantData?.id) {
         const { data: primaryDomain } = await supabase
           .from('domains')

@@ -184,7 +184,7 @@ export default async function StorefrontPage({
       .eq('merchant_id', merchant.id)
       .eq('status', 'active')
       .order('price', { ascending: false }) // Show expensive/hero items first
-      .limit(50);
+      .limit(24); // PERFORMANCE: Reduced from 50 to 24 for faster homepage loads
 
     if (error) {
       console.error(

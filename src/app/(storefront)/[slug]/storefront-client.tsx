@@ -106,14 +106,12 @@ function StorefrontContent() {
     }
   }, [merchant?.id]);
 
-  const { availableCategories, availableBrands } = useMemo(() => {
-    const categories = new Set(products.map((p) => p.category || 'General'));
-    const brands = new Set(products.map((p) => p.brand).filter(Boolean));
-    return {
-      availableCategories: Array.from(categories),
-      availableBrands: Array.from(brands),
-    };
-  }, [products]);
+  // PERFORMANCE: React Compiler handles memoization automatically
+  // No need for manual useMemo - removing redundant wrapper
+  const categories = new Set(products.map((p) => p.category || 'General'));
+  const brands = new Set(products.map((p) => p.brand).filter(Boolean));
+  const availableCategories = Array.from(categories);
+  const availableBrands = Array.from(brands) as string[];
 
   const currentFilterOptions =
     filterBy === 'category' ? availableCategories : availableBrands;
