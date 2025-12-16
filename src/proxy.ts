@@ -1,3 +1,18 @@
+/**
+ * Next.js 16 Proxy (Middleware)
+ * 
+ * Handles:
+ * - Multi-tenant routing (subdomains and custom domains)
+ * - Security headers (CSP, HSTS, COOP, COEP)
+ * - Authentication session management
+ * - Ad tracking cookie capture
+ * - Cache control per route type
+ * 
+ * Note: Next.js 16 renamed middleware → proxy for security clarity.
+ * This file serves as the application's middleware layer.
+ * See: https://nextjs.org/docs/app/building-your-application/routing/middleware
+ */
+
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import {
@@ -9,6 +24,24 @@ import { updateSession } from '@/lib/supabase/middleware';
 
 // Root domain - merchants get subdomains like ogabassey.usebaci.com
 const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+
+// Domain cache for custom domain lookups (persists across warm Edge invocations)
+// Key: hostname, Value: { slug: string, expiresAt: number }
+const domainCache = new Map<string, { slug: string; expiresAt: number }>();
+const DOMAIN_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const MAX_CACHE_SIZE = 1000; // Prevent unbounded memory growth
+
+/**
+ * Prune expired entries when cache gets too large
+ */
+function pruneDomainCache(now: number): void {
+  if (domainCache.size < MAX_CACHE_SIZE) return;
+  for (const [key, value] of domainCache.entries()) {
+    if (now > value.expiresAt) {
+      domainCache.delete(key);
+    }
+  }
+}
 
 // Reserved subdomains that should not be treated as merchant stores
 const RESERVED_SUBDOMAINS = new Set([
