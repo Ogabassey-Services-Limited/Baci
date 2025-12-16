@@ -101,6 +101,7 @@ export default async function PrivacyPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
+        // codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(privacySchema) }}
       />
       <StorefrontPageWrapper

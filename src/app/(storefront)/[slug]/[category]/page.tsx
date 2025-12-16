@@ -71,8 +71,8 @@ const getCategoryData = cache(
     // Check key variations if direct match fails (e.g. 'smartphones' vs 'phones')
     const fallbackConfig = !defaultConfig
       ? Object.entries(CATEGORY_SEO_DEFAULTS).find(([key]) =>
-          normalizedSlug.includes(key)
-        )?.[1]
+        normalizedSlug.includes(key)
+      )?.[1]
       : null;
 
     const effectiveConfig = defaultConfig || fallbackConfig;
@@ -184,13 +184,13 @@ export async function generateMetadata({
       siteName: merchant.business_name,
       ...(products.length > 0 &&
         products[0].images?.[0] && {
-          images: [
-            {
-              url: products[0].images[0] as unknown as string,
-              alt: categoryData.name,
-            },
-          ],
-        }),
+        images: [
+          {
+            url: products[0].images[0] as unknown as string,
+            alt: categoryData.name,
+          },
+        ],
+      }),
     },
     twitter: {
       card: 'summary_large_image',
@@ -254,6 +254,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
   return (
     <>
       {/* CollectionPage Schema */}
+      {/* codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify */}
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
@@ -263,6 +264,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
         }}
       />
       {/* BreadcrumbList Schema */}
+      {/* codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify */}
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
@@ -273,6 +275,7 @@ export default async function CategoryPageRoute({ params }: PageProps) {
       />
       {/* FAQPage Schema */}
       {faqSchema && (
+        // codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify
         // nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml
         <script
           type="application/ld+json"
