@@ -59,6 +59,10 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'cdn.ogabassey.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'ogabassey.com',
       },
       {

@@ -82,12 +82,17 @@ export function Header({
   backgroundImage,
   isPreview = false,
 }: HeaderProps) {
-  const { merchant } = useMerchant();
+  const { merchant, basePath } = useMerchant();
   const { cartCount } = useCart();
   const { user } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const getHref = (path: string) =>
+    path.startsWith('http')
+      ? path
+      : `${basePath || ''}${path === '/' ? '' : path}`;
 
   // Customer auth state - we use a simple fetch approach since context may not be available
   const [customerSession, setCustomerSession] = useState<{
@@ -201,7 +206,7 @@ export function Header({
           {/* Logo Section */}
           {showLogo && (
             <Link
-              href="/"
+              href={asRoute(getHref('/'))}
               className={cn('flex items-center gap-2 group shrink-0', {
                 'order-1': layout !== 'logo-center',
                 'order-2 mx-auto': layout === 'logo-center',
@@ -240,7 +245,7 @@ export function Header({
               {navigationLinks.map((link) => (
                 <Link
                   key={link.label}
-                  href={asRoute(link.url)}
+                  href={asRoute(getHref(link.url))}
                   className="text-sm font-medium hover:opacity-70 transition-opacity"
                 >
                   {link.label}
@@ -290,7 +295,9 @@ export function Header({
                 size="sm"
                 className="hidden sm:inline-flex rounded-full"
               >
-                <Link href={asRoute(ctaButton.url)}>{ctaButton.text}</Link>
+                <Link href={asRoute(getHref(ctaButton.url))}>
+                  {ctaButton.text}
+                </Link>
               </ThemedButton>
             )}
 
@@ -307,7 +314,7 @@ export function Header({
                 customerId={user.id}
                 compact
                 className="hidden sm:flex"
-                rewardsHref="/pages/rewards"
+                rewardsHref={getHref('/pages/rewards')}
               />
             )}
 
@@ -337,7 +344,7 @@ export function Header({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                       <Link
-                        href={asRoute('/account')}
+                        href={asRoute(getHref('/account'))}
                         className="cursor-pointer"
                       >
                         <User className="mr-2 h-4 w-4" />
@@ -346,7 +353,7 @@ export function Header({
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link
-                        href={asRoute('/account/orders')}
+                        href={asRoute(getHref('/account/orders'))}
                         className="cursor-pointer"
                       >
                         <Package className="mr-2 h-4 w-4" />
@@ -355,7 +362,7 @@ export function Header({
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link
-                        href={asRoute('/account/settings')}
+                        href={asRoute(getHref('/account/settings'))}
                         className="cursor-pointer"
                       >
                         <Settings className="mr-2 h-4 w-4" />
@@ -379,7 +386,7 @@ export function Header({
                   asChild
                   className="hidden sm:inline-flex"
                 >
-                  <Link href={asRoute('/account/login')}>Sign in</Link>
+                  <Link href={asRoute(getHref('/account/login'))}>Sign in</Link>
                 </Button>
               ))}
 
@@ -436,13 +443,16 @@ export function Header({
                 />
               )}
               <nav className="flex flex-col gap-4 text-lg font-medium">
-                <Link href="/" onClick={() => setMobileMenuOpen(false)}>
+                <Link
+                  href={asRoute(getHref('/'))}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
                   Home
                 </Link>
                 {navigationLinks.map((link) => (
                   <Link
                     key={link.label}
-                    href={asRoute(link.url)}
+                    href={asRoute(getHref(link.url))}
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     {link.label}
@@ -458,7 +468,7 @@ export function Header({
                       merchantId={merchant.id}
                       customerId={user.id}
                       showPoints
-                      rewardsHref="/pages/rewards"
+                      rewardsHref={getHref('/pages/rewards')}
                     />
                   </button>
                 )}
@@ -473,7 +483,7 @@ export function Header({
                           Signed in as {customerSession.customer.email}
                         </div>
                         <Link
-                          href={asRoute('/account')}
+                          href={asRoute(getHref('/account'))}
                           onClick={() => setMobileMenuOpen(false)}
                           className="flex items-center gap-2"
                         >
@@ -481,7 +491,7 @@ export function Header({
                           My Account
                         </Link>
                         <Link
-                          href={asRoute('/account/orders')}
+                          href={asRoute(getHref('/account/orders'))}
                           onClick={() => setMobileMenuOpen(false)}
                           className="flex items-center gap-2"
                         >
@@ -502,7 +512,7 @@ export function Header({
                       </>
                     ) : (
                       <Link
-                        href={asRoute('/account/login')}
+                        href={asRoute(getHref('/account/login'))}
                         onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center gap-2"
                       >

@@ -401,9 +401,10 @@ function toOgabasseyProduct(
     price: formatter.format(product.price),
     rawPrice: product.price,
     image: product.imageLarge || product.image,
-    images: product.images?.map((img) => img.url) || [
-      product.imageLarge || product.image,
-    ],
+    // Handle both string arrays and object arrays with url property
+    images:
+      product.images?.map((img) => (typeof img === 'string' ? img : img.url)) ||
+      [product.imageLarge || product.image].filter(Boolean),
     description: product.description,
     rating: product.rating ?? 0,
     category: product.category || 'General',
@@ -413,6 +414,36 @@ function toOgabasseyProduct(
     stock: product.stock,
     detailedSpecs,
     specs,
+    // Phase 4: Pass variants to frontend with mapping
+    variants:
+      product.variants?.map(
+        (v: {
+          id: string;
+          storage?: string;
+          ram_gb?: number;
+          sku?: string;
+          color?: string;
+          attributes?: { platform?: string };
+          price_override?: number;
+          price_modifier?: number;
+          stock_quantity?: number;
+          images?: string[];
+        }) => ({
+          id: v.id,
+          name:
+            `Variant ${v.storage || ''} ${v.ram_gb ? `${v.ram_gb}GB` : ''}`.trim() ||
+            v.sku ||
+            'Variant',
+          storage: v.storage,
+          ram: v.ram_gb ? `${v.ram_gb}GB` : undefined,
+          color: v.color,
+          platform: v.attributes?.platform, // Map platform from JSON attributes
+          price_override: v.price_override,
+          price_modifier: v.price_modifier, // Map if it exists (but likely undefined in DB now)
+          stock: v.stock_quantity,
+          images: v.images,
+        })
+      ) || [],
   };
 }
 

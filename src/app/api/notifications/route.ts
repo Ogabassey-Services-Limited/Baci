@@ -94,6 +94,17 @@ export async function GET(request: NextRequest) {
       query = query.is('read_at', null);
     }
 
+    // PERFORMANCE: Move type filter to database query instead of client-side
+    if (type) {
+      query = query.eq('notification.notification_type', type);
+    }
+
+    // PERFORMANCE: Filter expired notifications in the database
+    const now = new Date().toISOString();
+    query = query.or(
+      `notification.expires_at.is.null,notification.expires_at.gt.${now}`
+    );
+
     // Limit + 1 to check if there are more
     query = query.limit(limit + 1);
 
@@ -107,21 +118,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Filter by notification type if specified
     let filteredNotifications: MerchantNotificationWithDetails[] =
       (notifications || []) as unknown as MerchantNotificationWithDetails[];
-    if (type) {
-      filteredNotifications = filteredNotifications.filter(
-        (n) => n.notification?.notification_type === type
-      );
-    }
-
-    // Filter out expired notifications
-    const now = new Date();
-    filteredNotifications = filteredNotifications.filter(
-      (n) =>
-        !n.notification?.expires_at || new Date(n.notification.expires_at) > now
-    );
 
     // Check if there are more results
     const hasMore = filteredNotifications.length > limit;

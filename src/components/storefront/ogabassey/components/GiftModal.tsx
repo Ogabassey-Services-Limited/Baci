@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 export interface GiftData {
   selectedItemIds: string[];
@@ -26,6 +28,9 @@ interface GiftModalProps {
 export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
   const { cart } = useCart();
   const router = useRouter();
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
+  const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
 
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [address, setAddress] = useState('');
@@ -97,7 +102,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
     // }
 
     // Navigate to checkout with flag
-    router.push('/checkout?giftWrappingCost=10000');
+    router.push(asRoute(getHref('/checkout?giftWrappingCost=10000')));
     onClose();
   };
 

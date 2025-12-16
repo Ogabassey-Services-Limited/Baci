@@ -19,6 +19,7 @@ import { useState, useEffect } from 'react';
 import { type CartItem, useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { analytics } from '@/lib/analytics';
+import { asRoute } from '@/lib/routes';
 import { AdUnit } from './AdUnit';
 // import { ActionTooltip } from './Tooltip';
 import { EmptyState } from './empty-state';
@@ -53,7 +54,10 @@ export const CartSidebar: React.FC = () => {
   // Get merchant context for slug
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
-  const storeSlug = merchant?.slug || '';
+  const basePath = merchantContext?.basePath;
+
+  const getHref = (path: string) =>
+    path.startsWith('http') ? path : `${basePath || ''}${path === '/' ? '' : path}`;
 
   const [isCheckoutLoading, setIsCheckoutLoading] = useState(false);
   const router = useRouter();
@@ -180,7 +184,7 @@ export const CartSidebar: React.FC = () => {
                         className="flex gap-4 animate-in fade-in duration-300 border-b border-gray-50 pb-6 last:border-0 last:pb-0"
                       >
                         <Link
-                          href={`/product/${item.id}` as any}
+                          href={asRoute(getHref(`/product/${item.id}`))}
                           className="relative w-24 h-24 bg-gray-50 rounded-lg border border-gray-100 p-2 flex-shrink-0 self-start mt-1 block group/image"
                         >
                           <img
@@ -208,7 +212,7 @@ export const CartSidebar: React.FC = () => {
                           <div>
                             <div className="flex justify-between items-start">
                               <Link
-                                href={`/product/${item.id}` as any}
+                                href={asRoute(getHref(`/product/${item.id}`))}
                                 className="font-bold text-gray-900 line-clamp-1 text-sm hover:text-red-600 transition-colors"
                               >
                                 {item.name}
@@ -418,7 +422,7 @@ export const CartSidebar: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsCheckoutLoading(true);
-                    router.push(`/${storeSlug}/checkout`);
+                    router.push(asRoute(getHref('/checkout')));
                     // We don't close the sidebar immediately so the user sees the loading state.
                     // The sidebar will naturally disappear or close when the new route loads/unmounts.
                     // Or we can set a timeout to close it if navigation is fast?

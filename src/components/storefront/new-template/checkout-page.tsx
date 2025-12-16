@@ -5,6 +5,8 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 import { Footer } from './footer';
 import { Navbar } from './navbar';
 
@@ -12,6 +14,9 @@ export const CheckoutPage: React.FC = () => {
   const { cart, cartTotal } = useCart();
   const [isClient, setIsClient] = useState(false);
   const [step, setStep] = useState(1); // 1: Shipping, 2: Payment, 3: Success
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
+  const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
 
   useEffect(() => {
     setIsClient(true);
@@ -26,7 +31,7 @@ export const CheckoutPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 font-sans flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Your cart is empty</h1>
-          <Link href="/" className="text-red-600 hover:underline">
+          <Link href={asRoute(getHref('/'))} className="text-red-600 hover:underline">
             Return to Home
           </Link>
         </div>
@@ -41,7 +46,7 @@ export const CheckoutPage: React.FC = () => {
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-8 md:py-12">
         <div className="flex items-center gap-2 mb-8">
           <Link
-            href="/cart"
+            href={asRoute(getHref('/cart'))}
             className="flex items-center gap-2 text-gray-500 hover:text-red-600 transition-colors"
           >
             <ArrowLeft size={20} />
@@ -248,7 +253,7 @@ export const CheckoutPage: React.FC = () => {
                   confirmed and will be shipped shortly.
                 </p>
                 <Link
-                  href="/"
+                  href={asRoute(getHref('/'))}
                   className="inline-flex items-center gap-2 bg-gray-900 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-gray-800 transition-all"
                 >
                   Continue Shopping

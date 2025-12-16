@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import type React from 'react';
+import { type MerchantData, useMerchant } from '@/hooks/use-merchant';
 
 import { Logo } from './logo';
 
@@ -40,17 +41,12 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   const router = useRouter();
   const pathname = usePathname();
   const { theme, setTheme } = useV2Theme();
-
-  // Extract store slug from pathname (first segment that's not a known page route)
-  const pathSegments = pathname?.split('/').filter(Boolean) || [];
-  const knownRoutes = ['account', 'cart', 'checkout', 'products', 'wishlist', 'wallet', 'repairs', 'imei-check', 'pages'];
-  const firstSegment = pathSegments[0] || '';
-  const storeSlug = knownRoutes.includes(firstSegment) ? '' : firstSegment;
+  const { basePath } = useMerchant();
 
   if (!isOpen) return null;
 
   const handleNavigate = (path: string) => {
-    const fullPath = storeSlug ? `/${storeSlug}${path}` : path;
+    const fullPath = `${basePath}${path}`;
     router.push(fullPath as any);
     onClose();
   };

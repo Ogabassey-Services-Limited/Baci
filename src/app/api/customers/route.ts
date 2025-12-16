@@ -17,6 +17,14 @@ export async function GET(request: Request) {
   // Sanitize search input to prevent SQL injection
   const search = searchRaw ? sanitizeSearchQuery(searchRaw) : null;
 
+  // PERFORMANCE: Add pagination support
+  const page = Number.parseInt(searchParams.get('page') || '1', 10);
+  const limit = Math.min(
+    Number.parseInt(searchParams.get('limit') || '50', 10),
+    100 // Cap at 100 to prevent large queries
+  );
+  const offset = (page - 1) * limit;
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -38,9 +46,10 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from('customers')
-    .select('*')
+    .select('*', { count: 'exact' })
     .eq('merchant_id', merchant.id)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
 
   if (search?.trim()) {
     const sanitizedPattern = sanitizeLikePattern(search);
@@ -49,13 +58,21 @@ export async function GET(request: Request) {
     );
   }
 
-  const { data: customers, error } = await query;
+  const { data: customers, error, count } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ customers });
+  return NextResponse.json({
+    customers,
+    pagination: {
+      page,
+      limit,
+      total: count || 0,
+      totalPages: Math.ceil((count || 0) / limit),
+    },
+  });
 }
 
 export async function POST(request: Request) {

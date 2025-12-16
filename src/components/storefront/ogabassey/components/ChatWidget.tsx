@@ -1,9 +1,11 @@
 'use client';
 
 import {
+  Gift,
   Headphones,
   Send,
   ShoppingBag,
+  ShoppingCart,
   Sparkles,
   Truck,
   User,
@@ -11,13 +13,21 @@ import {
   Zap,
 } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { parseCartAction } from '@/components/storefront/santa-chat/types';
 import { useV2Theme } from '../providers/v2-theme-context';
+
+interface SantaCartAction {
+  productName: string;
+  price: number;
+  added: boolean;
+}
 
 interface ChatMessage {
   role: 'user' | 'model';
   text: string;
+  santaAction?: SantaCartAction;
 }
 
 const SUGGESTIONS = [
@@ -46,7 +56,7 @@ const SantaIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 export const ChatWidget: React.FC = () => {
-  const { isCartOpen } = useCart();
+  const { isCartOpen, addToCart, setIsCartOpen } = useCart();
   const { theme } = useV2Theme();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -56,6 +66,49 @@ export const ChatWidget: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const isSanta = theme === 'santa';
+
+  // Handle adding Santa's wish to cart
+  const handleAddSantaWishToCart = useCallback(
+    (messageIndex: number) => {
+      const message = messages[messageIndex];
+      if (!message?.santaAction || message.santaAction.added) return;
+
+      // Create a product object for the cart with all required fields
+      const santaProduct = {
+        id: `santa-wish-${Date.now()}`,
+        merchant_id: 'ogabassey',
+        name: message.santaAction.productName,
+        description: `Santa's special Christmas wish - ${message.santaAction.productName}`,
+        status: 'active' as const,
+        price: message.santaAction.price,
+        manage_stock: false,
+        stock: 999,
+        image: '/african-santa-head.svg',
+        imageLarge: '/african-santa-head.svg',
+        imageHint: 'Santa wish product',
+        brand: 'Ogabassey',
+        gtin: '',
+        mpn: '',
+        slug: 'santa-wish',
+        images: [{ url: '/african-santa-head.svg', alt: 'Santa wish', order: 0 }],
+      };
+
+      addToCart(santaProduct, 1);
+
+      // Mark as added
+      setMessages((prev) =>
+        prev.map((msg, idx) =>
+          idx === messageIndex && msg.santaAction
+            ? { ...msg, santaAction: { ...msg.santaAction, added: true } }
+            : msg
+        )
+      );
+
+      // Open cart sidebar
+      setIsCartOpen(true);
+    },
+    [messages, addToCart, setIsCartOpen]
+  );
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -125,7 +178,28 @@ export const ChatWidget: React.FC = () => {
         }
       }
 
-      setMessages((prev) => [...prev, { role: 'model', text: aiResponseText }]);
+      // Check if Santa granted a wish (parse the ACTION pattern)
+      let santaAction: SantaCartAction | undefined;
+      if (isSanta) {
+        const action = parseCartAction(aiResponseText);
+        if (action) {
+          // Parse price - remove currency symbols and commas
+          const priceStr = action.price.replace(/[₦,N\s]/g, '');
+          const price = Number.parseInt(priceStr, 10) || 0;
+          santaAction = {
+            productName: action.product,
+            price,
+            added: false,
+          };
+        }
+      }
+
+      // Clean the response text by removing the ACTION pattern for display
+      const displayText = aiResponseText
+        .replace(/ACTION:ADD_TO_CART\|PRODUCT:[^|]+\|PRICE:[^\s]+/g, '')
+        .trim();
+
+      setMessages((prev) => [...prev, { role: 'model', text: displayText, santaAction }]);
     } catch (error) {
       console.error('Chat error:', error);
       setMessages((prev) => [
@@ -242,6 +316,47 @@ export const ChatWidget: React.FC = () => {
                           }`}
                       >
                         {msg.text}
+
+                        {/* Santa Wish Granted - Add to Cart Button */}
+                        {msg.santaAction && (
+                          <div className="mt-3 pt-3 border-t border-green-200">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Gift size={16} className="text-green-600" />
+                              <span className="text-xs font-semibold text-green-700">
+                                Wish Granted!
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-600 mb-2">
+                              <span className="font-medium">{msg.santaAction.productName}</span>
+                              <br />
+                              <span className="text-green-600 font-bold">
+                                ₦{msg.santaAction.price.toLocaleString()}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleAddSantaWishToCart(idx)}
+                              disabled={msg.santaAction.added}
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                                msg.santaAction.added
+                                  ? 'bg-green-100 text-green-700 cursor-default'
+                                  : 'bg-green-600 text-white hover:bg-green-700 hover:scale-[1.02] active:scale-[0.98]'
+                              }`}
+                            >
+                              {msg.santaAction.added ? (
+                                <>
+                                  <ShoppingCart size={16} />
+                                  Added to Cart!
+                                </>
+                              ) : (
+                                <>
+                                  <ShoppingCart size={16} />
+                                  Add to Cart & Checkout
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -4,14 +4,22 @@ import { motion } from 'framer-motion';
 import { AlertCircle, CheckCircle, Loader2, Package } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 export default function CheckoutSuccessPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const reference = searchParams.get('reference');
   const { clearCart } = useCart();
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
+  const getHref = useCallback(
+    (path: string) => (path.startsWith('http') ? path : `${basePath}${path}`),
+    [basePath]
+  );
   const [status, setStatus] = useState<
     'verifying' | 'success' | 'pending' | 'failed'
   >('verifying');
@@ -22,7 +30,7 @@ export default function CheckoutSuccessPage() {
     const verifyPayment = async () => {
       if (!reference) {
         // No reference - redirect back to checkout
-        router.push('/checkout');
+        router.push(asRoute(getHref('/checkout')));
         return;
       }
 
@@ -51,7 +59,7 @@ export default function CheckoutSuccessPage() {
           setStatus('failed');
           // After showing the failed message briefly, redirect to checkout
           setTimeout(() => {
-            router.push('/checkout');
+            router.push(asRoute(getHref('/checkout')));
           }, 3000);
         } else {
           // Unknown status - show pending
@@ -67,7 +75,7 @@ export default function CheckoutSuccessPage() {
     };
 
     verifyPayment();
-  }, [reference, clearCart, router]);
+  }, [reference, clearCart, router, getHref]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -176,13 +184,13 @@ export default function CheckoutSuccessPage() {
         {(status === 'success' || status === 'pending') && (
           <div className="flex flex-col gap-3 mt-6">
             <Link
-              href="/"
+              href={asRoute(getHref('/'))}
               className="w-full bg-gray-900 text-white py-3 px-6 rounded-xl font-bold hover:bg-gray-800 transition-colors"
             >
               Continue Shopping
             </Link>
             <Link
-              href="/account/orders"
+              href={asRoute(getHref('/account/orders'))}
               className="w-full bg-gray-100 text-gray-700 py-3 px-6 rounded-xl font-bold hover:bg-gray-200 transition-colors"
             >
               View My Orders
@@ -193,7 +201,7 @@ export default function CheckoutSuccessPage() {
         {status === 'failed' && (
           <div className="flex flex-col gap-3 mt-6">
             <Link
-              href="/checkout"
+              href={asRoute(getHref('/checkout'))}
               className="w-full bg-red-600 text-white py-3 px-6 rounded-xl font-bold hover:bg-red-700 transition-colors"
             >
               Return to Checkout

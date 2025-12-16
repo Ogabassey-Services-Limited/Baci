@@ -21,11 +21,14 @@ import {
   User,
   X,
 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import { BlogSnippet } from '../components/BlogSnippet';
@@ -33,102 +36,23 @@ import { NegotiationModal } from '../components/NegotiationModal';
 import { ProductComparisonTable } from '../components/ProductComparisonTable';
 import { ProductVideo } from '../components/ProductVideo';
 import { FlyToCartAnimation } from '../components/FlyToCartAnimation'; // Added Animation
-import { products } from '../data/products';
 import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 
 // Props interface for the component
 interface ProductDetailsPageProps {
-  /** Optional server-fetched product data. If not provided, falls back to mock data lookup. */
-  product?: Product;
+  /** Server-fetched product data - required */
+  product: Product;
 }
-
-// Fallback Mock data if product is not found
-const FALLBACK_PRODUCT = {
-  id: 1,
-  name: 'iPhone 15 Pro Max',
-  brand: 'Apple',
-  price: '₦1,950,000',
-  rawPrice: 1950000,
-  rating: 4.8,
-  reviewCount: 124,
-  description:
-    'iPhone 15 Pro Max. Forged in titanium and featuring the groundbreaking A17 Pro chip, a customizable Action button, and the most powerful iPhone camera system ever.',
-  image:
-    'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=1000&auto=format&fit=crop',
-  images: [
-    'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1695048133142-1a20484d2569?q=80&w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1697316986292-6927d3c0157f?q=80&w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1695048133021-3e0f47e3079c?q=80&w=1000&auto=format&fit=crop',
-  ],
-  colors: [
-    { name: 'Natural Titanium', value: '#Bfb7ad' },
-    { name: 'Blue Titanium', value: '#2f3d4d' },
-    { name: 'White Titanium', value: '#f2f2f2' },
-    { name: 'Black Titanium', value: '#1a1a1a' },
-  ],
-  storage: ['256GB', '512GB', '1TB'],
-  ram: '8GB',
-  simType: 'Dual eSIM',
-  displayType: 'OLED',
-  displaySize: '6.7"',
-  specs: [
-    { label: 'Screen Size', value: '6.7 inches' },
-    { label: 'Processor', value: 'A17 Pro chip' },
-    { label: 'Main Camera', value: '48MP Main' },
-    { label: 'Battery', value: 'Up to 29 hours video playback' },
-    { label: 'OS', value: 'iOS 17' },
-  ],
-  detailedSpecs: [
-    {
-      category: 'Network',
-      items: [
-        { label: 'Technology', value: 'GSM / CDMA / HSPA / EVDO / LTE / 5G' },
-        { label: 'Speed', value: 'HSPA, LTE-A, 5G, EV-DO Rev.A 3.1 Mbps' },
-      ],
-    },
-  ],
-  category: 'Phones',
-  condition: 'New',
-};
-
-// Mock Reviews
-const MOCK_REVIEWS = [
-  {
-    id: 1,
-    user: 'Ahmed Musa',
-    rating: 5,
-    date: '2 days ago',
-    comment:
-      "Best phone I've ever used. The titanium feel is premium and much lighter than my 14 Pro Max. Battery life is solid.",
-    verified: true,
-  },
-  {
-    id: 2,
-    user: 'Sarah Okon',
-    rating: 4,
-    date: '1 week ago',
-    comment:
-      'Camera is amazing, especially the 5x zoom. Only issue is it gets a bit warm during heavy gaming.',
-    verified: true,
-  },
-  {
-    id: 3,
-    user: 'David Cohen',
-    rating: 5,
-    date: '2 weeks ago',
-    comment:
-      'Delivery to Abuja was super fast (2 days). Product is authentic. Highly recommend Ogabassey.',
-    verified: true,
-  },
-];
 
 export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product: serverProduct }) => {
   const params = useParams();
   const id = serverProduct?.id?.toString() || (params?.id as string); // Use prop id or URL param
   const router = useRouter(); // Use Next.js router
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
+  const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
   const {
     addToCart,
     cart,
@@ -140,12 +64,6 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   const { toggleSaved, isSaved } = useV2Saved();
   const { compareItems, addToCompare, removeFromCompare, isInCompare } =
     useV2Comparison();
-
-  // Find product from data - use server product
-  const productFound = useMemo(
-    () => serverProduct,
-    [serverProduct]
-  );
 
   const getColorHex = (name: string) => {
     const lower = name.toLowerCase();
@@ -181,114 +99,69 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   };
 
   const productData = useMemo(() => {
-    // If we have a server product, use it strictly without merging fallback data
-    if (serverProduct) {
-      // Normalize Colors
-      let normalizedColors: { name: string; value: string }[] = [];
-      if (serverProduct.colors && serverProduct.colors.length > 0) {
-        normalizedColors = serverProduct.colors.map((c: any) => ({
-          name: typeof c === 'string' ? c : c.name || c,
-          value: getColorHex(typeof c === 'string' ? c : c.name || c),
-        }));
-      }
-
-      // Normalize Storage
-      let normalizedStorage: string[] = [];
-      if (serverProduct.storage) {
-        normalizedStorage = Array.isArray(serverProduct.storage)
-          ? serverProduct.storage
-          : [serverProduct.storage];
-      }
-
-      // Normalize Images
-      let normalizedImages: string[] = [];
-      if (serverProduct.images && serverProduct.images.length > 0) {
-        normalizedImages = serverProduct.images;
-      } else if (serverProduct.image) {
-        normalizedImages = [serverProduct.image];
-      } else {
-        // Only use fallback image if absolutely no images exist
-        normalizedImages = [FALLBACK_PRODUCT.image];
-      }
-
-      return {
-        ...serverProduct, // Use everything from server product
-        images: normalizedImages,
-        colors: normalizedColors,
-        storage: normalizedStorage,
-        colorImages: (serverProduct as any).color_images || {}, // Color→Images mapping
-        condition: (serverProduct.condition as any) || 'New',
-        // Ensure defaults for critical UI fields if missing
-        rating: serverProduct.rating || 0,
-        reviewCount: serverProduct.reviews || 0,
-        description: serverProduct.description || 'No description available.',
-        // Map specifications to detailedSpecs (UI key)
-        detailedSpecs: (serverProduct as any).specifications || (serverProduct as any).detailedSpecs || [
-          {
-            category: 'General',
-            items: [
-              { label: 'Brand', value: serverProduct.brand || 'Generic' },
-              { label: 'Condition', value: (serverProduct.condition as any) || 'New' },
-              { label: 'Category', value: serverProduct.category || 'General' },
-            ],
-          },
-        ],
-        specs: (serverProduct as any).specs || [
-          { label: 'Brand', value: serverProduct.brand || 'Generic' },
-          { label: 'Condition', value: serverProduct.condition || 'New' },
-        ],
-      };
-    }
-
-    // Legacy/Mock Fallback logic (only used when no server product)
-    const base = productFound
-      ? { ...FALLBACK_PRODUCT, ...productFound }
-      : FALLBACK_PRODUCT;
-
     // Normalize Colors
-    let normalizedColors = FALLBACK_PRODUCT.colors;
-    if (productFound?.colors && productFound.colors.length > 0) {
-      normalizedColors = productFound.colors.map((c: any) => ({
-        name: c,
-        value: getColorHex(c),
+    let normalizedColors: { name: string; value: string }[] = [];
+    if (serverProduct.colors && serverProduct.colors.length > 0) {
+      normalizedColors = serverProduct.colors.map((c: unknown) => ({
+        name: typeof c === 'string' ? c : (c as { name?: string }).name || String(c),
+        value: getColorHex(typeof c === 'string' ? c : (c as { name?: string }).name || String(c)),
       }));
     }
 
     // Normalize Storage
-    let normalizedStorage = FALLBACK_PRODUCT.storage;
-    if (productFound?.storage) {
-      // Ensure storage is an array
-      normalizedStorage = Array.isArray(productFound.storage)
-        ? productFound.storage
-        : [productFound.storage];
-    } else if (!productFound) {
-      normalizedStorage = FALLBACK_PRODUCT.storage;
-    } else {
-      normalizedStorage =
-        productFound.category === 'Phones' ||
-          productFound.category === 'Laptops'
-          ? normalizedStorage
-          : [];
+    let normalizedStorage: string[] = [];
+    if (serverProduct.storage) {
+      normalizedStorage = Array.isArray(serverProduct.storage)
+        ? serverProduct.storage
+        : [serverProduct.storage];
     }
 
     // Normalize Images
-    let normalizedImages = FALLBACK_PRODUCT.images;
-    if (productFound?.image) {
-      normalizedImages = [
-        productFound.image,
-        ...FALLBACK_PRODUCT.images.slice(1),
-      ];
+    let normalizedImages: string[] = [];
+    if (serverProduct.images && serverProduct.images.length > 0) {
+      normalizedImages = serverProduct.images;
+    } else if (serverProduct.image) {
+      normalizedImages = [serverProduct.image];
     }
 
+    // Extract platforms from variants
+    const platforms = (serverProduct.variants
+      ? Array.from(new Set(serverProduct.variants
+        .map((v) => v.attributes?.platform || v.platform)
+        .filter(Boolean)))
+      : []) as string[];
+
     return {
-      ...base,
-      image: productFound?.image || FALLBACK_PRODUCT.image,
+      ...serverProduct,
       images: normalizedImages,
       colors: normalizedColors,
       storage: normalizedStorage,
-      colorImages: {}, // Fallback has no color mapping
+      platforms,
+      colorImages: (serverProduct as Product & { color_images?: Record<string, string[]> }).color_images || {},
+      condition: serverProduct.condition || 'new',
+      rating: serverProduct.rating || 0,
+      reviewCount: serverProduct.reviews || 0,
+      description: serverProduct.description || 'No description available.',
+      detailedSpecs: (Array.isArray((serverProduct as Product & { specifications?: unknown }).specifications)
+        ? (serverProduct as Product & { specifications?: unknown }).specifications
+        : Array.isArray(serverProduct.detailedSpecs)
+          ? serverProduct.detailedSpecs
+          : [
+            {
+              category: 'General',
+              items: [
+                { label: 'Brand', value: serverProduct.brand || 'Generic' },
+                { label: 'Condition', value: serverProduct.condition || 'New' },
+                { label: 'Category', value: serverProduct.category || 'General' },
+              ],
+            },
+          ]) as { category: string; items: { label: string; value: string }[] }[],
+      specs: serverProduct.specs || [
+        { label: 'Brand', value: serverProduct.brand || 'Generic' },
+        { label: 'Condition', value: serverProduct.condition || 'New' },
+      ],
     };
-  }, [productFound, serverProduct, getColorHex]);
+  }, [serverProduct, getColorHex]);
 
   // Phase 7: Condition State
   type ConditionType = 'new' | 'used' | 'open_box' | 'refurbished';
@@ -307,6 +180,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   const [selectedColor, setSelectedColor] = useState<number | null>(null);
   const [secondaryColor, setSecondaryColor] = useState<number | null>(null);
   const [selectedStorage, setSelectedStorage] = useState<number | null>(null);
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     'description' | 'specs' | 'reviews' | 'compare'
   >('description');
@@ -336,28 +210,14 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
 
   // Comparison Logic - Compute comparable items
   const comparableProducts = useMemo(() => {
-    // 1. Get items from context that match category AND are NOT the current product
-    const contextItems = compareItems.filter(
-      (p) =>
-        p.category === productData.category &&
-        String(p.id) !== String(productData.id)
-    );
-
-    // 2. If we don't have enough comparison items (let's say we want at least 2 competitors), fill with random products
-    let finalItems = [...contextItems];
-    if (finalItems.length < 2) {
-      const suggestions = products
-        .filter(
-          (p) =>
-            p.category === productData.category &&
-            String(p.id) !== String(productData.id) &&
-            !finalItems.some((fi) => String(fi.id) === String(p.id))
-        )
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 2 - finalItems.length);
-      finalItems = [...finalItems, ...(suggestions as any[])];
-    }
-    return finalItems.slice(0, 3); // Max 3 competitors
+    // Get items from context that match category AND are NOT the current product
+    return compareItems
+      .filter(
+        (p) =>
+          p.category === productData.category &&
+          String(p.id) !== String(productData.id)
+      )
+      .slice(0, 3); // Max 3 competitors
   }, [compareItems, productData.category, productData.id]);
 
   // Scroll to top on load - Optional in Next.js but kept for component mount reset
@@ -477,39 +337,77 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
     }
   };
 
-  // Phase 7: Get Current Offer Data (Price, Stock) based on Condition
+  // Phase 7 & 4: Get Current Offer Data (Price, Stock) based on Condition AND Variants
   const currentOffer = useMemo(() => {
-    // If selected matches main product condition, return main product data
-    if (selectedCondition.toLowerCase() === (productData.condition || 'new').toLowerCase()) {
-      return {
-        price: productData.price,
-        rawPrice: productData.rawPrice,
-        stock: productData.stock ?? 10,
-        id: productData.id, // Main product ID
-      };
+    let price = productData.rawPrice || 0;
+    // Attempt to parse price string if rawPrice is missing (fallback)
+    if (!price && typeof productData.price === 'string') {
+      price = parseInt(productData.price.replace(/[^0-9]/g, ''), 10) || 0;
     }
 
-    // Otherwise look in offers
-    if (productData.offers) {
-      const offer = productData.offers.find(o => o.condition.toLowerCase() === selectedCondition.toLowerCase());
-      if (offer) {
-        return {
-          price: `₦${offer.price.toLocaleString()}`,
-          rawPrice: offer.price,
-          stock: offer.stock_quantity,
-          id: productData.id, // Still use parent ID, but cart handles condition distinction
-        };
+    let stock = productData.stock ?? 10;
+
+    // 1. Resolve Base Price based on Condition
+    // If selected is NOT main condition, look for offer
+    if (selectedCondition.toLowerCase() !== (productData.condition || 'new').toLowerCase()) {
+      if (productData.offers) {
+        const offer = productData.offers.find(o => o.condition.toLowerCase() === selectedCondition.toLowerCase());
+        if (offer) {
+          price = offer.price;
+          stock = offer.stock_quantity;
+        }
       }
     }
 
-    // Fallback to main product if not found (shouldn't happen if UI matches availability)
+    // 2. Resolve Variant Price Modifier / Override based on Storage
+    // This applies ON TOP of condition price (or overrides it if price_override is set)
+    if (selectedStorage !== null && productData.storage && Array.isArray(productData.storage) && productData.variants) {
+      const storageValue = productData.storage[selectedStorage];
+      const variant = productData.variants.find(v => v.storage === storageValue);
+
+      if (variant) {
+        if (variant.price_override) {
+          price = variant.price_override;
+        } else if (variant.price_modifier) {
+          price += variant.price_modifier;
+        }
+
+        if (variant.stock !== undefined) {
+          stock = variant.stock;
+        }
+      }
+    }
+
+    // 3. Resolve Platform Variant (Phase 4 Ext)
+    if (selectedPlatform && productData.variants) {
+      // Find variant that matches Platform (and Storage if selected)
+      const variant = productData.variants.find((v) => {
+        const platformMatch =
+          (v.platform || v.attributes?.platform) === selectedPlatform;
+        const storageMatch =
+          selectedStorage !== null && productData.storage
+            ? v.storage === productData.storage[selectedStorage]
+            : true;
+        return platformMatch && storageMatch;
+      });
+
+      if (variant) {
+        if (variant.price_override) {
+          price = variant.price_override;
+        } else if (variant.price_modifier) {
+          price += variant.price_modifier;
+        }
+        if (variant.stock !== undefined) stock = variant.stock;
+      }
+    }
+
     return {
-      price: productData.price,
-      rawPrice: productData.rawPrice,
-      stock: productData.stock ?? 10,
+      price: `₦${price.toLocaleString()}`,
+      rawPrice: price,
+      stock,
       id: productData.id,
     };
-  }, [selectedCondition, productData]);
+  }, [selectedCondition, selectedStorage, selectedPlatform, productData]);
 
   const getProductForCart = (): Product => {
     return {
@@ -523,6 +421,8 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       category: productData.category,
       condition: selectedCondition as 'New' | 'Used', // Use selected condition
       brand: productData.brand,
+      // Pass platform if selected
+      ...(selectedPlatform ? { platform: selectedPlatform } : {}),
     };
   };
 
@@ -652,12 +552,16 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8">
           {/* Left: Image Gallery (5 Cols) */}
+
           <div className="lg:col-span-5 space-y-6">
             <div className="relative aspect-square bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden border border-gray-100">
-              <img
+              <Image
                 src={productData.images[selectedImage]}
                 alt={productData.name}
-                className="w-full h-full object-cover transition-all duration-500"
+                fill
+                className="object-cover transition-all duration-500"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                priority
               />
               <div
                 className={`absolute top-4 left-4 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${productData.condition?.toLowerCase() === 'new'
@@ -678,10 +582,12 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                   }}
                   className={`relative w-24 h-24 bg-gray-50 rounded-xl border-2 flex-shrink-0 flex items-center justify-center p-0 overflow-hidden transition-all active:scale-95 ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent md:hover:border-gray-200'}`}
                 >
-                  <img
+                  <Image
                     src={img}
                     alt={`View ${idx}`}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="96px"
                   />
                 </button>
               ))}
@@ -746,8 +652,8 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                 <div className="flex flex-wrap gap-3">
                   {/* Render Main Product Option */}
                   <button
-                    onClick={() => setSelectedCondition(productData.condition || 'New')}
-                    className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-all ${selectedCondition === (productData.condition || 'New')
+                    onClick={() => setSelectedCondition((productData.condition?.toLowerCase() || 'new') as ConditionType)}
+                    className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-all ${selectedCondition === (productData.condition?.toLowerCase() || 'new')
                       ? 'border-red-600 bg-red-50 text-red-700'
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
                       }`}
@@ -766,6 +672,29 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                         }`}
                     >
                       {offer.condition.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Platform Selector (Phase 4 Extension) */}
+            {productData.platforms && productData.platforms.length > 0 && (
+              <div className="mb-6">
+                <label className="text-sm font-bold text-gray-900 block mb-3">
+                  Platform: <span className="text-red-600">{selectedPlatform || 'Select'}</span>
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  {productData.platforms.map((platform: string) => (
+                    <button
+                      key={platform}
+                      onClick={() => setSelectedPlatform(platform === selectedPlatform ? null : platform)}
+                      className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-all ${selectedPlatform === platform
+                        ? 'border-red-600 bg-red-50 text-red-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                        }`}
+                    >
+                      {platform}
                     </button>
                   ))}
                 </div>
@@ -893,8 +822,9 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               </div>
             )}
 
+            {/* Short description excerpt (strip HTML for summary) */}
             <p className="text-gray-600 leading-relaxed mb-8 border-b border-gray-100 pb-8 text-sm">
-              {productData.description}
+              {(productData.description || '').replace(/<[^>]*>/g, '').substring(0, 250)}...
             </p>
 
             {/* Storage Selector */}
@@ -1051,7 +981,11 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           <div className="min-h-[300px]">
             {activeTab === 'description' && (
               <div className="prose max-w-none text-gray-600 animate-in fade-in duration-300">
-                <p className="mb-4">{productData.description}</p>
+                {/* Render description as HTML (pre-sanitized in database) */}
+                <div
+                  className="mb-4 prose-headings:text-gray-900 prose-strong:text-gray-800 prose-table:text-sm"
+                  dangerouslySetInnerHTML={{ __html: productData.description || '' }}
+                />
 
                 {/* Dynamic Product Highlights for SEO & Readability */}
                 <div className="mt-6 mb-6">
@@ -1159,48 +1093,16 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
                 </div>
 
                 <div className="space-y-4">
-                  {MOCK_REVIEWS.map((review) => (
-                    <div
-                      key={review.id}
-                      className="border-b border-gray-100 pb-6 last:border-0"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold text-xs">
-                            <User size={14} />
-                          </div>
-                          <div>
-                            <h4 className="font-bold text-gray-900 text-sm">
-                              {review.user}
-                            </h4>
-                            <span className="text-xs text-gray-400">
-                              {review.date}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex text-yellow-400">
-                          {[...Array(5)].map((_, i) => (
-                            <Star
-                              key={i}
-                              size={12}
-                              fill={i < review.rating ? 'currentColor' : 'none'}
-                              className={
-                                i >= review.rating ? 'text-gray-200' : ''
-                              }
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-gray-600 text-sm mb-3">
-                        {review.comment}
-                      </p>
-                      {review.verified && (
-                        <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                          <Check size={12} /> Verified Purchase
-                        </div>
-                      )}
+                  {productData.reviewCount === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <User size={32} className="mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No reviews yet. Be the first to review this product!</p>
                     </div>
-                  ))}
+                  ) : (
+                    <p className="text-sm text-gray-500 text-center py-4">
+                      Reviews are loaded from the store&apos;s review system.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -1253,7 +1155,7 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               </div>
               {/* Bottom Row: View Cart */}
               <button
-                onClick={() => router.push('/cart')}
+                onClick={() => router.push(asRoute(getHref('/cart')))}
                 className="bg-green-600 text-white text-xs font-bold py-1.5 rounded-lg w-full shadow-sm active:scale-[0.98] transition-all"
               >
                 View Cart

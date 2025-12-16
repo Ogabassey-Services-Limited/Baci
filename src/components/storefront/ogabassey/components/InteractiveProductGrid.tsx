@@ -4,6 +4,8 @@ import Link from 'next/link';
 // Migrated from temp-source/components/InteractiveProductGrid.tsx
 import React, { useMemo, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 // import { products } from '../data/products'; // REMOVED MOCK DATA
 import { useV2Saved } from '../providers/v2-saved-context';
@@ -31,6 +33,9 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
   showViewAll = true,
 }) => {
   const { addToCart } = useCart();
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
+  const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
   // Wishlist feature available via useV2Saved - uncomment when implementing
   // const { savedItems, toggleSaved, isSaved } = useV2Saved();
   const [addedItems, setAddedItems] = useState<number[]>([]);
@@ -171,7 +176,7 @@ export const InteractiveProductGrid: React.FC<InteractiveProductGridProps> = ({
           <div className="flex items-center gap-4">
             {showViewAll && (
               <Link
-                href="/products"
+                href={asRoute(getHref('/products'))}
                 className="text-gray-500 hover:text-red-600 font-medium transition-colors text-xs md:text-base hidden sm:block"
               >
                 View all products

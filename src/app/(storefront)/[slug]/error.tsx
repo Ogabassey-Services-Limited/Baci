@@ -4,6 +4,8 @@ import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
 import { ThemedButton } from '@/components/themed';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -11,6 +13,9 @@ interface ErrorProps {
 }
 
 export default function StorefrontError({ error, reset }: ErrorProps) {
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath;
+
   useEffect(() => {
     // Log the error to an error reporting service
     console.error('Storefront error:', error);
@@ -63,7 +68,7 @@ export default function StorefrontError({ error, reset }: ErrorProps) {
             <RefreshCw className="mr-2 h-4 w-4" />
             Try Again
           </ThemedButton>
-          <Link href="/">
+          <Link href={asRoute(`${basePath || ''}/`)}>
             <ThemedButton
               colorRole="accent"
               variant="outline"
@@ -79,7 +84,10 @@ export default function StorefrontError({ error, reset }: ErrorProps) {
         {/* Support message */}
         <p className="text-sm text-muted-foreground pt-4">
           If this problem persists, please{' '}
-          <Link href="/pages/contact" className="text-primary hover:underline">
+          <Link
+            href={asRoute(`${basePath || ''}/pages/contact`)}
+            className="text-primary hover:underline"
+          >
             contact support
           </Link>
           .

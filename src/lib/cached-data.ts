@@ -173,6 +173,7 @@ export const getCachedMerchant = unstable_cache(
 export const getCachedMerchantByDomain = unstable_cache(
   async (domain: string): Promise<CachedMerchant | null> => {
     const normalizedDomain = domain.toLowerCase();
+    // Reverted to public client as RLS policy now permits anonymous reads
     const supabase = getPublicSupabaseClient();
 
     // First, find the merchant_id from the domains table
@@ -431,16 +432,17 @@ export const getCachedProduct = unstable_cache(
         ),
         product_variants (
           id,
-          name,
-          options,
-          price_modifier,
-          stock,
+          sku,
+          attributes,
+          price_override,
+          stock_quantity,
           storage,
           sim_type,
           color,
           images,
           primary_image,
-          price_override
+          ram_gb,
+          condition
         ),
         product_categories (
           category_id,

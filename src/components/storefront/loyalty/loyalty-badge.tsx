@@ -4,6 +4,7 @@ import { Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useLoyalty } from '@/hooks/use-loyalty';
+import { useMerchant } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
@@ -22,12 +23,15 @@ export function LoyaltyBadge({
   className,
   showPoints = true,
   compact = false,
-  rewardsHref = '/pages/rewards',
+  rewardsHref,
 }: LoyaltyBadgeProps) {
+  const { basePath } = useMerchant();
   const { enrolled, pointsBalance, tier, loading, getTierInfo } = useLoyalty(
     merchantId,
     customerId
   );
+
+  const targetHref = rewardsHref || `${basePath || ''}/pages/rewards`;
 
   // Don't show anything if not enrolled or still loading
   if (loading || !enrolled) {
@@ -39,7 +43,7 @@ export function LoyaltyBadge({
   if (compact) {
     return (
       <Link
-        href={asRoute(rewardsHref)}
+        href={asRoute(targetHref)}
         className={cn('flex items-center gap-1', className)}
       >
         <Badge
@@ -62,7 +66,7 @@ export function LoyaltyBadge({
 
   return (
     <Link
-      href={asRoute(rewardsHref)}
+      href={asRoute(targetHref)}
       className={cn(
         'flex items-center gap-2 px-3 py-1.5 rounded-full transition-all hover:shadow-md',
         tierInfo.colors.bg,

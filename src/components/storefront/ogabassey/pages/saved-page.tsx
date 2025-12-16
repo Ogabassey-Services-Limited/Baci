@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type React from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 import { EmptyState } from '../components/empty-state';
 import { useV2Saved } from '../providers/v2-saved-context';
 
@@ -12,6 +14,9 @@ export const SavedPage: React.FC = () => {
   const { addToCart } = useCart();
   const { savedItems, toggleSaved } = useV2Saved();
   const router = useRouter();
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
+  const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
 
   return (
     <div className="min-h-screen bg-white pb-24 pt-4 flex flex-col">
@@ -28,7 +33,7 @@ export const SavedPage: React.FC = () => {
               title="No saved items yet"
               description="Tap the heart icon on products you like to add them to your wishlist for later."
               actionLabel="Start Shopping"
-              actionLink="/"
+              actionLink={getHref('/')}
             />
           </div>
         ) : (
@@ -39,7 +44,7 @@ export const SavedPage: React.FC = () => {
                 className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm hover:shadow-xl transition-all duration-300 group flex flex-col relative"
               >
                 <Link
-                  href={`/product/${product.id}` as any}
+                  href={asRoute(getHref(`/product/${product.id}`))}
                   className="absolute inset-0 z-0"
                 />
 
@@ -71,7 +76,7 @@ export const SavedPage: React.FC = () => {
                     onClick={(e) => {
                       e.preventDefault();
                       addToCart(product as any, 1);
-                      router.push('/cart');
+                      router.push(asRoute(getHref('/cart')));
                     }}
                     className="flex-1 bg-gray-900 text-white text-[10px] md:text-xs font-bold py-2 md:py-2.5 rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-1.5"
                   >

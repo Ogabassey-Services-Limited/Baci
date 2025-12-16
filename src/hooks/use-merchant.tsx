@@ -121,6 +121,8 @@ interface MerchantContextType {
   reloadMerchant: () => void;
   staffAccess: StaffAccess;
   hasPermission: (resource: string, action: string) => boolean;
+  routingMode: 'domain' | 'path';
+  basePath: string;
 }
 
 const MerchantContext = createContext<MerchantContextType | undefined>(
@@ -132,6 +134,7 @@ interface MerchantProviderProps {
   slug?: string; // Optional slug for storefronts
   initialMerchant?: MerchantData | null;
   initialStaffAccess?: StaffAccess;
+  initialRoutingMode?: 'domain' | 'path';
 }
 
 const defaultStaffAccess: StaffAccess = {
@@ -146,6 +149,7 @@ export const MerchantProvider = ({
   slug,
   initialMerchant,
   initialStaffAccess,
+  initialRoutingMode,
 }: MerchantProviderProps) => {
   // Use safe auth hook - returns null when outside AuthProvider (e.g., template preview)
   const auth = useAuthSafe();
@@ -161,6 +165,12 @@ export const MerchantProvider = ({
   const [staffAccess, setStaffAccess] = useState<StaffAccess>(
     initialStaffAccess ?? defaultStaffAccess
   );
+
+  // Routing context
+  const routingMode = initialRoutingMode ?? 'path'; // Default to path to be explicit, but check usage
+  const basePath =
+    routingMode === 'domain' ? '' : `/${merchant?.slug || slug || ''}`;
+
   const supabase = useMemo(() => createClient(), []);
   // Initialize ref with prop value to avoid race condition
   const hasHydrated = useRef(!!initialMerchant);
@@ -329,24 +339,14 @@ export const MerchantProvider = ({
           return;
         }
 
-        // First, try to find merchant where user is owner
-        const { data: ownedMerchant, error: ownerError } = await supabase
-          .from('merchants')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-
-        if (ownedMerchant && !ownerError) {
-          merchantData = ownedMerchant as MerchantData;
-          access = {
-            isStaff: false,
-            isOwner: true,
-            role: null,
-            permissions: { full_access: { all: true } },
-          };
-        } else if (ownerError && ownerError.code === 'PGRST116') {
-          // User is not a merchant owner, check if they're staff
-          const { data: staffMember, error: staffError } = await supabase
+        // PERFORMANCE: Fetch owner and staff data in parallel instead of sequentially
+        const [ownerResult, staffResult] = await Promise.all([
+          supabase
+            .from('merchants')
+            .select('*')
+            .eq('user_id', user.id)
+            .single(),
+          supabase
             .from('staff_members')
             .select(`
               id,
@@ -358,8 +358,22 @@ export const MerchantProvider = ({
             `)
             .eq('user_id', user.id)
             .eq('status', 'active')
-            .single();
+            .single(),
+        ]);
 
+        const { data: ownedMerchant, error: ownerError } = ownerResult;
+        const { data: staffMember, error: staffError } = staffResult;
+
+        if (ownedMerchant && !ownerError) {
+          merchantData = ownedMerchant as MerchantData;
+          access = {
+            isStaff: false,
+            isOwner: true,
+            role: null,
+            permissions: { full_access: { all: true } },
+          };
+        } else if (ownerError && ownerError.code === 'PGRST116') {
+          // User is not a merchant owner, check if they're staff
           if (staffMember && !staffError) {
             // User is an active staff member
             const merchantInfo =
@@ -406,6 +420,7 @@ export const MerchantProvider = ({
       }
 
       // Fetch primary domain and attach it to merchantData
+      // Note: This must be sequential since we need merchantData.id first
       if (merchantData?.id) {
         const { data: primaryDomain } = await supabase
           .from('domains')
@@ -508,6 +523,8 @@ export const MerchantProvider = ({
     reloadMerchant,
     staffAccess,
     hasPermission,
+    routingMode,
+    basePath,
   };
 
   return (

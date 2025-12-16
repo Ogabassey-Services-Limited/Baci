@@ -229,10 +229,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    // Fetch merchant to verify it exists
+    // Fetch merchant to verify it exists (include business_name, slug for email)
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
-      .select('id, rider_phone_number')
+      .select('id, rider_phone_number, business_name, slug')
       .eq('id', merchant_id)
       .single();
 
@@ -424,9 +424,10 @@ export async function POST(request: NextRequest) {
         // Note: In a production environment, we should use a transaction or rollback the order creation.
       } else {
         // Update product stock atomically using RPC function
-        for (const item of orderItems) {
-          if (item.product_id) {
-            // Use atomic stock decrement function to prevent race conditions
+        // PERFORMANCE: Parallelize stock updates instead of sequential for...of loop
+        const stockUpdatePromises = orderItems
+          .filter((item) => item.product_id)
+          .map(async (item) => {
             const { data: stockResult, error: stockError } = await supabase.rpc(
               'decrement_product_stock',
               {
@@ -437,38 +438,39 @@ export async function POST(request: NextRequest) {
 
             if (stockError) {
               console.error('Error updating stock:', stockError);
-              // Continue processing other items even if one fails
-            } else if (stockResult && stockResult.length > 0) {
+              return {
+                success: false,
+                productId: item.product_id,
+                error: stockError,
+              };
+            }
+
+            if (stockResult && stockResult.length > 0) {
               const result = stockResult[0];
               if (!result.success) {
-                // Use structured logging to prevent log injection attacks
-                // User-provided values are passed as separate fields, not interpolated into the message
                 logger.warn({
                   message: 'Stock update failed for product',
                   productId: item.product_id,
                   reason: result.message,
                 });
-                // In production, you might want to handle insufficient stock differently
-                // For now, we log and continue
               }
+              return { success: result.success, productId: item.product_id };
             }
-          }
-        }
+
+            return { success: true, productId: item.product_id };
+          });
+
+        // Wait for all stock updates to complete in parallel
+        await Promise.all(stockUpdatePromises);
       }
     }
 
     // Send order confirmation email (non-blocking)
+    // PERFORMANCE: Reuse merchant data from initial fetch instead of redundant query
     try {
-      // Fetch merchant details for email
-      const { data: merchantDetails } = await supabase
-        .from('merchants')
-        .select('business_name, slug')
-        .eq('id', merchant_id)
-        .single();
-
-      if (merchantDetails) {
+      if (merchant.business_name && merchant.slug) {
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-        const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
+        const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
         // Format items for email template
         const emailItems = items.map((item: OrderItem) => ({
@@ -491,7 +493,7 @@ export async function POST(request: NextRequest) {
             state: shipping_address?.state || '',
             phone: customer_phone || '',
           },
-          merchantName: merchantDetails.business_name,
+          merchantName: merchant.business_name,
           merchantUrl,
         };
 
@@ -505,7 +507,7 @@ export async function POST(request: NextRequest) {
           subject: `Order Confirmation - #${emailData.orderNumber}`,
           htmlContent,
           textContent,
-          replyTo: `support@${merchantDetails.slug}.${rootDomain}`,
+          replyTo: `support@${merchant.slug}.${rootDomain}`,
           emailType: 'orders',
         }).catch((emailError) => {
           logger.error({

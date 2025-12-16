@@ -49,7 +49,7 @@ import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { getCountryByCode } from '@/lib/countries';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { Product } from '@/lib/products';
-import { dynamicRoutes } from '@/lib/routes';
+import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 
@@ -60,7 +60,7 @@ function ThemedStorefrontLayout({ children }: { children: React.ReactNode }) {
 }
 
 function StorefrontContent() {
-  const { merchant } = useMerchant();
+  const { merchant, basePath } = useMerchant();
   const [searchQuery, setSearchQuery] = useState('');
   const { cart, cartCount, addToCart, updateQuantity } = useCart();
   const { toast } = useToast();
@@ -106,14 +106,12 @@ function StorefrontContent() {
     }
   }, [merchant?.id]);
 
-  const { availableCategories, availableBrands } = useMemo(() => {
-    const categories = new Set(products.map((p) => p.category || 'General'));
-    const brands = new Set(products.map((p) => p.brand).filter(Boolean));
-    return {
-      availableCategories: Array.from(categories),
-      availableBrands: Array.from(brands),
-    };
-  }, [products]);
+  // PERFORMANCE: React Compiler handles memoization automatically
+  // No need for manual useMemo - removing redundant wrapper
+  const categories = new Set(products.map((p) => p.category || 'General'));
+  const brands = new Set(products.map((p) => p.brand).filter(Boolean));
+  const availableCategories = Array.from(categories);
+  const availableBrands = Array.from(brands) as string[];
 
   const currentFilterOptions =
     filterBy === 'category' ? availableCategories : availableBrands;
@@ -547,7 +545,7 @@ function StorefrontContent() {
                       <ThemedLink
                         key={link.key}
                         className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
-                        href={dynamicRoutes.page(link.key)}
+                        href={asRoute(`${basePath || ''}/pages/${link.key}`)}
                       >
                         {link.label}
                       </ThemedLink>

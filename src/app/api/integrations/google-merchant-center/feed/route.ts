@@ -2,7 +2,8 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 
-export const dynamic = 'force-dynamic';
+// PERFORMANCE: Enable caching with revalidation instead of force-dynamic
+export const revalidate = 3600; // Revalidate every hour
 
 export async function GET(_request: Request) {
   const cookieStore = await cookies();
@@ -10,40 +11,35 @@ export async function GET(_request: Request) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://baci.app';
 
   try {
-    // Fetch active products with all necessary fields
+    // PERFORMANCE: Select only required fields and add limit to prevent OOM
     const { data: products, error } = await supabase
       .from('products')
-      .select('*')
-      .eq('status', 'active');
+      .select(
+        `id, name, description, slug, sku, price, image,
+         stock, manage_stock, condition, brand, gtin, mpn,
+         google_product_category, weight_value, weight_unit`
+      )
+      .eq('status', 'active')
+      .limit(10000);
 
     if (error) {
       console.error('Error fetching products for feed:', error);
       return new NextResponse('Error generating feed', { status: 500 });
     }
 
-    // Start building XML
-    let xml = `<?xml version="1.0"?>
-<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
-<channel>
-<title>Baci Store Products</title>
-<link>${siteUrl}</link>
-<description>Product feed for Google Merchant Center</description>
-`;
+    // PERFORMANCE: Use array.map().join() instead of += string concatenation (O(n) vs O(n²))
+    const items = (products || [])
+      .filter((product) => product.name && product.price)
+      .map((product) => {
+        const link = `${siteUrl}/products/${product.slug || product.id}`;
+        const imageLink = product.image || '';
+        const availability =
+          product.manage_stock && product.stock <= 0
+            ? 'out of stock'
+            : 'in stock';
+        const price = `${product.price} USD`;
 
-    for (const product of products) {
-      // Skip products without essential data
-      if (!product.name || !product.price) continue;
-
-      const link = `${siteUrl}/products/${product.slug || product.id}`;
-      const imageLink = product.image || '';
-      const availability =
-        product.manage_stock && product.stock <= 0
-          ? 'out of stock'
-          : 'in stock';
-      const price = `${product.price} USD`; // Assuming USD for now
-
-      xml += `
-<item>
+        return `<item>
   <g:id>${product.sku || product.id}</g:id>
   <g:title><![CDATA[${product.name}]]></g:title>
   <g:description><![CDATA[${product.description || product.name}]]></g:description>
@@ -58,9 +54,15 @@ export async function GET(_request: Request) {
   ${product.google_product_category ? `<g:google_product_category><![CDATA[${product.google_product_category}]]></g:google_product_category>` : ''}
   ${product.weight_value ? `<g:shipping_weight>${product.weight_value} ${product.weight_unit || 'kg'}</g:shipping_weight>` : ''}
 </item>`;
-    }
+      });
 
-    xml += `
+    const xml = `<?xml version="1.0"?>
+<rss xmlns:g="http://base.google.com/ns/1.0" version="2.0">
+<channel>
+<title>Baci Store Products</title>
+<link>${siteUrl}</link>
+<description>Product feed for Google Merchant Center</description>
+${items.join('\n')}
 </channel>
 </rss>`;
 

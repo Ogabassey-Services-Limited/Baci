@@ -40,13 +40,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
 
-  // Get active products with all necessary fields
+  // PERFORMANCE: Select only required fields and add limit to prevent OOM
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('*')
+    .select(
+      `id, name, description, slug, price, compare_at_price, images, image, imageLarge,
+       brand, gtin, mpn, sku, stock, condition, google_product_category, category`
+    )
     .eq('merchant_id', merchant.id)
     .eq('status', 'active')
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(10000);
 
   if (productsError) {
     return NextResponse.json(

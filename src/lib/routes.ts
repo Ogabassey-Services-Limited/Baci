@@ -195,7 +195,10 @@ export const dynamicRoutes = {
   /** Wishlist page: /{slug}/wishlist */
   wishlist: (slug: string) => `/${slug}/wishlist` as Route,
 
-  /** Static page: /pages/{pageSlug} */
+  /**
+   * @deprecated Use `storefrontPage` instead to ensure correct routing for multi-tenant stores (path vs domain).
+   * Static page: /pages/{pageSlug}
+   */
   page: (pageSlug: string) => `/pages/${pageSlug}` as Route,
 
   /** Storefront static page: /{slug}/pages/{pageSlug} */

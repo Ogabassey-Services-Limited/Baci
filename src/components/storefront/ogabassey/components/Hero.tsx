@@ -5,8 +5,10 @@ import { Gamepad2, Play } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { AdUnit } from './AdUnit';
+import { asRoute } from '@/lib/routes';
 import { UtilityModal } from './UtilityModal';
 
 type SlideType = 'image' | 'video' | 'ad';
@@ -111,6 +113,11 @@ export const Hero: React.FC = () => {
 
   const [showUtilityModal, setShowUtilityModal] = useState(false);
   const [utilityTab, setUtilityTab] = useState('airtime');
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath;
+
+  const getHref = (path: string) =>
+    path.startsWith('http') ? path : `${basePath || ''}${path === '/' ? '' : path}`;
 
   // Auto-rotate Mobile slides
   useEffect(() => {
@@ -168,7 +175,7 @@ export const Hero: React.FC = () => {
                         {slide.subtitle}
                       </p>
                       <Link
-                        href="/products"
+                        href={asRoute(getHref('/products'))}
                         className={`mt-3 text-[10px] font-bold px-4 py-2 rounded-full shadow-sm transition-all border inline-block ${slide.textColor === 'text-white' ? 'bg-white/20 hover:bg-white/30 border-white/30 text-white' : 'bg-black/5 hover:bg-black/10 border-black/10 text-gray-900'}`}
                       >
                         Shop Now
@@ -300,7 +307,7 @@ export const Hero: React.FC = () => {
                     </div>
 
                     <Link
-                      href="/products"
+                      href={asRoute(getHref('/products'))}
                       className="mt-8 bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-full font-bold text-lg shadow-lg hover:shadow-red-500/30 transition-all active:scale-95 inline-block"
                     >
                       Shop Now
@@ -371,7 +378,7 @@ export const Hero: React.FC = () => {
 
                 <div className="pb-1">
                   <Link
-                    href="/products"
+                    href={asRoute(getHref('/products'))}
                     className="inline-block px-4 py-1.5 border border-white/30 rounded-full text-white text-[10px] font-bold hover:bg-white hover:text-black transition-colors"
                   >
                     View Specs

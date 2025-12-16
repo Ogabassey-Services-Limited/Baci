@@ -77,8 +77,26 @@ export interface Product {
   // Technical specs from API (optional but typed)
   product_key_specs?: ProductKeySpecs;
   // Phase 7: Condition Deduplication
+  // Phase 7: Condition Deduplication
   has_condition_offers?: boolean;
   offers?: ProductConditionOffer[];
+  // Phase 4: Product Variants (Storage/Color/etc)
+  variants?: ProductVariant[];
+}
+
+export interface ProductVariant {
+  id: string;
+  name?: string;
+  storage?: string;
+  ram?: string;
+  color?: string;
+  platform?: string; // Phase 4 Extension
+  price_override?: number;
+  price_modifier?: number;
+  stock?: number;
+  stock_quantity?: number;
+  images?: string[];
+  attributes?: Record<string, string>;
 }
 
 export interface ProductKeySpecs {

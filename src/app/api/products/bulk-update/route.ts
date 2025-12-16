@@ -149,9 +149,8 @@ export async function POST(request: NextRequest) {
           /[\r\n]/g,
           ''
         );
-        // nosemgrep: javascript.lang.security.audit.unsafe-formatstring.unsafe-formatstring
-        console.error(`Error processing change for ${safeName}:`, err); // lgtm[js/tainted-format-string]
-        results.errors.push(`Failed to ${safeType} "${safeName}"`); // lgtm[js/tainted-format-string]
+        console.error('Error processing change for:', safeName, err);
+        results.errors.push(`Failed to ${safeType} "${safeName}"`);
       }
     }
 

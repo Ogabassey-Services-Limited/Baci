@@ -54,7 +54,8 @@ interface AddToCartOptions {
   secondaryColor?: string;
   secondaryColorValue?: string;
   storage?: string;
-  condition?: 'new' | 'used' | 'open_box' | 'refurbished';
+  condition?: string;
+  platform?: string; // Phase 4 Extension
 }
 
 export interface CartContextType {
@@ -403,7 +404,12 @@ export const CartProvider = ({
             secondaryColor: options?.secondaryColor,
             secondaryColorValue: options?.secondaryColorValue,
             selectedStorage: options?.storage,
-            condition: options?.condition,
+            condition: options?.condition as
+              | 'new'
+              | 'used'
+              | 'open_box'
+              | 'refurbished'
+              | undefined,
             negotiationStatus: 'none',
             hasAssurance: false,
             assuranceRate: DEFAULT_ASSURANCE_RATE,

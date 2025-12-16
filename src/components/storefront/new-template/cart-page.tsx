@@ -13,12 +13,17 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 import { Footer } from './footer';
 import { Navbar } from './navbar';
 
 export const CartPage: React.FC = () => {
   const { cart, updateQuantity, removeFromCart, cartTotal } = useCart();
   const [isClient, setIsClient] = useState(false);
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
+  const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
 
   useEffect(() => {
     setIsClient(true);
@@ -35,7 +40,7 @@ export const CartPage: React.FC = () => {
       <main className="max-w-[1400px] mx-auto px-4 md:px-6 py-8 md:py-12">
         <div className="flex items-center gap-2 mb-8">
           <Link
-            href="/"
+            href={asRoute(getHref('/'))}
             className="flex items-center gap-2 text-gray-500 hover:text-red-600 transition-colors"
           >
             <ArrowLeft size={20} />
@@ -63,7 +68,7 @@ export const CartPage: React.FC = () => {
               products to find great deals!
             </p>
             <Link
-              href="/"
+              href={asRoute(getHref('/'))}
               className="inline-flex items-center gap-2 bg-red-600 text-white font-bold py-3.5 px-8 rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
             >
               Start Shopping
@@ -200,7 +205,7 @@ export const CartPage: React.FC = () => {
                 </div>
 
                 <Link
-                  href="/checkout"
+                  href={asRoute(getHref('/checkout'))}
                   className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/20 active:scale-[0.98] mb-4"
                 >
                   <span>Proceed to Checkout</span>

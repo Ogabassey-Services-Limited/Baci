@@ -76,7 +76,6 @@ export async function GET(request: Request) {
           id,
           name,
           quantity,
-          quantity,
           price,
           has_assurance
         )

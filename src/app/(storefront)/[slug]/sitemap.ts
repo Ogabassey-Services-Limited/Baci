@@ -13,14 +13,22 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-type Props = {
-  params: Promise<{ slug: string }>;
-};
+/**
+ * Storefront Sitemap Generator with Image Support
+ * Uses x-merchant-slug header set by proxy.ts middleware
+ */
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const headersList = await headers();
 
-export default async function sitemap({
-  params,
-}: Props): Promise<MetadataRoute.Sitemap> {
-  const { slug } = await params;
+  // Get slug from middleware header or extract from host
+  const slug =
+    headersList.get('x-merchant-slug') ||
+    headersList.get('x-custom-domain')?.replace('.com', '').replace('.', '-') ||
+    'ogabassey'; // fallback
+
+  const host = headersList.get('host') || `${slug}.localhost:3000`;
+  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+  const storeUrl = `${protocol}://${host}`;
 
   // 1. Get Merchant ID from store slug
   const { data: merchant } = await supabase
@@ -33,31 +41,35 @@ export default async function sitemap({
     return [];
   }
 
-  // 2. Fetch products for this merchant (include category for URL building)
+  // 2. Fetch products with images
   const { data: products } = await supabase
     .from('products')
-    .select('id, slug, category, updated_at')
+    .select('id, slug, name, category, images, updated_at')
     .eq('merchant_id', merchant.id)
     .eq('status', 'active');
 
-  // 3. Get unique categories for category pages
+  // 3. Get unique categories
   const categories = [
     ...new Set((products || []).map((p) => p.category).filter(Boolean)),
   ];
 
-  const headersList = await headers();
-  const host = headersList.get('host') || `${slug}.localhost:3000`;
-  const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-  const storeUrl = `${protocol}://${host}`;
-
-  // Build product URLs with category when available
-  // Format: /{category}/{product-slug} or /products/{product-slug}
+  // Product entries with images
   const productEntries: MetadataRoute.Sitemap = (products || []).map(
     (product) => {
       const productSlug = product.slug || product.id;
       const url = product.category
         ? `${storeUrl}/${generateSlug(product.category)}/${productSlug}`
         : `${storeUrl}/products/${productSlug}`;
+
+      // Extract image URLs as simple string array (Next.js format)
+      const images: string[] = [];
+      if (product.images && Array.isArray(product.images)) {
+        product.images.forEach((imageUrl: string) => {
+          if (typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
+            images.push(imageUrl);
+          }
+        });
+      }
 
       return {
         url,
@@ -66,11 +78,12 @@ export default async function sitemap({
           : undefined,
         changeFrequency: 'weekly' as const,
         priority: 0.8,
+        ...(images.length > 0 && { images }),
       };
     }
   );
 
-  // Build category page URLs
+  // Category entries
   const categoryEntries: MetadataRoute.Sitemap = categories.map((category) => ({
     url: `${storeUrl}/${generateSlug(category as string)}`,
     lastModified: new Date(),
