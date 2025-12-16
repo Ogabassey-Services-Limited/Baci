@@ -643,6 +643,6 @@ export const config = {
      * - sitemap.xml (SEO file)
      * - Static files with extensions (.svg, .png, .jpg, etc.)
      */
-    '/((?!_next/image|_next/static|favicon.ico|api/|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
+    '/((?!_next/image|_next/static|favicon.ico|api/|manifest.webmanifest|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
   ],
 };

@@ -36,10 +36,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
+import { useAuth } from '@/contexts/auth-context';
 import { getBusinessTypeById } from '@/config/business-types';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -49,7 +52,7 @@ import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { getCountryByCode } from '@/lib/countries';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { Product } from '@/lib/products';
-import { dynamicRoutes } from '@/lib/routes';
+import { asRoute, dynamicRoutes } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 
@@ -60,7 +63,7 @@ function ThemedStorefrontLayout({ children }: { children: React.ReactNode }) {
 }
 
 function StorefrontContent() {
-  const { merchant } = useMerchant();
+  const { merchant, basePath } = useMerchant();
   const [searchQuery, setSearchQuery] = useState('');
   const { cart, cartCount, addToCart, updateQuantity } = useCart();
   const { toast } = useToast();
@@ -547,7 +550,7 @@ function StorefrontContent() {
                       <ThemedLink
                         key={link.key}
                         className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
-                        href={dynamicRoutes.page(link.key)}
+                        href={asRoute(`${basePath || ''}/pages/${link.key}`)}
                       >
                         {link.label}
                       </ThemedLink>

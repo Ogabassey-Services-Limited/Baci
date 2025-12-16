@@ -14,6 +14,8 @@ import {
 } from '@/components/ui/sheet';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrency } from '@/hooks/use-currency';
+import { useMerchant } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 import { QuantityButton } from './ui/animated-icons';
 import { Input } from './ui/input';
 
@@ -21,6 +23,7 @@ export function Cart() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount } =
     useCart();
   const { formatCurrency } = useCurrency();
+  const { basePath } = useMerchant();
 
   return (
     <ThemedSheetContent className="glass-themed flex w-full flex-col pr-0 sm:max-w-lg">
@@ -126,7 +129,7 @@ export function Cart() {
               <span>{formatCurrency(cartTotal)}</span>
             </div>
             <SheetClose asChild>
-              <Link href="/checkout" className="w-full">
+              <Link href={asRoute(`${basePath}/checkout`)} className="w-full">
                 <ThemedButton size="lg" className="w-full" colorRole="primary">
                   Proceed to Checkout
                 </ThemedButton>

@@ -7,6 +7,8 @@ import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import type { AD_CONFIG } from '../config/ads';
 import { AdUnit } from './AdUnit';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 interface BannerSlide {
   id: number;
@@ -61,6 +63,12 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
   title,
   description,
 }) => {
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath;
+
+  const getHref = (path: string) =>
+    path.startsWith('http') ? path : `${basePath || ''}${path === '/' ? '' : path}`;
+
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Dynamic slides based on props
@@ -122,7 +130,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                   </p>
                   {slide.link && (
                     <Link
-                      href={slide.link as any}
+                      href={asRoute(getHref(slide.link))}
                       className="mt-4 px-6 py-2 bg-white text-gray-900 text-xs md:text-sm font-bold rounded-full w-fit hover:bg-gray-100 transition-colors shadow-lg active:scale-95 inline-block"
                     >
                       Shop Now

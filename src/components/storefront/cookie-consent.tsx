@@ -3,9 +3,11 @@
 import { Cookie, Settings2, Shield, X } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
+import { useMerchant } from '@/hooks/use-merchant';
 import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
 import { updateConsentMode } from '@/lib/consent-mode';
+import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 const COOKIE_CONSENT_KEY = 'baci-cookie-consent';
@@ -29,6 +31,7 @@ export function CookieConsent() {
   const [showDetails, setShowDetails] = useState(false);
   const [preferences, setPreferences] =
     useState<CookiePreferences>(defaultPreferences);
+  const { basePath } = useMerchant();
 
   useEffect(() => {
     // Check if consent has already been given
@@ -116,10 +119,11 @@ export function CookieConsent() {
               <div className="flex-1 space-y-1">
                 <h3 className="font-semibold text-sm">We value your privacy</h3>
                 <p className="text-sm text-muted-foreground leading-snug">
-                  We use cookies to enhance your experience and analyze traffic.
+                  We use cookies to improve your experience. By using our store,
+                  you agree to our{' '}
                   <Link
-                    href="/pages/privacy"
-                    className="underline underline-offset-2 hover:text-foreground ml-1"
+                    href={asRoute(`${basePath}/pages/privacy-policy`)}
+                    className="underline underline-offset-4 hover:text-white"
                   >
                     Read our policy
                   </Link>

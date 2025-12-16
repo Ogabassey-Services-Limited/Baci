@@ -14,6 +14,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
 import { cn } from '@/lib/utils';
+import { asRoute } from '@/lib/routes';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { Logo } from '@/components/logo';
 import { MobileMenu } from './mobile-menu';
 import { SourceRequestModal } from './source-request-modal';
@@ -29,6 +31,9 @@ const useNotification = () => ({
 export const Navbar: React.FC = () => {
   const { cartCount } = useCart();
   const storefrontContext = useStorefrontSafe();
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
+  const getHref = (path: string) => path.startsWith('http') ? path : `${basePath}${path}`;
   const { notifications, unreadCount, markAsRead, markAllAsRead } =
     useNotification();
   const [query, setQuery] = useState('');
@@ -154,7 +159,7 @@ export const Navbar: React.FC = () => {
               >
                 <Menu size={24} />
               </button>
-              <Link href="/" className="shrink-0">
+              <Link href={asRoute(getHref('/'))} className="shrink-0">
                 <Logo variant="light" width={80} height={28} />
               </Link>
             </div>
@@ -247,7 +252,7 @@ export const Navbar: React.FC = () => {
 
               {/* Account */}
               <Link
-                href="/profile"
+                href={asRoute(getHref('/profile'))}
                 className="hidden sm:flex items-center gap-2 p-1.5 pr-3 rounded-full hover:bg-white/10 border border-white/20 hover:border-white/40 transition-all group"
               >
                 <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-red-600 transition-colors">
@@ -257,7 +262,7 @@ export const Navbar: React.FC = () => {
               </Link>
 
               {/* Cart */}
-              <Link href="/cart" className="relative group">
+              <Link href={asRoute(getHref('/cart'))} className="relative group">
                 <div className="p-2.5 rounded-full bg-white text-gray-900 group-hover:bg-red-600 group-hover:text-white transition-colors shadow-lg shadow-black/20">
                   <ShoppingCart size={20} />
                 </div>

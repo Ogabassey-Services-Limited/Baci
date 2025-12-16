@@ -1,4 +1,5 @@
 import type { MerchantData } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 import { normalizeSocialUrl } from '@/lib/social';
 import {
   Apple,
@@ -22,7 +23,7 @@ interface FooterProps {
   storeSlug?: string;
 }
 
-export const Footer: React.FC<FooterProps> = ({ merchant }) => {
+export const Footer: React.FC<FooterProps> = ({ merchant, storeSlug }) => {
   const businessName = merchant?.business_name || 'Ogabassey';
   const socialLinks = merchant?.social_media || {};
   const contactEmail = merchant?.email || 'support@ogabassey.com';
@@ -67,7 +68,7 @@ export const Footer: React.FC<FooterProps> = ({ merchant }) => {
           {/* Column 1: Brand Info (Compact) */}
           <div className="space-y-4">
             <Link
-              href="/"
+              href={asRoute(storeSlug || '/')}
               className="flex items-center cursor-pointer select-none"
             >
               <Logo className="h-8 w-auto" />
@@ -118,11 +119,9 @@ export const Footer: React.FC<FooterProps> = ({ merchant }) => {
                 Menu
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link href="/products" className="hover:text-red-500">Shop Phones</Link></li>
-                <li><Link href="/about" className="hover:text-red-500">About Us</Link></li>
-                <li><Link href="/blog" className="hover:text-red-500">Blog</Link></li>
-                <li><Link href="/repairs" className="hover:text-red-500">Repairs</Link></li>
-                <li><Link href="/swap" className="hover:text-red-500">Swap Device</Link></li>
+                <li><Link href={asRoute(`${storeSlug || ''}/pages/about`)} className="hover:text-red-500">About Us</Link></li>
+                <li><Link href={asRoute(`${storeSlug || ''}/pages/blog`)} className="hover:text-red-500">Blog</Link></li>
+                <li><Link href={asRoute(`${storeSlug || ''}/repairs`)} className="hover:text-red-500">Repairs</Link></li>
               </ul>
             </div>
             <div>
@@ -130,11 +129,10 @@ export const Footer: React.FC<FooterProps> = ({ merchant }) => {
                 Support
               </h3>
               <ul className="space-y-2 text-xs text-gray-400">
-                <li><Link href="/orders" className="hover:text-red-500">Track Order</Link></li>
-                <li><Link href="/help" className="hover:text-red-500">Help Center</Link></li>
-                <li><Link href="/contact" className="hover:text-red-500">Contact Us</Link></li>
-                <li><Link href="/legal" className="hover:text-red-500">Legal & Disputes</Link></li>
-                <li><Link href="/sustainability" className="hover:text-red-500">Sustainability</Link></li>
+                <li><Link href={asRoute(`${storeSlug || ''}/orders/track`)} className="hover:text-red-500">Track Order</Link></li>
+                <li><Link href={asRoute(`${storeSlug || ''}/pages/faq`)} className="hover:text-red-500">Help Center</Link></li>
+                <li><Link href={asRoute(`${storeSlug || ''}/pages/contact`)} className="hover:text-red-500">Contact Us</Link></li>
+                <li><Link href={asRoute(`${storeSlug || ''}/pages/terms`)} className="hover:text-red-500">Legal & Disputes</Link></li>
               </ul>
             </div>
           </nav>

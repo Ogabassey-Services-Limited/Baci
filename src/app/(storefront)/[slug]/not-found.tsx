@@ -4,11 +4,13 @@ import { ArrowLeft, Home, Search } from 'lucide-react';
 import Link from 'next/link';
 import { ThemedButton } from '@/components/themed';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 export default function StorefrontNotFound() {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
   const isLoading = merchantContext?.loading;
+  const basePath = merchantContext?.basePath;
   const storeName = merchant?.business_name || 'Store';
 
   if (isLoading) {
@@ -45,7 +47,7 @@ export default function StorefrontNotFound() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-          <Link href="/">
+          <Link href={asRoute(`${basePath || ''}/`)}>
             <ThemedButton
               colorRole="primary"
               size="lg"
@@ -55,7 +57,7 @@ export default function StorefrontNotFound() {
               Back to {storeName}
             </ThemedButton>
           </Link>
-          <Link href="/#products">
+          <Link href={asRoute(`${basePath || ''}/#products`)}>
             <ThemedButton
               colorRole="accent"
               variant="outline"
@@ -75,14 +77,14 @@ export default function StorefrontNotFound() {
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-sm">
             <Link
-              href="/"
+              href={asRoute(`${basePath || ''}/`)}
               className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
             >
               <ArrowLeft className="h-3 w-3" /> Home
             </Link>
             <span className="text-border">|</span>
             <Link
-              href="/#products"
+              href={asRoute(`${basePath || ''}/#products`)}
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               All Products
@@ -91,7 +93,7 @@ export default function StorefrontNotFound() {
               <>
                 <span className="text-border">|</span>
                 <Link
-                  href="/pages/contact"
+                  href={asRoute(`${basePath || ''}/pages/contact`)}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Contact Us

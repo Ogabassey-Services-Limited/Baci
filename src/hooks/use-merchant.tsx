@@ -121,6 +121,8 @@ interface MerchantContextType {
   reloadMerchant: () => void;
   staffAccess: StaffAccess;
   hasPermission: (resource: string, action: string) => boolean;
+  routingMode: 'domain' | 'path';
+  basePath: string;
 }
 
 const MerchantContext = createContext<MerchantContextType | undefined>(
@@ -132,6 +134,7 @@ interface MerchantProviderProps {
   slug?: string; // Optional slug for storefronts
   initialMerchant?: MerchantData | null;
   initialStaffAccess?: StaffAccess;
+  initialRoutingMode?: 'domain' | 'path';
 }
 
 const defaultStaffAccess: StaffAccess = {
@@ -146,6 +149,7 @@ export const MerchantProvider = ({
   slug,
   initialMerchant,
   initialStaffAccess,
+  initialRoutingMode,
 }: MerchantProviderProps) => {
   // Use safe auth hook - returns null when outside AuthProvider (e.g., template preview)
   const auth = useAuthSafe();
@@ -161,6 +165,12 @@ export const MerchantProvider = ({
   const [staffAccess, setStaffAccess] = useState<StaffAccess>(
     initialStaffAccess ?? defaultStaffAccess
   );
+
+  // Routing context
+  const routingMode = initialRoutingMode ?? 'path'; // Default to path to be explicit, but check usage
+  const basePath =
+    routingMode === 'domain' ? '' : `/${merchant?.slug || slug || ''}`;
+
   const supabase = useMemo(() => createClient(), []);
   // Initialize ref with prop value to avoid race condition
   const hasHydrated = useRef(!!initialMerchant);
@@ -508,6 +518,8 @@ export const MerchantProvider = ({
     reloadMerchant,
     staffAccess,
     hasPermission,
+    routingMode,
+    basePath,
   };
 
   return (

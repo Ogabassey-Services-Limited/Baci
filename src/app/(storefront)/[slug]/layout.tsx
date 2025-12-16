@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { MerchantSlugSync } from '@/components/storefront/merchant-slug-sync';
@@ -56,10 +57,17 @@ export default async function StorefrontLayout({
   // Use the merchant's actual slug for internal routing, not the domain
   const merchantSlug = merchant.slug;
 
+  // Determine routing mode based on headers (set by middleware)
+  const headersList = await headers();
+  const hasSubdomain = headersList.has('x-merchant-slug');
+  const hasCustomDomain = headersList.has('x-custom-domain');
+  const routingMode = hasSubdomain || hasCustomDomain ? 'domain' : 'path';
+
   return (
     <MerchantProvider
       slug={merchantSlug}
       initialMerchant={merchant as unknown as MerchantData}
+      initialRoutingMode={routingMode}
     >
       <CartProvider enableSmartCartPro>
         <MerchantSlugSync slug={merchantSlug} />

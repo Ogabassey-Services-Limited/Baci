@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { getSupabaseServiceRoleKey, getSupabaseUrl } from '@/env';
 
 /**
  * Creates a Supabase client for server-side operations that don't require user authentication.
@@ -13,7 +13,7 @@ import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
  */
 export function createAdminClient() {
   const url = getSupabaseUrl();
-  const key = getSupabaseAnonKey();
+  const key = getSupabaseServiceRoleKey();
 
   if (!url || !key) {
     throw new Error(

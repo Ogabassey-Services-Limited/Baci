@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { trackEvent } from '@/lib/event-tracking';
 import type { Product, ProductVariant } from '@/lib/products';
+import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 // Placeholder image for products without images
@@ -104,7 +105,9 @@ function isVariantAvailable(
 }
 
 export default function ProductDetailClient({ product }: { product: Product }) {
-  const { merchant } = useMerchant();
+  const { merchant, basePath } = useMerchant();
+  const getHref = (path: string) =>
+    path.startsWith('http') ? path : `${basePath || ''}${path}`;
   const { cart, cartCount, addToCart, updateQuantity, setMerchantSlug } =
     useCart();
   const { toast } = useToast();
@@ -290,7 +293,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
             }}
           >
             <Link
-              href="/"
+              href={asRoute(getHref('/'))}
               className="flex items-center gap-2 text-sm font-medium"
             >
               <ArrowLeft className="w-5 h-5" />
@@ -606,7 +609,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                           <Plus className="h-4 w-4" aria-hidden="true" />
                         </ThemedButton>
                       </div>
-                      <Link href="/checkout">
+                      <Link href={asRoute(getHref('/checkout'))}>
                         <ThemedButton
                           size="lg"
                           colorRole="primary"
@@ -722,7 +725,7 @@ export default function ProductDetailClient({ product }: { product: Product }) {
                         <Link
                           key={link.key}
                           className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
-                          href={`/pages/${link.key}`}
+                          href={asRoute(getHref(`/pages/${link.key}`))}
                         >
                           {link.label}
                         </Link>

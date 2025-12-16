@@ -10,7 +10,9 @@ import {
   Twitter,
   Youtube,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useMerchant } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 // TikTok and Pinterest don't have official lucide icons, so we create simple ones
 const TikTokIcon = ({ className }: { className?: string }) => (
@@ -53,7 +55,7 @@ const PinterestIcon = ({ className }: { className?: string }) => (
  * - --theme-footer-px: Horizontal padding
  */
 export function StorefrontFooter() {
-  const { merchant } = useMerchant();
+  const { merchant, basePath } = useMerchant();
 
   if (!merchant) return null;
 
@@ -162,16 +164,16 @@ export function StorefrontFooter() {
               <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
               <nav className="flex flex-col gap-2">
                 {availableFooterLinks.map((link) => (
-                  <a
+                  <Link
                     key={link.key}
-                    href={`/pages/${link.key}`}
+                    href={asRoute(`${basePath || ''}/pages/${link.key}`)}
                     className="text-sm hover:underline underline-offset-4 opacity-90 hover:opacity-100 transition-opacity"
                     style={{
                       color: 'var(--theme-footer-link, currentColor)',
                     }}
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 ))}
               </nav>
             </div>

@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +31,8 @@ export function OgabasseyNav({
 }: OgabasseyNavProps) {
   const pathname = usePathname();
   const [activeNav, setActiveNav] = useState('');
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath;
 
   return (
     <div className="w-full border-b border-gray-100 bg-white sticky top-16 z-40 shadow-sm hidden md:block">
@@ -41,10 +44,14 @@ export function OgabasseyNav({
                 const isActive =
                   pathname === link.url || activeNav === link.label;
 
+                const href = link.url.startsWith('http')
+                  ? link.url
+                  : `${basePath || ''}${link.url === '/' ? '' : link.url}`;
+
                 return (
                   <li key={link.label}>
                     <Link
-                      href={asRoute(link.url)}
+                      href={asRoute(href)}
                       onClick={() => setActiveNav(link.label)}
                       className={cn(
                         'text-sm font-medium transition-colors hover:text-primary relative py-3 block',

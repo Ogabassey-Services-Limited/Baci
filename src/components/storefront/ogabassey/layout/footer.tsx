@@ -25,7 +25,7 @@ interface FooterProps {
 
 export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
   // Helper to generate store-relative URLs
-  const getUrl = (path: string) => storeSlug ? `/${storeSlug}${path}` : path;
+  const getUrl = (path: string) => `${storeSlug || ''}${path}`;
 
   return (
     <footer className="bg-[#1a1a1a] text-white pt-10 pb-32 md:pb-10 relative overflow-hidden font-sans border-t border-gray-800">
@@ -43,7 +43,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
           {/* Column 1: Brand Info (Compact) */}
           <div className="space-y-4">
             <Link
-              href="/"
+              href={storeSlug || '/'}
               className="flex items-center cursor-pointer select-none"
             >
               <Logo className="h-10 w-auto" />

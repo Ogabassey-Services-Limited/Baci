@@ -14,6 +14,8 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { Product } from '../types';
 import { getProductUrl } from '@/lib/seo-utils';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 interface ProductGridItemProps {
   product: Product;
@@ -34,6 +36,9 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   onToggleWishlist,
   storeSlug,
 }) => {
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
+
   // Use slightly larger icons in the mobile list feed
   const iconSize = viewMode === 'list' ? 22 : 18;
 
@@ -79,7 +84,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative">
       <Link
-        href={getProductUrl({ ...product, id: String(product.id) }) as any}
+        href={asRoute(`${basePath}${getProductUrl({ ...product, id: String(product.id) })}`)}
         className="absolute inset-0 z-0"
       />
 

@@ -413,6 +413,36 @@ function toOgabasseyProduct(
     stock: product.stock,
     detailedSpecs,
     specs,
+    // Phase 4: Pass variants to frontend with mapping
+    variants:
+      product.variants?.map(
+        (v: {
+          id: string;
+          storage?: string;
+          ram_gb?: number;
+          sku?: string;
+          color?: string;
+          attributes?: { platform?: string };
+          price_override?: number;
+          price_modifier?: number;
+          stock_quantity?: number;
+          images?: string[];
+        }) => ({
+          id: v.id,
+          name:
+            `Variant ${v.storage || ''} ${v.ram_gb ? `${v.ram_gb}GB` : ''}`.trim() ||
+            v.sku ||
+            'Variant',
+          storage: v.storage,
+          ram: v.ram_gb ? `${v.ram_gb}GB` : undefined,
+          color: v.color,
+          platform: v.attributes?.platform, // Map platform from JSON attributes
+          price_override: v.price_override,
+          price_modifier: v.price_modifier, // Map if it exists (but likely undefined in DB now)
+          stock: v.stock_quantity,
+          images: v.images,
+        })
+      ) || [],
   };
 }
 

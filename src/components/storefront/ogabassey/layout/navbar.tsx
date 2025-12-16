@@ -132,7 +132,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
     if (!searchQuery.trim()) return;
     // router.push already handled by SearchAutocomplete onSelect
     // If manual submit:
-    router.push(`/${storeSlug}/search?q=${encodeURIComponent(searchQuery)}` as any);
+    router.push(`${storeSlug || ''}/search?q=${encodeURIComponent(searchQuery)}` as any);
   };
 
   const openSourceModal = () => {
@@ -178,7 +178,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   </button>
 
                   <Link
-                    href="/"
+                    href={storeSlug || '/'}
                     className="flex items-center cursor-pointer select-none active:opacity-80 transition-opacity text-white"
                   >
                     <Logo className="h-8 w-auto" />
@@ -287,7 +287,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                       </div>
                       <div className="p-2 border-t border-gray-100 bg-gray-50 text-center">
                         <Link
-                          href={`/${storeSlug}/account` as any}
+                          href={`${storeSlug || ''}/account` as any}
                           onClick={() => setShowNotifications(false)}
                           className="text-[10px] font-bold text-gray-600 hover:text-gray-900 block py-1"
                         >
@@ -299,7 +299,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 </div>
 
                 <Link
-                  href={`/${storeSlug}/cart` as any}
+                  href={`${storeSlug || ''}/cart` as any}
                   onClick={(e) => {
                     e.preventDefault();
                     setIsCartOpen(true);
@@ -314,7 +314,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   </span>
                 </Link>
                 <Link
-                  href={`/${storeSlug}/account` as any}
+                  href={`${storeSlug || ''}/account` as any}
                   className="hover:text-white transition-colors"
                 >
                   <User size={22} />
@@ -358,7 +358,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                     {NAV_CATEGORIES.map((cat) => (
                       <Link
                         key={cat.name}
-                        href={`/${storeSlug}/${cat.name}` as any}
+                        href={`${storeSlug || ''}/${cat.name}` as any}
                         onClick={() => setShowCategoryDropdown(false)}
                         className="flex items-center gap-3 px-4 py-3 hover:bg-red-50 hover:text-red-600 transition-colors group"
                       >
@@ -379,7 +379,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* IMEI Checker */}
               <Link
-                href={`/${storeSlug}/imei-check` as any}
+                href={`${storeSlug || ''}/imei-check` as any}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1"
               >
                 <ScanBarcode size={18} />
@@ -390,7 +390,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* Repairs */}
               <Link
-                href={`/${storeSlug}/repairs` as any}
+                href={`${storeSlug || ''}/repairs` as any}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1"
               >
                 <Wrench size={18} />
@@ -401,7 +401,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
 
               {/* Wallet */}
               <Link
-                href={`/${storeSlug}/wallet` as any}
+                href={`${storeSlug || ''}/wallet` as any}
                 className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-red-600 transition-colors px-1 py-1"
               >
                 <Wallet size={18} />
