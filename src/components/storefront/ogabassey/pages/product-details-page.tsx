@@ -35,97 +35,15 @@ import { NegotiationModal } from '../components/NegotiationModal';
 import { ProductComparisonTable } from '../components/ProductComparisonTable';
 import { ProductVideo } from '../components/ProductVideo';
 import { FlyToCartAnimation } from '../components/FlyToCartAnimation'; // Added Animation
-import { products } from '../data/products';
 import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 
 // Props interface for the component
 interface ProductDetailsPageProps {
-  /** Optional server-fetched product data. If not provided, falls back to mock data lookup. */
-  product?: Product;
+  /** Server-fetched product data - required */
+  product: Product;
 }
-
-// Fallback Mock data if product is not found
-const FALLBACK_PRODUCT = {
-  id: 1,
-  name: 'iPhone 15 Pro Max',
-  brand: 'Apple',
-  price: '₦1,950,000',
-  rawPrice: 1950000,
-  rating: 4.8,
-  reviewCount: 124,
-  description:
-    'iPhone 15 Pro Max. Forged in titanium and featuring the groundbreaking A17 Pro chip, a customizable Action button, and the most powerful iPhone camera system ever.',
-  image:
-    'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=1000&auto=format&fit=crop',
-  images: [
-    'https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1695048133142-1a20484d2569?q=80&w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1697316986292-6927d3c0157f?q=80&w=1000&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1695048133021-3e0f47e3079c?q=80&w=1000&auto=format&fit=crop',
-  ],
-  colors: [
-    { name: 'Natural Titanium', value: '#Bfb7ad' },
-    { name: 'Blue Titanium', value: '#2f3d4d' },
-    { name: 'White Titanium', value: '#f2f2f2' },
-    { name: 'Black Titanium', value: '#1a1a1a' },
-  ],
-  storage: ['256GB', '512GB', '1TB'],
-  ram: '8GB',
-  simType: 'Dual eSIM',
-  displayType: 'OLED',
-  displaySize: '6.7"',
-  specs: [
-    { label: 'Screen Size', value: '6.7 inches' },
-    { label: 'Processor', value: 'A17 Pro chip' },
-    { label: 'Main Camera', value: '48MP Main' },
-    { label: 'Battery', value: 'Up to 29 hours video playback' },
-    { label: 'OS', value: 'iOS 17' },
-  ],
-  detailedSpecs: [
-    {
-      category: 'Network',
-      items: [
-        { label: 'Technology', value: 'GSM / CDMA / HSPA / EVDO / LTE / 5G' },
-        { label: 'Speed', value: 'HSPA, LTE-A, 5G, EV-DO Rev.A 3.1 Mbps' },
-      ],
-    },
-  ],
-  category: 'Phones',
-  condition: 'New',
-};
-
-// Mock Reviews
-const MOCK_REVIEWS = [
-  {
-    id: 1,
-    user: 'Ahmed Musa',
-    rating: 5,
-    date: '2 days ago',
-    comment:
-      "Best phone I've ever used. The titanium feel is premium and much lighter than my 14 Pro Max. Battery life is solid.",
-    verified: true,
-  },
-  {
-    id: 2,
-    user: 'Sarah Okon',
-    rating: 4,
-    date: '1 week ago',
-    comment:
-      'Camera is amazing, especially the 5x zoom. Only issue is it gets a bit warm during heavy gaming.',
-    verified: true,
-  },
-  {
-    id: 3,
-    user: 'David Cohen',
-    rating: 5,
-    date: '2 weeks ago',
-    comment:
-      'Delivery to Abuja was super fast (2 days). Product is authentic. Highly recommend Ogabassey.',
-    verified: true,
-  },
-];
 
 export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product: serverProduct }) => {
   const params = useParams();
@@ -145,12 +63,6 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   const { toggleSaved, isSaved } = useV2Saved();
   const { compareItems, addToCompare, removeFromCompare, isInCompare } =
     useV2Comparison();
-
-  // Find product from data - use server product
-  const productFound = useMemo(
-    () => serverProduct,
-    [serverProduct]
-  );
 
   const getColorHex = (name: string) => {
     const lower = name.toLowerCase();
@@ -186,119 +98,69 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
   };
 
   const productData = useMemo(() => {
-    // If we have a server product, use it strictly without merging fallback data
-    if (serverProduct) {
-      // Normalize Colors
-      let normalizedColors: { name: string; value: string }[] = [];
-      if (serverProduct.colors && serverProduct.colors.length > 0) {
-        normalizedColors = serverProduct.colors.map((c: any) => ({
-          name: typeof c === 'string' ? c : c.name || c,
-          value: getColorHex(typeof c === 'string' ? c : c.name || c),
-        }));
-      }
-
-      // Normalize Storage
-      let normalizedStorage: string[] = [];
-      if (serverProduct.storage) {
-        normalizedStorage = Array.isArray(serverProduct.storage)
-          ? serverProduct.storage
-          : [serverProduct.storage];
-      }
-
-      // Normalize Images
-      let normalizedImages: string[] = [];
-      if (serverProduct.images && serverProduct.images.length > 0) {
-        normalizedImages = serverProduct.images;
-      } else if (serverProduct.image) {
-        normalizedImages = [serverProduct.image];
-      } else {
-        // Only use fallback image if absolutely no images exist
-        normalizedImages = [FALLBACK_PRODUCT.image];
-      }
-
-      return {
-        ...serverProduct, // Use everything from server product
-        images: normalizedImages,
-        colors: normalizedColors,
-        storage: normalizedStorage,
-        platforms: (serverProduct as any).variants
-          ? Array.from(new Set((serverProduct as any).variants
-            .map((v: any) => v.attributes?.platform || v.platform) // Check both explicit and attribute
-            .filter(Boolean)))
-          : [],
-        colorImages: (serverProduct as any).color_images || {}, // Color→Images mapping
-        condition: (serverProduct.condition as any) || 'New',
-        // Ensure defaults for critical UI fields if missing
-        rating: serverProduct.rating || 0,
-        reviewCount: serverProduct.reviews || 0,
-        description: serverProduct.description || 'No description available.',
-        // Map specifications to detailedSpecs (UI key)
-        detailedSpecs: (serverProduct as any).specifications || (serverProduct as any).detailedSpecs || [
-          {
-            category: 'General',
-            items: [
-              { label: 'Brand', value: serverProduct.brand || 'Generic' },
-              { label: 'Condition', value: (serverProduct.condition as any) || 'New' },
-              { label: 'Category', value: serverProduct.category || 'General' },
-            ],
-          },
-        ],
-        specs: (serverProduct as any).specs || [
-          { label: 'Brand', value: serverProduct.brand || 'Generic' },
-          { label: 'Condition', value: serverProduct.condition || 'New' },
-        ],
-      };
-    }
-
-    // Legacy/Mock Fallback logic (only used when no server product)
-    const base = productFound
-      ? { ...FALLBACK_PRODUCT, ...productFound }
-      : FALLBACK_PRODUCT;
-
     // Normalize Colors
-    let normalizedColors = FALLBACK_PRODUCT.colors;
-    if (productFound?.colors && productFound.colors.length > 0) {
-      normalizedColors = productFound.colors.map((c: any) => ({
-        name: c,
-        value: getColorHex(c),
+    let normalizedColors: { name: string; value: string }[] = [];
+    if (serverProduct.colors && serverProduct.colors.length > 0) {
+      normalizedColors = serverProduct.colors.map((c: unknown) => ({
+        name: typeof c === 'string' ? c : (c as { name?: string }).name || String(c),
+        value: getColorHex(typeof c === 'string' ? c : (c as { name?: string }).name || String(c)),
       }));
     }
 
     // Normalize Storage
-    let normalizedStorage = FALLBACK_PRODUCT.storage;
-    if (productFound?.storage) {
-      // Ensure storage is an array
-      normalizedStorage = Array.isArray(productFound.storage)
-        ? productFound.storage
-        : [productFound.storage];
-    } else if (!productFound) {
-      normalizedStorage = FALLBACK_PRODUCT.storage;
-    } else {
-      normalizedStorage =
-        productFound.category === 'Phones' ||
-          productFound.category === 'Laptops'
-          ? normalizedStorage
-          : [];
+    let normalizedStorage: string[] = [];
+    if (serverProduct.storage) {
+      normalizedStorage = Array.isArray(serverProduct.storage)
+        ? serverProduct.storage
+        : [serverProduct.storage];
     }
 
     // Normalize Images
-    let normalizedImages = FALLBACK_PRODUCT.images;
-    if (productFound?.image) {
-      normalizedImages = [
-        productFound.image,
-        ...FALLBACK_PRODUCT.images.slice(1),
-      ];
+    let normalizedImages: string[] = [];
+    if (serverProduct.images && serverProduct.images.length > 0) {
+      normalizedImages = serverProduct.images;
+    } else if (serverProduct.image) {
+      normalizedImages = [serverProduct.image];
     }
 
+    // Extract platforms from variants
+    const platforms = (serverProduct.variants
+      ? Array.from(new Set(serverProduct.variants
+        .map((v) => v.attributes?.platform || v.platform)
+        .filter(Boolean)))
+      : []) as string[];
+
     return {
-      ...base,
-      image: productFound?.image || FALLBACK_PRODUCT.image,
+      ...serverProduct,
       images: normalizedImages,
       colors: normalizedColors,
       storage: normalizedStorage,
-      colorImages: {}, // Fallback has no color mapping
+      platforms,
+      colorImages: (serverProduct as Product & { color_images?: Record<string, string[]> }).color_images || {},
+      condition: serverProduct.condition || 'new',
+      rating: serverProduct.rating || 0,
+      reviewCount: serverProduct.reviews || 0,
+      description: serverProduct.description || 'No description available.',
+      detailedSpecs: (Array.isArray((serverProduct as Product & { specifications?: unknown }).specifications)
+        ? (serverProduct as Product & { specifications?: unknown }).specifications
+        : Array.isArray(serverProduct.detailedSpecs)
+          ? serverProduct.detailedSpecs
+          : [
+              {
+                category: 'General',
+                items: [
+                  { label: 'Brand', value: serverProduct.brand || 'Generic' },
+                  { label: 'Condition', value: serverProduct.condition || 'New' },
+                  { label: 'Category', value: serverProduct.category || 'General' },
+                ],
+              },
+            ]) as { category: string; items: { label: string; value: string }[] }[],
+      specs: serverProduct.specs || [
+        { label: 'Brand', value: serverProduct.brand || 'Generic' },
+        { label: 'Condition', value: serverProduct.condition || 'New' },
+      ],
     };
-  }, [productFound, serverProduct, getColorHex]);
+  }, [serverProduct, getColorHex]);
 
   // Phase 7: Condition State
   type ConditionType = 'new' | 'used' | 'open_box' | 'refurbished';
@@ -347,28 +209,14 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
 
   // Comparison Logic - Compute comparable items
   const comparableProducts = useMemo(() => {
-    // 1. Get items from context that match category AND are NOT the current product
-    const contextItems = compareItems.filter(
-      (p) =>
-        p.category === productData.category &&
-        String(p.id) !== String(productData.id)
-    );
-
-    // 2. If we don't have enough comparison items (let's say we want at least 2 competitors), fill with random products
-    let finalItems = [...contextItems];
-    if (finalItems.length < 2) {
-      const suggestions = products
-        .filter(
-          (p) =>
-            p.category === productData.category &&
-            String(p.id) !== String(productData.id) &&
-            !finalItems.some((fi) => String(fi.id) === String(p.id))
-        )
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 2 - finalItems.length);
-      finalItems = [...finalItems, ...(suggestions as any[])];
-    }
-    return finalItems.slice(0, 3); // Max 3 competitors
+    // Get items from context that match category AND are NOT the current product
+    return compareItems
+      .filter(
+        (p) =>
+          p.category === productData.category &&
+          String(p.id) !== String(productData.id)
+      )
+      .slice(0, 3); // Max 3 competitors
   }, [compareItems, productData.category, productData.id]);
 
   // Scroll to top on load - Optional in Next.js but kept for component mount reset
@@ -797,8 +645,8 @@ return (
               <div className="flex flex-wrap gap-3">
                 {/* Render Main Product Option */}
                 <button
-                  onClick={() => setSelectedCondition(productData.condition || 'New')}
-                  className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-all ${selectedCondition === (productData.condition || 'New')
+                  onClick={() => setSelectedCondition((productData.condition?.toLowerCase() || 'new') as ConditionType)}
+                  className={`px-4 py-2 rounded-lg border-2 text-sm font-bold transition-all ${selectedCondition === (productData.condition?.toLowerCase() || 'new')
                     ? 'border-red-600 bg-red-50 text-red-700'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300'
                     }`}
@@ -1233,48 +1081,16 @@ return (
               </div>
 
               <div className="space-y-4">
-                {MOCK_REVIEWS.map((review) => (
-                  <div
-                    key={review.id}
-                    className="border-b border-gray-100 pb-6 last:border-0"
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold text-xs">
-                          <User size={14} />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-gray-900 text-sm">
-                            {review.user}
-                          </h4>
-                          <span className="text-xs text-gray-400">
-                            {review.date}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex text-yellow-400">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            size={12}
-                            fill={i < review.rating ? 'currentColor' : 'none'}
-                            className={
-                              i >= review.rating ? 'text-gray-200' : ''
-                            }
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-gray-600 text-sm mb-3">
-                      {review.comment}
-                    </p>
-                    {review.verified && (
-                      <div className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                        <Check size={12} /> Verified Purchase
-                      </div>
-                    )}
+                {productData.reviewCount === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <User size={32} className="mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No reviews yet. Be the first to review this product!</p>
                   </div>
-                ))}
+                ) : (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    Reviews are loaded from the store&apos;s review system.
+                  </p>
+                )}
               </div>
             </div>
           )}

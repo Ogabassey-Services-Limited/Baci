@@ -32,6 +32,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { SearchAutocomplete } from '@/components/storefront/search-autocomplete';
+import { asRoute } from '@/lib/routes';
 import { Logo } from './logo';
 import { MobileMenu } from './mobile-menu';
 import { EmptyState } from '../components/empty-state';
@@ -178,7 +179,7 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                   </button>
 
                   <Link
-                    href={storeSlug || '/'}
+                    href={asRoute(storeSlug || '/')}
                     className="flex items-center cursor-pointer select-none active:opacity-80 transition-opacity text-white"
                   >
                     <Logo className="h-8 w-auto" />

@@ -76,7 +76,7 @@ export const SavedPage: React.FC = () => {
                     onClick={(e) => {
                       e.preventDefault();
                       addToCart(product as any, 1);
-                      router.push(getHref('/cart'));
+                      router.push(asRoute(getHref('/cart')));
                     }}
                     className="flex-1 bg-gray-900 text-white text-[10px] md:text-xs font-bold py-2 md:py-2.5 rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-1.5"
                   >

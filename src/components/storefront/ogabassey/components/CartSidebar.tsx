@@ -422,7 +422,7 @@ export const CartSidebar: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsCheckoutLoading(true);
-                    router.push(getHref('/checkout'));
+                    router.push(asRoute(getHref('/checkout')));
                     // We don't close the sidebar immediately so the user sees the loading state.
                     // The sidebar will naturally disappear or close when the new route loads/unmounts.
                     // Or we can set a timeout to close it if navigation is fast?

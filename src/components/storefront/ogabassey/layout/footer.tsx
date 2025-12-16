@@ -17,6 +17,7 @@ import type React from 'react';
 
 // import { Logo } from './Logo'; // Replaced
 import { Logo } from './logo';
+import { asRoute } from '@/lib/routes';
 
 interface FooterProps {
   storeSlug?: string;
@@ -43,7 +44,7 @@ export const OgabasseyFooter: React.FC<FooterProps> = ({ storeSlug, logo }) => {
           {/* Column 1: Brand Info (Compact) */}
           <div className="space-y-4">
             <Link
-              href={storeSlug || '/'}
+              href={asRoute(storeSlug || '/')}
               className="flex items-center cursor-pointer select-none"
             >
               <Logo className="h-10 w-auto" />

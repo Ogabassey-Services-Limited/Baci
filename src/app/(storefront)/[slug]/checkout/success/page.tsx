@@ -30,7 +30,7 @@ export default function CheckoutSuccessPage() {
     const verifyPayment = async () => {
       if (!reference) {
         // No reference - redirect back to checkout
-        router.push(getHref('/checkout'));
+        router.push(asRoute(getHref('/checkout')));
         return;
       }
 
@@ -59,7 +59,7 @@ export default function CheckoutSuccessPage() {
           setStatus('failed');
           // After showing the failed message briefly, redirect to checkout
           setTimeout(() => {
-            router.push(getHref('/checkout'));
+            router.push(asRoute(getHref('/checkout')));
           }, 3000);
         } else {
           // Unknown status - show pending

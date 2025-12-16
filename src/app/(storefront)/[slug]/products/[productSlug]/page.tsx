@@ -113,9 +113,9 @@ async function getProductCached(
         id: v.id,
         product_id: cachedProduct.id,
         merchant_id: merchant.id,
-        attributes: v.options || {},
-        stock_quantity: v.stock ?? 0,
-        price_override: v.price_modifier,
+        attributes: v.attributes || {},
+        stock_quantity: v.stock_quantity ?? 0,
+        price_override: v.price_override,
       })) || [],
     // Specs for SEO Schema
     // biome-ignore lint/suspicious/noExplicitAny: Dynamic JSON column from database

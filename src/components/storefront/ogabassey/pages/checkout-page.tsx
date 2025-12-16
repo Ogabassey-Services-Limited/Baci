@@ -28,6 +28,7 @@ import { CheckoutAuthModal } from '@/components/storefront/checkout-auth-modal';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { openCredPalCheckout, isCredPalEligible } from '@/lib/credpal';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
+import { asRoute } from '@/lib/routes';
 
 interface SavedAddress {
   id: number;
@@ -534,7 +535,7 @@ export const CheckoutPage: React.FC = () => {
           onSuccess: (transactionId) => {
             console.log('Credit Direct success:', transactionId);
             clearCart();
-            router.push(getHref(`/order-success?type=credit_direct&orderId=${order.id}&sessionId=${transactionId}`));
+            router.push(asRoute(getHref(`/order-success?type=credit_direct&orderId=${order.id}&sessionId=${transactionId}`)));
           },
           onError: (error) => {
             console.error('Credit Direct error:', error);
@@ -557,7 +558,7 @@ export const CheckoutPage: React.FC = () => {
         if (!credpalKey) {
           // Fallback if key not configured
           clearCart();
-          router.push(getHref(`/order-success?type=credpal&orderId=${order.id}&status=pending`));
+          router.push(asRoute(getHref(`/order-success?type=credpal&orderId=${order.id}&status=pending`)));
           return;
         }
 
@@ -572,7 +573,7 @@ export const CheckoutPage: React.FC = () => {
           onSuccess: (data) => {
             console.log('CredPal success:', data);
             clearCart();
-            router.push(getHref(`/order-success?type=credpal&orderId=${order.id}&credpalRef=${data.order_no}`));
+            router.push(asRoute(getHref(`/order-success?type=credpal&orderId=${order.id}&credpalRef=${data.order_no}`)));
           },
           onError: (error) => {
             console.error('CredPal error:', error);
@@ -588,19 +589,19 @@ export const CheckoutPage: React.FC = () => {
       } else if (paymentMethod === 'invoice') {
         // Invoice/Pay Later - order created, redirect to success
         clearCart();
-        router.push(getHref(`/order-success?type=invoice&orderId=${order.id}`));
+        router.push(asRoute(getHref(`/order-success?type=invoice&orderId=${order.id}`)));
       } else if (paymentMethod === 'payforme') {
         // Pay For Me - TODO: send payment link
         clearCart();
         router.push(
-          getHref(`/order-success?type=payforme&orderId=${order.id}&payerName=${encodeURIComponent(
+          asRoute(getHref(`/order-success?type=payforme&orderId=${order.id}&payerName=${encodeURIComponent(
             payForMeDetails.name
-          )}`)
+          )}`))
         );
       } else {
         // Default: POD or other
         clearCart();
-        router.push(getHref(`/order-success?type=standard&orderId=${order.id}`));
+        router.push(asRoute(getHref(`/order-success?type=standard&orderId=${order.id}`)));
       }
     } catch (error) {
       console.error('Checkout error:', error);
@@ -632,7 +633,7 @@ export const CheckoutPage: React.FC = () => {
           </p>
           <button
             type="button"
-            onClick={() => router.push(getHref('/'))}
+            onClick={() => router.push(asRoute(getHref('/')))}
             className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 text-white font-semibold rounded-xl hover:bg-red-700 transition-colors"
           >
             Continue Shopping

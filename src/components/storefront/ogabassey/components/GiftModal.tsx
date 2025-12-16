@@ -6,6 +6,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 
 export interface GiftData {
   selectedItemIds: string[];
@@ -101,7 +102,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
     // }
 
     // Navigate to checkout with flag
-    router.push(getHref('/checkout?giftWrappingCost=10000'));
+    router.push(asRoute(getHref('/checkout?giftWrappingCost=10000')));
     onClose();
   };
 

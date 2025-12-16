@@ -86,7 +86,7 @@ export interface Product {
 
 export interface ProductVariant {
   id: string;
-  name: string;
+  name?: string;
   storage?: string;
   ram?: string;
   color?: string;
@@ -94,7 +94,9 @@ export interface ProductVariant {
   price_override?: number;
   price_modifier?: number;
   stock?: number;
+  stock_quantity?: number;
   images?: string[];
+  attributes?: Record<string, string>;
 }
 
 export interface ProductKeySpecs {
