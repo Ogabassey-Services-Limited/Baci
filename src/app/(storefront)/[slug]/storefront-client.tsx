@@ -36,13 +36,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
-import { useAuth } from '@/contexts/auth-context';
 import { getBusinessTypeById } from '@/config/business-types';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -52,7 +49,7 @@ import { findDarkestColor, getContrastingTextColor } from '@/lib/color-utils';
 import { getCountryByCode } from '@/lib/countries';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { Product } from '@/lib/products';
-import { asRoute, dynamicRoutes } from '@/lib/routes';
+import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 

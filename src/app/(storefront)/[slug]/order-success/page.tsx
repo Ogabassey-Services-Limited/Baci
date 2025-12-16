@@ -1,9 +1,9 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { CheckCircle, Loader2, ArrowRight } from 'lucide-react';
+import { ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
@@ -35,7 +35,7 @@ import { useAuthSafe } from '@/contexts/auth-context';
 function OrderSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
-  const type = searchParams.get('type');
+  const _type = searchParams.get('type'); // Reserved for future use
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath;
   const auth = useAuthSafe();

@@ -3,9 +3,9 @@
 import { Cookie, Settings2, Shield, X } from 'lucide-react';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { useMerchant } from '@/hooks/use-merchant';
 import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
+import { useMerchant } from '@/hooks/use-merchant';
 import { updateConsentMode } from '@/lib/consent-mode';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';

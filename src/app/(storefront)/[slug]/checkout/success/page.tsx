@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { AlertCircle, CheckCircle, Loader2, Package } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
@@ -16,8 +16,10 @@ export default function CheckoutSuccessPage() {
   const { clearCart } = useCart();
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || '';
-  const getHref = (path: string) =>
-    path.startsWith('http') ? path : `${basePath}${path}`;
+  const getHref = useCallback(
+    (path: string) => (path.startsWith('http') ? path : `${basePath}${path}`),
+    [basePath]
+  );
   const [status, setStatus] = useState<
     'verifying' | 'success' | 'pending' | 'failed'
   >('verifying');
@@ -73,7 +75,7 @@ export default function CheckoutSuccessPage() {
     };
 
     verifyPayment();
-  }, [reference, clearCart, router]);
+  }, [reference, clearCart, router, getHref]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
