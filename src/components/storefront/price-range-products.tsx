@@ -1,24 +1,6 @@
 'use client';
 
-/**
- * @deprecated Use BrandProducts or PriceRangeProducts instead.
- *
- * This component is deprecated in favor of Koray-aligned semantic alternatives:
- * - BrandProducts: Same brand, same category (builds brand entity)
- * - PriceRangeProducts: Same category, similar price (supports comparison intent)
- * - ComparisonProducts: Unified component for different comparison types
- *
- * The new components follow Koray GÜBÜR's holistic SEO framework:
- * - Contextual I-node links with clear semantic purpose
- * - Same category focus to maintain topical authority
- * - Clear anchor text patterns: "More [Brand] [Category]", "[Category] ₦X-₦Y"
- *
- * @see src/components/storefront/brand-products.tsx
- * @see src/components/storefront/price-range-products.tsx
- * @see src/components/storefront/comparison-products.tsx
- */
-
-import { ChevronLeft, ChevronRight, Loader2, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -33,78 +15,104 @@ import type { Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 
-interface RelatedProductsProps {
-  /** Current product to find related products for */
+interface PriceRangeProductsProps {
+  /** Current product to find similar-priced products for */
   product: Product;
   /** Maximum number of products to show (default: 4) */
   maxProducts?: number;
-  /** Section title (default: "You Might Also Like") */
-  title?: string;
-  /** Show navigation arrows (default: true) */
-  showNavigation?: boolean;
+  /** Price tolerance percentage (default: 0.15 = 15%) */
+  priceTolerance?: number;
   /** Custom class name for the container */
   className?: string;
 }
 
 /**
- * Related Products Component
+ * Price Range Products Component (Koray-aligned)
  *
- * Shows products related to the current product based on:
- * 1. Same category (primary match)
- * 2. Same brand (secondary match)
- * 3. Similar price range (tertiary match)
- *
- * Architecture is ready for future vector-based similarity search.
+ * Shows products from the SAME category within a similar price range.
+ * This follows Koray's comparison intent pattern:
+ * - Same category maintains topical focus
+ * - Similar price supports commercial comparison intent
+ * - Clear anchor text: "[Category] Under ₦X" or "[Category] ₦X-₦Y"
  */
-export function RelatedProducts({
+export function PriceRangeProducts({
   product,
   maxProducts = 4,
-  title = 'You Might Also Like',
-  showNavigation = true,
+  priceTolerance = 0.15,
   className,
-}: RelatedProductsProps) {
+}: PriceRangeProductsProps) {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant ?? null;
   const { formatCurrency } = useCurrency();
   const { addToCart } = useCart();
   const { toast } = useToast();
 
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [priceRangeProducts, setPriceRangeProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [scrollPosition, setScrollPosition] = useState(0);
 
+  // Derive category from current product
+  const productCategory =
+    (product as any).categories?.name || (product as any).category || '';
+  const categorySlug =
+    (product as any).categories?.slug ||
+    (product as any).category_slug ||
+    productCategory.toLowerCase();
+
+  // Calculate price range
+  const minPrice = Math.floor(product.price * (1 - priceTolerance));
+  const maxPrice = Math.ceil(product.price * (1 + priceTolerance));
+
   useEffect(() => {
-    if (!merchant?.id || !product) {
-      setRelatedProducts([]);
+    // Skip if no merchant or no category
+    if (!merchant?.id || !productCategory) {
+      setPriceRangeProducts([]);
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
 
-    // Fetch all products, then filter client-side for related ones
-    // In future, this could be replaced with a dedicated /api/products/related endpoint
-    // that uses vector similarity search
-    apiGet<{ products: Product[] }>(
-      `/api/storefront/products?merchant_id=${merchant.id}`
-    )
+    // Fetch products from same category with price range filter
+    const params = new URLSearchParams({
+      merchant_id: merchant.id,
+      category: categorySlug,
+      min_price: minPrice.toString(),
+      max_price: maxPrice.toString(),
+    });
+
+    apiGet<{ products: Product[] }>(`/api/storefront/products?${params}`)
       .then((data) => {
         if (data.products) {
-          const related = findRelatedProducts(
-            product,
-            data.products,
-            maxProducts
+          // Exclude current product and filter for active status
+          const filtered = data.products.filter(
+            (p) => p.id !== product.id && p.status === 'active'
           );
-          setRelatedProducts(related);
+          // Sort by price proximity to current product
+          filtered.sort(
+            (a, b) =>
+              Math.abs(a.price - product.price) -
+              Math.abs(b.price - product.price)
+          );
+          setPriceRangeProducts(filtered.slice(0, maxProducts));
         }
         setIsLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to fetch related products:', err);
-        setRelatedProducts([]);
+        console.error('Failed to fetch price range products:', err);
+        setPriceRangeProducts([]);
         setIsLoading(false);
       });
-  }, [merchant?.id, product, maxProducts]);
+  }, [
+    merchant?.id,
+    product.id,
+    product.price,
+    categorySlug,
+    productCategory,
+    minPrice,
+    maxPrice,
+    maxProducts,
+  ]);
 
   const handleAddToCart = (p: Product) => {
     addToCart(p);
@@ -115,7 +123,7 @@ export function RelatedProducts({
   };
 
   const scrollContainer = (direction: 'left' | 'right') => {
-    const container = document.getElementById('related-products-scroll');
+    const container = document.getElementById('price-range-products-scroll');
     if (!container) return;
 
     const scrollAmount = 300;
@@ -128,27 +136,38 @@ export function RelatedProducts({
     setScrollPosition(newPosition);
   };
 
-  // Don't render if no related products
-  if (!isLoading && relatedProducts.length === 0) {
+  // Don't render if no products found
+  if (!isLoading && priceRangeProducts.length === 0) {
     return null;
   }
+
+  // Generate semantic title based on price range
+  // Format: "[Category] Under ₦X" for low prices, "[Category] ₦X-₦Y" for ranges
+  const formatPriceRange = () => {
+    const formattedMax = formatCurrency(maxPrice);
+    const formattedMin = formatCurrency(minPrice);
+
+    // If min price is very low (< 10000), just say "Under X"
+    if (minPrice < 10000) {
+      return `${productCategory} Under ${formattedMax}`;
+    }
+
+    // Round to nearest convenient number for display
+    return `${productCategory} ${formattedMin} - ${formattedMax}`;
+  };
+
+  const title = formatPriceRange();
 
   return (
     <section className={cn('w-full py-8 md:py-12', className)}>
       <div className="container px-4 md:px-6">
-        {/* Header */}
+        {/* Header with semantic title */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Sparkles
-              className="w-5 h-5 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-              {title}
-            </h2>
-          </div>
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+            {title}
+          </h2>
 
-          {showNavigation && relatedProducts.length > 3 && (
+          {priceRangeProducts.length > 3 && (
             <div className="hidden sm:flex items-center gap-2">
               <ThemedButton
                 variant="outline"
@@ -181,12 +200,12 @@ export function RelatedProducts({
           </div>
         ) : (
           <div
-            id="related-products-scroll"
+            id="price-range-products-scroll"
             className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             onScroll={(e) => setScrollPosition(e.currentTarget.scrollLeft)}
           >
-            {relatedProducts
+            {priceRangeProducts
               .filter((p) => p.imageLarge || p.image)
               .map((p) => (
                 <ThemedCard
@@ -215,9 +234,9 @@ export function RelatedProducts({
                         {p.name}
                       </h3>
                     </Link>
-                    {((p as any).categories?.name || p.category) && (
+                    {p.brand && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {(p as any).categories?.name || p.category}
+                        {p.brand}
                       </p>
                     )}
                     <div className="flex items-center justify-between mt-2">
@@ -252,76 +271,4 @@ export function RelatedProducts({
       </div>
     </section>
   );
-}
-
-/**
- * Find related products based on category, brand, and price similarity
- *
- * Scoring algorithm:
- * - Same category: +10 points
- * - Same brand: +5 points
- * - Similar price (within 30%): +3 points
- * - Similar price (within 50%): +1 point
- *
- * This is a simple algorithm that can be replaced with vector similarity
- * search in the future by calling a dedicated API endpoint.
- */
-function findRelatedProducts(
-  currentProduct: Product,
-  allProducts: Product[],
-  maxResults: number
-): Product[] {
-  // Filter out the current product and inactive products
-  const candidates = allProducts.filter(
-    (p) => p.id !== currentProduct.id && p.status === 'active'
-  );
-
-  if (candidates.length === 0) return [];
-
-  // Score each product
-  const scored = candidates.map((p) => {
-    let score = 0;
-
-    // Category match (highest priority)
-    if (
-      p.category &&
-      currentProduct.category &&
-      p.category === currentProduct.category
-    ) {
-      score += 10;
-    }
-
-    // Brand match
-    if (p.brand && currentProduct.brand && p.brand === currentProduct.brand) {
-      score += 5;
-    }
-
-    // Price similarity
-    const priceDiff =
-      Math.abs(p.price - currentProduct.price) / currentProduct.price;
-    if (priceDiff <= 0.3) {
-      score += 3;
-    } else if (priceDiff <= 0.5) {
-      score += 1;
-    }
-
-    return { product: p, score };
-  });
-
-  // Sort by score (highest first), then by name for consistency
-  scored.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    return a.product.name.localeCompare(b.product.name);
-  });
-
-  // Return top results (only those with score > 0, fallback to random if none)
-  const withScore = scored.filter((s) => s.score > 0);
-
-  if (withScore.length > 0) {
-    return withScore.slice(0, maxResults).map((s) => s.product);
-  }
-
-  // Fallback: return random products if no good matches
-  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, maxResults);
 }

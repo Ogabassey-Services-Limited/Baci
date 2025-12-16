@@ -14,6 +14,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 const stats = [
@@ -50,6 +52,9 @@ interface AboutProps {
 }
 
 export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '/';
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -200,7 +205,7 @@ export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
               difference today.
             </p>
             <Link
-              href="/"
+              href={asRoute(basePath)}
               className="inline-flex items-center gap-2 bg-white text-red-600 font-bold py-4 px-8 rounded-full hover:bg-gray-100 transition-colors shadow-lg active:scale-95"
             >
               Start Shopping <ChevronRight size={20} />

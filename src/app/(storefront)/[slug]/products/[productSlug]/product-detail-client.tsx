@@ -46,10 +46,21 @@ const ReviewsSection = dynamic(
   }
 );
 
-const RelatedProducts = dynamic(
+// Koray-aligned semantic product sections
+const BrandProducts = dynamic(
   () =>
-    import('@/components/storefront/related-products').then(
-      (mod) => mod.RelatedProducts
+    import('@/components/storefront/brand-products').then(
+      (mod) => mod.BrandProducts
+    ),
+  {
+    loading: () => <Skeleton className="h-[300px] w-full rounded-xl" />,
+  }
+);
+
+const PriceRangeProducts = dynamic(
+  () =>
+    import('@/components/storefront/price-range-products').then(
+      (mod) => mod.PriceRangeProducts
     ),
   {
     loading: () => <Skeleton className="h-[300px] w-full rounded-xl" />,
@@ -681,19 +692,28 @@ export default function ProductDetailClient({ product }: { product: Product }) {
               className="mt-8 border-t pt-8 max-w-4xl mx-auto"
             />
 
-            {/* Related Products */}
-            <RelatedProducts
+            {/* Koray-aligned semantic sections: Same brand, same category */}
+            <BrandProducts
               product={product}
               maxProducts={4}
               className="mt-8 border-t"
             />
 
-            {/* Recently Viewed Products */}
-            <RecentlyViewedProducts
-              excludeProductId={product.id}
-              maxProducts={6}
+            {/* Koray-aligned semantic sections: Same category, similar price */}
+            <PriceRangeProducts
+              product={product}
+              maxProducts={4}
               className="border-t"
             />
+
+            {/* Recently Viewed Products - User convenience only, no SEO value */}
+            <div data-nosnippet>
+              <RecentlyViewedProducts
+                excludeProductId={product.id}
+                maxProducts={6}
+                className="border-t"
+              />
+            </div>
           </main>
 
           <footer

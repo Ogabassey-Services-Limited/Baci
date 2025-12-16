@@ -1,9 +1,8 @@
 /**
  * @fileOverview Engine-Connected Product Grid for Ogabassey V2
  *
- * This component wraps the existing InteractiveProductGrid and connects it
- * to the Baci e-commerce engine. It fetches real products from the database
- * when a merchant slug is provided, or falls back to mock data for previews.
+ * This component connects to the Baci e-commerce engine and fetches real
+ * products from the database. No mock data fallbacks in production.
  */
 
 'use client';
@@ -71,13 +70,10 @@ function toTemplateProducts(baciProducts: BaciProduct[]): Product[] {
   });
 }
 
-/** Demo slugs that should use mock data instead of live API */
-const DEMO_SLUGS = new Set(['ogabassey-demo', 'new-template-demo']);
-
 interface EngineProductGridProps {
   /** Store slug - if provided, fetches real products */
   storeSlug?: string;
-  /** Use mock data instead of fetching from API */
+  /** Use mock data for template previews only */
   useMockData?: boolean;
   /** External products to use (from parent component) */
   externalProducts?: BaciProduct[];
@@ -87,7 +83,6 @@ interface EngineProductGridProps {
   showViewAll?: boolean;
   /** Max products to display */
   limit?: number;
-  // Previously passed props like defaultCategory are now handled via URL
 }
 
 export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
@@ -137,19 +132,26 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
     router.push(`${pathname}${query}` as any, { scroll: false });
   };
 
-  // Fetch products from API or use mock data
+  // Fetch products from API or use mock data for template previews
   useEffect(() => {
     async function fetchProducts() {
-      // If external products provided, use those
+      // If external products provided, use those (SSR case)
       if (externalProducts) {
         setProducts(toTemplateProducts(externalProducts));
         setLoading(false);
         return;
       }
 
-      // If using mock data or demo slug
-      if (useMockData || !storeSlug || DEMO_SLUGS.has(storeSlug)) {
+      // Template preview mode - use mock data
+      if (useMockData) {
         setProducts(mockProducts);
+        setLoading(false);
+        return;
+      }
+
+      // No store slug means we can't fetch - show empty state
+      if (!storeSlug) {
+        setProducts([]);
         setLoading(false);
         return;
       }
@@ -169,8 +171,8 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
         }
 
         if (!merchantId) {
-          console.warn('No merchant ID found, falling back to mock data');
-          setProducts(mockProducts);
+          console.warn('No merchant ID found, showing empty state');
+          setProducts([]);
           setLoading(false);
           return;
         }
@@ -192,25 +194,18 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
         const data = await response.json();
 
         if (data.products && Array.isArray(data.products)) {
-          // If request has filters but returns empty, we should define how to handle it.
-          // API returns [] which is fine.
-
+          // Map products - empty array is valid (no products match filters)
           const mappedProducts = toTemplateProducts(data.products);
-
-          // Filter is now handled server-side!
           setProducts(mappedProducts);
         } else {
-          setProducts(mockProducts); // Fallback only on explicit error structure? No, empty is valid.
-          // If Products is empty logic:
-          if (data.products && Array.isArray(data.products)) {
-            setProducts([]);
-          } else {
-            setProducts(mockProducts);
-          }
+          // API error or unexpected response structure - show empty state, not mock data
+          console.warn('Unexpected API response structure, showing empty state');
+          setProducts([]);
         }
       } catch (err) {
         console.error('Error fetching products:', err);
-        setProducts(mockProducts);
+        // On error, show empty state instead of mock data in production
+        setProducts([]);
       } finally {
         setLoading(false);
       }

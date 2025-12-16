@@ -20,7 +20,7 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({ products }) => {
   return (
     <>
       <h1 className="sr-only">
-        Ogabassey - Buy Affordable New & UK Used Smartphones in Nigeria
+        {merchantContext?.merchant?.business_name || 'Shop'} - Buy Affordable New & UK Used Smartphones in Nigeria
       </h1>
       <Hero />
 

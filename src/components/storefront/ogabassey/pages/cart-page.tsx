@@ -98,7 +98,7 @@ export const CartPage: React.FC = () => {
             </span>
           </h1>
           <Link
-            href="/"
+            href={`/${merchantSlug || 'ogabassey'}` as any}
             className="text-sm font-medium text-red-600 hover:text-red-700 hidden md:block"
           >
             Continue Shopping
@@ -112,7 +112,7 @@ export const CartPage: React.FC = () => {
               title="Your cart is empty 🤧"
               description="Sorry, the product you are looking for is currently not available at the moment."
               actionLabel="Start Shopping"
-              actionLink="/"
+              actionLink={`/${merchantSlug || 'ogabassey'}`}
             />
           </div>
         ) : (

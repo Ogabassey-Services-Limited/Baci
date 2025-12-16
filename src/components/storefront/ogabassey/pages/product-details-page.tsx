@@ -26,6 +26,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { BrandProducts } from '@/components/storefront/brand-products';
+import { PriceRangeProducts } from '@/components/storefront/price-range-products';
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
@@ -537,12 +539,12 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
       <div className="max-w-[1400px] mx-auto px-4 md:px-6">
         {/* Breadcrumb */}
         <nav className="flex items-center text-sm text-gray-500 mb-8 overflow-x-auto whitespace-nowrap pb-2">
-          <Link href="/" className="md:hover:text-red-600 transition-colors">
+          <Link href={asRoute(basePath || '/')} className="md:hover:text-red-600 transition-colors">
             Home
           </Link>
           <ChevronRight size={16} className="mx-2" />
           <Link
-            href={`/${params.slug}/${productData.categories?.name || (productData as any).category}` as any}
+            href={`/${params.slug}/${productData.categories?.slug || productData.categorySlug || encodeURIComponent((productData.categories?.name || (productData as any).category || '').toLowerCase())}` as any}
             className="md:hover:text-red-600 transition-colors"
           >
             {productData.categories?.name || (productData as any).category}
@@ -1120,6 +1122,23 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
         )}
 
         <BlogSnippet category={productData.categories?.name || (productData as any).category} />
+
+        {/* Koray-aligned semantic sections */}
+        <div className="max-w-[1400px] mx-auto">
+          {/* Same brand, same category - builds brand entity */}
+          <BrandProducts
+            product={serverProduct as any}
+            maxProducts={4}
+            className="border-t border-gray-100 pt-8"
+          />
+
+          {/* Same category, similar price - supports comparison intent */}
+          <PriceRangeProducts
+            product={serverProduct as any}
+            maxProducts={4}
+            className="border-t border-gray-100"
+          />
+        </div>
       </div >
 
       {/* --- FIXED MOBILE BOTTOM BAR --- */}

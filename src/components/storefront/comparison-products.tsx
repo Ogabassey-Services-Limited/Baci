@@ -1,24 +1,6 @@
 'use client';
 
-/**
- * @deprecated Use BrandProducts or PriceRangeProducts instead.
- *
- * This component is deprecated in favor of Koray-aligned semantic alternatives:
- * - BrandProducts: Same brand, same category (builds brand entity)
- * - PriceRangeProducts: Same category, similar price (supports comparison intent)
- * - ComparisonProducts: Unified component for different comparison types
- *
- * The new components follow Koray GÜBÜR's holistic SEO framework:
- * - Contextual I-node links with clear semantic purpose
- * - Same category focus to maintain topical authority
- * - Clear anchor text patterns: "More [Brand] [Category]", "[Category] ₦X-₦Y"
- *
- * @see src/components/storefront/brand-products.tsx
- * @see src/components/storefront/price-range-products.tsx
- * @see src/components/storefront/comparison-products.tsx
- */
-
-import { ChevronLeft, ChevronRight, Loader2, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -33,78 +15,162 @@ import type { Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 
-interface RelatedProductsProps {
-  /** Current product to find related products for */
+type ComparisonType = 'brand' | 'price' | 'specs';
+
+interface ComparisonProductsProps {
+  /** Current product to compare with */
   product: Product;
+  /** Type of comparison: 'brand', 'price', or 'specs' */
+  type: ComparisonType;
   /** Maximum number of products to show (default: 4) */
   maxProducts?: number;
-  /** Section title (default: "You Might Also Like") */
-  title?: string;
-  /** Show navigation arrows (default: true) */
-  showNavigation?: boolean;
   /** Custom class name for the container */
   className?: string;
 }
 
 /**
- * Related Products Component
+ * Comparison Products Component (Koray-aligned)
  *
- * Shows products related to the current product based on:
- * 1. Same category (primary match)
- * 2. Same brand (secondary match)
- * 3. Similar price range (tertiary match)
+ * A unified component that shows semantically related products based on:
+ * - brand: Same brand, same category (builds brand entity)
+ * - price: Same category, similar price (supports comparison intent)
+ * - specs: Same category, similar key specs (e.g., storage, RAM)
  *
- * Architecture is ready for future vector-based similarity search.
+ * All comparisons stay within the SAME category to maintain topical focus.
+ * Headings are contextual I-nodes with clear semantic purpose.
  */
-export function RelatedProducts({
+export function ComparisonProducts({
   product,
+  type,
   maxProducts = 4,
-  title = 'You Might Also Like',
-  showNavigation = true,
   className,
-}: RelatedProductsProps) {
+}: ComparisonProductsProps) {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant ?? null;
   const { formatCurrency } = useCurrency();
   const { addToCart } = useCart();
   const { toast } = useToast();
 
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [comparisonProducts, setComparisonProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [scrollPosition, setScrollPosition] = useState(0);
 
+  // Derive product attributes
+  const productBrand = product.brand;
+  const productCategory =
+    (product as any).categories?.name || (product as any).category || '';
+  const categorySlug =
+    (product as any).categories?.slug ||
+    (product as any).category_slug ||
+    productCategory.toLowerCase();
+  const productPrice = product.price;
+
+  // Get specs from product for specs-based comparison
+  const productSpecs = (product as any).specifications || {};
+
   useEffect(() => {
-    if (!merchant?.id || !product) {
-      setRelatedProducts([]);
+    if (!merchant?.id || !productCategory) {
+      setComparisonProducts([]);
+      setIsLoading(false);
+      return;
+    }
+
+    // For brand comparison, we need a brand
+    if (type === 'brand' && !productBrand) {
+      setComparisonProducts([]);
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
 
-    // Fetch all products, then filter client-side for related ones
-    // In future, this could be replaced with a dedicated /api/products/related endpoint
-    // that uses vector similarity search
-    apiGet<{ products: Product[] }>(
-      `/api/storefront/products?merchant_id=${merchant.id}`
-    )
+    // Build query params based on comparison type
+    const params = new URLSearchParams({
+      merchant_id: merchant.id,
+      category: categorySlug,
+    });
+
+    // For price comparison, add price range
+    if (type === 'price') {
+      const tolerance = 0.15; // 15%
+      params.set(
+        'min_price',
+        Math.floor(productPrice * (1 - tolerance)).toString()
+      );
+      params.set(
+        'max_price',
+        Math.ceil(productPrice * (1 + tolerance)).toString()
+      );
+    }
+
+    apiGet<{ products: Product[] }>(`/api/storefront/products?${params}`)
       .then((data) => {
         if (data.products) {
-          const related = findRelatedProducts(
-            product,
-            data.products,
-            maxProducts
+          let filtered = data.products.filter(
+            (p) => p.id !== product.id && p.status === 'active'
           );
-          setRelatedProducts(related);
+
+          // Apply type-specific filtering
+          switch (type) {
+            case 'brand':
+              filtered = filtered.filter(
+                (p) =>
+                  p.brand &&
+                  p.brand.toLowerCase() === productBrand?.toLowerCase()
+              );
+              break;
+
+            case 'price':
+              // Already filtered by API, sort by price proximity
+              filtered.sort(
+                (a, b) =>
+                  Math.abs(a.price - productPrice) -
+                  Math.abs(b.price - productPrice)
+              );
+              break;
+
+            case 'specs':
+              // Filter by similar key specs (storage, RAM, etc.)
+              // For now, we'll match on brand OR similar price as a proxy for specs
+              // TODO: Implement proper spec matching when product_key_specs is populated
+              filtered = filtered.filter((p) => {
+                const pSpecs = (p as any).specifications || {};
+                // Check if any common specs match
+                const hasMatchingSpec = Object.keys(productSpecs).some(
+                  (key) =>
+                    pSpecs[key] !== undefined &&
+                    pSpecs[key] === productSpecs[key]
+                );
+                // Fallback: same brand or similar price
+                const sameBrand =
+                  p.brand?.toLowerCase() === productBrand?.toLowerCase();
+                const similarPrice =
+                  Math.abs(p.price - productPrice) / productPrice < 0.3;
+                return hasMatchingSpec || sameBrand || similarPrice;
+              });
+              break;
+          }
+
+          setComparisonProducts(filtered.slice(0, maxProducts));
         }
         setIsLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to fetch related products:', err);
-        setRelatedProducts([]);
+        console.error(`Failed to fetch ${type} comparison products:`, err);
+        setComparisonProducts([]);
         setIsLoading(false);
       });
-  }, [merchant?.id, product, maxProducts]);
+  }, [
+    merchant?.id,
+    product.id,
+    type,
+    productBrand,
+    productCategory,
+    categorySlug,
+    productPrice,
+    productSpecs,
+    maxProducts,
+  ]);
 
   const handleAddToCart = (p: Product) => {
     addToCart(p);
@@ -115,7 +181,8 @@ export function RelatedProducts({
   };
 
   const scrollContainer = (direction: 'left' | 'right') => {
-    const container = document.getElementById('related-products-scroll');
+    const containerId = `comparison-products-${type}-scroll`;
+    const container = document.getElementById(containerId);
     if (!container) return;
 
     const scrollAmount = 300;
@@ -128,27 +195,44 @@ export function RelatedProducts({
     setScrollPosition(newPosition);
   };
 
-  // Don't render if no related products
-  if (!isLoading && relatedProducts.length === 0) {
+  // Don't render if no products found
+  if (!isLoading && comparisonProducts.length === 0) {
     return null;
   }
+
+  // Generate semantic title based on comparison type
+  const getTitle = () => {
+    switch (type) {
+      case 'brand':
+        return `More ${productBrand} ${productCategory}`;
+      case 'price': {
+        const minPrice = Math.floor(productPrice * 0.85);
+        const maxPrice = Math.ceil(productPrice * 1.15);
+        if (minPrice < 10000) {
+          return `${productCategory} Under ${formatCurrency(maxPrice)}`;
+        }
+        return `${productCategory} ${formatCurrency(minPrice)} - ${formatCurrency(maxPrice)}`;
+      }
+      case 'specs':
+        return `Compare Similar ${productCategory}`;
+      default:
+        return `Related ${productCategory}`;
+    }
+  };
+
+  const title = getTitle();
+  const containerId = `comparison-products-${type}-scroll`;
 
   return (
     <section className={cn('w-full py-8 md:py-12', className)}>
       <div className="container px-4 md:px-6">
-        {/* Header */}
+        {/* Header with semantic title */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Sparkles
-              className="w-5 h-5 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-              {title}
-            </h2>
-          </div>
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+            {title}
+          </h2>
 
-          {showNavigation && relatedProducts.length > 3 && (
+          {comparisonProducts.length > 3 && (
             <div className="hidden sm:flex items-center gap-2">
               <ThemedButton
                 variant="outline"
@@ -181,12 +265,12 @@ export function RelatedProducts({
           </div>
         ) : (
           <div
-            id="related-products-scroll"
+            id={containerId}
             className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             onScroll={(e) => setScrollPosition(e.currentTarget.scrollLeft)}
           >
-            {relatedProducts
+            {comparisonProducts
               .filter((p) => p.imageLarge || p.image)
               .map((p) => (
                 <ThemedCard
@@ -215,9 +299,9 @@ export function RelatedProducts({
                         {p.name}
                       </h3>
                     </Link>
-                    {((p as any).categories?.name || p.category) && (
+                    {type !== 'brand' && p.brand && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        {(p as any).categories?.name || p.category}
+                        {p.brand}
                       </p>
                     )}
                     <div className="flex items-center justify-between mt-2">
@@ -252,76 +336,4 @@ export function RelatedProducts({
       </div>
     </section>
   );
-}
-
-/**
- * Find related products based on category, brand, and price similarity
- *
- * Scoring algorithm:
- * - Same category: +10 points
- * - Same brand: +5 points
- * - Similar price (within 30%): +3 points
- * - Similar price (within 50%): +1 point
- *
- * This is a simple algorithm that can be replaced with vector similarity
- * search in the future by calling a dedicated API endpoint.
- */
-function findRelatedProducts(
-  currentProduct: Product,
-  allProducts: Product[],
-  maxResults: number
-): Product[] {
-  // Filter out the current product and inactive products
-  const candidates = allProducts.filter(
-    (p) => p.id !== currentProduct.id && p.status === 'active'
-  );
-
-  if (candidates.length === 0) return [];
-
-  // Score each product
-  const scored = candidates.map((p) => {
-    let score = 0;
-
-    // Category match (highest priority)
-    if (
-      p.category &&
-      currentProduct.category &&
-      p.category === currentProduct.category
-    ) {
-      score += 10;
-    }
-
-    // Brand match
-    if (p.brand && currentProduct.brand && p.brand === currentProduct.brand) {
-      score += 5;
-    }
-
-    // Price similarity
-    const priceDiff =
-      Math.abs(p.price - currentProduct.price) / currentProduct.price;
-    if (priceDiff <= 0.3) {
-      score += 3;
-    } else if (priceDiff <= 0.5) {
-      score += 1;
-    }
-
-    return { product: p, score };
-  });
-
-  // Sort by score (highest first), then by name for consistency
-  scored.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    return a.product.name.localeCompare(b.product.name);
-  });
-
-  // Return top results (only those with score > 0, fallback to random if none)
-  const withScore = scored.filter((s) => s.score > 0);
-
-  if (withScore.length > 0) {
-    return withScore.slice(0, maxResults).map((s) => s.product);
-  }
-
-  // Fallback: return random products if no good matches
-  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, maxResults);
 }

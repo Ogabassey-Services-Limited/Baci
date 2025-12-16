@@ -1,24 +1,6 @@
 'use client';
 
-/**
- * @deprecated Use BrandProducts or PriceRangeProducts instead.
- *
- * This component is deprecated in favor of Koray-aligned semantic alternatives:
- * - BrandProducts: Same brand, same category (builds brand entity)
- * - PriceRangeProducts: Same category, similar price (supports comparison intent)
- * - ComparisonProducts: Unified component for different comparison types
- *
- * The new components follow Koray GÜBÜR's holistic SEO framework:
- * - Contextual I-node links with clear semantic purpose
- * - Same category focus to maintain topical authority
- * - Clear anchor text patterns: "More [Brand] [Category]", "[Category] ₦X-₦Y"
- *
- * @see src/components/storefront/brand-products.tsx
- * @see src/components/storefront/price-range-products.tsx
- * @see src/components/storefront/comparison-products.tsx
- */
-
-import { ChevronLeft, ChevronRight, Loader2, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
@@ -33,78 +15,90 @@ import type { Product } from '@/lib/products';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
 
-interface RelatedProductsProps {
-  /** Current product to find related products for */
+interface BrandProductsProps {
+  /** Current product to find same-brand products for */
   product: Product;
   /** Maximum number of products to show (default: 4) */
   maxProducts?: number;
-  /** Section title (default: "You Might Also Like") */
-  title?: string;
-  /** Show navigation arrows (default: true) */
-  showNavigation?: boolean;
   /** Custom class name for the container */
   className?: string;
 }
 
 /**
- * Related Products Component
+ * Brand Products Component (Koray-aligned)
  *
- * Shows products related to the current product based on:
- * 1. Same category (primary match)
- * 2. Same brand (secondary match)
- * 3. Similar price range (tertiary match)
- *
- * Architecture is ready for future vector-based similarity search.
+ * Shows products from the SAME brand AND SAME category as the current product.
+ * This follows Koray's semantic internal linking principle:
+ * - Same category maintains topical focus
+ * - Same brand builds brand entity authority
+ * - Clear anchor text: "More [Brand] [Category]"
  */
-export function RelatedProducts({
+export function BrandProducts({
   product,
   maxProducts = 4,
-  title = 'You Might Also Like',
-  showNavigation = true,
   className,
-}: RelatedProductsProps) {
+}: BrandProductsProps) {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant ?? null;
   const { formatCurrency } = useCurrency();
   const { addToCart } = useCart();
   const { toast } = useToast();
 
-  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [brandProducts, setBrandProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [scrollPosition, setScrollPosition] = useState(0);
 
+  // Derive brand and category from current product
+  const productBrand = product.brand;
+  const productCategory =
+    (product as any).categories?.name || (product as any).category || '';
+  const categorySlug =
+    (product as any).categories?.slug ||
+    (product as any).category_slug ||
+    productCategory.toLowerCase();
+
   useEffect(() => {
-    if (!merchant?.id || !product) {
-      setRelatedProducts([]);
+    // Skip if no merchant, no brand, or no category
+    if (!merchant?.id || !productBrand || !productCategory) {
+      setBrandProducts([]);
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
 
-    // Fetch all products, then filter client-side for related ones
-    // In future, this could be replaced with a dedicated /api/products/related endpoint
-    // that uses vector similarity search
+    // Fetch products from same category, then filter by brand client-side
+    // API filters by category; we filter by brand here
     apiGet<{ products: Product[] }>(
-      `/api/storefront/products?merchant_id=${merchant.id}`
+      `/api/storefront/products?merchant_id=${merchant.id}&category=${encodeURIComponent(categorySlug)}`
     )
       .then((data) => {
         if (data.products) {
-          const related = findRelatedProducts(
-            product,
-            data.products,
-            maxProducts
+          // Filter to same brand, exclude current product
+          const sameBrand = data.products.filter(
+            (p) =>
+              p.id !== product.id &&
+              p.brand &&
+              p.brand.toLowerCase() === productBrand.toLowerCase() &&
+              p.status === 'active'
           );
-          setRelatedProducts(related);
+          setBrandProducts(sameBrand.slice(0, maxProducts));
         }
         setIsLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to fetch related products:', err);
-        setRelatedProducts([]);
+        console.error('Failed to fetch brand products:', err);
+        setBrandProducts([]);
         setIsLoading(false);
       });
-  }, [merchant?.id, product, maxProducts]);
+  }, [
+    merchant?.id,
+    product.id,
+    productBrand,
+    categorySlug,
+    productCategory,
+    maxProducts,
+  ]);
 
   const handleAddToCart = (p: Product) => {
     addToCart(p);
@@ -115,7 +109,7 @@ export function RelatedProducts({
   };
 
   const scrollContainer = (direction: 'left' | 'right') => {
-    const container = document.getElementById('related-products-scroll');
+    const container = document.getElementById('brand-products-scroll');
     if (!container) return;
 
     const scrollAmount = 300;
@@ -128,27 +122,29 @@ export function RelatedProducts({
     setScrollPosition(newPosition);
   };
 
-  // Don't render if no related products
-  if (!isLoading && relatedProducts.length === 0) {
+  // Don't render if no brand products found
+  if (!isLoading && brandProducts.length === 0) {
     return null;
   }
+
+  // Don't render if product has no brand
+  if (!productBrand) {
+    return null;
+  }
+
+  // Semantic heading: "More [Brand] [Category]"
+  const title = `More ${productBrand} ${productCategory}`;
 
   return (
     <section className={cn('w-full py-8 md:py-12', className)}>
       <div className="container px-4 md:px-6">
-        {/* Header */}
+        {/* Header with semantic title */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Sparkles
-              className="w-5 h-5 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-              {title}
-            </h2>
-          </div>
+          <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+            {title}
+          </h2>
 
-          {showNavigation && relatedProducts.length > 3 && (
+          {brandProducts.length > 3 && (
             <div className="hidden sm:flex items-center gap-2">
               <ThemedButton
                 variant="outline"
@@ -181,12 +177,12 @@ export function RelatedProducts({
           </div>
         ) : (
           <div
-            id="related-products-scroll"
+            id="brand-products-scroll"
             className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             onScroll={(e) => setScrollPosition(e.currentTarget.scrollLeft)}
           >
-            {relatedProducts
+            {brandProducts
               .filter((p) => p.imageLarge || p.image)
               .map((p) => (
                 <ThemedCard
@@ -215,11 +211,6 @@ export function RelatedProducts({
                         {p.name}
                       </h3>
                     </Link>
-                    {((p as any).categories?.name || p.category) && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {(p as any).categories?.name || p.category}
-                      </p>
-                    )}
                     <div className="flex items-center justify-between mt-2">
                       <div>
                         <p
@@ -252,76 +243,4 @@ export function RelatedProducts({
       </div>
     </section>
   );
-}
-
-/**
- * Find related products based on category, brand, and price similarity
- *
- * Scoring algorithm:
- * - Same category: +10 points
- * - Same brand: +5 points
- * - Similar price (within 30%): +3 points
- * - Similar price (within 50%): +1 point
- *
- * This is a simple algorithm that can be replaced with vector similarity
- * search in the future by calling a dedicated API endpoint.
- */
-function findRelatedProducts(
-  currentProduct: Product,
-  allProducts: Product[],
-  maxResults: number
-): Product[] {
-  // Filter out the current product and inactive products
-  const candidates = allProducts.filter(
-    (p) => p.id !== currentProduct.id && p.status === 'active'
-  );
-
-  if (candidates.length === 0) return [];
-
-  // Score each product
-  const scored = candidates.map((p) => {
-    let score = 0;
-
-    // Category match (highest priority)
-    if (
-      p.category &&
-      currentProduct.category &&
-      p.category === currentProduct.category
-    ) {
-      score += 10;
-    }
-
-    // Brand match
-    if (p.brand && currentProduct.brand && p.brand === currentProduct.brand) {
-      score += 5;
-    }
-
-    // Price similarity
-    const priceDiff =
-      Math.abs(p.price - currentProduct.price) / currentProduct.price;
-    if (priceDiff <= 0.3) {
-      score += 3;
-    } else if (priceDiff <= 0.5) {
-      score += 1;
-    }
-
-    return { product: p, score };
-  });
-
-  // Sort by score (highest first), then by name for consistency
-  scored.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    return a.product.name.localeCompare(b.product.name);
-  });
-
-  // Return top results (only those with score > 0, fallback to random if none)
-  const withScore = scored.filter((s) => s.score > 0);
-
-  if (withScore.length > 0) {
-    return withScore.slice(0, maxResults).map((s) => s.product);
-  }
-
-  // Fallback: return random products if no good matches
-  const shuffled = [...candidates].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, maxResults);
 }

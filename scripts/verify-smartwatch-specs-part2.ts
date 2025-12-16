@@ -105,19 +105,14 @@ async function verify() {
   }
 
   // Check for products without specs
-  const { data: allProducts } = await supabase
-    .from('products')
-    .select('id, name, category, brand')
-    .or('category.ilike.%watch%,category.ilike.%wearable%,category.ilike.%fitness%,name.ilike.%watch%,name.ilike.%band%');
-
-  const productsWithSpecs = new Set(specs?.map(s => (s.products as any).name) || []);
-  const productsWithoutSpecs = allProducts?.filter(p => {
+  const productsWithSpecs = new Set(specs?.map(s => s.product_id) || []);
+  const productsWithoutSpecs = products?.filter(p => {
     // Filter out video games
     if (p.name.toLowerCase().includes('overwatch') ||
         p.name.toLowerCase().includes('watch dogs')) {
       return false;
     }
-    return !productsWithSpecs.has(p.name);
+    return !productsWithSpecs.has(p.id);
   }) || [];
 
   console.log('='.repeat(80));
