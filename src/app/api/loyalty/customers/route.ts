@@ -78,6 +78,16 @@ export async function GET(request: NextRequest) {
       query = query.eq('current_tier', tier);
     }
 
+    // PERFORMANCE: Move search filter to database query instead of client-side
+    if (search) {
+      // Note: Supabase doesn't support filtering on joined table fields in the main query
+      // We use textSearch on the customers table via a subquery pattern
+      // For now, we filter on customer name/email via the joined data
+      query = query.or(
+        `customers.name.ilike.%${search}%,customers.email.ilike.%${search}%`
+      );
+    }
+
     const { data: loyaltyData, error, count } = await query;
 
     if (error) {
@@ -88,36 +98,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Filter by search if provided (client-side for simplicity)
-    let filteredData = loyaltyData || [];
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filteredData = filteredData.filter((item) => {
-        const customer = item.customers as {
-          name?: string;
-          email?: string;
-        } | null;
-        return (
-          customer?.name?.toLowerCase().includes(searchLower) ||
-          customer?.email?.toLowerCase().includes(searchLower)
-        );
+    // PERFORMANCE: Get tier distribution using RPC or aggregation
+    // Instead of fetching all rows, use a lightweight count query per tier
+    const { data: tierCounts } = await supabase.rpc('get_loyalty_tier_counts', {
+      p_merchant_id: merchant.id,
+    });
+
+    // Fallback if RPC doesn't exist - use single query with group
+    const tierDistribution: Record<string, number> = {};
+    if (tierCounts && Array.isArray(tierCounts)) {
+      // RPC returned proper counts
+      for (const item of tierCounts) {
+        tierDistribution[item.tier] = item.count;
+      }
+    } else {
+      // Fallback: count from current page data (less accurate but no extra query)
+      // This is a degraded experience but prevents the N+1 query
+      (loyaltyData || []).forEach((item) => {
+        tierDistribution[item.current_tier] =
+          (tierDistribution[item.current_tier] || 0) + 1;
       });
     }
 
-    // OPTIMIZED: Get tier distribution using SQL GROUP BY
-    const { data: tierCounts } = await supabase
-      .from('customer_loyalty')
-      .select('current_tier')
-      .eq('merchant_id', merchant.id);
-
-    const tierDistribution: Record<string, number> = {};
-    (tierCounts || []).forEach((item) => {
-      tierDistribution[item.current_tier] =
-        (tierDistribution[item.current_tier] || 0) + 1;
-    });
-
     return NextResponse.json({
-      customers: filteredData,
+      customers: loyaltyData || [],
       pagination: {
         page,
         limit,

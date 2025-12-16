@@ -83,9 +83,13 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Build query
+    // PERFORMANCE: Select only essential variant fields instead of wildcard
     let query = supabase
       .from('products')
-      .select('*, variants:product_variants(*)', { count: 'exact' })
+      .select(
+        `*, variants:product_variants(id, product_id, merchant_id, attributes, price_override, stock_quantity, sku, primary_image, images)`,
+        { count: 'exact' }
+      )
       .eq('merchant_id', merchant.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -252,19 +256,34 @@ export async function GET(request: NextRequest) {
         outOfStockCount = Number(rpcStats.outOfStockCount || 0);
         categoryCount = Number(rpcStats.categoryCount || 0);
       } else {
-        // Fallback: Use separate COUNT queries (still faster than fetching all rows)
-        // We skip inventory value calculation in fallback as it requires all rows
-        /*
-        const { count: oosCount } = await supabase
+        // PERFORMANCE: Improved fallback with lightweight COUNT queries
+        // Log the RPC error for debugging
+        if (rpcError) {
+          console.warn(
+            'RPC get_merchant_inventory_stats failed:',
+            rpcError.message
+          );
+        }
+
+        // Fallback: Use separate COUNT query for out-of-stock count
+        const oosResult = await supabase
           .from('products')
           .select('*', { count: 'exact', head: true })
           .eq('merchant_id', merchant.id)
           .eq('stock_quantity', 0);
-        outOfStockCount = oosCount || 0;
-        */
-        // For absolute stability during migration, we keep fallback stats minimal
-        console.warn(
-          'Using minimal stats fallback (RPC get_merchant_inventory_stats not found or failed)'
+
+        outOfStockCount = oosResult.count || 0;
+        // For category count, we'd need a distinct query which Supabase doesn't support well
+        // Use the products array we already fetched instead
+        const uniqueCategories = new Set(
+          transformedProducts.map((p) => p.category).filter(Boolean)
+        );
+        categoryCount = uniqueCategories.size;
+
+        // Calculate inventory value from already-fetched products (no extra query)
+        inventoryValue = transformedProducts.reduce(
+          (sum, p) => sum + (p.price || 0) * (p.stock || 0),
+          0
         );
       }
     } catch (statsErr) {
