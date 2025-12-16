@@ -31,6 +31,7 @@ import { PriceRangeProducts } from '@/components/storefront/price-range-products
 import { useCart } from '@/hooks/use-cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import { sanitizeHtml } from '@/lib/sanitize';
 import { AdUnit } from '../components/AdUnit';
 import { BannerCarousel } from '../components/BannerCarousel';
 import { BlogSnippet } from '../components/BlogSnippet';
@@ -826,9 +827,19 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
               </div>
             )}
 
-            {/* Short description excerpt (strip HTML for summary) */}
+            {/* Short description excerpt (strip HTML safely for summary) */}
             <p className="text-gray-600 leading-relaxed mb-8 border-b border-gray-100 pb-8 text-sm">
-              {(productData.description || '').replace(/<[^>]*>/g, '').substring(0, 250)}...
+              {(() => {
+                const desc = productData.description || '';
+                // Use DOM text extraction if available, fallback to regex
+                if (typeof document !== 'undefined') {
+                  const div = document.createElement('div');
+                  div.innerHTML = desc;
+                  return (div.textContent || '').substring(0, 250);
+                }
+                // Server-side fallback: remove all tags
+                return desc.replace(/<[^>]+>/g, '').substring(0, 250);
+              })()}...
             </p>
 
             {/* Storage Selector */}
@@ -985,10 +996,10 @@ export const ProductDetailsPage: React.FC<ProductDetailsPageProps> = ({ product:
           <div className="min-h-[300px]">
             {activeTab === 'description' && (
               <div className="prose max-w-none text-gray-600 animate-in fade-in duration-300">
-                {/* Render description as HTML (pre-sanitized in database) */}
+                {/* Render description as HTML with client-side sanitization */}
                 <div
                   className="mb-4 prose-headings:text-gray-900 prose-strong:text-gray-800 prose-table:text-sm"
-                  dangerouslySetInnerHTML={{ __html: productData.description || '' }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(productData.description || '') }}
                 />
 
                 {/* Dynamic Product Highlights for SEO & Readability */}

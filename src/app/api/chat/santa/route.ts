@@ -47,19 +47,14 @@ function parseWishResult(response: string): {
     };
   }
 
-  // Check for denial patterns
-  const denialPatterns = [
-    'budget.*below',
-    "can't.*approve",
-    'cannot.*grant',
-    'workshop has costs',
-    'save up',
-    'payment plan',
-  ];
-
-  const isDenied = denialPatterns.some((pattern) =>
-    new RegExp(pattern, 'i').test(response)
-  );
+  // Check for denial patterns using literal regex tests (avoid dynamic RegExp construction)
+  const isDenied =
+    /budget.*below/i.test(response) ||
+    /can't.*approve/i.test(response) ||
+    /cannot.*grant/i.test(response) ||
+    /workshop has costs/i.test(response) ||
+    /save up/i.test(response) ||
+    /payment plan/i.test(response);
 
   return { type: isDenied ? 'wish_denied' : 'chat' };
 }
