@@ -1,6 +1,6 @@
 'use client';
 
-import { type MerchantData, useMerchant } from '@/hooks/use-merchant';
+import { type MerchantData, useMerchantSafe } from '@/hooks/use-merchant';
 import type React from 'react';
 import { CartProvider } from '@/hooks/use-cart';
 
@@ -25,7 +25,8 @@ export function OgabasseyLayout({
   children: React.ReactNode;
   merchant?: MerchantData;
 }) {
-  const { basePath } = useMerchant();
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || `/${merchant?.slug || 'ogabassey'}`;
   // Ensure we have a valid slug for display/logic, but use basePath for links
   const defaultSlug = merchant?.slug || 'ogabassey';
   // If basePath is empty, links should be /path. If /slug, links should be /slug/path.
