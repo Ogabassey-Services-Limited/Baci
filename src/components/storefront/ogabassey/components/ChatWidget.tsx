@@ -65,6 +65,8 @@ export const ChatWidget: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Note: The mounted state workaround was removed because the theme is now passed
+  // from the server via cookies, ensuring SSR/CSR consistency.
   const isSanta = theme === 'santa';
 
   // Handle adding Santa's wish to cart
@@ -337,11 +339,10 @@ export const ChatWidget: React.FC = () => {
                               type="button"
                               onClick={() => handleAddSantaWishToCart(idx)}
                               disabled={msg.santaAction.added}
-                              className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                                msg.santaAction.added
+                              className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${msg.santaAction.added
                                   ? 'bg-green-100 text-green-700 cursor-default'
                                   : 'bg-green-600 text-white hover:bg-green-700 hover:scale-[1.02] active:scale-[0.98]'
-                              }`}
+                                }`}
                             >
                               {msg.santaAction.added ? (
                                 <>

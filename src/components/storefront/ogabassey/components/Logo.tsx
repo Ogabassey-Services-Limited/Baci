@@ -1,10 +1,13 @@
 // Migrated from temp-source/components/Logo.tsx
+// Note: The mounted state workaround was removed because the theme is now passed
+// from the server via cookies, ensuring SSR/CSR consistency.
 import type React from 'react';
 
 import { useV2Theme } from '../providers/v2-theme-context';
 
 export const Logo: React.FC<{ className?: string }> = ({ className }) => {
   const { theme } = useV2Theme();
+
   const isSanta = theme === 'santa';
 
   return (
@@ -14,6 +17,7 @@ export const Logo: React.FC<{ className?: string }> = ({ className }) => {
       className={className}
       aria-label="Ogabassey Logo"
     >
+      {/* ... */}
       {/* --- Original Logo Paths --- */}
       <path
         fill="#d62027"
@@ -78,6 +82,7 @@ export const Logo: React.FC<{ className?: string }> = ({ className }) => {
 
 export const LogoIcon: React.FC<{ className?: string }> = ({ className }) => {
   const { theme } = useV2Theme();
+
   const isSanta = theme === 'santa';
 
   return (

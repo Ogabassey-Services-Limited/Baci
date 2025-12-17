@@ -98,14 +98,7 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
     <nav
       role="navigation"
       aria-label="Mobile navigation"
-      className={`
-        fixed bottom-0 left-0 right-0 z-50
-        bg-[#0F0F0F]/95 backdrop-blur-md
-        border-t border-white/10
-        md:hidden
-        transition-transform duration-300 ease-out
-        ${isVisible ? 'translate-y-0' : 'translate-y-full'}
-      `}
+      className={`fixed bottom-0 left-0 right-0 z-50 bg-[#0F0F0F]/95 backdrop-blur-md border-t border-white/10 md:hidden transition-transform duration-300 ease-out ${isVisible ? 'translate-y-0' : 'translate-y-full'}`}
       style={{
         // Safe area inset for iOS devices and browser toolbar zones
         paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 8px)',
@@ -122,8 +115,9 @@ export const MobileFooter: React.FC<MobileFooterProps> = ({ storeSlug = '' }) =>
             <Link
               key={path}
               href={asRoute(`${basePath}${path}`)}
-              className="relative flex flex-col items-center justify-center min-w-[56px] py-1
-                         active:scale-90 transition-transform duration-150"
+              className={
+                `relative flex flex-col items-center justify-center min-w-[56px] py-1 active:scale-90 transition-transform duration-150`
+              }
               aria-label={label}
               aria-current={active ? 'page' : undefined}
             >
