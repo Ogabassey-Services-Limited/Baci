@@ -84,6 +84,8 @@ jobs:
             --exclude 'korapay\.com'
             --exclude 'api\.mycover\.ai'
             --exclude 'image-us\.samsung\.com'
+            --exclude 'p4-ofp\.static\.pub'
+            --exclude 'i\.dell\.com'
           # Fail action if broken links are found
           fail: true
         env:
