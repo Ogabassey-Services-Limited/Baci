@@ -4,12 +4,18 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
 import { createClient } from '@/lib/supabase/server';
 
-// Map database product to API response format
-// Map database product to API response format
+/**
+ * Map database product to API response format
+ * Uses unified normalizeProduct for core fields and extends with API-specific fields
+ */
 function mapProduct(p: Record<string, unknown>) {
-  // Robustly handle images field (could be string[] or {url:string}[])
+  // Use unified normalization for core fields
+  const normalized = normalizeProduct(p as unknown as RawDbProduct);
+
+  // Process images with additional metadata (alt, order) for gallery
   type ImageInput = string | { url?: string; alt?: string; order?: number };
   const rawImages = (p.images as ImageInput[]) || [];
   const processedImages = rawImages.map((img, index) => {
@@ -23,39 +29,29 @@ function mapProduct(p: Record<string, unknown>) {
     };
   });
 
-  const primaryImage = processedImages[0]?.url || '';
-
-  // Extract category from joined data (prioritize direct join, then product_categories junction)
-  type CategoryData = { id: string; name: string; slug: string };
-  const directCategory = p.categories as CategoryData | null;
-  const junctionCategory = (
-    p.product_categories as { categories: CategoryData }[]
-  )?.[0]?.categories;
-
-  const categoryData = directCategory || junctionCategory;
-  const categoryName =
-    categoryData?.name || (p.category as string) || 'General';
-  const categorySlug = categoryData?.slug;
-
   return {
-    id: p.id,
-    name: p.name,
-    description: p.description,
-    price: p.price,
-    compare_at_price: p.compare_at_price,
-    image: primaryImage, // Legacy support
-    imageLarge: primaryImage, // Legacy support
+    // Core normalized fields
+    id: normalized.id,
+    name: normalized.name,
+    description: normalized.description,
+    price: normalized.price,
+    compare_at_price: normalized.compare_at_price,
+    image: normalized.image,
+    imageLarge: normalized.imageLarge,
+    category: normalized.category,
+    category_slug: normalized.category_slug,
+    brand: normalized.brand,
+    stock: normalized.stock,
+    slug: normalized.slug,
+    status: normalized.status || 'active',
+    condition: normalized.condition,
+
+    // API-specific extended fields
     imageHint: p.image_hint,
-    images: processedImages, // New field required for gallery
-    category: categoryName,
-    category_slug: categorySlug,
-    brand: p.brand,
-    status: p.status || 'active',
+    images: processedImages, // With alt/order metadata for gallery
     has_variants: p.has_variants,
-    slug: p.slug,
     sku: p.sku,
     manage_stock: p.manage_stock,
-    stock: (p.stock as number) || 0,
     low_stock_threshold: p.low_stock_threshold,
     specifications: p.specifications,
   };
@@ -218,6 +214,10 @@ export async function GET(request: NextRequest) {
     const parsed = querySchema.safeParse(Object.fromEntries(searchParams));
 
     if (!parsed.success) {
+      console.error(
+        'API Validation Failed:',
+        JSON.stringify(parsed.error.flatten(), null, 2)
+      );
       return NextResponse.json(
         { error: 'Invalid parameters', details: parsed.error.flatten() },
         { status: 400 }

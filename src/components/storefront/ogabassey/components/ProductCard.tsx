@@ -5,11 +5,17 @@ import { ArrowRightLeft, Heart, ShoppingCart, Star } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
+import { useMerchantSafe } from '@/hooks/use-merchant';
+import { asRoute } from '@/lib/routes';
+import { getProductUrl } from '@/lib/seo-utils';
 import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
 import type { Product } from '../types';
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
+
+// Note: The getProductImage helper was removed because product data is now
+// normalized upstream via normalizeProduct(), ensuring product.image is always set.
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>?/gm, '') || '';
@@ -31,6 +37,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const { toggleSaved, isSaved } = useV2Saved();
   const { addToCompare, removeFromCompare, isInCompare } = useV2Comparison();
   const [showPlusOne, setShowPlusOne] = useState(false);
+  const merchantContext = useMerchantSafe();
+  const basePath = merchantContext?.basePath || '';
 
   const isLiked = isSaved(product.id);
   const isComparing = isInCompare(product.id);
@@ -59,11 +67,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     setTimeout(() => setShowPlusOne(false), 1000); // Hide after animation
   };
 
+  // Build semantic link attributes per Koray's methodology:
+  // - Unique title/aria-label per product (no duplicate anchors)
+  // - Links provide transactional frame signals ("Buy", "View")
+  const linkTitle = `${product.name}${product.brand ? ` - ${product.brand}` : ''} ${product.condition || ''}`.trim();
+  const linkAriaLabel = `Buy ${product.name} for ${product.price}`;
+
+  // Ensure id is a string for getProductUrl (Product type allows number | string)
+  const productForUrl = { ...product, id: String(product.id) };
+  // Build full URL with basePath for proper routing on custom domains
+  const productHref = asRoute(`${basePath}${getProductUrl(productForUrl)}`);
+
   if (viewMode === 'grid') {
     return (
       <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-all duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation">
         <Link
-          href={`./product/${product.id}` as any}
+          href={productHref}
+          title={linkTitle}
+          aria-label={linkAriaLabel}
           className="absolute inset-0 z-0"
         />
 
@@ -176,7 +197,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation">
       <Link
-        href={`./product/${product.id}` as any}
+        href={productHref}
+        title={linkTitle}
+        aria-label={linkAriaLabel}
         className="absolute inset-0 z-0"
       />
 
