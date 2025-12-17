@@ -51,13 +51,16 @@ export function BrandProducts({
   // Derive brand and category from current product
   const productBrand = product.brand;
   // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
-  const productCategory =
-    (product as any).categories?.name || (product as any).category || '';
+  const categoriesName = (product as any).categories?.name;
   // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
-  const categorySlug =
-    (product as any).categories?.slug ||
-    (product as any).category_slug ||
-    productCategory.toLowerCase();
+  const categoryFallback = (product as any).category;
+  const productCategory = categoriesName || categoryFallback || '';
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
+  const categoriesSlug = (product as any).categories?.slug;
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
+  const categorySlugFallback = (product as any).category_slug;
+  const categorySlug = categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
+
 
   useEffect(() => {
     // Skip if no merchant, no brand, or no category

@@ -315,10 +315,10 @@ export function StorefrontProductGrid({
 
   const brandColors = merchant?.brand_colors
     ? [
-        merchant.brand_colors.primary,
-        merchant.brand_colors.background,
-        merchant.brand_colors.accent,
-      ].filter(Boolean)
+      merchant.brand_colors.primary,
+      merchant.brand_colors.background,
+      merchant.brand_colors.accent,
+    ].filter(Boolean)
     : ['#3F51B5'];
   const darkestColor = findDarkestColor(brandColors as string[]);
 
@@ -378,11 +378,10 @@ export function StorefrontProductGrid({
                             selectedCategory === option ? 'All' : option
                           )
                         }
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                          selectedCategory === option
-                            ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
-                            : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
-                        }`}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedCategory === option
+                          ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
+                          : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
+                          }`}
                       >
                         {option}
                       </button>
@@ -454,6 +453,8 @@ export function StorefrontProductGrid({
               // Stagger animation class (1-8, then loops)
               const staggerClass =
                 STAGGER_CLASSES[index % STAGGER_CLASSES.length];
+              // biome-ignore lint/suspicious/noExplicitAny: Product type lacks categories join
+              const productCategory = (product as any).categories?.name || product.category || 'General';
 
               return (
                 <ThemedCard
@@ -472,11 +473,7 @@ export function StorefrontProductGrid({
                       width={600}
                       height={400}
                       className="object-cover w-full h-auto aspect-video"
-                      category={
-                        (product as any).categories?.name ||
-                        product.category ||
-                        'General'
-                      }
+                      category={productCategory}
                       sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     />
                     <div className="absolute top-2 left-2 flex flex-col gap-1">

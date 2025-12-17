@@ -52,16 +52,20 @@ export function PriceRangeProducts({
   const [scrollPosition, setScrollPosition] = useState(0);
 
   // Derive category from current product
-  const productCategory =
-    (product as any).categories?.name || (product as any).category || '';
-  const categorySlug =
-    (product as any).categories?.slug ||
-    (product as any).category_slug ||
-    productCategory.toLowerCase();
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
+  const categoriesName = (product as any).categories?.name;
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
+  const categoryFallback = (product as any).category;
+  const productCategory = categoriesName || categoryFallback || '';
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
+  const categoriesSlug = (product as any).categories?.slug;
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
+  const categorySlugFallback = (product as any).category_slug;
+  const categorySlug = categoriesSlug || categorySlugFallback || productCategory.toLowerCase();
 
   // Calculate price range safely
   const rawPrice = Number(product.price);
-  const isValidPrice = !isNaN(rawPrice) && rawPrice > 0;
+  const isValidPrice = Number.isFinite(rawPrice) && rawPrice > 0;
   const minPrice = isValidPrice
     ? Math.floor(rawPrice * (1 - priceTolerance))
     : 0;

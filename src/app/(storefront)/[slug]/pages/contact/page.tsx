@@ -97,12 +97,12 @@ export default async function ContactPage({ params }: PageProps) {
             normalizeSocialUrl(
               handle as string,
               platform as
-                | 'instagram'
-                | 'facebook'
-                | 'tiktok'
-                | 'twitter'
-                | 'youtube'
-                | 'linkedin'
+              | 'instagram'
+              | 'facebook'
+              | 'tiktok'
+              | 'twitter'
+              | 'youtube'
+              | 'linkedin'
             )
           )
           .filter((url): url is string => !!url),
@@ -123,8 +123,8 @@ export default async function ContactPage({ params }: PageProps) {
       {/* nosemgrep: react-dangerouslysetinnerhtml, typescript.react.security.audit.react-dangerouslysetinnerhtml.react-dangerouslysetinnerhtml */}
       <script
         type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         // codeql[js/html-injection] - Safe: JSON-LD sanitized via safeJsonLdStringify
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema sanitized with safeJsonLdStringify()
         dangerouslySetInnerHTML={{ __html: safeJsonLdStringify(contactSchema) }}
       />
       <StorefrontPageWrapper
