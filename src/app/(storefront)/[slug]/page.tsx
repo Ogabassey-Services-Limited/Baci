@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import {
@@ -162,6 +163,13 @@ export default async function StorefrontPage({
   // Fetch products for the homepage (Featured/Latest)
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+
+  // Read theme cookie server-side for SSR consistency (Phase 1: Cookie-Based Theme)
+  const themeCookie = cookieStore.get('storefront-theme')?.value;
+  const initialTheme: V2ThemeMode | undefined =
+    themeCookie === 'standard' || themeCookie === 'santa'
+      ? themeCookie
+      : undefined;
 
   let merchantProducts: Product[] = [];
 
@@ -375,8 +383,8 @@ export default async function StorefrontPage({
         </>
       )}
       <Suspense fallback={<StorefrontPageSkeleton />}>
-        {/* Pass products to wrapper for use in template homepage */}
-        <StorefrontWrapper products={merchantProducts} />
+        {/* Pass products and initialTheme to wrapper for use in template homepage */}
+        <StorefrontWrapper products={merchantProducts} initialTheme={initialTheme} />
       </Suspense>
     </>
   );

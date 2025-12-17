@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 // Template-specific imports
 import { OgabasseyLayout } from '@/components/storefront/ogabassey';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
+import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
 import { ProductDetailSkeleton } from '@/components/ui/skeletons';
 import type { Product } from '@/lib/products';
@@ -455,15 +456,17 @@ function toOgabasseyProduct(
 function TemplateProductPage({
   product,
   templateId,
+  initialTheme,
 }: {
   product: Product;
   templateId?: string;
+  initialTheme?: V2ThemeMode;
 }) {
   // Ogabassey template
   if (templateId === 'ogabassey') {
     const ogabasseyProduct = toOgabasseyProduct(product);
     return (
-      <OgabasseyLayout>
+      <OgabasseyLayout initialTheme={initialTheme}>
         <OgabasseyProductPage product={ogabasseyProduct} />
       </OgabasseyLayout>
     );
@@ -719,6 +722,14 @@ export default async function CategoryProductPage({ params }: PageProps) {
 
   const { product, merchant } = result;
 
+  // Read theme cookie server-side for SSR consistency (Phase 1: Cookie-Based Theme)
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get('storefront-theme')?.value;
+  const initialTheme: V2ThemeMode | undefined =
+    themeCookie === 'standard' || themeCookie === 'santa'
+      ? themeCookie
+      : undefined;
+
   const headersList = await headers();
   const host = headersList.get('host') || 'baci.app';
   const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
@@ -779,6 +790,7 @@ export default async function CategoryProductPage({ params }: PageProps) {
         <TemplateProductPage
           product={product}
           templateId={merchant?.template_id}
+          initialTheme={initialTheme}
         />
       </Suspense>
     </>

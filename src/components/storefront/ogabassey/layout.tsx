@@ -15,15 +15,18 @@ import { OgabasseyNavbar as Navbar } from './layout/navbar';
 import { V2ComparisonProvider } from './providers/v2-comparison-context';
 import { V2NotificationProvider } from './providers/v2-notification-context';
 import { V2SavedProvider } from './providers/v2-saved-context';
-import { V2ThemeProvider } from './providers/v2-theme-context';
+import { type V2ThemeMode, V2ThemeProvider } from './providers/v2-theme-context';
 
 
 export function OgabasseyLayout({
   children,
   merchant,
+  initialTheme,
 }: {
   children: React.ReactNode;
   merchant?: MerchantData;
+  /** Initial theme from server cookie - enables SSR consistency */
+  initialTheme?: V2ThemeMode;
 }) {
   const merchantContext = useMerchantSafe();
   const basePath = merchantContext?.basePath || `/${merchant?.slug || 'ogabassey'}`;
@@ -40,7 +43,7 @@ export function OgabasseyLayout({
   // Let's check Footer usage in next step. For now, let's prepare the layout.
 
   return (
-    <V2ThemeProvider>
+    <V2ThemeProvider initialTheme={initialTheme}>
       {/* Using unified cart with Smart Cart Pro enabled */}
       <CartProvider enableSmartCartPro={true}>
         <V2SavedProvider>
