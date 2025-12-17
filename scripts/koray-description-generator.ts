@@ -29,6 +29,7 @@ const args = process.argv.slice(2);
 const categoryArg = args.find(a => a.startsWith('--category='));
 const CATEGORY = categoryArg ? categoryArg.split('=')[1] : null;
 const DRY_RUN = args.includes('--dry-run');
+const FORCE_ALL = args.includes('--force'); // Regenerate ALL products, not just those missing structure
 const LIMIT_ARG = args.find(a => a.startsWith('--limit='));
 const LIMIT = LIMIT_ARG ? parseInt(LIMIT_ARG.split('=')[1]) : 0;
 const BATCH_SIZE = 5; // Products per API request
@@ -36,6 +37,10 @@ const VERBOSE = args.includes('--verbose');
 
 if (DRY_RUN) {
     console.log('DRY RUN MODE - No changes will be made to the database\n');
+}
+
+if (FORCE_ALL) {
+    console.log('FORCE MODE - Regenerating ALL products (replacing existing descriptions)\n');
 }
 
 interface Product {
@@ -177,29 +182,52 @@ async function generateBatchDescriptions(products: Product[]): Promise<Generatio
 // Map category slugs to groups
 function getCategoryGroup(categorySlug: string): string {
     const mapping: Record<string, string> = {
+        // Smartphones
         'smartphones': 'smartphones',
         'phones': 'smartphones',
         'mobile-phones': 'smartphones',
         'iphones': 'smartphones',
         'samsung-phones': 'smartphones',
+        'oppo-phones': 'smartphones',
+        'samsung': 'smartphones',
+        // Laptops
         'laptops': 'laptops',
         'macbooks': 'laptops',
         'chromebooks': 'laptops',
         'gaming-laptops': 'laptops',
+        'desktops': 'laptops',
+        'monitors': 'laptops',
+        // Gaming
         'gaming': 'gaming',
         'games': 'gaming',
         'playstation': 'gaming',
+        'playstation-4': 'gaming',
+        'playstation-5': 'gaming',
         'ps5': 'gaming',
         'ps4': 'gaming',
         'xbox': 'gaming',
         'nintendo': 'gaming',
+        'nintendo-switch': 'gaming',
         'switch': 'gaming',
         'gaming-accessories': 'gaming',
-        'tablets': 'tablets',
-        'ipads': 'tablets',
+        'steam-deck': 'gaming',
+        'vr-headsets': 'gaming',
+        'gift-cards': 'gaming',
+        // Others
+        'tablets': 'others',
+        'ipads': 'others',
         'accessories': 'others',
         'smartwatches': 'others',
+        'wearables': 'others',
         'tvs': 'others',
+        'samsung-tvs': 'others',
+        'lg-tvs': 'others',
+        'audio': 'others',
+        'soundbars': 'others',
+        'earbuds': 'others',
+        'headphones': 'others',
+        'printers': 'others',
+        'apple': 'others',
     };
 
     return mapping[categorySlug.toLowerCase()] || 'others';
@@ -209,33 +237,50 @@ async function main() {
     console.log('Koray Description Generator\n');
     console.log('Generating Koray-compliant product descriptions...\n');
 
-    // 1. Fetch products that need descriptions
-    let query = supabase
-        .from('products')
-        .select(`
-            id,
-            name,
-            slug,
-            description,
-            price,
-            brand,
-            category_id,
-            specifications,
-            categories!inner(name, slug)
-        `)
-        .eq('status', 'active')
-        .order('name');
+    // 1. Fetch ALL products (handle Supabase 1000 row limit with pagination)
+    console.log('Fetching all active products...');
+
+    let allProducts: any[] = [];
+    let offset = 0;
+    const PAGE_SIZE = 1000;
+
+    while (true) {
+        const { data: batch, error: fetchError } = await supabase
+            .from('products')
+            .select(`
+                id,
+                name,
+                slug,
+                description,
+                price,
+                brand,
+                category_id,
+                specifications,
+                categories!inner(name, slug)
+            `)
+            .eq('status', 'active')
+            .order('name')
+            .range(offset, offset + PAGE_SIZE - 1);
+
+        if (fetchError) {
+            console.error('Error fetching products:', fetchError);
+            return;
+        }
+
+        if (!batch || batch.length === 0) break;
+
+        allProducts = allProducts.concat(batch);
+        console.log(`  Fetched ${allProducts.length} products...`);
+
+        if (batch.length < PAGE_SIZE) break;
+        offset += PAGE_SIZE;
+    }
+
+    console.log(`Total products fetched: ${allProducts.length}\n`);
 
     // Apply category filter if specified
     if (CATEGORY) {
         console.log(`Filtering to category group: ${CATEGORY}\n`);
-    }
-
-    const { data: allProducts, error } = await query;
-
-    if (error) {
-        console.error('Error fetching products:', error);
-        return;
     }
 
     // Transform products
@@ -250,16 +295,18 @@ async function main() {
         products = products.filter(p => getCategoryGroup(p.category_slug || '') === CATEGORY);
     }
 
-    // Filter to products that NEED new descriptions (no H2 structure currently)
-    products = products.filter(p => {
-        const desc = p.description || '';
-        // Products that need update: no description, thin content, or missing H2 questions
-        return !desc ||
-            desc.length < 500 ||
-            !desc.includes('<h2>') ||
-            !desc.includes('?</h2>') ||
-            !desc.toLowerCase().includes('nigeria');
-    });
+    // Filter to products that NEED new descriptions (unless --force is used)
+    if (!FORCE_ALL) {
+        products = products.filter(p => {
+            const desc = p.description || '';
+            // Products that need update: no description, thin content, or missing Koray structure
+            return !desc ||
+                desc.length < 500 ||
+                !desc.includes('<h2>') ||
+                !desc.includes('?</h2>') ||
+                !desc.toLowerCase().includes('why buy from ogabassey');
+        });
+    }
 
     if (LIMIT > 0) {
         products = products.slice(0, LIMIT);

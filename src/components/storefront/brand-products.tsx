@@ -50,8 +50,10 @@ export function BrandProducts({
 
   // Derive brand and category from current product
   const productBrand = product.brand;
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
   const productCategory =
     (product as any).categories?.name || (product as any).category || '';
+  // biome-ignore lint/suspicious/noExplicitAny: Legacy Product type lacks categories join
   const categorySlug =
     (product as any).categories?.slug ||
     (product as any).category_slug ||

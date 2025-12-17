@@ -1,0 +1,222 @@
+{
+  "generated": "2025-12-17T06:29:03.938Z",
+  "summary": {
+    "totalProducts": 1739,
+    "productsWithColorImages": 31,
+    "productsWithoutColorImages": 1708,
+    "productsWithDetectableColors": 141
+  },
+  "byBrand": {
+    "Samsung": {
+      "total": 220,
+      "withColorImages": 0,
+      "withDetectableColors": 68,
+      "detectedColors": [
+        "Green",
+        "Cream",
+        "Navy",
+        "Pink",
+        "Graphite",
+        "Gold",
+        "Silver",
+        "White",
+        "Black",
+        "Blue",
+        "Purple",
+        "Olive",
+        "Red",
+        "Yellow"
+      ]
+    },
+    "Dell": {
+      "total": 54,
+      "withColorImages": 0,
+      "withDetectableColors": 2,
+      "detectedColors": [
+        "Black",
+        "Silver"
+      ]
+    },
+    "Gaming": {
+      "total": 716,
+      "withColorImages": 0,
+      "withDetectableColors": 11,
+      "detectedColors": [
+        "Gold",
+        "Black",
+        "Onyx",
+        "Red",
+        "White",
+        "Blue",
+        "Green",
+        "Pink"
+      ]
+    },
+    "Infinix": {
+      "total": 18,
+      "withColorImages": 0,
+      "withDetectableColors": 6,
+      "detectedColors": [
+        "Blue",
+        "Gold",
+        "Green",
+        "Black",
+        "White",
+        "Orange",
+        "Silver"
+      ]
+    },
+    "JBL": {
+      "total": 23,
+      "withColorImages": 0,
+      "withDetectableColors": 2,
+      "detectedColors": [
+        "Black",
+        "Blue",
+        "Green",
+        "Pink",
+        "Red",
+        "White"
+      ]
+    },
+    "Apple": {
+      "total": 339,
+      "withColorImages": 31,
+      "withDetectableColors": 45,
+      "detectedColors": [
+        "Graphite",
+        "Gold",
+        "Silver",
+        "Blue",
+        "Green",
+        "Black",
+        "Pink",
+        "Yellow",
+        "White",
+        "Midnight",
+        "Red",
+        "Starlight",
+        "Purple"
+      ]
+    },
+    "Xiaomi": {
+      "total": 43,
+      "withColorImages": 0,
+      "withDetectableColors": 3,
+      "detectedColors": [
+        "Midnight",
+        "Red"
+      ]
+    },
+    "LG": {
+      "total": 19,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "vivo": {
+      "total": 13,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "Tecno": {
+      "total": 17,
+      "withColorImages": 0,
+      "withDetectableColors": 2,
+      "detectedColors": [
+        "Phantom"
+      ]
+    },
+    "Nintendo": {
+      "total": 20,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "HP": {
+      "total": 144,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "Lenovo": {
+      "total": 13,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "PlayStation": {
+      "total": 20,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "Google": {
+      "total": 30,
+      "withColorImages": 0,
+      "withDetectableColors": 1,
+      "detectedColors": [
+        "Black"
+      ]
+    },
+    "Sony": {
+      "total": 10,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "Oppo": {
+      "total": 13,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "Green Lion": {
+      "total": 4,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "Harman Kardon": {
+      "total": 2,
+      "withColorImages": 0,
+      "withDetectableColors": 1,
+      "detectedColors": [
+        "Black",
+        "Blue",
+        "Onyx"
+      ]
+    },
+    "MSI": {
+      "total": 5,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "itel": {
+      "total": 9,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "Asus": {
+      "total": 5,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "Anker": {
+      "total": 1,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    },
+    "SkullCandy": {
+      "total": 1,
+      "withColorImages": 0,
+      "withDetectableColors": 0,
+      "detectedColors": []
+    }
+  }
+}
